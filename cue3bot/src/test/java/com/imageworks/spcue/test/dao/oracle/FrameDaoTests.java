@@ -1,0 +1,648 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+package com.imageworks.spcue.test.dao.oracle;
+
+import static org.junit.Assert.*;
+
+import java.io.File;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.annotation.Resource;
+
+import org.junit.Test;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
+import org.springframework.test.context.transaction.TransactionConfiguration;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.DispatchFrame;
+import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.CueIce.CheckpointState;
+import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.dao.AllocationDao;
+import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.depend.FrameOnFrame;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.service.DependManager;
+import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JobLauncher;
+import com.imageworks.spcue.service.JobManager;
+
+@Transactional
+@ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
+@TransactionConfiguration(transactionManager="transactionManager")
+public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Resource
+    FrameDao frameDao;
+
+    @Resource
+    LayerDao layerDao;
+
+    @Resource
+    JobManager jobManager;
+
+    @Resource
+    JobLauncher jobLauncher;
+
+    @Resource
+    HostDao hostDao;
+
+    @Resource
+    ProcDao procDao;
+
+    @Resource
+    AllocationDao allocationDao;
+
+    @Resource
+    HostManager hostManager;
+
+    @Resource
+    DependManager dependManager;
+
+    @Resource
+    DispatchSupport dispatchSupport;
+
+    private static final String HOST = "beta";
+
+    public DispatchHost createHost() {
+        return hostDao.findDispatchHost(HOST);
+    }
+
+    @BeforeTransaction
+    public void create() {
+
+        RenderHost host = new RenderHost();
+        host.name = HOST;
+        host.bootTime = 1192369572;
+        host.freeMcp = 76020;
+        host.freeMem = 53500;
+        host.freeSwap = 20760;
+        host.load = 1;
+        host.totalMcp = 195430;
+        host.totalMem = 8173264;
+        host.totalSwap = 20960;
+        host.nimbyEnabled = false;
+        host.numProcs = 1;
+        host.coresPerProc = 100;
+        host.tags = new ArrayList<String>();
+        host.tags.add("mcore");
+        host.tags.add("4core");
+        host.tags.add("8g");
+        host.state = HardwareState.Up;
+        host.facility = "spi";
+        host.attributes = new HashMap<String, String>();
+        host.attributes.put("freeGpu", "512");
+        host.attributes.put("totalGpu", "512");
+
+        hostManager.createHost(host);
+    }
+
+    @AfterTransaction
+    public void destroy() {
+        jdbcTemplate.update(
+            "DELETE FROM host WHERE str_name=?",HOST);
+    }
+
+    public JobDetail launchJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCheckRetries() {
+        JobDetail job = launchJob();
+        frameDao.checkRetries(frameDao.findFrame(job,"0001-pass_1"));
+        //TODO: check to see if it actually works
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetFrameDetail() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        FrameDetail frame = frameDao.getFrameDetail(f);
+        frame = frameDao.getFrameDetail(f.getFrameId());
+        assertEquals("0001-pass_1", frame.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindFrameDetail() {
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+        assertEquals("0001-pass_1", frame.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetFrame() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        Frame frame = frameDao.getFrame(f.getFrameId());
+        assertEquals("0001-pass_1", frame.getName());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetFrameByLayer() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        Frame f2 = frameDao.findFrame((Layer)f, 1);
+
+        assertEquals(f.getFrameId(), f2.getFrameId());
+        assertEquals(f.getLayerId(), f2.getLayerId());
+        assertEquals(f.getJobId(), f2.getJobId());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindFrame() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        assertEquals(f.getName(),"0001-pass_1");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindFrames() {
+        JobDetail job = launchJob();
+        FrameSearch r = new FrameSearch(job);
+        r.getCriteria().frames.add("0001-pass_1");
+        assertTrue(frameDao.findFrames(r).size() == 1);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindFrameDetails() {
+        JobDetail job = launchJob();
+        FrameSearch r = new FrameSearch(job);
+        r.getCriteria().frames.add("0001-pass_1");
+        assertTrue(frameDao.findFrameDetails(r).size() == 1);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testgetOrphanedFrames() {
+        assertEquals(0, frameDao.getOrphanedFrames().size());
+
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+
+        /*
+         * Update the first frame to the orphan state, which is a frame
+         * that is in the running state, has no corresponding proc entry
+         * and has not been udpated in the last 5 min.
+         */
+        jdbcTemplate.update(
+                "UPDATE frame SET str_state='Running', " +
+                "ts_updated=systimestamp - interval '301' second WHERE pk_frame=?",
+                f.getFrameId());
+
+        assertEquals(1, frameDao.getOrphanedFrames().size());
+        assertTrue(frameDao.isOrphan(f));
+
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameState() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        assertEquals(true, frameDao.updateFrameState(f,FrameState.Running));
+
+        assertEquals(FrameState.Running.toString(),
+                jdbcTemplate.queryForObject(
+                "SELECT str_state FROM frame WHERE pk_frame=?",
+                String.class,
+                f.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFailUpdateFrameState() {
+        JobDetail job = launchJob();
+        Frame f = frameDao.findFrame(job, "0001-pass_1");
+
+        /** Change the version so the update fails **/
+        jdbcTemplate.update(
+                "UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
+                f.getFrameId());
+
+        assertEquals(false, frameDao.updateFrameState(f, FrameState.Running));
+    }
+
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStarted() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        assertEquals(FrameState.Waiting, frame.state);
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+        frameDao.updateFrameStarted(proc, fd);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStopped() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
+
+        assertEquals("0001-pass_1_preprocess",frame.getName());
+        assertEquals(FrameState.Waiting,frame.state);
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        frameDao.updateFrameStarted(proc, fd);
+
+        try {
+            Thread.sleep(1001);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        DispatchFrame fd2 = frameDao.getDispatchFrame(frame.getId());
+        assertTrue(frameDao.updateFrameStopped(fd2, FrameState.Dead, 1, 1000l));
+
+        assertEquals(FrameState.Dead.toString(),jdbcTemplate.queryForObject(
+                "SELECT str_state FROM frame WHERE pk_frame=?",
+                String.class, frame.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameFixed() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
+
+        assertEquals("0001-pass_1_preprocess",frame.getName());
+        assertEquals(FrameState.Waiting,frame.state);
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+        frameDao.updateFrameStarted(proc, fd);
+
+        try {
+            Thread.sleep(1001);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        frameDao.updateFrameState(frame, FrameState.Waiting);
+        frameDao.updateFrameFixed(proc, frame);
+
+        assertEquals(FrameState.Running.toString(),
+                jdbcTemplate.queryForObject(
+                "SELECT str_state FROM frame WHERE pk_frame=?",
+                String.class, frame.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDispatchFrame() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        DispatchFrame dframe = frameDao.getDispatchFrame(frame.id);
+        assertEquals(dframe.id, frame.id);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMarkFrameAsWaiting() {
+        JobDetail job = launchJob();
+
+        Frame f = frameDao.findFrameDetail(job, "0001-pass_1");
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT int_depend_count FROM frame WHERE pk_frame=?",
+                Integer.class, f.getFrameId()));
+
+        frameDao.markFrameAsWaiting(f);
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT int_depend_count FROM frame WHERE pk_frame=?",
+                Integer.class, f.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMarkFrameAsDepend() {
+        JobDetail job = launchJob();
+
+        Frame f = frameDao.findFrameDetail(job, "0001-pass_1");
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT int_depend_count FROM frame WHERE pk_frame=?",
+                Integer.class, f.getFrameId()));
+
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT b_active FROM depend WHERE pk_layer_depend_er=?",
+                Integer.class, f.getLayerId()));
+
+        frameDao.markFrameAsWaiting(f);
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT int_depend_count FROM frame WHERE pk_frame=?",
+                Integer.class, f.getFrameId()));
+
+        /*
+         * Need to grab new version of frame
+         * object once the state has changed.
+         */
+        f = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        frameDao.markFrameAsDepend(f);
+        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+                "SELECT int_depend_count FROM frame WHERE pk_frame=?",
+                Integer.class, f.getFrameId()));
+    }
+
+    @Test(expected=org.springframework.dao.EmptyResultDataAccessException.class)
+    @Transactional
+    @Rollback(true)
+    public void testFindLongestFrame() {
+        JobDetail job = launchJob();
+        frameDao.findLongestFrame(job);
+    }
+
+    @Test(expected=org.springframework.dao.EmptyResultDataAccessException.class)
+    @Transactional
+    @Rollback(true)
+    public void testFindShortestFrame() {
+        JobDetail job = launchJob();
+        frameDao.findShortestFrame(job);
+    }
+
+    @Test(expected=org.springframework.dao.EmptyResultDataAccessException.class)
+    @Transactional
+    @Rollback(true)
+    public void findHighestMemoryFrame() {
+        JobDetail job = launchJob();
+        frameDao.findHighestMemoryFrame(job);
+    }
+
+    @Test(expected=org.springframework.dao.EmptyResultDataAccessException.class)
+    @Transactional
+    @Rollback(true)
+    public void findLowestMemoryFrame() {
+        JobDetail job = launchJob();
+        frameDao.findLowestMemoryFrame(job);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetDependentFrames() {
+        JobDetail job = launchJob();
+        Frame frame_a = frameDao.findFrame(job, "0001-pass_1");
+        Frame frame_b = frameDao.findFrame(job, "0002-pass_1");
+
+        dependManager.createDepend(new FrameOnFrame(
+                frame_a, frame_b));
+
+        assertEquals(1, frameDao.getDependentFrames(
+                dependManager.getWhatDependsOn(frame_b).get(0)).size(),1);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetResourceUsage() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        DispatchFrame dframe = frameDao.getDispatchFrame(frame.id);
+        frameDao.getResourceUsage(dframe);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameCleared() {
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+
+        VirtualProc proc = new VirtualProc();
+        proc.allocationId = host.allocationId;
+        proc.coresReserved = 100;
+        proc.hostId = host.id;
+        proc.hostName = host.name;
+        proc.jobId = job.id;
+        proc.frameId = frame.id;
+        proc.layerId = frame.layerId;
+        proc.showId = frame.showId;
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        /*
+         * Only frames without active procs can be cleared.
+         */
+
+        DispatchFrame dframe = frameDao.getDispatchFrame(frame.id);
+        assertFalse(frameDao.updateFrameCleared(dframe));
+
+        dispatchSupport.unbookProc(proc);
+        assertTrue(frameDao.updateFrameCleared(dframe));
+
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetStaleCheckpoints() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        assertEquals(0, frameDao.getStaleCheckpoints(300).size());
+        jdbcTemplate.update("UPDATE frame SET str_state=?, " +
+                "ts_stopped=systimestamp - interval '400' second WHERE pk_frame=?",
+                FrameState.Checkpoint.toString(), frame.getFrameId());
+        assertEquals(1, frameDao.getStaleCheckpoints(300).size());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetCheckpointState() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        frameDao.updateFrameCheckpointState(frame, CheckpointState.Enabled);
+
+        String state = jdbcTemplate.queryForObject(
+                "SELECT str_checkpoint_state FROM frame WHERE pk_frame=?",
+                String.class, frame.getFrameId());
+
+        assertEquals(CheckpointState.Enabled.toString(), state);
+
+        /**
+         * To set a checkpoint complete the frame state must be in the checkpoint state.
+         */
+        frameDao.updateFrameState(frame, FrameState.Checkpoint);
+        jdbcTemplate.update(
+                "UPDATE frame SET ts_started=systimestamp, ts_stopped=systimestamp + INTERVAL '20' second WHERE pk_frame=?",
+                frame.getFrameId());
+
+        assertTrue(frameDao.updateFrameCheckpointState(frame, CheckpointState.Complete));
+        Map<String, Object> result = jdbcTemplate.queryForMap(
+                "SELECT int_checkpoint_count FROM frame WHERE pk_frame=?",
+                frame.getFrameId());
+
+        BigDecimal checkPointCount = (BigDecimal) result.get("int_checkpoint_count");
+        assertEquals(1, checkPointCount.intValue());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsFrameComplete() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+
+        frameDao.updateFrameState(frame, FrameState.Eaten);
+        assertTrue(frameDao.isFrameComplete(frame));
+
+        frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        frameDao.updateFrameState(frame, FrameState.Succeeded);
+        assertTrue(frameDao.isFrameComplete(frame));
+
+        frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        frameDao.updateFrameState(frame, FrameState.Waiting);
+        assertFalse(frameDao.isFrameComplete(frame));
+    }
+}
+
+

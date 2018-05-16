@@ -1,0 +1,22 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: normal
+
+test:
+  stage: test
+  script: bin/sbt -Dsbt.log.noformat=true clean test
+  artifacts:
+    paths:
+    - target/
+    expire_in: 1 hour
+
+pack:
+  stage: pack
+  script: bin/sbt -Dsbt.log.noformat=true pack
+  artifacts:
+    paths:
+    - target/pack
+    expire_in: 1 week
+
+stages:
+  - test
+  - pack

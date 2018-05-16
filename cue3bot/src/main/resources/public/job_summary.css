@@ -1,0 +1,126 @@
+
+html {
+    background: #333333;
+    background: -moz-linear-gradient(left 20deg, black, #333333);
+}
+
+body {
+    font-family: "Luxi Sans";
+    color: #B2B2B2;
+	  margin:0;
+	  padding:0;
+}
+
+hr {
+    border:0;
+    border-top: 1px solid #585959;
+    height: 0;
+}
+
+a:link {
+  border-width: 0px;
+}
+
+
+.label {
+    font-size: 26px;
+    color: #666666;
+    font-family: "Luxi Sans";
+    font-weight: bold;
+    text-align: right;
+}
+
+.number {
+  font-size: 26px;
+  font-family: "Luxi Sans";
+  color: #99FF00;
+  text-align: right;
+}
+
+#content {
+   position: relative;
+   display: block;
+   clear: both;
+}
+
+#job_name {
+  font-size: 24px;
+  float: left;
+  width: 90%;
+  margin: auto;
+}
+
+#dep_name {
+  float: left;
+  width: 10%;
+  color: #666666;
+  font-weight: bold;
+}
+
+#job_stats {
+  position: relative;
+  margin-left: 25px;
+  margin-top: 25px;
+}
+
+#job_frame_stats {
+  float: left;
+  width: 30%;
+  margin-left: 25px;
+}
+
+#job_proc_stats {
+  float: left;
+  width: 30%;
+  margin-left: 25px;
+}
+
+.layer_stats {
+  margin-left: 10px;
+}
+
+.layer_name {
+  font-size: 29px;
+  margin-left: 5px;
+}
+
+#layer_thread_graph {
+  position: relative;
+  margin-top: 15px;
+  left: 50px;
+  overflow: 
+  margin-left: 50px;
+  float: left;
+  width 30%;
+}
+
+#layer_main_stats {
+  margin-top: 15px;
+  float: left;
+  left: 50px;
+  margin-left: 50px;
+  position: relative;
+  width: 40%;
+}
+
+#layer_stats_col_left {
+  text-align: right;
+  float: left;
+  width: 50%;
+  position: relative;
+
+}
+#layer_stats_col_right {
+  text-align: right;
+  float: left;
+  width: 50%;
+  position: relative;
+}
+
+#layer_output_table {
+  width: 95%;
+  margin: 0 auto;
+}
+
+
+

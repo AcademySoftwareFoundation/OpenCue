@@ -1,0 +1,82 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+package com.imageworks.spcue.dao;
+
+import com.imageworks.spcue.Entity;
+import com.imageworks.spcue.Owner;
+import com.imageworks.spcue.Show;
+import com.imageworks.spcue.Host;
+
+public interface OwnerDao {
+
+    /**
+     * Return true if the given owner owns the particualar host.
+     *
+     * @param owner
+     * @param host
+     * @return
+     */
+    boolean isOwner(Owner owner, Host host);
+
+    /**
+     * Get an owner record by ID.
+     *
+     * @param id
+     */
+    Owner getOwner(String id);
+
+    /**
+     * Return the owner of the given host.
+     *
+     * @param host
+     * @return
+     */
+    Owner getOwner(Host host);
+
+    /**
+     * Return an owner record by name.
+     *
+     * @param name
+     */
+    Owner findOwner(String name);
+
+    /**
+     * Delete the specified owner and all his/her deeds.
+     * Return true if the owner was actually deleted.
+     * False if not.
+     */
+    boolean deleteOwner(Entity owner);
+
+    /**
+     * Insert a new owner record.
+     *
+     * @param owner
+     */
+    void insertOwner(Owner owner, Show show);
+
+    /**
+     * Set the owner's show. This can be null.
+     *
+     * @param owner
+     * @param show
+     */
+    void updateShow(Entity owner, Show show);
+}
+

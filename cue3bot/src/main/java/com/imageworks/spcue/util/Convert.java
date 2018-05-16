@@ -1,0 +1,74 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+package com.imageworks.spcue.util;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+/**
+ * Utility class for conversions
+ */
+public final class Convert {
+
+    public static final String currentToString(Ice.Current current) {
+        if (current==null) {
+            return "Internal";
+        }
+        return String.format("%s by %s@%s",
+                current.operation,
+                current.ctx.get("username"),
+                current.ctx.get("hostname"));
+    }
+
+    public static final int coresToCoreUnits(float cores) {
+        return new BigDecimal(cores * 100).setScale(2,BigDecimal.ROUND_HALF_UP).intValue();
+    }
+
+    public static final int coresToCoreUnits(int cores) {
+        return cores * 100;
+    }
+
+    public static final int coresToWholeCoreUnits(float cores) {
+        if (cores == -1) { return -1;}
+        return (int)((float)((cores * 100.0f) + 0.5f) / 100) * 100;
+    }
+
+    public static final float coreUnitsToCores(int coreUnits) {
+        if (coreUnits == -1) { return -1f;}
+        return Float.valueOf(String.format("%6.2f",coreUnits / 100.0f));
+    }
+
+    public static final float coreUnitsToWholeCores(int coreUnits) {
+        if (coreUnits == -1) { return -1f;}
+        return Float.valueOf((int) ((coreUnits / 100.0f) + 0.5));
+    }
+
+    private static final List<String> MATCH_BOOL =
+        java.util.Arrays.asList(new String[] { "true","yes","1","on" });
+
+    public static final boolean stringToBool(String value) {
+        if (value == null) { return false; }
+        if (MATCH_BOOL.contains(value.toLowerCase())) {
+            return true;
+        }
+        return false;
+    }
+}
+

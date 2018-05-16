@@ -1,0 +1,144 @@
+<html>
+<head>
+  <title>Job Execution Summary</title>
+</head>
+<body style="font-family: 'Luxi Sans'; color: #B2B2B2; margin: 0; padding: 0; background-color: #232323;">
+<div style="margin: 15px;">
+  <img src="cid:logo.png" align="center">
+</div>
+<div style="position: absolute; top: 90px; right: 10px;">
+  <span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">$showName/$shotName</span>
+</div>
+
+<div id="content" style="position: relative; display: block; clear: both;">
+  <hr width="100%" style="border-width: 1px 0 0; border-top-color: #585959; border-top-style: solid; height: 0;">
+  <div id="job_name" style="font-size: 24px; float: left; width: 90%; margin: auto;">
+    <span style="margin-left: 5px;">$jobName</span>
+  </div>
+  <div id="dep_name" style="float: left; width: 10%; color: #666666; font-weight: bold;">$deptName</div>
+  <div style="clear: both;"></div>
+  <hr width="100%" style="border-width: 1px 0 0; border-top-color: #585959; border-top-style: solid; height: 0;">
+  <div id="job_stats" style="position: relative; margin-left: 25px; margin-top: 25px;">
+    <div id="job_frame_stats" style="float: left; width: 30%; margin-left: 25px;">
+      <table cellspacing="0" cellpadding="0"><tbody>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$totalFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">TOTAL&nbsp;FRAMES</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$succeededFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">SUCCEEDED</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$failedFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">FAILED</span></td>
+        </tr>
+<!---        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$deadFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">DEAD</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$eatenFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">EATEN</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$waitingFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">INCOMPLETE</span></td>
+--->
+        </tr>
+      </tbody></table>
+    </div>
+    <div id="job_proc_stats" style="float: left; width: 30%; margin-left: 25px;">
+      <table cellspacing="0" cellpadding="0"><tbody>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$maxRSS</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">PEAK&nbsp;MEMORY</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$checkpointFrames</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">CHECKPOINTS</span></td>
+        </tr>
+        <tr>
+          <td width="90"><span class="number" style="font-size: 26px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$coreTime</span></td>
+          <td><span class="label" style="font-size: 26px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">PROC&nbsp;HOURS</span></td>
+        </tr>
+      </tbody></table>
+    </div>
+    <div style="clear: both;"></div>
+  </div>
+
+  <!--- need to loop over layers in template -->
+  #foreach( $layer in $layers )
+
+  #set( $service = $layer.detail.services )
+  #set( $coreTime = $layer.getFormattedProcHours() )
+  #set( $failedFrames = $layer.getFailedFrames() )
+  #set( $highMemory = $layer.getFormattedHighMemory() )
+  #set( $graphLegend = $layer.getGraphLegend() )
+  #set( $graphData = $layer.getGraphData() )
+  #set( $graphScale = $layer.getGraphScale() )
+  #set( $graphUnits = $layer.getGraphUnits() )
+  #set( $outputCount = $layer.getOutputs().size() )
+  #set( $waitingFrames = $layer.frameStateTotals.waiting )
+  #set( $deadFrames = $layer.frameStateTotals.dead )
+  #set( $eatenFrames = $layer.frameStateTotals.eaten )
+  #set( $incompleteFrames = $layer.frameStateTotals.waiting + $layer.frameStateTotals.depend )
+
+  <hr width="100%" style="border-width: 1px 0 0; border-top-color: #585959; border-top-style: solid; height: 0;">
+  <div class="layer_stats" style="margin-left: 10px;">
+    <img src="cid:services_${service.get(0)}.png" align="top"><span class="layer_name" style="font-size: 29px; margin-left: 5px;">$layer.detail.name</span>
+  </div>
+  <div id="layer_main_stats" style="margin-top: 15px; float: left; left: 25px; margin-left: 25px; position: relative; width: 40%;">
+    <div id="layer_stats_col_left" style="text-align: right; float: left; width: 45%; position: relative;" align="right">
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">DEAD</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$deadFrames</span>
+      </div>
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">EATEN</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$eatenFrames</span>
+      </div>
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">INCOMPLETE</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$incompleteFrames</span>
+      </div>
+    </div>
+    <div id="layer_stats_col_right" style="text-align: right; float: left; margin-left: 25px; width: 45%; position: relative;" align="right">
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">PEAK&nbsp;MEMORY</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">${highMemory}</span>
+      </div>
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">PROC&nbsp;HOURS</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$coreTime</span>
+      </div>
+      <div>
+        <span class="label" style="font-size: 22px; color: #666666; font-family: 'Luxi Sans'; font-weight: bold; text-align: right;">OUTPUTS</span>
+        <br><span class="number" style="font-size: 22px; font-family: 'Luxi Sans'; color: #4D8000; text-align: right;">$outputCount</span>
+      </div>
+    </div>
+    <div style="clear: both;"></div>
+    <div id="layer_thread_graph" style="position: relative; margin-top: 15px; left: 95px; overflow: margin-left: 50px;">
+      <span>Avg Frame Time</span><br><img src="cid:bar.png" width="440" height="3"><br><img src="http://chart.apis.google.com/chart?chf=bg,s,333333&amp;chxl=0:${graphLegend}&amp;chxr=1,0,${graphScale}&amp;chds=0,${graphScale}&amp;chxt=y,x&amp;chbh=a&amp;chs=440x220&amp;cht=bhs&amp;chco=4D8000&amp;chd=t:${graphData}&amp;chts=FFFFFF,11.5&amp;chm=N*f2*%20${graphUnits},E6E6E6,-1,,15,,r:-2:0" width="440" height="160" alt="${graphData}">
+    </div>
+    <div style="clear: both;"></div>
+  </div>
+  <div style="clear: both;"></div>
+  <br><br><div id="layer_output_table" style="width: 95%; margin: 0 auto;">
+  Outputs
+  <hr width="100%" style="border-width: 1px 0 0; border-top-color: #585959; border-top-style: solid; height: 0;">
+
+  <!-- Loop though outputs here, add  -->
+  <table cellspacing="0" cellpadding="5">
+    #foreach( $output in $layer.outputs )
+    <tr>
+      <td><a target="itview" href="http://www.spimageworks.com/cgi-bin/sendcmd.cgi?showname=pipe&shotname=dev.cue&cmd=itview3&file=${output}" style="border: 0px;"><img src="cid:play.png" border="0"></td>
+      <td>${output}</td>
+    </tr>
+    #end
+  </table>
+</div>
+#end
+</div>
+</body>
+</html>

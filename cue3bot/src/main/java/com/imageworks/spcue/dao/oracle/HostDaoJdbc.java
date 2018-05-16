@@ -1,0 +1,673 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+
+
+package com.imageworks.spcue.dao.oracle;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.CallableStatementCreator;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
+import org.springframework.jdbc.core.SqlParameter;
+
+import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.EntityCreationError;
+import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.Source;
+import com.imageworks.spcue.CueIce.HostTagType;
+import com.imageworks.spcue.CueIce.LockState;
+import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueIce.ThreadMode;
+import com.imageworks.spcue.RqdIce.HostReport;
+import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.util.CueUtil;
+import com.imageworks.spcue.util.SqlUtil;
+
+
+public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
+
+    public static final RowMapper<HostDetail> HOST_DETAIL_MAPPER = new RowMapper<HostDetail>() {
+        public HostDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
+            HostDetail host = new HostDetail();
+            host.facilityId = rs.getString("pk_facility");
+            host.allocId = rs.getString("pk_alloc");
+            host.id = rs.getString("pk_host");
+            host.lockState = LockState.valueOf(rs.getString("str_lock_state"));
+            host.name = rs.getString("str_name");
+            host.nimbyEnabled = rs.getBoolean("b_nimby");
+            host.state = HardwareState.valueOf(rs.getString("str_state"));
+            host.unlockAtBoot = rs.getBoolean("b_unlock_boot");
+            host.cores = rs.getInt("int_cores");
+            host.idleCores = rs.getInt("int_cores_idle");
+            host.memory = rs.getInt("int_mem");
+            host.idleMemory = rs.getInt("int_mem_idle");
+            host.gpu = rs.getInt("int_gpu");
+            host.idleGpu = rs.getInt("int_gpu_idle");
+            host.dateBooted = rs.getDate("ts_booted");
+            host.dateCreated = rs.getDate("ts_created");
+            host.datePinged = rs.getDate("ts_ping");
+            return host;
+        }
+    };
+
+    public static final RowMapper<Host> HOST_MAPPER = new RowMapper<Host>() {
+        public Host mapRow(final ResultSet rs, int rowNum) throws SQLException {
+            return new Host() {
+                final String id = rs.getString("pk_host");
+                final String allocid =  rs.getString("pk_alloc");
+                final String name = rs.getString("str_name");
+                final String facility =  rs.getString("pk_facility");
+
+                public String getHostId() { return id; }
+                public String getAllocationId() { return allocid; }
+                public String getId() { return id; }
+                public String getName() { return name; }
+                public String getFacilityId() { return facility; };
+            };
+        }
+    };
+
+    private static final String GET_HOST_DETAIL =
+        "SELECT " +
+            "host.pk_host, " +
+            "host.pk_alloc,"+
+            "host.str_lock_state,"+
+            "host.b_nimby,"+
+            "host.b_unlock_boot,"+
+            "host.int_cores,"+
+            "host.int_cores_idle,"+
+            "host.int_mem,"+
+            "host.int_mem_idle,"+
+            "host.int_gpu,"+
+            "host.int_gpu_idle,"+
+            "host.ts_created,"+
+            "host.str_name, " +
+            "host_stat.str_state,"+
+            "host_stat.ts_ping,"+
+            "host_stat.ts_booted, "+
+            "alloc.pk_facility " +
+        "FROM " +
+            "host, " +
+            "alloc, " +
+            "host_stat " +
+        "WHERE " +
+            "host.pk_host = host_stat.pk_host " +
+        "AND " +
+            "host.pk_alloc = alloc.pk_alloc ";
+
+    @Override
+    public void lockForUpdate(Host host) {
+        try {
+            getJdbcTemplate().queryForObject(
+                    "SELECT pk_host FROM host WHERE pk_host=? " +
+                    "FOR UPDATE NOWAIT",
+                    String.class, host.getHostId());
+        } catch (Exception e) {
+            throw new ResourceReservationFailureException("unable to lock host " +
+                    host.getName() + ", the host was locked by another thread.", e);
+        }
+    }
+
+    @Override
+    public HostDetail getHostDetail(Host host) {
+        return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.pk_host=?",
+                HOST_DETAIL_MAPPER, host.getHostId());
+    }
+
+    @Override
+    public HostDetail getHostDetail(String id) {
+        return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.pk_host=?",
+                HOST_DETAIL_MAPPER, id);
+    }
+
+    @Override
+    public HostDetail findHostDetail(String name) {
+        return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.str_name=?",
+                HOST_DETAIL_MAPPER, name);
+    }
+
+    private static final String GET_HOST=
+        "SELECT " +
+            "host.pk_host, " +
+            "host.pk_alloc,"+
+            "host.str_name, " +
+            "alloc.pk_facility " +
+        "FROM " +
+            "host," +
+            "alloc " +
+        "WHERE " +
+            "host.pk_alloc = alloc.pk_alloc " ;
+
+    @Override
+    public Host getHost(String id) {
+        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?",
+                HOST_MAPPER, id);
+    }
+
+    @Override
+    public Host getHost(LocalHostAssignment l) {
+        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host = ("+
+                "SELECT pk_host FROM host_local WHERE pk_host_local=?)",
+                HOST_MAPPER, l.getId());
+    }
+
+    @Override
+    public Host findHost(String name) {
+        return getJdbcTemplate().queryForObject(
+                GET_HOST + " AND (host.str_name=? OR host.str_fqdn=?)",
+                HOST_MAPPER, name, name);
+    }
+
+    public static final RowMapper<DispatchHost> DISPATCH_HOST_MAPPER =
+        new RowMapper<DispatchHost>() {
+        public DispatchHost mapRow(ResultSet rs, int rowNum) throws SQLException {
+            DispatchHost host = new DispatchHost();
+            host.id = rs.getString("pk_host");
+            host.allocationId = rs.getString("pk_alloc");
+            host.facilityId = rs.getString("pk_facility");
+            host.name = rs.getString("str_name");
+            host.lockState = LockState.valueOf(rs.getString("str_lock_state"));
+            host.memory = rs.getInt("int_mem");
+            host.cores = rs.getInt("int_cores");
+            host.gpu= rs.getInt("int_gpu");
+            host.idleMemory= rs.getInt("int_mem_idle");
+            host.idleCores = rs.getInt("int_cores_idle");
+            host.idleGpu= rs.getInt("int_gpu_idle");
+            host.isNimby = rs.getBoolean("b_nimby");
+            host.threadMode = rs.getInt("int_thread_mode");
+            host.tags = rs.getString("str_tags");
+            host.os = rs.getString("str_os");
+            host.hardwareState =
+                HardwareState.valueOf(rs.getString("str_state"));
+            return host;
+        }
+    };
+
+    public static final String GET_DISPATCH_HOST =
+        "SELECT " +
+            "host.pk_host,"+
+            "host.pk_alloc,"+
+            "host.str_name," +
+            "host.str_lock_state, " +
+            "host.int_cores, "+
+            "host.int_cores_idle, " +
+            "host.int_mem,"+
+            "host.int_mem_idle, "+
+            "host.int_gpu,"+
+            "host.int_gpu_idle, "+
+            "host.b_nimby, "+
+            "host.int_thread_mode, "+
+            "host.str_tags, " +
+            "host_stat.str_os, " +
+            "host_stat.str_state, " +
+            "alloc.pk_facility " +
+        "FROM " +
+            "host " +
+        "INNER JOIN host_stat " +
+            "ON (host.pk_host = host_stat.pk_host) " +
+        "INNER JOIN alloc " +
+            "ON (host.pk_alloc = alloc.pk_alloc) ";
+
+    @Override
+    public DispatchHost findDispatchHost(String name) {
+        try {
+            return getJdbcTemplate().queryForObject(
+                    GET_DISPATCH_HOST +
+                    "WHERE (host.str_name=? OR host.str_fqdn=?)",
+                    DISPATCH_HOST_MAPPER, name, name);
+        } catch (EmptyResultDataAccessException e) {
+            throw new EmptyResultDataAccessException(
+                    "Failed to find host " + name, 1);
+        }
+    }
+
+    @Override
+    public DispatchHost getDispatchHost(String id) {
+        return getJdbcTemplate().queryForObject(
+                GET_DISPATCH_HOST +
+                "WHERE host.pk_host=?",
+                DISPATCH_HOST_MAPPER, id);
+    }
+
+    private static final String[] INSERT_HOST_DETAIL =
+    {
+        "INSERT INTO " +
+            "host " +
+        "("+
+            "pk_host, " +
+            "pk_alloc, " +
+            "str_name, " +
+            "b_nimby, " +
+            "str_lock_state, " +
+            "int_procs,"+
+            "int_cores, " +
+            "int_cores_idle, " +
+            "int_mem,"+
+            "int_mem_idle,"+
+            "int_gpu,"+
+            "int_gpu_idle,"+
+            "str_fqdn, " +
+            "int_thread_mode "+
+        ") " +
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+
+        "INSERT INTO " +
+        "host_stat " +
+        "("+
+            "pk_host_stat," +
+            "pk_host,"+
+            "int_mem_total, " +
+            "int_mem_free,"+
+            "int_gpu_total, " +
+            "int_gpu_free,"+
+            "int_swap_total, " +
+            "int_swap_free,"+
+            "int_mcp_total, " +
+            "int_mcp_free,"+
+            "int_load, " +
+            "ts_booted, " +
+            "str_state, " +
+            "str_os " +
+        ") "+
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+
+    };
+
+    @Override
+    public void insertRenderHost(RenderHost host, Allocation a) {
+
+        ThreadMode threadMode = ThreadMode.Auto;
+        if (host.nimbyEnabled) {
+            threadMode = ThreadMode.All;
+        }
+
+        long memUnits = convertMemoryUnits(host);
+        if (memUnits < Dispatcher.MEM_RESERVED_MIN) {
+            throw new EntityCreationError("could not create host " + host.name + ", " +
+                    " must have at least " + Dispatcher.MEM_RESERVED_MIN + " free memory.");
+        }
+
+        String fqdn;
+        String name = host.name;
+        try {
+            fqdn = InetAddress.getByName(host.name).getCanonicalHostName();
+            // if the FQDN and the name the host pinged in with is the name
+            // set he name to just to name, leaving off the domain
+            // if the host has no domain or the lookup fails, just use the name
+            if (fqdn.equals(host.name)) {
+                name = fqdn.substring(0,fqdn.lastIndexOf(".",fqdn.lastIndexOf(".")-1));
+            }
+            else if (host.name.contains(".spimageworks.com")) {
+                name = host.name.replace(".spimageworks.com", "");
+                fqdn = host.name;
+            }
+        } catch (UnknownHostException e) {
+            logger.warn(e);
+            fqdn = host.name;
+        }
+
+        String hid = SqlUtil.genKeyRandom();
+        int coreUnits = host.numProcs * host.coresPerProc;
+        String os = host.attributes.get("SP_OS");
+        if (os == null) {
+            os = Dispatcher.OS_DEFAULT;
+        }
+
+        long totalGpu;
+        if (host.attributes.containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(host.attributes.get("totalGpu"));
+        else
+            totalGpu = 0;
+
+        long freeGpu;
+        if (host.attributes.containsKey("freeGpu"))
+            freeGpu = Integer.parseInt(host.attributes.get("freeGpu"));
+        else
+            freeGpu = 0;
+
+
+        getJdbcTemplate().update(INSERT_HOST_DETAIL[0],
+                hid, a.getAllocationId(), name, host.nimbyEnabled,
+                LockState.Open.toString(), host.numProcs, coreUnits, coreUnits,
+                memUnits, memUnits, totalGpu, totalGpu,
+                fqdn, threadMode.value());
+
+        getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
+                hid, hid, host.totalMem, host.freeMem,
+                totalGpu, freeGpu,
+                host.totalSwap, host.freeSwap,
+                host.totalMcp, host.freeMcp,
+                host.load, new Timestamp(host.bootTime * 1000l),
+                host.state.toString(), os);
+    }
+
+    @Override
+    public void recalcuateTags(final String id) {
+        getJdbcTemplate().call(new CallableStatementCreator() {
+            public CallableStatement createCallableStatement(Connection con) throws SQLException {
+                CallableStatement c = con.prepareCall("{ call recalculate_tags(?) }");
+                c.setString(1, id);
+                return c;
+            }
+        }, new ArrayList<SqlParameter>());
+    }
+
+    private static final String UPDATE_RENDER_HOST =
+        "UPDATE " +
+            "host_stat " +
+        "SET " +
+            "int_mem_total=?, " +
+            "int_mem_free=?, " +
+            "int_swap_total=?, " +
+            "int_swap_free=?, "+
+            "int_mcp_total=?, " +
+            "int_mcp_free=?, " +
+            "int_gpu_total=?, " +
+            "int_gpu_free=?, " +
+            "int_load=?," +
+            "ts_booted = ?,  " +
+            "ts_ping = systimestamp, "+
+            "str_os=? " +
+        "WHERE " +
+            "pk_host=?";
+
+    @Override
+    public void updateHostStats(Host host,
+            long totalMemory, long freeMemory,
+            long totalSwap, long freeSwap,
+            long totalMcp, long freeMcp,
+            long totalGpu, long freeGpu,
+            int load, Timestamp bootTime,
+            String os) {
+
+        if (os == null) {
+            os = Dispatcher.OS_DEFAULT;
+        }
+
+        getJdbcTemplate().update(UPDATE_RENDER_HOST,
+                totalMemory, freeMemory, totalSwap,
+                freeSwap, totalMcp, freeMcp, totalGpu, freeGpu, load,
+                bootTime, os, host.getHostId());
+    }
+
+    @Override
+    public boolean hostExists(String hostname) {
+        try {
+            return getJdbcTemplate().queryForObject(
+                    "SELECT 1 FROM host WHERE (str_fqdn=? OR str_name=?)",
+                    Integer.class, hostname,hostname) > 0;
+        } catch (EmptyResultDataAccessException e) {
+            return false;
+        }
+    }
+
+    @Override
+    public void updateHostResources(Host host, HostReport report) {
+
+        long memory = convertMemoryUnits(report.host);
+        int cores = report.host.numProcs * report.host.coresPerProc;
+
+        long totalGpu;
+        if (report.host.attributes.containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(report.host.attributes.get("totalGpu"));
+        else
+            totalGpu = 0;
+
+        getJdbcTemplate().update(
+                "UPDATE " +
+                    "host " +
+                "SET " +
+                    "b_nimby=?,"+
+                    "int_cores=?," +
+                    "int_cores_idle=?," +
+                    "int_mem=?," +
+                    "int_mem_idle=?, " +
+                    "int_gpu=?," +
+                    "int_gpu_idle=? " +
+                "WHERE " +
+                    "pk_host=? "+
+                "AND " +
+                    "int_cores = int_cores_idle " +
+                "AND " +
+                    "int_mem = int_mem_idle",
+                    report.host.nimbyEnabled, cores, cores,
+                    memory, memory, totalGpu, totalGpu, host.getId());
+    }
+
+    @Override
+    public void updateHostLock(Host host, LockState state, Source source) {
+        getJdbcTemplate().update(
+                "UPDATE host SET str_lock_state=?, str_lock_source=? WHERE pk_host=?",
+                state.toString(), source.toString(), host.getHostId());
+    }
+
+    @Override
+    public void updateHostRebootWhenIdle(Host host, boolean enabled) {
+        getJdbcTemplate().update("UPDATE host SET b_reboot_idle=? WHERE pk_host=?",
+                enabled, host.getHostId());
+    }
+
+    @Override
+    public void deleteHost(Host host) {
+        getJdbcTemplate().update(
+                "DELETE FROM comments WHERE pk_host=?",host.getHostId());
+        getJdbcTemplate().update(
+                "DELETE FROM host WHERE pk_host=?",host.getHostId());
+    }
+
+    @Override
+    public void updateHostState(Host host, HardwareState state) {
+        getJdbcTemplate().update(
+                "UPDATE host_stat SET str_state=? WHERE pk_host=?",
+                state.toString(), host.getHostId());
+    }
+
+    @Override
+    public void updateHostSetAllocation(Host host, Allocation alloc) {
+
+        String tag = getJdbcTemplate().queryForObject(
+                "SELECT str_tag FROM alloc WHERE pk_alloc=?",
+                String.class, alloc.getAllocationId());
+        getJdbcTemplate().update(
+                "UPDATE host SET pk_alloc=? WHERE pk_host=?",
+                alloc.getAllocationId(), host.getHostId());
+
+        removeTagsByType(host, HostTagType.Alloc);
+        tagHost(host, tag, HostTagType.Alloc);
+    }
+
+    @Override
+    public boolean isHostLocked(Host host) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM host WHERE pk_host=? AND str_lock_state!=?",
+                Integer.class, host.getHostId(), LockState.Open.toString()) > 0;
+    }
+
+    private static final String INSERT_TAG =
+        "INSERT INTO " +
+            "host_tag " +
+        "(" +
+            "pk_host_tag,"+
+            "pk_host,"+
+            "str_tag,"+
+            "str_tag_type, " +
+            "b_constant " +
+        ") VALUES (?,?,?,?,?)";
+
+
+    @Override
+    public void tagHost(String id, String tag, HostTagType type) {
+        boolean constant = false;
+        if (type.equals(HostTagType.Alloc))
+            constant = true;
+
+        getJdbcTemplate().update(INSERT_TAG,
+                SqlUtil.genKeyRandom(), id, tag.trim(), type.toString(), constant);
+    }
+
+    @Override
+    public void tagHost(Host host, String tag, HostTagType type) {
+        tagHost(host.getHostId(), tag, type);
+    }
+
+    @Override
+    public void removeTagsByType(Host host, HostTagType type) {
+        getJdbcTemplate().update("DELETE FROM host_tag WHERE pk_host=? AND str_tag_type=?",
+                host.getHostId(), type.toString());
+    }
+
+    @Override
+    public void removeTag(Host host, String tag) {
+        getJdbcTemplate().update(
+                "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                host.getHostId(), tag);
+    }
+
+    @Override
+    public void renameTag(Host host, String oldTag, String newTag) {
+        getJdbcTemplate().update(
+                "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                newTag, host.getHostId(), oldTag);
+    }
+
+    @Override
+    public void updateThreadMode(Host host, ThreadMode mode) {
+        getJdbcTemplate().update(
+                "UPDATE host SET int_thread_mode=? WHERE pk_host=?",
+                mode.value(), host.getHostId());
+    }
+
+    @Override
+    public void updateHostOs(Host host, String os) {
+        getJdbcTemplate().update(
+                "UPDATE host_stat SET str_os=? WHERE pk_host=?",
+                 os, host.getHostId());
+    }
+
+    @Override
+    public boolean isKillMode(Host h) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM host_stat WHERE pk_host = ? " +
+                "AND int_swap_total - int_swap_free > ? AND int_mem_free < ?",
+                Integer.class, h.getHostId(), Dispatcher.KILL_MODE_SWAP_THRESHOLD,
+                Dispatcher.KILL_MODE_MEM_THRESHOLD) > 0;
+    }
+
+    @Override
+    public int getStrandedCoreUnits(Host h) {
+        try {
+            int idle_cores =  getJdbcTemplate().queryForObject(
+                    "SELECT int_cores_idle FROM host WHERE pk_host = ? AND int_mem_idle <= ?",
+                    Integer.class, h.getHostId(),
+                    Dispatcher.MEM_STRANDED_THRESHHOLD);
+            return (int) (Math.floor(idle_cores / 100.0)) * 100;
+        } catch (EmptyResultDataAccessException e) {
+            return 0;
+        }
+    }
+
+    private static final String IS_HOST_UP =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "host_stat "+
+        "WHERE " +
+            "host_stat.str_state = ? " +
+        "AND " +
+            "host_stat.pk_host = ? ";
+
+    @Override
+    public boolean isHostUp(Host host) {
+        return getJdbcTemplate().queryForObject(IS_HOST_UP,
+                Integer.class, HardwareState.Up.toString(),
+                host.getHostId()) == 1;
+    }
+
+    private static final String IS_PREFER_SHOW =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "host," +
+            "owner," +
+            "deed "+
+        "WHERE " +
+            "host.pk_host = deed.pk_host " +
+        "AND " +
+            "deed.pk_owner = owner.pk_owner " +
+        "AND " +
+            "host.pk_host = ?";
+
+    @Override
+    public boolean isPreferShow(Host h) {
+        return getJdbcTemplate().queryForObject(IS_PREFER_SHOW,
+                Integer.class, h.getHostId()) > 0;
+    }
+
+    @Override
+    public boolean isNimbyHost(Host h) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT COUNT(1) FROM host WHERE b_nimby=1 AND pk_host=?",
+                Integer.class, h.getHostId()) > 0;
+    }
+
+    /**
+     * Converts the amount of memory reported by the machine
+     * to a modificed value which takes into account the
+     * operating system and the possibility of user applications.
+     *
+     * @param host
+     * @return
+     */
+    private long convertMemoryUnits(RenderHost host) {
+
+        long memUnits;
+        if (host.tags.contains("64bit")) {
+            memUnits = CueUtil.convertKbToFakeKb64bit(host.totalMem);
+        }
+        else {
+            memUnits = CueUtil.convertKbToFakeKb32bit(host.totalMem);
+        }
+
+        /*
+         * If this is a desktop, we'll just cut the memory
+         * so we don't annoy the user.
+         */
+        if (host.nimbyEnabled) {
+            memUnits = (long) (memUnits / 1.5) + Dispatcher.MEM_RESERVED_SYSTEM;
+        }
+
+        return memUnits;
+    }
+
+}
+

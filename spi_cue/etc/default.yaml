@@ -1,0 +1,30 @@
+# This file needs to be located here:
+# /shots/spi/home/etc/cue3/default.yaml
+
+# Cue3 library logger
+logger.format: "%(levelname)-9s %(module)-10s %(message)s"
+logger.level: WARNING
+
+# Cuebot Network Settings
+cuebot.port: 9019
+cuebot.protocol: tcp
+
+cuebot.facility_default: lax
+cuebot.facility.abq.hosts:
+    - cue3test02
+cuebot.facility.dev.hosts:
+    - cue3test01
+cuebot.facility.lax.hosts:
+    - cue3bot1:9019
+    - cue3bot2:9019
+    - cue3bot3:9019
+
+# Ice Interfaces
+cuebot.interface.whiteboard: WhiteboardStatic
+cuebot.interface.admin: AdminStatic
+
+# Ice Configuration
+ice.init.timeout.property: Ice.ACM.Client
+ice.init.timeout.value: 60
+ice.init.MessageSizeMax.property: Ice.MessageSizeMax
+ice.init.MessageSizeMax.value: 102400

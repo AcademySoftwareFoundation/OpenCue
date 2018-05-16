@@ -1,0 +1,74 @@
+
+<!--
+   Copyright (c) 2018 Sony Pictures Imageworks Inc.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+
+
+<?xml version="1.0"?>
+<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.5.dtd">
+<spec>
+
+    <show>pipe</show>
+    <shot>dev.cue</shot>
+    <user>testuser</user>     
+    <uid>9860</uid>
+
+    <job name="pipe-dev.cue-testuser_depend_any_test_job_go_go_v1">
+        <paused>true</paused>
+        <maxretries>0</maxretries>
+        <env>
+            <key name="VNP_VCR_SESSION">9000</key>
+        </env>
+        <layers>
+
+            <layer name="pass_1" type="Render">
+                <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
+                <range>1-10</range>
+                <chunk>1</chunk>
+                <cores>100</cores>
+                <tags>none</tags>
+                <services>
+                    <service>prman</service>
+                    <service>katana</service>
+                </services>
+            </layer>
+
+            <layer name="pass_2" type="Render">
+                <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
+                <range>1-10</range>
+                <chunk>1</chunk>
+                <cores>100</cores>
+                <tags>none</tags>
+                <services>
+                    <service>prman</service>
+                    <service>katana</service>
+                </services>
+            </layer>
+        </layers>
+    </job>
+
+    <depends>
+        <depend type="LayerOnLayer" anyframe="true">
+            <depjob>pipe-dev.cue-testuser_depend_any_test_job_go_go_v1</depjob>
+            <deplayer>pass_2</deplayer>
+            <onjob>pipe-dev.cue-testuser_depend_any_test_job_go_go_v1</onjob>
+            <onlayer>pass_1</onlayer>
+        </depend>
+    </depends>
+</spec>
+
+
+
