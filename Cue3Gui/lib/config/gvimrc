@@ -1,0 +1,51 @@
+" ===================
+" Syntax highlighting:
+" ===================
+
+if filereadable(expand("~/.cuetopia3/rqlog.vim"))
+    source ~/.cuetopia3/rqlog.vim
+else
+    source ./rqlog.vim
+endif
+
+" =============
+" Configuration:
+" =============
+
+" no menu, and no toolbar:
+set guioptions-=T
+
+set hlsearch             " Switch on search pattern highlighting.
+set lines=50             " Height
+set columns=200          " Width
+set ttyfast              " Smooth output
+set mouseshape=n:arrow   " Defines the cursor on mouse over
+set gfn=Bitstream\ Vera\ Sans\ Mono\ 8
+setlocal autoread        " Loads changes made to the file, may require gaining focus to trigger
+
+
+" Sets the title to the filename
+let &titlestring = expand("%:t")
+if &term == "screen"
+  set t_ts=^[k
+  set t_fs=^[\
+endif
+if &term == "screen" || &term == "xterm"
+  set title
+endif
+
+" =====
+" Notes:
+" =====
+"map <F8> <C-E>:sleep 3500m<CR>j<F8>
+
+"set number                " Turn on line numbers
+"set numberwidth=8         " By default can fit at least 9999 lines
+
+" scroll bar at the left rather than the right:
+"set guioptions-=r
+"set guioptions+=l
+
+
+"map <F5> <C-E>:sleep 3500m<CR>j
+

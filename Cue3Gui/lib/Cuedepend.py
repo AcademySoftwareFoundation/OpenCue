@@ -1,0 +1,417 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""
+Dependency Types:
+    The long and short version of dependency types are valid. In most cases its not required
+    to actually specify a dependency type.
+
+    JobOnJob / joj       JobOnLayer / jol       JobOnFrame / jof
+    LayerOnJob / loj     LayerOnLayer / lol     LayerOnFrame / lof
+    FrameOnJob / foj     FrameOnLayer / fol     FrameOnFrame / fof
+    FrameByFRame / fbf   HardDepend / hd
+
+Examples:
+  Create a hard depend between two jobs (all layers)
+      cuedepend -c -t hd -job pipe-dev.cue-chambers_shell_v1 -on-job pipe-dev.cue-chambers_shell_v2
+
+  Create a frame by frame dependency between two layers in the same job
+      cuedepend -t fbf -c pipe-dev.cue-chambers_shell_v1 -layer pass_1 -on-layer pass_2
+
+  Create a frame by frame dependency between two layers in different jobs
+      cuedepend -c -t fbf -job pipe-dev.cue-chambers_comp_v1 -layer comp -on-job pipe-dev.cue-chambers_render_v1 -on-layer bty_pass
+
+  Create a depependency between a layer and a frame
+      cuedepend -c -job pipe-dev.cue-chambers_j1 -layer render -on-layer setup -on-frame 1
+
+  Drop a dependency using the unique id:
+      cuedepend -d baafaadc-498c-4100-a74d-42abd2b8e6b9
+
+  Drop all dependencies a job is waiting for
+      cuedepend -drop-all -j pipe-dev.cue-chambers_comp_v1
+"""
+import os
+import sys
+import logging
+import Cue3
+
+logger = logging.getLogger("cue3.tools.cuedepend")
+
+ERR_INVALID_ON_JOB = "Error, a dependency of this type requires a valid job name to depend on.  See -on-job."
+ERR_INVALID_ON_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -on-layer."
+ERR_INVALID_ON_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -on-frame."
+ERR_INVALID_ER_JOB = "Error, a dependency of this type requires a valid job name to depend on.  See -job."
+ERR_INVALID_ER_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -layer."
+ERR_INVALID_ER_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -frame."
+
+def __is_valid(value, error):
+    """A couple sanity checks before.  The Ice library takes
+    care of everything else"""
+    if not value:
+        raise ValueError(error)
+    if isinstance(value, str) and len(value) < 1:
+         raise ValueError(error)
+
+def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
+    """Creates a new dependency of the specified type.
+    @type  type: string
+    @param type: The type of dependency
+    @type  job: string
+    @param job: The name of the dependant job
+    @type  layer: string
+    @param layer: The name of the dependant layer
+    @type  frame: int
+    @param frame: The dependant frame number
+    @type  onjob: string
+    @param onjob: the name of the job to depend on
+    @type  onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @type  onframe: int
+    @param onframe: the number of the frame to depend on
+    @rtype:  Depend
+    @return: The newly created dependency"""
+
+    if not onjob and not onlayer and not onframe:
+            raise ValueError("You must specify something to depend on, see -on-job, -on-layer, -on-frame")
+
+    if not onjob:
+        logger.debug("assuming internal depend")
+        onjob = job
+
+    if type in ("HardDepend", "hd"):
+        depend = createHardDepend(job, onjob)
+    elif type in ("JobOnJob","joj"):
+        depend = createJobOnJobDepend(job, onjob)
+    elif type in ("JobOnLayer","jol"):
+        depend = createJobOnLayerDepend(job, onjob, onlayer)
+    elif type in ("JobOnFrame","jof"):
+        depend = createJobOnFrameDepend(job, onjob, onlayer, onframe)
+    elif type in ("LayerOnJob","loj"):
+        depend = createLayerOnJobDepend(job, layer, onjob)
+    elif type in ("LayerOnLayer","lol"):
+        depend = createLayerOnLayerDepend(job, layer, onjob, onlayer)
+    elif type in ("LayerOnFrame","lof"):
+        depend = createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe)
+    elif type in ("FrameOnJob","foj"):
+        depend = createFrameOnJobDepend(job, layer, frame, onjob)
+    elif type in ("FrameOnLayer","fol"):
+        depend = createFrameOnLayerDepend(job, layer, frame, onjob, onlayer)
+    elif type in ("FrameOnFrame","fof"):
+        depend = createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe)
+    elif type in ("FrameByFrame","fbf"):
+        depend = createFrameByFrameDepend(job, layer, onjob, onlayer)
+    elif type in ("LayerOnSimFrame","los"):
+        depend = createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe)
+    else:
+        raise Exception("invalid dependency type: %s" % (type))
+
+    return depend
+
+def createHardDepend(job, onjob):
+    """Creates a frame by frame dependency for all non-preprocess/refshow layers
+    (Hard Depend)
+    @type job: string
+    @param job: the name of the dependant job
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @rtype: list<Depend>
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+
+    depends = []
+
+    logger.debug("creating hard depend from %s to %s" % (job, onjob))
+    onLayers = Cue3.findJob(onjob).proxy.getLayers()
+    for depend_er_layer in Cue3.findJob(job).proxy.getLayers():
+            for depend_on_layer in onLayers:
+                if depend_er_layer.data.type == depend_on_layer.data.type:
+                    depends.append(depend_er_layer.proxy.createFrameByFrameDependency(depend_on_layer.proxy,False))
+    return depends
+
+def createJobOnJobDepend(job, onjob):
+    """Creates a job on job dependency.
+    (Soft Depend)
+    @type job: string
+    @param job: the name of the dependant job
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+
+    logger.debug("creating joj depend from %s to %s" % (job, onjob))
+    depend_er_job = Cue3.findJob(job)
+    return depend_er_job.proxy.createDependencyOnJob(Cue3.findJob(onjob).proxy)
+
+def createJobOnLayerDepend(job, onjob, onlayer):
+    """Creates a job on layer dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+
+    logger.debug("creating jol depend from %s to %s/%s" % (job, onjob, onlayer))
+    depend_er_job = Cue3.findJob(job)
+    depend_on_layer = Cue3.findLayer(onjob, onlayer)
+    return depend_er_job.proxy.createDependencyOnLayer(depend_on_layer.proxy)
+
+def createJobOnFrameDepend(job, onjob, onlayer, onframe):
+    """Creates a job on frame dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @type onframe: int
+    @param onframe: the number of the frame to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(onjob, ERR_INVALID_ER_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+    __is_valid(onframe, ERR_INVALID_ON_FRAME)
+
+    logger.debug("creating jof depend from %s to %s/%s-%04d"
+                 % (job, onjob, onlayer, onframe))
+    depend_er_job = Cue3.findJob(job)
+    depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
+    return depend_er_job.proxy.createDependencyOnFrame(depend_on_frame.proxy)
+
+def createLayerOnJobDepend(job, layer, onjob):
+    """Creates a layer on job dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+
+    logger.debug("creating loj depend from %s/%s to %s" % (job, layer, onjob))
+    depend_er_layer = Cue3.findLayer(job, layer)
+    return depend_er_layer.proxy.createDependencyOnJob(Cue3.findJob(onjob).proxy)
+
+def createLayerOnLayerDepend(job, layer, onjob, onlayer):
+    """Creates a layer on layer dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+
+    logger.debug("creating lol depend from %s/%s to %s/%s"
+                 % (job, layer, onjob, onlayer))
+    depend_er_layer = Cue3.findLayer(job,layer)
+    depend_on_layer = Cue3.findLayer(onjob, onlayer)
+    return depend_er_layer.proxy.createDependencyOnLayer(depend_on_layer.proxy)
+
+def createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe):
+    """Creates a layer on frame dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @type onframe: int
+    @param onframe: the number of the frame to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+    __is_valid(onframe, ERR_INVALID_ON_FRAME)
+
+    logger.debug("creating lof depend from %s/%s to %s/%s-%04d"
+                 % (job, layer, onjob, onlayer, onframe))
+    depend_er_layer = Cue3.findLayer(job,layer)
+    depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
+    return depend_er_layer.proxy.createDependencyOnFrame(depend_on_frame.proxy)
+
+def createFrameOnJobDepend(job, layer, frame, onjob):
+    """Creates a frame on job dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type frame: int
+    @param frame: the number of the dependant frame
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(frame, ERR_INVALID_ER_FRAME)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+
+    logger.debug("creating foj depend from %s/%s-%04d to %s"
+                 % (job, layer, frame, onjob))
+    depend_er_frame = Cue3.findFrame(job, layer, frame)
+    depend_on_job = Cue3.findJob(onjob)
+    return depend_er_frame.proxy.createDependencyOnJob(depend_on_job.proxy)
+
+def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
+    """Creates a frame on layer dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type frame: int
+    @param frame: the number of the dependant frame
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(frame, ERR_INVALID_ER_FRAME)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+
+    logger.debug("creating fol depend from %s/%s-%04d to %s/%s"
+                 % (job, layer, frame, onjob, onlayer))
+    depend_er_frame = Cue3.findFrame(job, layer, frame)
+    depend_on_layer = Cue3.findLayer(onjob, onlayer)
+    return depend_er_frame.proxy.createDependencyOnLayer(depend_on_layer.proxy)
+
+def createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe):
+    """Creates a frame on frame dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type frame: int
+    @param frame: the number of the dependant frame
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @type onframe: int
+    @param onframe: the number of the frame to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(frame, ERR_INVALID_ER_FRAME)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+    __is_valid(onframe, ERR_INVALID_ON_FRAME)
+
+    logger.debug("creating fof depend from %s/%s-%04d to %s/%s-%04d"
+                 % (job, layer, frame, onjob, onlayer,onframe))
+    depend_er_frame = Cue3.findFrame(job, layer, frame)
+    depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
+    return depend_er_frame.proxy.createDependencyOnFrame(depend_on_frame.proxy)
+
+def createFrameByFrameDepend(job, layer, onjob, onlayer):
+    """Creates a frame by frame dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+
+    logger.debug("creating fbf depend from %s/%s to %s/%s"
+                 % (job, layer, onjob, onlayer))
+
+    depend_er_layer = Cue3.findLayer(job, layer)
+    depend_on_layer = Cue3.findLayer(onjob, onlayer)
+    return depend_er_layer.proxy.createFrameByFrameDependency(depend_on_layer.proxy, False)
+
+def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
+    """Creates a layer on sim frame dependency
+    @type job: string
+    @param job: the name of the dependant job
+    @type layer: string
+    @param layer: the name of the dependant layer
+    @type onjob: string
+    @param onjob: the name of the job to depend on
+    @type onlayer: string
+    @param onlayer: the name of the layer to depend on
+    @type onframe: int
+    @param onframe: the number of the frame to depend on
+    @rtype: Depend
+    @return: the created dependency"""
+
+    __is_valid(job, ERR_INVALID_ER_JOB)
+    __is_valid(layer, ERR_INVALID_ER_LAYER)
+    __is_valid(onjob, ERR_INVALID_ON_JOB)
+    __is_valid(onlayer, ERR_INVALID_ON_LAYER)
+    __is_valid(onframe, ERR_INVALID_ON_FRAME)
+
+    logger.debug("creating los depend from %s/%s to %s/%s-%04d"
+                 % (job, layer, onjob, onlayer, onframe))
+    depend_er_layer = Cue3.findLayer(job,layer)
+    depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
+
+    # if createSimDependencyOnFrame existed, we would use it here:
+    #return depend_er_layer.proxy.createSimDependencyOnFrame(depend_on_frame.proxy)
+
+    depends = []
+    for depend_er_frame in depend_er_layer.proxy.getFrames(Cue3.FrameSearch()):
+        depends.append(depend_er_frame.proxy.createDependencyOnFrame(depend_on_frame.proxy))
+    return depends
+
+def dropDepend(id):
+    """deactivates a dependency by GUID
+    @type id: string
+    @param id: the GUID of the dependency"""
+    Cue3.getDepend(id).proxy.satisfy()
+

@@ -1,0 +1,515 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""
+Provides extended QTreeWidget functionality.
+"""
+import os
+import time
+
+from Manifest import QtCore, QtGui
+
+import Utils
+import Constants
+import Logger
+logger = Logger.getLogger(__file__)
+
+from ItemDelegate import ItemDelegate
+
+COLUMN_NAME = 0
+COLUMN_WIDTH = 1
+COLUMN_FUNCTION = 2
+COLUMN_SORTBY = 3
+COLUMN_DELEGATE = 4
+COLUMN_TOOLTIP = 5
+COLUMN_INFO_LENGTH = 6
+
+DEFAULT_LAMBDA = lambda s:""
+DEFAULT_NAME = ""
+DEFAULT_WIDTH = 0
+
+class AbstractTreeWidget(QtGui.QTreeWidget):
+    """Forms the basis for all TreeWidgets"""
+    def __init__(self, parent):
+        """Standard method to display a list or tree using QTreeWidget
+
+        columnInfoByType is a dictionary of lists keyed to Cue3.Constants.TYPE_*
+        Each value is a list of lists that each define a column.
+        [<column name>, <width>, <lambda function>, <function name for sorting>,
+        <column delegate class>]
+        Only supported on the primary column:
+        <column name>, <column delegate class>, <width>
+
+        @type  parent: QWidget
+        @param parent: The widget to set as the parent"""
+        QtGui.QTreeWidget.__init__(self, parent)
+
+        self._items = {}
+        self._lastUpdate = 0
+
+        self._itemsLock = QtCore.QReadWriteLock()
+        self._timer = QtCore.QTimer(self)
+
+        self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+
+        self.setUniformRowHeights(True)
+        self.setAutoScroll(False)
+        self.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.setAlternatingRowColors(True)
+
+        self.setSortingEnabled(True)
+        self.header().setMovable(False)
+        self.header().setStretchLastSection(True)
+        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
+
+        self.setItemDelegate(ItemDelegate(self))
+
+        self.__setupColumns()
+
+        self.__setupColumnMenu()
+
+        QtCore.QObject.connect(self,
+                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
+                               self.__itemSingleClickedEmitToApp)
+        QtCore.QObject.connect(self,
+                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
+                               self.__itemDoubleClickedEmitToApp)
+        QtCore.QObject.connect(self._timer,
+                               QtCore.SIGNAL('timeout()'),
+                               self.updateRequest)
+        QtCore.QObject.connect(QtGui.qApp,
+                               QtCore.SIGNAL('request_update()'),
+                               self.updateRequest)
+
+        self.updateRequest()
+        self.setUpdateInterval(10)
+
+    def startColumnsForType(self, itemType):
+        """Start column definitions for the given item type. The first call to
+        this defines the primary column type used to populate the column headers.
+        @type  itemType: int
+        @param itemType: The id for the item type"""
+        # First call defines the primary type
+        if not hasattr(self, "columnPrimaryType"):
+            self.columnPrimaryType = itemType
+            self.__columnPrimaryType = itemType
+            self.__columnInfoByType = {}
+
+        self.__columnInfoByType[itemType] = []
+        self.__columnCurrent = itemType
+
+    def addColumn(self, name, width, id=0, default=True,
+                  data=DEFAULT_LAMBDA, sort=None,
+                  delegate=None, tip=""):
+        """Define a new column for the current item type.
+        @type  name: str
+        @param name: The name of the column.
+        @type  width: int
+        @param width: The width of the column.
+        @type  id: int
+        @param id: A unique id
+        @type  default: bool
+        @param default: Will determine if the column is displayed by default.
+        @type  data: callable
+        @param data: The callable to use when displaying.
+        @type  sort: callable
+        @param sort: The callable to use when sorting.
+        @type  delegate: delegate
+        @param delegate: The delegate that should draw the cells.
+        @type  tip: str
+        @param tip: A tooltip for the column."""
+        assert isinstance(name, str), "Column name must be string"
+        assert isinstance(width, int), "Column width must be int"
+        assert hasattr(data, '__call__'), "Column data function must be callable"
+        assert isinstance(tip, str), "Column tooltip must be string"
+
+        columnsInfo = self.__columnInfoByType[self.__columnCurrent]
+        columnsInfo.append([name, width, data, sort, delegate, tip, default, id])
+
+    def __setupColumns(self):
+        """Setup the QTreeWidget based on the column information"""
+        primaryColumnInfo = self.__columnInfoByType[self.__columnPrimaryType]
+
+        self.setColumnCount(len(primaryColumnInfo))
+
+        columnNames = []
+        for col, columnInfo in enumerate(primaryColumnInfo):
+            # Set up column widths
+            self.setColumnWidth(col, primaryColumnInfo[col][COLUMN_WIDTH])
+
+            # Setup the column tooltips
+            if columnInfo[COLUMN_TOOLTIP]:
+                self.model().setHeaderData(col, QtCore.Qt.Horizontal,
+                                           QtCore.QVariant(columnInfo[COLUMN_TOOLTIP]),
+                                           QtCore.Qt.ToolTipRole)
+
+            # Setup column delegates
+            if primaryColumnInfo[col][COLUMN_DELEGATE]:
+               self.setItemDelegateForColumn(col, primaryColumnInfo[col][COLUMN_DELEGATE](self))
+
+            # Setup column name list
+            if columnInfo[COLUMN_NAME].startswith("_"):
+                columnNames.append("")
+            else:
+                columnNames.append(columnInfo[COLUMN_NAME])
+
+        self.setHeaderLabels(QtCore.QStringList(columnNames))
+
+
+    def startTicksUpdate(self, updateInterval,
+                         updateWhenMinimized=False,
+                         maxUpdateInterval=None):
+        """A method of updating the display on a one second timer to avoid
+        multiple update requests and reduce excess cuebot calls.
+        You will need to implement self.tick, You do not need to provide
+        locking or unhandled error logging.
+        You will need to implement tick.
+        self.ticksWithoutUpdate = number of seconds since the last update.
+        self.ticksLock = QMutex"""
+        self.updateInterval = updateInterval
+        self.__updateWhenMinimized = updateWhenMinimized
+        self.__maxUpdateInterval = maxUpdateInterval
+
+        # Stop the default update method
+        if hasattr(self, "_timer"):
+            self._timer.stop()
+
+        self.ticksLock = QtCore.QMutex()
+        self.__ticksTimer = QtCore.QTimer(self)
+        QtCore.QObject.connect(self.__ticksTimer,
+                               QtCore.SIGNAL('timeout()'),
+                               self.__tick)
+        self.__ticksTimer.start(1000)
+        self.ticksWithoutUpdate = 999
+
+    def tickNeedsUpdate(self):
+        if self.ticksWithoutUpdate >= self.updateInterval:
+            if self.window().isMinimized():
+                if self.__maxUpdateInterval is not None and \
+                   self.ticksWithoutUpdate >= self.__maxUpdateInterval:
+                    # Sufficient maximum interval
+                    return True
+                elif not self.__updateWhenMinimized:
+                    # Sufficient interval, except minimized
+                    return False
+                # Sufficient interval, set to update when minimized
+                return True
+            # Sufficient interval, not minimized
+            return True
+        # Insufficient interval
+        return False
+
+    def __tick(self):
+        """Provides locking and logging for the implementation of the tick
+        function"""
+        if not self.ticksLock.tryLock():
+            return
+        try:
+            try:
+                self.tick()
+            except Exception, e:
+                map(logger.warning, Utils.exceptionOutput(e))
+        finally:
+            self.ticksLock.unlock()
+
+    def tick(self):
+        raise NotImplementedError
+
+    def getColumnInfo(self, columnType = None):
+        """Returns the list that defines the column.
+        @type  columnType: Constants.TYPE_*
+        @param columnType: If given, the column information for that type will
+                           be returned. Otherwise the primary column information
+                           will be returned
+        @rtype:  list
+        @return: The list that defines the column,
+                 (see AbstractTreeWidget.__init__() documentation)"""
+        if columnType:
+            return self.__columnInfoByType[columnType]
+        return self.__columnInfoByType[self.__columnPrimaryType]
+
+    def __itemSingleClickedEmitToApp(self, item, col):
+        """When an item is single clicked on:
+        emits "single_click(PyQt_PyObject)" to the app
+        @type  item: QTreeWidgetItem
+        @param item: The item single clicked on
+        @type  col: int
+        @param col: Column number single clicked on"""
+        QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), item.iceObject)
+
+    def __itemDoubleClickedEmitToApp(self, item, col):
+        """Handles when an item is double clicked on.
+        emits "double_click(PyQt_PyObject)" to the app
+        emits "view_object(PyQt_PyObject)" to the app
+        @type  item: QTreeWidgetItem
+        @param item: The item double clicked on
+        @type  col: int
+        @param col: Column number double clicked on"""
+        QtGui.qApp.emit(QtCore.SIGNAL('view_object(PyQt_PyObject)'), item.iceObject)
+        QtGui.qApp.emit(QtCore.SIGNAL("double_click(PyQt_PyObject)"), item.iceObject)
+
+    def addObject(self, iceObject):
+        """Adds or updates an iceObject in the list using the _createItem function
+        and object.proxy as the key. Used when user is adding an item but will
+        not want to wait for an update.
+        @type  paramA: Cue3 object
+        @param paramA: Object that provides .proxy"""
+        self._itemsLock.lockForWrite()
+        try:
+            # If id already exists, update it
+            if self._items.has_key(iceObject.proxy):
+                self._items[iceObject.proxy].update(iceObject)
+            # If id does not exist, create it
+            else:
+                self._items[iceObject.proxy] = self._createItem(iceObject)
+        finally:
+            self._itemsLock.unlock()
+
+    def removeItem(self, item):
+        """Removes an item from the TreeWidget
+        @param item: A tree widget item
+        @type  item: AbstractTreeWidgetItem"""
+        self._itemsLock.lockForWrite()
+        try:
+            self._removeItem(item)
+        finally:
+            self._itemsLock.unlock()
+
+    def _removeItem(self, item):
+        """Removes an item from the TreeWidget without locking
+        @type  item: AbstractTreeWidgetItem or String
+        @param item: A tree widget item or the string with the id of the item"""
+        if hasattr(item, "ice_getEndpoints"):
+            if self._items.has_key(item):
+                item = self._items[item]
+            else:
+                # if the parent was already deleted, then this one was too
+                return
+
+        # If it has children, they must be deleted first
+        if item.childCount() > 0:
+            for child in item.takeChildren():
+                self._removeItem(child)
+
+        if item.isSelected():
+            item.setSelected(False)
+
+        if item.parent():
+            #This allowed more segfaults
+            #item.parent().removeChild(item)
+            self.invisibleRootItem().removeChild(item)
+        self.takeTopLevelItem(self.indexOfTopLevelItem(item))
+        del self._items[item.iceObject.proxy]
+
+    def removeAllItems(self):
+        self._itemsLock.lockForWrite()
+        try:
+            self._items = {}
+            self.clear()
+        finally:
+            self._itemsLock.unlock()
+
+    def selectedObjects(self):
+        """Provides a list of all objects from selected items
+        @return: A list of objects from selected items
+        @rtype:  list<object>"""
+        return [item.iceObject for item in self.selectedItems()]
+
+    def setUpdateInterval(self, seconds):
+        """Changes the update interval
+        @param seconds: Update interval in seconds
+        @type  seconds: int"""
+        self._timer.start(seconds * 1000)
+
+    def updateRequest(self):
+        """Updates the items in the TreeWidget if sufficient time has passed
+        since last updated and the user has not scrolled recently if
+        self._limitUpdatesDuringScrollSetup() was called in the TreeWidget
+        object init"""
+        if time.time() - self._lastUpdate > Constants.MINIMUM_UPDATE_INTERVAL:
+            if self.__limitUpdatesDuringScrollAllowUpdate():
+                self._update()
+
+    def _update(self):
+        """Updates the items in the TreeWidget without checking when it was last
+        updated"""
+        self._lastUpdate = time.time()
+        if hasattr(QtGui.qApp, "threadpool"):
+            QtGui.qApp.threadpool.queue(self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
+        else:
+            logger.warning("threadpool not found, doing work in gui thread")
+            self._processUpdate(None, self._getUpdate())
+
+    def _processUpdate(self, work, iceObjects):
+        """A generic function that Will:
+        Create new TreeWidgetItems if an item does not exist for the object.
+        Update existing TreeWidgetItems if an item already exists for the object.
+        Remove items that were not updated with iceObjects.
+        @param work:
+        @type  work: from ThreadPool
+        @param iceObjects: A list of ice objects
+        @type  iceObjects: list<ice object> """
+        self._itemsLock.lockForWrite()
+        try:
+            updated = []
+            for iceObject in iceObjects:
+                updated.append(iceObject.proxy)
+
+                # If id already exists, update it
+                if self._items.has_key(iceObject.proxy):
+                    self._items[iceObject.proxy].update(iceObject)
+                # If id does not exist, create it
+                else:
+                    self._items[iceObject.proxy] = self._createItem(iceObject)
+
+            # Remove any items that were not updated
+            for proxy in list(set(self._items.keys()) - set(updated)):
+                self._removeItem(proxy)
+
+            self.redraw()
+        finally:
+            self._itemsLock.unlock()
+
+    def updateSoon(self):
+        """Returns immediately. Causes an update to happen
+        Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
+        if hasattr(self, "ticksWithoutUpdate"):
+            self.ticksWithoutUpdate = self.updateInterval - \
+                                      Constants.AFTER_ACTION_UPDATE_DELAY / 1000
+        else:
+            QtCore.QTimer.singleShot(Constants.AFTER_ACTION_UPDATE_DELAY,
+                                     self.updateRequest)
+
+    def redraw(self):
+        """Forces the displayed items to be redrawn"""
+        if not self.window().isMinimized():
+            try:
+                self.scheduleDelayedItemsLayout()
+                # This setDirtyRegion works but can give this error sometimes:
+                # "underlying C/C++ object has been deleted"
+                #self.setDirtyRegion(QtGui.QRegion(self.viewport().rect()))
+            except Exception, e:
+                map(logger.warning, Utils.exceptionOutput(e))
+
+    def getColumnWidths(self):
+        """Return the column widths
+        @rtype: list<int>
+        @return: A list of column widths"""
+        return [self.columnWidth(index) for index in xrange(self.columnCount())]
+
+    def setColumnWidths(self, widths):
+        """Set the column widths if thecorrect number are provided, but ignore
+        the last one since it is stretched to the end.
+        @type  widths: list<int>
+        @param widths: The desired width for each column"""
+        if len(widths) == self.columnCount():
+            for index, width in enumerate(widths[:-1]):
+                self.setColumnWidth(index, width)
+
+################################################################################
+# Optionally limit updates when user scrolls
+################################################################################
+    def _limitUpdatesDuringScrollSetup(self, skipsAllowed = 1, delay = 1.0):
+        """Allows the ability to skip updates when the user is scrolling
+        @type  skipsAllowed: int
+        @param skipsAllowed: Defines how many skips are allowed before ignoring
+                             that the user is scrolling
+        @type  delay: float
+        @param delay: Defines how many seconds it must have been since the user
+                      last scrolled before allowing an update."""
+        self.limitUpdatesDuringScroll = True
+        self.__lastScrollTime = 0
+        self.__updateSkipCount = 0
+        self.__allowedSkipCount = skipsAllowed
+        self.__allowedSkipDelay = delay
+        QtCore.QObject.connect(self.verticalScrollBar(),
+                               QtCore.SIGNAL('valueChanged(int)'),
+                               self.__userScrolled)
+
+    def __userScrolled(self, val):
+        """Stores the time when the user last scrolled"""
+        self.__lastScrollTime = time.time()
+
+    def __limitUpdatesDuringScrollAllowUpdate(self):
+        """Returns False if the user recently scrolled and the table should not
+        be updated.
+        @rtype: bool
+        @return: Returns true if it is ok to update the table"""
+        if not hasattr(self, "limitUpdatesDuringScroll"):
+            return True
+
+        if time.time() - self.__lastScrollTime > self.__allowedSkipDelay or \
+           self.__updateSkipCount >= self.__allowedSkipCount:
+            self.__updateSkipCount = 0
+            return True
+        else:
+            self.__updateSkipCount += 1
+            return False
+
+################################################################################
+# Allow the user to show or hide columns
+################################################################################
+    def __setupColumnMenu(self):
+        self.__dropdown = QtGui.QToolButton(self)
+        self.__dropdown.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.__dropdown.setFixedHeight(self.header().height())
+        self.__dropdown.setToolTip("Click to select columns to display")
+        self.__dropdown.setIcon(QtGui.QIcon(":column_popdown.png"))
+        QtCore.QObject.connect(self.__dropdown,
+                               QtCore.SIGNAL('clicked()'),
+                               self.__displayColumnMenu)
+
+        layout = QtGui.QHBoxLayout(self.header())
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setAlignment(QtCore.Qt.AlignRight)
+        layout.addWidget(self.__dropdown)
+
+    def __displayColumnMenu(self):
+        point = self.__dropdown.mapToGlobal(QtCore.QPoint(self.__dropdown.width(),
+                                                          self.__dropdown.height()))
+
+        menu = QtGui.QMenu(self)
+        QtCore.QObject.connect(menu,
+                               QtCore.SIGNAL("triggered(QAction*)"),
+                               self.__handleColumnMenu)
+        for col in range(self.columnCount()):
+            if self.columnWidth(col) or self.isColumnHidden(col):
+                name = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_NAME]
+                a = QtGui.QAction(menu)
+                a.setText("%s. %s" % (col, name))
+                a.setCheckable(True)
+                a.setChecked(not self.isColumnHidden(col))
+                menu.addAction(a)
+        menu.exec_(point)
+
+    def __handleColumnMenu(self, action):
+        col = int(action.text().split(".")[0])
+        self.setColumnHidden(col, not action.isChecked())
+
+        if action.isChecked() and not self.columnWidth(col):
+            width = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_WIDTH]
+            self.setColumnWidth(col, width)
+
+    def getColumnVisibility(self):
+        settings = []
+        for col in range(self.columnCount()):
+            settings.append(self.isColumnHidden(col))
+        return settings
+
+    def setColumnVisibility(self, settings):
+        if settings:
+            for col in range(len(settings)):
+                if col <= self.columnCount():
+                    self.setColumnHidden(col, settings[col])

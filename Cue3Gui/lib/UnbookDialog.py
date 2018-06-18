@@ -1,0 +1,418 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+from Manifest import QtCore, QtGui, Cue3
+
+import re
+import sys
+import os
+
+import Constants
+from AbstractDialog import AbstractDialog
+
+class UnbookDialog(AbstractDialog):
+    def __init__(self, jobs, parent=None):
+        AbstractDialog.__init__(self, parent)
+        layout = QtGui.QVBoxLayout(self)
+
+        self.setWindowTitle("Unbook matching frames")
+
+        __descriptionLabel = QtGui.QLabel("Unbook and optionally kill the matching frames from the following jobs:", self)
+
+        self.__show = Cue3.findShow(jobs[0].data.name.split("-")[0])
+        self.__jobs = [job.data.name for job in jobs if job.data.name.startswith(self.__show.data.name)]
+        self.__subscriptions = [sub.data.name.split(".")[1] for sub in self.__show.getSubscriptions()]
+
+        # Show list of jobs selected
+        self.__jobList = QtGui.QTextEdit(self)
+        self.__jobList.setText("\n".join(self.__jobs))
+        self.__jobList.setReadOnly(True)
+        self.__jobList.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum))
+
+        # matrix of subscribed allocations
+        self.__matrix = self._newCheckBoxSelectionMatrix("Allocations",
+                                                         self.__subscriptions,
+                                                         self.__subscriptions)
+
+        # The number to unbook
+        __amountLabel = QtGui.QLabel("Amount to unbook:", self)
+        self.__amount = QtGui.QSpinBox(self)
+        self.__amount.setRange(0, 10000)
+        self.__amount.setValue(1)
+
+        # checkbox for "Kill unbooked frames"
+        __killLabel = QtGui.QLabel("Kill unbooked frames?", self)
+        self.__kill = QtGui.QCheckBox(self)
+
+        # checkbox for "Redirect procs to a group or job?"
+        __redirectLabel = QtGui.QLabel("Redirect procs to a group or job?", self)
+        self.__redirect = QtGui.QCheckBox(self)
+
+        self.__buttons = self._newDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+
+        layout.addWidget(__descriptionLabel)
+        layout.addWidget(self.__jobList)
+
+        self._addWidgetRow(__amountLabel, self.__amount)
+        self._addWidgetRow(__killLabel, self.__kill)
+        self._addWidgetRow(__redirectLabel, self.__redirect)
+
+        layout.addWidget(self.__matrix)
+
+        # checkbox and LineEdit for amount or range of memory
+        self.__memoryRangeBox = self.__createRangeBox(layout, "Memory requirement", "Mb", 32768)
+
+        # checkbox and LineEdit for amount or range of runtime
+        self.__runtimeRangeBox = self.__createRangeBox(layout, "Runtime requirement", "Minutes", 10000)
+
+        layout.addWidget(self.__buttons)
+
+    def __createRangeBox(self, layout, name, units, max):
+        __group = QtGui.QGroupBox(name)
+        __group.setCheckable(True)
+        __group.setChecked(False)
+        __layout = QtGui.QGridLayout(__group)
+
+        __moreThan = QtGui.QRadioButton("More than")
+        __lessThan = QtGui.QRadioButton("Less than")
+        __range = QtGui.QRadioButton("Between")
+
+        __range.setChecked(True)
+
+        __layout.addWidget(__moreThan, 1, 0)
+        __layout.addWidget(__lessThan, 1, 1)
+        __layout.addWidget(__range, 1, 2)
+
+        __min = QtGui.QSpinBox(self)
+        __min.setRange(0, max)
+        __layout.addWidget(__min, 0, 0)
+
+        __minLabel = QtGui.QLabel(units)
+        __layout.addWidget(__minLabel, 0, 1)
+
+        __toLabel = QtGui.QLabel(" to ")
+        __layout.addWidget(__toLabel, 0, 2, QtCore.Qt.AlignHCenter)
+
+        __max = QtGui.QSpinBox(self)
+        __max.setRange(0, max)
+        __layout.addWidget(__max, 0, 3)
+
+        __maxLabel = QtGui.QLabel(units)
+        __layout.addWidget(__maxLabel, 0, 4)
+
+        # Setting the minimum should disable the right hand side of the range
+        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
+                               __min, QtCore.SLOT("setDisabled(bool)"))
+        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
+                               __toLabel, QtCore.SLOT("setDisabled(bool)"))
+        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
+                               __minLabel, QtCore.SLOT("setDisabled(bool)"))
+
+        # Setting the maximum should disable the left hand side of the range
+        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
+                               __max, QtCore.SLOT("setDisabled(bool)"))
+        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
+                               __toLabel, QtCore.SLOT("setDisabled(bool)"))
+        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
+                               __maxLabel, QtCore.SLOT("setDisabled(bool)"))
+
+        layout.addWidget(__group)
+
+        return RangeBox(__group, __moreThan, __lessThan, __range, __min, __max)
+
+    def handleIntCriterion(self, mixed, convert=None):
+        """handleIntCriterion
+            returns the proper subclass of IntSearchCriterion based on
+            input from the user. There are a few formats which are accepted.
+
+            float/int - GreaterThanFloatSearchCriterion
+            string -
+                gt<value> - GreaterThanFloatSearchCriterion
+                lt<value> - LessThanFloatSearchCriterion
+                min-max  - InRangeFloatSearchCriterion
+        """
+        def _convert(val):
+            if not convert:
+                return int(val)
+            return int(convert(float(val)))
+
+        if isinstance(mixed, (float, int)):
+            result = Cue3.SpiIce.GreaterThanIntegerSearchCriterion(_convert(mixed))
+        elif isinstance(mixed, str):
+            if mixed.startswith("gt"):
+                result = Cue3.SpiIce.GreaterThanIntegerSearchCriterion(_convert(mixed[2:]))
+            elif mixed.startswith("lt"):
+                result = Cue3.SpiIce.LessThanIntegerSearchCriterion(_convert(mixed[2:]))
+            elif mixed.find("-") > -1:
+                min,max = mixed.split("-", 1)
+                result = Cue3.SpiIce.InRangeIntegerSearchCriterion(_convert(min), _convert(max))
+            else:
+                try:
+                    result = Cue3.SpiIce.GreaterThanIntegerSearchCriterion(_convert(mixed))
+                except ValueError:
+                    raise Exception("invalid int search input value: " + str(mixed))
+        elif issubclass(mixed.__class__, Cue3.SpiIce.IntegerSearchCriterion):
+            result = mixed
+        elif not mixed:
+            return []
+        else:
+            raise Exception("invalid float search input value: " + str(mixed))
+
+        return [result]
+
+    def accept(self):
+        if not self.__jobs:
+            self.close()
+
+        procSearch = Cue3.ProcSearch()
+        procSearch.maxResults = [int(self.__amount.value())]
+        procSearch.jobs = self.__jobs
+        procSearch.allocs = [str(checkedBox.text()) for checkedBox in self.__matrix.checkedBoxes()]
+        memoryRange = self.__memoryRangeBox.result()
+        if memoryRange:
+            procSearch.memoryRange = self.handleIntCriterion(memoryRange, lambda mb:(mb*1024))
+        runtimeRange = self.__runtimeRangeBox.result()
+        if runtimeRange:
+            procSearch.durationRange = self.handleIntCriterion(runtimeRange, lambda min:(min*60))
+
+        if self.__redirect.isChecked():
+            # Select the show to redirect to
+            title = "Select show"
+            body = "Redirect to what show?"
+            shows = dict([(show.data.name, show) for show in Cue3.getActiveShows()])
+            items = [self.__jobs[0].split("-")[0]] + sorted(shows.keys())
+            (show, choice) = QtGui.QInputDialog.getItem(self,
+                                                        title,
+                                                        body,
+                                                        items,
+                                                        0,
+                                                        False)
+            if not choice:
+                return
+            show = shows[str(show)]
+
+            # Decide between redirecting to a job or a group
+            title = "Select Redirection Type"
+            body = "Redirect to a job or a group?"
+            items = ["Job", "Group"]
+            (redirectTo, choice) = QtGui.QInputDialog.getItem(self,
+                                                              title,
+                                                              body,
+                                                              items,
+                                                              0,
+                                                              False)
+            if not choice:
+                return
+
+            job = group = None
+            if redirectTo == "Job":
+                jobs = dict([(job.data.name, job) for job in Cue3.getJobs(show=[show.data.name])])
+                dialog = SelectItemsWithSearchDialog(self,
+                                                     "Redirect to which job?",
+                                                     jobs.keys(),
+                                                     QtGui.QAbstractItemView.SingleSelection)
+                dialog.exec_()
+                selected = dialog.selected()
+                if selected:
+                    job = jobs[selected[0]]
+                else:
+                    return
+
+            elif redirectTo == "Group":
+                title = "Select Redirection Group"
+                body = "Redirect to which group?"
+                groups = dict([(group.data.name, group) for group in show.proxy.getGroups()])
+                (group, choice) = QtGui.QInputDialog.getItem(self,
+                                                             title,
+                                                             body,
+                                                             sorted(groups.keys()),
+                                                             0,
+                                                             False)
+                if not choice:
+                    return
+                group = groups[str(group)]
+
+            if job or group:
+                procs = Cue3.Cuebot.Proxy.getProcs(procSearch)
+                kill = self.__kill.isChecked()
+                amount = 0
+
+                for proc in procs:
+                    try:
+                        if job:
+                            proc.proxy.redirectToJob(job.proxy, kill)
+                        elif group:
+                            proc.proxy.redirectToGroup(group.proxy, kill)
+                        amount += 1
+                    except Exception, e:
+                        pass
+                self.__informationBox("Redirected procs",
+                                      "Number of redirected procs: %d" % amount)
+                self.close()
+        else:
+            # Not redirecting
+            if self.__kill.isChecked():
+                dialog = KillConfirmationDialog(procSearch, self.parent())
+                dialog.exec_()
+                if dialog.result():
+                    self.close()
+            else:
+                amount = Cue3.Cuebot.Proxy.unbookProcs(procSearch, False)
+                self.__informationBox("Unbooked frames",
+                                      "Number of frames unbooked: %d" % amount)
+                self.close()
+
+    def __informationBox(self, title, message):
+        QtGui.QMessageBox.information(self.parent(),
+                                      title,
+                                      message,
+                                      QtGui.QMessageBox.Ok)
+
+class SelectItemsWithSearchDialog(AbstractDialog):
+    def __init__(self, parent, header, items,
+                 selectionMode=QtGui.QAbstractItemView.MultiSelection):
+        AbstractDialog.__init__(self, parent)
+
+        QtGui.QVBoxLayout(self)
+
+        self.__items = items
+
+        self.__widget = SelectItemsWithSearchWidget(self,
+                                                    header,
+                                                    self.__items,
+                                                    selectionMode)
+        self.layout().addWidget(self.__widget)
+
+        self.__buttons = self._newDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.layout().addWidget(self.__buttons)
+
+    def selected(self):
+        if self.result():
+            return self.__widget.selected()
+        return None
+
+class SelectItemsWithSearchWidget(QtGui.QWidget):
+    def __init__(self, parent, header, items,
+                 selectionMode=QtGui.QAbstractItemView.MultiSelection):
+        QtGui.QWidget.__init__(self, parent)
+
+        QtGui.QGridLayout(self)
+
+        self.__items = items
+
+        self.__label = QtGui.QLabel(header, self)
+        self.layout().addWidget(self.__label, 0, 0, 1, 1)
+
+        self.__filter = QtGui.QLineEdit("", self)
+        self.layout().addWidget(self.__filter, 2, 0)
+
+        QtCore.QObject.connect(self.__filter,
+                               QtCore.SIGNAL('textChanged(const QString &)'),
+                               self.filterJobs)
+
+        self.__list = QtGui.QListWidget(self)
+        self.__list.setSelectionMode(selectionMode)
+        self.layout().addWidget(self.__list, 3, 0)
+
+        self.filterJobs(None)
+
+    def filterJobs(self, text):
+        self.__list.clear()
+        items = [item for item in self.__items if not text or re.search(str(text), item, re.IGNORECASE)]
+        self.__list.addItems(items)
+
+    def selected(self):
+        selected = []
+        for num in range(self.__list.count()):
+            if self.__list.item(num).isSelected():
+                selected.append(str(self.__list.item(num).text()))
+        return selected
+
+class RangeBox(object):
+    """Stores the parts the make up the range box and provides a way to query
+    for the result"""
+    def __init__(self, group, moreThan, lessThan, range, min, max):
+        self.__group = group
+        self.__moreThan = moreThan
+        self.__lessThan = lessThan
+        self.__range = range
+        self.__min = min
+        self.__max = max
+
+    def result(self):
+        if self.__group.isChecked():
+            if self.__moreThan.isChecked():
+                return "gt%d" % self.__min.value()
+            if self.__lessThan.isChecked():
+                return "lt%d" % self.__max.value()
+            if self.__range.isChecked():
+                return "%d-%d" % (self.__min.value(), self.__max.value())
+        return ""
+
+class KillConfirmationDialog(QtGui.QDialog):
+    def __init__(self, procSearch, parent=None):
+        QtGui.QDialog.__init__(self, parent)
+        layout = QtGui.QVBoxLayout(self)
+
+        self.setModal(True)
+        self.setFixedWidth(500)
+        self.setWindowTitle("Unbook and kill frames?")
+
+        self.__procSearch = procSearch
+        self.__procs = Cue3.Cuebot.Proxy.getProcs(procSearch)
+        self.__amount = len(self.__procs)
+
+        if self.__amount == 1:
+            msg = "Unbook and kill this %d matching frame?"
+        else:
+            msg = "Unbook and kill these %d matching frames?"
+        __descriptionLabel = QtGui.QLabel(msg % self.__amount, self)
+
+        # Show list of jobs selected
+        self.__jobList = QtGui.QTextEdit(self)
+        self.__jobList.setText("\n".join(["%s %s" % (proc.data.jobName, proc.data.frameName) for proc in self.__procs]))
+        self.__jobList.setReadOnly(True)
+        self.__jobList.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum))
+
+        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
+                                                QtCore.Qt.Horizontal,
+                                                self)
+
+        layout.addWidget(__descriptionLabel)
+        layout.addWidget(self.__jobList)
+        layout.addWidget(self.__buttons)
+
+        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"),
+                               self, QtCore.SLOT("accept()"))
+        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"),
+                               self, QtCore.SLOT("reject()"))
+
+    def accept(self):
+        for proc in self.__procs:
+            try:
+                proc.proxy.kill()
+            except Exception, e:
+                pass
+
+        if self.__amount == 1:
+            msg = "%d frame has been unbooked and killed."
+        else:
+            msg = "%d frames have been unbooked and killed."
+        QtGui.QMessageBox.information(self.parent(),
+                                      "Unbooked and killed frames",
+                                      msg % self.__amount,
+                                      QtGui.QMessageBox.Ok)
+
+        self.done(QtGui.QDialog.Accepted)

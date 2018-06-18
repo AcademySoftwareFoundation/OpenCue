@@ -1,0 +1,319 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""
+This module provides the ability to find and run plugins.
+
+Each plugin module can or should contain the following:
+
+PLUGIN_NAME        : The displayed name of the plugin.
+PLUGIN_CATEGORY    : The submenu that the plugin should be placed in.
+PLUGIN_DESCRIPTION : The description shown next to the plugin name.
+PLUGIN_REQUIRES    : (optional) The application name that the plugin requires
+                   : to load. ex. "CueCommander3"
+PLUGIN_PROVIDES    : The name of the class that the plugin provides.
+
+When a plugin is instantiated, a reference to the MainWindow is provided to the
+constructor.
+
+When a plugin wishes to remove it's instance, it should signal with:
+self.emit(QtCore.SIGNAL("closed(PyQt_PyObject)"), self)
+
+You should not have any circular non-weak refrences to yourself. Use weakref.proxy
+
+You may implement __del__ with a print to see if your object is properly removed
+
+The class the plugin provides can have the following functions:
+pluginSaveState() : This should return any settings that the plugin would like
+                  : to save for the next time it is loaded as a string.
+pluginRestoreState(settings) : This will receive any settings that it previously
+                             : returned from pluginSaveSettings()
+"""
+import os
+import sys
+import traceback
+import pickle
+
+from Manifest import QtCore, QtGui
+import Logger
+import Constants
+import Utils
+
+logger = Logger.getLogger(__file__)
+
+CLASS = "CLASS"
+DESCRIPTION = "DESCRIPTION"
+CATEGORY = "CATEGORY"
+
+SETTINGS_KEY = 0
+SETTINGS_GET = 1
+SETTINGS_SET = 2
+
+class Plugins(object):
+    # Keyed to name. each is a dictionary with CLASS, DESCRIPTION and optionally CATEGORY
+    __plugins = {}
+    _loadedPaths = []
+    def __init__(self, mainWindow, name):
+        """Plugins class initialization.
+        @param mainWindow: Application main window reference
+        @type  mainWindow: QMainWindow
+        @param name: Name of current window
+        @type  name: string"""
+        self.__running = []
+        self.name = name
+        self.mainWindow = mainWindow
+
+        self.__menu_separator = " \t-> "
+
+        # Load plugin paths from the config file
+        __pluginPaths = list(QtGui.qApp.settings.value("Plugin_Paths", QtCore.QVariant([])).toStringList())
+        for path in Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
+            self.loadPluginPath(str(path))
+
+        # Load plugins explicitly listed in the config file
+        self.loadConfigFilePlugins("General")
+        self.loadConfigFilePlugins(self.name)
+
+    def loadConfigFilePlugins(self, configGroup):
+        """Loads plugins explicitly listed in the config file for the window.
+        The path is optional if the module is already in the path. The module is
+        optional if you just want to add to the path.
+
+        [General]
+        Plugins=/example/path/module, package.module2
+
+        The imported module must have an init function and a QMainWindow will be
+        passed to it.
+        """
+        __plugins = QtGui.qApp.settings.value("%s/Plugins" % configGroup, QtCore.QVariant(QtCore.QStringList([]))).toStringList()
+
+        for plugin in __plugins:
+            path = os.path.dirname(str(plugin))
+            if path:
+                logger.info("adding path " + path)
+                sys.path.append(path)
+
+        for plugin in __plugins:
+            module = os.path.basename(str(plugin))
+            if module:
+                logger.info("loading module " + module)
+                s_class = module.split(".")[-1]
+                try:
+                    m = __import__(module, globals(), locals(), [s_class])
+                    m.init(self.mainWindow)
+                    logger.info("plugin loaded %s" % module)
+                except Exception,e:
+                    logger.warning("Failed to load plugin: %s" % s_class)
+                    map(logger.warning, Utils.exceptionOutput(e))
+
+    def __closePlugin(self, object):
+        """When a running plugin is closed, this is called and the running
+        plugin is deleted. If it is a dock widget then it is removed from the
+        main window.
+        @type  object: Object
+        @param object: The object created by loadin"""
+        for item in self.__running:
+            if item[1] == object:
+                if isinstance(object, QtGui.QDockWidget):
+                    self.mainWindow.removeDockWidget(object)
+                self.__running.remove(item)
+                return
+
+    def runningList(self):
+        """Lists all running plugins
+        @return: [("Class_Name_1", PluginClass1_Instance), ("Class_Name_2", PluginClass2_Instance)]
+        @rtype:  list"""
+        return self.__running
+
+    def saveState(self):
+        """Saves the names of all open plugins.
+           Calls .saveSettings (if available) on all plugins."""
+        opened = []
+        for plugin in self.__running:
+            try:
+                if hasattr(plugin[1], "pluginSaveState"):
+                        opened.append("%s::%s" % (plugin[0], pickle.dumps(plugin[1].pluginSaveState())))
+            except Exception, e:
+                logger.warning("Error saving plugin state for: %s\n%s" % (plugin[0], e))
+        QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, QtCore.QVariant(QtCore.QStringList(opened)))
+
+    def restoreState(self):
+        """Loads any user defined pluggin directories.
+           Restores all open plugins.
+           Calls .restoreSettings (if available) on all plugins."""
+        # Loads any user defined pluggin directories
+        for path in QtGui.qApp.settings.value("Plugins/Paths", QtCore.QVariant([])).toStringList():
+            self.loadPluginPath(str(path))
+
+        # Runs any plugins that were saved to the settings
+        for plugin in QtGui.qApp.settings.value("%s/Plugins_Opened" % self.name, QtCore.QVariant([])).toStringList():
+            [plugin_name, plugin_state] = str(plugin).split("::")
+            self.launchPlugin(plugin_name, plugin_state)
+
+    def launchPlugin(self, plugin_name, plugin_state):
+        """Launches the desired plugin
+        @param plugin_name: The name of the plugin as provided by PLUGIN_NAME
+        @type  plugin_name: string
+        @param plugin_state: The state of the plugin's tab
+        @type  plugin_state: string"""
+        try:
+            plugin_class = self.__plugins[plugin_name][CLASS]
+        except KeyError, e:
+            logger.warning("Unable to launch previously open plugin, it no longer exists: %s" % plugin_name)
+            return
+
+        try:
+            plugin_instance = plugin_class(self.mainWindow)
+            self.__running.append((plugin_name, plugin_instance))
+            QtCore.QObject.connect(plugin_instance, QtCore.SIGNAL("closed(PyQt_PyObject)"), self.__closePlugin, QtCore.Qt.QueuedConnection)
+        except Exception, e:
+            logger.warning("Failed to load plugin module: %s\n%s" % (plugin_name,
+                                                                     ''.join(traceback.format_exception(*sys.exc_info())) ))
+            return
+
+        if hasattr(plugin_instance, "pluginRestoreState"):
+            try:
+                try:
+                    if plugin_state:
+                        state = pickle.loads(plugin_state)
+                    else:
+                        state = None
+                except Exception, e:
+                    logger.warning("Failed to load state information stored as %s for %s, error was: %s" % (plugin_state, plugin_name, e))
+                    state = None
+                plugin_instance.pluginRestoreState(state)
+            except Exception, e:
+                logger.warning("Error restoring plugin state for: %s" % plugin_name)
+                map(logger.warning, Utils.exceptionOutput(e))
+
+    def loadPluginPath(self, plugin_dir):
+        """This will load all plugin modules located in the path provided
+        @param plugin_dir: Path to a plugin directory
+        @type  plugin_dir: string"""
+
+        if plugin_dir in self._loadedPaths:
+            return
+        self._loadedPaths.append(plugin_dir)
+
+        if os.path.isdir(plugin_dir):
+            orig_sys_path = sys.path[:]
+            sys.path.append(plugin_dir)
+
+            for p in os.listdir(plugin_dir):
+                name, ext = os.path.splitext(p)
+                if ext == ".py" and not name in ["__init__","Manifest","README"]:
+                    self.loadPlugin(name)
+            sys.path = orig_sys_path
+        else:
+            logger.warning("Unable to read the plugin path: %s" % plugin_dir)
+
+    def loadPlugin(self, name):
+        """Loads a single plugin that must be in the python path
+        @param name: Name of the python module that contains a plugin
+        @type  name: string"""
+        try:
+            logger.info("Importing: %s" % name)
+            module = __import__(name, globals(), locals())
+            logger.info("Has:      %s" % dir(module))
+            logger.info("Name:     %s" % module.PLUGIN_NAME)
+            logger.info("Provides: %s" % module.PLUGIN_PROVIDES)
+
+            # If a plugin requires a different app, do not use it
+            # TODO: accept a list also, log it
+            if hasattr(module, "PLUGIN_REQUIRES"):
+                if self.mainWindow.app_name != module.PLUGIN_REQUIRES:
+                    return
+
+            newPlugin = {}
+            newPlugin[CLASS] =  getattr(module, module.PLUGIN_PROVIDES)
+            newPlugin[DESCRIPTION] = str(module.PLUGIN_DESCRIPTION)
+
+            if hasattr(module, "PLUGIN_CATEGORY"):
+                newPlugin[CATEGORY] = str(module.PLUGIN_CATEGORY)
+
+            self.__plugins[module.PLUGIN_NAME] = newPlugin
+
+        except Exception, e:
+            logger.warning("Failed to load plugin %s\n%s" % (name,
+                                                             ''.join(traceback.format_exception(*sys.exc_info())) ))
+
+    def setupPluginMenu(self, menu):
+        """Adds a plugin menu option to the supplied menubar
+        @param menu: The menu to add the loaded plugins to
+        @type  menu: QMenu"""
+        QtCore.QObject.connect(menu, QtCore.SIGNAL("triggered(QAction*)"), self._handlePluginMenu)
+
+        # Create the submenus (ordered)
+        submenus = {}
+        menu_locations = {"root": []}
+        for category in set(sorted([plugin[CATEGORY] for plugin in self.__plugins.values() if plugin.has_key(CATEGORY)])):
+            submenus[category] = QtGui.QMenu(category, menu)
+            menu.addMenu(submenus[category])
+            menu_locations[category] = []
+
+        # Store the plugin name in the proper menu_locations category
+        for plugin in self.__plugins:
+            category = self.__plugins[plugin].get(CATEGORY, "root")
+            menu_locations[category].append(plugin)
+
+        # Create the QAction and add it to the correct menu (sorted)
+        for category in menu_locations:
+            for plugin in sorted(menu_locations[category]):
+                action = QtGui.QAction("%s%s%s" % (plugin, self.__menu_separator, self.__plugins[plugin][DESCRIPTION]), menu)
+                if submenus.has_key(category):
+                    submenus[category].addAction(action)
+                else:
+                    menu.addAction(action)
+
+        return menu
+
+    def _handlePluginMenu(self, action):
+        """Handles what happens when a plugin menu item is clicked on
+        @param action: The action that was selected from the menu
+        @type  action: QAction"""
+        plugin_name = str(action.text()).split("%s" % self.__menu_separator)[0]
+        self.launchPlugin(plugin_name, "")
+
+class Plugin:
+    def __init__(self):
+        self.__settings = []
+
+    def pluginRestoreState(self, saved):
+        """Called on plugin start with any previously saved state.
+        @param settings: Last state of the plugin instance
+        @type  settings: dict"""
+        if self.__settings and saved and isinstance(saved, dict):
+            for setting in self.__settings:
+                item = setting[SETTINGS_KEY]
+                if saved.has_key(item):
+                    setting[SETTINGS_SET](saved[item])
+
+    def pluginSaveState(self):
+        """Called on application exit and returns plugin state information.
+        @return: Any object to store as the current state of the plugin instance
+        @rtype:  any"""
+        save = {}
+        if self.__settings:
+            for setting in self.__settings:
+                save[setting[SETTINGS_KEY]] = setting[SETTINGS_GET]()
+        return save
+
+    def pluginRegisterSettings(self, settings):
+        """Stores the available settings.
+        @param settings: a list of tuples that contain the settings key, the
+                         callable to get the setting and a callable that takes
+                         the setting.
+        @type settings: list<tuple>"""
+        self.__settings = settings

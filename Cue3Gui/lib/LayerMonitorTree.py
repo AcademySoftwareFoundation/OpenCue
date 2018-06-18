@@ -1,0 +1,219 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""
+A layer list based on AbstractTreeWidget
+"""
+from Manifest import os, QtCore, QtGui, Cue3
+
+import Utils
+import Constants
+from MenuActions import MenuActions
+from AbstractTreeWidget import *
+from AbstractWidgetItem import *
+
+def displayRange(layer):
+    if layer.data.chunkSize != 1:
+        return '%s chunked %s' % (layer.data.range, layer.data.chunkSize)
+    return layer.data.range
+
+class LayerMonitorTree(AbstractTreeWidget):
+    def __init__(self, parent):
+        self.startColumnsForType(Constants.TYPE_LAYER)
+        self.addColumn("dispatchOrder", 0, id=1,
+                       data=lambda layer:(layer.data.dispatchOrder),
+                       sort=lambda layer:(layer.data.dispatchOrder))
+        self.addColumn("Name", 250, id=2,
+                       data=lambda layer:(layer.data.name),
+                       tip="Name of the layer.")
+        self.addColumn("Services", 100, id=3,
+                       data=lambda layer:(",".join(layer.data.services)),
+                       tip="The underlying application being run within the frames.")
+        self.addColumn("Range", 150, id=4,
+                       data=lambda layer:displayRange(layer),
+                       tip="The range of frames that the layer should render.")
+        self.addColumn("Cores", 45, id=5,
+                       data=lambda layer:("%.2f" % layer.data.minCores),
+                       sort=lambda layer:(layer.data.minCores),
+                       tip="The number of cores that the frames in this layer\n"
+                           "will reserve as a minimum.")
+        self.addColumn("Memory", 60, id=6,
+                       data=lambda layer:(Utils.memoryToString(layer.data.minMemory)),
+                       sort=lambda layer:(layer.data.minMemory),
+                       tip="The amount of memory that each frame in this layer\n"
+                           "will reserve for its use. If the frame begins to use\n"
+                           "more memory than this, the cuebot will increase this\n"
+                           "number.")
+        self.addColumn("Gpu", 40, id=7,
+                       data=lambda layer:(Utils.memoryToString(layer.data.minGpu)),
+                       sort=lambda layer:(layer.data.minGpu),
+                       tip="The amount of gpu memory each frame in this layer\n"
+                           "will reserve for its use. Note that we may not have\n"
+                           "machines as much gpu memory as you request.")
+        self.addColumn("MaxRss", 60, id=8,
+                       data=lambda layer:(Utils.memoryToString(layer.stats.maxRss)),
+                       sort=lambda layer:(layer.stats.maxRss),
+                       tip="Maximum amount of memory used by any frame in\n"
+                           "this layer at any time since the job was launched.")
+        self.addColumn("Total", 40, id=9,
+                       data=lambda layer:(layer.stats.totalFrames),
+                       sort=lambda layer:(layer.stats.totalFrames),
+                       tip="Total number of frames in this layer.")
+        self.addColumn("Done", 40, id=10,
+                       data=lambda layer:(layer.stats.succeededFrames),
+                       sort=lambda layer:(layer.stats.succeededFrames),
+                       tip="Total number of done frames in this layer.")
+        self.addColumn("Run", 40, id=11,
+                       data=lambda layer:(layer.stats.runningFrames),
+                       sort=lambda layer:(layer.stats.runningFrames),
+                       tip="Total number or running frames in this layer.")
+        self.addColumn("Depend", 53, id=12,
+                       data=lambda layer:(layer.stats.dependFrames),
+                       sort=lambda layer:(layer.stats.dependFrames),
+                       tip="Total number of dependent frames in this layer.")
+        self.addColumn("Wait", 40, id=13,
+                       data=lambda layer:(layer.stats.waitingFrames),
+                       sort=lambda layer:(layer.stats.waitingFrames),
+                       tip="Total number of waiting frames in this layer.")
+        self.addColumn("Eaten", 40, id=14,
+                       data=lambda layer:(layer.stats.eatenFrames),
+                       sort=lambda layer:(layer.stats.eatenFrames),
+                       tip="Total number of eaten frames in this layer.")
+        self.addColumn("Dead", 40, id=15,
+                       data=lambda layer:(layer.stats.deadFrames),
+                       sort=lambda layer:(layer.stats.deadFrames),
+                       tip="Total number of dead frames in this layer.")
+        self.addColumn("Avg", 65, id=16,
+                       data=lambda layer:(Utils.secondsToHHMMSS(layer.stats.avgFrameSec)),
+                       sort=lambda layer:(layer.stats.avgFrameSec),
+                       tip="Average number of HOURS:MINUTES:SECONDS per frame\n"
+                           "in this layer.")
+        self.addColumn("Tags", 100, id=17,
+                       data=lambda layer:(" | ".join(layer.data.tags)),
+                       tip="The tags define what resources may be booked on\n"
+                           "frames in this layer.")
+
+        AbstractTreeWidget.__init__(self, parent)
+
+        QtCore.QObject.connect(self,
+                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
+                               self.__itemDoubleClickedFilterLayer)
+
+        # Used to build right click context menus
+        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
+        self.__job = None
+
+        self.disableUpdate = False
+        self.__load = None
+        self.startTicksUpdate(20, False, 60*60*24)
+
+    def tick(self):
+        if self.__load:
+            self.__job = self.__load
+            self.__load = None
+            self.ticksWithoutUpdate = 0
+            if not self.disableUpdate:
+                self._update()
+            return
+
+        if self.__job:
+            if self.tickNeedsUpdate() and not self.disableUpdate:
+                self.ticksWithoutUpdate = 0
+                self._update()
+                return
+
+        self.ticksWithoutUpdate += 1
+
+    def updateRequest(self):
+        """Updates the items in the TreeWidget if sufficient time has passed
+        since last updated"""
+        self.ticksWithoutUpdate = 9999
+
+    def setJob(self, job):
+        """Sets the current job
+        @param job: Job can be None, a job object, or a job name.
+        @type  job: job, string, None"""
+        if job is None:
+            return self.__setJob(None)
+        job = Utils.findJob(job)
+        if job:
+            self.__load = job
+
+    def __setJob(self, job):
+        """Sets the current job
+        @param job: Job can be None, a job object, or a job name.
+        @type  job: job, string, None"""
+        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
+        self.__job = job
+        self.removeAllItems()
+
+    def getJob(self):
+        return self.__job
+
+    def _createItem(self, object):
+        """Creates and returns the proper item"""
+        return LayerWidgetItem(object, self)
+
+    def _getUpdate(self):
+        """Returns the proper data from the cuebot"""
+        if self.__job:
+            try:
+                return self.__job.getLayers()
+            except Cue3.exceptions.ObjectNotExistException, e:
+                self.setJob(None)
+                return []
+        return []
+
+    def contextMenuEvent(self, e):
+        """When right clicking on an item, this raises a context menu"""
+        __selectedObjects = self.selectedObjects()
+
+        menu = QtGui.QMenu()
+
+        self.__menuActions.layers().addAction(menu, "view")
+        depend_menu = QtGui.QMenu("&Dependencies",self)
+        self.__menuActions.layers().addAction(depend_menu, "viewDepends")
+        self.__menuActions.layers().addAction(depend_menu, "dependWizard")
+        depend_menu.addSeparator()
+        self.__menuActions.layers().addAction(depend_menu, "markdone")
+        menu.addMenu(depend_menu)
+
+        if len(__selectedObjects) == 1:
+            menu.addSeparator()
+            self.__menuActions.layers().addAction(menu, "useLocalCores")
+        if len(__selectedObjects) == 1 or len(set([layer.data.range for layer in __selectedObjects])) == 1:
+            self.__menuActions.layers().addAction(menu, "reorder")
+        if len(__selectedObjects) == 1:
+            self.__menuActions.layers().addAction(menu, "stagger")
+
+        menu.addSeparator()
+        self.__menuActions.layers().addAction(menu, "setProperties")
+        menu.addSeparator()
+        self.__menuActions.layers().addAction(menu, "kill")
+        self.__menuActions.layers().addAction(menu, "eat")
+        self.__menuActions.layers().addAction(menu, "retry")
+        if [layer for layer in __selectedObjects if layer.stats.deadFrames]:
+            menu.addSeparator()
+            self.__menuActions.layers().addAction(menu, "retryDead")
+
+        menu.exec_(e.globalPos())
+
+    def __itemDoubleClickedFilterLayer(self, item, col):
+        self.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"),
+                  [item.iceObject.data.name])
+
+class LayerWidgetItem(AbstractWidgetItem):
+    def __init__(self, object, parent):
+        AbstractWidgetItem.__init__(self, Constants.TYPE_LAYER, object, parent)

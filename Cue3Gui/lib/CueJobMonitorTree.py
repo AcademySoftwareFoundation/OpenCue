@@ -1,0 +1,735 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+import os
+import time
+
+from Manifest import QtCore, QtGui, Cue3
+
+import Utils
+import Constants
+import Style
+import Logger
+from MenuActions import MenuActions
+from AbstractTreeWidget import *
+from AbstractWidgetItem import *
+from ItemDelegate import JobThinProgressBarDelegate, JobBookingBarDelegate
+
+logger = Logger.getLogger(__file__)
+
+COLUMN_COMMENT = 1
+COLUMN_EAT = 2
+COLUMN_MAXRSS = 13
+
+FONT_BOLD = QtCore.QVariant(QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold))
+
+def getEta(stats):
+    if stats.runningFrames:
+        remaining = (((stats.pendingFrames - 1) * stats.avgFrameSec) + stats.highFrameSec)
+        if remaining:
+            return Utils.secondsToHHHMM(remaining / stats.runningFrames)
+    return "-"
+
+class CueJobMonitorTree(AbstractTreeWidget):
+    def __init__(self, parent):
+
+        self.__shows = {}
+
+        self.startColumnsForType(Constants.TYPE_JOB)
+        self.addColumn("Job", 550, id=1,
+                       data=lambda job:(job.data.name),
+                       tip="The name of the job: show-shot-user_uniqueName\n\n"
+                           "The color behind the job will change to:\n"
+                           "Blue \t if it is paused\n"
+                           "Red \t if it has dead frames\n"
+                           "Green \t if it has no running frames with frames waiting\n"
+                           "Purple \t if all remaining frames depend on something\n"
+                           "Yellow \t if the maxRss is over %sKb" % Constants.MEMORY_WARNING_LEVEL)
+        self.addColumn("_Comment", 20, id=2,
+                       sort=lambda job:(job.data.hasComment),
+                       tip="A comment icon will appear if a job has a comment. You\n"
+                           "may click on it to view the comments.")
+        self.addColumn("_Autoeat", 20, id=3,
+                       sort=lambda job:(job.data.autoEat),
+                       tip="If the job has auto eating enabled, a pac-man icon\n"
+                           "will appear here and all frames that become dead will\n"
+                           "automatically be eaten.")
+        self.addColumn("Run", 38, id=3,
+                       data=lambda job:(job.stats.runningFrames),
+                       sort=lambda job:(job.stats.runningFrames),
+                       tip="The number of running frames.")
+        self.addColumn("Cores", 55, id=4,
+                       data=lambda job:("%.02f" % job.stats.reservedCores),
+                       sort=lambda job:(job.stats.reservedCores),
+                       tip="The number of reserved cores.")
+        self.addColumn("Wait", 45, id=5,
+                       data=lambda job:(job.stats.waitingFrames),
+                       sort=lambda job:(job.stats.waitingFrames),
+                       tip="The number of waiting frames.")
+        self.addColumn("Depend", 55, id=6,
+                       data=lambda job:(job.stats.dependFrames),
+                       sort=lambda job:(job.stats.dependFrames),
+                       tip="The number of dependent frames.")
+        self.addColumn("Total", 50, id=7,
+                       data=lambda job:(job.stats.totalFrames),
+                       sort=lambda job:(job.stats.totalFrames),
+                       tip="The total number of frames.")
+#        self.addColumn("_Booking Bar", 150, id=8, default=False,
+#                       delegate=JobBookingBarDelegate)
+        self.addColumn("Min", 38, id=9,
+                       data=lambda job:("%.0f" % job.data.minCores),
+                       sort=lambda job:(job.data.minCores),
+                       tip="The minimum number of running cores that the cuebot\n"
+                           "will try to maintain.")
+        self.addColumn("Max", 38, id=10,
+                       data=lambda job:("%.0f" % job.data.maxCores),
+                       sort=lambda job:(job.data.maxCores),
+                       tip="The maximum number of running cores that the cuebot\n"
+                           "will allow.")
+        self.addColumn("Age", 50, id=11,
+                       data=lambda job:(Utils.secondsToHHHMM(time.time() - job.data.startTime)),
+                       sort=lambda job:(time.time() - job.data.startTime),
+                       tip="The HOURS:MINUTES since the job was launched.")
+        self.addColumn("Pri", 30, id=12,
+                       data=lambda job:(job.data.priority),
+                       sort=lambda job:(job.data.priority),
+                       tip="The job priority. The cuebot uses this as a suggestion\n"
+                           "to determine what job needs the next available matching\n"
+                           "resource.")
+        self.addColumn("ETA", 65, id=13,
+                       data=lambda job:(""),
+                       tip="(Inacurate and disabled until a better solution exists)\n"
+                           "A very rough estimate of the number of HOURS:MINUTES\n"
+                           "it will be before the entire job is done.")
+        self.addColumn("MaxRss", 60, id=14,
+                       data=lambda job:(Utils.memoryToString(job.stats.maxRss)),
+                       sort=lambda job:(job.stats.maxRss),
+                       tip="The most memory used at one time by any single frame.")
+        self.addColumn("_Blank", 20, id=15,
+                       tip="Spacer")
+        self.addColumn("Progress", 0, id=16,
+                       delegate=JobThinProgressBarDelegate,
+                       tip="A visual overview of the job progress.\n"
+                           "Green \t is succeeded\n"
+                           "Yellow \t is running\n"
+                           "Red \t is dead\n"
+                           "Purple \t is waiting on a dependency\n"
+                           "Light Blue \t is waiting to be booked")
+
+        for itemType in [Constants.TYPE_GROUP, Constants.TYPE_ROOTGROUP]:
+            self.startColumnsForType(itemType)
+            self.addColumn("", 0, id=1,
+                           data=lambda group:(group.data.name))
+            self.addColumn("", 0, id=2)
+            self.addColumn("", 0, id=3)
+            self.addColumn("", 0, id=4,
+                           data=lambda group:(group.stats.runningFrames))
+            self.addColumn("", 0, id=5,
+                           data=lambda group:("%.2f" %  group.stats.reservedCores))
+            self.addColumn("", 0, id=6,
+                           data=lambda group:(group.stats.waitingFrames))
+            self.addColumn("", 0, id=7)
+            self.addColumn("", 0, id=8)
+            self.addColumn("", 0, id=9,
+                           data=lambda group:(group.data.minCores or ""))
+            self.addColumn("", 0, id=10,
+                           data=lambda group:(group.data.maxCores > 0 and group.data.maxCores or ""))
+            self.addColumn("", 0, id=11)
+            self.addColumn("", 0, id=12)
+            self.addColumn("", 0, id=13)
+            self.addColumn("", 0, id=14)
+            self.addColumn("", 0, id=15)
+            self.addColumn("", 0, id=16,
+                           data=lambda group:(group.data.department != "Unknown" and group.data.department or ""))
+
+        AbstractTreeWidget.__init__(self, parent)
+
+        self.setAnimated(False)
+        self.setAcceptDrops(True)
+        self.setDropIndicatorShown(True)
+        self.setDragEnabled(True)
+        self.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+
+        # Used to build right click context menus
+        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+
+        QtCore.QObject.connect(QtGui.qApp,
+                               QtCore.SIGNAL('facility_changed()'),
+                               self.removeAllShows)
+        QtCore.QObject.connect(self,
+                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
+                               self.__itemSingleClickedCopy)
+        QtCore.QObject.connect(self,
+                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
+                               self.__itemSingleClickedComment)
+
+        # Skip updates if the user is scrolling
+        self._limitUpdatesDuringScrollSetup()
+
+        self.setUpdateInterval(22)
+
+    def __itemSingleClickedCopy(self, item, col):
+        """Called when an item is clicked on. Copies selected object names to
+        the middle click selection clip board.
+        @type  item: QTreeWidgetItem
+        @param item: The item clicked on
+        @type  col: int
+        @param col: The column clicked on"""
+        selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
+        if selected:
+            QtGui.QApplication.clipboard().setText(" ".join(selected),
+                                                   QtGui.QClipboard.Selection)
+
+    def __itemSingleClickedComment(self, item, col):
+        """If the comment column is clicked on, and there is a comment on the
+        job, this pops up the comments dialog
+        @type  item: QTreeWidgetItem
+        @param item: The item clicked on
+        @type  col: int
+        @param col: The column clicked on"""
+        job = item.iceObject
+        if col == COLUMN_COMMENT and Utils.isJob(job) and job.data.hasComment:
+            self.__menuActions.jobs().viewComments([job])
+
+    def startDrag(self, dropActions):
+        """Called when a drag begins"""
+        Utils.startDrag(self, dropActions, self.selectedObjects())
+
+    def dragEnterEvent(self, event):
+        Utils.dragEnterEvent(event)
+
+    def dragMoveEvent(self, event):
+        Utils.dragMoveEvent(event)
+
+        # Causes the list to scroll when dragging is over the top or bottom 20%
+        ypos = event.answerRect().y()
+        height = self.viewport().height()
+        move = 0
+
+        if ypos < height * .2:
+            if ypos < height * .1:
+                move = -5
+            else:
+                move = -2
+        elif ypos > height * .8:
+            if ypos > height * .9:
+                move = 2
+            else:
+                move = 5
+        if move:
+            self.verticalScrollBar().setValue(self.verticalScrollBar().value() + move)
+
+    def dropEvent(self, event):
+        item = self.itemAt(event.pos())
+
+        if item and item.type() in (Constants.TYPE_ROOTGROUP, Constants.TYPE_GROUP):
+            job_ids = Utils.dropEvent(event, "application/x-job-ids")
+            group_ids = Utils.dropEvent(event, "application/x-group-ids")
+            job_names = Utils.dropEvent(event, "application/x-job-names")
+            group_names = Utils.dropEvent(event, "application/x-group-names")
+
+            if job_ids or group_ids:
+                body = ""
+                if group_ids:
+                    body += "Groups:\n" + "\n".join(Utils.dropEvent(event, "application/x-group-names"))
+                if group_ids and job_ids:
+                    body += "\n\n"
+                if job_ids:
+                    body += "Jobs:\n" + "\n".join(Utils.dropEvent(event, "application/x-job-names"))
+
+                result = QtGui.QMessageBox.question(self,
+                                   "Move groups/jobs?",
+                                   "Move the following into the group: \"%s\"?\n\n%s" % (item.iceObject.data.name, body),
+                                   QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
+
+                if result == QtGui.QMessageBox.Yes:
+                    if job_ids:
+                        item.iceObject.reparentJobs(job_ids)
+                        # If no exception, then move was allowed, so do it locally:
+                        for id in job_ids:
+                            proxy = Cue3.proxy(id, "Job")
+                            self._items[proxy].update(self._items[proxy].iceObject, item)
+
+                    if group_ids:
+                        item.iceObject.reparentGroups(group_ids)
+                        # If no exception, then move was allowed, so do it locally:
+                        for id in group_ids:
+                            proxy = Cue3.proxy(id, "Group")
+                            self._items[proxy].update(self._items[proxy].iceObject, item)
+
+                    self.updateSoon()
+
+    def addShow(self, show, update = True):
+        """Adds a show to the list of monitored shows
+        @type  show: Show name
+        @param show: string
+        @type  update: boolean
+        @param update: True if the display should update the displayed shows/jobs"""
+        show = str(show)
+        if not self.__shows.has_key(show):
+            try:
+                self.__shows[show] = Cue3.findShow(show)
+            except:
+                logger.warning("This show does not exist: %s" % show)
+            if update:
+                self._update()
+
+    def removeShow(self, show):
+        """Unmonitors a show
+        @type  show: str
+        @param show: The show to unmonitor"""
+        show = str(show)
+        self._itemsLock.lockForWrite()
+        try:
+            if self.__shows.has_key(show):
+                del self.__shows[show]
+        finally:
+            self._itemsLock.unlock()
+        self._update()
+
+    def removeAllShows(self):
+        """Unmonitors all shows"""
+        if self.__shows:
+            self.removeAllItems()
+            self.__shows = {}
+            self._update()
+
+    def getShows(self):
+        """Returns a list of monitored show objects
+        @rtype:  list<show>
+        @return: List of monitored show objects"""
+        return self.__shows.values()
+
+    def getShowNames(self):
+        """Returns a list of monitored shows
+        @rtype:  list<str>
+        @return: List of monitored shows"""
+        return self.__shows.keys()
+
+    def __getCollapsed(self):
+        return [item.iceObject.proxy for item in self._items.values() if not item.isExpanded()]
+
+    def __setCollapsed(self, collapsed):
+        self.expandAll()
+        for id in collapsed:
+            if self._items.has_key(id):
+                self._items[id].setExpanded(False)
+
+    def _getUpdate(self):
+        """Returns a list of NestedGroup from the cuebot for the monitored shows
+        @rtype:  [list<NestedGroup>, set(str)]
+        @return: List that contains updated nested groups and a set of all
+        updated item ideas"""
+        try:
+            nestedShows = [show.getJobWhiteboard() for show in self.getShows()]
+            allIds = set(self.__getNestedIds(nestedShows))
+        except Exception, e:
+            map(logger.warning, Utils.exceptionOutput(e))
+            return None
+
+        return [nestedShows, allIds]
+
+    def _processUpdate(self, work, results):
+        """Adds or updates jobs and groups. Removes those that do not get updated
+        @type  work: from threadpool
+        @param work: from threadpool
+        @type  nested_shows: [list<NestedGroup>, set(str)]
+        @param nested_shows: List that contains updated nested groups and a set
+        of all updated item ids"""
+        if results is None:
+            return
+        self._itemsLock.lockForWrite()
+        try:
+# This is causing segfaults as sorting is somehow allowed to happen at the same time
+# At this time, __getNestedIds functionality was in __processUpdateHandleNested
+#            updated = self.__processUpdateHandleNested(self.invisibleRootItem(), nested_shows)
+#            # Remove any items that were not updated
+#            for id in list(set(self._items.keys()) - set(updated)):
+#                self._removeItem(id)
+
+            current = set(self._items.keys())
+
+            if list(current - results[1]) or list(results[1] - current):
+                # (Something removed) or (Something added)
+                selected = [item.iceObject.proxy for item in self.selectedItems()]
+                collapsed = self.__getCollapsed()
+                scrolled = self.verticalScrollBar().value()
+
+                self._items = {}
+                self.clear()
+
+                self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
+
+                self.__setCollapsed(collapsed)
+                self.verticalScrollBar().setValue(scrolled)
+                [self._items[id].setSelected(True) for id in selected if self._items.has_key(id)]
+            else:
+                # Only updates
+                self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
+                self.redraw()
+        finally:
+            self._itemsLock.unlock()
+
+    def __getNestedIds(self, groups):
+        """Returns all the ids founds in the nested list
+        @type  groups:
+        @param groups: A group that can contain groups and/or jobs
+        @rtype:  list
+        @return: The list of all child ids"""
+        updated = []
+        for group in groups:
+            updated.append(group.proxy)
+
+            # If group has groups, recursively call this function
+            if group.groups:
+                updated.extend(self.__getNestedIds(group.groups))
+
+            # If group has jobs, update them
+            for job in group.jobs:
+                updated.append(job.proxy)
+
+        return updated
+
+    def __processUpdateHandleNested(self, parent, groups):
+        """Adds or updates self._items from a list of NestedGroup objects.
+        @type  parent: QTreeWidgetItem or QTreeWidget
+        @param parent: The parent item for this level of items
+        @type  groups: list<NestedGroup>
+        @param groups: paramB_description"""
+        for group in groups:
+            # If id already exists, update it
+            if self._items.has_key(group.proxy):
+                groupItem = self._items[group.proxy]
+                groupItem.update(group, parent)
+
+            # If id does not exist, create it
+            elif Utils.isGroup(group):
+                self._items[group.proxy] = groupItem = GroupWidgetItem(group, parent)
+            else:
+                self._items[group.proxy] = groupItem = RootGroupWidgetItem(group, parent)
+
+            # If group has groups, recursively call this function
+            if group.groups:
+                self.__processUpdateHandleNested(groupItem, group.groups)
+
+            # If group has jobs, update them
+            for job in group.jobs:
+                if self._items.has_key(job.proxy):
+                    self._items[job.proxy].update(job, groupItem)
+                else:
+                    self._items[job.proxy] = JobWidgetItem(job, groupItem)
+
+    def mouseDoubleClickEvent(self,event):
+        objects = self.selectedObjects()
+        if objects:
+            self.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), objects[0])
+
+    def contextMenuEvent(self, e):
+        """When right clicking on an item, this raises a context menu"""
+        selectedObjects = self.selectedObjects()
+        counts = Utils.countObjectTypes(selectedObjects)
+
+        menu = QtGui.QMenu()
+        if counts["rootgroup"] > 0:
+            if counts["group"] > 0 or counts["job"] > 0:
+                if counts["rootgroup"] == 1:
+                    rmenu = QtGui.QMenu("Root Group ->", self)
+                else:
+                    rmenu = QtGui.QMenu("Root Groups ->", self)
+                menu.addMenu(rmenu)
+                menu.addSeparator()
+            else:
+                rmenu = menu
+            self.__menuActions.rootgroups().addAction(rmenu, "properties")
+            self.__menuActions.rootgroups().addAction(rmenu, "serviceProperties")
+            self.__menuActions.rootgroups().addAction(rmenu, "groupProperties")
+            self.__menuActions.rootgroups().addAction(rmenu, "taskProperties")
+            self.__menuActions.rootgroups().addAction(rmenu, "viewFilters")
+            self.__menuActions.rootgroups().addAction(rmenu, "createGroup")
+            menu.addSeparator()
+            self.__menuActions.rootgroups().addAction(rmenu, "setCuewho")
+            self.__menuActions.rootgroups().addAction(rmenu, "showCuewho")
+
+        if counts["group"] > 0:
+            if counts["rootgroup"] > 0 or counts["job"] > 0:
+                if counts["group"] == 1:
+                    gmenu = QtGui.QMenu("Group ->", self)
+                else:
+                    gmenu = QtGui.QMenu("Groups ->", self)
+                menu.addMenu(gmenu)
+                menu.addSeparator()
+            else:
+                gmenu = menu
+
+            self.__menuActions.groups().addAction(gmenu, "properties")
+            self.__menuActions.groups().addAction(gmenu, "createGroup")
+            gmenu.addSeparator()
+            self.__menuActions.groups().addAction(gmenu, "deleteGroup")
+
+        if counts["job"] > 0:
+
+            jobTypes = Utils.countJobTypes(selectedObjects)
+
+            self.__menuActions.jobs().addAction(menu, "view")
+            self.__menuActions.jobs().addAction(menu, "emailArtist")
+            self.__menuActions.jobs().addAction(menu, "viewComments")
+            self.__menuActions.jobs().addAction(menu, "sendToGroup")
+
+            depend_menu = QtGui.QMenu("Dependencies",self)
+            self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
+            self.__menuActions.jobs().addAction(depend_menu, "dependWizard")
+            depend_menu.addSeparator()
+            self.__menuActions.jobs().addAction(depend_menu, "dropExternalDependencies")
+            self.__menuActions.jobs().addAction(depend_menu, "dropInternalDependencies")
+            menu.addMenu(depend_menu)
+
+            menu.addSeparator()
+            self.__menuActions.jobs().addAction(menu, "setMinCores")
+            self.__menuActions.jobs().addAction(menu, "setMaxCores")
+            self.__menuActions.jobs().addAction(menu, "setPriority")
+            self.__menuActions.jobs().addAction(menu, "setMaxRetries")
+            if counts["job"] == 1:
+                self.__menuActions.jobs().addAction(menu, "reorder")
+                self.__menuActions.jobs().addAction(menu, "stagger")
+            #Broken: self.__menuActions.jobs().addAction(menu, "testCloBook")
+            menu.addSeparator()
+            if jobTypes["unpaused"]:
+                self.__menuActions.jobs().addAction(menu, "pause")
+            if jobTypes["paused"]:
+                self.__menuActions.jobs().addAction(menu, "resume")
+            menu.addSeparator()
+            if jobTypes["hasDead"]:
+                self.__menuActions.jobs().addAction(menu, "retryDead")
+                self.__menuActions.jobs().addAction(menu, "eatDead")
+            if jobTypes["notEating"]:
+                self.__menuActions.jobs().addAction(menu, "autoEatOn")
+            if jobTypes["autoEating"]:
+                self.__menuActions.jobs().addAction(menu, "autoEatOff")
+            menu.addSeparator()
+            self.__menuActions.jobs().addAction(menu, "unbook")
+            menu.addSeparator()
+            self.__menuActions.jobs().addAction(menu, "kill")
+
+        menu.exec_(e.globalPos())
+
+    def actionEatSelectedItems(self):
+        """Eats all dead frames for selected jobs"""
+        self.__menuActions.jobs().eatDead()
+
+    def actionRetrySelectedItems(self):
+        """Retries all dead frames for selected jobs"""
+        self.__menuActions.jobs().retryDead()
+
+    def actionKillSelectedItems(self):
+        """Removes selected jobs from cue"""
+        self.__menuActions.jobs().kill()
+
+    def actionPauseSelectedItems(self):
+        """Pause selected jobs"""
+        self.__menuActions.jobs().pause()
+
+    def actionResumeSelectedItems(self):
+        """Resume selected jobs"""
+        self.__menuActions.jobs().resume()
+
+class RootGroupWidgetItem(AbstractWidgetItem):
+    __initialized = False
+    def __init__(self, object, parent):
+        if not self.__initialized:
+            self.__class__.__initialized = True
+            self.__class__.__icon = QtCore.QVariant(QtGui.QIcon(":show.png"))
+            self.__class__.__foregroundColor = \
+                         QtCore.QVariant(Style.ColorTheme.COLOR_SHOW_FOREGROUND)
+            self.__class__.__backgroundColor = \
+                         QtCore.QVariant(Style.ColorTheme.COLOR_SHOW_BACKGROUND)
+            self.__class__.__type = QtCore.QVariant(Constants.TYPE_ROOTGROUP)
+
+        AbstractWidgetItem.__init__(self, Constants.TYPE_ROOTGROUP, object, parent)
+
+    def data(self, col, role):
+        """Returns the proper display data for the given column and role
+        @type  col: int
+        @param col: The column being displayed
+        @type  role: QtCore.Qt.ItemDataRole
+        @param role: The role being displayed
+        @rtype:  QtCore.QVariant
+        @return: The desired data wrapped in a QVariant"""
+        if role == QtCore.Qt.DisplayRole:
+            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+
+        elif role == QtCore.Qt.FontRole:
+            return FONT_BOLD
+
+        elif role == QtCore.Qt.ForegroundRole:
+            return self.__foregroundColor
+
+        elif role == QtCore.Qt.BackgroundRole:
+            return self.__backgroundColor
+
+        elif role == QtCore.Qt.DecorationRole:
+            if col == 0:
+                return self.__icon
+
+        elif role == QtCore.Qt.UserRole:
+            return self.__type
+
+        return Constants.QVARIANT_NULL
+
+    def __lt__(self, other):
+        """The shows are always ascending alphabetical"""
+        if self.treeWidget().header().sortIndicatorOrder():
+            return other.iceObject.data.name < self.iceObject.data.name
+        return other.iceObject.data.name > self.iceObject.data.name
+
+    def __ne__(self, other):
+        return other.iceObject.proxy != self.iceObject.proxy
+
+class GroupWidgetItem(AbstractWidgetItem):
+    """Represents a group entry in the MonitorCue widget."""
+    __initialized = False
+    def __init__(self, object, parent):
+        if not self.__initialized:
+            self.__class__.__initialized = True
+            self.__class__.__icon = QtCore.QVariant(QtGui.QIcon(":group.png"))
+            self.__class__.__foregroundColor = \
+                        QtCore.QVariant(Style.ColorTheme.COLOR_GROUP_FOREGROUND)
+            self.__class__.__backgroundColor = \
+                        QtCore.QVariant(Style.ColorTheme.COLOR_GROUP_BACKGROUND)
+            self.__class__.__type = QtCore.QVariant(Constants.TYPE_GROUP)
+
+        AbstractWidgetItem.__init__(self, Constants.TYPE_GROUP, object, parent)
+
+    def data(self, col, role):
+        """Returns the proper display data for the given column and role
+        @type  col: int
+        @param col: The column being displayed
+        @type  role: QtCore.Qt.ItemDataRole
+        @param role: The role being displayed
+        @rtype:  QtCore.QVariant
+        @return: The desired data wrapped in a QVariant"""
+        if role == QtCore.Qt.DisplayRole:
+            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+
+        elif role == QtCore.Qt.FontRole:
+            return FONT_BOLD
+
+        elif role == QtCore.Qt.ForegroundRole:
+            return self.__foregroundColor
+
+        elif role == QtCore.Qt.BackgroundRole:
+            return self.__backgroundColor
+
+        elif role == QtCore.Qt.DecorationRole and col == 0:
+            return self.__icon
+
+        elif role == QtCore.Qt.UserRole:
+            return self.__type
+
+        return Constants.QVARIANT_NULL
+
+    def __lt__(self, other):
+        """Groups are always ascending alphabetical"""
+        if self.treeWidget().header().sortIndicatorOrder():
+            return other.iceObject.data.name < self.iceObject.data.name
+        return other.iceObject.data.name > self.iceObject.data.name
+
+    def __ne__(self, other):
+        return other.iceObject.proxy != self.iceObject.proxy
+
+class JobWidgetItem(AbstractWidgetItem):
+    """Represents a job entry in the MonitorCue widget."""
+    __initialized = False
+    def __init__(self, object, parent):
+        if not self.__initialized:
+            self.__class__.__initialized = True
+            self.__class__.__commentIcon = \
+                                    QtCore.QVariant(QtGui.QIcon(":comment.png"))
+            self.__class__.__eatIcon = QtCore.QVariant(QtGui.QIcon(":eat.png"))
+            self.__class__.__backgroundColor = \
+                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
+            self.__class__.__foregroundColor = \
+                          QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
+            self.__class__.__pausedColor = \
+                   QtCore.QVariant(Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND)
+            self.__class__.__finishedColor = \
+                 QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND)
+            self.__class__.__dyingColor = \
+                    QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND)
+            self.__class__.__dependedColor = \
+                            QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DEPENDED)
+            self.__class__.__noRunningColor = \
+                       QtCore.QVariant(Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS)
+            self.__class__.__highMemoryColor = \
+                         QtCore.QVariant(Style.ColorTheme.COLOR_JOB_HIGH_MEMORY)
+            self.__class__.__type = QtCore.QVariant(Constants.TYPE_JOB)
+
+        object.parent = None
+
+        AbstractWidgetItem.__init__(self, Constants.TYPE_JOB, object, parent)
+
+    def data(self, col, role):
+        """Returns the proper display data for the given column and role
+        @type  col: int
+        @param col: The column being displayed
+        @type  role: QtCore.Qt.ItemDataRole
+        @param role: The role being displayed
+        @rtype:  QtCore.QVariant
+        @return: The desired data wrapped in a QVariant"""
+        if role == QtCore.Qt.DisplayRole:
+            if not self._cache.has_key(col):
+                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+            return self._cache.get(col, Constants.QVARIANT_NULL)
+
+        elif role == QtCore.Qt.ForegroundRole:
+            return self.__foregroundColor
+
+        elif role == QtCore.Qt.BackgroundRole:
+            if col == COLUMN_MAXRSS and \
+               self.iceObject.stats.maxRss > Constants.MEMORY_WARNING_LEVEL:
+                    return self.__highMemoryColor
+            if self.iceObject.data.isPaused:
+                return self.__pausedColor
+            if self.iceObject.stats.deadFrames:
+                return self.__dyingColor
+            if not self.iceObject.stats.runningFrames:
+                if not self.iceObject.stats.waitingFrames and \
+                   self.iceObject.stats.dependFrames:
+                    return self.__dependedColor
+                if self.iceObject.stats.waitingFrames and \
+                   time.time() - self.iceObject.data.startTime > 30:
+                    return self.__noRunningColor
+            return self.__backgroundColor
+
+        elif role == QtCore.Qt.DecorationRole:
+            if col == COLUMN_COMMENT and self.iceObject.data.hasComment:
+                return self.__commentIcon
+            elif col == COLUMN_EAT and self.iceObject.data.autoEat:
+                return self.__eatIcon
+
+        elif role == QtCore.Qt.UserRole:
+            return self.__type
+
+        elif role == QtCore.Qt.UserRole + 1:
+            if not self._cache.has_key("FST"):
+                self._cache["FST"] = QtCore.QVariant({Cue3.FrameState.Dead: self.iceObject.stats.deadFrames,
+                                                      Cue3.FrameState.Depend: self.iceObject.stats.dependFrames,
+                                                      Cue3.FrameState.Eaten: self.iceObject.stats.eatenFrames,
+                                                      Cue3.FrameState.Running: self.iceObject.stats.runningFrames,
+                                                      Cue3.FrameState.Setup: 0,
+                                                      Cue3.FrameState.Succeeded: self.iceObject.stats.succeededFrames,
+                                                      Cue3.FrameState.Waiting: self.iceObject.stats.waitingFrames})
+            return self._cache.get("FST", Constants.QVARIANT_NULL)
+
+        return Constants.QVARIANT_NULL
