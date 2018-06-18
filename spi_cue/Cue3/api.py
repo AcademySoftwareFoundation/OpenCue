@@ -23,7 +23,7 @@ Module: API.py - Cue3 Library API.
 
 Created: October 17, 2007
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

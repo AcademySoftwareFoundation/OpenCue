@@ -22,7 +22,7 @@ Project: RQD
 
 Module: rqmachine.py
 
-Contact: Middle-Tier (middle-tier@imageworks.com)
+Contact: Middle-Tier 
 
 SVN: $Id$
 """

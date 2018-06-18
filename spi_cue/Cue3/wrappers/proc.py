@@ -21,7 +21,7 @@ Module: proc.py - Cue3 Library implementation of a proc
 
 Created: April, 15th, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

@@ -36,7 +36,7 @@ fi
 #
 # A simple test script that acts like the cuebot by listening for messages from RQD.
 #
-# Author: John Welborn (jwelborn@imageworks.com)
+# Author: John Welborn
 
 import thread
 import time

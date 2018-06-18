@@ -44,7 +44,7 @@ Requires: ./spi-slice from:
 Requires: ./slice from:
    - http://softboss/svn/repos/middle-tier/cuebot/branches/jwelborn/slice
 
-Contact: Middle-Tier (middle-tier@imageworks.com)
+Contact: Middle-Tier 
 
 For RQD Maintainer only:
 ========================

@@ -21,7 +21,7 @@ Module: Cuebot.py - Cue3 Library API.
 
 Created: February 16, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

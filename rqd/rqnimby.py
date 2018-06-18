@@ -25,7 +25,7 @@ Project: RQD
 
 Module: rqnimby.py
 
-Contact: Middle-Tier (middle-tier@imageworks.com)
+Contact: Middle-Tier 
 
 SVN: $Id$
 """

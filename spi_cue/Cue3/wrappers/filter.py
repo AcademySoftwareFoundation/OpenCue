@@ -21,7 +21,7 @@ Module: filter.py - Cue3 Library implementation of spank filter
 
 Created: May 15, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 """
 from cue.CueIce import FilterType, MatchSubject, MatchType, ActionValueType, ActionType

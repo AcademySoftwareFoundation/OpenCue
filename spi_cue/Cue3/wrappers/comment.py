@@ -21,7 +21,7 @@ Module: comment.py - comment object
 
 Created: July 9, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

@@ -49,7 +49,7 @@
 \nDESCRIPTION
       Displays information from or sends a command to an RQD host
 \nCONTACT
-     Middle-Tier Group (middle-tier@imageworks.com)"""
+     Middle-Tier Group"""
 
 import os
 import sys

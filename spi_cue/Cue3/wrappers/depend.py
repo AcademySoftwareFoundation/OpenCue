@@ -21,7 +21,7 @@ Module: depend.py - Cue3 Library implementation of a allocation
 
 Created: June 2, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

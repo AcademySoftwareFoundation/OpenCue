@@ -21,7 +21,7 @@ Module: exception.py - Provides Cue3 access to exceptions
 
 Created: March 7, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

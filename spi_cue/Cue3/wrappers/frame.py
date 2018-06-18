@@ -21,7 +21,7 @@ Module: frame.py - Cue3 Library implementation of a frame
 
 Created: February 12, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

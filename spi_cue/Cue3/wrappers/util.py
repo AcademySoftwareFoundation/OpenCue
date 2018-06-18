@@ -21,7 +21,7 @@ Module: util.py - Cue3 Library utility
 
 Created: March 5, 2007
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

@@ -21,7 +21,7 @@ Module: host.py - Cue3 Library implementation of a host
 
 Created: February 12, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """

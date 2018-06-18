@@ -21,7 +21,7 @@ Module: subscription.py - Cue3 Library implementation of a subscription
 
 Created: March 3, 2008
 
-Contact: Middle-Tier Group (middle-tier@imageworks.com)
+Contact: Middle-Tier Group 
 
 SVN: $Id$
 """
