@@ -1,0 +1,55 @@
+#!/bin/tcsh -f
+#
+#
+setenv HOME /usr/local/stdenv
+
+limit coredumpsize 0
+
+setenv SP_NOMYCSHRC 1
+
+if (-e /usr/local/stdenv/.cshrc) then
+    source /usr/local/stdenv/.cshrc
+else
+    source /etc/csh.cshrc
+endif
+
+set dir=$1
+
+# Reset the value of TMPDIR
+setenv framedir /mcp/${CUE_JOB}/${CUE_FRAME}
+rm -rf $framedir
+mkdir -p $framedir
+if ($? != 0) then
+    echo $0: Could not create $framedir
+    exit 96
+endif
+setenv TMPDIR $framedir
+echo TMPDIR set to $framedir
+
+# Print out ENV variables.
+env | sort
+
+setenv SHOW ${CUE_SHOW}
+setenv SHOT ${CUE_SHOT}
+
+shift argv
+set noglob
+if (-e $dir) then
+    echo "changing to working directory $dir"
+    cd $dir
+endif
+
+echo About to run "$argv"
+eval $argv
+set result = $status
+echo "Process completed with exit status: $result"
+
+# Remove the framedir in MCP
+rm -rf $framedir
+
+if ("$result" < 256) then
+    exit $result
+else
+    exit 1
+endif
+

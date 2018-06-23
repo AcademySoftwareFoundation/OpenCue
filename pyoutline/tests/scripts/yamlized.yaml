@@ -1,0 +1,25 @@
+&id001 !!python/object:outline.loader.Outline
+_Outline__args: {}
+_Outline__env: {}
+_Outline__frame_range: 1-10
+_Outline__layers:
+- !!python/object:outline.modules.shell.Shell
+  _Layer__args:
+    chunk: 1
+    cmd: [find, ., -name, abc.121]
+    range: null
+    register: true
+    require: []
+    tags: [general, desktop]
+    test1: 1
+    test2: 2
+    threadable: false
+    threads: 1
+  _Layer__depends: []
+  _Layer__name: cmd
+  _Layer__outline: *id001
+  _Layer__req_args: !!set {cmd: null}
+_Outline__mode: 3
+_Outline__name: shell
+_Outline__path: ./scripts/yamlized.yaml
+_Outline__session: null

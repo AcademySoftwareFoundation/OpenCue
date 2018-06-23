@@ -1,0 +1,22 @@
+from outline import Layer
+import logging
+
+class MyEvent(Layer):
+
+    def __init__(self, name, **args):
+        Layer.__init__(self, name, **args)
+        logging.info("creating event")
+
+    def _setup(self):
+        logging.info("setting up event.")
+
+    def _execute(self, frame_set):
+        """Execute the shell command."""
+        for f in frame_set:
+            logging.info("executing frame: %d" % f)
+
+event = MyEvent("my_event")
+
+
+
+

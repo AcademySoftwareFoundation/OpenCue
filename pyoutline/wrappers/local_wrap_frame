@@ -1,0 +1,38 @@
+#!/bin/tcsh -f
+#
+#
+setenv HOME /usr/local/stdenv
+
+limit coredumpsize 0
+
+setenv SP_NOMYCSHRC 1
+
+source /usr/local/stdenv/.cshrc
+
+set dir=$1
+shift
+set theshow=$1
+shift
+set theshot=$1
+
+# Set shot
+setshot ${theshow}/${theshot}
+
+shift argv
+set noglob
+if (-e $dir) then
+    echo "changing to working directory $dir"
+    cd $dir
+endif
+
+echo About to run "$argv"
+eval $argv
+set result = $status
+echo "Process completed with exit status: $result"
+
+if ("$result" < 256) then
+    exit $result
+else
+    exit 1
+endif
+

@@ -1,0 +1,8 @@
+
+from outline import Layer
+
+comp = Layer("composite", range="1002-1002")
+comp.add_child(Layer("master"))
+comp.add_child(Layer("proxy"))
+
+comp2 = Layer("composite2", range="1001")

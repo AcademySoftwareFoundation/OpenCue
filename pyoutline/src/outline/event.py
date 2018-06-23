@@ -1,0 +1,106 @@
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""
+The outline event handler controls firing events to listeners.
+"""
+import logging
+
+logger = logging.getLogger("outline.event")
+
+#
+# A List of event types.
+
+EVENT_TYPES = ("AFTER_INIT",
+               "AFTER_PARENTED",
+               "SETUP",
+               "BEFORE_EXECUTE",
+               "AFTER_EXECUTE",
+               "AFTER_LAUNCH",
+               "BEFORE_LAUNCH")
+
+AFTER_INIT = EVENT_TYPES[0]
+AFTER_PARENTED =  EVENT_TYPES[1]
+SETUP =  EVENT_TYPES[2]
+BEFORE_EXECUTE =  EVENT_TYPES[3]
+AFTER_EXECUTE = EVENT_TYPES[4]
+AFTER_LAUNCH = EVENT_TYPES[5]
+BEFORE_LAUNCH = EVENT_TYPES[6]
+
+from exception import FailImmediately
+
+class EventHandler(object):
+    """
+    EventHandler keeps track of who is listening for which events.
+    """
+    def __init__(self, component):
+        self.__component = component
+        self.__listeners = { }
+
+    def add_event_listener(self, event_type, callback):
+        """
+        Adds an event listener for the given type and
+        callback function.
+        """
+        logger.debug("adding event listener %s" % event_type)
+        if not self.__listeners.has_key(event_type):
+            self.__listeners[event_type] = [ ]
+        self.__listeners[event_type].append(callback)
+
+    def emit(self, event):
+        logger.debug("fire event %s" % event)
+        for callback in self.__listeners.get(event.type, []):
+            try:
+                callback(event)
+            except FailImmediately, fi:
+                logger.debug("FailImmediately exception thrown, %s, %s" % (event.type, fi))
+                raise fi
+            except Exception, e:
+                logger.debug("failed to execute event %s, %s" % (event.type, e))
+
+    def get_event_listeners(self, event_type):
+        """
+        Return all the callback functions registered with
+        a particular event type.
+        """
+        try:
+            return self.__listeners[event_type]
+        except KeyError:
+            return list()
+
+class LaunchEvent(object):
+    """
+    A job launch event type.
+    """
+    def __init__(self, event_type, cuerun, **args):
+        self.type = event_type
+        self.cuerun = cuerun
+        self.__dict__.update(args)
+
+    def __str__(self):
+        return str(self.__dict__)
+
+class LayerEvent(object):
+    """
+    A LayerEvent occurs within a layer.
+    """
+    def __init__(self, event_type, layer, **args):
+        self.type = event_type
+        self.layer = layer
+        self.__dict__.update(args)
+
+    def __str__(self):
+        return str(self.__dict__)
+

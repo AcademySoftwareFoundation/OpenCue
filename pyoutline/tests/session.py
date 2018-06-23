@@ -1,0 +1,101 @@
+#!/bin/env python2.5
+
+#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+
+import sys
+import unittest
+import logging
+
+sys.path.append("../src")
+import outline
+
+logging.basicConfig(level=logging.INFO)
+
+class SessionTest(unittest.TestCase):
+
+    """Tests for outline.session"""
+
+    def setUp(self):
+        path = "scripts/shell.outline"
+        self.ol = outline.load_outline(path)
+        self.ol.set_frame_range("1-10")
+        self.ol.setup()
+        self.session  = self.ol.get_session()
+
+    def test_put_file(self):
+        """Testing get/put file into outline."""
+
+        # Put file into session proper.
+        path = self.session.put_file("scripts/shell.outline")
+        self.assertEquals(path, self.session.get_file("shell.outline"))
+
+    def test_put_file_rename(self):
+        """Testing get/put file into outline."""
+
+        # Put file into session proper.
+        path = self.session.put_file("scripts/shell.outline", rename="outline")
+        self.assertEquals(path, self.session.get_file("outline"))
+
+    def test_put_file_to_layer(self):
+        """Testing get/put file into layer."""
+
+        # Put file into layer
+        layer = self.ol.get_layer("cmd")
+        path = layer.put_file("scripts/shell.outline")
+        self.assertEquals(path, layer.get_file("shell.outline"))
+
+    def test_get_new_file_from_layer(self):
+        """Tests the new option for the get_file method. """
+
+        # Put file into layer
+        layer = self.ol.get_layer("cmd")
+         
+        # Getting a file that doesn't exist should raise SessionException
+        # Unless the new flag is passed in.
+	self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
+        path = layer.get_file("foo.bar", new=True)
+        self.assertEquals("%s/foo.bar" % layer.get_path(), path)
+
+        # If the file already exists, new should throw an exception
+        layer.put_file("scripts/shell.outline")
+        self.assertRaises(outline.SessionException, layer.get_file, "shell.outline", new=True)
+
+    def test_get_unchecked_file(self):
+        """Tests the new option for the get_file method. """
+        layer = self.ol.get_layer("cmd")
+
+    def test_put_data(self):
+       """Test get/set data"""
+
+       # Serialize an array of ints into the session
+       # and then retrieve it.
+       value = [100,200,300,400,500]
+       self.session.put_data("foo",value)
+       self.assertEquals(value, self.session.get_data("foo"))
+
+    def test_put_data_to_layer(self):
+       """Test get/set layer data."""
+
+       layer = self.ol.get_layer("cmd")
+       value = [100,200,300,400,500]
+       layer.put_data("foo", value)
+       self.assertEquals(value, layer.get_data("foo"))
+   
+
+if __name__ == '__main__':
+    unittest.main()
+
