@@ -1,0 +1,6 @@
+#!/bin/env python2.5
+
+from outline.modules.shell import Shell
+
+Shell("hello",
+      command="echo 'Hello frame %{FRAME}!'")
