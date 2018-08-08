@@ -60,6 +60,7 @@ public class AppConfig {
     public ServletRegistrationBean jobLaunchServlet() {
         ServletRegistrationBean b = new ServletRegistrationBean();
         b.addUrlMappings("/launch");
+        b.addInitParameter("contextConfigLocation", "classpath:conf/spring/jobLaunchServlet-servlet.xml");
         b.setServlet(new JobLaunchServlet());
         return b;
     }

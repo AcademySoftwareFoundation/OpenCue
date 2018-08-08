@@ -1,4 +1,4 @@
-resolvers += "SPI" at "http://www.spimageworks.com/maven"
+resolvers += "SPI" at "file://" + baseDirectory.value + "/maven/"
 
 addSbtPlugin("com.imageworks" % "sbt-zeroc-ice" % "0.0.5")
 

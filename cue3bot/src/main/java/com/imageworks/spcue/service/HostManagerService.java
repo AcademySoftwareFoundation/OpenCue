@@ -157,7 +157,7 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(RenderHost rhost, AllocationDetail alloc) {
 
-        hostDao.insertRenderHost(rhost, alloc);
+        hostDao.insertRenderHost(rhost, alloc, false);
         DispatchHost host = hostDao.findDispatchHost(rhost.name);
 
         hostDao.tagHost(host, alloc.tag, HostTagType.Alloc);

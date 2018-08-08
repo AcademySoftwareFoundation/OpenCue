@@ -58,9 +58,11 @@ object MyBuild extends Build {
       val buf = new StringBuilder
       buf.append(lines(0) + "\n")
       buf.append("""
-# These lines come from code in project/build.scala.
-export ORACLE_HOME=/usr/lib64/oracle-instantclient-11.2
-export LD_LIBRARY_PATH=/shots/spi/home/java/FileSequence/x86_64/v6/rhel7/:${ORACLE_HOME}
+export ORACLE_HOME=/usr/lib/oracle/12.1
+export LD_LIBRARY_PATH=${ORACLE_HOME}:${ORACLE_HOME}/client64/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/share
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib
 export TNS_ADMIN=/opt/tns
 
 """)

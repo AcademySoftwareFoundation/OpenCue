@@ -14,6 +14,7 @@ WEBAPP_NAME=cue3
 WEBAPP_USER=tomcat
 
 #export JAVA_HOME=`cd /usr/java/jdk1.6; /bin/pwd`
+export JAVA_HOME=`cd $(readlink -f /usr/bin/java | sed "s:bin/java::"); /bin/pwd`
 export CATALINA_HOME=/opt/cue3
 export CATALINA_PID=${CATALINA_HOME}/bin/catalina.pid
 
@@ -49,7 +50,7 @@ stop() {
 		warning
 		echo "${WEBAPP_NAME} might not be running, killing anyway"
 	fi
-		
+
 	echo -n $"Stopping ${WEBAPP_NAME}:"
 	/sbin/runuser ${WEBAPP_USER} -m -s /bin/bash -c "${CATALINA_HOME}/bin/catalina.sh stop  >&/dev/null"
 	RETVAL=$?

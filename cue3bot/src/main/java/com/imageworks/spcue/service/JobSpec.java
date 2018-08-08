@@ -102,7 +102,7 @@ public class JobSpec {
     public static final String DEFAULT_SERVICE = "default";
 
     // The default value for a job's OS property.
-    public static final String DEFAULT_OS = "spinux1";
+    public static final String DEFAULT_OS = "Linux";
 
     private List<BuildableJob> jobs = new ArrayList<BuildableJob>();
 

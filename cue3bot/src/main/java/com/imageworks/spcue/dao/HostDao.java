@@ -142,8 +142,9 @@ public interface HostDao {
      *
      * @param host
      * @param allocation
+     * @param useLongNames
      */
-    void insertRenderHost(RenderHost report, Allocation a);
+    void insertRenderHost(RenderHost report, Allocation a, boolean useLongNames);
 
     /**
      * Checks to see if a render host exists by name and returns true if it
