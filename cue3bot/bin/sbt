@@ -1,8 +1,14 @@
 #!/bin/sh
 
+export FILE_SEQUENCE_PATH=/shots/spi/home/lib/SpComp2/FileSequence/rhel7-gcc48m64/v6/lib
 # ORACLE_HOME should match project/build.scala
-export ORACLE_HOME=/usr/lib64/oracle-instantclient-11.2
-export LD_LIBRARY_PATH=/shots/spi/home/java/FileSequence/x86_64/v6/rhel7/:${ORACLE_HOME}
+export ORACLE_HOME=/usr/lib/oracle/12.1
+export LD_LIBRARY_PATH=${ORACLE_HOME}
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ORACLE_HOME}/client64/lib
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${FILE_SEQUENCE_PATH}
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib64
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/share
+export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/usr/lib
 export TNS_ADMIN=/opt/tns
 
 project_dir=$(readlink -f $(dirname $0)/..)

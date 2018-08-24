@@ -42,7 +42,8 @@ packJvmOpts := Map("cuebot" -> Seq(
     "-XX:+UseConcMarkSweepGC",
     "-XX:+CMSClassUnloadingEnabled",
     "-XX:CMSInitiatingOccupancyFraction=70",
-    "-Djava.library.path=${ORACLE_HOME}:/shots/spi/home/java/FileSequence/x86_64/v6/rhel7"
+    "-Djava.library.path=${LD_LIBRARY_PATH}",
+    "-Doracle.net.tns_admin=${TNS_ADMIN}"
 ))
 
 net.virtualvoid.sbt.graph.Plugin.graphSettings
@@ -59,7 +60,7 @@ ScalariformKeys.preferences := FormattingPreferences().
 resolvers ++= Seq(
     "spymemcached" at "http://files.couchbase.com/maven2/",
     "zeroc" at "http://www.zeroc.com:8081/nexus/service/local/repositories/releases/content/",
-    "SPI" at "http://www.spimageworks.com/maven/"
+    "SPI" at "file://" + baseDirectory.value + "/maven/",
 )
 
 {
@@ -72,7 +73,7 @@ resolvers ++= Seq(
     "com.google.guava" % "guava" % "12.0.1",
     "com.sun.mail" % "mailapi" % "1.5.4",
     "commons-lang" % "commons-lang" % "2.6",
-    "com.zeroc" % "ice" % "3.6.1",
+    "com.zeroc" % "ice" % "3.6.2",
     "org.apache.activemq" % "activemq-pool" % activemq_ver,
     "org.apache.velocity" % "velocity" % "1.7",
     "org.jdom" % "jdom" % "1.1.3",
@@ -83,13 +84,15 @@ resolvers ++= Seq(
     "org.springframework" % "spring-context-support" % spring_ver,
     "org.springframework" % "spring-jms" % spring_ver,
     "org.quartz-scheduler" % "quartz" % "2.2.1" exclude ("c3p0", "c3p0"),
+    "org.postgresql" % "postgresql" % "42.2.2",
 //    "javax.inject" % "javax.inject" % "1",
 //    "javax.servlet" % "javax.servlet-api" % "3.0.1" % "provided",
 //    "javax.mail" % "javax.mail-api" % "1.5.4",
     "junit" % "junit" % "4.12" % "test",
     // https://github.com/sbt/junit-interface
     "com.novocode" % "junit-interface" % "0.11" % "test",
-    "org.springframework.boot" % "spring-boot-starter-test" % spring_boot_ver % "test"
+    "org.springframework.boot" % "spring-boot-starter-test" % spring_boot_ver % "test",
+    "org.assertj" % "assertj-core" % "3.8.0" % "test",
   )
 }
 

@@ -1,0 +1,16 @@
+
+ORAXELOCAL =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 192.168.9.2)(PORT = 1521))
+    (CONNECT_DATA =
+      (SID = XE)
+    )
+  )
+
+ORAXETEST =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = 172.17.0.2)(PORT = 1521))
+    (CONNECT_DATA =
+      (SID = XE)
+    )
+  )

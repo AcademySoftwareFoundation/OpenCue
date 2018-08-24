@@ -27,6 +27,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.CallableStatementCreator;
@@ -304,7 +306,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     };
 
     @Override
-    public void insertRenderHost(RenderHost host, Allocation a) {
+    public void insertRenderHost(RenderHost host, Allocation a, boolean useLongNames) {
 
         ThreadMode threadMode = ThreadMode.Auto;
         if (host.nimbyEnabled) {
@@ -325,10 +327,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             // set he name to just to name, leaving off the domain
             // if the host has no domain or the lookup fails, just use the name
             if (fqdn.equals(host.name)) {
-                name = fqdn.substring(0,fqdn.lastIndexOf(".",fqdn.lastIndexOf(".")-1));
+                name = getHostNameFromFQDN(fqdn, useLongNames);
             }
             else if (host.name.contains(".spimageworks.com")) {
-                name = host.name.replace(".spimageworks.com", "");
+                name = getHostNameFromFQDN(host.name, useLongNames);
                 fqdn = host.name;
             }
         } catch (UnknownHostException e) {
@@ -425,7 +427,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         try {
             return getJdbcTemplate().queryForObject(
                     "SELECT 1 FROM host WHERE (str_fqdn=? OR str_name=?)",
-                    Integer.class, hostname,hostname) > 0;
+                    Integer.class, hostname, hostname) > 0;
         } catch (EmptyResultDataAccessException e) {
             return false;
         }
@@ -638,6 +640,31 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host WHERE b_nimby=1 AND pk_host=?",
                 Integer.class, h.getHostId()) > 0;
+    }
+
+    /**
+     * Checks if the passed in name looks like a fully qualified domain name.
+     * If so, returns the hostname without the domain. Otherwise returns the passed
+     * in name unchanged.
+     * @param fqdn - String
+     * @return String - hostname
+     */
+    private String getHostNameFromFQDN(String fqdn, Boolean useLongNames) {
+        String hostName;
+        if (useLongNames) {
+            hostName = fqdn;
+            Pattern domainPattern = Pattern.compile(
+                ".*(\\.(.*)\\.(co(m|.[a-z]{2})|biz|edu|info|net|org|cn|de|eu|nl))$");
+            Matcher domainMatcher = domainPattern.matcher(fqdn);
+            if (domainMatcher.matches()){
+                hostName = fqdn.replace(domainMatcher.group(1), "");
+            }
+        }
+        else {
+            hostName = fqdn.split("\\.")[0];
+        }
+        return hostName;
+
     }
 
     /**

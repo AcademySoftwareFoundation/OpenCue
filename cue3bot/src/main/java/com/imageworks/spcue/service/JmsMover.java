@@ -58,32 +58,33 @@ public class JmsMover extends ThreadPoolExecutor {
     }
 
     public void send(Object m) {
-        try {
-            execute(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        template.send(topic, new MessageCreator() {
-                            @Override
-                            public Message createMessage(Session session) throws javax.jms.JMSException {
-                                return session.createTextMessage(gson.toJson(m));
-                            }
-                        });
-                    }
-                    catch (JmsException e) {
-                        logger.warn("Failed to send JMS message");
-                        CueExceptionUtil.logStackTrace(
+        if (System.getenv("CUEBOT_ENABLE_JMS") == "true") {
+            try {
+                execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            template.send(topic, new MessageCreator() {
+                                @Override
+                                public Message createMessage(Session session)
+                                    throws javax.jms.JMSException {
+                                    return session.createTextMessage(gson.toJson(m));
+                                }
+                            });
+                        } catch (JmsException e) {
+                            logger.warn("Failed to send JMS message");
+                            CueExceptionUtil.logStackTrace(
                                 "JmsProducer " + this.getClass().toString() +
-                                " caught error ", e);
+                                    " caught error ", e);
+                        }
                     }
-                }
-            });
-        }
-        catch (RejectedExecutionException e) {
-            logger.warn("Outgoing JMS message queue is full!");
-            CueExceptionUtil.logStackTrace(
+                });
+            } catch (RejectedExecutionException e) {
+                logger.warn("Outgoing JMS message queue is full!");
+                CueExceptionUtil.logStackTrace(
                     "JmsProducer " + this.getClass().toString() +
-                    " caught error ", e);
+                        " caught error ", e);
+            }
         }
     }
 
