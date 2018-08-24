@@ -4,7 +4,7 @@ set -e
 
 timestamp=$(date +%Y%m%d%H%M%S)
 
-PROJECT_ID="queue-manager-dev"
+
 INSTANCE_NAME="oracle-build-$timestamp"
 ZONE="us-central1-c"
 SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"

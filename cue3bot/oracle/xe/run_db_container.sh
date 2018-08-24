@@ -4,9 +4,10 @@ set -e
 
 cd $(dirname $0)
 
+DEP_BUCKET="GCS BUCKET NAME" # Where the oracle rpm was copied.
+
 XE_DIRECTORY=`pwd`
 CUEBOT_ROOT_DIRECTORY=$(dirname $(dirname $XE_DIRECTORY))
-DEP_BUCKET="gs://queue-manager-third-party"
 ORACLE_RPM="oracle-xe-11.2.0-1.0.x86_64.rpm.zip"
 ORACLE_DOCKER_REPO="https://github.com/oracle/docker-images.git"
 DOCKER_NAME="oracle-xe"
