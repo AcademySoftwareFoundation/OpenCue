@@ -127,7 +127,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         host.state = HardwareState.Up;
         host.facility = "spi";
         host.attributes = new HashMap<String, String>();
-        host.attributes.put("SP_OS", "spinux1");
+        host.attributes.put("SP_OS", "Linux");
         host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
         host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
 

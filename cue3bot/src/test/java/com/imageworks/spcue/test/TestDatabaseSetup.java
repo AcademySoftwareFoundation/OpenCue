@@ -37,7 +37,30 @@ public final class TestDatabaseSetup {
     private static AtomicBoolean setupComplete = new AtomicBoolean(false);
 
     public TestDatabaseSetup() {
-        // do nothing
+        String tns = System.getenv("CUEBOT_DB_TNS");
+        if (tns != null) {
+            setDbTns(tns);
+        }
+        String pwd = System.getenv("CUEBOT_DB_SYS_PWD");
+        if (pwd != null) {
+            setSysPwd(pwd);
+        }
+    }
+
+    private String getDbTns() {
+        return dbTns;
+    }
+
+    private void setDbTns(String dbTns) {
+        this.dbTns = dbTns;
+    }
+
+    private String getSysPwd() {
+        return sysPwd;
+    }
+
+    private void setSysPwd(String sysPwd) {
+        this.sysPwd = sysPwd;
     }
 
     public String getUsername() {
@@ -53,14 +76,19 @@ public final class TestDatabaseSetup {
             return;
         }
 
+        System.setProperty("oracle.net.tns_admin", System.getenv("TNS_ADMIN"));
         System.out.println("CREATING CUE3 TEST USER");
-        Connection conn = DriverManager.getConnection("jdbc:oracle:oci:@dbname", "cue_build", "password");
+        Connection sysConn = DriverManager.getConnection(
+            "jdbc:oracle:oci:@" + getDbTns(),
+            "sys as sysdba",
+            getSysPwd()
+        );
 
-        purgeOldUsers(conn);
+        purgeOldUsers(sysConn);
 
         Statement stmt = null;
         try {
-            stmt = conn.createStatement();
+            stmt = sysConn.createStatement();
             stmt.execute("CREATE USER " + USERNAME + " IDENTIFIED BY " + PASSWORD);
             stmt.execute("GRANT CONNECT, RESOURCE, DBA TO " + USERNAME);
         } finally {
@@ -68,8 +96,8 @@ public final class TestDatabaseSetup {
                 stmt.close();
             }
 
-            if (conn != null) {
-                conn.close();
+            if (sysConn != null) {
+                sysConn.close();
             }
         }
         
@@ -89,7 +117,11 @@ public final class TestDatabaseSetup {
         });
 
         System.out.println("CREATING CUE3 TEST DATABASE " + USERNAME);
-        conn = DriverManager.getConnection("jdbc:oracle:oci:@dbname", USERNAME, PASSWORD);
+        Connection conn = DriverManager.getConnection(
+            "jdbc:oracle:oci:@" + getDbTns(),
+            USERNAME,
+            PASSWORD
+        );
         stmt = null;
         try {
             stmt = conn.createStatement();
@@ -121,7 +153,11 @@ public final class TestDatabaseSetup {
 
     public void destroy() throws Exception {
         System.out.println("DESTROYING CUE3 TEST DATABASE " + USERNAME);
-        try (Connection conn = DriverManager.getConnection("jdbc:oracle:oci:@dbname", "cue_build", "password")) {
+        try (Connection conn = DriverManager.getConnection(
+            "jdbc:oracle:oci:@" + getDbTns(),
+            "sys as sysdba",
+            getSysPwd()
+        )) {
             purgeUser(conn, USERNAME);
         }
     }

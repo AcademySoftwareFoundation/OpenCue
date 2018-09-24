@@ -125,7 +125,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testInsertHost() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         assertEquals(Long.valueOf(CueUtil.GB16 - Dispatcher.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
                 "SELECT int_mem FROM host WHERE str_name=?",
@@ -139,7 +140,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         String TEST_HOST_NEW = "ice-ns1.yvr";
         String FQDN_HOST = TEST_HOST_NEW + ".spimageworks.com";
         hostDao.insertRenderHost(buildRenderHost(FQDN_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                true);
 
         HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
         assertEquals(TEST_HOST_NEW, hostDetail.name);
@@ -156,7 +158,27 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         String TEST_HOST_NEW = "compile21";
         String FQDN_HOST = TEST_HOST_NEW + ".spimageworks.com";
         hostDao.insertRenderHost(buildRenderHost(FQDN_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+
+        Host host = hostDao.findHost(FQDN_HOST);
+        HostDetail hostDetail2 = hostDao.getHostDetail(host);
+        assertEquals(TEST_HOST_NEW, hostDetail2.name);
+
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostFQDN3() {
+        String TEST_HOST_NEW = "hostname";
+        String FQDN_HOST = TEST_HOST_NEW + ".fake.co.uk";
+        hostDao.insertRenderHost(buildRenderHost(FQDN_HOST),
+            hostManager.getDefaultAllocationDetail(),
+            false);
 
         HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
         assertEquals(TEST_HOST_NEW, hostDetail.name);
@@ -176,7 +198,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         host.attributes.put("SP_OS", "spinux1");
 
         hostDao.insertRenderHost(host,
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         assertEquals("spinux1",jdbcTemplate.queryForObject(
                 "SELECT str_os FROM host_stat, host " +
@@ -191,7 +214,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         RenderHost host = buildRenderHost(TEST_HOST);
         hostDao.insertRenderHost(host,
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         assertEquals(Long.valueOf(CueUtil.GB16 - Dispatcher.MEM_RESERVED_SYSTEM), jdbcTemplate.queryForObject(
                 "SELECT int_mem FROM host WHERE str_name=?",
@@ -206,7 +230,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         RenderHost host = buildRenderHost(TEST_HOST);
         host.nimbyEnabled = true;
         hostDao.insertRenderHost(host,
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail d = hostDao.findHostDetail(TEST_HOST);
         hostDao.updateThreadMode(d, ThreadMode.Auto);
@@ -228,7 +253,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testGetHostDetail() {
 
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
         hostDao.getHostDetail(host);
@@ -240,7 +266,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testIsHostLocked() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
         assertEquals(hostDao.isHostLocked(host),false);
@@ -254,7 +281,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testIsKillMode() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
         assertFalse(hostDao.isKillMode(host));
@@ -271,7 +299,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testIsHostUp() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         assertTrue(hostDao.isHostUp(hostDao.findHostDetail(TEST_HOST)));
 
@@ -285,7 +314,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testHostExists() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         assertEquals(hostDao.hostExists(TEST_HOST),true);
         assertEquals(hostDao.hostExists("frickjack"),false);
@@ -296,7 +326,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testDeleteHost() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
         assertEquals(hostDao.hostExists(TEST_HOST),true);
@@ -309,7 +340,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testUpdateHostRebootWhenIdle() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
@@ -327,7 +359,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void updateHostStats() {
 
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
         hostDao.updateHostStats(dispatchHost,
@@ -372,7 +405,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void updateHostResources() {
 
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
         HostReport report = new HostReport();
@@ -406,7 +440,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testGetDispatchHost() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST);
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
@@ -423,7 +458,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateHostSetAllocation() {
 
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
-                hostManager.getDefaultAllocationDetail());
+                hostManager.getDefaultAllocationDetail(),
+                false);
 
         HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST);
 

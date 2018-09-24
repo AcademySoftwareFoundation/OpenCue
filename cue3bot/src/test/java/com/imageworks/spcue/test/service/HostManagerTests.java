@@ -124,7 +124,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         host.attributes.put("totalGpu", "512");
 
         hostDao.insertRenderHost(host,
-                adminManager.findAllocationDetail("spi", "general"));
+                adminManager.findAllocationDetail("spi", "general"),
+                false);
 
         return hostDao.findDispatchHost(HOST_NAME);
     }
