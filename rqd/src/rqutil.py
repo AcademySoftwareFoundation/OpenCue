@@ -22,7 +22,7 @@ Project: RQD
 
 Module: rqutil.py
 
-Contact: Middle-Tier 
+Contact: Middle-Tier
 
 SVN: $Id$
 """
@@ -45,14 +45,14 @@ class Memoize(object):
     def __init__(self, func):
         self.func = func
         self.memoized = {}
-        self.method_cache = {}
+        self.methodCache = {}
     def __call__(self, *args):
-        return self.cache_get(self.memoized, args,
+        return self.cacheGet(self.memoized, args,
             lambda: self.func(*args))
     def __get__(self, obj, objtype):
-        return self.cache_get(self.method_cache, obj,
+        return self.cacheGet(self.methodCache, obj,
             lambda: self.__class__(functools.partial(self.func, obj)))
-    def cache_get(self, cache, key, func):
+    def cacheGet(self, cache, key, func):
         try:
             return cache[key]
         except KeyError:
@@ -114,7 +114,7 @@ def getHostname():
     """Returns the machine's fully qualified domain name"""
     if platform.system() == "Linux":
         # This may not work in windows/mac, need to test
-        return socket.gethostbyaddr(socket.gethostname())[0]
+        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     else:
         return socket.gethostname()
 

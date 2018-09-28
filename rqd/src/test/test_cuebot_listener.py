@@ -36,24 +36,24 @@ fi
 #
 # A simple test script that acts like the cuebot by listening for messages from RQD.
 #
-# Author: John Welborn
+# Author: John Welborn (jwelborn@imageworks.com)
 
 import thread
 import time
 import os
 import sys
 
-lib_path = "%s/../" % os.path.dirname(__file__)
-sys.path.append(lib_path)
+libPath = "%s/../" % os.path.dirname(__file__)
+sys.path.append(libPath)
 
-from rqconstants import *
+from rqconstants import STRING_TO_CUEBOT, CUEBOT_PORT
 import rqutil
 
 import python_ice_server.loader
 python_ice_server.loader.setup_python_for_ice_3_3()
 
 import Ice
-Ice.loadSlice('--all -I%s/slice/spi -I%s/slice/cue %s/slice/cue/cue_ice.ice' % (lib_path, lib_path, lib_path))
+Ice.loadSlice('--all -I%s/slice/spi -I%s/slice/cue %s/slice/cue/cue_ice.ice' % (libPath, libPath, libPath))
 import cue.CueIce as CueIce
 
 # THIS IS FOR TESTING rqd.py ONLY
@@ -64,25 +64,25 @@ class RqdReportStatic(CueIce.RqdReportStatic):
        Create as an object to connect.
        call .wait() to block until ice exits.
        call .stop to destory the ice communicator, after .wait() will exit."""
-    last_reportRqdStartup = None
-    last_reportStatus = None
-    last_reportRunningFrameCompletion = None
+    lastReportRqdStartup = None
+    lastReportStatus = None
+    lastReportRunningFrameCompletion = None
 
-    status_checkin = {}
+    statusCheckin = {}
 
     start = False
 
-    def __init__(self, string_to_cuebot = STRING_TO_CUEBOT, cuebot_port = CUEBOT_PORT):
+    def __init__(self, stringToCuebot=STRING_TO_CUEBOT, cuebotPort=CUEBOT_PORT):
         self.verbose = 2
 
         # This causes the connection to close after 1 second
-        init_data = Ice.InitializationData()
-        props = init_data.properties = Ice.createProperties()
+        initData = Ice.InitializationData()
+        props = initData.properties = Ice.createProperties()
         props.setProperty('Ice.ACM.Server', '1')
 
-        self.communicator = Ice.initialize(init_data)
-        print "cuebot_port = %s, string_to_cuebot = %s, pid = %d" % (cuebot_port, string_to_cuebot, os.getpid())
-        self.DataFromRQD = self.communicator.createObjectAdapterWithEndpoints(string_to_cuebot, 'default -p ' + cuebot_port)
+        self.communicator = Ice.initialize(initData)
+        print "cuebotPort = %s, stringToCuebot = %s, pid = %d" % (cuebotPort, stringToCuebot, os.getpid())
+        self.DataFromRQD = self.communicator.createObjectAdapterWithEndpoints(stringToCuebot, 'default -p ' + cuebotPort)
         self.DataFromRQD.add(self, self.communicator.stringToIdentity(STRING_TO_CUEBOT))
         self.DataFromRQD.activate()
         print "Cuebot Listener started"
@@ -99,26 +99,26 @@ class RqdReportStatic(CueIce.RqdReportStatic):
     def stop(self):
         self.communicator.destroy()
 
-    def _track_update_time(self, report):
+    def _trackUpdateTime(self, report):
         now = time.time()
-        self.status_checkin[report.host.name] = {"last": now, "report": report}
+        self.statusCheckin[report.host.name] = {"last": now, "report": report}
         print "-"*20, time.asctime(time.localtime(now)), "-"*20
-        for host in sorted(self.status_checkin.keys()):
-            seconds_since_last = now - self.status_checkin[host]["last"]
+        for host in sorted(self.statusCheckin.keys()):
+            secondsSinceLast = now - self.statusCheckin[host]["last"]
             if host == report.host.name:
                print " >",
             else:
                print "  ",
             print host.ljust(15) \
-                  , str(int(seconds_since_last)).ljust(10) \
-                  , str(self.status_checkin[host]["report"].host.load).ljust(5) \
-                  , str(self.status_checkin[host]["report"].host.freeMem).ljust(10) \
-                  , ",".join(self.status_checkin[host]["report"].host.tags)
+                  , str(int(secondsSinceLast)).ljust(10) \
+                  , str(self.statusCheckin[host]["report"].host.load).ljust(5) \
+                  , str(self.statusCheckin[host]["report"].host.freeMem).ljust(10) \
+                  , ",".join(self.statusCheckin[host]["report"].host.tags)
 
     # These are defined by the rqd_ice.ice slice file:
 
-    def reportRqdStartup(self, report, current = None):
-        self.last_reportRqdStartup = report
+    def reportRqdStartup(self, report, current=None):
+        self.lastReportRqdStartup = report
 
         if self.verbose == 0:
             pass
@@ -134,10 +134,10 @@ class RqdReportStatic(CueIce.RqdReportStatic):
             print "Receiving reportRqdStartup"
             print report
         elif self.verbose == 4:
-            self._track_update_time(report)
+            self._trackUpdateTime(report)
 
-    def reportStatus(self, report, current = None):
-        self.last_reportStatus = report
+    def reportStatus(self, report, current=None):
+        self.lastReportStatus = report
 
         if self.verbose == 0:
             pass
@@ -155,10 +155,10 @@ class RqdReportStatic(CueIce.RqdReportStatic):
             print "Receiving reportStatus"
             print report
         elif self.verbose == 4:
-            self._track_update_time(report)
+            self._trackUpdateTime(report)
 
-    def reportRunningFrameCompletion(self, report, current = None):
-        self.last_reportRunningFrameCompletion = report
+    def reportRunningFrameCompletion(self, report, current=None):
+        self.lastReportRunningFrameCompletion = report
 
         if self.verbose == 0:
             pass

@@ -33,10 +33,10 @@ import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 

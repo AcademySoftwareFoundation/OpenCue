@@ -57,7 +57,7 @@ import getopt
 import re
 import random
 
-lib_path = os.path.abspath(os.path.dirname(__file__))
+libPath = os.path.abspath(os.path.dirname(__file__))
 
 # Needed due to segfault from loadSlice when in a protected directory
 os.chdir("/tmp")
@@ -71,18 +71,18 @@ import logging as log
 
 import Ice
 Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
-              "rqd_ice.ice".replace("{PATH}", lib_path))
+              "rqd_ice.ice".replace("{PATH}", libPath))
 import cue.RqdIce as RqdIce
 
 class RqdHost:
-    def __init__(self, rqd_host,
-                 string_from_cuebot = rqconstants.STRING_FROM_CUEBOT,
-                 rqd_port = rqconstants.RQD_PORT):
-        self.rqd_host = rqd_host
-        self.rqd_port = rqd_port
+    def __init__(self, rqdHost,
+                 stringFromCuebot = rqconstants.STRING_FROM_CUEBOT,
+                 rqdPort = rqconstants.RQD_PORT):
+        self.rqdHost = rqdHost
+        self.rqdPort = rqdPort
 
-        init_data = Ice.InitializationData()
-        props = init_data.properties = Ice.createProperties()
+        initData = Ice.InitializationData()
+        props = initData.properties = Ice.createProperties()
 
         if Ice.intVersion() >= 30600:
             props.setProperty('Ice.ACM.Client.Timeout', '60',)
@@ -97,16 +97,16 @@ class RqdHost:
         if Ice.intVersion() >= 30500:
             props.setProperty('Ice.Default.EncodingVersion', '1.0')
 
-        self.communicator = Ice.initialize(init_data)
+        self.communicator = Ice.initialize(initData)
 
         try:
-            self.DataToRQD = RqdIce.RqdStaticPrx.checkedCast(self.communicator.stringToProxy(string_from_cuebot + ':tcp -h ' + rqd_host + ' -p ' + rqd_port))
+            self.DataToRQD = RqdIce.RqdStaticPrx.checkedCast(self.communicator.stringToProxy(stringFromCuebot + ':tcp -h ' + rqdHost + ' -p ' + rqdPort))
         except Exception, e:
-            print "Unable to connect to rqd on host=", rqd_host, "with port=", rqd_port
+            print "Unable to connect to rqd on host=", rqdHost, "with port=", rqdPort
             print Exception
             print e
             sys.exit()
-        print "Connection to RQD", rqd_host, "on port", rqd_port, "established"
+        print "Connection to RQD", rqdHost, "on port", rqdPort, "established"
 
     def __del__(self):
         self.communicator.destroy()
@@ -118,55 +118,55 @@ class RqdHost:
         return self.DataToRQD.getRunningFrame(frameId)
 
     def nimbyOff(self):
-        print self.rqd_host,"Turning off Nimby"
+        print self.rqdHost,"Turning off Nimby"
         log.info("rqd nimbyoff by {0}".format(os.environ.get("USER")))
         self.DataToRQD.nimbyOff()
 
     def nimbyOn(self):
-        print self.rqd_host,"Turning on Nimby"
+        print self.rqdHost,"Turning on Nimby"
         log.info("rqd nimbyon by {0}".format(os.environ.get("USER")))
         self.DataToRQD.nimbyOn()
 
     def lockAll(self):
-        print self.rqd_host,"Locking all cores"
+        print self.rqdHost,"Locking all cores"
         self.DataToRQD.lockAll()
 
     def unlockAll(self):
-        print self.rqd_host,"Unlocking all cores"
+        print self.rqdHost,"Unlocking all cores"
         self.DataToRQD.unlockAll()
 
     def lock(self, cores):
         cores = int(cores)
-        print self.rqd_host,"Locking %d cores" % cores
+        print self.rqdHost,"Locking %d cores" % cores
         self.DataToRQD.lock(cores)
 
     def unlock(self, cores):
         cores = int(cores)
-        print self.rqd_host,"Unlocking %d cores" % cores
+        print self.rqdHost,"Unlocking %d cores" % cores
         self.DataToRQD.unlock(cores)
 
     def shutdownRqdIdle(self):
-        print self.rqd_host,"Sending shutdownRqdIdle command"
+        print self.rqdHost,"Sending shutdownRqdIdle command"
         self.DataToRQD.shutdownRqdIdle()
 
     def shutdownRqdNow(self):
-        print self.rqd_host,"Sending shutdownRqdNow command"
+        print self.rqdHost,"Sending shutdownRqdNow command"
         self.DataToRQD.shutdownRqdNow()
 
     def restartRqdIdle(self):
-        print self.rqd_host,"Sending restartRqdIdle command"
+        print self.rqdHost,"Sending restartRqdIdle command"
         self.DataToRQD.restartRqdIdle()
 
     def restartRqdNow(self):
-        print self.rqd_host,"Sending restartRqdNow command"
+        print self.rqdHost,"Sending restartRqdNow command"
         self.DataToRQD.restartRqdNow()
 
     def rebootIdle(self):
-        print self.rqd_host,"Sending rebootIdle command"
+        print self.rqdHost,"Sending rebootIdle command"
         self.DataToRQD.rebootIdle()
 
     def rebootNow(self):
-        print self.rqd_host,"Sending rebootNow command"
+        print self.rqdHost,"Sending rebootNow command"
         self.DataToRQD.rebootNow()
 
 if __name__ == "__main__":
@@ -175,10 +175,10 @@ if __name__ == "__main__":
         sys.exit()
     elif sys.argv[1].startswith("-"):
         hostname = "localhost"
-        start_argv = sys.argv[1:]
+        startArgv = sys.argv[1:]
     else:
         hostname = sys.argv[1]
-        start_argv = sys.argv[2:]
+        startArgv = sys.argv[2:]
 
     try:
         SHORT_ARGS = 'hsv'
@@ -186,7 +186,7 @@ if __name__ == "__main__":
                      'exit', 'exit_now', 'test_edu_frame', 'test_script_frame',
                      'test_script_frame_mac', "kill=","restart", "restart_now",
                      "reboot", "reboot_now", "getproxy=", "s"]
-        newargs = [re.sub(r"^(-\w{2,})$", r"-\1", arg) for arg in start_argv]
+        newargs = [re.sub(r"^(-\w{2,})$", r"-\1", arg) for arg in startArgv]
         opts, argv = getopt.getopt(newargs, SHORT_ARGS, LONG_ARGS)
     except getopt.GetoptError:
         print __doc__
@@ -201,10 +201,10 @@ if __name__ == "__main__":
         if o in ("-s", "--s"):
             print rqdHost.status()
         if o in ("-v",):
-            tag_prefix = 'rqdv-'
+            tagPrefix = 'rqdv-'
             for tag in rqdHost.status().host.tags:
-                if tag.startswith(tag_prefix):
-                    print "version =", tag[len(tag_prefix):]
+                if tag.startswith(tagPrefix):
+                    print "version =", tag[len(tagPrefix):]
         if o == "--nimbyoff":
             rqdHost.nimbyOff()
         if o == "--nimbyon":
@@ -234,7 +234,7 @@ if __name__ == "__main__":
             print frameProxy
         if o == "--kill":
             frameProxyStr = "RunningFrame/%s -t:tcp -h %s -p %s" % \
-                            (a, hostname, rqdHost.rqd_port)
+                            (a, hostname, rqdHost.rqdPort)
             try:
                 frameProxy = RqdIce.RunningFramePrx.checkedCast(rqdHost.communicator.stringToProxy(frameProxyStr))
                 frameProxy.kill("Killed by %s using cuerqd.py" % os.environ.get("USER"))

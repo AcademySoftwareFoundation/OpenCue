@@ -44,8 +44,8 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -114,23 +114,22 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     public DispatchHost createHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = "beta";
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = 53500;
-        host.freeSwap = 20760;
-        host.load = 1;
-        host.totalMcp = 195430;
-        host.totalMem = (int) CueUtil.GB32;
-        host.totalSwap = 20960;
-        host.nimbyEnabled = false;
-        host.numProcs = 8;
-        host.coresPerProc = 100;
-        host.tags = new ArrayList<String>();
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
+        RenderHost host = RenderHost.newBuilder()
+                .setName("beta")
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(1)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB32)
+                .setTotalSwap(20960)
+                .setNimbyEnabled(false)
+                .setNumProcs(8)
+                .setCoresPerProc(100)
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .build();
 
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,

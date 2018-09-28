@@ -1,0 +1,129 @@
+
+syntax = "proto3";
+
+option java_package = "com.imageworks.spcue.CueGrpc";
+option java_multiple_files = true;
+package cue;
+
+
+service FacilityInterface {
+    rpc Create(FacilityCreateRequest) returns (Facility) {}
+    rpc Get(FacilityGetRequest) returns (Facility) {}
+    rpc Rename(FacilityRenameRequest) returns (Empty) {}
+    rpc Delete(FacilityDeleteRequest) returns (Empty) {}
+}
+
+
+service RqdReportStatic {
+    // Interface to handle RQD pings.
+    rpc ReportRqdStartup(BootReport) returns (Empty) {}
+    rpc ReportStatus(HostReport) returns (Empty) {}
+    rpc ReportRunningFrameCompletion(FrameCompleteReport) returns (Empty) {}
+}
+
+
+message BootReport {
+    RenderHost host = 1;
+    CoreDetail coreInfo = 2;
+}
+
+
+message Facility {
+    string name = 1;
+}
+
+
+message FacilityCreateRequest {
+    string name = 1;
+}
+
+
+message FacilityGetRequest {
+    string name = 1;
+}
+
+
+message FacilityRenameRequest {
+    Facility facility = 1;
+    string new_name = 2;
+}
+
+
+message FacilityDeleteRequest {
+    string name = 1;
+}
+
+
+// TODO: Break this up so we have less than 15 fields
+message RenderHost {
+    string name = 1;
+    bool nimbyEnabled = 2; // NIMBY is enabled when the machine is in run level 5.
+    bool nimbyLocked = 3; // if nimby has locked the host due to user activity
+    string facility= 4; // The name of the facility that the host is in
+    int32 numProcs = 5; // the number of physical procs on this machine
+    int32 coresPerProc = 6; // the number of cores per proc
+    int32 totalSwap = 7; // the total size of the swap in kB
+    int32 totalMem = 8; // the total size of the main memory pool in kB
+    int32 totalMcp = 9; // the total size of MCP in kB
+    int32 freeSwap = 10; // the current amount of free swap in kB
+    int32 freeMem = 11; // the current amount of free memory in kB
+    int32 freeMcp = 12; // the current amount of free MCP in kB
+    int32 load = 13; // the current load on the proc
+    int32 bootTime = 14; // the time the proc was booted
+    repeated string tags = 15; // an array of default tags that are added to the host record
+    HardwareState state = 16; // hardare state for the host
+    map<string, string> attributes = 17; // additional data can be provided about the host
+};
+
+
+message HostReport {
+    RenderHost host = 1;
+    repeated RunningFrameInfo frames = 2;
+    CoreDetail coreInfo = 3;
+}
+
+
+message FrameCompleteReport {
+    RenderHost host = 1;
+    RunningFrameInfo frame = 2;
+    int32 exitStatus = 3;
+    int32 exitSignal = 4;
+    int32 runTime = 5;
+}
+
+
+message RunningFrameInfo {
+    string resourceId = 1;
+    string jobId = 2;
+    string jobName = 3;
+    string frameId = 4;
+    string frameName = 5;
+    string layerId = 6;
+    int32 numCores = 7;
+    int64 startTime = 8;
+    int64 maxRss = 9; // kB
+    int64 rss = 10; // kB
+    int64 maxVsize = 11; // kB
+    int64 vsize = 12; // kB
+    map<string, string> attributes = 13; //additional data can be provided about the running frame
+};
+
+
+message CoreDetail {
+    int32 totalCores = 1;
+    int32 idleCores = 2;
+    int32 lockedCores = 3;
+    int32 bookedCores = 4;
+}
+
+
+enum HardwareState {
+    Up = 0;
+    Down = 1;
+    Rebooting = 2;
+    RebootWhenIdle = 3;
+    Repair = 4;
+}
+
+
+message Empty {}
