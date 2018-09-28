@@ -43,12 +43,12 @@ import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.HardwareState;
 import com.imageworks.spcue.CueIce.ThreadMode;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
@@ -309,68 +309,70 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public void insertRenderHost(RenderHost host, Allocation a, boolean useLongNames) {
 
         ThreadMode threadMode = ThreadMode.Auto;
-        if (host.nimbyEnabled) {
+        if (host.getNimbyEnabled()) {
             threadMode = ThreadMode.All;
         }
 
         long memUnits = convertMemoryUnits(host);
         if (memUnits < Dispatcher.MEM_RESERVED_MIN) {
-            throw new EntityCreationError("could not create host " + host.name + ", " +
+            throw new EntityCreationError("could not create host " + host.getName() + ", " +
                     " must have at least " + Dispatcher.MEM_RESERVED_MIN + " free memory.");
         }
 
         String fqdn;
-        String name = host.name;
+        String name = host.getName();
         try {
-            fqdn = InetAddress.getByName(host.name).getCanonicalHostName();
-            // if the FQDN and the name the host pinged in with is the name
-            // set he name to just to name, leaving off the domain
-            // if the host has no domain or the lookup fails, just use the name
-            if (fqdn.equals(host.name)) {
+            fqdn = InetAddress.getByName(host.getName()).getCanonicalHostName();
+            // If the provided host name matches the pinged name, use the pinged name.
+            // Otherwise use the provided name.
+            // If the host lookup fails, use the provided name.
+            // In all cases attempt to strip off the domain when setting the name.
+            if (fqdn.equals(host.getName())) {
                 name = getHostNameFromFQDN(fqdn, useLongNames);
             }
-            else if (host.name.contains(".spimageworks.com")) {
-                name = getHostNameFromFQDN(host.name, useLongNames);
-                fqdn = host.name;
+            else {
+                name = getHostNameFromFQDN(host.getName(), useLongNames);
+                fqdn = host.getName();
             }
         } catch (UnknownHostException e) {
             logger.warn(e);
-            fqdn = host.name;
+            fqdn = host.getName();
+            name = getHostNameFromFQDN(name, useLongNames);
         }
 
         String hid = SqlUtil.genKeyRandom();
-        int coreUnits = host.numProcs * host.coresPerProc;
-        String os = host.attributes.get("SP_OS");
+        int coreUnits = host.getNumProcs() * host.getCoresPerProc();
+        String os = host.getAttributes().get("SP_OS");
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
         }
 
         long totalGpu;
-        if (host.attributes.containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(host.attributes.get("totalGpu"));
+        if (host.getAttributes().containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(host.getAttributes().get("totalGpu"));
         else
             totalGpu = 0;
 
         long freeGpu;
-        if (host.attributes.containsKey("freeGpu"))
-            freeGpu = Integer.parseInt(host.attributes.get("freeGpu"));
+        if (host.getAttributes().containsKey("freeGpu"))
+            freeGpu = Integer.parseInt(host.getAttributes().get("freeGpu"));
         else
             freeGpu = 0;
 
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[0],
-                hid, a.getAllocationId(), name, host.nimbyEnabled,
-                LockState.Open.toString(), host.numProcs, coreUnits, coreUnits,
+                hid, a.getAllocationId(), name, host.getNimbyEnabled(),
+                LockState.Open.toString(), host.getNumProcs(), coreUnits, coreUnits,
                 memUnits, memUnits, totalGpu, totalGpu,
                 fqdn, threadMode.value());
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
-                hid, hid, host.totalMem, host.freeMem,
+                hid, hid, host.getTotalMem(), host.getFreeMem(),
                 totalGpu, freeGpu,
-                host.totalSwap, host.freeSwap,
-                host.totalMcp, host.freeMcp,
-                host.load, new Timestamp(host.bootTime * 1000l),
-                host.state.toString(), os);
+                host.getTotalSwap(), host.getFreeSwap(),
+                host.getTotalMcp(), host.getFreeMcp(),
+                host.getLoad(), new Timestamp(host.getBootTime() * 1000l),
+                host.getState().toString(), os);
     }
 
     @Override
@@ -436,12 +438,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public void updateHostResources(Host host, HostReport report) {
 
-        long memory = convertMemoryUnits(report.host);
-        int cores = report.host.numProcs * report.host.coresPerProc;
+        long memory = convertMemoryUnits(report.getHost());
+        int cores = report.getHost().getNumProcs() * report.getHost().getCoresPerProc();
 
         long totalGpu;
-        if (report.host.attributes.containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(report.host.attributes.get("totalGpu"));
+        if (report.getHost().getAttributes().containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
         else
             totalGpu = 0;
 
@@ -462,7 +464,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     "int_cores = int_cores_idle " +
                 "AND " +
                     "int_mem = int_mem_idle",
-                    report.host.nimbyEnabled, cores, cores,
+                    report.getHost().getNimbyEnabled(), cores, cores,
                     memory, memory, totalGpu, totalGpu, host.getId());
     }
 
@@ -489,6 +491,13 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
     @Override
     public void updateHostState(Host host, HardwareState state) {
+        getJdbcTemplate().update(
+                "UPDATE host_stat SET str_state=? WHERE pk_host=?",
+                state.toString(), host.getHostId());
+    }
+
+    // TODO: Remove this once ICE is gone!
+    public void updateHostState(Host host, com.imageworks.spcue.CueIce.HardwareState state) {
         getJdbcTemplate().update(
                 "UPDATE host_stat SET str_state=? WHERE pk_host=?",
                 state.toString(), host.getHostId());
@@ -678,18 +687,18 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     private long convertMemoryUnits(RenderHost host) {
 
         long memUnits;
-        if (host.tags.contains("64bit")) {
-            memUnits = CueUtil.convertKbToFakeKb64bit(host.totalMem);
+        if (host.getTagsList().contains("64bit")) {
+            memUnits = CueUtil.convertKbToFakeKb64bit(host.getTotalMem());
         }
         else {
-            memUnits = CueUtil.convertKbToFakeKb32bit(host.totalMem);
+            memUnits = CueUtil.convertKbToFakeKb32bit(host.getTotalMem());
         }
 
         /*
          * If this is a desktop, we'll just cut the memory
          * so we don't annoy the user.
          */
-        if (host.nimbyEnabled) {
+        if (host.getNimbyEnabled()) {
             memUnits = (long) (memUnits / 1.5) + Dispatcher.MEM_RESERVED_SYSTEM;
         }
 

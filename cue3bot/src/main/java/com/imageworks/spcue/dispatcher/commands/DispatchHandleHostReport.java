@@ -21,9 +21,9 @@ package com.imageworks.spcue.dispatcher.commands;
 
 import java.util.ArrayList;
 
-import com.imageworks.spcue.RqdIce.BootReport;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RunningFrameInfo;
+import com.imageworks.spcue.CueGrpc.BootReport;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RunningFrameInfo;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 
 /**
@@ -45,10 +45,10 @@ public class DispatchHandleHostReport implements Runnable {
     }
 
     public DispatchHandleHostReport(BootReport report, HostReportHandler rqdReportManager) {
-        HostReport hostReport = new HostReport();
-        hostReport.host = report.host;
-        hostReport.coreInfo = report.coreInfo;
-        hostReport.frames = new ArrayList<RunningFrameInfo>();
+        HostReport hostReport = HostReport.newBuilder()
+                .setHost(report.getHost())
+                .setCoreInfo(report.getCoreInfo())
+                .build();
 
         this.hostReport = hostReport;
         this.isBootReport = true;

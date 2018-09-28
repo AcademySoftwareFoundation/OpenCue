@@ -33,8 +33,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -96,27 +96,26 @@ public class DispatchSupportTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        RenderHost host = new RenderHost();
-        host.name = HOSTNAME;
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = 53500;
-        host.freeSwap = 20760;
-        host.load = 0;
-        host.totalMcp = 195430;
-        host.totalMem = 8173264;
-        host.totalSwap = 20960;
-        host.nimbyEnabled = false;
-        host.numProcs = 2;
-        host.coresPerProc = 400;
-        host.tags = new ArrayList<String>();
-        host.tags.add("test");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("SP_OS", "Linux");
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName(HOSTNAME)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(0)
+                .setTotalMcp(195430)
+                .setTotalMem(8173264)
+                .setTotalSwap(20960)
+                .setNimbyEnabled(false)
+                .setNumProcs(2)
+                .setCoresPerProc(400)
+                .addTags("test")
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .putAttributes("SP_OS", "Linux")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         hostManager.createHost(host,
                 adminManager.findAllocationDetail("spi","general"));

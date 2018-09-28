@@ -22,18 +22,18 @@ package com.imageworks.spcue.dao.oracle;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.FacilityEntity;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Facility;
-import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
 
-    public static final RowMapper<Facility> FACILITY_MAPPER = new RowMapper<Facility>() {
-        public Facility mapRow(ResultSet rs, int rowNum) throws SQLException {
+    public static final RowMapper<FacilityInterface> FACILITY_MAPPER = new RowMapper<FacilityInterface>() {
+        public FacilityInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
             FacilityEntity facility = new FacilityEntity();
             facility.id = rs.getString("pk_facility");
             facility.name = rs.getString("str_name");
@@ -41,13 +41,13 @@ public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
         }
     };
 
-    public Facility getDefaultFacility() {
+    public FacilityInterface getDefaultFacility() {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_facility,str_name FROM facility WHERE b_default=1 AND ROWNUM < 2",
                 FACILITY_MAPPER);
     }
 
-    public Facility getFacility(String id) {
+    public FacilityInterface getFacility(String id) {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_facility, str_name FROM facility WHERE pk_facility=? " +
                 "OR str_name=?", FACILITY_MAPPER, id, id);
@@ -60,7 +60,7 @@ public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
 
     }
 
-    public Facility insertFacility(FacilityEntity facility) {
+    public FacilityInterface insertFacility(FacilityEntity facility) {
         facility.id = SqlUtil.genKeyRandom();
 
         getJdbcTemplate().update(
@@ -71,14 +71,14 @@ public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
     }
 
     @Override
-    public int deleteFacility(Facility facility) {
+    public int deleteFacility(FacilityInterface facility) {
         return getJdbcTemplate().update(
                 "DELETE FROM facility WHERE pk_facility = ?",
                 facility.getFacilityId());
     }
 
     @Override
-    public int updateFacilityName(Facility facility, String name) {
+    public int updateFacilityName(FacilityInterface facility, String name) {
         return getJdbcTemplate().update(
                 "UPDATE facility SET str_name=? WHERE pk_facility = ?",
                 name, facility.getFacilityId());

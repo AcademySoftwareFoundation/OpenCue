@@ -8,23 +8,23 @@ logger.level: WARNING
 # Cuebot Network Settings
 cuebot.port: 9019
 cuebot.protocol: tcp
-
-cuebot.facility_default: lax
-cuebot.facility.abq.hosts:
-    - cue3test02
-cuebot.facility.dev.hosts:
-    - cue3test01
-cuebot.facility.lax.hosts:
-    - cue3bot1:9019
-    - cue3bot2:9019
-    - cue3bot3:9019
+cuebot.grpc_port: 8443
 
 # Ice Interfaces
 cuebot.interface.whiteboard: WhiteboardStatic
 cuebot.interface.admin: AdminStatic
 
-# Ice Configuration
-ice.init.timeout.property: Ice.ACM.Client
-ice.init.timeout.value: 60
-ice.init.MessageSizeMax.property: Ice.MessageSizeMax
-ice.init.MessageSizeMax.value: 102400
+cuebot.facility_default: lax
+cuebot.facility:
+    dev:
+        - cue3test02-vm.spimageworks.com:9019
+    lax:
+        - localhost:9019
+    maa:
+        - cuebot1-vm.maa.spimageworks.com:9019
+        - cuebot2-vm.maa.spimageworks.com:9019
+
+cuebot.timeout: 10000
+ice.init:
+    Ice.ACM.Client: 60
+    Ice.MessageSizeMax: 102400#

@@ -27,12 +27,13 @@ import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
+
 
 /**
  * HostDao contains all SQL queries pretaining to host records.
@@ -71,6 +72,8 @@ public interface HostDao {
      * @param HardwareState
      */
     void updateHostState(Host host, HardwareState state);
+
+    void updateHostState(Host host, com.imageworks.spcue.CueIce.HardwareState state);
 
     /**
      * returns a full host detail

@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.imageworks.spcue.FacilityInterface;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
@@ -36,7 +37,6 @@ import org.springframework.jdbc.core.SqlParameter;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.EntityRemovalError;
-import com.imageworks.spcue.Facility;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -95,7 +95,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
               "str_tag "+
           ") VALUES (?,?,?,?)";
 
-     public void insertAllocation(Facility facility, AllocationDetail detail) {
+     public void insertAllocation(FacilityInterface facility, AllocationDetail detail) {
 
          String new_alloc_name = String.format("%s.%s",
                  facility.getName(), detail.getName());

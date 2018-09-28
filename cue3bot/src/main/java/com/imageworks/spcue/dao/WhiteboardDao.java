@@ -21,8 +21,31 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
+import com.imageworks.spcue.CueClientIce.Action;
+import com.imageworks.spcue.CueClientIce.Allocation;
+import com.imageworks.spcue.CueClientIce.Comment;
+import com.imageworks.spcue.CueClientIce.Deed;
+import com.imageworks.spcue.CueClientIce.Department;
+import com.imageworks.spcue.CueClientIce.Depend;
+import com.imageworks.spcue.CueClientIce.Filter;
+import com.imageworks.spcue.CueClientIce.Frame;
+import com.imageworks.spcue.CueClientIce.Group;
+import com.imageworks.spcue.CueClientIce.Host;
+import com.imageworks.spcue.CueClientIce.Job;
+import com.imageworks.spcue.CueClientIce.Layer;
+import com.imageworks.spcue.CueClientIce.Matcher;
+import com.imageworks.spcue.CueClientIce.Owner;
+import com.imageworks.spcue.CueClientIce.Proc;
+import com.imageworks.spcue.CueClientIce.RenderPartition;
+import com.imageworks.spcue.CueClientIce.Service;
+import com.imageworks.spcue.CueClientIce.ServiceOverride;
+import com.imageworks.spcue.CueClientIce.Show;
+import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.Task;
+import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
+import com.imageworks.spcue.CueGrpc.Facility;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueClientIce.*;
+
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
@@ -340,7 +363,7 @@ public interface WhiteboardDao {
     * @param req
     * @return
     */
-   List<Allocation> getAllocations(com.imageworks.spcue.Facility facility);
+   List<Allocation> getAllocations(com.imageworks.spcue.FacilityInterface facility);
 
 
     /**
@@ -409,7 +432,7 @@ public interface WhiteboardDao {
      * @return
      */
     UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-            List<com.imageworks.spcue.Layer> layers, int lastUpdate);
+                                             List<com.imageworks.spcue.Layer> layers, int lastUpdate);
 
     /**
      *

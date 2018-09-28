@@ -49,6 +49,10 @@ def __setup_python_for_ice(version):
     if os.path.isfile("/usr/lib64/python2.6/site-packages/Ice/Ice.py"):
         return "/usr"
 
+    # For Debian
+    if os.path.isfile("/usr/local/lib/python2.7/dist-packages/Ice/__init__.py"):
+        return "/usr"
+
     import platform
 
     platform_name = platform.system()

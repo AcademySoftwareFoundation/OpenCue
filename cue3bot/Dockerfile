@@ -2,7 +2,8 @@ FROM centos:7 as base
 
 ARG BUILD_ENV=prod
 
-RUN echo $BUILD_ENV
+ARG CUEBOT_GRPC_CUE_PORT=8443
+ARG CUEBOT_GRPC_RQD_PORT=8444
 
 RUN yum install -y wget \
     && wget https://zeroc.com/download/Ice/3.6/el7/zeroc-ice3.6.repo -P /etc/yum.repos.d \
@@ -156,6 +157,12 @@ VOLUME ["/opt/cue3/logs"]
 # RQD server
 EXPOSE 9018
 EXPOSE 9019
+
+ENV grpc_cue_port ${CUEBOT_GRPC_CUE_PORT}
+ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
+
+EXPOSE $grpc_cue_port
+EXPOSE $grpc_rqd_port
 
 ENV CUEBOT_ENABLE_JMS=false
 

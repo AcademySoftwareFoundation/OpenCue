@@ -19,45 +19,48 @@
 
 package com.imageworks.spcue.servant;
 
-import java.util.ArrayList;
-import java.util.List;
-
-import org.springframework.dao.EmptyResultDataAccessException;
-
 import Ice.Current;
-
 import com.google.common.collect.Sets;
 import com.imageworks.common.SpiIce.SpiIceException;
 import com.imageworks.common.spring.remoting.IceServer;
 import com.imageworks.common.spring.remoting.SpiIceExceptionGenericTemplate;
 import com.imageworks.common.spring.remoting.SpiIceExceptionMinimalTemplate;
+import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.CueClientIce.Allocation;
-import com.imageworks.spcue.CueClientIce.Facility;
+import com.imageworks.spcue.CueClientIce.Depend;
+import com.imageworks.spcue.CueClientIce.Filter;
 import com.imageworks.spcue.CueClientIce.Frame;
 import com.imageworks.spcue.CueClientIce.FrameSearchCriteria;
+import com.imageworks.spcue.CueClientIce.Group;
 import com.imageworks.spcue.CueClientIce.GroupInterfacePrx;
 import com.imageworks.spcue.CueClientIce.Host;
 import com.imageworks.spcue.CueClientIce.HostSearchCriteria;
 import com.imageworks.spcue.CueClientIce.Job;
 import com.imageworks.spcue.CueClientIce.JobInterfacePrx;
+import com.imageworks.spcue.CueClientIce.JobSearchCriteria;
 import com.imageworks.spcue.CueClientIce.Layer;
+import com.imageworks.spcue.CueClientIce.NestedHost;
 import com.imageworks.spcue.CueClientIce.Owner;
 import com.imageworks.spcue.CueClientIce.Proc;
 import com.imageworks.spcue.CueClientIce.ProcSearchCriteria;
 import com.imageworks.spcue.CueClientIce.Service;
 import com.imageworks.spcue.CueClientIce.ServiceData;
 import com.imageworks.spcue.CueClientIce.Show;
+import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.SystemStats;
 import com.imageworks.spcue.CueClientIce._CueStaticDisp;
-import com.imageworks.spcue.BuildableJob;
-import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.Source;
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueClientIce.*;
-
 import com.imageworks.spcue.CueIce.CueIceException;
 import com.imageworks.spcue.CueIce.EntityCreationErrorException;
 import com.imageworks.spcue.CueIce.EntityNotFoundException;
-import com.imageworks.spcue.dao.criteria.*;
+import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.Source;
+import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.criteria.Direction;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.HostSearch;
+import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
@@ -72,6 +75,10 @@ import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.dao.EmptyResultDataAccessException;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class CueStaticI extends _CueStaticDisp {
 
@@ -636,27 +643,6 @@ public class CueStaticI extends _CueStaticDisp {
         return new CueIceExceptionTemplate<Owner>() {
             public Owner throwOnlyIceExceptions() {
                 return whiteboard.getOwner(id);
-            }
-        }.execute();
-    }
-
-    @Override
-    public Facility createFacility(final String name, Current __current)
-            throws SpiIceException {
-        return new CueIceExceptionTemplate<Facility>() {
-            public Facility throwOnlyIceExceptions() {
-                adminManager.createFacility(name);
-                return whiteboard.getFacility(name);
-            }
-        }.execute();
-    }
-
-    @Override
-    public Facility getFacility(final String name, Current __current)
-            throws SpiIceException {
-        return new CueIceExceptionTemplate<Facility>() {
-            public Facility throwOnlyIceExceptions() {
-                return whiteboard.getFacility(name);
             }
         }.execute();
     }

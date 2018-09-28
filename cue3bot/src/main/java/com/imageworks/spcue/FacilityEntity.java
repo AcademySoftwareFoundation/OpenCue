@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class FacilityEntity extends Entity implements Facility {
+public class FacilityEntity extends Entity implements FacilityInterface {
 
     public FacilityEntity() {}
 

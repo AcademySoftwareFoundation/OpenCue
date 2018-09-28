@@ -29,6 +29,7 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
@@ -44,12 +45,12 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -79,28 +80,26 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public HostDaoTests() { }
 
     public static RenderHost buildRenderHost(String name) {
-
-        RenderHost host = new RenderHost();
-        host.name = name;
-        host.bootTime = 1192369572;
-        host.freeMcp = 7602;
-        host.freeMem = 15290520;
-        host.freeSwap = (int) CueUtil.MB512;
-        host.load = 1;
-        host.totalMcp = 19543;
-        host.totalMem = (int) CueUtil.GB16;
-        host.totalSwap = (int) CueUtil.GB2;
-        host.nimbyEnabled = false;
-        host.numProcs = 2;
-        host.coresPerProc = 400;
-        host.tags = new ArrayList<String>();
-        host.tags.add("linux");
-        host.tags.add("64bit");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String,String>();
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName(name)
+                .setBootTime(1192369572)
+                .setFreeMcp(7602)
+                .setFreeMem(15290520)
+                .setFreeSwap((int) CueUtil.MB512)
+                .setLoad(1)
+                .setNimbyEnabled(false)
+                .setTotalMcp(19543)
+                .setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB2)
+                .setNimbyEnabled(false)
+                .setNumProcs(2)
+                .setCoresPerProc(400)
+                .addAllTags(ImmutableList.of("linux", "64bit"))
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         return host;
     }
@@ -194,8 +193,9 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void testInsertHostAlternateOS() {
 
-        RenderHost host = buildRenderHost(TEST_HOST);
-        host.attributes.put("SP_OS", "spinux1");
+        RenderHost host = buildRenderHost(TEST_HOST).toBuilder()
+                .putAttributes("SP_OS", "spinux1")
+                .build();
 
         hostDao.insertRenderHost(host,
                 hostManager.getDefaultAllocationDetail(),
@@ -228,7 +228,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateThreadMode() {
 
         RenderHost host = buildRenderHost(TEST_HOST);
-        host.nimbyEnabled = true;
+        host.toBuilder().setNimbyEnabled(true).build();
         hostDao.insertRenderHost(host,
                 hostManager.getDefaultAllocationDetail(),
                 false);
@@ -409,11 +409,13 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 false);
 
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
-        HostReport report = new HostReport();
-        report.host = buildRenderHost(TEST_HOST);
-        report.host.coresPerProc = 1200;
-        report.host.numProcs = 2;
-        report.host.totalMem = (int) CueUtil.GB32;
+        HostReport report = HostReport.newBuilder()
+                .setHost(
+                        buildRenderHost(TEST_HOST).toBuilder()
+                                .setCoresPerProc(1200)
+                                .setNumProcs(2)
+                                .setTotalMem((int) CueUtil.GB32)
+                ).build();
         hostDao.updateHostResources(dispatchHost, report);
 
         // Verify what the original values are
