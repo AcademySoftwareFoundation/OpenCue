@@ -21,7 +21,7 @@ package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.AllocationDetail;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 
 /**
  * Allocation DAO
@@ -61,7 +61,7 @@ public interface AllocationDao {
      *
      * @param detail
      */
-    void insertAllocation(Facility facility, AllocationDetail detail);
+    void insertAllocation(FacilityInterface facility, AllocationDetail detail);
 
     /**
      * Deletes an allocation

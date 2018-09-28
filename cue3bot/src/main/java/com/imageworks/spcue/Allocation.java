@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public interface Allocation extends EntityInterface, Facility {
+public interface Allocation extends EntityInterface, FacilityInterface {
 
     public String getAllocationId();
 }

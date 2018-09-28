@@ -1,0 +1,7 @@
+enum34==1.1.6
+futures==3.2.0
+googleapis-common-protos==1.5.3
+grpcio==1.14.1
+grpcio-tools==1.14.1
+protobuf==3.6.0
+six==1.11.0

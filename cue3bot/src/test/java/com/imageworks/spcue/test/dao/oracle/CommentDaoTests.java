@@ -41,8 +41,8 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.CommentDao;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -135,26 +135,25 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     @Rollback(true)
     public void testInsertCommentOnHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = "boo";
-        host.bootTime = 1192369572;
-        host.freeMcp = 7602;
-        host.freeMem = 15290520;
-        host.freeSwap = 2076;
-        host.load = 1;
-        host.totalMcp = 19543;
-        host.totalMem = 15290520;
-        host.totalSwap = 2096;
-        host.nimbyEnabled = false;
-        host.numProcs = 2;
-        host.coresPerProc = 400;
-        host.tags = new ArrayList<String>();
-        host.tags.add("linux");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName("boo")
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(15290520)
+                .setFreeSwap(2076)
+                .setLoad(1)
+                .setTotalMcp(19543)
+                .setTotalMem(15290520)
+                .setTotalSwap(2096)
+                .setNimbyEnabled(false)
+                .setNumProcs(2)
+                .setCoresPerProc(400)
+                .addTags("linux")
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         CommentDetail d = new CommentDetail();
         d.message = "a message";

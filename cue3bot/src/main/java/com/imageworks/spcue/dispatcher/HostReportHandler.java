@@ -39,12 +39,12 @@ import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.BootReport;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
+import com.imageworks.spcue.CueGrpc.RunningFrameInfo;
 import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.RqdIce.BootReport;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
-import com.imageworks.spcue.RqdIce.RunningFrameInfo;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
@@ -134,39 +134,39 @@ public class HostReportHandler {
         try {
 
             long totalGpu;
-            if (report.host.attributes.containsKey("totalGpu"))
-                totalGpu = Integer.parseInt(report.host.attributes.get("totalGpu"));
+            if (report.getHost().getAttributes().containsKey("totalGpu"))
+                totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
             else
                 totalGpu = 0;
 
             long freeGpu;
-            if (report.host.attributes.containsKey("freeGpu"))
-                freeGpu = Integer.parseInt(report.host.attributes.get("freeGpu"));
+            if (report.getHost().getAttributes().containsKey("freeGpu"))
+                freeGpu = Integer.parseInt(report.getHost().getAttributes().get("freeGpu"));
             else
                 freeGpu = 0;
 
             long swapOut = 0;
-            if (report.host.attributes.containsKey("swapout")) {
-                swapOut = Integer.parseInt(report.host.attributes.get("swapout"));
+            if (report.getHost().getAttributes().containsKey("swapout")) {
+                swapOut = Integer.parseInt(report.getHost().getAttributes().get("swapout"));
                 if (swapOut > 0)
-                    logger.info(report.host.name + " swapout: " +
-                                report.host.attributes.get("swapout"));
+                    logger.info(report.getHost().getName() + " swapout: " +
+                                report.getHost().getAttributes().get("swapout"));
             }
 
             DispatchHost host;
-            RenderHost rhost = report.host;
+            RenderHost rhost = report.getHost();
             try {
-                host = hostManager.findDispatchHost(rhost.name);
+                host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host,
-                        rhost.totalMem, rhost.freeMem,
-                        rhost.totalSwap, rhost.freeSwap,
-                        rhost.totalMcp, rhost.freeMcp,
+                        rhost.getTotalMem(), rhost.getFreeMem(),
+                        rhost.getTotalSwap(), rhost.getFreeSwap(),
+                        rhost.getTotalMcp(), rhost.getFreeMcp(),
                         totalGpu, freeGpu,
-                        rhost.load, new Timestamp(rhost.bootTime * 1000l),
-                        rhost.attributes.get("SP_OS"));
+                        rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
+                        rhost.getAttributes().get("SP_OS"));
 
-                changeHardwareState(host, report.host.state);
-                changeNimbyState(host, report.host);
+                changeHardwareState(host, report.getHost().getState());
+                changeNimbyState(host, report.getHost());
 
                 /**
                  * This should only happen at boot time or it will
@@ -176,10 +176,10 @@ public class HostReportHandler {
                     hostManager.setHostResources(host, report);
                 }
 
-                dispatchSupport.determineIdleCores(host, report.host.load);
+                dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
 
             } catch (DataAccessException dae) {
-                logger.warn("Unable to find host " + rhost.name + ","
+                logger.warn("Unable to find host " + rhost.getName() + ","
                         + dae + " , creating host.");
                 // TODO: Skip adding it if the host name is over 30 characters
 
@@ -200,7 +200,7 @@ public class HostReportHandler {
              * Updates memory usage for the proc, frames,
              * jobs, and layers.
              */
-            updateMemoryUsage(report.frames);
+            updateMemoryUsage(report.getFramesList());
 
             /*
              * Increase/decreased reserved memory.
@@ -233,9 +233,9 @@ public class HostReportHandler {
                 msg = String.format("%s doesn't have enough idle memory, %d needs %d",
                         host.name,  host.idleMemory,  Dispatcher.MEM_RESERVED_MIN);
             }
-            else if (report.host.freeMem < CueUtil.MB512) {
+            else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
-                        host.name, report.host.freeMem,  Dispatcher.MEM_RESERVED_MIN);
+                        host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.Up)) {
                 msg = host + " is not in the Up state.";
@@ -243,7 +243,7 @@ public class HostReportHandler {
             else if (host.lockState.equals(LockState.Locked)) {
                 msg = host + " is locked.";
             }
-            else if (report.host.nimbyLocked) {
+            else if (report.getHost().getNimbyLocked()) {
                 if (!hasLocalJob) {
                     msg = host + " is NIMBY locked.";
                 }
@@ -306,8 +306,8 @@ public class HostReportHandler {
                  * Write a log if the host report takes a long time to process.
                  */
                 CueUtil.logDuration(startTime, "host report " +
-                        report.host.name + " with " +
-                        report.frames.size() +
+                        report.getHost().getName() + " with " +
+                        report.getFramesCount() +
                         " running frames, waiting: " +
                         reportQueue.getQueue().size());
             }
@@ -371,7 +371,7 @@ public class HostReportHandler {
      * @param rh
      */
     private void changeNimbyState(DispatchHost host, RenderHost rh) {
-        if (rh.nimbyLocked) {
+        if (rh.getNimbyLocked()) {
             if (host.lockState.equals(LockState.Open)) {
                 host.lockState = LockState.NimbyLocked;
                 hostManager.setHostLock(host,LockState.NimbyLocked, new Source("NIMBY"));
@@ -402,9 +402,9 @@ public class HostReportHandler {
          */
         boolean killMode = hostManager.isSwapping(host);
 
-        for (final RunningFrameInfo f: report.frames) {
+        for (final RunningFrameInfo f: report.getFramesList()) {
 
-            VirtualProc p = hostManager.getVirtualProc(f.resourceId);
+            VirtualProc p = hostManager.getVirtualProc(f.getResourceId());
 
             // TODO: handle memory management for local dispatches
             // Skip local dispatches for now.
@@ -413,14 +413,14 @@ public class HostReportHandler {
             }
 
             try {
-                if (f.rss > host.memory) {
+                if (f.getRss() > host.memory) {
                     try{
                         VirtualProc proc = hostManager.findVirtualProc(p);
-                        logger.info("Killing frame " + f.jobName + "/" + f.frameName + ", "
+                        logger.info("Killing frame " + f.getJobName() + "/" + f.getFrameName() + ", "
                                 + proc.getName() + " was OOM");
                         try {
                             killQueue.execute(new DispatchRqdKillFrame(proc, "The frame required " +
-                                    CueUtil.KbToMb(f.rss) + "MB but the machine only has " +
+                                    CueUtil.KbToMb(f.getRss()) + "MB but the machine only has " +
                                     CueUtil.KbToMb(host.memory), rqdClient));
                         } catch (TaskRejectedException e) {
                             logger.warn("Unable to queue  RQD kill, task rejected, " + e);
@@ -432,24 +432,24 @@ public class HostReportHandler {
                     }
                 }
 
-                if (dispatchSupport.increaseReservedMemory(p, f.rss)) {
-                    p.memoryReserved = f.rss;
-                    logger.info("frame " + f.frameName + " on job " + f.jobName
+                if (dispatchSupport.increaseReservedMemory(p, f.getRss())) {
+                    p.memoryReserved = f.getRss();
+                    logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                             + " increased its reserved memory to " +
-                            CueUtil.KbToMb((long)f.rss));
+                            CueUtil.KbToMb((long)f.getRss()));
                 }
 
             } catch (ResourceReservationFailureException e) {
 
-                long memNeeded = f.rss - p.memoryReserved;
+                long memNeeded = f.getRss() - p.memoryReserved;
 
-                logger.info("frame " + f.frameName + " on job " + f.jobName
+                logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                         + "was unable to reserve an additional " + CueUtil.KbToMb(memNeeded)
                         + "on proc " + p.getName() + ", " + e);
 
                 try {
                     if (dispatchSupport.balanceReservedMemory(p, memNeeded)) {
-                        p.memoryReserved = f.rss;
+                        p.memoryReserved = f.getRss();
                         logger.info("was able to balance host: " + p.getName());
                     }
                     else {
@@ -489,13 +489,13 @@ public class HostReportHandler {
 
         for (RunningFrameInfo rf: rFrames) {
 
-            Frame frame = jobManager.getFrame(rf.frameId);
+            Frame frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsage(frame,
-                    rf.rss, rf.maxRss);
+                    rf.getRss(), rf.getMaxRss());
 
             dispatchSupport.updateProcMemoryUsage(frame,
-                    rf.rss, rf.maxRss, rf.vsize, rf.maxVsize);
+                    rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize());
         }
 
         updateJobMemoryUsage(rFrames);
@@ -513,14 +513,14 @@ public class HostReportHandler {
             new HashMap<JobEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame: frames) {
-            JobEntity job = new JobEntity(frame.jobId);
+            JobEntity job = new JobEntity(frame.getJobId());
             if (jobs.containsKey(job)) {
-                if (jobs.get(job) < frame.maxRss) {
-                    jobs.put(job, frame.maxRss);
+                if (jobs.get(job) < frame.getMaxRss()) {
+                    jobs.put(job, frame.getMaxRss());
                 }
             }
             else {
-                jobs.put(job, frame.maxRss);
+                jobs.put(job, frame.getMaxRss());
             }
         }
 
@@ -540,14 +540,14 @@ public class HostReportHandler {
             new HashMap<LayerEntity, Long>(frames.size());
 
         for (RunningFrameInfo frame: frames) {
-            LayerEntity layer = new LayerEntity(frame.layerId);
+            LayerEntity layer = new LayerEntity(frame.getLayerId());
             if (layers.containsKey(layer)) {
-                if (layers.get(layer) < frame.maxRss) {
-                    layers.put(layer, frame.maxRss);
+                if (layers.get(layer) < frame.getMaxRss()) {
+                    layers.put(layer, frame.getMaxRss());
                 }
             }
             else {
-                layers.put(layer, frame.maxRss);
+                layers.put(layer, frame.getMaxRss());
             }
         }
 
@@ -582,26 +582,26 @@ public class HostReportHandler {
     public void verifyRunningFrameInfo(HostReport report) {
 
         List<RunningFrameInfo> runningFrames = new
-            ArrayList<RunningFrameInfo>(report.frames.size());
+            ArrayList<RunningFrameInfo>(report.getFramesCount());
 
-        for (RunningFrameInfo runningFrame: report.frames) {
+        for (RunningFrameInfo runningFrame: report.getFramesList()) {
 
             long runtimeSeconds = (System.currentTimeMillis() -
-                runningFrame.startTime) / 1000l;
+                runningFrame.getStartTime()) / 1000l;
 
             // Don't test frames that haven't been running long enough.
             if (runtimeSeconds < FRAME_VERIFICATION_GRACE_PERIOD_SECONDS) {
-                logger.info("verified " + runningFrame.jobName +
-                        "/" + runningFrame.frameName + " on " +
-                        report.host.name + " by grace period " +
+                logger.info("verified " + runningFrame.getJobName() +
+                        "/" + runningFrame.getFrameName() + " on " +
+                        report.getHost().getName() + " by grace period " +
                         runtimeSeconds + " seconds.");
                 runningFrames.add(runningFrame);
                 continue;
             }
 
 
-            if (!hostManager.verifyRunningProc(runningFrame.resourceId,
-                    runningFrame.frameId)) {
+            if (!hostManager.verifyRunningProc(runningFrame.getResourceId(),
+                    runningFrame.getFrameId())) {
 
                 /*
                  * The frame this proc is running is no longer
@@ -614,10 +614,10 @@ public class HostReportHandler {
                 VirtualProc proc = null;
 
                 try {
-                    proc = hostManager.getVirtualProc(runningFrame.resourceId);
+                    proc = hostManager.getVirtualProc(runningFrame.getResourceId());
                     msg = "Virutal proc " + proc.getProcId() +
                         "is assigned to " + proc.getFrameId() +
-                        " not " + runningFrame.frameId;
+                        " not " + runningFrame.getFrameId();
                 }
                 catch (Exception e) {
                     /*
@@ -630,10 +630,10 @@ public class HostReportHandler {
                 }
 
                 logger.info("warning, the proc " +
-                        runningFrame.resourceId + " on host " +
-                        report.host.name + " was running for " +
+                        runningFrame.getResourceId() + " on host " +
+                        report.getHost().getName() + " was running for " +
                         (runtimeSeconds / 60.0f) + " minutes " +
-                        runningFrame.jobName + "/" + runningFrame.frameName +
+                        runningFrame.getJobName() + "/" + runningFrame.getFrameName() +
                         "but the DB did not " +
                         "reflect this " +
                         msg);
@@ -664,8 +664,8 @@ public class HostReportHandler {
 
                     if (rqd_kill) {
                         try {
-                        killQueue.execute(new DispatchRqdKillFrame(report.host.name,
-                                runningFrame.frameId,
+                        killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
+                                runningFrame.getFrameId(),
                                 "Cue3 could not verify this frame.",
                                 rqdClient));
                         } catch (TaskRejectedException e) {
@@ -675,16 +675,16 @@ public class HostReportHandler {
 
                 } catch (RqdClientException rqde) {
                     logger.warn("failed to kill " +
-                            runningFrame.jobName + "/" +
-                            runningFrame.frameName +
+                            runningFrame.getJobName() + "/" +
+                            runningFrame.getFrameName() +
                             " when trying to clear a failed " +
                             " frame verification, " + rqde);
 
                 } catch (Exception e) {
                     CueExceptionUtil.logStackTrace("failed", e);
                     logger.warn("failed to verify " +
-                            runningFrame.jobName +"/" +
-                            runningFrame.frameName +
+                            runningFrame.getJobName() +"/" +
+                            runningFrame.getFrameName() +
                             " was running but the frame was " +
                             " unable to be killed, " + e);
                 }
@@ -693,7 +693,6 @@ public class HostReportHandler {
                 runningFrames.add(runningFrame);
             }
         }
-        report.frames = runningFrames;
     }
 
     public HostManager getHostManager() {

@@ -26,7 +26,7 @@ import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.Department;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
@@ -362,7 +362,7 @@ public interface JobDao {
      *
      * @return
      */
-    public boolean cueHasPendingJobs(Facility f);
+    public boolean cueHasPendingJobs(FacilityInterface f);
 
     /**
      * Enables/disables autobooking for specified job.

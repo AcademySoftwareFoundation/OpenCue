@@ -15,11 +15,21 @@ object MyBuild extends Build {
   val iceBinDir = SettingKey[String]("ice-bin-dir")
   val iceSliceDir = SettingKey[String]("ice-slice-dir")
 
+  var defaultIceHome = "/usr"
+  if (System.getProperty("os.name") == "Mac OS X") {
+    defaultIceHome = System.getProperty("user.home") + "/homebrew/Cellar/ice@3.6/3.6.4_1"
+  }
+
+  var PATH_PROTOC = "/usr/bin/protoc"
+  if (System.getProperty("os.name") == "Mac OS X") {
+    PATH_PROTOC = System.getProperty("user.home") + "/homebrew/bin/protoc"
+  }
+
   lazy val root = Project(
     "cuebot",
     file("."),
     settings = buildSettings ++ Seq(
-      iceHome := "/usr",
+      iceHome := defaultIceHome,
       iceBinDir := iceHome.value + "/bin",
       iceSliceDir := iceHome.value + "/share/Ice-3.6.1/slice"
     )

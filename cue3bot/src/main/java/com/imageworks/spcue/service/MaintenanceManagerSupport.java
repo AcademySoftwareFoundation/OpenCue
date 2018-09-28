@@ -30,7 +30,7 @@ import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueIce.CheckpointState;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;

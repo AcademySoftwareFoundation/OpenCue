@@ -33,7 +33,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.Host;
@@ -197,7 +197,7 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isCueBookable(Facility f) {
+    public boolean isCueBookable(FacilityInterface f) {
         return jobDao.cueHasPendingJobs(f);
     }
 

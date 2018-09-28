@@ -27,6 +27,7 @@ import java.util.HashMap;
 
 import javax.annotation.Resource;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -47,8 +48,8 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Owner;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.FrameDao;
@@ -101,27 +102,25 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
     public DispatchHost createHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = HOST_NAME;
-        host.bootTime = 1192369572;
-        host.freeMcp = 7602;
-        host.freeMem = 15290520;
-        host.freeSwap = 2076;
-        host.load = 1;
-        host.totalMcp = 19543;
-        host.totalMem = (int) CueUtil.GB16;
-        host.totalSwap = 2096;
-        host.nimbyEnabled = true;
-        host.numProcs = 2;
-        host.coresPerProc = 400;
-        host.tags = new ArrayList<String>();
-        host.tags.add("linux");
-        host.tags.add("64bit");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("freeGpu", "512");
-        host.attributes.put("totalGpu", "512");
+        RenderHost host = RenderHost.newBuilder()
+                .setName(HOST_NAME)
+                .setBootTime(1192369572)
+                .setFreeMcp(7602)
+                .setFreeMem(15290520)
+                .setFreeSwap(2076)
+                .setLoad(1)
+                .setTotalMcp(19543)
+                .setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap(2076)
+                .setNimbyEnabled(true)
+                .setNumProcs(2)
+                .setCoresPerProc(400)
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .addAllTags(ImmutableList.of("linux", "64bit"))
+                .putAttributes("freeGpu", "512")
+                .putAttributes("totalGpu", "512")
+                .build();
 
         hostDao.insertRenderHost(host,
                 adminManager.findAllocationDetail("spi", "general"),

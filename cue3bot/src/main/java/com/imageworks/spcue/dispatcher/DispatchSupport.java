@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.Host;
@@ -346,7 +346,7 @@ public interface DispatchSupport {
      *
      * @return
      */
-    boolean isCueBookable(Facility f);
+    boolean isCueBookable(FacilityInterface f);
 
     /**
      * Increases the amount of memory reserved for a running frame.

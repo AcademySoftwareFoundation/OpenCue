@@ -19,16 +19,38 @@
 
 package com.imageworks.spcue.service;
 
-import java.sql.Timestamp;
 import java.util.List;
 
+import com.imageworks.spcue.CueClientIce.Action;
+import com.imageworks.spcue.CueClientIce.Allocation;
+import com.imageworks.spcue.CueClientIce.Comment;
+import com.imageworks.spcue.CueClientIce.Deed;
+import com.imageworks.spcue.CueClientIce.Depend;
+import com.imageworks.spcue.CueClientIce.Filter;
+import com.imageworks.spcue.CueClientIce.Frame;
+import com.imageworks.spcue.CueClientIce.Group;
+import com.imageworks.spcue.CueClientIce.Host;
+import com.imageworks.spcue.CueClientIce.Job;
+import com.imageworks.spcue.CueClientIce.Layer;
+import com.imageworks.spcue.CueClientIce.Matcher;
+import com.imageworks.spcue.CueClientIce.NestedGroup;
+import com.imageworks.spcue.CueClientIce.NestedHost;
+import com.imageworks.spcue.CueClientIce.Owner;
+import com.imageworks.spcue.CueClientIce.Proc;
+import com.imageworks.spcue.CueClientIce.RenderPartition;
+import com.imageworks.spcue.CueClientIce.Service;
+import com.imageworks.spcue.CueClientIce.ServiceOverride;
+import com.imageworks.spcue.CueClientIce.Show;
+import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.Task;
+import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
+import com.imageworks.spcue.CueGrpc.Facility;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.Department;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueClientIce.*;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
@@ -37,6 +59,7 @@ import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.depend.AbstractDepend;
+
 /**
 * Traditionally the "Whiteboard" was an actually whiteboard the PSTs used to
 * use to track jobs.  Over time that term has come to mean an interface
@@ -255,7 +278,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     public UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-            List<com.imageworks.spcue.Layer> layers, int epochTime) {
+                                                    List<com.imageworks.spcue.Layer> layers, int epochTime) {
         return whiteboardDao.getUpdatedFrames(job, layers, epochTime);
     }
 
@@ -413,7 +436,7 @@ public class WhiteboardService implements Whiteboard {
 
     @Override
     public List<Allocation> getAllocations(
-            com.imageworks.spcue.Facility facility) {
+            com.imageworks.spcue.FacilityInterface facility) {
         return whiteboardDao.getAllocations(facility);
     }
 

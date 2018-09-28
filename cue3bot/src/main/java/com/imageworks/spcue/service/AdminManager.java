@@ -22,7 +22,7 @@ package com.imageworks.spcue.service;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.Subscription;
@@ -43,15 +43,15 @@ public interface AdminManager {
     /*
      * Facilities
      */
-    Facility createFacility(String name);
-    void deleteFacility(Facility facility);
-    void setFacilityName(Facility facility, String name);
-    Facility getFacility(String id);
-    Facility getDefaultFacility();
+    FacilityInterface createFacility(String name);
+    void deleteFacility(FacilityInterface facility);
+    void setFacilityName(FacilityInterface facility, String name);
+    FacilityInterface getFacility(String id);
+    FacilityInterface getDefaultFacility();
     /*
      * Allocations
      */
-    void createAllocation(Facility facility, AllocationDetail alloc);
+    void createAllocation(FacilityInterface facility, AllocationDetail alloc);
     void deleteAllocation(Allocation alloc);
     void setAllocationName(Allocation a, String name);
     void setAllocationTag(Allocation a, String tag);

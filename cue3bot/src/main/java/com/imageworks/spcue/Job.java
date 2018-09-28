@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public interface Job extends Show, Facility {
+public interface Job extends Show, FacilityInterface {
 
     public String getJobId();
 }
