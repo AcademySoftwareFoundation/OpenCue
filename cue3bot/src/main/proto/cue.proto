@@ -59,7 +59,7 @@ message RenderHost {
     string name = 1;
     bool nimbyEnabled = 2; // NIMBY is enabled when the machine is in run level 5.
     bool nimbyLocked = 3; // if nimby has locked the host due to user activity
-    string facility= 4; // The name of the facility that the host is in
+    string facility = 4; // The name of the facility that the host is in
     int32 numProcs = 5; // the number of physical procs on this machine
     int32 coresPerProc = 6; // the number of cores per proc
     int32 totalSwap = 7; // the total size of the swap in kB
