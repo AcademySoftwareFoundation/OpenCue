@@ -45,7 +45,7 @@ import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.CueIce.CueIceException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.activation.DataHandler;

@@ -23,7 +23,7 @@ import com.imageworks.spcue.Job;
 import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 public class DispatchReorderFrames implements Runnable {
 

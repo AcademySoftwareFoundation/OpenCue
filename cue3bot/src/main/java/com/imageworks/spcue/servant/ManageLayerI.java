@@ -52,7 +52,7 @@ import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 
 import com.imageworks.spcue.util.Convert;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 public class ManageLayerI extends _LayerInterfaceDisp implements InitializingBean {
 

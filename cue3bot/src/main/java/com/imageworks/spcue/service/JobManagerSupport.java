@@ -45,7 +45,7 @@ import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 /**
  * A non-transaction support class for managing jobs.
