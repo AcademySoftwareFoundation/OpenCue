@@ -40,7 +40,6 @@ if platform.system() == 'Linux':
 
 import Ice
 
-# TODO: slice is not included in the Github release. Is this intentional?
 Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
               "rqd_ice.ice".replace("{PATH}", os.path.dirname(__file__)))
 import cue.CueIce
