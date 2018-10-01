@@ -1,11 +1,6 @@
 #!/bin/sh
 
 export FILE_SEQUENCE_PATH=/shots/spi/home/lib/SpComp2/FileSequence/rhel7-gcc48m64/v6/lib
-if [ -z ${proxy_hostname+x} ]; then
-    proxy_hostname=localhost
-fi
-
-export http_proxy=http://${proxy_hostname}:8080/
 
 # ORACLE_HOME should match project/build.scala
 export ORACLE_HOME=/usr/lib/oracle/12.1
@@ -37,10 +32,6 @@ exec \
     -XX:NumberOfGCLogFiles=10 \
     -XX:GCLogFileSize=1M \
     -Dfile.encoding=UTF8 \
-    -Dhttp.proxyHost=${proxy_hostname} \
-    -Dhttp.proxyPort=8080 \
-    -Dhttps.proxyHost=${proxy_hostname} \
-    -Dhttps.proxyPort=8080 \
     -Djava.net.preferIPv4Stack=true \
     -Xms3G \
     -Xmx3G \
