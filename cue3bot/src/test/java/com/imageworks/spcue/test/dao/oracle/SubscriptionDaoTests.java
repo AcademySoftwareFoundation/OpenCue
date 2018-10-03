@@ -23,6 +23,7 @@ import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.FacilityInterface;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -35,7 +36,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.AllocationDetail;
-import com.imageworks.spcue.Facility;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.SubscriptionDetail;
 import com.imageworks.spcue.dao.AllocationDao;
@@ -192,7 +192,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Rollback(true)
     public void testGetSubscriptionDetail() {
 
-        Facility f = facilityDao.getDefaultFacility();
+        FacilityInterface f = facilityDao.getDefaultFacility();
 
         SubscriptionDetail s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);

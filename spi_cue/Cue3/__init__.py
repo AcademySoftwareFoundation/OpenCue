@@ -26,7 +26,10 @@ import Ice
 from Ice import ObjectNotExistException, UnknownLocalException, \
                 ConnectionRefusedException, UnknownException
 
-slice_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'slice'))
+_this_dir = os.path.dirname(__file__)
+slice_dir = os.environ.get('CUE_SLICE_DIR')
+if slice_dir is None:
+  slice_dir = os.path.abspath(os.path.join(_this_dir, '../../slice'))
 
 slice_path = "--all -I{path}/cue/ "\
              "-I{path}/spi/ "\

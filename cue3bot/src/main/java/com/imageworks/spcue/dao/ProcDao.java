@@ -30,7 +30,7 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 

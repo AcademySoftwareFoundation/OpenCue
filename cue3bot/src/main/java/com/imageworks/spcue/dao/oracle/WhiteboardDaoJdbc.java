@@ -19,24 +19,92 @@
 
 package com.imageworks.spcue.dao.oracle;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-
-import org.apache.log4j.Logger;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
-
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.imageworks.common.spring.remoting.IceServer;
-
+import com.imageworks.spcue.CueClientIce.Action;
+import com.imageworks.spcue.CueClientIce.ActionData;
+import com.imageworks.spcue.CueClientIce.ActionInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Allocation;
+import com.imageworks.spcue.CueClientIce.AllocationData;
+import com.imageworks.spcue.CueClientIce.AllocationInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.AllocationStats;
+import com.imageworks.spcue.CueClientIce.Comment;
+import com.imageworks.spcue.CueClientIce.CommentData;
+import com.imageworks.spcue.CueClientIce.CommentInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Deed;
+import com.imageworks.spcue.CueClientIce.DeedInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Department;
+import com.imageworks.spcue.CueClientIce.DepartmentData;
+import com.imageworks.spcue.CueClientIce.DepartmentInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Depend;
+import com.imageworks.spcue.CueClientIce.DependData;
+import com.imageworks.spcue.CueClientIce.DependInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Filter;
+import com.imageworks.spcue.CueClientIce.FilterData;
+import com.imageworks.spcue.CueClientIce.FilterInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Frame;
+import com.imageworks.spcue.CueClientIce.FrameData;
+import com.imageworks.spcue.CueClientIce.FrameInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Group;
+import com.imageworks.spcue.CueClientIce.GroupData;
+import com.imageworks.spcue.CueClientIce.GroupInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.GroupStats;
+import com.imageworks.spcue.CueClientIce.Host;
+import com.imageworks.spcue.CueClientIce.HostData;
+import com.imageworks.spcue.CueClientIce.HostInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Job;
+import com.imageworks.spcue.CueClientIce.JobData;
+import com.imageworks.spcue.CueClientIce.JobInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.JobStats;
+import com.imageworks.spcue.CueClientIce.Layer;
+import com.imageworks.spcue.CueClientIce.LayerData;
+import com.imageworks.spcue.CueClientIce.LayerInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.LayerStats;
+import com.imageworks.spcue.CueClientIce.Matcher;
+import com.imageworks.spcue.CueClientIce.MatcherData;
+import com.imageworks.spcue.CueClientIce.MatcherInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Owner;
+import com.imageworks.spcue.CueClientIce.OwnerInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Proc;
+import com.imageworks.spcue.CueClientIce.ProcData;
+import com.imageworks.spcue.CueClientIce.ProcInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.RenderPartition;
+import com.imageworks.spcue.CueClientIce.RenderPartitionInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Service;
+import com.imageworks.spcue.CueClientIce.ServiceData;
+import com.imageworks.spcue.CueClientIce.ServiceInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.ServiceOverride;
+import com.imageworks.spcue.CueClientIce.ServiceOverrideInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Show;
+import com.imageworks.spcue.CueClientIce.ShowData;
+import com.imageworks.spcue.CueClientIce.ShowInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.ShowStats;
+import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.SubscriptionData;
+import com.imageworks.spcue.CueClientIce.SubscriptionInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.Task;
+import com.imageworks.spcue.CueClientIce.TaskData;
+import com.imageworks.spcue.CueClientIce.TaskInterfacePrxHelper;
+import com.imageworks.spcue.CueClientIce.UpdatedFrame;
+import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
+import com.imageworks.spcue.CueGrpc.Facility;
+import com.imageworks.spcue.CueIce.ActionType;
+import com.imageworks.spcue.CueIce.ActionValueType;
+import com.imageworks.spcue.CueIce.CheckpointState;
+import com.imageworks.spcue.CueIce.DependTarget;
+import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.CueIce.FilterType;
+import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.CueIce.LayerType;
+import com.imageworks.spcue.CueIce.LockState;
+import com.imageworks.spcue.CueIce.MatchSubject;
+import com.imageworks.spcue.CueIce.MatchType;
+import com.imageworks.spcue.CueIce.RenderPartitionType;
+import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueIce.*;
-import com.imageworks.spcue.CueClientIce.*;
-
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
@@ -45,6 +113,15 @@ import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
+import org.apache.log4j.Logger;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
+
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
@@ -221,7 +298,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public List<Allocation> getAllocations(
-            com.imageworks.spcue.Facility facility) {
+            com.imageworks.spcue.FacilityInterface facility) {
         return getJdbcTemplate().query(
                 GET_ALLOCATION + " AND alloc.pk_facility = ?",
                 ALLOCATION_MAPPER, facility.getFacilityId());
@@ -729,15 +806,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Facility> FACILITY_MAPPER =
         new RowMapper<Facility>() {
             public Facility mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Facility f = new Facility();
-                f.name = rs.getString("str_name");
-
-                f.proxy = FacilityInterfacePrxHelper.uncheckedCast(
-                        iceServer.getAdapter().createProxy(
-                                new Ice.Identity(
-                                        rs.getString("pk_facility"),
-                                        "manageFacility")));
-                return f;
+                return Facility.newBuilder().setName(rs.getString("str_name")).build();
             }
     };
 

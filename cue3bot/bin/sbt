@@ -1,6 +1,7 @@
 #!/bin/sh
 
 export FILE_SEQUENCE_PATH=/shots/spi/home/lib/SpComp2/FileSequence/rhel7-gcc48m64/v6/lib
+
 # ORACLE_HOME should match project/build.scala
 export ORACLE_HOME=/usr/lib/oracle/12.1
 export LD_LIBRARY_PATH=${ORACLE_HOME}

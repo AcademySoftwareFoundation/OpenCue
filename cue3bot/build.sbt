@@ -1,5 +1,7 @@
 import sbtzerocice.{ZeroCIcePlugin=>Ice}
 import scalariform.formatter.preferences._
+import sbtprotobuf.{ProtobufPlugin=>PB}
+Seq(PB.protobufSettings: _*)
 
 // Disable scala!
 crossPaths := false
@@ -74,6 +76,7 @@ resolvers ++= Seq(
     "com.sun.mail" % "mailapi" % "1.5.4",
     "commons-lang" % "commons-lang" % "2.6",
     "com.zeroc" % "ice" % "3.6.2",
+    "io.grpc" % "grpc-all" % "1.14.0",
     "org.apache.activemq" % "activemq-pool" % activemq_ver,
     "org.apache.velocity" % "velocity" % "1.7",
     "org.jdom" % "jdom" % "1.1.3",
@@ -95,6 +98,16 @@ resolvers ++= Seq(
     "org.assertj" % "assertj-core" % "3.8.0" % "test",
   )
 }
+
+// gRPC config
+version in PB.protobufConfig := "3.5.1"
+protoc in PB.protobufConfig := PATH_PROTOC
+sourceDirectory in PB.protobufConfig := baseDirectory.value / "src" / "main" / "proto"
+
+protocOptions in PB.protobufConfig ++= Seq(
+  "--grpc-java_out=" + baseDirectory.value + "/target/src_managed/main/compiled_protobuf"
+)
+
 
 // reduce the maximum number of errors shown by the Scala compiler
 maxErrors := 5

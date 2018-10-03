@@ -2681,44 +2681,6 @@ module CueClientIce {
     };
 
     /**
-    * Facility interface.
-    **/
-    interface FacilityInterface {
-
-        /**
-        * Rename the facility to a given name.
-        **/
-        void rename(string name)
-            throws ::SpiIce::SpiIceException;
-
-        /**
-        * A facility is never really deleted, just make inactive.
-        **/
-        void delete()
-            throws ::SpiIce::SpiIceException;
-
-        /**
-        * Create a new allocation in this facility.
-        **/
-        Allocation createAllocation(string name, string tag)
-            throws ::SpiIce::SpiIceException;
-
-        /**
-        * Get list of allocations for this facility.
-        **/
-        idempotent AllocationSeq getAllocations()
-            throws ::SpiIce::SpiIceException;
-    };
-
-    /**
-    * Facility representation
-    **/
-    struct Facility {
-        string name;
-        FacilityInterface *proxy;
-    };
-
-    /**
     *
     * A struct that contains server specific performance numbers
     **/
@@ -2825,20 +2787,6 @@ module CueClientIce {
         * Find a show with the specified name.
         **/
         Show findShow(string name)
-            throws ::SpiIce::SpiIceException;
-
-       /*******************************************************************/
-
-        /**
-        * Create a facility.  Facilities hold alloactions.
-        **/
-        Facility createFacility(string name)
-            throws ::SpiIce::SpiIceException;
-
-        /**
-        * Return a facility by id or name.
-        **/
-        Facility getFacility(string id)
             throws ::SpiIce::SpiIceException;
 
         /*******************************************************************/

@@ -48,10 +48,10 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.Order;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -119,24 +119,23 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
     public DispatchHost createHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = "test_host";
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = 53500;
-        host.freeSwap = 20760;
-        host.load = 1;
-        host.totalMcp = 195430;
-        host.totalMem = (int) CueUtil.GB16;
-        host.totalSwap = (int) CueUtil.GB16;
-        host.nimbyEnabled = false;
-        host.numProcs = 2;
-        host.coresPerProc = 100;
-        host.tags = new ArrayList<String>();
-        host.tags.add("general");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
+        RenderHost host = RenderHost.newBuilder()
+                .setName("test_host")
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(1)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16)
+                .setNimbyEnabled(false)
+                .setNumProcs(2)
+                .setCoresPerProc(100)
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .addTags("general")
+                .build();
 
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,

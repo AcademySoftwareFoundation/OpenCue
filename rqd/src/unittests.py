@@ -37,7 +37,7 @@ from test.test_cuebot_listener import RqdReportStatic
 
 #class setup_rqd(unittest.TestCase):
 
-class setup_cuebot_listener(unittest.TestCase):
+class SetupCuebotListener(unittest.TestCase):
     listener = RqdReportStatic(rqconstants.STRING_TO_CUEBOT, rqconstants.CUEBOT_PORT)
     listener.verbose = 0
 
@@ -101,7 +101,7 @@ class test_Machine_cpuinfo(unittest.TestCase):
         if pathCpuInfo.find('_ht_') != -1:
             assert renderHost.attributes['hyperthreadingMultiplier'] ==  pathCpuInfo.split('-')[3]
 
-class test_rqd_with_ice(setup_cuebot_listener):
+class TestRqdWithIce(SetupCuebotListener):
     def setUp(self):
         #Constants.DISABLE_NIMBY = True
         self.rqd = RqCore()
@@ -115,7 +115,7 @@ class test_rqd_with_ice(setup_cuebot_listener):
         self.rqd.wait()
         del self.rqd
     
-    def _verify_status_report(self, report):
+    def _verifyStatusReport(self, report):
         assert len(report.host.name) > 0
         #nimbyEnabled = False
         assert report.host.numProcs > 0
@@ -133,13 +133,13 @@ class test_rqd_with_ice(setup_cuebot_listener):
     
     def _test_send_startup(self):
         report = self.listener.last_reportRqdStartup
-        self._verify_status_report(report)
+        self._verifyStatusReport(report)
 
     def _test_send_status(self):
         self.listener.last_reportStatus = None
         self.rqd.network.reportStatus(self.rqd.machine.getHostReport())
         report = self.listener.last_reportStatus
-        self._verify_status_report(report)
+        self._verifyStatusReport(report)
         
 if __name__ == '__main__':
     unittest.main()

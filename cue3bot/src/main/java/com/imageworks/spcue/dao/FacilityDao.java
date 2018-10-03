@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FacilityEntity;
 
 public interface FacilityDao {
@@ -29,7 +29,7 @@ public interface FacilityDao {
      *
      * @return
      */
-    public Facility getDefaultFacility();
+    public FacilityInterface getDefaultFacility();
 
     /**
      * Gets a facility by Id
@@ -37,7 +37,7 @@ public interface FacilityDao {
      * @param id
      * @return
      */
-    public Facility getFacility(String id);
+    public FacilityInterface getFacility(String id);
 
     /**
      * Returns true if a facility exists
@@ -53,7 +53,7 @@ public interface FacilityDao {
      * @param name
      * @return
      */
-    public Facility insertFacility(FacilityEntity facility);
+    public FacilityInterface insertFacility(FacilityEntity facility);
 
     /**
      * Deletes a facility record, if possible.
@@ -61,7 +61,7 @@ public interface FacilityDao {
      * @param facility
      * @return
      */
-    public int deleteFacility(Facility facility);
+    public int deleteFacility(FacilityInterface facility);
 
     /**
      * Rename the specified facility.
@@ -70,6 +70,6 @@ public interface FacilityDao {
      * @param name
      * @return
      */
-    int updateFacilityName(Facility facility, String name);
+    int updateFacilityName(FacilityInterface facility, String name);
 }
 

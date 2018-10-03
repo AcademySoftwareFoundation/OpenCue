@@ -16,17 +16,17 @@
 
 import os, setuptools, sys
 
-# Only insert spi_cue3.version module to path
-modulePath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'spi_cue3')
+# Only insert Cue3.version module to path
+modulePath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Cue3')
 sys.path.insert(0, modulePath)
 from version import version
 sys.path.remove(modulePath)
 
 
 setuptools.setup(
-    name='spi_cue3',
+    name='Cue3',
     # packages=['spi_cue3', 'spi_cue3.libice', 'spi_cue3.wrappers'],
-    package_dir={'spi_cue3':'spi_cue3'},
+    package_dir={'Cue3':'Cue3'},
     packages=setuptools.find_packages(),
     include_package_data=True,
     version=version,

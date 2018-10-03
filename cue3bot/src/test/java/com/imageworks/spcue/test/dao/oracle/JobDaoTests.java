@@ -27,6 +27,7 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.FacilityEntity;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -39,15 +40,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Point;
-import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.Show;
 import com.imageworks.spcue.TaskDetail;
 import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.dao.DepartmentDao;
