@@ -19,13 +19,13 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
 import com.imageworks.spcue.util.CueUtil;
 
 public class DispatchHost extends Entity
-    implements Host, Facility, ResourceContainer {
+    implements Host, FacilityInterface, ResourceContainer {
 
     public String facilityId;
     public String allocationId;

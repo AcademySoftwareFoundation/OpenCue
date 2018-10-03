@@ -44,7 +44,7 @@ Requires: ./spi-slice from:
 Requires: ./slice from:
    - http://softboss/svn/repos/middle-tier/cuebot/branches/jwelborn/slice
 
-Contact: Middle-Tier 
+Contact: Middle-Tier
 
 For RQD Maintainer only:
 ========================
@@ -104,6 +104,7 @@ from logging.handlers import SysLogHandler
 def setupLogging():
     """Sets up the logging for RQD.
        Logs to /var/log/messages"""
+    # TODO: These should be config based. b/110168575
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
     consoleLevel  = log.DEBUG
     fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
@@ -120,6 +121,7 @@ def setupLogging():
 
 setupLogging()
 
+# TODO: If safe to dockerize rqd, this can be removed.
 # This is required to import the proper ice version
 if platform.system() == 'Linux':
     import python_ice_server.loader

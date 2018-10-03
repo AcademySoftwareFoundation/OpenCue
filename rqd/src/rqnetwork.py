@@ -22,7 +22,7 @@ Project: RQD
 
 Module: rqnetwork.py
 
-Contact: Middle-Tier 
+Contact: Middle-Tier
 
 SVN: $Id$
 
@@ -62,26 +62,31 @@ import platform
 import traceback
 import subprocess
 
+from concurrent import futures
+
 import rqconstants
 import rqutil
 
 import Ice
-lib_path = os.path.dirname(__file__)
+libPath = os.path.dirname(__file__)
 for slice in ["--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/rqd_ice.ice",
-              "--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/cue_ice.ice",
-              "--all -I/usr/share/Ice-3.6.1/slice -I{PATH}/slice/spi -I{PATH}/slice/ice {PATH}/slice/facility/facility.ice"]:
-    Ice.loadSlice(slice.replace("{PATH}", lib_path))
+              "--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/cue_ice.ice"]:
+    Ice.loadSlice(slice.replace("{PATH}", libPath))
 import cue.RqdIce as RqdIce
 import cue.CueIce as CueIce
 import spi.SpiIce as SpiIce
 
-class RunningFrame(RqdIce.RunningFrame):
-    """Frame specific communication"""
-    __iceIdCategory = "RunningFrame"
+import grpc
+import cue_pb2
+import rqd_pb2_grpc
+import rqdservicers
 
-    def __init__(self, rq_core, runFrame):
+
+class RunningFrame(object):
+
+    def __init__(self, rqCore, runFrame):
         """RunningFrame class initialization"""
-        self.rq_core = rq_core
+        self.rqCore = rqCore
         self.runFrame = runFrame
         self.ignoreNimby = runFrame.ignoreNimby
         self.frameId = runFrame.frameId
@@ -103,54 +108,32 @@ class RunningFrame(RqdIce.RunningFrame):
         self.utime = 0
         self.stime = 0
 
-        self.pcpu_data = None
-
-    @staticmethod
-    def setIceObjectAdapter(iceObjectAdapter):
-        RunningFrame.__iceObjectAdapter = iceObjectAdapter
-
     def runningFrameInfo(self):
-        """Returns the runningFrameInfo struct"""
-        runningFrameInfo = RqdIce.RunningFrameInfo()
-        runningFrameInfo.resourceId = self.runFrame.resourceId
-        runningFrameInfo.jobId = self.runFrame.jobId
-        runningFrameInfo.jobName = self.runFrame.jobName
-        runningFrameInfo.frameId = self.runFrame.frameId
-        runningFrameInfo.frameName = self.runFrame.frameName
-        runningFrameInfo.layerId = self.runFrame.layerId
-        runningFrameInfo.numCores = self.runFrame.numCores
-        runningFrameInfo.startTime = self.runFrame.startTime
-        runningFrameInfo.attributes = self.runFrame.attributes
-        runningFrameInfo.rss = self.rss
-        runningFrameInfo.maxRss = self.maxRss
-        runningFrameInfo.vsize = self.vsize
-        runningFrameInfo.maxVsize = self.maxVsize
-
+        """Returns the RunningFrameInfo object"""
+        runningFrameInfo = cue_pb2.RunningFrameInfo(
+            resourceId=self.runFrame.resourceId,
+            jobId=self.runFrame.jobId,
+            jobName=self.runFrame.jobName,
+            frameId=self.runFrame.frameId,
+            frameName=self.runFrame.frameName,
+            layerId=self.runFrame.layerId,
+            numCores=self.runFrame.numCores,
+            startTime=self.runFrame.startTime,
+            maxRss=self.maxRss,
+            rss=self.rss,
+            maxVsize=self.maxVsize,
+            vsize=self.vsize,
+            attributes=self.runFrame.attributes
+        )
         return runningFrameInfo
 
-    def getIceId(self):
-        """Returns the ice id for the frame servant"""
-        return Ice.Identity(self.frameId, self.__iceIdCategory)
-
-    def getProxy(self):
-        """Returns the proxy for the frame"""
-        proxy = self.__iceObjectAdapter.createProxy(self.getIceId())
-        return RqdIce.RunningFramePrx.uncheckedCast(proxy)
-
-    #-------------------------------------------------------------------
-    # These functions are defined in slice/rqd_ice.ice and called by the
-    # cuebot via ICE.
-    #--------------------------------------------------------------------
-
-    def status(self, current = None):
-        """ICE METHOD: returns the status of the frame"""
-        log.info("Request recieved: status")
+    def status(self):
+        """Returns the status of the frame"""
         return self.runningFrameInfo()
 
-    def kill(self, message = "", current = None):
-        """ICE METHOD: kills the frame"""
+    def kill(self, message = ""):
+        """Kills the frame"""
         log.info("Request recieved: kill")
-        #killer = socket.gethostbyaddr(current.con.toString().splitlines()[1].split(" = ")[1].split(":")[0])[0].split(".")[0]
         if self.frameAttendantThread is None:
             log.warning("Kill requested before frameAttendantThread is created "
                         "for: %s" % self.frameId)
@@ -177,17 +160,18 @@ class RunningFrame(RqdIce.RunningFrame):
         else:
             log.warning("Kill requested after frameAttendantThread has exited "
                         "for: %s" % self.frameId)
-            self.rq_core.deleteFrame(self.frameId)
+            self.rqCore.deleteFrame(self.frameId)
+
 
 class RqdStatic(RqdIce.RqdStatic):
     """Maintains ice calls for rqdStatic interface. These are then passed to
     the rqcore functions"""
-    def __init__(self, communicator, iceObjectAdapter, rq_core):
+    def __init__(self, communicator, iceObjectAdapter, rqCore):
         """RqdStatuc class initialization"""
         identity = communicator.stringToIdentity(rqconstants.STRING_FROM_CUEBOT)
         iceObjectAdapter.add(self, identity)
 
-        self.rq_core = rq_core
+        self.rqCore = rqCore
         self.__communicator = communicator
         self.__iceObjectAdapter = iceObjectAdapter
 
@@ -203,92 +187,136 @@ class RqdStatic(RqdIce.RqdStatic):
     def launchFrame(self, frame, current = None):
         """Ice call that launches the given frame"""
         log.info("Request recieved: launchFrame")
-        return self.rq_core.launchFrame(frame)
+        return self.rqCore.launchFrame(frame)
 
     def getRunningFrame(self, frameId, current = None):
         """Ice call that returns a frame proxy for the given frameId"""
         log.info("Request recieved: getRunningFrame")
-        return self.rq_core.getRunningFrame(frameId)
+        return self.rqCore.getRunningFrame(frameId)
 
     def reportStatus(self, current = None):
         """Ice call that returns reportStatus"""
         log.info("Request recieved: reportStatus")
-        return self.rq_core.reportStatus()
+        return self.rqCore.reportStatus()
 
     def shutdownRqdNow(self, current = None):
         """Ice call that kills all running frames and shuts down rqd"""
         log.info("Request recieved: shutdownRqdNow")
-        self.rq_core.shutdownRqdNow()
+        self.rqCore.shutdownRqdNow()
 
     def shutdownRqdIdle(self, current = None):
         """Ice call that locks all cores and shuts down rqd when it is idle.
            unlockAll will abort the request."""
         log.info("Request recieved: shutdownRqdIdle")
-        self.rq_core.shutdownRqdIdle()
+        self.rqCore.shutdownRqdIdle()
 
     def restartRqdNow(self, current = None):
         """Ice call that kills all running frames and restarts rqd"""
         log.info("Request recieved: restartRqdNow")
-        self.rq_core.restartRqdNow()
+        self.rqCore.restartRqdNow()
 
     def restartRqdIdle(self, current = None):
         """Ice call that that locks all cores and restarts rqd when idle.
            unlockAll will abort the request."""
         log.info("Request recieved: restartRqdIdle")
-        self.rq_core.restartRqdIdle()
+        self.rqCore.restartRqdIdle()
 
     def rebootNow(self, current = None):
         """Ice call that kills all running frames and reboots the host."""
         log.info("Request recieved: rebootNow")
-        self.rq_core.rebootNow()
+        self.rqCore.rebootNow()
 
     def rebootIdle(self, current = None):
         """Ice call that that locks all cores and reboots the host when idle.
            unlockAll will abort the request."""
         log.info("Request recieved: rebootIdle")
-        self.rq_core.rebootIdle()
+        self.rqCore.rebootIdle()
 
     def nimbyOn(self, current = None):
         """Ice call that activates nimby"""
         log.info("Request recieved: nimbyOn")
-        self.rq_core.nimbyOn()
+        self.rqCore.nimbyOn()
 
     def nimbyOff(self, current = None):
         """Ice call that deactivates nimby"""
         log.info("Request recieved: nimbyOff")
-        self.rq_core.nimbyOff()
+        self.rqCore.nimbyOff()
 
     def lock(self, cores, current = None):
         """Ice call that locks a specific number of cores"""
         log.info("Request recieved: lock %d" % core)
-        self.rq_core.lock(cores)
+        self.rqCore.lock(cores)
 
     def lockAll(self, current = None):
         """Ice call that locks all cores"""
         log.info("Request recieved: lockAll")
-        self.rq_core.lockAll()
+        self.rqCore.lockAll()
 
     def unlock(self, cores, current = None):
         """Ice call that unlocks a specific number of cores"""
         log.info("Request recieved: unlock %d" % cores)
-        self.rq_core.unlock(cores)
+        self.rqCore.unlock(cores)
 
     def unlockAll(self, current = None):
         """Ice call that unlocks all cores"""
         log.info("Request recieved: unlockAll")
-        self.rq_core.unlockAll()
+        self.rqCore.unlockAll()
+
+
+class GrpcServer(object):
+    """
+    gRPC server class for managing messages from cuebot back to rqd.
+    This is used for controlling the render host and task actions initiated by cuebot and cuegui.
+    """
+
+    def __init__(self, rqCore):
+        self.rqCore = rqCore
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=rqconstants.RQD_GRPC_MAX_WORKERS))
+        self.servicers = ['RqdStaticServicer']
+        self.server.add_insecure_port('[::]:{0}'.format(rqconstants.RQD_GRPC_PORT))
+
+    def addServicers(self):
+        for servicer in self.servicers:
+            addFunc = getattr(rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
+            servicerClass = getattr(rqdservicers, servicer)
+            addFunc(servicerClass(self.rqCore), self.server)
+
+    def serve(self):
+        self.addServicers()
+        self.server.start()
+        self.rqCore.grpcConnected()
+
+    def serveForever(self):
+        self.serve()
+        self.stayAlive()
+
+    def shutdown(self):
+        self.server.stop(0)
+
+    def stayAlive(self):
+        try:
+            while True:
+                time.sleep(rqconstants.RQD_GRPC_SLEEP)
+        except KeyboardInterrupt:
+            self.server.stop(0)
+
 
 class Network(Ice.Application):
     """Handles ice communication"""
-    def __init__(self, rq_core):
+    def __init__(self, rqCore):
         """Network class initialization"""
-        self.rq_core = rq_core
+        self.rqCore = rqCore
         self.__cuebotProxy = None
+        self.grpcServer = None
+
+    def start_grpc(self):
+        self.grpcServer = GrpcServer(self.rqCore)
+        self.grpcServer.serve()
 
     def start(self):
         """Creates ice communicator and whiteboard proxy"""
-        init_data = Ice.InitializationData()
-        props = init_data.properties = Ice.createProperties()
+        initData = Ice.InitializationData()
+        props = initData.properties = Ice.createProperties()
 
         props.setProperty('Ice.ThreadPool.Server.Size', '8',)
 
@@ -305,7 +333,7 @@ class Network(Ice.Application):
         if Ice.intVersion() >= 30500:
             props.setProperty('Ice.Default.EncodingVersion', '1.0')
 
-        self.__communicator = Ice.initialize(init_data)
+        self.__communicator = Ice.initialize(initData)
 
         try:
             self.__iceObjectAdapter = self.__communicator.createObjectAdapterWithEndpoints(rqconstants.STRING_FROM_CUEBOT, 'default -p %s' % rqconstants.RQD_PORT)
@@ -314,15 +342,13 @@ class Network(Ice.Application):
                          "another instance of rqd must be running, exiting...")
             sys.exit(1)
 
-        RunningFrame.setIceObjectAdapter(self.__iceObjectAdapter)
-
         # Register all the static servants with the object adapter.
-        RqdStatic(self.__communicator, self.__iceObjectAdapter, self.rq_core)
+        RqdStatic(self.__communicator, self.__iceObjectAdapter, self.rqCore)
 
         # Activate the server.
         self.__iceObjectAdapter.activate()
 
-        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signalHandler)
 
         if rqconstants.CUEBOT_HOSTNAME:
             # Using cuebot proxy from constants file:
@@ -343,7 +369,7 @@ class Network(Ice.Application):
             except Exception, e:
                 log.critical("Unable to contact facility name server, exiting...")
                 log.critical(e)
-                self.rq_core.shutdown()
+                self.rqCore.shutdown()
                 sys.exit(1)
 
             try:
@@ -352,7 +378,7 @@ class Network(Ice.Application):
             except Exception, e:
                 log.critical("Unable to get the current facility, exiting...")
                 log.critical(e)
-                self.rq_core.shutdown()
+                self.rqCore.shutdown()
                 sys.exit(1)
 
             try:
@@ -360,7 +386,7 @@ class Network(Ice.Application):
             except Exception, e:
                 log.critical("Unable to get the cuebot proxy for this facility, exiting...")
                 log.critical(e)
-                self.rq_core.shutdown()
+                self.rqCore.shutdown()
                 sys.exit(1)
 
         while self.__cuebotProxy is None and not self.__communicator.isShutdown():
@@ -381,7 +407,7 @@ class Network(Ice.Application):
         if self.__communicator.isShutdown():
             sys.exit()
 
-        self.rq_core.iceConnected()
+        self.rqCore.iceConnected()
 
     def shutdown(self):
         """Shuts down the ice communicator"""
@@ -404,9 +430,9 @@ class Network(Ice.Application):
         @param frameId: A frame's unique Id"""
         self.__iceObjectAdapter.remove(iceId)
 
-    def signal_handler(self, sig, frame):
+    def signalHandler(self, sig, frame):
         """Catches any signals and calls shutdown"""
-        self.rq_core.shutdownRqdNow()
+        self.rqCore.shutdownRqdNow()
 
     def __sendWithErrorChecking(self, report, type, retry = False):
         """Handles exceptions and retrys associated with sending reports.
@@ -482,7 +508,7 @@ class SpiAutoPopulatedExceptionMixin:
     classes.  This mixin initializes the stackTrace and causedBy
     fields in the base VnpIce exception class."""
 
-    def __init__(self, exc_info):
+    def __init__(self, excInfo):
         """Initialize the stackTrace and causedBy fields in the base
         VnpIce exception class this mixin is mixed in with.  If the
         VnpIce exception that is being initialized should be chained
@@ -510,10 +536,10 @@ class SpiAutoPopulatedExceptionMixin:
 
         # Populate the causedBy field if a chained exception was
         # given.
-        if exc_info is not None:
-            exc_type, exc, tb = exc_info
+        if excInfo is not None:
+            excType, exc, tb = excInfo
 
-            if exc_type is not None and \
+            if excType is not None and \
                exc is not None and \
                tb is not None:
                 # A new SpiIceException should not be chained to
@@ -528,7 +554,7 @@ class SpiAutoPopulatedExceptionMixin:
                 stacktrace = [ '%s:%s in %s: %s' % f for f in frames ]
                 stacktrace.reverse()
 
-                message = 'Caught %s: %s' % (exc_type, str(exc))
+                message = 'Caught %s: %s' % (excType, str(exc))
                 self.causedBy = [ SpiIce.SpiIceCause(message, stacktrace) ]
             else:
                 self.causedBy = [ ]
@@ -540,8 +566,8 @@ class RqdIceException(RqdIce.FrameSetupFailureException,
     """Subclass of VnpIceUnsupportedOperationException which
     automatically initializes the stackTrace and causedBy fields."""
 
-    def __init__(self, message, exc_info=None):
+    def __init__(self, message, excInfo=None):
         """RqdIceException class initialization"""
         RqdIce.FrameSetupFailureException.__init__(self, message)
-        SpiAutoPopulatedExceptionMixin.__init__(self, exc_info)
+        SpiAutoPopulatedExceptionMixin.__init__(self, excInfo)
 

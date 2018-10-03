@@ -38,11 +38,11 @@ import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.HostReport;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.RqdIce.HostReport;
-import com.imageworks.spcue.RqdIce.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -146,7 +146,7 @@ public class HostManagerService implements HostManager {
 
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(HostReport report) {
-        return createHost(report.host);
+        return createHost(report.getHost());
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -158,7 +158,7 @@ public class HostManagerService implements HostManager {
     public DispatchHost createHost(RenderHost rhost, AllocationDetail alloc) {
 
         hostDao.insertRenderHost(rhost, alloc, false);
-        DispatchHost host = hostDao.findDispatchHost(rhost.name);
+        DispatchHost host = hostDao.findDispatchHost(rhost.getName());
 
         hostDao.tagHost(host, alloc.tag, HostTagType.Alloc);
         hostDao.tagHost(host, host.name, HostTagType.Hostname);

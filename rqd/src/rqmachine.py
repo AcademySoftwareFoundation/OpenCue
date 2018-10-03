@@ -22,7 +22,7 @@ Project: RQD
 
 Module: rqmachine.py
 
-Contact: Middle-Tier 
+Contact: Middle-Tier
 
 SVN: $Id$
 """
@@ -66,14 +66,14 @@ KILOBYTE = 1024
 
 class Machine:
     """Gathers information about the machine and resources"""
-    def __init__(self, rq_core, coreInfo):
+    def __init__(self, rqCore, coreInfo):
         """Machine class initialization
-        @type   rq_core: RqCore
-        @param  rq_core: Main RQD Object, used to access frames and nimby states
+        @type   rqCore: RqCore
+        @param  rqCore: Main RQD Object, used to access frames and nimby states
         @type  coreInfo: RqdIce.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
         """
-        self.__rq_core = rq_core
+        self.__rqCore = rqCore
         self.__coreInfo = coreInfo
 
         if platform.system() == 'Linux':
@@ -95,7 +95,7 @@ class Machine:
         self.__hostReport = RqdIce.HostReport()
         self.__hostReport.coreInfo = self.__coreInfo
 
-        self.__pid_history = {}
+        self.__pidHistory = {}
 
         self.setupHT()
 
@@ -121,7 +121,9 @@ class Machine:
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
            by checking /etc/inittab. False if not."""
-        if platform.system() == "Linux":
+        if rqconstants.OVERRIDE_IS_DESKTOP:
+            return True
+        if platform.system() == "Linux" and os.path.exists(rqconstants.PATH_INITTAB):
             inittabFile = open(rqconstants.PATH_INITTAB, "r")
             for line in inittabFile:
                 if line.startswith("id:5:initdefault:"):
@@ -134,28 +136,28 @@ class Machine:
     def isUserLoggedIn(self):
         # For non-headless systems, first check to see if there
         # is a user logged into the display.
-        display_nums = []
+        displayNums = []
 
         try:
-            display_re = re.compile(r'X(\d+)')
+            displayRe = re.compile(r'X(\d+)')
             for displays in os.listdir('/tmp/.X11-unix'):
-                m = display_re.match(displays)
+                m = displayRe.match(displays)
                 if not m:
                     continue
-                display_nums.append(int(m.group(1)))
+                displayNums.append(int(m.group(1)))
         except OSError as e:
             if e.errno != errno.ENOENT:
                 raise
 
-        if display_nums:
+        if displayNums:
             # Check `who` output for a user associated with a display, like:
             #
             # (unknown) :0           2017-11-07 18:21 (:0)
             #
             # In this example, the user is '(unknown)'.
             for line in subprocess.check_output(['/usr/bin/who']).splitlines():
-                for display_num in display_nums:
-                    if '(:{})'.format(display_num) in line:
+                for displayNum in displayNums:
+                    if '(:{})'.format(displayNum) in line:
                         cols = line.split()
                         # Whitelist a user called '(unknown)' as this
                         # is what shows up when gdm is running and
@@ -163,7 +165,7 @@ class Machine:
                         if cols[0] != '(unknown)':
                             log.warning(
                                 'User {} logged into display :{}'.format(
-                                    cols[0], display_num))
+                                    cols[0], displayNum))
                             return True
 
             # When there is a display, the above code is considered
@@ -176,13 +178,13 @@ class Machine:
         names = set(['kdesktop', 'gnome-session', 'startkde'])
 
         for proc in psutil.process_iter():
-            proc_name = proc.name()
+            procName = proc.name()
             for name in names:
-                if name in proc_name:
+                if name in procName:
                     return True
         return False
 
-    def rss_update(self, frames):
+    def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
         if platform.system() != 'Linux':
             return
@@ -213,9 +215,8 @@ class Machine:
 
         try:
             now = int(time.time())
-            pid_data = {"time": now}
-            last_time = self.__pid_history.get("time")
-            boot_time = self.getBootTime()
+            pidData = {"time": now}
+            bootTime = self.getBootTime()
 
             values = frames.values()
 
@@ -234,30 +235,30 @@ class Machine:
                                 vsize += int(data["vsize"])
 
                                 # jiffies used by this process, last two means that dead children are counted
-                                total_time = int(data["utime"]) + \
+                                totalTime = int(data["utime"]) + \
                                             int(data["stime"]) + \
                                             int(data["cutime"]) + \
                                             int(data["cstime"])
 
                                 # Seconds of process life, boot time is already in seconds
-                                seconds = now - boot_time - \
+                                seconds = now - bootTime - \
                                         float(data["start_time"]) / rqconstants.SYS_HERTZ
                                 if seconds:
-                                    if self.__pid_history.has_key(pid):
+                                    if self.__pidHistory.has_key(pid):
                                         # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
-                                        old_total_time, old_seconds, old_pid_pcpu = self.__pid_history[pid]
+                                        oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
                                         #checking if already updated data
-                                        if seconds != old_seconds:
-                                            pid_pcpu = (total_time - old_total_time) / float(seconds - old_seconds)
-                                            pcpu += (old_pid_pcpu + pid_pcpu) / 2 # %cpu
-                                            pid_data[pid] = total_time, seconds, pid_pcpu
+                                        if seconds != oldSeconds:
+                                            pidPcpu = (totalTime - oldTotalTime) / float(seconds - oldSeconds)
+                                            pcpu += (oldPidPcpu + pidPcpu) / 2 # %cpu
+                                            pidData[pid] = totalTime, seconds, pidPcpu
                                     else:
-                                        pid_pcpu = total_time / seconds
-                                        pcpu += pid_pcpu
-                                        pid_data[pid] = total_time, seconds, pid_pcpu
+                                        pidPcpu = totalTime / seconds
+                                        pcpu += pidPcpu
+                                        pidData[pid] = totalTime, seconds, pidPcpu
 
                                 if rqconstants.ENABLE_PTREE:
-                                    ptree.append({"pid":pid, "seconds":seconds, "total_time":total_time})
+                                    ptree.append({"pid":pid, "seconds":seconds, "total_time":totalTime})
                             except Exception as e:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
@@ -277,7 +278,7 @@ class Machine:
                         frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree))
 
             # Store the current data for the next check
-            self.__pid_history = pid_data
+            self.__pidHistory = pidData
         except Exception, e:
             log.exception('Failure with rss update due to: {0}'.format(e))
 
@@ -314,7 +315,6 @@ class Machine:
         return self.__getGpuValues()['free']
 
     def __getGpuValues(self):
-        total = free = 0
         if not hasattr(self, 'gpuNotSupported'):
             if not hasattr(self, 'gpuResults'):
                 self.gpuResults = {'total': 0, 'free': 0, 'updated': 0}
@@ -565,8 +565,8 @@ class Machine:
 
         # Updates dyanimic information
         self.__renderHost.load = self.getLoadAvg()
-        self.__renderHost.nimbyEnabled = self.__rq_core.nimby.active
-        self.__renderHost.nimbyLocked = self.__rq_core.nimby.locked
+        self.__renderHost.nimbyEnabled = self.__rqCore.nimby.active
+        self.__renderHost.nimbyLocked = self.__rqCore.nimby.locked
         self.__renderHost.state = self.state
 
     def getHostInfo(self):
@@ -581,9 +581,9 @@ class Machine:
 
         # .frames
         self.__hostReport.frames = []
-        for frameKey in self.__rq_core.getFrameKeys():
+        for frameKey in self.__rqCore.getFrameKeys():
             try:
-                info = self.__rq_core.getFrame(frameKey).runningFrameInfo()
+                info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
                 self.__hostReport.frames.append(info)
             except KeyError:
                 pass

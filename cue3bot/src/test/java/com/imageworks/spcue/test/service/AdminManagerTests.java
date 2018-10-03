@@ -31,7 +31,6 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.AllocationDetail;
-import com.imageworks.spcue.Facility;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.service.AdminManager;

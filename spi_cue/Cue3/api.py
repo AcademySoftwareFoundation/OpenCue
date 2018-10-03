@@ -28,6 +28,9 @@ Contact: Middle-Tier Group
 SVN: $Id$
 """
 import os
+
+from Cue3 import cue_pb2
+from Cue3 import cue_pb2_grpc
 from cuebot import Cuebot
 from search import *
 from exception import *
@@ -86,6 +89,11 @@ def getSystemStats():
 #
 # Facility
 #
+
+def createFacility(name):
+    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    return stub.Create(cue_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout)
+
 def getFacility(name):
     """Return a given facility by name or unique ID.
     @type name: str
@@ -93,7 +101,16 @@ def getFacility(name):
     @rtype: Facility
     @return: A facility object.
     """
-    return Cuebot.Proxy.getFacility(name)
+    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    return stub.Get(cue_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout)
+
+def renameFacility(facility, new_name):
+    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    stub.Rename(cue_pb2.FacilityRenameRequest(facility=facility, new_name=new_name), timeout=Cuebot.Timeout)
+
+def deleteFacility(name):
+    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    stub.Delete(cue_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
 
 #
 # Shows
