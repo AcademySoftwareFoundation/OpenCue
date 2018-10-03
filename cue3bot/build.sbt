@@ -62,7 +62,7 @@ ScalariformKeys.preferences := FormattingPreferences().
 resolvers ++= Seq(
     "spymemcached" at "http://files.couchbase.com/maven2/",
     "zeroc" at "http://www.zeroc.com:8081/nexus/service/local/repositories/releases/content/",
-    "SPI" at "file://" + baseDirectory.value + "/maven/",
+    "SPI" at "file://" + baseDirectory.value + "/maven/"
 )
 
 {
@@ -95,7 +95,7 @@ resolvers ++= Seq(
     // https://github.com/sbt/junit-interface
     "com.novocode" % "junit-interface" % "0.11" % "test",
     "org.springframework.boot" % "spring-boot-starter-test" % spring_boot_ver % "test",
-    "org.assertj" % "assertj-core" % "3.8.0" % "test",
+    "org.assertj" % "assertj-core" % "3.8.0" % "test"
   )
 }
 
