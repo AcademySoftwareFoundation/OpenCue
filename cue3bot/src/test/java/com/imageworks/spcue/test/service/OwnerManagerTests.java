@@ -39,8 +39,8 @@ import com.imageworks.spcue.Deed;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Owner;
 import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
@@ -63,26 +63,25 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
 
     public DispatchHost createHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = "test_host";
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = 53500;
-        host.freeSwap = 20760;
-        host.load = 1;
-        host.totalMcp = 195430;
-        host.totalMem = (int) CueUtil.GB16;
-        host.totalSwap = (int) CueUtil.GB16;
-        host.nimbyEnabled = true;
-        host.numProcs = 2;
-        host.coresPerProc = 100;
-        host.tags = new ArrayList<String>();
-        host.tags.add("general");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName("test_host")
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(1)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB16)
+                .setTotalSwap((int) CueUtil.GB16)
+                .setNimbyEnabled(true)
+                .setNumProcs(2)
+                .setCoresPerProc(100)
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .addTags("general")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,

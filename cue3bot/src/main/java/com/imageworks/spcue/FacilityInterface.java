@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public interface Facility extends EntityInterface {
+public interface FacilityInterface extends EntityInterface {
 
     public String getFacilityId();
 

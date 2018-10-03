@@ -21,10 +21,11 @@ Module: Cuebot.py - Cue3 Library API.
 
 Created: February 16, 2008
 
-Contact: Middle-Tier Group 
+Contact: Middle-Tier Group
 
 SVN: $Id$
 """
+import grpc
 import os
 import sys
 import pwd
@@ -43,11 +44,14 @@ __all__ = ["Cuebot"]
 logger = logging.getLogger("cue3")
 
 # check for facility specific configurations.
-fcnf = "/shots/spi/home/facility/%s/config/cue3.yaml" % os.environ.get("FACILITY")
+fcnf = os.environ.get('CUE3_CONF', '')
+
 if os.path.exists(fcnf):
     config = yaml.load(open(fcnf).read())
 else:
-    config = yaml.load(open("/shots/spi/home/etc/cue3/cue3.yaml").read())
+    _this_dir = os.path.dirname(__file__)
+    default_config = os.path.join(os.path.dirname(_this_dir), 'etc/default.yaml')
+    config = yaml.load(open(default_config).read())
 
 def _buildProxyString(hosts, interface, timeout=0):
     """Returns a proxy to an interface on the supplied hosts
@@ -100,6 +104,7 @@ class Cuebot:
     Proxy = None
     Communicator = None
     CueClientIce = None
+    RpcChannel = None
 
     # The default connection timeout in milliseconds
     Timeout = config.get('cuebot.timeout', 10000)
@@ -109,11 +114,13 @@ class Cuebot:
         """Initialize the communicator."""
         init_data = Ice.InitializationData()
         props = init_data.properties = Ice.createProperties()
-        for k,v in config.get("ice.init").iteritems():
-            if k == 'Ice.ACM.Client' and Ice.intVersion() >= 30600:
-                k = 'Ice.ACM.Client.Timeout'
-            logger.debug("setting ice property %s %s" % (k,v))
-            props.setProperty(k,str(v))
+        ice_init = config.get('ice.init')
+        if ice_init:
+            for k,v in config.get("ice.init").iteritems():
+                if k == 'Ice.ACM.Client' and Ice.intVersion() >= 30600:
+                    k = 'Ice.ACM.Client.Timeout'
+                logger.debug("setting ice property %s %s" % (k,v))
+                props.setProperty(k,str(v))
 
         # Allows use of implicit_context
         props.setProperty('Ice.ImplicitContext', 'Shared')
@@ -152,6 +159,7 @@ class Cuebot:
         logger.debug("setting new server hosts to: %s" % hosts)
         Cuebot.Hosts = hosts
         Cuebot.Proxy = Cuebot.buildProxy("CueStatic")
+        Cuebot.RpcChannel = Cuebot.buildRpcChannel()
 
     @staticmethod
     def setTimeout(timeout):
@@ -203,6 +211,15 @@ class Cuebot:
             ## string we were using.
             raise CuebotProxyCreationError("failed to connect to cuebot interface "  +
                                            interface_name + " on proxy: " + prx_str, e)
+
+    @staticmethod
+    def buildRpcChannel():
+        # gRPC must specify a single host.
+        hostname = Cuebot.Hosts[0].split(':')[0]
+        connect_str = '%s:%s' % (hostname, config.get('cuebot.grpc_port', 8443))
+        logger.debug('connecting to gRPC at %s', connect_str)
+        # TODO(cipriano) Configure gRPC TLS.
+        return grpc.insecure_channel(connect_str)
 
     @staticmethod
     def register(class_obj, parent_name):

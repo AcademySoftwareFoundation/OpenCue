@@ -17,22 +17,10 @@
 
 
 
+
 <beans xmlns="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="
        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
-
-  <!-- RQD Static Interface -->
-  <bean id="rqdReportStaticIceExporter" class="com.imageworks.common.spring.remoting.IceExporter">
-    <property name="iceServer" ref="rqdIceServer" />
-    <property name="iceIdentity" value="RqdReportStatic" />
-    <property name="iceServant">
-      <!-- Bean to talk to rest of application -->
-      <bean id="cuebotStaticServant" class="com.imageworks.spcue.servant.RqdReportStaticI">
-        <property name="frameCompleteHandler" ref="frameCompleteHandler" />
-        <property name="hostReportHandler" ref="hostReportHandler" />
-      </bean>
-    </property>
-  </bean>
 
   <!-- Cue Static Interface -->
   <bean id="cueStaticIceExporter" class="com.imageworks.common.spring.remoting.IceExporter">
@@ -321,19 +309,7 @@
     <property name="bookingManager" ref="bookingManager" />
   </bean>
 
-  <!-- Facility Servant -->
-  <bean id="facilityServantLocator" class="com.imageworks.common.spring.remoting.CachingSpringServantLocator">
-    <constructor-arg index="0" ref="manageIceServer" />
-    <constructor-arg index="1" value="manageFacility" />
-    <constructor-arg index="2" value="50" />
-  </bean>
-
-  <bean scope="prototype" id="manageFacility" class="com.imageworks.spcue.servant.ManageFacilityI">
-    <property name="adminManager" ref="adminManager" />
-    <property name="whiteboard" ref="whiteboard" />
-  </bean>
-
-    <!-- Service Servant -->
+  <!-- Service Servant -->
   <bean id="serviceServantLocator" class="com.imageworks.common.spring.remoting.CachingSpringServantLocator">
     <constructor-arg index="0" ref="manageIceServer" />
     <constructor-arg index="1" value="manageService" />

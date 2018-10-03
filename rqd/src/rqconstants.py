@@ -39,6 +39,7 @@ if platform.system() == 'Linux':
     import pwd
 
 import Ice
+
 Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
               "rqd_ice.ice".replace("{PATH}", os.path.dirname(__file__)))
 import cue.CueIce
@@ -58,7 +59,12 @@ CUEBOT_PORT = "9018"
 
 # If the hostname is blank then the facility ice server will be queried
 # Multiple hosts can be listed as space delimited
-CUEBOT_HOSTNAME = "cue3bot1 cue3bot2 cue3bot3"
+# TODO: Make driven by a config file b/110168575
+# CUEBOT_HOSTNAME = "cue3bot1 cue3bot2 cue3bot3"
+if 'CUEBOT_HOSTNAME' in os.environ:
+  CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
+else:
+  CUEBOT_HOSTNAME = "localhost"
 
 RQD_PORT = "10021"
 RQD_HOST = "localhost"
@@ -67,6 +73,13 @@ RQD_TIMEOUT = "10000"
 FACILITY_ICE_NAMESERVER = "FacilityStatic" \
                           ":tcp -h ice-ns1 -p 30000 -t 2000" \
                           ":tcp -h ice-ns2 -p 30000 -t 2000"
+
+
+# GRPC VALUES
+RQD_GRPC_MAX_WORKERS = 10
+RQD_GRPC_PORT = 50051
+RQD_GRPC_SLEEP = 60 * 60 *24
+
 
 # RQD behavior:
 RSS_UPDATE_INTERVAL = 10
@@ -114,6 +127,7 @@ if "-c" in sys.argv:
     CONFIG_FILE = sys.argv[sys.argv.index("-c") + 1]
 
 OVERRIDE_CORES = None # number of cores. ex: None or 8
+OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off

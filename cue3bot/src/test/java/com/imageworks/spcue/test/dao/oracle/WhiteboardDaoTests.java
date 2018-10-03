@@ -89,11 +89,11 @@ import com.imageworks.spcue.CueIce.ActionType;
 import com.imageworks.spcue.CueIce.ActionValueType;
 import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.MatchSubject;
 import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 
 
 @Transactional
@@ -223,25 +223,24 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     public RenderHost getRenderHost() {
 
-        RenderHost host = new RenderHost();
-        host.name = HOST;
-        host.bootTime = 1192369572;
-        host.freeMcp = 7602;
-        host.freeMem = (int) Dispatcher.MEM_RESERVED_MIN * 4;
-        host.freeSwap = 2076;
-        host.load = 1;
-        host.totalMcp = 19543;
-        host.totalMem = (int) Dispatcher.MEM_RESERVED_MIN * 4;
-        host.totalSwap = 2096;
-        host.nimbyEnabled = true;
-        host.numProcs = 2;
-        host.coresPerProc = 400;
-        host.tags = new ArrayList<String>();
-        host.state = HardwareState.Down;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName(HOST)
+                .setBootTime(1192369572)
+                .setFreeMcp(7602)
+                .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setFreeSwap(2076)
+                .setLoad(1)
+                .setTotalMcp(19543)
+                .setTotalMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setTotalSwap(2096)
+                .setNimbyEnabled(true)
+                .setNumProcs(2)
+                .setCoresPerProc(400)
+                .setState(HardwareState.Down)
+                .setFacility("spi")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
         return host;
     }
 
@@ -473,7 +472,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.allocationId = null;
         proc.coresReserved = 100;
         proc.hostId = hd.id;
-        proc.hostName = host.name;
+        proc.hostName = host.getName();
         proc.jobId = job.id;
         proc.frameId = frame.id;
         proc.layerId = frame.layerId;
@@ -514,7 +513,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.allocationId = null;
         proc.coresReserved = 100;
         proc.hostId = hd.id;
-        proc.hostName = host.name;
+        proc.hostName = host.getName();
         proc.jobId = job.id;
         proc.frameId = frame.id;
         proc.layerId = frame.layerId;
@@ -557,7 +556,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.allocationId = null;
         proc.coresReserved = 100;
         proc.hostId = hd.id;
-        proc.hostName = host.name;
+        proc.hostName = host.getName();
         proc.jobId = job.id;
         proc.frameId = frame.id;
         proc.layerId = frame.layerId;
@@ -728,8 +727,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
         hostDao.updateHostLock(hd, LockState.Locked, new Source("TEST"));
-        Host h = whiteboardDao.findHost(host.name);
-        assertEquals(host.name,h.data.name);
+        Host h = whiteboardDao.findHost(host.getName());
+        assertEquals(host.getName(), h.data.name);
     }
 
     @Test
@@ -918,7 +917,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.allocationId = null;
         proc.coresReserved = 100;
         proc.hostId = hd.id;
-        proc.hostName = host.name;
+        proc.hostName = host.getName();
         proc.jobId = job.id;
         proc.frameId = frame.id;
         proc.layerId = frame.layerId;
@@ -941,7 +940,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.allocationId = null;
         proc.coresReserved = 100;
         proc.hostId = hd.id;
-        proc.hostName = host.name;
+        proc.hostName = host.getName();
         proc.jobId = job.id;
         proc.frameId = frame.id;
         proc.layerId = frame.layerId;
@@ -970,7 +969,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
             proc.allocationId = null;
             proc.coresReserved = 100;
             proc.hostId = hd.id;
-            proc.hostName = host.name;
+            proc.hostName = host.getName();
             proc.jobId = job.id;
             proc.frameId = f.id;
             proc.layerId = f.layerId;

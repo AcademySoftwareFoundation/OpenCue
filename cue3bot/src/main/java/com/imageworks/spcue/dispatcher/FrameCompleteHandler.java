@@ -37,7 +37,7 @@ import com.imageworks.spcue.CueIce.FrameExitStatusSkipRetry;
 import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.RqdIce.FrameCompleteReport;
+import com.imageworks.spcue.CueGrpc.FrameCompleteReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.service.BookingManager;
@@ -114,7 +114,7 @@ public class FrameCompleteHandler {
             try {
 
                 proc = hostManager.getVirtualProc(
-                        report.frame.resourceId);
+                        report.getFrame().getResourceId());
             }
             catch (EmptyResultDataAccessException e) {
                 /*
@@ -126,19 +126,19 @@ public class FrameCompleteHandler {
                  */
                 logger.info("failed to acquire data needed to " +
                         "process completed frame: " +
-                        report.frame.frameName + " in job " +
-                        report.frame.jobName + "," + e);
+                        report.getFrame().getFrameName() + " in job " +
+                        report.getFrame().getJobName() + "," + e);
                 return;
             }
 
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final DispatchFrame frame = jobManager.getDispatchFrame(
-                    report.frame.frameId);
+                    report.getFrame().getFrameId());
             final FrameState newFrameState = determineFrameState(job,
                     frame, report);
 
-            if (dispatchSupport.stopFrame(frame, newFrameState, report.exitStatus,
-                    report.frame.maxRss)) {
+            if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
+                    report.getFrame().getMaxRss())) {
                 dispatchQueue.execute(new Runnable() {
                     @Override
                     public void run() {
@@ -194,8 +194,8 @@ public class FrameCompleteHandler {
              */
             logger.info("failed to acquire data needed " +
                     "to process completed frame: " +
-                    report.frame.frameName + " in job " +
-                    report.frame.jobName + "," + e);
+                    report.getFrame().getFrameName() + " in job " +
+                    report.getFrame().getJobName() + "," + e);
 
             throw new RqdRetryReportException("error processing the frame complete " +
                     "report, sending retry message to RQD " + e, e);
@@ -232,7 +232,7 @@ public class FrameCompleteHandler {
              */
             boolean unbookProc = proc.unbooked;
 
-            dispatchSupport.updateUsageCounters(frame, report.exitStatus);
+            dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
             if (newFrameState.equals(FrameState.Succeeded)) {
                 jobManagerSupport.satisfyWhatDependsOn(frame);
@@ -244,8 +244,8 @@ public class FrameCompleteHandler {
                      * update the minimum memory and tags so it can run on a
                      * wider variety of cores, namely older hardware.
                      */
-                    jobManager.optimizeLayer(frame, report.frame.numCores,
-                            report.frame.maxRss, report.runTime);
+                    jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                            report.getFrame().getMaxRss(), report.getRunTime());
                 }
             }
 
@@ -269,8 +269,8 @@ public class FrameCompleteHandler {
              * application due to a memory issue and should be retried. In this
              * case, disable the optimizer and raise the memory by 2GB.
              */
-            if (report.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
-                    || report.exitSignal == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
+            if (report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                    || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE) {
                 unbookProc = true;
                 jobManager.enableMemoryOptimizer(frame, false);
                 jobManager.increaseLayerMemoryRequirement(frame,
@@ -299,12 +299,12 @@ public class FrameCompleteHandler {
              * Frames that return a 256 are not automatically retried.
              */
 
-            else if (report.exitStatus == FrameExitStatusNoRetry.value) {
+            else if (report.getExitStatus() == FrameExitStatusNoRetry.value) {
                 logger.info("unbooking " + proc + " frame status was no-retry.");
                 unbookProc = true;
             }
 
-            else if (report.host.nimbyLocked) {
+            else if (report.getHost().getNimbyLocked()) {
 
                 if (!proc.isLocalDispatch) {
                     logger.info("unbooking " + proc + " was NIMBY locked.");
@@ -314,7 +314,7 @@ public class FrameCompleteHandler {
                 /* Update the NIMBY locked state */
                 hostManager.setHostLock(proc, LockState.NimbyLocked,
                         new Source("NIMBY"));
-            } else if (report.host.freeMem < CueUtil.MB512) {
+            } else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 /*
                  * Unbook anything on a proc that has only 512MB of free memory
                  * left.
@@ -517,20 +517,19 @@ public class FrameCompleteHandler {
             } else {
                 return FrameState.Dead;
             }
-        } else if (report.exitStatus != 0) {
+        } else if (report.getExitStatus() != 0) {
 
             FrameState newState = FrameState.Waiting;
-
-            if (report.exitStatus == FrameExitStatusSkipRetry.value
-                    || (job.maxRetries != 0 && report.exitSignal == 119)) {
-                report.exitStatus = FrameExitStatusSkipRetry.value;
+            if (report.getExitStatus() == FrameExitStatusSkipRetry.value
+                    || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatusSkipRetry.value).build();
                 newState = FrameState.Waiting;
             } else if (job.autoEat) {
                 newState = FrameState.Eaten;
-            } else if (report.runTime > Dispatcher.FRAME_TIME_NO_RETRY) {
+            } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
                 newState = FrameState.Dead;
             } else if (frame.retries >= job.maxRetries) {
-                if (!(report.exitStatus == Dispatcher.EXIT_STATUS_MEMORY_FAILURE || report.exitSignal == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
+                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
                     newState = FrameState.Dead;
             }
 

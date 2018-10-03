@@ -37,7 +37,7 @@ import static org.junit.Assert.*;
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
-public class FacilityDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     FacilityDao facilityDao;

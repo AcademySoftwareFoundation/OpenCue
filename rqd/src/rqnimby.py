@@ -25,7 +25,7 @@ Project: RQD
 
 Module: rqnimby.py
 
-Contact: Middle-Tier 
+Contact: Middle-Tier
 
 SVN: $Id$
 """
@@ -47,13 +47,13 @@ class Nimby(threading.Thread):
        passed, defined in the Constants class, nimby will then unlock the host
        and make it available for rendering."""
 
-    def __init__(self, rq_core):
+    def __init__(self, rqCore):
         """Nimby initialization
-        @type    rq_core: RqCore
-        @param   rq_core: Main RQD Object"""
+        @type    rqCore: RqCore
+        @param   rqCore: Main RQD Object"""
         threading.Thread.__init__(self)
 
-        self.rq_core = rq_core
+        self.rqCore = rqCore
 
         self.locked = False
         self.active = False
@@ -63,9 +63,9 @@ class Nimby(threading.Thread):
 
         self.thread = None
 
-        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGINT, self.signalHandler)
 
-    def signal_handler(self, sig, frame):
+    def signalHandler(self, sig, frame):
         """If a signal is detected, call .stop()"""
         self.stop()
 
@@ -74,7 +74,7 @@ class Nimby(threading.Thread):
         if self.active and not self.locked:
             self.locked = True
             log.info("Locked nimby")
-            self.rq_core.onNimbyLock()
+            self.rqCore.onNimbyLock()
 
     def unlockNimby(self, asOf=None):
         """Deactivates the nimby lock, calls unlockNimby() in rqcore
@@ -82,11 +82,11 @@ class Nimby(threading.Thread):
         if self.locked:
             self.locked = False
             log.info("Unlocked nimby")
-            self.rq_core.onNimbyUnlock(asOf=asOf)
+            self.rqCore.onNimbyUnlock(asOf=asOf)
 
-    def _open_events(self):
+    def _openEvents(self):
         """Opens the /dev/input/event* files so nimby can monitor them"""
-        self._close_events()
+        self._closeEvents()
 
         rqutil.permissionsHigh()
         try:
@@ -101,9 +101,9 @@ class Nimby(threading.Thread):
         finally:
             rqutil.permissionsLow()
 
-    def _close_events(self):
+    def _closeEvents(self):
         """Closes the /dev/input/event* files"""
-        log.debug("_close_events")
+        log.debug("_closeEvents")
         if self.fileObjList:
             for fileObj in self.fileObjList:
                 try:
@@ -112,74 +112,74 @@ class Nimby(threading.Thread):
                     pass
             self.fileObjList = []
 
-    def locked_inuse(self):
+    def lockedInUse(self):
         """Nimby State: Machine is in use, host is locked,
                         waiting for sufficent idle time"""
-        log.debug("locked_inuse")
-        self._open_events()
+        log.debug("lockedInUse")
+        self._openEvents()
         try:
             self.results = select.select(self.fileObjList, [], [], 5)
         except:
             pass
         if self.active and self.results[0] == []:
-            self.locked_idle()
+            self.lockedIdle()
         elif self.active:
-            self._close_events()
+            self._closeEvents()
             self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
-                                          self.locked_inuse)
+                                          self.lockedInUse)
             self.thread.start()
 
-    def locked_idle(self):
+    def lockedIdle(self):
         """Nimby State: Machine is idle,
                         waiting for sufficent idle time to unlock"""
         log.debug("locked_idle")
-        self._open_events()
-        wait_start_time = time.time()
+        self._openEvents()
+        waitStartTime = time.time()
         try:
             self.results = select.select(self.fileObjList, [], [],
                                          rqconstants.MINIMUM_IDLE)
         except:
             pass
         if self.active and self.results[0] == [] and \
-           self.rq_core.machine.isNimbySafeToUnlock():
-            self._close_events()
-            self.unlockNimby(asOf=wait_start_time)
-            self.unlocked_idle()
+           self.rqCore.machine.isNimbySafeToUnlock():
+            self._closeEvents()
+            self.unlockNimby(asOf=waitStartTime)
+            self.unlockedIdle()
         elif self.active:
-            self._close_events()
+            self._closeEvents()
             self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
-                                          self.locked_inuse)
+                                          self.lockedInUse)
             self.thread.start()
 
-    def unlocked_idle(self):
+    def unlockedIdle(self):
         """Nimby State: Machine is idle, host is unlocked,
                         waiting for user activity"""
-        log.debug("unlocked_idle")
+        log.debug("unlockedIdle")
 
         while self.active and \
               self.results[0] == [] and \
-              self.rq_core.machine.isNimbySafeToRunJobs():
+              self.rqCore.machine.isNimbySafeToRunJobs():
             try:
-                self._open_events()
+                self._openEvents()
                 self.results = select.select(self.fileObjList, [], [], 5)
             except:
                 pass
-            if not self.rq_core.machine.isNimbySafeToRunJobs():
+            if not self.rqCore.machine.isNimbySafeToRunJobs():
                 log.warning("memory threshold has been exceeded, locking nimby")
                 self.active = True
 
         if self.active:
-            self._close_events()
+            self._closeEvents()
             self.lockNimby()
             self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
-                                          self.locked_inuse)
+                                          self.lockedInUse)
             self.thread.start()
 
     def run(self):
         """Starts the Nimby thread"""
         log.debug("nimby.run()")
         self.active = True
-        self.unlocked_idle()
+        self.unlockedIdle()
 
     def stop(self):
         """Stops the Nimby thread"""
@@ -187,7 +187,7 @@ class Nimby(threading.Thread):
         if self.thread:
             self.thread.cancel()
         self.active = False
-        self._close_events()
+        self._closeEvents()
         self.unlockNimby()
 
 if __name__ == "__main__":
@@ -195,7 +195,7 @@ if __name__ == "__main__":
 
     class machine:
         def isNimbySafeToRunJobs(self):
-            log.debug("rq_core.machine: isNimbySafeToRunJobs()")
+            log.debug("rqCore.machine: isNimbySafeToRunJobs()")
             return True
 
     class core:
@@ -206,21 +206,21 @@ if __name__ == "__main__":
 
         def onNimbyLock(self):
             """For testing"""
-            log.debug("rq_core: onNimbyLock()")
+            log.debug("rqCore: onNimbyLock()")
         def onNimbyUnlock(self, asOf=None):
             """For testing"""
-            log.debug("rq_core: onNimbyUnlock()")
+            log.debug("rqCore: onNimbyUnlock()")
 
-    rq_core = core()
+    rqCore = core()
 
     log.basicConfig(level=log.DEBUG)
-    nimby = Nimby(rq_core)
-    signal.signal(signal.SIGINT, nimby.signal_handler)
+    nimby = Nimby(rqCore)
+    signal.signal(signal.SIGINT, nimby.signalHandler)
     nimby.locked = True
-    nimby.check_interval_locked = 11
-    nimby.minimum_idle = 20
-    nimby.minimum_mem = 0
-    nimby.maximum_load = 0
+    nimby.checkIntervalLocked = 11
+    nimby.minimumIdle = 20
+    nimby.minimumMem = 0
+    nimby.maximumLoad = 0
     nimby.start()
 
     time.sleep(30)

@@ -34,7 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.AllocationDetail;
-import com.imageworks.spcue.Facility;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -82,7 +82,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFindAllocation() {
-        Facility f = facilityDao.getFacility("spi");
+        FacilityInterface f = facilityDao.getFacility("spi");
         allocDao.findAllocationDetail(f.getName(), ALLOC_NAME);
     }
 
@@ -90,7 +90,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFindAllocation2() {
-        Facility f = facilityDao.getFacility("spi");
+        FacilityInterface f = facilityDao.getFacility("spi");
         allocDao.findAllocationDetail(ALLOC_FQN);
     }
 

@@ -20,6 +20,11 @@ object MyBuild extends Build {
     defaultIceHome = System.getProperty("user.home") + "/homebrew/Cellar/ice@3.6/3.6.4_1"
   }
 
+  var PATH_PROTOC = "/usr/bin/protoc"
+  if (System.getProperty("os.name") == "Mac OS X") {
+    PATH_PROTOC = System.getProperty("user.home") + "/homebrew/bin/protoc"
+  }
+
   lazy val root = Project(
     "cuebot",
     file("."),

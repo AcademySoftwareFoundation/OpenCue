@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.*;
 
+import com.imageworks.spcue.FacilityInterface;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -40,7 +41,6 @@ import com.imageworks.spcue.Department;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.Facility;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
@@ -850,7 +850,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "ROWNUM = 1";
 
     @Override
-    public boolean cueHasPendingJobs(Facility f) {
+    public boolean cueHasPendingJobs(FacilityInterface f) {
         return getJdbcTemplate().queryForList(
                 HAS_PENDING_JOBS, f.getFacilityId()).size() > 0;
     }

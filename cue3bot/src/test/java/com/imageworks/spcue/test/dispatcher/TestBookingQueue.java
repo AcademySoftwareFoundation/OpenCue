@@ -24,6 +24,7 @@ import java.util.HashMap;
 
 import javax.annotation.Resource;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -35,8 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -61,29 +62,25 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
 
     @Before
     public void create() {
-
-        RenderHost host = new RenderHost();
-        host.name = HOSTNAME;
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = 53500;
-        host.freeSwap = 20760;
-        host.load = 1;
-        host.totalMcp = 195430;
-        host.totalMem = 8173264;
-        host.totalSwap = 20960;
-        host.nimbyEnabled = false;
-        host.numProcs = 1;
-        host.coresPerProc = 100;
-        host.tags = new ArrayList<String>();
-        host.tags.add("mcore");
-        host.tags.add("4core");
-        host.tags.add("8g");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName(HOSTNAME)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(1)
+                .setTotalMcp(195430)
+                .setTotalMem(8173264)
+                .setTotalSwap(20960)
+                .setNimbyEnabled(false)
+                .setNumProcs(1)
+                .setCoresPerProc(100)
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         hostManager.createHost(host);
     }

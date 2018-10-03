@@ -42,27 +42,27 @@ class SampleData(object):
     Sample data container.
     """
 
-    def __init__(self, epoch_time, pgout_num):
+    def __init__(self, epochTime, pgoutNum):
         """
         Constructor.
         """
 
-        self.__epoch_time_in_second = epoch_time
-        self.__pgpgout = pgout_num
+        self.__epochTimeInSecond = epochTime
+        self.__pgpgout = pgoutNum
 
     def __repr__(self):
         """
         Return string representation.
         """
 
-        return "(" + str(self.__epoch_time_in_second) + ", " + \
+        return "(" + str(self.__epochTimeInSecond) + ", " + \
             str(self.__pgpgout) + ")"
 
     def get_epoch_time(self):
         """
         Return the sample's epoch time.
         """
-        return self.__epoch_time_in_second
+        return self.__epochTimeInSecond
 
     def get_pgout_number(self):
         """
@@ -125,105 +125,103 @@ class VmStat(object):
         """
 
         self.__interval = 15
-        self.__sample_size = 10
+        self.__sampleSize = 10
         self.__lock = threading.Lock()
-        self.__sample_data = []
-        self.__repeated_timer = RepeatedTimer(
+        self.__sampleData = []
+        self.__repeatedTimer = RepeatedTimer(
             self.__interval,
-            self.__get_pgout_num)
-        self.__repeated_timer.setDaemon(True)
-        self.__repeated_timer.start()
+            self.__getPgoutNum)
+        self.__repeatedTimer.setDaemon(True)
+        self.__repeatedTimer.start()
 
-    def __get_sample_data_copy(self):
+    def __getSampleDataCopy(self):
         """
-        Return a copy of self.__sample_data.
+        Return a copy of self.__sampleData.
         """
 
         with self.__lock:
-            current_sample_data = list(self.__sample_data)
-        return current_sample_data
+            currentSampleData = list(self.__sampleData)
+        return currentSampleData
 
-    def __get_pgout_num(self):
+    def __getPgoutNum(self):
         """
         Read /proc/vmstat file and get pgpgout number.
         """
 
-        found_pgpgout = False
-        pgpgout_num = 0
+        foundPgpgout = False
+        pgpgoutNum = 0
         try:
-            with open("/proc/vmstat") as vm_stat_file:
-                for line in vm_stat_file.readlines():
-                    match_obj = PGPGOUT_RE.match(line)
-                    if match_obj:
-                        found_pgpgout = True
-                        pgpgout_num = int(match_obj.group(1))
+            with open("/proc/vmstat") as vmStatFile:
+                for line in vmStatFile.readlines():
+                    matchObj = PGPGOUT_RE.match(line)
+                    if matchObj:
+                        foundPgpgout = True
+                        pgpgoutNum = int(matchObj.group(1))
                         break
         except IOError:
             log.warn("Failed to open /proc/vmstat file.")
 
-        if found_pgpgout:
+        if foundPgpgout:
             with self.__lock:
-                self.__sample_data.append(SampleData(time.time(),
-                                                     pgpgout_num))
-                del self.__sample_data[:-self.__sample_size]
+                self.__sampleData.append(SampleData(time.time(),
+                                                     pgpgoutNum))
+                del self.__sampleData[:-self.__sampleSize]
         else:
             log.warn("Could not get pgpgout number.")
 
-    def get_pgout_rate(self):
+    def getPgoutRate(self):
         """
         Return page out rate.
         """
 
-        current_sample_data = self.__get_sample_data_copy()
-        current_time = time.time()
-        sample_data_len = len(current_sample_data)
-        if sample_data_len < 5:
+        currentSampleData = self.__getSampleDataCopy()
+        currentTime = time.time()
+        sampleDataLen = len(currentSampleData)
+        if sampleDataLen < 5:
             return 0
 
         weight = 1
-        total_weight = weight
-        weighted_sum = 0
-        for i in range(1, sample_data_len):
-            if (current_sample_data[i].get_epoch_time() <
-                    current_time - self.__sample_size * self.__interval - 2):
+        totalWeight = weight
+        weightedSum = 0
+        for i in range(1, sampleDataLen):
+            if (currentSampleData[i].get_epoch_time() <
+                    currentTime - self.__sample_size * self.__interval - 2):
                 continue
-            weighted_sum += \
-                   weight * (current_sample_data[i].get_pgout_number() - \
-                       current_sample_data[i - 1].get_pgout_number()) / \
-                   (current_sample_data[i].get_epoch_time() - \
-                        current_sample_data[i - 1].get_epoch_time())
-            total_weight += weight
+            weightedSum += \
+                   weight * (currentSampleData[i].getPgoutNumber() - currentSampleData[i - 1].getPgoutNumber()) / \
+                   (currentSampleData[i].getEpochTime() - currentSampleData[i - 1].getEpochTime())
+            totalWeight += weight
             weight += 1
 
-        return weighted_sum / (total_weight * self.__interval)
+        return weightedSum / (totalWeight * self.__interval)
 
-    def get_recent_pgout_rate(self):
+    def getRecentPgoutRate(self):
         """
         Return the most recent page out rate.
         """
 
-        current_sample_data = self.__get_sample_data_copy()
-        sample_data_len = len(current_sample_data)
-        if sample_data_len < 2:
+        currentSampleData = self.__getSampleDataCopy()
+        sampleDataLen = len(currentSampleData)
+        if sampleDataLen < 2:
             return 0
 
-        index = sample_data_len - 1
-        return (current_sample_data[index].get_pgout_number() - \
-                   current_sample_data[index - 1].get_pgout_number()) / \
-               (current_sample_data[index].get_epoch_time() - \
-                   current_sample_data[index - 1].get_epoch_time()) / \
+        index = sampleDataLen - 1
+        return (currentSampleData[index].getPgoutNumber() - \
+                currentSampleData[index - 1].getPgoutNumber()) / \
+               (currentSampleData[index].getEpochTime() - \
+                currentSampleData[index - 1].getEpochTime()) / \
                self.__interval
 
-    def stop_sample(self):
+    def stopSample(self):
         """
         Stop the repeated timer.
         """
 
-        self.__repeated_timer.cancel()
+        self.__repeatedTimer.cancel()
 
 if __name__ == "__main__":
     vmstat = VmStat()
     while 1:
         time.sleep(2)
-        print vmstat.get_pgout_rate(), vmstat.get_recent_pgout_rate()
+        print vmstat.getPgoutRate(), vmstat.getRecentPgoutRate()
 

@@ -37,8 +37,8 @@ import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.CueGrpc.HardwareState;
+import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -100,27 +100,26 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        RenderHost host = new RenderHost();
-        host.name = HOSTNAME;
-        host.bootTime = 1192369572;
-        host.freeMcp = 76020;
-        host.freeMem = (int) CueUtil.GB8;
-        host.freeSwap = 20760;
-        host.load = 1;
-        host.totalMcp = 195430;
-        host.totalMem = (int) CueUtil.GB8;
-        host.totalSwap = (int) CueUtil.GB2;
-        host.nimbyEnabled = false;
-        host.numProcs = 1;
-        host.coresPerProc = 200;
-        host.tags = new ArrayList<String>();
-        host.tags.add("test");
-        host.state = HardwareState.Up;
-        host.facility = "spi";
-        host.attributes = new HashMap<String, String>();
-        host.attributes.put("SP_OS", "Linux");
-        host.attributes.put("freeGpu", String.format("%d", CueUtil.MB512));
-        host.attributes.put("totalGpu", String.format("%d", CueUtil.MB512));
+        RenderHost host = RenderHost.newBuilder()
+                .setName(HOSTNAME)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem((int) CueUtil.GB8)
+                .setFreeSwap(20760)
+                .setLoad(1)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB2)
+                .setNimbyEnabled(false)
+                .setNumProcs(1)
+                .setCoresPerProc(200)
+                .addTags("test")
+                .setState(HardwareState.Up)
+                .setFacility("spi")
+                .putAttributes("SP_OS", "Linux")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
 
         hostManager.createHost(host,
                 adminManager.findAllocationDetail("spi", "general"));

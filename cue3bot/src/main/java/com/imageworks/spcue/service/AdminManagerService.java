@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.service;
 
+import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.FacilityEntity;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,8 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Facility;
-import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.ShowDetail;
@@ -82,7 +82,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    public void createAllocation(Facility facility, AllocationDetail alloc) {
+    public void createAllocation(FacilityInterface facility, AllocationDetail alloc) {
         allocationDao.insertAllocation(facility, alloc);
     }
 
@@ -193,31 +193,31 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    public Facility createFacility(String name) {
+    public FacilityInterface createFacility(String name) {
         FacilityEntity facility = new FacilityEntity();
         facility.name = name;
         return facilityDao.insertFacility(facility);
     }
 
     @Override
-    public void deleteFacility(Facility facility) {
+    public void deleteFacility(FacilityInterface facility) {
         facilityDao.deleteFacility(facility);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Facility getFacility(String id) {
+    public FacilityInterface getFacility(String id) {
         return facilityDao.getFacility(id);
     }
 
     @Override
-    public void setFacilityName(Facility facility, String name) {
+    public void setFacilityName(FacilityInterface facility, String name) {
         facilityDao.updateFacilityName(facility, name);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Facility getDefaultFacility() {
+    public FacilityInterface getDefaultFacility() {
         return facilityDao.getDefaultFacility();
     }
 
