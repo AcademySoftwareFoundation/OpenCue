@@ -16,51 +16,41 @@
 
 package com.imageworks.spcue.test;
 
-import com.google.common.base.Charsets;
-import com.google.common.io.Resources;
-import ru.yandex.qatools.embed.postgresql.EmbeddedPostgres;
+import com.opentable.db.postgres.embedded.EmbeddedPostgreSQL;
+import org.flywaydb.core.Flyway;
 
-import java.net.URL;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertThat;
-import static ru.yandex.qatools.embed.postgresql.distribution.Version.Main.V10;
 
 public final class TestDatabaseSetupPostgres {
+    private static final String DB_NAME = "postgres";
+    private static final String USERNAME = "postgres";
+    private static AtomicBoolean setupComplete = new AtomicBoolean(false);
+    private EmbeddedPostgreSQL postgres;
 
-    public static void main(String[] args) throws Exception {
-        final EmbeddedPostgres postgres = new EmbeddedPostgres(V10);
+    public TestDatabaseSetupPostgres() {}
 
-        final String url = postgres.start("localhost", 5432, "cuebotfoo", "brian", "password");
+    public String getUrl() {
+        return postgres.getJdbcUrl(USERNAME, DB_NAME);
+    }
 
-        // connecting to a running Postgres and feeding up the database
-        final Connection conn = DriverManager.getConnection(url);
-        conn.createStatement().execute("CREATE TABLE films (code char(5));");
-        conn.createStatement().execute("INSERT INTO films VALUES ('movie');");
+    public String getUsername() {
+        return USERNAME;
+    }
 
-        // ... or you can execute SQL files...
-        //postgres.getProcess().importFromFile(new File("someFile.sql"))
-        // ... or even SQL files with PSQL variables in them...
-        //postgres.getProcess().importFromFileWithArgs(new File("someFile.sql"), "-v", "tblName=someTable")
-        // ... or even restore database from dump file
-        //postgres.getProcess().restoreFromFile(new File("src/test/resources/test.binary_dump"))
+    public String getPassword() {
+        return null;
+    }
 
-        // performing some assertions
-        final Statement statement = conn.createStatement();
-        assertThat(statement.execute("SELECT * FROM films;"), is(true));
-        assertThat(statement.getResultSet().next(), is(true));
-        assertThat(statement.getResultSet().getString("code"), is("movie"));
+    public void create() throws Exception  {
+        if (!setupComplete.compareAndSet(false, true)) {
+            return;
+        }
 
-        conn.close();
-        postgres.stop();
+        postgres = EmbeddedPostgreSQL.start();
+        Flyway flyway = Flyway.configure()
+            .dataSource(postgres.getPostgresDatabase())
+            .locations("classpath:conf/ddl/postgres/migrations")
+            .load();
+        flyway.migrate();
     }
 }

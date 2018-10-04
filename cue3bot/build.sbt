@@ -96,7 +96,8 @@ resolvers ++= Seq(
     "com.novocode" % "junit-interface" % "0.11" % "test",
     "org.springframework.boot" % "spring-boot-starter-test" % spring_boot_ver % "test",
     "org.assertj" % "assertj-core" % "3.8.0" % "test",
-    "ru.yandex.qatools.embed" % "postgresql-embedded" % "2.9" % "test"
+    "com.opentable.components" % "otj-pg-embedded" % "0.1.1" % "test",
+    "org.flywaydb" % "flyway-core" % "5.2.0" % "test"
   )
 }
 
