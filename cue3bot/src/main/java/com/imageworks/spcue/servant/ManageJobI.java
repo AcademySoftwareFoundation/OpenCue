@@ -53,7 +53,7 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 public class ManageJobI extends _JobInterfaceDisp implements InitializingBean {
 
