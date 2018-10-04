@@ -66,5 +66,9 @@ public class AppConfig {
         b.setServlet(new JobLaunchServlet());
         return b;
     }
+
+    /*@Configuration
+    @ImportResource
+    static class DatabaseEngineConfig() {}*/
 }
 

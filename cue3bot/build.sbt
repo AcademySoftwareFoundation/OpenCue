@@ -95,7 +95,8 @@ resolvers ++= Seq(
     // https://github.com/sbt/junit-interface
     "com.novocode" % "junit-interface" % "0.11" % "test",
     "org.springframework.boot" % "spring-boot-starter-test" % spring_boot_ver % "test",
-    "org.assertj" % "assertj-core" % "3.8.0" % "test"
+    "org.assertj" % "assertj-core" % "3.8.0" % "test",
+    "ru.yandex.qatools.embed" % "postgresql-embedded" % "2.9" % "test"
   )
 }
 
