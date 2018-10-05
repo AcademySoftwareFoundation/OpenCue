@@ -86,12 +86,11 @@
     <bean id="matcherDao" class="com.imageworks.spcue.dao.postgres.MatcherDaoJdbc">
         <property name="dataSource" ref="cue3DataSource"/>
     </bean>
-    
-    
+
     <bean id="groupDao" class="com.imageworks.spcue.dao.postgres.GroupDaoJdbc">
         <property name="dataSource" ref="cue3DataSource"/>
     </bean>
-    
-    
+
+
 </beans>
 
