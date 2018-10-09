@@ -9,7 +9,7 @@ public class PostgresDatabaseCondition implements Condition {
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
         String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
-        return dbEngine != null && "postgres".equals(dbEngine.toLowerCase());
+        return dbEngine == null || "postgres".equals(dbEngine.toLowerCase());
     }
 
 }
