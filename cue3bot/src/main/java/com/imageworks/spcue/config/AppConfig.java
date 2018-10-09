@@ -27,6 +27,7 @@ import org.springframework.boot.context.embedded.ServletRegistrationBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.Lazy;
@@ -38,12 +39,21 @@ import org.springframework.context.annotation.PropertySource;
                  "classpath:conf/spring/applicationContext-iceServer.xml",
                  "classpath:conf/spring/applicationContext-grpc.xml",
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
-                 "classpath:conf/spring/applicationContext-dao-oracle.xml",
                  "classpath:conf/spring/applicationContext-service.xml",
                  "classpath:conf/spring/applicationContext-jms.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:cue3.properties"})
 public class AppConfig {
+
+    @Configuration
+    @Conditional(OracleDatabaseCondition.class)
+    @ImportResource({"classpath:conf/spring/applicationContext-dao-oracle.xml"})
+    static class OracleEngineConfig {}
+
+    @Configuration
+    @Conditional(PostgresDatabaseCondition.class)
+    @ImportResource({"classpath:conf/spring/applicationContext-dao-postgres.xml"})
+    static class PostgresEngineConfig {}
 
     @Bean
     @Primary
@@ -67,8 +77,5 @@ public class AppConfig {
         return b;
     }
 
-    /*@Configuration
-    @ImportResource
-    static class DatabaseEngineConfig() {}*/
 }
 

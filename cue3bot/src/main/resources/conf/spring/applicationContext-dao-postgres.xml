@@ -27,70 +27,123 @@
     </bean>
 
     <bean id="allocationDao" class="com.imageworks.spcue.dao.postgres.AllocationDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="subscriptionDao" class="com.imageworks.spcue.dao.postgres.SubscriptionDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-      
+
     <bean id="showDao" class="com.imageworks.spcue.dao.postgres.ShowDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="jobDao" class="com.imageworks.spcue.dao.postgres.JobDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-        
+
     <bean id="layerDao" class="com.imageworks.spcue.dao.postgres.LayerDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-        
+
     <bean id="frameDao" class="com.imageworks.spcue.dao.postgres.FrameDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="hostDao" class="com.imageworks.spcue.dao.postgres.HostDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="procDao" class="com.imageworks.spcue.dao.postgres.ProcDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="dependDao" class="com.imageworks.spcue.dao.postgres.DependDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="whiteboardDao" class="com.imageworks.spcue.dao.postgres.WhiteboardDaoJdbc">
-        <constructor-arg index="0" ref="iceServer"/>
-        <property name="dataSource" ref="cue3DataSource"/>
+        <constructor-arg index="0" ref="manageIceServer" />
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
+    <bean id="nestedWhiteboardDao" class="com.imageworks.spcue.dao.postgres.NestedWhiteboardDaoJdbc">
+        <constructor-arg index="0" ref="manageIceServer" />
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
     <bean id="dispatcherDao" class="com.imageworks.spcue.dao.postgres.DispatcherDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="maintenanceDao" class="com.imageworks.spcue.dao.postgres.MaintenanceDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="filterDao" class="com.imageworks.spcue.dao.postgres.FilterDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="actionDao" class="com.imageworks.spcue.dao.postgres.ActionDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
-    
+
     <bean id="matcherDao" class="com.imageworks.spcue.dao.postgres.MatcherDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
 
     <bean id="groupDao" class="com.imageworks.spcue.dao.postgres.GroupDaoJdbc">
-        <property name="dataSource" ref="cue3DataSource"/>
+        <property name="dataSource" ref="cue3DataSource" />
     </bean>
 
+    <bean id="commentDao" class="com.imageworks.spcue.dao.postgres.CommentDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="historicalDao" class="com.imageworks.spcue.dao.postgres.HistoricalDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="facilityDao" class="com.imageworks.spcue.dao.postgres.FacilityDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="departmentDao" class="com.imageworks.spcue.dao.postgres.DepartmentDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="taskDao" class="com.imageworks.spcue.dao.postgres.TaskDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="pointDao" class="com.imageworks.spcue.dao.postgres.PointDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="ownerDao" class="com.imageworks.spcue.dao.postgres.OwnerDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="deedDao" class="com.imageworks.spcue.dao.postgres.DeedDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="serviceDao" class="com.imageworks.spcue.dao.postgres.ServiceDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <bean id="bookingDao" class="com.imageworks.spcue.dao.postgres.BookingDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
+
+    <!-- Prod SPI DAOs -->
+    <bean id="trackitDao" class="com.imageworks.spcue.dao.postgres.TrackitDaoJdbc">
+        <property name="dataSource" ref="trackitDataSource"/>
+    </bean>
+
+    <bean id="redirectDao" class="com.imageworks.spcue.dao.postgres.RedirectDaoJdbc">
+        <property name="dataSource" ref="cue3DataSource" />
+    </bean>
 
 </beans>
 
