@@ -2235,39 +2235,6 @@ CREATE TABLE public.matcher (
 
 
 --
--- Name: matthew_stats_tab; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.matthew_stats_tab (
-    statid character varying(30),
-    type character(1),
-    version numeric,
-    flags numeric,
-    c1 character varying(30),
-    c2 character varying(30),
-    c3 character varying(30),
-    c4 character varying(30),
-    c5 character varying(30),
-    n1 numeric,
-    n2 numeric,
-    n3 numeric,
-    n4 numeric,
-    n5 numeric,
-    n6 numeric,
-    n7 numeric,
-    n8 numeric,
-    n9 numeric,
-    n10 numeric,
-    n11 numeric,
-    n12 numeric,
-    d1 date,
-    r1 bytea,
-    r2 bytea,
-    ch1 character varying(1000)
-);
-
-
---
 -- Name: owner; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2405,38 +2372,6 @@ CREATE TABLE public.show_service (
 
 
 --
--- Name: sqln_explain_plan; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.sqln_explain_plan (
-    statement_id character varying(30),
-    "timestamp" date,
-    remarks character varying(80),
-    operation character varying(30),
-    options character varying(30),
-    object_node character varying(128),
-    object_owner character varying(30),
-    object_name character varying(30),
-    object_instance bigint,
-    object_type character varying(30),
-    optimizer character varying(255),
-    search_columns bigint,
-    id bigint,
-    parent_id bigint,
-    "position" bigint,
-    cost bigint,
-    cardinality bigint,
-    bytes bigint,
-    other_tag character varying(255),
-    partition_start character varying(255),
-    partition_stop character varying(255),
-    partition_id bigint,
-    other text,
-    distribution character varying(30)
-);
-
-
---
 -- Name: subscription; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2474,15 +2409,6 @@ CREATE TABLE public.task_lock (
     int_lock bigint DEFAULT 0 NOT NULL,
     int_timeout bigint DEFAULT 30 NOT NULL,
     ts_lastrun timestamp(6) without time zone DEFAULT CURRENT_TIMESTAMP NOT NULL
-);
-
-
---
--- Name: test; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.test (
-    col1 character varying(32)
 );
 
 
@@ -2620,40 +2546,6 @@ CREATE VIEW public.v_history_layer AS
   WHERE (((lh.pk_job)::text = (jh.pk_job)::text) AND ((jh.pk_show)::text = (s.pk_show)::text) AND (jh.dt_last_modified >= ( SELECT history_period.dt_begin
            FROM public.history_period)) AND (jh.dt_last_modified < ( SELECT history_period.dt_end
            FROM public.history_period)));
-
-
---
--- Name: v_temp; Type: VIEW; Schema: public; Owner: -
---
-
-CREATE VIEW public.v_temp AS
- SELECT jh.pk_job,
-    jh.str_name,
-    jh.str_shot,
-    jh.str_user,
-    jh.int_core_time_success,
-    jh.int_core_time_fail,
-    jh.int_frame_count,
-    jh.int_layer_count,
-    jh.int_waiting_count,
-    jh.int_dead_count,
-    jh.int_depend_count,
-    jh.int_eaten_count,
-    jh.int_succeeded_count,
-    jh.int_running_count,
-    jh.int_max_rss,
-    jh.b_archived,
-    f.str_name AS str_facility_name,
-    d.str_name AS str_dept_name,
-    jh.int_ts_started,
-    jh.int_ts_stopped,
-    s.str_name AS str_show_name,
-    jh.dt_last_modified
-   FROM public.job_history jh,
-    public.show s,
-    public.facility f,
-    public.dept d
-  WHERE (((jh.pk_show)::text = (s.pk_show)::text) AND ((jh.pk_facility)::text = (f.pk_facility)::text) AND ((jh.pk_dept)::text = (d.pk_dept)::text) AND ((jh.pk_job)::text = ANY ((ARRAY['1514bafd-7d59-4974-b05c-d1a370366493'::character varying, 'eac9b6b6-d57b-472a-9a22-a6f4d0ec1a58'::character varying, 'ccb9740c-530f-4bce-94f0-493a78810d9d'::character varying, '7abd769f-289f-4ace-bc86-071a4c63f476'::character varying, '2170b154-104c-4e89-9ecc-05caf9112bbe'::character varying, '6f406088-0574-4d01-a774-61cff2ec0cf7'::character varying, '1f25d5a9-2637-4ecf-a0cf-3813fe3b9bcb'::character varying, '086d0d26-7553-408a-82b5-672fec1aa85f'::character varying, 'd00714d0-8c69-4ba5-a57b-f013638349ef'::character varying, '80d3de06-7b30-4cba-9033-e76be3fa3c98'::character varying, '9ef2c406-8cbb-4ff7-920d-2aa824bf368e'::character varying, 'fc6d2448-68b1-4035-bf65-3153a85ec5a1'::character varying, 'd431833c-6217-4955-a3fb-f7b7c41dca78'::character varying, '6c5c12cc-b878-4598-943e-72ac3eded01b'::character varying, '61f5b4a8-e688-40ef-824e-2659b3cfeae9'::character varying, '9c12b501-6180-4658-a849-92a8e2ac69c9'::character varying, '2599b44e-7257-478d-b75e-fd7a414d7c46'::character varying, '58cc47c5-e416-440e-bf61-11568d05741c'::character varying, 'dd214ab9-ba34-414c-b647-b739e08dde8a'::character varying, '607c35f0-9ac7-4375-8239-81cad9da9a99'::character varying, '73875446-a379-4128-8784-b74ba5ccd51f'::character varying, '4f29cbd5-bd82-4e94-bb67-f0f6a571884f'::character varying, '2a150e75-b446-4a17-88bf-9527b6d9a023'::character varying, '7742663f-8931-4b0a-a560-a95b40764017'::character varying, 'bec6160f-aed5-455c-88c1-b2d1b0225569'::character varying, '205c5a4c-b82e-4230-972c-671f70752bfa'::character varying, '8374b4e0-a6ff-4a33-ba17-33e508c396fb'::character varying, '5f866188-f8cc-4caa-8264-5b22e631bb25'::character varying, 'e7b99fb5-a45f-4ca7-beb6-cfc8a05d9ebe'::character varying, '5cf2eea4-52d8-4561-8f82-bd125a1089e9'::character varying, 'b9f0409c-0bac-4d80-91d5-4eca54ca8a29'::character varying, 'a0a1bfc1-c72e-4dae-ad83-16584c1fe37e'::character varying, '8c0c58f2-6384-4e87-ae4f-415cd23ccb5a'::character varying, 'abe2bd4f-a43e-4b32-88bf-3a73f5d503d5'::character varying, '97cc3df1-bfbe-4615-bdcd-b3ae65c8b2aa'::character varying, 'de2f00f6-8b5f-420d-835a-64e443828bc7'::character varying, 'c6158557-1370-4693-aa41-9de93788727a'::character varying, 'c81cc112-392e-4e92-95f4-d370993b0b4d'::character varying, 'e3f35fee-611d-4d47-bb96-789b3653382b'::character varying, '76a6df78-72d4-4ef8-9c2f-5237b005a8bd'::character varying, 'db1f7e0f-6ff2-4ebf-84d3-79d9bb898b4e'::character varying, 'f3bee9c0-8b6f-4ce1-b8c7-d7e8f07156e8'::character varying, '17c55582-ba72-4c8a-a089-5a5b8d099881'::character varying, '368ec111-b124-4206-b2f3-4698c99d2450'::character varying])::text[])));
 
 
 --
@@ -4072,13 +3964,6 @@ CREATE INDEX i_layerstat_pkjob ON public.layer_stat USING btree (pk_job);
 --
 
 CREATE INDEX i_matcher_pk_filter ON public.matcher USING btree (pk_filter);
-
-
---
--- Name: i_matthew_stats_tab; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX i_matthew_stats_tab ON public.matthew_stats_tab USING btree (statid, type, c5, c1, c2, c3, c4, version);
 
 
 --
