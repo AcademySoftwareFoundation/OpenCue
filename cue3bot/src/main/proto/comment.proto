@@ -1,0 +1,51 @@
+
+syntax = "proto3";
+package comment;
+
+option java_package = "com.imageworks.spcue.grpc.comment";
+option java_multiple_files = true;
+
+// The Comment class contains comment data for any entity that supports
+// commenting.  Currently these are [Job] and [Host].
+
+
+// -------- Services --------]
+
+service CommentInterface {
+    // Delete the specified comment.
+    rpc Delete(CommentDeleteRequest) returns (CommentDeleteResponse);
+
+    // Saves the specified comment.
+    rpc Save(CommentSaveRequest) returns (CommentSaveResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message Comment {
+    int32 timestamp = 1;
+    string user = 2;
+    string subject = 3;
+    string message = 4;
+}
+
+message CommentSeq {
+    repeated Comment comments = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+// Delete Messages
+message CommentDeleteRequest {
+    Comment comment = 1;
+}
+
+message CommentDeleteResponse {} // Empty
+
+// Save Messages
+message CommentSaveRequest {
+    Comment comment = 1;
+}
+
+message CommentSaveResponse {} // Empty

@@ -22,8 +22,8 @@ package com.imageworks.spcue.service;
 import java.sql.Timestamp;
 import java.util.List;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.Host;
@@ -33,12 +33,12 @@ import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 
 public interface HostManager {
 
@@ -82,7 +82,7 @@ public interface HostManager {
      * @param alloc
      * @return
      */
-    DispatchHost createHost(RenderHost rhost, AllocationDetail alloc);
+    DispatchHost createHost(RenderHost rhost, AllocationEntity alloc);
 
 
     Host getHost(String id);
@@ -129,9 +129,9 @@ public interface HostManager {
 
     void deleteHost(Host host);
 
-    Allocation getDefaultAllocationDetail();
+    AllocationInterface getDefaultAllocationDetail();
 
-    void setAllocation(Host host, Allocation alloc);
+    void setAllocation(Host host, AllocationInterface alloc);
 
     void addTags(Host host, String[] tags);
     void removeTags(Host host, String[] tags);

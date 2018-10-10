@@ -21,6 +21,7 @@ package com.imageworks.spcue.test.service;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.AllocationEntity;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -30,7 +31,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.service.AdminManager;
@@ -52,7 +52,7 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void createAllocation() {
-        AllocationDetail a = new AllocationDetail();
+        AllocationEntity a = new AllocationEntity();
         a.name = TEST_ALLOC_NAME;
         a.tag = "general";
         adminManager.createAllocation(facilityDao.getDefaultFacility(), a);

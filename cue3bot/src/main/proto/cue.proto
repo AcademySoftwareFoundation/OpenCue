@@ -1,129 +1,96 @@
 
 syntax = "proto3";
-
-option java_package = "com.imageworks.spcue.CueGrpc";
-option java_multiple_files = true;
 package cue;
 
+option java_package = "com.imageworks.spcue.grpc.cue";
+option java_multiple_files = true;
 
-service FacilityInterface {
-    rpc Create(FacilityCreateRequest) returns (Facility) {}
-    rpc Get(FacilityGetRequest) returns (Facility) {}
-    rpc Rename(FacilityRenameRequest) returns (Empty) {}
-    rpc Delete(FacilityDeleteRequest) returns (Empty) {}
+import "job.proto";
+
+// Core System level objects and methods
+
+
+// -------- Services --------]
+
+service CueInterface {
+    // returns the current server statistics
+    rpc GetSystemStats(CueGetSystemStatsRequest) returns (CueGetSystemStatsResponse);
+
+    // Launches a job spec and returns an array of launched jobs. Waits for jobs to be committed to DB.  This might time
+    // out before jobs are launched.
+    rpc LaunchSpecAndWait(CueLaunchSpecAndWaitRequest) returns (CueLaunchSpecAndWaitResponse);
+
+    // Launches as a job spec and returns an array of job names that are being launched. This method returns immediately
+    // after basic checks. The job could fail to launch of a DB error occurs but that is rare.
+    rpc LaunchSpec(CueLaunchSpecRequest) returns (CueLaunchSpecResponse);
 }
 
 
-service RqdReportStatic {
-    // Interface to handle RQD pings.
-    rpc ReportRqdStartup(BootReport) returns (Empty) {}
-    rpc ReportStatus(HostReport) returns (Empty) {}
-    rpc ReportRunningFrameCompletion(FrameCompleteReport) returns (Empty) {}
+// -------- Primary Message Types --------]
+
+// A struct that contains server specific performance numbers
+message SystemStats {
+    int32 manage_waiting = 1;
+    int32 manage_remaining_capacity = 2;
+    int32 manage_threads = 3;
+    int64 manage_executed = 4;
+    int64 manage_rejected = 5;
+    int32 dispatch_waiting = 6;
+    int32 dispatch_remaining_capacity = 7;
+    int32 dispatch_threads = 8;
+    int64 dispatch_executed = 9;
+    int64 dispatch_rejected = 10;
+    int32 report_waiting = 11;
+    int32 report_remaining_capacity = 12;
+    int32 report_threads = 13;
+    int64 report_executed = 14;
+    int64 report_rejected = 15;
+    int32 booking_waiting = 16;
+    int32 booking_remaining_capacity = 17;
+    int32 booking_threads = 18;
+    int32 booking_sleep_millis = 19;
+    int64 booking_executed = 20;
+    int64 booking_rejected = 21;
+    int64 host_balance_success = 22;
+    int64 host_balance_failed = 23;
+    int64 killed_offender_procs = 24;
+    int64 killed_oom_procs = 25;
+    int64 cleared_procs = 26;
+    int64 booking_errors = 27;
+    int64 booking_retries = 28;
+    int64 booked_procs = 29;
+    int64 req_for_data = 30;
+    int64 req_for_function = 31;
+    int64 req_errors = 32;
+    int64 unbooked_procs = 33;
+    int64 picked_up_cores = 34;
+    int64 stranded_cores = 35;
 }
 
 
-message BootReport {
-    RenderHost host = 1;
-    CoreDetail coreInfo = 2;
+// -------- Requests & Responses --------]
+
+// GetSystemStats
+message CueGetSystemStatsRequest {} // Empty
+
+message CueGetSystemStatsResponse {
+    SystemStats stats = 1;
 }
 
-
-message Facility {
-    string name = 1;
+// LaunchSpec
+message CueLaunchSpecRequest {
+    string spec = 1;
 }
 
-
-message FacilityCreateRequest {
-    string name = 1;
+message CueLaunchSpecResponse {
+    repeated string names = 1;
 }
 
-
-message FacilityGetRequest {
-    string name = 1;
+// LaunchSpecAndWait
+message CueLaunchSpecAndWaitRequest {
+    string spec = 1;
 }
 
-
-message FacilityRenameRequest {
-    Facility facility = 1;
-    string new_name = 2;
+message CueLaunchSpecAndWaitResponse {
+    job.JobSeq jobs = 1;
 }
-
-
-message FacilityDeleteRequest {
-    string name = 1;
-}
-
-
-// TODO: Break this up so we have less than 15 fields
-message RenderHost {
-    string name = 1;
-    bool nimbyEnabled = 2; // NIMBY is enabled when the machine is in run level 5.
-    bool nimbyLocked = 3; // if nimby has locked the host due to user activity
-    string facility = 4; // The name of the facility that the host is in
-    int32 numProcs = 5; // the number of physical procs on this machine
-    int32 coresPerProc = 6; // the number of cores per proc
-    int32 totalSwap = 7; // the total size of the swap in kB
-    int32 totalMem = 8; // the total size of the main memory pool in kB
-    int32 totalMcp = 9; // the total size of MCP in kB
-    int32 freeSwap = 10; // the current amount of free swap in kB
-    int32 freeMem = 11; // the current amount of free memory in kB
-    int32 freeMcp = 12; // the current amount of free MCP in kB
-    int32 load = 13; // the current load on the proc
-    int32 bootTime = 14; // the time the proc was booted
-    repeated string tags = 15; // an array of default tags that are added to the host record
-    HardwareState state = 16; // hardare state for the host
-    map<string, string> attributes = 17; // additional data can be provided about the host
-};
-
-
-message HostReport {
-    RenderHost host = 1;
-    repeated RunningFrameInfo frames = 2;
-    CoreDetail coreInfo = 3;
-}
-
-
-message FrameCompleteReport {
-    RenderHost host = 1;
-    RunningFrameInfo frame = 2;
-    int32 exitStatus = 3;
-    int32 exitSignal = 4;
-    int32 runTime = 5;
-}
-
-
-message RunningFrameInfo {
-    string resourceId = 1;
-    string jobId = 2;
-    string jobName = 3;
-    string frameId = 4;
-    string frameName = 5;
-    string layerId = 6;
-    int32 numCores = 7;
-    int64 startTime = 8;
-    int64 maxRss = 9; // kB
-    int64 rss = 10; // kB
-    int64 maxVsize = 11; // kB
-    int64 vsize = 12; // kB
-    map<string, string> attributes = 13; //additional data can be provided about the running frame
-};
-
-
-message CoreDetail {
-    int32 totalCores = 1;
-    int32 idleCores = 2;
-    int32 lockedCores = 3;
-    int32 bookedCores = 4;
-}
-
-
-enum HardwareState {
-    Up = 0;
-    Down = 1;
-    Rebooting = 2;
-    RebootWhenIdle = 3;
-    Repair = 4;
-}
-
-
-message Empty {}

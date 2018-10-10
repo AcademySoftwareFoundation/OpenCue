@@ -5,39 +5,45 @@ package com.imageworks.spcue.servant;
 import org.apache.log4j.Logger;
 import io.grpc.stub.StreamObserver;
 
-
-import com.imageworks.spcue.CueGrpc.RqdReportStaticGrpc;
-import com.imageworks.spcue.CueGrpc.Empty;
-import com.imageworks.spcue.CueGrpc.BootReport;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.FrameCompleteReport;
-
+import com.imageworks.spcue.grpc.report.RqdReportInterfaceGrpc;
+import com.imageworks.spcue.grpc.report.RqdReportRqdStartupRequest;
+import com.imageworks.spcue.grpc.report.RqdReportRqdStartupResponse;
+import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionRequest;
+import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionResponse;
+import com.imageworks.spcue.grpc.report.RqdReportStatusRequest;
+import com.imageworks.spcue.grpc.report.RqdReportStatusResponse;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 
 
-public class RqdReportStatic extends RqdReportStaticGrpc.RqdReportStaticImplBase {
+public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceImplBase {
 
     private FrameCompleteHandler frameCompleteHandler;
     private HostReportHandler hostReportHandler;
 
     @SuppressWarnings("unused")
 
-    public RqdReportStatic() {  }
-
     @Override
-    public void reportRqdStartup(final BootReport report, StreamObserver<Empty> responseObserver) {
-        hostReportHandler.queueBootReport(report);
+    public void reportRqdStartup(RqdReportRqdStartupRequest request,
+                                 StreamObserver<RqdReportRqdStartupResponse> responseObserver) {
+        hostReportHandler.queueBootReport(request.getBootReport());
+        responseObserver.onNext(RqdReportRqdStartupResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     @Override
-    public void reportRunningFrameCompletion(final FrameCompleteReport report, StreamObserver<Empty> responseObserver) {
-        frameCompleteHandler.handleFrameCompleteReport(report);
+    public void reportRunningFrameCompletion(RqdReportRunningFrameCompletionRequest request,
+                                             StreamObserver<RqdReportRunningFrameCompletionResponse> responseObserver) {
+        frameCompleteHandler.handleFrameCompleteReport(request.getFrameCompleteReport());
+        responseObserver.onNext(RqdReportRunningFrameCompletionResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     @Override
-    public void reportStatus(final HostReport report, StreamObserver<Empty> responseObserver) {
-        hostReportHandler.queueHostReport(report);
+    public void reportStatus(RqdReportStatusRequest request, StreamObserver<RqdReportStatusResponse> responseObserver) {
+        hostReportHandler.queueHostReport(request.getHostReport());
+        responseObserver.onNext(RqdReportStatusResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     public FrameCompleteHandler getFrameCompleteHandler() {

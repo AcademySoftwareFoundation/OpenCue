@@ -34,13 +34,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionDetail;
 
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.Deed;
 import com.imageworks.spcue.Department;
@@ -89,11 +88,11 @@ import com.imageworks.spcue.CueIce.ActionType;
 import com.imageworks.spcue.CueIce.ActionValueType;
 import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.MatchSubject;
 import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.CueGrpc.RenderHost;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 
 
 @Transactional
@@ -236,7 +235,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
                 .setCoresPerProc(400)
-                .setState(HardwareState.Down)
+                .setState(HardwareState.DOWN)
                 .setFacility("spi")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
                 .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
@@ -683,7 +682,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetSubscriptionsByAllocation() {
         whiteboardDao.getSubscriptions(
-                allocationDao.findAllocationDetail("spi", "general"));
+                allocationDao.findAllocationEntity("spi", "general"));
     }
 
     @Test
@@ -748,7 +747,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetHostsByAllocation() {
         RenderHost host = getRenderHost();
-        AllocationDetail alloc = allocationDao.getAllocationDetail("00000000-0000-0000-0000-000000000006");
+        AllocationEntity alloc = allocationDao.getAllocationEntity("00000000-0000-0000-0000-000000000006");
         DispatchHost hd = hostManager.createHost(host, alloc);
 
         HostSearchCriteria h = HostSearch.criteriaFactory();

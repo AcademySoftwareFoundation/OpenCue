@@ -34,7 +34,7 @@ public class SortableShow implements Comparable<SortableShow> {
     private float tier;
 
     private Map<String,long []> failed = new ConcurrentHashMap<String,long[]>();
-    private Set<Allocation> failedAllocs = new HashSet<Allocation>();
+    private Set<AllocationInterface> failedAllocs = new HashSet<AllocationInterface>();
 
     public SortableShow(String show, float value) {
         this.show = show;
@@ -69,7 +69,7 @@ public class SortableShow implements Comparable<SortableShow> {
         }
     }
 
-    public boolean isSkipped(Allocation a) {
+    public boolean isSkipped(AllocationInterface a) {
         if (failedAllocs.contains(a)) {
             return true;
         }
@@ -86,7 +86,7 @@ public class SortableShow implements Comparable<SortableShow> {
      *
      * @param Allocation
      */
-    public void skip(Allocation a) {
+    public void skip(AllocationInterface a) {
         synchronized (failedAllocs) {
             failedAllocs.add(a);
         }

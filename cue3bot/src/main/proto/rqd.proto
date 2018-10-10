@@ -1,187 +1,279 @@
 
 syntax = "proto3";
-
-option java_package = "com.imageworks.spcue.RqdGrpc";
-option java_multiple_files = true;
 package rqd;
 
-import "cue.proto";
+option java_package = "com.imageworks.spcue.grpc.rqd";
+option java_multiple_files = true;
+
+import "report.proto";
 
 
-service RqdStatic {
+// -------- Services --------]
 
-    rpc launchFrame(RunFrame) returns (LaunchFrameResponse) {}
-    rpc reportStatus(ReportStatusParams) returns (cue.HostReport) {}
-    rpc getRunningFrameStatus(RunningFrameParams) returns (cue.RunningFrameInfo) {}
-    rpc killRunningFrame(RunningFrameParams) returns (KillResponse) {}
-    rpc shutdownRqdNow(ShutdownNowParams) returns (ShutdownNowResponse) {}
-    rpc shutdownRqdIdle(ShutdownIdleParams) returns (ShutdownIdleResponse) {}
-    rpc restartRqdNow(RestartNowParams) returns (RestartNowResponse) {}
-    rpc restartRqdIdle(RestartIdleParams) returns (RestartIdleResponse) {}
-    rpc rebootNow(RebootNowParams) returns (RebootNowResponse) {}
-    rpc rebootIdle(RebootIdleParams) returns (RebootIdleParams) {}
-    rpc nimbyOn(NimbyOnParams) returns (NimbyOnResponse) {}
-    rpc nimbyOff(NimbyOffParams) returns (NimbyOffResponse) {}
-    rpc lock(LockInfo) returns (LockResponse) {}
-    rpc lockAll(LockAllInfo) returns (LockAllResponse) {}
-    rpc unlock(UnlockInfo) returns (UnlockResponse) {}
-    rpc unlockAll(UnlockAllInfo) returns (UnlockAllResponse) {}
+// Implemented by the Rqd server. Called by cuebot and tools.
+service RqdInterface {
+    // Return the RunFrame by id
+    rpc GetRunFrame(RqdStaticGetRunFrameRequest) returns (RqdStaticGetRunFrameResponse);
+
+    // Return the RunningFrameStatus report
+    rpc GetRunningFrameStatus(RqdStaticGetRunningFrameStatusRequest) returns (RqdStaticGetRunningFrameStatusResponse);
+
+    // Kill the running frame by frame id
+    rpc KillRunningFrame(RqdStaticKillRunningFrameRequest) returns (RqdStaticKillRunningFrameResponse);
+
+    // Launch a new running frame
+    rpc LaunchFrame(RqdStaticLaunchFrameRequest) returns (RqdStaticLaunchFrameResponse);
+
+    // Lock a number of cores
+    rpc Lock(RqdStaticLockRequest) returns (RqdStaticLockResponse);
+
+    // Lock all
+    rpc LockAll(RqdStaticLockAllRequest) returns (RqdStaticLockAllResponse);
+
+    // Disable NIMBY on host
+    rpc NimbyOff(RqdStaticNimbyOffRequest) returns (RqdStaticNimbyOffResponse);
+
+    // Enable NIMBY on host
+    rpc NimbyOn(RqdStaticNimbyOnRequest) returns (RqdStaticNimbyOnResponse);
+
+    // Reboot the host when it becomes idle
+    rpc RebootIdle(RqdStaticRebootIdleRequest) returns (RqdStaticRebootIdleResponse);
+
+    // Reboot the host now
+    rpc RebootNow(RqdStaticRebootNowRequest) returns (RqdStaticRebootNowResponse);
+
+    // Return the HostReport
+    rpc ReportStatus(RqdStaticReportStatusRequest) returns (RqdStaticReportStatusResponse);
+
+    // Restart the rqd process when it becomes idle
+    rpc RestartRqdIdle(RqdStaticRestartIdleRequest) returns (RqdStaticRestartIdleResponse);
+
+    // Restart rqd process now
+    rpc RestartRqdNow(RqdStaticRestartNowRequest) returns (RqdStaticRestartNowResponse);
+
+    // Turn off rqd when it becomes idle
+    rpc ShutdownRqdIdle(RqdStaticShutdownIdleRequest) returns (RqdStaticShutdownIdleResponse);
+
+    // Stop rqd now
+    rpc ShutdownRqdNow(RqdStaticShutdownNowRequest) returns (RqdStaticShutdownNowResponse);
+
+    // Unlock a number of cores
+    rpc Unlock(RqdStaticUnlockRequest) returns (RqdStaticUnlockResponse);
+
+    // Unlock all cores
+    rpc UnlockAll(RqdStaticUnlockAllRequest) returns (RqdStaticUnlockAllResponse);
 }
 
+// Implemented by the Rqd server. Called by cuebot and tools.
+service RunningFrame {
+    // Kill the provided running frame
+    rpc Kill(RunningFrameKillRequest) returns (RunningFrameKillResponse);
+
+    // Get the status of the running frame
+    rpc Status(RunningFrameStatusRequest) returns (RunningFrameStatusResponse);
+}
+
+
+// -------- Enums --------]
 
 enum ErrorCode {
-    success = 0;
-    unknown = 1;
+    SUCCESS = 0;
+    UNKNOWN = 1;
 }
 
 
-message LaunchFrameResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message LockInfo {
-    int32 cores = 1;
-}
-
-
-message LockResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-message LockAllInfo {}
-
-
-message LockAllResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message KillResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message NimbyOffParams {}
-
-
-message NimbyOffResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message NimbyOnParams {}
-
-
-message NimbyOnResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message RebootIdleParams {}
-
-
-message RebootIdleResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message RebootNowParams {}
-
-
-message RebootNowResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message ReportStatusParams {}
-
-
-message RestartIdleParams {}
-
-
-message RestartIdleResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
-
-message RestartNowParams {}
-
-
-message RestartNowResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
-
+// -------- Primary Message Types --------]
 
 message RunFrame {
-    string resourceId = 1;
-    string jobId = 2;
-    string jobName = 3;
-    string frameId = 4;
-    string frameName = 5;
-    string layerId = 6;
+    string resource_id = 1;
+    string job_id = 2;
+    string job_name = 3;
+    string frame_id = 4;
+    string frame_name = 5;
+    string layer_id = 6;
     string command = 7;
-    string userName = 8;
-    string logDir = 9;
+    string user_name = 8;
+    string log_dir = 9;
     string show = 10;
     string shot = 11;
-    int64 startTime = 12;
+    int64 start_time = 12;
     int32 uid = 13;
-    int32 numCores = 14;
-    bool ignoreNimby = 15;
+    int32 num_cores = 14;
+    bool ignore_nimby = 15;
     map<string, string> environment = 16;
     map<string, string> attributes = 17;
 }
 
-
-message RunningFrameParams {
-    string frameId = 1;
+message RunFrameSeq {
+    repeated RunFrame run_frames = 1;
 }
 
 
-message ShutdownIdleParams {}
+// -------- Requests and Responses --------]
 
+// RQD STATIC ----
+//GetRunFrame
+message RqdStaticGetRunFrameRequest {
+    string frame_id = 1;
+    string job_id = 2;
+    string layer_id = 3;
+    int32 run_frame_id = 4;
+}
 
-message ShutdownIdleResponse {
+message RqdStaticGetRunFrameResponse {
+    RunFrame run_frame = 1;
+}
+
+// GetRunningFrameStatus
+message RqdStaticGetRunningFrameStatusRequest {
+    string frame_id = 1;
+}
+
+message RqdStaticGetRunningFrameStatusResponse {
+    report.RunningFrameInfo running_frame_info = 1;
+}
+
+// KillRunningFrame
+message RqdStaticKillRunningFrameRequest {
+    string frame_id = 1;
+}
+
+message RqdStaticKillRunningFrameResponse {
     ErrorCode status = 1;
     string message = 2;
 }
 
+// LaunchFrame
+message RqdStaticLaunchFrameRequest {
+    RunFrame run_frame = 1;
+}
 
-message ShutdownNowParams {}
-
-
-message ShutdownNowResponse {
+message RqdStaticLaunchFrameResponse {
     ErrorCode status = 1;
     string message = 2;
 }
 
+// LockAll
+message RqdStaticLockAllRequest {} // Empty
 
-message UnlockInfo {
+message RqdStaticLockAllResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// Lock
+message RqdStaticLockRequest {
     int32 cores = 1;
 }
 
-
-message UnlockResponse {
+message RqdStaticLockResponse {
     ErrorCode status = 1;
     string message = 2;
 }
 
+// NimbyOff
+message RqdStaticNimbyOffRequest {} // Empty
 
-message UnlockAllInfo {}
-
-
-message UnlockAllResponse {
+message RqdStaticNimbyOffResponse {
     ErrorCode status = 1;
     string message = 2;
+}
+
+// NimbyOn
+message RqdStaticNimbyOnRequest {} // Empty
+
+message RqdStaticNimbyOnResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// RebootIdle
+message RqdStaticRebootIdleRequest {} // Empty
+
+message RqdStaticRebootIdleResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// RebootNow
+message RqdStaticRebootNowRequest {} // Empty
+
+message RqdStaticRebootNowResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// ReportStatus
+message RqdStaticReportStatusRequest {} // Empty
+
+message RqdStaticReportStatusResponse {
+    report.HostReport host_report = 1;
+}
+
+// RestartIdle
+message RqdStaticRestartIdleRequest {}
+
+message RqdStaticRestartIdleResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// RestartNow
+message RqdStaticRestartNowRequest {}
+
+message RqdStaticRestartNowResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// ShutdownIdle
+message RqdStaticShutdownIdleRequest {}
+
+message RqdStaticShutdownIdleResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// ShutdownNow
+message RqdStaticShutdownNowRequest {}
+
+message RqdStaticShutdownNowResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// Unlock
+message RqdStaticUnlockRequest {
+    int32 cores = 1;
+}
+
+message RqdStaticUnlockResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// UnlockAll
+message RqdStaticUnlockAllRequest {}
+
+message RqdStaticUnlockAllResponse {
+    ErrorCode status = 1;
+    string message = 2;
+}
+
+// RUNNING FRAME ----
+// Kill
+message RunningFrameKillRequest {
+    RunFrame run_frame = 1;
+    string message = 2;
+}
+
+message RunningFrameKillResponse {} // Empty
+
+// Status
+message RunningFrameStatusRequest {
+    RunFrame run_frame = 1;
+}
+
+message RunningFrameStatusResponse {
+    report.RunningFrameInfo running_frame_info = 1;
 }

@@ -94,10 +94,10 @@ class test_Machine_cpuinfo(unittest.TestCase):
         totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
         assert renderHost.numProcs == int(numProcs), '%s == %s' % (renderHost.numProcs, numProcs)
         assert renderHost.coresPerProc == int(coresPerProc) * 100, '%s == %s' % (renderHost.coresPerProc, int(coresPerProc) * 100)
-        assert coreInfo.totalCores == int(totalCores) * 100, '%s == %s' % (coreInfo.totalCores, int(totalCores) * 100)
-        assert coreInfo.idleCores == int(totalCores) * 100, '%s == %s' % (coreInfo.idleCores, int(totalCores) * 100)
-        assert coreInfo.lockedCores == 0, coreInfo.lockedCores
-        assert coreInfo.bookedCores == 0, coreInfo.bookedCores
+        assert coreInfo.total_cores == int(totalCores) * 100, '%s == %s' % (coreInfo.total_cores, int(totalCores) * 100)
+        assert coreInfo.idle_cores == int(totalCores) * 100, '%s == %s' % (coreInfo.idle_cores, int(totalCores) * 100)
+        assert coreInfo.locked_cores == 0, coreInfo.locked_cores
+        assert coreInfo.booked_cores == 0, coreInfo.booked_cores
         if pathCpuInfo.find('_ht_') != -1:
             assert renderHost.attributes['hyperthreadingMultiplier'] ==  pathCpuInfo.split('-')[3]
 

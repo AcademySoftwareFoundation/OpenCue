@@ -20,7 +20,6 @@
 package com.imageworks.spcue.dao.oracle;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -28,11 +27,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.imageworks.spcue.AllocationInterface;
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
@@ -115,7 +114,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * @param alloc
      * @return a sorted list of shows.
      */
-    private List<SortableShow> getBookableShows(Allocation alloc) {
+    private List<SortableShow> getBookableShows(AllocationInterface alloc) {
         String key = alloc.getAllocationId();
 
         ShowCache cached = bookableShows.get(key);

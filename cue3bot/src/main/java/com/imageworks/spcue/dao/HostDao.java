@@ -21,18 +21,18 @@ package com.imageworks.spcue.dao;
 
 import java.sql.Timestamp;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 
 
 /**
@@ -147,7 +147,7 @@ public interface HostDao {
      * @param allocation
      * @param useLongNames
      */
-    void insertRenderHost(RenderHost report, Allocation a, boolean useLongNames);
+    void insertRenderHost(RenderHost report, AllocationInterface a, boolean useLongNames);
 
     /**
      * Checks to see if a render host exists by name and returns true if it
@@ -183,7 +183,7 @@ public interface HostDao {
      * @param host
      * @param alloc
      */
-    void updateHostSetAllocation(Host host, Allocation alloc);
+    void updateHostSetAllocation(Host host, AllocationInterface alloc);
 
     /**
      *

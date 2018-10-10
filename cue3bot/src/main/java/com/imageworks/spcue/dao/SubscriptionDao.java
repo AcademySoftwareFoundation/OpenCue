@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Subscription;
 import com.imageworks.spcue.SubscriptionDetail;
@@ -43,7 +43,7 @@ public interface SubscriptionDao {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverSize(Show show, Allocation alloc);
+    boolean isShowAtOrOverSize(Show show, AllocationInterface alloc);
 
     /**
      * Return true if the given show is over its size value for the given
@@ -53,7 +53,7 @@ public interface SubscriptionDao {
      * @param show
      * @return
      */
-    boolean isShowOverSize(Show show, Allocation alloc);
+    boolean isShowOverSize(Show show, AllocationInterface alloc);
 
     /**
      * Return true if adding the given coreUnits would put the show over its
@@ -64,7 +64,7 @@ public interface SubscriptionDao {
      * @param coreUnits
      * @return
      */
-    boolean isShowOverBurst(Show show, Allocation alloc, int coreUnits);
+    boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits);
 
     /**
      * Return true if the given show is at or over its burst value for the given
@@ -74,7 +74,7 @@ public interface SubscriptionDao {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverBurst(Show show, Allocation alloc);
+    boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc);
 
     /**
      * Return true if the show that is utilizing the given proc has exceeded its

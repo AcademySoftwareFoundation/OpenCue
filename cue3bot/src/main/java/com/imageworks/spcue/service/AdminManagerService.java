@@ -19,14 +19,14 @@
 
 package com.imageworks.spcue.service;
 
+import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FacilityEntity;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.Department;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Show;
@@ -82,20 +82,20 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    public void createAllocation(FacilityInterface facility, AllocationDetail alloc) {
+    public void createAllocation(FacilityInterface facility, AllocationEntity alloc) {
         allocationDao.insertAllocation(facility, alloc);
     }
 
-    public void deleteAllocation(Allocation alloc) {
+    public void deleteAllocation(AllocationInterface alloc) {
         allocationDao.deleteAllocation(alloc);
     }
 
-    public void setAllocationName(Allocation a, String name) {
+    public void setAllocationName(AllocationInterface a, String name) {
         allocationDao.updateAllocationName(a, name);
     }
 
     @Transactional(propagation = Propagation.NEVER)
-    public void setAllocationTag(Allocation a, String tag) {
+    public void setAllocationTag(AllocationInterface a, String tag) {
         allocationDao.updateAllocationTag(a, tag);
     }
 
@@ -122,7 +122,7 @@ public class AdminManagerService implements AdminManager {
         return sub;
     }
 
-    public Subscription createSubscription(Show show, Allocation alloc,
+    public Subscription createSubscription(Show show, AllocationInterface alloc,
             int size, int burst) {
         SubscriptionDetail s = new SubscriptionDetail();
         s.size = size;
@@ -135,14 +135,14 @@ public class AdminManagerService implements AdminManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public AllocationDetail findAllocationDetail(String facility, String name) {
-        return allocationDao.findAllocationDetail(facility, name);
+    public AllocationEntity findAllocationDetail(String facility, String name) {
+        return allocationDao.findAllocationEntity(facility, name);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public AllocationDetail getAllocationDetail(String id) {
-        return allocationDao.getAllocationDetail(id);
+    public AllocationEntity getAllocationDetail(String id) {
+        return allocationDao.getAllocationEntity(id);
     }
 
     public void deleteSubscription(Subscription sub) {
@@ -222,7 +222,7 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    public void setAllocationBillable(Allocation alloc, boolean value) {
+    public void setAllocationBillable(AllocationInterface alloc, boolean value) {
         allocationDao.updateAllocationBillable(alloc, value);
     }
 
