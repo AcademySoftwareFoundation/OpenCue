@@ -35,7 +35,7 @@ import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.CueClientIce.FrameSearchCriteria;
 import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 
 public class FrameSearch extends Criteria {

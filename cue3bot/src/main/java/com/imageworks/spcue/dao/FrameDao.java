@@ -33,7 +33,7 @@ import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 public interface FrameDao {
 
