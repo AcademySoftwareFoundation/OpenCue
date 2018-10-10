@@ -428,7 +428,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +
-            "systimestamp - frame.ts_updated > interval '300' second";
+            "current_timestamp - frame.ts_updated > interval '300' second";
 
     @Override
     public boolean isOrphan(Frame frame) {
@@ -450,7 +450,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_layer_order, "+
             "ts_updated "+
         ") " +
-        "VALUES (?,?,?,?,?,?,?,?,systimestamp)";
+        "VALUES (?,?,?,?,?,?,?,?,current_timestamp)";
 
     @Override
     public void insertFrames(LayerDetail layer, List<Integer> frames) {
@@ -555,11 +555,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
     private static final String FIND_LONGEST_FRAME =
         "SELECT " +
-            "pk_frame " +
-        "FROM (" +
-        "SELECT " +
-            "pk_frame,"+
-            "ts_stopped - ts_started AS duration " +
+            "pk_frame "+
         "FROM " +
             "frame, " +
             "layer " +
@@ -572,8 +568,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "layer.str_type=? " +
         "ORDER BY "+
-            "duration DESC "+
-        ") WHERE ROWNUM = 1";
+            "ts_stopped - ts_started DESC "+
+        "LIMIT 1";
 
     @Override
     public FrameDetail findLongestFrame(Job job) {

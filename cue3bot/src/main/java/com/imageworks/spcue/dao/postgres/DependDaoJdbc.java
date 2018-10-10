@@ -408,7 +408,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "WHERE " +
             "pk_job_depend_on=? " +
         "AND " +
-            "b_active = 1 " +
+            "b_active = true " +
         "AND " +
             "str_type IN (?,?,?)";
 
@@ -531,7 +531,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "AND " +
             "str_type IN (?,?,?)) " +
         "OR " +
-            "(pk_layer_depend_on = ? AND str_type = ? AND b_any = 1)";
+            "(pk_layer_depend_on = ? AND str_type = ? AND b_any = true)";
 
     @Override
     public List<LightweightDependency> getWhatDependsOn(Frame frame) {
@@ -553,15 +553,15 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "depend " +
         "SET " +
-            "b_active=0,"+
-            "ts_satisfied=systimestamp,"+
+            "b_active=false,"+
+            "ts_satisfied=current_timestamp,"+
             "str_signature=pk_depend "+
         "WHERE " +
             "pk_depend = ? " +
         "AND " +
-            "b_active = 1 " +
+            "b_active = true " +
         "AND " +
-            "b_composite = 0";
+            "b_composite = false";
 
     @Override
     public boolean setInactive(LightweightDependency depend) {
@@ -573,11 +573,11 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "depend " +
         "SET " +
-            "b_active=1 "+
+            "b_active=true "+
         "WHERE " +
             "pk_depend=? " +
         "AND "+
-            "b_active=0";
+            "b_active=false";
 
     @Override
     public boolean setActive(LightweightDependency depend) {
@@ -613,7 +613,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "AND " +
             "depend.pk_parent = ? " +
         "AND " +
-            "depend.b_active = 1 ";
+            "depend.b_active = true ";
 
     @Override
     public List<LightweightDependency> getChildDepends(LightweightDependency depend) {

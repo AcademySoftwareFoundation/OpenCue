@@ -58,7 +58,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         "FROM " +
             "filter " +
         "WHERE " +
-            "b_enabled = 1 "+
+            "b_enabled = true "+
         "AND " +
             "pk_show=? " +
         "ORDER BY " +
@@ -116,7 +116,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
             "str_name,"+
             "str_type,"+
             "f_order "+
-        ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1.0) FROM filter WHERE pk_show=?))";
+        ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1) FROM filter WHERE pk_show=?))";
 
     public void insertFilter(FilterDetail f) {
         f.id = SqlUtil.genKeyRandom();

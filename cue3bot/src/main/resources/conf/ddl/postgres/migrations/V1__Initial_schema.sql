@@ -927,7 +927,7 @@ RETURNS VOID AS $body$
 DECLARE
     p_str_show_id ALIAS FOR $1;
 
-    f_new_order INT := 1.0;
+    f_new_order INT := 1;
     r_filter RECORD;
 BEGIN
     FOR r_filter IN
@@ -937,7 +937,7 @@ BEGIN
         ORDER BY f_order ASC
     LOOP
         UPDATE filter SET f_order=f_new_order WHERE pk_filter = r_filter.pk_filter;
-        f_new_order := f_new_order + 1.0;
+        f_new_order := f_new_order + 1;
     END LOOP;
 END;
 $body$

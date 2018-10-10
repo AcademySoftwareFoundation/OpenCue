@@ -246,9 +246,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         name = matcher.replaceAll("%");
 
         return getJdbcTemplate().queryForObject(
-                "SELECT * FROM (" + GET_JOB_DETAIL +
-                    " AND job.str_state = 'Finished' AND job.str_name LIKE ? ORDER BY job.ts_stopped DESC) " +
-                    "WHERE ROWNUM = 1", JOB_DETAIL_MAPPER, name);
+                GET_JOB_DETAIL + " AND job.str_state = 'Finished' AND job.str_name LIKE ? " +
+                    "ORDER BY job.ts_stopped LIMIT 1", JOB_DETAIL_MAPPER, name);
     }
 
     @Override
@@ -460,8 +459,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "str_name = ? " +
         "AND " +
             "str_state='Pending' " +
-        "AND " +
-            "ROWNUM = 1";
+        "LIMIT 1";
 
     @Override
     public boolean exists(String name) {
@@ -491,7 +489,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     @Override
     public void activateJob(Job job, JobState jobState) {
 
-        int[] jobTotals = { 0, 0 };  // Depend, Waiting
+        Long[] jobTotals = { 0L, 0L };  // Depend, Waiting
 
         /*
          * Sets all frames in the setup state to Waiting. Frames with a depend
@@ -508,7 +506,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         for (Map<String,Object> row: layers) {
             String layer = (String) row.get("pk_layer");
             FrameState state = FrameState.valueOf((String) row.get("str_state"));
-            int count = ((BigDecimal) row.get("c")).intValue();
+            Long count = (Long) row.get("c");
 
             if (count == 0 || state == null) { continue; }
 
@@ -554,9 +552,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.str_state = 'Pending' " +
         "AND " +
-            "job.b_paused = 0 " +
+            "job.b_paused = false " +
         "AND " +
-            "job.b_auto_book = 1 " +
+            "job.b_auto_book = true " +
         "AND " +
             "job.pk_job = ?";
 

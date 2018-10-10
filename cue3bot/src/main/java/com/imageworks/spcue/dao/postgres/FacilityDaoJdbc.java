@@ -43,7 +43,7 @@ public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
 
     public FacilityInterface getDefaultFacility() {
         return getJdbcTemplate().queryForObject(
-                "SELECT pk_facility,str_name FROM facility WHERE b_default=1 AND ROWNUM < 2",
+                "SELECT pk_facility,str_name FROM facility WHERE b_default=true LIMIT 1",
                 FACILITY_MAPPER);
     }
 

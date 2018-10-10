@@ -56,18 +56,18 @@ public class DispatchQuery {
                         "folder_resource.int_cores < folder_resource.int_max_cores " +
                     ") " +
                 "AND job.str_state                  = 'Pending' " +
-                "AND job.b_paused                   = 0 " +
+                "AND job.b_paused                   = false " +
                 "AND job.pk_show                    = ? " +
                 "AND job.pk_facility                = ? " +
                 "AND job.str_os                     = ? " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
                 "AND layer.int_cores_min            <= ? " +
                 "AND layer.int_mem_min              <= ? " +
-                "AND layer.b_threadable             >= ? " +
+                "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
                 "AND layer.int_gpu_min              BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
                 "AND CATSEARCH(host.str_tags, layer.str_tags, ?) > 0 " +
-        ") WHERE rank < ?";
+        ") AS t1 WHERE rank < ?";
 
 
     public static final String FIND_JOBS_BY_GROUP =
@@ -140,7 +140,7 @@ public class DispatchQuery {
                     "l.int_mem_min <= host_local.int_mem_idle " +
                 "AND " +
                     "l.int_gpu_min <= host_local.int_gpu_idle " +
-        ")) WHERE rank < 5";
+        ")) AS t1 WHERE rank < 5";
 
     /**
      * This query is run before a proc is dispatched to the next frame.

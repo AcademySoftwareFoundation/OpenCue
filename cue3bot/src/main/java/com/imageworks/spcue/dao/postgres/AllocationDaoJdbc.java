@@ -23,6 +23,7 @@ import java.sql.CallableStatement;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -127,9 +128,16 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
          }
 
          if (getJdbcTemplate().queryForObject(
-                 "SELECT b_default FROM alloc WHERE pk_alloc=?", Integer.class,
-                 a.getAllocationId()) > 0) {
+                 "SELECT b_default FROM alloc WHERE pk_alloc=?", Boolean.class,
+                 a.getAllocationId())) {
              throw new EntityRemovalError("you cannot delete the default allocation", a);
+         }
+
+         Savepoint sp1;
+         try {
+             sp1 = getConnection().setSavepoint();
+         } catch (SQLException e) {
+             throw new RuntimeException("failed to create savepoint", e);
          }
 
          /*
@@ -138,10 +146,15 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
           */
          try {
              getJdbcTemplate().update("DELETE FROM alloc WHERE pk_alloc=?",
-                     a.getAllocationId());
+                 a.getAllocationId());
          } catch (DataIntegrityViolationException e) {
-             getJdbcTemplate().update("UPDATE alloc SET b_enabled = 0 WHERe pk_alloc = ?",
-                     a.getAllocationId());
+             try {
+                 getConnection().rollback(sp1);
+             } catch (SQLException e1) {
+                 throw new RuntimeException("failed to roll back failed delete", e);
+             }
+             getJdbcTemplate().update("UPDATE alloc SET b_enabled = false WHERE pk_alloc = ?",
+                 a.getAllocationId());
          }
      }
 
@@ -190,7 +203,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
 
      public AllocationDetail getDefaultAllocationDetail() {
          return getJdbcTemplate().queryForObject(
-                 GET_ALLOCATION + " AND alloc.b_default = 1 AND ROWNUM = 1",
+                 GET_ALLOCATION + " AND alloc.b_default = true LIMIT 1",
                  ALLOC_MAPPER);
      }
 
