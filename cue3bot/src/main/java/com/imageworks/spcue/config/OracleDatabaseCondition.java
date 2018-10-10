@@ -9,7 +9,11 @@ public class OracleDatabaseCondition implements Condition {
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
         String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
-        return dbEngine != null && "oracle".equals(dbEngine.toLowerCase());
+        if (dbEngine == null) {
+            return false;
+        }
+        DatabaseEngine selectedDatabaseEngine = DatabaseEngine.valueOf(dbEngine.toUpperCase());
+        return selectedDatabaseEngine.equals(DatabaseEngine.ORACLE);
     }
 
 }
