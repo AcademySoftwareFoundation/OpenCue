@@ -20,8 +20,8 @@
 package com.imageworks.spcue.depend;
 
 import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnFrame extends AbstractDepend implements Depend {
@@ -67,7 +67,7 @@ public class FrameOnFrame extends AbstractDepend implements Depend {
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.FrameOnFrame.toString());
+        key.append(DependType.FRAME_ON_FRAME.toString());
         key.append(dependErFrame.getJobId());
         key.append(dependOnFrame.getJobId());
         key.append(dependErFrame.getFrameId());
@@ -78,10 +78,10 @@ public class FrameOnFrame extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErFrame.getJobId().equals(dependOnFrame.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 }

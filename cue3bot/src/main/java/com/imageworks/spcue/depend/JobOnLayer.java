@@ -21,8 +21,8 @@ package com.imageworks.spcue.depend;
 
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class JobOnLayer extends AbstractDepend implements Depend {
@@ -51,7 +51,7 @@ public class JobOnLayer extends AbstractDepend implements Depend {
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.JobOnJob.toString());
+        key.append(DependType.JOB_ON_JOB.toString());
         key.append(dependErJob.getJobId());
         key.append(dependOnLayer.getLayerId());
         return SqlUtil.genKeyByName(key.toString());
@@ -63,7 +63,7 @@ public class JobOnLayer extends AbstractDepend implements Depend {
     }
     @Override
     public DependTarget getTarget() {
-        return DependTarget.External;
+        return DependTarget.EXTERNAL;
     }
 }
 

@@ -20,8 +20,8 @@
 package com.imageworks.spcue.depend;
 
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class PreviousFrame extends AbstractDepend implements Depend {
@@ -38,7 +38,7 @@ public class PreviousFrame extends AbstractDepend implements Depend {
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.PreviousFrame.toString());
+        key.append(DependType.PREVIOUS_FRAME.toString());
         key.append(dependErLayer.getJobId());
         key.append(dependOnLayer.getJobId());
         key.append(dependErLayer.getLayerId());
@@ -49,10 +49,10 @@ public class PreviousFrame extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 
