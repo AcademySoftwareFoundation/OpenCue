@@ -85,14 +85,14 @@ message DepartmentSeq {
 
 // -------- Requests & Responses --------
 
-//DeptAddDeptNameRequest
+// AddDeptName
 message DeptAddDeptNameRequest {
     string name = 1;
 }
 
 message DeptAddDeptNameResponse {} // Empty
 
-// Add Task
+// AddTask
 message DeptAddTaskRequest {
     Department department = 1;
     string shot = 2;
@@ -106,6 +106,7 @@ message DeptAddTaskResponse {
 // AddTasks
 message DeptAddTasksRequest {
     Department department = 1;
+    // tmap is a mapping of <(string) shot_id :(int) min_core_units> used to create a task
     map<string, int32> tmap = 2;
 }
 
@@ -169,6 +170,7 @@ message DeptGetTasksResponse {
 // ReplaceTask
 message DeptReplaceTaskRequest {
     Department department = 1;
+    // tmap is a mapping of <(string) shot_id :(int) min_core_units> used to create a task
     map<string, int32> tmap = 2;
 }
 

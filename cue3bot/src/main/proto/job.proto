@@ -31,7 +31,7 @@ service FrameInterface {
     // Drops every dependendy that is causing this frame not to run.
     rpc DropDepends(FrameDropDependsRequest) returns (FrameDropDependsResponse);
 
-    // Eats the frame
+    // Eating a frame will stop rendering and will not try to coninue processing the frame.
     rpc Eat(FrameEatRequest) returns (FrameEatResponse);
 
     // Finds a frame in a pending job based on the job, layer, and frame number.
@@ -194,6 +194,14 @@ service JobInterface {
 
     // Kills all frames that match the FrameSearchCriteria
     rpc KillFrames(JobKillFramesRequest) returns (JobKillFramesResponse);
+
+    // Launches a job spec and returns an array of launched jobs. Waits for jobs to be committed to DB.  This might time
+    // out before jobs are launched.
+    rpc LaunchSpecAndWait(JobLaunchSpecAndWaitRequest) returns (JobLaunchSpecAndWaitResponse);
+
+    // Launches as a job spec and returns an array of job names that are being launched. This method returns immediately
+    // after basic checks. The job could fail to launch of a DB error occurs but that is rare.
+    rpc LaunchSpec(JobLaunchSpecRequest) returns (JobLaunchSpecResponse);
 
     // Updates the matching frames from the Depend state to the waiting state
     rpc MarkAsWaiting(JobMarkAsWaitingRequest) returns (JobMarkAsWaitingResponse);
@@ -583,7 +591,7 @@ message Layer {
     // An array of services that are being run on all frames within this layer.
     repeated string services = 12;
     // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cue3 from lowering memory.
-    bool memory_optimzer_enabled = 13;
+    bool memory_optimizer_enabled = 13;
     LayerStats layer_stats = 14;
 }
 
@@ -1137,6 +1145,24 @@ message JobKillFramesRequest {
 }
 
 message JobKillFramesResponse {} // Empty
+
+// LaunchSpec
+message JobLaunchSpecRequest {
+    string spec = 1;
+}
+
+message JobLaunchSpecResponse {
+    repeated string names = 1;
+}
+
+// LaunchSpecAndWait
+message JobLaunchSpecAndWaitRequest {
+    string spec = 1;
+}
+
+message JobLaunchSpecAndWaitResponse {
+    JobSeq jobs = 1;
+}
 
 //MarkAsWaiting
 message JobMarkAsWaitingRequest {

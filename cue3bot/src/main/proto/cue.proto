@@ -5,8 +5,6 @@ package cue;
 option java_package = "com.imageworks.spcue.grpc.cue";
 option java_multiple_files = true;
 
-import "job.proto";
-
 // Core System level objects and methods
 
 
@@ -15,14 +13,6 @@ import "job.proto";
 service CueInterface {
     // returns the current server statistics
     rpc GetSystemStats(CueGetSystemStatsRequest) returns (CueGetSystemStatsResponse);
-
-    // Launches a job spec and returns an array of launched jobs. Waits for jobs to be committed to DB.  This might time
-    // out before jobs are launched.
-    rpc LaunchSpecAndWait(CueLaunchSpecAndWaitRequest) returns (CueLaunchSpecAndWaitResponse);
-
-    // Launches as a job spec and returns an array of job names that are being launched. This method returns immediately
-    // after basic checks. The job could fail to launch of a DB error occurs but that is rare.
-    rpc LaunchSpec(CueLaunchSpecRequest) returns (CueLaunchSpecResponse);
 }
 
 
@@ -75,22 +65,4 @@ message CueGetSystemStatsRequest {} // Empty
 
 message CueGetSystemStatsResponse {
     SystemStats stats = 1;
-}
-
-// LaunchSpec
-message CueLaunchSpecRequest {
-    string spec = 1;
-}
-
-message CueLaunchSpecResponse {
-    repeated string names = 1;
-}
-
-// LaunchSpecAndWait
-message CueLaunchSpecAndWaitRequest {
-    string spec = 1;
-}
-
-message CueLaunchSpecAndWaitResponse {
-    job.JobSeq jobs = 1;
 }

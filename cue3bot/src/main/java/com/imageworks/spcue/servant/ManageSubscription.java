@@ -47,10 +47,6 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
     private AdminManager adminManager;
     private Whiteboard whiteboard;
 
-    private SubscriptionDetail getSubscriptionDetail(Subscription subscription) {
-        return adminManager.getSubscriptionDetail(subscription.getName());
-    }
-
     @Override
     public void delete(SubscriptionDeleteRequest request, StreamObserver<SubscriptionDeleteResponse> responseObserver) {
         adminManager.deleteSubscription(
@@ -124,6 +120,10 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
 
     public void setWhiteboard(Whiteboard whiteboard) {
         this.whiteboard = whiteboard;
+    }
+
+    private SubscriptionDetail getSubscriptionDetail(Subscription subscription) {
+        return adminManager.getSubscriptionDetail(subscription.getName());
     }
 }
 
