@@ -23,14 +23,14 @@ import java.sql.Timestamp;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.HostTagType;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostTagType;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 
@@ -48,7 +48,7 @@ public interface HostDao {
      * @throws ResourceReservationFailureException when an exclusive lock cannot
      *         be made.
      */
-    public void lockForUpdate(Host host);
+    public void lockForUpdate(HostInterface host);
 
     /**
      * returns true if the specified host id is locked
@@ -56,14 +56,14 @@ public interface HostDao {
      * @param hostId
      * @return
      */
-    boolean isHostLocked(Host host);
+    boolean isHostLocked(HostInterface host);
 
     /**
      * deletes the passed host
      *
      * @param Host
      */
-    void deleteHost(Host host);
+    void deleteHost(HostInterface host);
 
     /**
      * updates a host with the passed hardware state
@@ -71,9 +71,9 @@ public interface HostDao {
      * @param Host
      * @param HardwareState
      */
-    void updateHostState(Host host, HardwareState state);
+    void updateHostState(HostInterface host, HardwareState state);
 
-    void updateHostState(Host host, com.imageworks.spcue.CueIce.HardwareState state);
+    void updateHostState(HostInterface host, com.imageworks.spcue.CueIce.HardwareState state);
 
     /**
      * returns a full host detail
@@ -81,7 +81,7 @@ public interface HostDao {
      * @param Host
      * @returns HostDetail
      */
-    HostDetail getHostDetail(Host host);
+    HostEntity getHostDetail(HostInterface host);
 
     /**
      * returns full host detail
@@ -89,7 +89,7 @@ public interface HostDao {
      * @param id
      * @return
      */
-    HostDetail getHostDetail(String id);
+    HostEntity getHostDetail(String id);
 
     /**
      * returns full host detail
@@ -97,7 +97,7 @@ public interface HostDao {
      * @param name
      * @return
      */
-    HostDetail findHostDetail(String name);
+    HostEntity findHostDetail(String name);
 
     /**
      * Return a DispatchHost object from its unique host name
@@ -122,7 +122,7 @@ public interface HostDao {
      * @param name
      * @return
      */
-    Host findHost(String name);
+    HostInterface findHost(String name);
 
     /**
      * Returns a host object by ID.
@@ -130,7 +130,7 @@ public interface HostDao {
      * @param id
      * @return
      */
-    Host getHost(String id);
+    HostInterface getHost(String id);
 
     /**
      * Return the host involved with the given LocalJobAssignment.
@@ -138,7 +138,7 @@ public interface HostDao {
      * @param l
      * @return
      */
-    Host getHost(LocalHostAssignment l);
+    HostInterface getHost(LocalHostAssignment l);
 
     /**
      * Inserts a render host and its supporting procs into an allocation.
@@ -165,7 +165,7 @@ public interface HostDao {
      * @param host
      * @param state
      */
-    void updateHostLock(Host host, LockState state, Source source);
+    void updateHostLock(HostInterface host, LockState state, Source source);
 
     /**
      * Sets the reboot when idle boolean to true or false. If true the cue will
@@ -175,7 +175,7 @@ public interface HostDao {
      * @param host
      * @param enabled
      */
-    void updateHostRebootWhenIdle(Host host, boolean enabled);
+    void updateHostRebootWhenIdle(HostInterface host, boolean enabled);
 
     /**
      * Updates a host's allocation
@@ -183,7 +183,7 @@ public interface HostDao {
      * @param host
      * @param alloc
      */
-    void updateHostSetAllocation(Host host, AllocationInterface alloc);
+    void updateHostSetAllocation(HostInterface host, AllocationInterface alloc);
 
     /**
      *
@@ -199,14 +199,14 @@ public interface HostDao {
      * @param tag
      * @param type
      */
-    void tagHost(Host host, String tag, HostTagType type);
+    void tagHost(HostInterface host, String tag, HostTagType type);
 
     /**
      *
      * @param host
      * @param type
      */
-    void removeTagsByType(Host host, HostTagType type);
+    void removeTagsByType(HostInterface host, HostTagType type);
 
     /**
      * removes a tag
@@ -214,7 +214,7 @@ public interface HostDao {
      * @param host
      * @param tag
      */
-    void removeTag(Host host, String tag);
+    void removeTag(HostInterface host, String tag);
 
     /**
      * renames a tag from oldTag to newTag
@@ -223,7 +223,7 @@ public interface HostDao {
      * @param oldTag
      * @param newTag
      */
-    void renameTag(Host host, String oldTag, String newTag);
+    void renameTag(HostInterface host, String oldTag, String newTag);
 
     /**
      * You must run this AFTER you've changed any type of job tags. The reason
@@ -239,7 +239,7 @@ public interface HostDao {
      * @param host
      * @param mode
      */
-    void updateThreadMode(Host host, ThreadMode mode);
+    void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
      * When a host is in kill mode that means its 256MB+ into the swap and the
@@ -248,7 +248,7 @@ public interface HostDao {
      * @param h
      * @return
      */
-    boolean isKillMode(Host h);
+    boolean isKillMode(HostInterface h);
 
     /**
      * Update the specified host's hardware information.
@@ -266,7 +266,7 @@ public interface HostDao {
      * @param load
      * @param os
      */
-    void updateHostStats(Host host,
+    void updateHostStats(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
@@ -279,7 +279,7 @@ public interface HostDao {
      * @param host
      * @return
      */
-    boolean isHostUp(Host host);
+    boolean isHostUp(HostInterface host);
 
     /**
      * Return the number of whole stranded cores on this host. The must have
@@ -289,7 +289,7 @@ public interface HostDao {
      * @param h
      * @return
      */
-    int getStrandedCoreUnits(Host h);
+    int getStrandedCoreUnits(HostInterface h);
 
     /**
      * Return true if the host is preferring a particular show.
@@ -297,7 +297,7 @@ public interface HostDao {
      * @param h
      * @return
      */
-    boolean isPreferShow(Host h);
+    boolean isPreferShow(HostInterface h);
 
     /**
      * Return true if the host is a NIMBY host.
@@ -305,7 +305,7 @@ public interface HostDao {
      * @param h
      * @return
      */
-    boolean isNimbyHost(Host h);
+    boolean isNimbyHost(HostInterface h);
 
     /**
      * Update the host's operating system setting.
@@ -313,7 +313,7 @@ public interface HostDao {
      * @param host
      * @param os
      */
-    void updateHostOs(Host host, String os);
+    void updateHostOs(HostInterface host, String os);
 
     /**
      * Update a host's resource pool using the latest host report.
@@ -321,7 +321,7 @@ public interface HostDao {
      * @param host
      * @param report
      */
-    void updateHostResources(Host host, HostReport report);
+    void updateHostResources(HostInterface host, HostReport report);
 
 }
 

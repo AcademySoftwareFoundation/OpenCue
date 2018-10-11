@@ -21,10 +21,10 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.FilterType;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.filter.FilterType;
 
 /**
  * DAO for filter database operations.
@@ -33,26 +33,26 @@ import com.imageworks.spcue.CueIce.FilterType;
  */
 public interface FilterDao {
 
-    List<FilterDetail> getActiveFilters(Show show);
-    List<FilterDetail> getFilters(Show show);
+    List<FilterEntity> getActiveFilters(ShowInterface show);
+    List<FilterEntity> getFilters(ShowInterface show);
 
-    void updateSetFilterEnabled(Filter f, boolean enabled);
-    void updateSetFilterName(Filter f, String name);
-    void updateSetFilterType(Filter f, FilterType type);
+    void updateSetFilterEnabled(FilterInterface f, boolean enabled);
+    void updateSetFilterName(FilterInterface f, String name);
+    void updateSetFilterType(FilterInterface f, FilterType type);
 
-    void updateSetFilterOrder(Filter f, double order);
+    void updateSetFilterOrder(FilterInterface f, double order);
 
-    void deleteFilter(Filter f);
-    void insertFilter(FilterDetail f);
+    void deleteFilter(FilterInterface f);
+    void insertFilter(FilterEntity f);
 
-    void reorderFilters(Show s);
+    void reorderFilters(ShowInterface s);
 
-    void lowerFilterOrder(Filter f, int by);
-    void raiseFilterOrder(Filter f, int by);
+    void lowerFilterOrder(FilterInterface f, int by);
+    void raiseFilterOrder(FilterInterface f, int by);
 
-    FilterDetail getFilter(String id);
-    FilterDetail getFilter(Filter filter);
-    FilterDetail findFilter(Show show, String name);
+    FilterEntity getFilter(String id);
+    FilterEntity getFilter(FilterInterface filter);
+    FilterEntity findFilter(ShowInterface show, String name);
 
 
 }

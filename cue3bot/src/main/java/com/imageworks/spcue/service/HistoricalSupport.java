@@ -23,7 +23,7 @@ import java.util.List;
 
 import org.apache.log4j.Logger;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 
 public class HistoricalSupport {
     private static final Logger logger = Logger.getLogger(HistoricalSupport.class);
@@ -32,8 +32,8 @@ public class HistoricalSupport {
 
     public void archiveHistoricalJobData() {
         logger.info("running historical job data transfer");
-        List<Job> jobs = historicalManager.getFinishedJobs();
-        for (Job j: jobs) {
+        List<JobInterface> jobs = historicalManager.getFinishedJobs();
+        for (JobInterface j: jobs) {
             logger.info("transfering job " + j.getId() + "/" + j.getName());
             try {
                 historicalManager.transferJob(j);

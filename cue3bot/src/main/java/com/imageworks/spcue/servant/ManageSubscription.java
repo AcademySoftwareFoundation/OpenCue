@@ -20,11 +20,10 @@ package com.imageworks.spcue.servant;
 
 
 import io.grpc.stub.StreamObserver;
-import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.CueGrpcException;
 import com.imageworks.spcue.EntityNotFoundException;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionDeleteRequest;
 import com.imageworks.spcue.grpc.subscription.SubscriptionDeleteResponse;
@@ -47,7 +46,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
     private AdminManager adminManager;
     private Whiteboard whiteboard;
 
-    private SubscriptionDetail getSubscriptionDetail(Subscription subscription) {
+    private SubscriptionEntity getSubscriptionDetail(Subscription subscription) {
         return adminManager.getSubscriptionDetail(subscription.getName());
     }
 

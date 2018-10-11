@@ -31,11 +31,11 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.test.context.ContextConfiguration;
 
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.dao.DependDao;
@@ -47,7 +47,6 @@ import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.test.TransactionalTest;
 
 @ContextConfiguration
@@ -88,37 +87,37 @@ public class DependManagerTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_depend_test_b");
     }
 
-    public int getTotalDependCount(Job j) {
+    public int getTotalDependCount(JobInterface j) {
         return jdbcTemplate.queryForObject(
                 "SELECT SUM(int_depend_count) FROM frame WHERE pk_job=?",
                 Integer.class, j.getJobId());
     }
 
-    public boolean hasDependFrames(Job j) {
+    public boolean hasDependFrames(JobInterface j) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_job=? AND str_state=?",
                 Integer.class, j.getJobId(), FrameState.Depend.toString()) > 0;
     }
 
-    public int getTotalDependCount(Layer l) {
+    public int getTotalDependCount(LayerInterface l) {
         return jdbcTemplate.queryForObject(
                 "SELECT SUM(int_depend_count) FROM frame WHERE pk_layer=?",
                 Integer.class, l.getLayerId());
     }
 
-    public boolean hasDependFrames(Layer l) {
+    public boolean hasDependFrames(LayerInterface l) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_layer=? AND str_state=?",
                 Integer.class, l.getLayerId(), FrameState.Depend.toString()) > 0;
     }
 
-    public int getTotalDependCount(Frame f) {
+    public int getTotalDependCount(FrameInterface f) {
         return jdbcTemplate.queryForObject(
                 "SELECT SUM(int_depend_count) FROM frame WHERE pk_frame=?",
                 Integer.class, f.getFrameId());
     }
 
-    public boolean hasDependFrames(Frame f) {
+    public boolean hasDependFrames(FrameInterface f) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_frame=? AND str_state=?",
                 Integer.class, f.getFrameId(), FrameState.Depend.toString()) > 0;
@@ -130,10 +129,10 @@ public class DependManagerTests extends TransactionalTest {
     public void testUnsatisfyFrameOnFrame() {
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_a = frameDao.findFrame(layer_a, 1);
-        Frame frame_b = frameDao.findFrame(layer_b, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_a = frameDao.findFrame(layer_a, 1);
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 1);
 
         FrameOnFrame depend = new FrameOnFrame(frame_a, frame_b);
         dependManager.createDepend(depend);
@@ -196,7 +195,7 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         JobOnLayer depend = new JobOnLayer(job_a, layer_b);
         dependManager.createDepend(depend);
@@ -223,8 +222,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_b = frameDao.findFrame(layer_b, 1);
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 1);
 
         JobOnFrame depend = new JobOnFrame(job_a, frame_b);
         dependManager.createDepend(depend);
@@ -251,7 +250,7 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
 
         LayerOnJob depend = new LayerOnJob(layer_a, job_b);
         dependManager.createDepend(depend);
@@ -274,8 +273,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnLayer depend = new LayerOnLayer(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -298,9 +297,9 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_b = frameDao.findFrame(layer_b, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 1);
 
         LayerOnFrame depend = new LayerOnFrame(layer_a, frame_b);
         dependManager.createDepend(depend);
@@ -323,9 +322,9 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_b = frameDao.findFrame(layer_b, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 1);
 
         LayerOnSimFrame depend = new LayerOnSimFrame(layer_a, frame_b);
         dependManager.createDepend(depend);
@@ -348,8 +347,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Frame frame_a = frameDao.findFrame(layer_a, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        FrameInterface frame_a = frameDao.findFrame(layer_a, 1);
 
         FrameOnJob depend = new FrameOnJob(frame_a, job_b);
         dependManager.createDepend(depend);
@@ -376,9 +375,9 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_a = frameDao.findFrame(layer_a, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_a = frameDao.findFrame(layer_a, 1);
 
         FrameOnLayer depend = new FrameOnLayer(frame_a, layer_b);
         dependManager.createDepend(depend);
@@ -405,10 +404,10 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
-        Frame frame_a = frameDao.findFrame(layer_a, 1);
-        Frame frame_b = frameDao.findFrame(layer_b, 1);
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
+        FrameInterface frame_a = frameDao.findFrame(layer_a, 1);
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 1);
 
         FrameOnFrame depend = new FrameOnFrame(frame_a, frame_b);
         dependManager.createDepend(depend);
@@ -441,8 +440,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -464,8 +463,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnLayer depend = new LayerOnLayer(layer_a, layer_b);
         depend.setAnyFrame(true);
@@ -474,7 +473,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(10, getTotalDependCount(layer_a));
 
-        Frame frame_b = frameDao.findFrame(layer_b, 5);
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 5);
 
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
@@ -491,8 +490,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         PreviousFrame depend = new PreviousFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -500,7 +499,7 @@ public class DependManagerTests extends TransactionalTest {
         assertTrue(hasDependFrames(layer_a));
         assertEquals(9, getTotalDependCount(layer_a));
 
-        Frame frame_b = frameDao.findFrame(layer_b, 9);
+        FrameInterface frame_b = frameDao.findFrame(layer_b, 9);
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
             for (FrameDetail f: frameDao.findFrameDetails(
@@ -527,8 +526,8 @@ public class DependManagerTests extends TransactionalTest {
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         jdbcTemplate.update(
                 "UPDATE frame SET str_state=? WHERE pk_layer=? AND " +

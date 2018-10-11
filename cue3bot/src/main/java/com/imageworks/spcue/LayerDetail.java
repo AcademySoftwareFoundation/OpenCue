@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import com.imageworks.spcue.CueIce.LayerType;
+import com.imageworks.spcue.grpc.job.LayerType;
 
-public class LayerDetail extends LayerEntity implements Layer  {
+public class LayerDetail extends LayerEntity implements LayerInterface {
     public String command;
     public String range;
     public LayerType type;

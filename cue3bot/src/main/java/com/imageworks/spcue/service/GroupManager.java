@@ -21,20 +21,20 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
 
 public interface GroupManager {
 
-    void setGroupMaxCores(Group g, int coreUnits);
-    void setGroupMinCores(Group g, int coreUnits);
-    void setGroupDefaultJobMinCores(Group g, int coreUnits);
-    void setGroupDefaultJobMaxCores(Group g, int coreUnits);
-    void setGroupDefaultJobPriority(Group g, int priority);
+    void setGroupMaxCores(GroupInterface g, int coreUnits);
+    void setGroupMinCores(GroupInterface g, int coreUnits);
+    void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
+    void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
+    void setGroupDefaultJobPriority(GroupInterface g, int priority);
 
     /**
      * Return the group from its unique ID
@@ -42,7 +42,7 @@ public interface GroupManager {
      * @param id
      * @return
      */
-    Group getGroup(String id);
+    GroupInterface getGroup(String id);
 
     /**
      * Return the root group for the specified show.
@@ -50,7 +50,7 @@ public interface GroupManager {
      * @param s
      * @return
      */
-    GroupDetail getRootGroupDetail(Show s);
+    GroupDetail getRootGroupDetail(ShowInterface s);
 
     /**
      * Return the GroupDetail by job.
@@ -58,7 +58,7 @@ public interface GroupManager {
      * @param j
      * @return
      */
-    GroupDetail getGroupDetail(Job j);
+    GroupDetail getGroupDetail(JobInterface j);
 
     /**
      * Return a GroupDetail from its unique ID
@@ -68,11 +68,11 @@ public interface GroupManager {
      */
     GroupDetail getGroupDetail(String id);
 
-    void setGroupParent(Group group, Group newParent);
+    void setGroupParent(GroupInterface group, GroupInterface newParent);
 
-    void deleteGroup(Group group);
+    void deleteGroup(GroupInterface group);
 
-    void createGroup(GroupDetail group, Group parent);
+    void createGroup(GroupDetail group, GroupInterface parent);
 
     /**
      * Re-parent a job to the specified group.
@@ -81,7 +81,7 @@ public interface GroupManager {
      * @param group
      * @param inherit
      */
-    void reparentJob(Job job, GroupDetail group, Inherit[] inherit);
+    void reparentJob(JobInterface job, GroupDetail group, Inherit[] inherit);
 
     /**
      * Parents a list of groups to the specified group
@@ -89,7 +89,7 @@ public interface GroupManager {
      * @param group
      * @param groups
      */
-    void reparentGroups(Group group, List<Group> groups);
+    void reparentGroups(GroupInterface group, List<GroupInterface> groups);
 
     /**
      * Re-parent a list of unique group IDs.
@@ -97,7 +97,7 @@ public interface GroupManager {
      * @param group
      * @param groups
      */
-    void reparentGroupIds(Group group, List<String> groups);
+    void reparentGroupIds(GroupInterface group, List<String> groups);
 
     /**
      * Sets the group's department all all jobs in that
@@ -106,6 +106,6 @@ public interface GroupManager {
      * @param group
      * @param d
      */
-    void setGroupDepartment(Group group, Department d);
+    void setGroupDepartment(GroupInterface group, DepartmentInterface d);
 }
 

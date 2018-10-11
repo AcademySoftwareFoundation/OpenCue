@@ -22,20 +22,19 @@ package com.imageworks.spcue.service;
 import java.util.Collection;
 import java.util.List;
 
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import org.apache.log4j.Logger;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
@@ -43,9 +42,12 @@ import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
-import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.util.FileSequence.FrameSet;
 
 /**
  * A non-transaction support class for managing jobs.
@@ -63,11 +65,11 @@ public class JobManagerSupport {
     private RedirectManager redirectManager;
     private EmailSupport emailSupport;
 
-    public void queueShutdownJob(Job job, Source source, boolean isManualKill) {
+    public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
     }
 
-    public boolean shutdownJob(Job job, Source source, boolean isManualKill) {
+    public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {
 
         if (jobManager.shutdownJob(job)) {
 
@@ -98,9 +100,13 @@ public class JobManagerSupport {
                 }
 
                 FrameSearch search = new FrameSearch(job);
-                search.getCriteria().states.add(FrameState.Running);
+                FrameSearchCriteria newCriteria = search.getCriteria();
+                FrameStateSeq states = newCriteria.getStates().toBuilder()
+                        .addFrameStates(FrameState.RUNNING)
+                        .build();
+                search.setCriteria(newCriteria.toBuilder().setStates(states).build());
 
-                for (Frame frame: jobManager.findFrames(search)) {
+                for (FrameInterface frame: jobManager.findFrames(search)) {
 
                     VirtualProc proc = null;
                     try {
@@ -111,7 +117,7 @@ public class JobManagerSupport {
                                 " on job shutdown operation, " + e);
                     }
 
-                    if (manualStopFrame(frame, FrameState.Waiting)) {
+                    if (manualStopFrame(frame, FrameState.WAITING)) {
                         try {
                             if (proc != null) {
                                 kill(proc, source);
@@ -139,29 +145,29 @@ public class JobManagerSupport {
         return false;
     }
 
-    public void reorderJob(Job job, FrameSet frameSet, Order order) {
-        List<Layer> layers = jobManager.getLayers(job);
-        for (Layer layer: layers) {
+    public void reorderJob(JobInterface job, FrameSet frameSet, Order order) {
+        List<LayerInterface> layers = jobManager.getLayers(job);
+        for (LayerInterface layer: layers) {
             jobManager.reorderLayer(layer, frameSet, order);
         }
     }
 
-    public void reorderLayer(Layer layer, FrameSet frameSet, Order order) {
+    public void reorderLayer(LayerInterface layer, FrameSet frameSet, Order order) {
         jobManager.reorderLayer(layer, frameSet, order);
     }
 
-    public void staggerJob(Job job, String range, int stagger) {
-        List<Layer> layers = jobManager.getLayers(job);
-        for (Layer layer: layers) {
+    public void staggerJob(JobInterface job, String range, int stagger) {
+        List<LayerInterface> layers = jobManager.getLayers(job);
+        for (LayerInterface layer: layers) {
             jobManager.staggerLayer(layer, range, stagger);
         }
     }
 
-    public void staggerLayer(Layer layer, String range, int stagger) {
+    public void staggerLayer(LayerInterface layer, String range, int stagger) {
         jobManager.staggerLayer(layer, range, stagger);
     }
 
-    public void satisfyWhatDependsOn(Frame frame) {
+    public void satisfyWhatDependsOn(FrameInterface frame) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(frame);
         logger.info("satisfying " + depends.size() +
                 " depends that are waiting on frame " + frame.getName());
@@ -170,7 +176,7 @@ public class JobManagerSupport {
         }
     }
 
-    public void satisfyWhatDependsOn(Layer layer) {
+    public void satisfyWhatDependsOn(LayerInterface layer) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(layer);
         logger.info("satisfying " + depends.size() +
                 " depends that are waiting on layer " + layer.getName());
@@ -179,7 +185,7 @@ public class JobManagerSupport {
         }
     }
 
-    public void satisfyWhatDependsOn(Job job) {
+    public void satisfyWhatDependsOn(JobInterface job) {
         List<LightweightDependency> depends = dependManager.getWhatDependsOn(job);
         logger.info("satisfying " + depends.size() +
                 " depends that are waiting on job " + job.getName());
@@ -188,14 +194,14 @@ public class JobManagerSupport {
         }
     }
 
-    public void satisfyWhatDependsOn(Job job, DependTarget target) {
+    public void satisfyWhatDependsOn(JobInterface job, DependTarget target) {
         for (LightweightDependency depend: dependManager.getWhatDependsOn(job, target)) {
             dependManager.satisfyDepend(depend);
         }
     }
 
     public void satisfyWhatDependsOn(FrameSearch request) {
-        for (Frame frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame: jobManager.findFrames(request)) {
             for (LightweightDependency depend: dependManager.getWhatDependsOn(frame)) {
                 dependManager.satisfyDepend(depend);
             }
@@ -263,9 +269,8 @@ public class JobManagerSupport {
      *
      * @param frame
      * @param source
-     * @param unbook
      */
-    public void kill(Frame frame, Source source) {
+    public void kill(FrameInterface frame, Source source) {
         kill(hostManager.findVirtualProc(frame), source);
     }
 
@@ -290,7 +295,7 @@ public class JobManagerSupport {
      * Unbook and optionally kill all procs that match the specified
      * search criteria.
      *
-     * @param r
+     * @param proc
      * @param killProc
      * @param source
      * @return
@@ -305,11 +310,11 @@ public class JobManagerSupport {
     /**
      * Kill procs and optionally unbook them as well.
      *
-     * @param r
+     * @param host
      * @param source
      * @param unbook
      */
-    public void killProcs(Host host, Source source, boolean unbook) {
+    public void killProcs(HostInterface host, Source source, boolean unbook) {
 
         List<VirtualProc> procs = hostManager.findVirtualProcs(host);
 
@@ -330,7 +335,10 @@ public class JobManagerSupport {
      * @param unbook
      */
     public void killProcs(FrameSearch r, Source source, boolean unbook) {
-        r.getCriteria().states.clear();
+
+        FrameSearchCriteria newCriteria = r.getCriteria().toBuilder().setStates(FrameStateSeq.newBuilder().build()).build();
+        r.setCriteria(newCriteria);
+
         List<VirtualProc> procs = hostManager.findVirtualProcs(r);
 
         if (unbook) {
@@ -349,7 +357,7 @@ public class JobManagerSupport {
      * @param source
      * @param unbook
      */
-    public void killProcs(Job job,  Source source, boolean unbook) {
+    public void killProcs(JobInterface job, Source source, boolean unbook) {
         List<VirtualProc> procs = hostManager.findVirtualProcs(new FrameSearch(job));
         if (unbook) {
             hostManager.unbookVirtualProcs(procs);
@@ -367,7 +375,7 @@ public class JobManagerSupport {
      * @param source
      */
     public void retryFrames(FrameSearch request, Source source) {
-        for (Frame frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame: jobManager.findFrames(request)) {
             try {
                 retryFrame(frame, source);
             } catch (Exception e) {
@@ -383,7 +391,7 @@ public class JobManagerSupport {
      * @param frame
      * @param source
      */
-    public void retryFrame(Frame frame, Source source) {
+    public void retryFrame(FrameInterface frame, Source source) {
         /**
          * Have to find the proc before we stop the frame.
          */
@@ -395,14 +403,14 @@ public class JobManagerSupport {
                     "proc running on frame: " + frame);
         }
 
-        if (manualStopFrame(frame, FrameState.Waiting)) {
+        if (manualStopFrame(frame, FrameState.WAITING)) {
             if (proc != null) {
-                redirectManager.addRedirect(proc, (Job) proc, false, source);
+                redirectManager.addRedirect(proc, (JobInterface) proc, false, source);
                 kill(proc, source);
             }
         }
         else {
-            jobManager.updateFrameState(frame, FrameState.Waiting);
+            jobManager.updateFrameState(frame, FrameState.WAITING);
         }
 
         /**
@@ -418,7 +426,7 @@ public class JobManagerSupport {
 
         // Handle LayerOnLayer depends.
         for (LightweightDependency depend: dependManager.getWhatDependsOn(
-                (Layer) frame, false)) {
+                (LayerInterface) frame, false)) {
             dependManager.unsatisfyDepend(depend);
         }
     }
@@ -432,7 +440,7 @@ public class JobManagerSupport {
      * @param source
      */
     public void eatFrames(FrameSearch request, Source source) {
-        for (Frame frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame: jobManager.findFrames(request)) {
             eatFrame(frame, source);
         }
     }
@@ -445,7 +453,7 @@ public class JobManagerSupport {
      * @param frame
      * @param source
      */
-    public void eatFrame(Frame frame, Source source) {
+    public void eatFrame(FrameInterface frame, Source source) {
         /**
          * Have to find the proc before we stop the frame.
          */
@@ -457,13 +465,13 @@ public class JobManagerSupport {
                     "for proc running on frame: " + frame);
         }
 
-        if (manualStopFrame(frame, FrameState.Eaten)) {
+        if (manualStopFrame(frame, FrameState.EATEN)) {
             if (proc != null) {
                 kill(proc, source);
             }
         }
         else {
-            jobManager.updateFrameState(frame, FrameState.Eaten);
+            jobManager.updateFrameState(frame, FrameState.EATEN);
         }
         if (jobManager.isJobComplete(frame)) {
             queueShutdownJob(frame, source, false);
@@ -479,7 +487,7 @@ public class JobManagerSupport {
      * @param source
      */
     public void markFramesAsWaiting(FrameSearch request, Source source) {
-        for (Frame frame: jobManager.findFrames(request)) {
+        for (FrameInterface frame: jobManager.findFrames(request)) {
             jobManager.markFrameAsWaiting(frame);
         }
     }
@@ -497,7 +505,7 @@ public class JobManagerSupport {
      * @param frame
      * @param state
      */
-    private boolean manualStopFrame(Frame frame, FrameState state) {
+    private boolean manualStopFrame(FrameInterface frame, FrameState state) {
         if (dispatchSupport.stopFrame(frame, state,
                 state.ordinal() + 500)) {
             dispatchSupport.updateUsageCounters(frame,

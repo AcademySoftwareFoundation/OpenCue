@@ -28,13 +28,12 @@ import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.SpcueRuntimeException;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.service.BookingManager;
@@ -69,15 +68,15 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         for (LocalHostAssignment lha : lhas) {
             prepHost(host, lha);
             switch(lha.getType()) {
-                case JobPartition:
+                case JOB_PARTITION:
                     procs.addAll(dispatchHost(host, jobManager.getJob(
                             lha.getJobId()), lha));
                     break;
-                case LayerPartition:
+                case LAYER_PARTITION:
                     procs.addAll(dispatchHost(host, jobManager.getLayerDetail(
                             lha.getLayerId()), lha));
                     break;
-                case FramePartition:
+                case FRAME_PARTITION:
                     procs.addAll(dispatchHost(host, jobManager.getFrame(
                             lha.getFrameId()), lha));
                     break;
@@ -90,7 +89,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         return procs;
     }
 
-    private List<VirtualProc> dispatchHost(DispatchHost host, Job job,
+    private List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job,
             LocalHostAssignment lha) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>(MAX_DISPATCHED_FRAMES);
@@ -164,7 +163,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Job job) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job) {
         /*
          * Load up the local assignment.  If one doesn't exist, that means
          * the user has removed it and no booking action should be taken.
@@ -176,7 +175,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         return dispatchHost(host, job, lha);
     }
 
-    private List<VirtualProc> dispatchHost(DispatchHost host, Layer layer,
+    private List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer,
             LocalHostAssignment lha) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>(MAX_DISPATCHED_FRAMES);
@@ -249,7 +248,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Layer layer) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer) {
 
         /*
          * Load up the local assignment.  If one doesn't exist, that means
@@ -263,7 +262,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         return dispatchHost(host, layer, lha);
     }
 
-    private List<VirtualProc> dispatchHost(DispatchHost host, Frame frame,
+    private List<VirtualProc> dispatchHost(DispatchHost host, FrameInterface frame,
         LocalHostAssignment lha) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>(1);
@@ -297,7 +296,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         return procs;
     }
 
-    public List<VirtualProc> dispatchHost(DispatchHost host, Frame frame) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, FrameInterface frame) {
         /*
          * Load up the local assignment.  If one doesn't exist, that means
          * the user has removed it and no booking action should be taken.
@@ -311,7 +310,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     }
 
     @Override
-    public void dispatchProcToJob(VirtualProc proc, Job job) {
+    public void dispatchProcToJob(VirtualProc proc, JobInterface job) {
 
         LocalHostAssignment lha = null;
         proc.isLocalDispatch = true;
@@ -327,33 +326,33 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
         List<DispatchFrame> frames = null;
         switch(lha.getType()) {
-        case JobPartition:
-            frames = dispatchSupport.findNextDispatchFrames(job,
-                    proc, MAX_QUERY_FRAMES);
-            if (frames.size() == 0) {
-                 dispatchSupport.unbookProc(proc);
-                 dispatchHost(hostManager.getDispatchHost(proc.getHostId()), job);
-                 return;
-            }
+            case JOB_PARTITION:
+                frames = dispatchSupport.findNextDispatchFrames(job,
+                        proc, MAX_QUERY_FRAMES);
+                if (frames.size() == 0) {
+                     dispatchSupport.unbookProc(proc);
+                     dispatchHost(hostManager.getDispatchHost(proc.getHostId()), job);
+                     return;
+                }
 
-            break;
+                break;
 
-        case LayerPartition:
-            frames = dispatchSupport.findNextDispatchFrames(
-                    jobManager.getLayer(proc.getLayerId()),
-                    proc, MAX_QUERY_FRAMES);
-            break;
+            case LAYER_PARTITION:
+                frames = dispatchSupport.findNextDispatchFrames(
+                        jobManager.getLayer(proc.getLayerId()),
+                        proc, MAX_QUERY_FRAMES);
+                break;
 
-        case FramePartition:
+            case FRAME_PARTITION:
 
-            DispatchFrame dispatchFrame =
-                jobManager.getDispatchFrame(lha.getFrameId());
-            frames = new ArrayList<DispatchFrame>(1);
+                DispatchFrame dispatchFrame =
+                    jobManager.getDispatchFrame(lha.getFrameId());
+                frames = new ArrayList<DispatchFrame>(1);
 
-            if (dispatchFrame.state.equals(FrameState.Waiting)) {
-                frames.add(dispatchFrame);
-            }
-            break;
+                if (dispatchFrame.state.equals(FrameState.Waiting)) {
+                    frames.add(dispatchFrame);
+                }
+                break;
 
        default:
            throw new DispatcherException(
@@ -387,21 +386,14 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         host.idleGpu = lha.getIdleGpu();
     }
 
-    /**
-     * Log a summary of each dispatch.
-     *
-     * @param p     the VirtualProc that was used
-     * @param f     the DispatchFrame that that was used
-     * @param type  the type of dispatch
-     */
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Show show) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show) {
         throw new RuntimeException("not implemented");
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Group g) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface g) {
         throw new RuntimeException("not implemented");
     }
 

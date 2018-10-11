@@ -35,10 +35,10 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SortableShow;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -200,7 +200,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host, Group g) {
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         LinkedHashSet<String> result = new LinkedHashSet<String>(5);
         result.addAll(getJdbcTemplate().query(
                 DispatchQuery.FIND_JOBS_BY_GROUP,
@@ -215,7 +215,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(Job job,
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             VirtualProc proc,  int limit) {
 
         if (proc.isLocalDispatch) {
@@ -240,7 +240,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(Job job,
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             DispatchHost host, int limit) {
 
         if (host.isLocalDispatch) {
@@ -264,7 +264,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(Layer layer,
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             VirtualProc proc,  int limit) {
 
         if (proc.isLocalDispatch) {
@@ -287,7 +287,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(Layer layer,
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
 
         if (host.isLocalDispatch) {
@@ -310,17 +310,17 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
 
     @Override
-    public DispatchFrame findNextDispatchFrame(Job job, VirtualProc proc) {
+    public DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc) {
         return findNextDispatchFrames(job, proc, 1).get(0);
     }
 
     @Override
-    public DispatchFrame findNextDispatchFrame(Job job, DispatchHost host) {
+    public DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host) {
         return findNextDispatchFrames(job, host, 1).get(0);
     }
 
     @Override
-    public boolean findUnderProcedJob(Job excludeJob, VirtualProc proc) {
+    public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
         long start = System.currentTimeMillis();
         try {
             return getJdbcTemplate().queryForObject(
@@ -340,7 +340,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
     @Override
     public Set<String> findDispatchJobs(DispatchHost host,
-            Show show, int numJobs) {
+                                        ShowInterface show, int numJobs) {
         LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
 
         result.addAll(getJdbcTemplate().query(

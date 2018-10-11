@@ -60,6 +60,9 @@ service DepartmentInterface {
     // Returns the list of tasks for this department.
     rpc GetTasks(DeptGetTasksRequest) returns (DeptGetTasksResponse);
 
+    // Remove the department of this name
+    rpc RemoveDepartmentName(DeptRemoveDepartmentNameRequest) returns (DeptRemoveDepartmentNameResponse);
+
     // Replaces a map of tasks.  If the task already exists its updated, else its inserted.
     rpc ReplaceTasks(DeptReplaceTaskRequest) returns (DeptReplaceTaskResponse);
 
@@ -71,11 +74,12 @@ service DepartmentInterface {
 // -------- Primary Message Types --------
 
 message Department {
-    string name = 1;
-    string dept = 2;
-    string ti_task = 3;
-    float min_cores = 4;
-    bool ti_managed = 5;
+    string id = 1;
+    string name = 2;
+    string dept = 3;
+    string ti_task = 4;
+    float min_cores = 5;
+    bool ti_managed = 6;
 }
 
 message DepartmentSeq {
@@ -165,6 +169,13 @@ message DeptGetTasksRequest {
 message DeptGetTasksResponse {
     task.TaskSeq tasks = 1;
 }
+
+//RemoveDepartmentName
+message DeptRemoveDepartmentNameRequest {
+    string name = 1;
+}
+
+message DeptRemoveDepartmentNameResponse {} // Empty
 
 // ReplaceTask
 message DeptReplaceTaskRequest {

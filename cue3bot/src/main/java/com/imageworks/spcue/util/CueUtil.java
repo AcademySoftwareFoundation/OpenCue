@@ -41,11 +41,11 @@ import javax.mail.internet.MimeMessage;
 
 import org.apache.log4j.Logger;
 
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.CueIce.CueIceException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.util.FrameSet;
+
 import java.util.Map;
 import java.util.Map.Entry;
 import javax.activation.DataHandler;
@@ -236,7 +236,7 @@ public final class CueUtil {
      * @param num
      * @return String
      */
-    public final static String buildFrameName(Layer layer, int num) {
+    public final static String buildFrameName(LayerInterface layer, int num) {
         return String.format("%04d-%s",num,layer.getName());
     }
 

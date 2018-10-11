@@ -24,12 +24,12 @@ import java.util.List;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -47,13 +47,13 @@ public class GroupManagerService implements GroupManager {
     private DepartmentManager departmentManager;
 
     @Override
-    public void setGroupDefaultJobPriority(Group g, int priority) {
+    public void setGroupDefaultJobPriority(GroupInterface g, int priority) {
         groupDao.updateDefaultJobPriority(g, priority);
         jobDao.updatePriority(g, priority);
     }
 
     @Override
-    public void setGroupDefaultJobMaxCores(Group g, int coreUnits) {
+    public void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits) {
         groupDao.updateDefaultJobMaxCores(g,coreUnits);
         if (coreUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
             jobDao.updateMaxCores(g,coreUnits);
@@ -61,7 +61,7 @@ public class GroupManagerService implements GroupManager {
     }
 
     @Override
-    public void setGroupDefaultJobMinCores(Group g, int coreUnits) {
+    public void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits) {
         groupDao.updateDefaultJobMinCores(g,coreUnits);
         if (coreUnits != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
             jobDao.updateMinCores(g,coreUnits);
@@ -69,28 +69,28 @@ public class GroupManagerService implements GroupManager {
     }
 
     @Override
-    public void setGroupMaxCores(Group g, int coreUnits) {
+    public void setGroupMaxCores(GroupInterface g, int coreUnits) {
         groupDao.updateMaxCores(g,coreUnits);
     }
 
     @Override
-    public void setGroupMinCores(Group g, int coreUnits) {
+    public void setGroupMinCores(GroupInterface g, int coreUnits) {
         groupDao.updateMinCores(g,coreUnits);
     }
 
     @Override
-    public void setGroupParent(Group group, Group newParent) {
+    public void setGroupParent(GroupInterface group, GroupInterface newParent) {
         groupDao.updateGroupParent(group, newParent);
     }
 
     @Override
-    public void deleteGroup(Group group) {
+    public void deleteGroup(GroupInterface group) {
         groupDao.deleteGroup(group);
     }
 
     @Override
-    public void createGroup(GroupDetail group, Group parent) {
-        Department d;
+    public void createGroup(GroupDetail group, GroupInterface parent) {
+        DepartmentInterface d;
         if (group.getDepartmentId() == null) {
             d = departmentDao.getDefaultDepartment();
             group.deptId = d.getId();
@@ -106,24 +106,24 @@ public class GroupManagerService implements GroupManager {
     }
 
     @Override
-    public void reparentGroups(Group group, List<Group> groups) {
-        for (Group g : groups) {
+    public void reparentGroups(GroupInterface group, List<GroupInterface> groups) {
+        for (GroupInterface g : groups) {
             groupDao.updateGroupParent(g, group);
         }
     }
 
     @Override
-    public void reparentJob(Job job, GroupDetail group, Inherit[] inherit) {
+    public void reparentJob(JobInterface job, GroupDetail group, Inherit[] inherit) {
         jobDao.updateParent(job, group, inherit);
     }
 
     @Override
-    public void reparentGroupIds(Group group, List<String> groups) {
+    public void reparentGroupIds(GroupInterface group, List<String> groups) {
         reparentGroups(group, groupDao.getGroups(groups));
     }
 
     @Override
-    public void setGroupDepartment(Group group, Department dept) {
+    public void setGroupDepartment(GroupInterface group, DepartmentInterface dept) {
         /*
          * If this is the first time the show is using this department
          * a department configuration is created.
@@ -137,7 +137,7 @@ public class GroupManagerService implements GroupManager {
 
     @Override
     @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
-    public Group getGroup(String id) {
+    public GroupInterface getGroup(String id) {
         return groupDao.getGroup(id);
     }
 
@@ -149,13 +149,13 @@ public class GroupManagerService implements GroupManager {
 
     @Override
     @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
-    public GroupDetail getRootGroupDetail(Show s) {
+    public GroupDetail getRootGroupDetail(ShowInterface s) {
         return groupDao.getRootGroupDetail(s);
     }
 
     @Override
     @Transactional(propagation=Propagation.REQUIRED, readOnly=true)
-    public GroupDetail getGroupDetail(Job j) {
+    public GroupDetail getGroupDetail(JobInterface j) {
         return groupDao.getGroupDetail(j);
     }
 

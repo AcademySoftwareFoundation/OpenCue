@@ -14,7 +14,7 @@ service RenderPartitionInterface {
     rpc Delete(RenderPartDeleteRequest) returns (RenderPartDeleteResponse);
 
     // Reset the maximum amount of cores and memory for this render partition.
-    rpc SetMaxResources(RenderPartSetMaxResourcesRequest) returns (RenderPartSetMaxResourcesRequest);
+    rpc SetMaxResources(RenderPartSetMaxResourcesRequest) returns (RenderPartSetMaxResourcesResponse);
 }
 
 
@@ -41,6 +41,7 @@ message RenderPartition {
     int64 max_memory = 9;
     int64 max_gpu = 10;
     int32 threads = 11;
+    string id = 12;
 }
 
 message RenderPartitionSeq {

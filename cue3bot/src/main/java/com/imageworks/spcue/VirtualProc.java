@@ -21,9 +21,8 @@ package com.imageworks.spcue;
 
 import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.util.CueUtil;
 
-public class VirtualProc extends FrameEntity implements Proc {
+public class VirtualProc extends FrameEntity implements ProcInterface {
 
     public String hostId;
     public String allocationId;

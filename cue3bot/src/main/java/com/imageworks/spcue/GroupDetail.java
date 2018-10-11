@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class GroupDetail extends Entity implements Group, Department {
+public class GroupDetail extends Entity implements GroupInterface, DepartmentInterface {
 
     public int jobMinCores = -1;
     public int jobMaxCores = -1;

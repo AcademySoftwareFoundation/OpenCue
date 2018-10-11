@@ -21,37 +21,36 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueClientIce.Action;
-import com.imageworks.spcue.CueClientIce.Comment;
-import com.imageworks.spcue.CueClientIce.Deed;
-import com.imageworks.spcue.CueClientIce.Depend;
-import com.imageworks.spcue.CueClientIce.Filter;
-import com.imageworks.spcue.CueClientIce.Frame;
-import com.imageworks.spcue.CueClientIce.Group;
-import com.imageworks.spcue.CueClientIce.Host;
-import com.imageworks.spcue.CueClientIce.Job;
-import com.imageworks.spcue.CueClientIce.Layer;
-import com.imageworks.spcue.CueClientIce.Matcher;
-import com.imageworks.spcue.CueClientIce.NestedGroup;
-import com.imageworks.spcue.CueClientIce.NestedHost;
-import com.imageworks.spcue.CueClientIce.Owner;
-import com.imageworks.spcue.CueClientIce.Proc;
-import com.imageworks.spcue.CueClientIce.RenderPartition;
-import com.imageworks.spcue.CueClientIce.Service;
-import com.imageworks.spcue.CueClientIce.ServiceOverride;
-import com.imageworks.spcue.CueClientIce.Show;
+import com.imageworks.spcue.*;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.grpc.comment.Comment;
+import com.imageworks.spcue.grpc.comment.CommentSeq;
+import com.imageworks.spcue.grpc.department.Department;
+import com.imageworks.spcue.grpc.department.DepartmentSeq;
+import com.imageworks.spcue.grpc.depend.Depend;
+import com.imageworks.spcue.grpc.depend.DependSeq;
+import com.imageworks.spcue.grpc.host.*;
+import com.imageworks.spcue.grpc.job.*;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
+import com.imageworks.spcue.grpc.service.ServiceSeq;
+import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.Subscription;
-import com.imageworks.spcue.CueClientIce.Task;
-import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
 import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.Filter;
+import com.imageworks.spcue.grpc.filter.FilterSeq;
+import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.show.Show;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
+import com.imageworks.spcue.grpc.task.Task;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
@@ -98,11 +97,11 @@ public class WhiteboardService implements Whiteboard {
         return jobDao.exists(name);
     }
 
-    public List<Filter> getFilters(com.imageworks.spcue.Show show) {
+    public FilterSeq getFilters(ShowInterface show) {
         return whiteboardDao.getFilters(show);
     }
 
-    public List<Layer> getLayers(com.imageworks.spcue.Job job) {
+    public LayerSeq getLayers(JobInterface job) {
         return whiteboardDao.getLayers(job);
     }
 
@@ -118,11 +117,11 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getJob(id);
     }
 
-    public List<Frame> getFrames(FrameSearch r) {
+    public FrameSeq getFrames(FrameSearch r) {
         return this.whiteboardDao.getFrames(r);
     }
 
-    public List<NestedHost> getHostWhiteboard() {
+    public NestedHostSeq getHostWhiteboard() {
         return nestedWhiteboardDao.getHostWhiteboard();
     }
 
@@ -134,7 +133,7 @@ public class WhiteboardService implements Whiteboard {
         return  whiteboardDao.getShow(id);
     }
 
-    public List<Show> getShows() {
+    public ShowSeq getShows() {
         return whiteboardDao.getShows();
     }
 
@@ -142,7 +141,7 @@ public class WhiteboardService implements Whiteboard {
         return this.whiteboardDao.getSubscription(id);
     }
 
-    public List<Subscription> getSubscriptions(com.imageworks.spcue.Show show) {
+    public SubscriptionSeq getSubscriptions(ShowInterface show) {
         return this.whiteboardDao.getSubscriptions(show);
     }
 
@@ -158,11 +157,11 @@ public class WhiteboardService implements Whiteboard {
         return this.whiteboardDao.getAllocations();
     }
 
-    public List<Group> getGroups(com.imageworks.spcue.Show show) {
+    public GroupSeq getGroups(ShowInterface show) {
         return this.whiteboardDao.getGroups(show);
     }
 
-    public List<Group> getGroups(com.imageworks.spcue.Group group) {
+    public GroupSeq getGroups(GroupInterface group) {
         return this.whiteboardDao.getGroups(group);
     }
 
@@ -178,39 +177,39 @@ public class WhiteboardService implements Whiteboard {
         this.whiteboardDao = whiteboardDao;
     }
 
-    public Action getAction(com.imageworks.spcue.Action action) {
+    public Action getAction(ActionInterface action) {
         return whiteboardDao.getAction(action);
     }
 
-    public List<Action> getActions(com.imageworks.spcue.Filter filter) {
+    public List<Action> getActions(FilterInterface filter) {
         return whiteboardDao.getActions(filter);
     }
 
-    public Matcher getMatcher(com.imageworks.spcue.Matcher matcher) {
+    public Matcher getMatcher(MatcherInterface matcher) {
         return whiteboardDao.getMatcher(matcher);
     }
 
-    public List<Matcher> getMatchers(com.imageworks.spcue.Filter filter) {
+    public List<Matcher> getMatchers(FilterInterface filter) {
         return whiteboardDao.getMatchers(filter);
     }
 
-    public Filter getFilter(com.imageworks.spcue.Filter filter) {
+    public Filter getFilter(FilterInterface filter) {
         return whiteboardDao.getFilter(filter);
     }
 
-    public Filter findFilter(com.imageworks.spcue.Show show, String name) {
+    public Filter findFilter(ShowInterface show, String name) {
         return whiteboardDao.findFilter(show, name);
     }
 
-    public Group getRootGroup(com.imageworks.spcue.Show show) {
+    public Group getRootGroup(ShowInterface show) {
         return whiteboardDao.getRootGroup(show);
     }
 
-    public NestedGroup getJobWhiteboard(com.imageworks.spcue.Show show) {
+    public NestedGroup getJobWhiteboard(ShowInterface show) {
         return nestedWhiteboardDao.getJobWhiteboard(show);
     }
 
-    public List<Job> getJobs(com.imageworks.spcue.Group group) {
+    public JobSeq getJobs(GroupInterface group) {
         return whiteboardDao.getJobs(group);
     }
 
@@ -222,36 +221,36 @@ public class WhiteboardService implements Whiteboard {
         this.nestedWhiteboardDao = nestedWhiteboardDao;
     }
 
-    public Depend getDepend(com.imageworks.spcue.Depend depend) {
+    public Depend getDepend(DependInterface depend) {
         return whiteboardDao.getDepend(depend);
     }
 
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Job job) {
+    public DependSeq getWhatDependsOnThis(JobInterface job) {
 
         return whiteboardDao.getWhatDependsOnThis(job);
     }
 
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Layer layer) {
+    public DependSeq getWhatDependsOnThis(LayerInterface layer) {
         return whiteboardDao.getWhatDependsOnThis(layer);
     }
 
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Frame frame) {
+    public DependSeq getWhatDependsOnThis(FrameInterface frame) {
         return whiteboardDao.getWhatDependsOnThis(frame);
     }
 
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Job job) {
+    public DependSeq getWhatThisDependsOn(JobInterface job) {
         return whiteboardDao.getWhatThisDependsOn(job);
     }
 
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Layer layer) {
+    public DependSeq getWhatThisDependsOn(LayerInterface layer) {
         return whiteboardDao.getWhatThisDependsOn(layer);
     }
 
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Frame frame) {
+    public DependSeq getWhatThisDependsOn(FrameInterface frame) {
         return whiteboardDao.getWhatThisDependsOn(frame);
     }
 
-    public List<Depend> getDepends(com.imageworks.spcue.Job job) {
+    public DependSeq getDepends(JobInterface job) {
         return whiteboardDao.getDepends(job);
     }
 
@@ -263,8 +262,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.findLayer(job, layer);
     }
 
-    public Host findHost(String name) {
-        return whiteboardDao.findHost(name);
+    public Host findHost(String name) { return whiteboardDao.findHost(name);
     }
 
     public Depend getDepend(String id) {
@@ -279,20 +277,20 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.findFilter(show, name);
     }
 
-    public UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-                                                    List<com.imageworks.spcue.Layer> layers, int epochTime) {
+    public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
+                                                    List<LayerInterface> layers, int epochTime) {
         return whiteboardDao.getUpdatedFrames(job, layers, epochTime);
     }
 
-    public List<Comment> getComments(com.imageworks.spcue.Job j) {
+    public CommentSeq getComments(JobInterface j) {
         return whiteboardDao.getComments(j);
     }
 
-    public List<Comment> getComments(com.imageworks.spcue.Host h) {
+    public CommentSeq getComments(HostInterface h) {
         return whiteboardDao.getComments(h);
     }
 
-    public List<Subscription> getSubscriptions(
+    public SubscriptionSeq getSubscriptions(
             AllocationInterface alloc) {
         return whiteboardDao.getSubscriptions(alloc);
     }
@@ -302,12 +300,12 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public Task getTask(com.imageworks.spcue.Show show, Department dept, String shot) {
+    public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
         return whiteboardDao.getTask(show, dept, shot);
     }
 
     @Override
-    public List<Task> getTasks(com.imageworks.spcue.Show show, Department dept) {
+    public List<Task> getTasks(ShowInterface show, DepartmentInterface dept) {
         return whiteboardDao.getTasks(show, dept);
     }
 
@@ -317,19 +315,19 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public com.imageworks.spcue.CueClientIce.Department getDepartment(
-            com.imageworks.spcue.Show show, String name) {
+    public Department getDepartment(
+            ShowInterface show, String name) {
         return whiteboardDao.getDepartment(show, name);
     }
 
     @Override
-    public List<com.imageworks.spcue.CueClientIce.Department> getDepartments(
-            com.imageworks.spcue.Show show) {
+    public DepartmentSeq getDepartments(
+            ShowInterface show) {
         return whiteboardDao.getDepartments(show);
     }
 
     @Override
-    public List<Job> getJobs(JobSearch r) {
+    public JobSeq getJobs(JobSearch r) {
         return whiteboardDao.getJobs(r);
     }
 
@@ -349,17 +347,17 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Host> getHosts(HostSearch r) {
+    public HostSeq getHosts(HostSearch r) {
         return whiteboardDao.getHosts(r);
     }
 
     @Override
-    public List<Proc> getProcs(com.imageworks.spcue.Host h) {
+    public ProcSeq getProcs(HostInterface h) {
         return whiteboardDao.getProcs(h);
     }
 
     @Override
-    public List<Proc> getProcs(ProcSearch p) {
+    public ProcSeq getProcs(ProcSearch p) {
         return whiteboardDao.getProcs(p);
     }
 
@@ -369,39 +367,39 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public Host getHost(com.imageworks.spcue.Deed deed) {
+    public Host getHost(DeedEntity deed) {
         return whiteboardDao.getHost(deed);
     }
 
     @Override
-    public Owner getOwner(com.imageworks.spcue.Deed deed) {
+    public Owner getOwner(DeedEntity deed) {
         return whiteboardDao.getOwner(deed);
     }
 
     @Override
-    public List<Deed> getDeeds(
-            com.imageworks.spcue.Owner owner) {
+    public DeedSeq getDeeds(
+            OwnerEntity owner) {
         return whiteboardDao.getDeeds(owner);
     }
 
     @Override
-    public List<Deed> getDeeds(
-            com.imageworks.spcue.Show show) {
+    public DeedSeq getDeeds(
+            ShowInterface show) {
         return whiteboardDao.getDeeds(show);
     }
 
     @Override
-    public List<Host> getHosts(com.imageworks.spcue.Owner owner) {
+    public HostSeq getHosts(OwnerEntity owner) {
         return whiteboardDao.getHosts(owner);
     }
 
     @Override
-    public Owner getOwner(com.imageworks.spcue.Host host) {
+    public Owner getOwner(HostInterface host) {
         return whiteboardDao.getOwner(host);
     }
 
     @Override
-    public List<Owner> getOwners(com.imageworks.spcue.Show show) {
+    public List<Owner> getOwners(ShowInterface show) {
         return whiteboardDao.getOwners(show);
     }
 
@@ -411,7 +409,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public Deed getDeed(com.imageworks.spcue.Host host) {
+    public Deed getDeed(HostInterface host) {
         return whiteboardDao.getDeed(host);
     }
 
@@ -421,8 +419,8 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<RenderPartition> getRenderPartitions(
-            com.imageworks.spcue.Host host) {
+    public RenderPartitionSeq getRenderPartitions(
+            HostInterface host) {
         return whiteboardDao.getRenderPartitions(host);
     }
 
@@ -443,7 +441,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Show> getActiveShows() {
+    public ShowSeq getActiveShows() {
         return whiteboardDao.getActiveShows();
     }
 
@@ -453,7 +451,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Service> getDefaultServices() {
+    public ServiceSeq getDefaultServices() {
         return whiteboardDao.getDefaultServices();
     }
 
@@ -464,12 +462,12 @@ public class WhiteboardService implements Whiteboard {
 
     @Override
     public List<ServiceOverride> getServiceOverrides(
-            com.imageworks.spcue.Show show) {
+            ShowInterface show) {
         return whiteboardDao.getServiceOverrides(show);
     }
 
     @Override
-    public ServiceOverride getServiceOverride(com.imageworks.spcue.Show show,
+    public ServiceOverride getServiceOverride(ShowInterface show,
             String name) {
         return whiteboardDao.getServiceOverride(show, name);
     }

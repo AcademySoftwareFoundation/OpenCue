@@ -28,11 +28,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
@@ -61,12 +61,12 @@ public class BookingManagerService implements BookingManager {
     private ProcDao procDao;
 
     @Override
-    public boolean hasLocalHostAssignment(Host host) {
+    public boolean hasLocalHostAssignment(HostInterface host) {
         return bookingDao.hasLocalJob(host);
     }
 
     @Override
-    public boolean hasActiveLocalFrames(Host host) {
+    public boolean hasActiveLocalFrames(HostInterface host) {
         return bookingDao.hasActiveLocalJob(host);
     }
 
@@ -74,7 +74,7 @@ public class BookingManagerService implements BookingManager {
     public void setMaxResources(LocalHostAssignment l, int maxCoreUnits,
             long maxMemory, long maxGpu) {
 
-        Host host = hostDao.getHost(l.getHostId());
+        HostInterface host = hostDao.getHost(l.getHostId());
 
         if (maxCoreUnits > 0) {
             bookingDao.updateMaxCores(l, maxCoreUnits);
@@ -109,7 +109,7 @@ public class BookingManagerService implements BookingManager {
     public void removeLocalHostAssignment(LocalHostAssignment l) {
 
         LocalHostAssignment lja = bookingDao.getLocalJobAssignment(l.id);
-        Host host = hostDao.getHost(l.getHostId());
+        HostInterface host = hostDao.getHost(l.getHostId());
 
         bookingDao.deleteLocalJobAssignment(lja);
     }
@@ -134,7 +134,7 @@ public class BookingManagerService implements BookingManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<LocalHostAssignment> getLocalHostAssignment(Host host) {
+    public List<LocalHostAssignment> getLocalHostAssignment(HostInterface host) {
         return bookingDao.getLocalJobAssignment(host);
     }
 
@@ -155,32 +155,32 @@ public class BookingManagerService implements BookingManager {
      */
 
     @Override
-    public void createLocalHostAssignment(DispatchHost host, Job job,
+    public void createLocalHostAssignment(DispatchHost host, JobInterface job,
             LocalHostAssignment lja) {
         bookingDao.insertLocalHostAssignment(host, job, lja);
     }
 
     @Override
-    public void createLocalHostAssignment(DispatchHost host, Layer layer,
+    public void createLocalHostAssignment(DispatchHost host, LayerInterface layer,
             LocalHostAssignment lja) {
         bookingDao.insertLocalHostAssignment(host, layer, lja);
     }
 
     @Override
-    public void createLocalHostAssignment(DispatchHost host, Frame frame,
+    public void createLocalHostAssignment(DispatchHost host, FrameInterface frame,
             LocalHostAssignment lja) {
         bookingDao.insertLocalHostAssignment(host, frame, lja);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isBlackOutTime(Host host) {
+    public boolean isBlackOutTime(HostInterface host) {
         return bookingDao.isBlackoutTime(host);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean hasResourceDeficit(Host host) {
+    public boolean hasResourceDeficit(HostInterface host) {
         return bookingDao.hasResourceDeficit(host);
     }
 

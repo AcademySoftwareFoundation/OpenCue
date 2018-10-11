@@ -25,7 +25,7 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.HistoricalJobTransferException;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.HistoricalDao;
 
 @Transactional
@@ -37,12 +37,12 @@ public class HistoricalManagerService implements HistoricalManager {
 
 
     @Transactional(readOnly=true, isolation=Isolation.SERIALIZABLE)
-    public List<Job> getFinishedJobs() {
+    public List<JobInterface> getFinishedJobs() {
         return historicalDao.getFinishedJobs(ARCHIVE_JOBS_CUTOFF_HOURS);
     }
 
     @Transactional
-    public void transferJob(Job job) {
+    public void transferJob(JobInterface job) {
         try {
             historicalDao.transferJob(job);
         } catch (Exception e) {

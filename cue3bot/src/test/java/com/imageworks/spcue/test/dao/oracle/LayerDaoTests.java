@@ -43,19 +43,19 @@ import com.imageworks.spcue.BuildableLayer;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.LayerType;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
-import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.util.FileSequence.FrameSet;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -323,8 +323,8 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindPastSameNameMaxRSS() {
         getLayer();
-        jobDao.updateState(getJob(), JobState.Finished);
-        assertEquals(JobState.Finished, getJob().state);
+        jobDao.updateState(getJob(), JobState.FINISHED);
+        assertEquals(JobState.FINISHED, getJob().state);
 
         JobDetail lastJob = null;
         lastJob = jobDao.findLastJob("pipe-dev.cue-testuser_shell_v1");
@@ -336,8 +336,8 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindPastTimeStampMaxRSS() {
         getLayer();
-        jobDao.updateState(getJob(), JobState.Finished);
-        assertEquals(JobState.Finished, getJob().state);
+        jobDao.updateState(getJob(), JobState.FINISHED);
+        assertEquals(JobState.FINISHED, getJob().state);
 
         JobDetail lastJob = null;
         lastJob = jobDao.findLastJob("pipe-dev.cue-testuser_shell_v1_2011_05_03_16_03");
@@ -349,8 +349,8 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindPastNewVersionMaxRSS() {
         getLayer();
-        jobDao.updateState(getJob(), JobState.Finished);
-        assertEquals(JobState.Finished, getJob().state);
+        jobDao.updateState(getJob(), JobState.FINISHED);
+        assertEquals(JobState.FINISHED, getJob().state);
 
         JobDetail lastJob = null;
         lastJob = jobDao.findLastJob("pipe-dev.cue-testuser_shell_v2");
@@ -362,8 +362,8 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindPastNewVersionTimeStampMaxRSS() {
         getLayer();
-        jobDao.updateState(getJob(), JobState.Finished);
-        assertEquals(JobState.Finished, getJob().state);
+        jobDao.updateState(getJob(), JobState.FINISHED);
+        assertEquals(JobState.FINISHED, getJob().state);
 
         JobDetail lastJob = null;
         lastJob = jobDao.findLastJob("pipe-dev.cue-testuser_shell_v2_2011_05_03_16_03");
@@ -375,8 +375,8 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindPastNewVersionFailMaxRSS() {
         getLayer();
-        jobDao.updateState(getJob(), JobState.Finished);
-        assertEquals(JobState.Finished, getJob().state);
+        jobDao.updateState(getJob(), JobState.FINISHED);
+        assertEquals(JobState.FINISHED, getJob().state);
 
         JobDetail lastJob = null;
         lastJob = jobDao.findLastJob("pipe-dev.cue-testuser_shell_vfail_v2");
@@ -411,7 +411,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void updateTags() {
         String tag = "dillweed";
         LayerDetail layer = getLayer();
-        layerDao.updateTags(layer, tag, LayerType.Render);
+        layerDao.updateTags(layer, tag, LayerType.RENDER);
         assertEquals(tag,jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM layer WHERE pk_layer=?", String.class, layer.getLayerId()));
     }
@@ -422,7 +422,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void updateMinMemory() {
         long mem = CueUtil.GB;
         LayerDetail layer = getLayer();
-        layerDao.updateMinMemory(layer, mem, LayerType.Render);
+        layerDao.updateMinMemory(layer, mem, LayerType.RENDER);
         assertEquals(Long.valueOf(mem), jdbcTemplate.queryForObject(
                 "SELECT int_mem_min FROM layer WHERE pk_layer=?",
                 Long.class, layer.getLayerId()));
@@ -434,7 +434,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void updateMinGpu() {
         long gpu = CueUtil.GB;
         LayerDetail layer = getLayer();
-        layerDao.updateMinGpu(layer, gpu, LayerType.Render);
+        layerDao.updateMinGpu(layer, gpu, LayerType.RENDER);
         assertEquals(Long.valueOf(gpu),jdbcTemplate.queryForObject(
                 "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
                 Long.class, layer.getLayerId()));
@@ -446,7 +446,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void updateMinCores() {
         int cores = CueUtil.ONE_CORE * 2;
         LayerDetail layer = getLayer();
-        layerDao.updateMinCores(layer, cores, LayerType.Render);
+        layerDao.updateMinCores(layer, cores, LayerType.RENDER);
         assertEquals(Integer.valueOf(cores), jdbcTemplate.queryForObject(
                 "SELECT int_cores_min FROM layer WHERE pk_layer=?",
                 Integer.class, layer.getLayerId()));

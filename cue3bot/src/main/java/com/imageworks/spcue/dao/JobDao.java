@@ -23,20 +23,20 @@ import java.util.List;
 import java.util.Map;
 
 import com.imageworks.spcue.BuildableJob;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.TaskDetail;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.grpc.job.JobState;
 
 public interface JobDao {
 
@@ -47,7 +47,7 @@ public interface JobDao {
      * @param g
      * @param cores
      */
-    public void updateMaxCores(Group g, int cores);
+    public void updateMaxCores(GroupInterface g, int cores);
 
     /**
      * Updates all jobs in the specifid group to the
@@ -56,7 +56,7 @@ public interface JobDao {
      * @param g
      * @param cores
      */
-    public void updateMinCores(Group g, int cores);
+    public void updateMinCores(GroupInterface g, int cores);
 
     /**
      * Updates all jobs in the specified group to the
@@ -65,7 +65,7 @@ public interface JobDao {
      * @param g
      * @param priority
      */
-    public void updatePriority(Group g, int priority);
+    public void updatePriority(GroupInterface g, int priority);
 
     /**
      * Updates a jobs parent group to specified group
@@ -73,7 +73,7 @@ public interface JobDao {
      * @param job
      * @param group
      */
-    void updateParent(Job job, GroupDetail group, Inherit[] inherit);
+    void updateParent(JobInterface job, GroupDetail group, Inherit[] inherit);
 
     /**
      * Returns an execution summary for the specified job.
@@ -81,7 +81,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    ExecutionSummary getExecutionSummary(Job job);
+    ExecutionSummary getExecutionSummary(JobInterface job);
 
     /**
      * returns a FrameStateTotals object with all of the
@@ -90,7 +90,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    FrameStateTotals getFrameStateTotals(Job job);
+    FrameStateTotals getFrameStateTotals(JobInterface job);
 
     /**
      * Returns a DispatchJob from its unique id
@@ -107,7 +107,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    boolean isJobComplete(Job job);
+    boolean isJobComplete(JobInterface job);
 
     /**
      * Inserts a JobDetail.  The job will not be pending until its
@@ -124,7 +124,7 @@ public interface JobDao {
      * @param name
      * @return
      */
-    Job findJob(String name);
+    JobInterface findJob(String name);
 
     /**
      * Finds a JobDetail from its name.  This method returns only
@@ -149,7 +149,7 @@ public interface JobDao {
      * @param id
      * @return
      */
-    Job getJob(String id);
+    JobInterface getJob(String id);
 
     /**
      * Returns a list of jobs assigned to a specific task.
@@ -157,7 +157,7 @@ public interface JobDao {
      * @param idl
      * @return
      */
-    List<Job> getJobs(TaskDetail t);
+    List<JobInterface> getJobs(TaskEntity t);
 
     /**
      * Finds all the jobs in a show.
@@ -165,14 +165,14 @@ public interface JobDao {
      * @param show
      * @return
      */
-    List<JobDetail> findJobs(Show show);
+    List<JobDetail> findJobs(ShowInterface show);
 
     /**
      *
      * @param group
      * @return
      */
-    List<JobDetail> findJobs(Group group);
+    List<JobDetail> findJobs(GroupInterface group);
 
     /**
      * Returns true if an active job with the specified name exists
@@ -187,14 +187,14 @@ public interface JobDao {
      *
      * @param job
      */
-    void deleteJob(Job job);
+    void deleteJob(JobInterface job);
 
     /**
      * Activate job in lauching state.
      *
      * @param job
      */
-    void activateJob(Job job, JobState jobState);
+    void activateJob(JobInterface job, JobState jobState);
 
     /**
      * updates the state of a job with new job state
@@ -202,7 +202,7 @@ public interface JobDao {
      * @param job
      * @param state
      */
-    void updateState(Job job, JobState state);
+    void updateState(JobInterface job, JobState state);
 
     /**
      * updates a job to the finished state. returns true
@@ -210,7 +210,7 @@ public interface JobDao {
      *
      * @param job
      */
-    boolean updateJobFinished(Job job);
+    boolean updateJobFinished(JobInterface job);
 
     /**
      * reteurns true if job is over its minimum proc
@@ -218,7 +218,7 @@ public interface JobDao {
      * @param job
      * @return boolean
      */
-    boolean isOverMinCores(Job job);
+    boolean isOverMinCores(JobInterface job);
 
     /**
      * returns true if a job has pending frames.
@@ -226,7 +226,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    boolean hasPendingFrames(Job job);
+    boolean hasPendingFrames(JobInterface job);
 
     /**
      * returns true if job is over max procs
@@ -234,7 +234,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    boolean isOverMaxCores(Job job);
+    boolean isOverMaxCores(JobInterface job);
 
     /**
      * returns true if job is at its max proc
@@ -242,7 +242,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    boolean isAtMaxCores(Job job);
+    boolean isAtMaxCores(JobInterface job);
 
     /**
      * Return true if adding given core units to the job
@@ -252,7 +252,7 @@ public interface JobDao {
      * @param coreUnits
      * @return
      */
-    boolean isOverMaxCores(Job job, int coreUnits);
+    boolean isOverMaxCores(JobInterface job, int coreUnits);
 
 
     /**
@@ -261,7 +261,7 @@ public interface JobDao {
      * @param j
      * @param v
      */
-    void updatePriority(Job j, int v);
+    void updatePriority(JobInterface j, int v);
 
     /**
      * sets the jobs new min proc value
@@ -269,7 +269,7 @@ public interface JobDao {
      * @param j
      * @param v
      */
-    void updateMinCores(Job j, int v);
+    void updateMinCores(JobInterface j, int v);
 
     /**
      * sets the jobs new max proc value
@@ -277,7 +277,7 @@ public interface JobDao {
      * @param j
      * @param v
      */
-    void updateMaxCores(Job j, int v);
+    void updateMaxCores(JobInterface j, int v);
 
     /**
      * Update a job's paused state
@@ -285,7 +285,7 @@ public interface JobDao {
      * @param j
      * @param b
      */
-    void updatePaused(Job j, boolean b);
+    void updatePaused(JobInterface j, boolean b);
 
     /**
      * Update a jobs auto-eat state
@@ -293,7 +293,7 @@ public interface JobDao {
      * @param j
      * @param b
      */
-    void updateAutoEat(Job j, boolean b);
+    void updateAutoEat(JobInterface j, boolean b);
 
     /**
      * Updates the int_max_retries column with the value of
@@ -304,7 +304,7 @@ public interface JobDao {
      * @param Job
      * @param max_retries
      */
-    void updateMaxFrameRetries(Job j, int max_retries);
+    void updateMaxFrameRetries(JobInterface j, int max_retries);
 
     /**
      * Inserts a map into the job's env table
@@ -313,7 +313,7 @@ public interface JobDao {
      * @param job
      * @param env
      */
-    void insertEnvironment(Job job, Map<String,String> env);
+    void insertEnvironment(JobInterface job, Map<String,String> env);
 
     /**
      * Update jobs max RSS.  Only updates if the passed in value
@@ -322,7 +322,7 @@ public interface JobDao {
      * @param job
      * @param env
      */
-    void updateMaxRSS(Job job, long maxRss);
+    void updateMaxRSS(JobInterface job, long maxRss);
 
     /**
      * Inserts a key/value pair into the jobs env table
@@ -331,7 +331,7 @@ public interface JobDao {
      * @param key
      * @param value
      */
-    void insertEnvironment(Job job, String key, String value);
+    void insertEnvironment(JobInterface job, String key, String value);
 
     /**
      * Grabs the job environment
@@ -339,7 +339,7 @@ public interface JobDao {
      * @param job
      * @return
      */
-    Map<String,String> getEnvironment(Job job);
+    Map<String,String> getEnvironment(JobInterface job);
 
     /**
      * Updates the job's log path in the DB.  This doesn't touch the file
@@ -348,7 +348,7 @@ public interface JobDao {
      * @param job
      * @param path
      */
-    public void updateLogPath(Job job, String path);
+    public void updateLogPath(JobInterface job, String path);
 
     /**
      *
@@ -369,7 +369,7 @@ public interface JobDao {
      *
      * @param value
      */
-    public void enableAutoBooking(Job job, boolean value);
+    public void enableAutoBooking(JobInterface job, boolean value);
 
     /**
      * Enables/disables auto unbooking for specified job.
@@ -377,7 +377,7 @@ public interface JobDao {
      * @param job
      * @param value
      */
-    void enableAutoUnBooking(Job job, boolean value);
+    void enableAutoUnBooking(JobInterface job, boolean value);
 
     /**
      * Maps the post job to the specified job
@@ -391,7 +391,7 @@ public interface JobDao {
      *
      * @param job
      */
-    void activatePostJob(Job job);
+    void activatePostJob(JobInterface job);
 
     /**
      * Update all jobs in the specified group to the
@@ -399,14 +399,14 @@ public interface JobDao {
      *
      * @param group
      */
-    void updateDepartment(Group group, Department dept);
+    void updateDepartment(GroupInterface group, DepartmentInterface dept);
 
     /**
      * Update the specified job to the specified department.
      *
      * @param group
      */
-    void updateDepartment(Job job, Department dept);
+    void updateDepartment(JobInterface job, DepartmentInterface dept);
 
     /**
      * Set the job's new parent.  The job will automatically
@@ -415,7 +415,7 @@ public interface JobDao {
      * @param job
      * @param dest
      */
-    void updateParent(Job job, GroupDetail dest);
+    void updateParent(JobInterface job, GroupDetail dest);
 
     /**
      * Update layer usage with processor time usage.
@@ -424,7 +424,7 @@ public interface JobDao {
      * @param proc
      * @param newState
      */
-    void updateUsage(Job job, ResourceUsage usage, int exitStatus);
+    void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus);
 
     /**
      * Returns true if the job is launching
@@ -432,6 +432,6 @@ public interface JobDao {
      * @param j
      * @return
      */
-    boolean isLaunching(Job j);
+    boolean isLaunching(JobInterface j);
 }
 

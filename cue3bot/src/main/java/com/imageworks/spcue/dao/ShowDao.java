@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.ShowEntity;
 
 /**
  * @category DAO
@@ -34,7 +34,7 @@ public interface ShowDao {
      * @param name
      * @return ShowDetail
      */
-    ShowDetail findShowDetail(String name);
+    ShowEntity findShowDetail(String name);
 
     /**
      * get show detail from its unique id
@@ -42,7 +42,7 @@ public interface ShowDao {
      * @param id
      * @return ShowDetail
      */
-    ShowDetail getShowDetail(String id);
+    ShowEntity getShowDetail(String id);
 
     /**
      * Get show detail from its preferred show.
@@ -50,14 +50,14 @@ public interface ShowDao {
      * @param id
      * @return ShowDetail
      */
-    ShowDetail getShowDetail(Host host);
+    ShowEntity getShowDetail(HostInterface host);
 
     /**
      * create a show from ShowDetail
      *
      * @param show
      */
-    void insertShow(ShowDetail show);
+    void insertShow(ShowEntity show);
 
     /**
      * return true if show exists, false if not
@@ -72,14 +72,14 @@ public interface ShowDao {
      * @param s
      * @param val
      */
-    void updateShowDefaultMinCores(Show s, int val);
+    void updateShowDefaultMinCores(ShowInterface s, int val);
 
     /**
      *
      * @param s
      * @param val
      */
-    void updateShowDefaultMaxCores(Show s, int val);
+    void updateShowDefaultMaxCores(ShowInterface s, int val);
 
     /**
      * Disabling this would stop new proc assignement. The show would get no new
@@ -89,7 +89,7 @@ public interface ShowDao {
      * @param s
      * @param enabled
      */
-    void updateBookingEnabled(Show s, boolean enabled);
+    void updateBookingEnabled(ShowInterface s, boolean enabled);
 
     /**
      * Disabling dispatching would unbook each proc after it had completed a
@@ -98,14 +98,14 @@ public interface ShowDao {
      * @param s
      * @param enabled
      */
-    void updateDispatchingEnabled(Show s, boolean enabled);
+    void updateDispatchingEnabled(ShowInterface s, boolean enabled);
 
     /**
      * Deletes a show if no data has been added to it.
      *
      * @param s
      */
-    void delete(Show s);
+    void delete(ShowInterface s);
 
     /**
      * Updates the show frame counter. This counts all failed succceeded frames,
@@ -114,7 +114,7 @@ public interface ShowDao {
      * @param s
      * @param exitStatus
      */
-    void updateFrameCounters(Show s, int exitStatus);
+    void updateFrameCounters(ShowInterface s, int exitStatus);
 
     /**
      * Set the enabled status of a show to true/false.
@@ -122,7 +122,7 @@ public interface ShowDao {
      * @param s
      * @param enabled
      */
-    void updateActive(Show s, boolean enabled);
+    void updateActive(ShowInterface s, boolean enabled);
 
     /**
      * An array of email addresses for which all job comments are echoed to.
@@ -130,6 +130,6 @@ public interface ShowDao {
      * @param s
      * @param emails
      */
-    void updateShowCommentEmail(Show s, String[] emails);
+    void updateShowCommentEmail(ShowInterface s, String[] emails);
 }
 

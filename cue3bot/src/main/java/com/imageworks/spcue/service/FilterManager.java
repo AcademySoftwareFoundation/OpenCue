@@ -21,52 +21,51 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.Action;
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.ActionInterface;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Matcher;
-import com.imageworks.spcue.MatcherDetail;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.MatcherEntity;
 
 public interface FilterManager {
 
     void runFiltersOnJob(JobDetail job);
-    void runFilterOnJob(FilterDetail filter, JobDetail job);
-    void runFilterOnJob(FilterDetail filter, String id);
-    void runFilterOnGroup(FilterDetail filter, Group group);
+    void runFilterOnJob(FilterEntity filter, JobDetail job);
+    void runFilterOnJob(FilterEntity filter, String id);
+    void runFilterOnGroup(FilterEntity filter, GroupInterface group);
 
-    void lowerFilterOrder(Filter f);
-    void raiseFilterOrder(Filter f);
-    void setFilterOrder(Filter f, double order);
+    void lowerFilterOrder(FilterInterface f);
+    void raiseFilterOrder(FilterInterface f);
+    void setFilterOrder(FilterInterface f, double order);
 
-    void createFilter(FilterDetail filter);
-    void createAction(ActionDetail action);
-    void createMatcher(MatcherDetail action);
+    void createFilter(FilterEntity filter);
+    void createAction(ActionEntity action);
+    void createMatcher(MatcherEntity action);
 
-    void deleteFilter(Filter f);
-    void deleteAction(Action action);
-    void deleteMatcher(Matcher matcher);
+    void deleteFilter(FilterInterface f);
+    void deleteAction(ActionInterface action);
+    void deleteMatcher(MatcherInterface matcher);
 
-    void updateMatcher(MatcherDetail matcher);
-    void updateAction(ActionDetail action);
+    void updateMatcher(MatcherEntity matcher);
+    void updateAction(ActionEntity action);
 
-    FilterDetail getFilter(String id);
-    MatcherDetail getMatcher(String id);
-    ActionDetail getAction(String id);
+    FilterEntity getFilter(String id);
+    MatcherEntity getMatcher(String id);
+    ActionEntity getAction(String id);
 
-    FilterDetail getFilter(Filter filter);
-    MatcherDetail getMatcher(Matcher matcher);
-    ActionDetail getAction(Action action);
+    FilterEntity getFilter(FilterInterface filter);
+    MatcherEntity getMatcher(MatcherInterface matcher);
+    ActionEntity getAction(ActionInterface action);
 
-    boolean applyAction(ActionDetail action, JobDetail job);
-    boolean applyAction(ActionDetail action, JobDetail job, FilterManagerService.Context context);
-    boolean applyActions(List<ActionDetail> actions, JobDetail job, FilterManagerService.Context context);
-    boolean applyActions(List<ActionDetail> actions, JobDetail job);
+    boolean applyAction(ActionEntity action, JobDetail job);
+    boolean applyAction(ActionEntity action, JobDetail job, FilterManagerService.Context context);
+    boolean applyActions(List<ActionEntity> actions, JobDetail job, FilterManagerService.Context context);
+    boolean applyActions(List<ActionEntity> actions, JobDetail job);
 
-    public boolean isMatch(MatcherDetail matcher, JobDetail job);
+    public boolean isMatch(MatcherEntity matcher, JobDetail job);
 
 }
 

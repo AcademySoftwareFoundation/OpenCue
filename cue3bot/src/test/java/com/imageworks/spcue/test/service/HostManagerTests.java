@@ -41,10 +41,10 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -138,7 +138,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     @Transactional
     @Rollback(true)
     public void setAllocation() {
-        Host h = createHost();
+        HostInterface h = createHost();
         hostManager.setAllocation(h,
                 allocationDao.findAllocationEntity("spi", "general"));
     }
@@ -181,12 +181,12 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     public void testGetPrefferedShow() {
         DispatchHost h = createHost();
 
-        Show pshow = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("spongebob", pshow);
+        ShowInterface pshow = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("spongebob", pshow);
 
         ownerManager.takeOwnership(o, h);
 
-        Show show = hostManager.getPreferredShow(h);
+        ShowInterface show = hostManager.getPreferredShow(h);
         assertEquals(pshow, show);
     }
 
@@ -198,12 +198,12 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
         assertFalse(hostManager.isPreferShow(h));
 
-        Show pshow = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("spongebob", pshow);
+        ShowInterface pshow = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("spongebob", pshow);
 
         ownerManager.takeOwnership(o, h);
 
-        Show show = hostManager.getPreferredShow(h);
+        ShowInterface show = hostManager.getPreferredShow(h);
         assertEquals(pshow, show);
 
         assertTrue(hostManager.isPreferShow(h));

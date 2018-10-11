@@ -48,7 +48,7 @@ import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.ExecutionSummary;
 
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerStats;
@@ -202,7 +202,7 @@ public class EmailSupport {
         sendMessage(msg);
     }
 
-    public void reportJobComment(Job job, CommentDetail c, String[] emails) {
+    public void reportJobComment(JobInterface job, CommentDetail c, String[] emails) {
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(emails);
@@ -247,7 +247,7 @@ public class EmailSupport {
         return props;
     }
 
-    public void sendShutdownEmail(Job job) {
+    public void sendShutdownEmail(JobInterface job) {
 
         JobDetail d = jobManager.getJobDetail(job.getJobId());
         if (d.email == null ) { return; }

@@ -20,8 +20,6 @@
 package com.imageworks.spcue.test.dao.oracle;
 
 import static org.junit.Assert.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import javax.annotation.Resource;
 
@@ -34,10 +32,10 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Deed;
+import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -98,9 +96,9 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void testInsertDeed() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM deed WHERE pk_deed=?",
@@ -115,9 +113,9 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void tesDeleteDeed() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM deed WHERE pk_deed=?",
@@ -138,11 +136,11 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void tesGetDeed() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
-        Deed d2 = deedDao.getDeed(d.id);
+        DeedEntity d2 = deedDao.getDeed(d.id);
 
         assertEquals(d, d2);
     }
@@ -153,9 +151,9 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void tesGetDeeds() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
         assertEquals(1, deedDao.getDeeds(o).size());
         assertEquals(d, deedDao.getDeeds(o).get(0));
@@ -168,9 +166,9 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void testEnableDisableBlackoutTime() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
         deedDao.updateBlackoutTimeEnabled(d, true);
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
@@ -189,9 +187,9 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     public void testSetBlackOutTimes() {
 
         DispatchHost host = createHost();
-        Show s = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("squarepants", s);
-        Deed d = deedDao.insertDeed(o, host);
+        ShowInterface s = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("squarepants", s);
+        DeedEntity d = deedDao.insertDeed(o, host);
 
         deedDao.setBlackoutTime(d, 3600, 7200);
 

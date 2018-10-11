@@ -21,19 +21,19 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.Matcher;
-import com.imageworks.spcue.MatcherDetail;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.MatcherEntity;
 
 public interface MatcherDao {
 
-    void insertMatcher(MatcherDetail matcher);
-    void deleteMatcher(Matcher matcher);
-    void updateMatcher(MatcherDetail matcher);
+    void insertMatcher(MatcherEntity matcher);
+    void deleteMatcher(MatcherInterface matcher);
+    void updateMatcher(MatcherEntity matcher);
 
-    MatcherDetail getMatcher(String id);
-    MatcherDetail getMatcher(Matcher matcher);
-    List<MatcherDetail> getMatchers(Filter filter);
+    MatcherEntity getMatcher(String id);
+    MatcherEntity getMatcher(MatcherInterface matcher);
+    List<MatcherEntity> getMatchers(FilterInterface filter);
 
 }
 

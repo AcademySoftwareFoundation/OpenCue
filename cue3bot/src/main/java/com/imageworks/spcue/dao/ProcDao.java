@@ -22,12 +22,12 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Proc;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -46,7 +46,7 @@ public interface ProcDao {
      * @return
      */
 
-    long getReservedMemory(Proc proc);
+    long getReservedMemory(ProcInterface proc);
 
     /**
      * Returns the amount of reserved gpu memory a proc has
@@ -55,7 +55,7 @@ public interface ProcDao {
      * @return
      */
 
-    long getReservedGpu(Proc proc);
+    long getReservedGpu(ProcInterface proc);
 
     /**
      * Return the proc that has exceeded its reserved memory by the largest factor.
@@ -63,7 +63,7 @@ public interface ProcDao {
      * @param host
      * @return
      */
-    VirtualProc getWorstMemoryOffender(Host host);
+    VirtualProc getWorstMemoryOffender(HostInterface host);
 
     /**
      * Removes a little bit of reserved memory from every other running frame
@@ -73,7 +73,7 @@ public interface ProcDao {
      * @param targetMem
      * @return
      */
-    boolean balanceUnderUtilizedProcs(Proc targetProc, long targetMem);
+    boolean balanceUnderUtilizedProcs(ProcInterface targetProc, long targetMem);
 
     /**
      * Increase a proc's reserved memory.
@@ -82,7 +82,7 @@ public interface ProcDao {
      * @param value
      * @return
      */
-    boolean increaseReservedMemory(Proc p, long value);
+    boolean increaseReservedMemory(ProcInterface p, long value);
 
     /**
      * Set a proc's reserved memory.
@@ -91,7 +91,7 @@ public interface ProcDao {
      * @param value
      * @return
      */
-    void updateReservedMemory(Proc p, long value);
+    void updateReservedMemory(ProcInterface p, long value);
 
     /**
      * verifies the mapping bewtween a proc id and a frame id
@@ -124,7 +124,7 @@ public interface ProcDao {
      *
      * @param proc
      */
-    boolean clearVirtualProcAssignment(Proc proc);
+    boolean clearVirtualProcAssignment(ProcInterface proc);
 
     /**
      * Clear a proc assignment by frame id.  Return true
@@ -133,7 +133,7 @@ public interface ProcDao {
      * @param frame
      * @return
      */
-    boolean clearVirtualProcAssignment(Frame frame);
+    boolean clearVirtualProcAssignment(FrameInterface frame);
 
     /**
      * Updates an existing proc's assignment
@@ -150,8 +150,8 @@ public interface ProcDao {
      * @param usedKb
      * @param maxKb
      */
-    void updateProcMemoryUsage(Frame f, long rss, long maxRss,
-            long vsize, long maxVsize);
+    void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
+                               long vsize, long maxVsize);
 
     /**
      * get aq virual proc from its unique id
@@ -167,7 +167,7 @@ public interface ProcDao {
      * @param frame
      * @return
      */
-    VirtualProc findVirtualProc(Frame frame);
+    VirtualProc findVirtualProc(FrameInterface frame);
 
     /**
      * gets a list of virtual procs from a FrameLookupRequest
@@ -184,7 +184,7 @@ public interface ProcDao {
      * @param host
      * @return
      */
-    List<VirtualProc> findVirtualProcs(Host host);
+    List<VirtualProc> findVirtualProcs(HostInterface host);
 
     /**
      * find all procs booked on a specified layer
@@ -192,7 +192,7 @@ public interface ProcDao {
      * @param layer
      * @return
      */
-    List<VirtualProc> findVirtualProcs(Layer layer);
+    List<VirtualProc> findVirtualProcs(LayerInterface layer);
 
     /**
      * find all procs  booked on specified job
@@ -200,7 +200,7 @@ public interface ProcDao {
      * @param job
      * @return
      */
-    List<VirtualProc> findVirtualProcs(Job job);
+    List<VirtualProc> findVirtualProcs(JobInterface job);
 
     /**
      *
@@ -244,7 +244,7 @@ public interface ProcDao {
      * @param procs
      * @return
      */
-    void unbookProc(Proc proc);
+    void unbookProc(ProcInterface proc);
 
     /**
      * Used to set the unbook flag on a proc to true or false.
@@ -252,7 +252,7 @@ public interface ProcDao {
      * @param proc
      * @param unbooked
      */
-    public boolean setUnbookState(Proc proc, boolean unbooked);
+    public boolean setUnbookState(ProcInterface proc, boolean unbooked);
 
     /**
      * Updates the proc record with the name of its redirect target.
@@ -260,7 +260,7 @@ public interface ProcDao {
      * @param p
      * @param r
      */
-    public boolean setRedirectTarget(Proc p, Redirect r);
+    public boolean setRedirectTarget(ProcInterface p, Redirect r);
 
     /**
      * Returns the unique id of the proc's current show
@@ -268,7 +268,7 @@ public interface ProcDao {
      * @param p
      * @return
      */
-    public String getCurrentShowId(Proc p);
+    public String getCurrentShowId(ProcInterface p);
 
     /**
      * Returns the unique id of the procs current job
@@ -276,7 +276,7 @@ public interface ProcDao {
      * @param p
      * @return
      */
-    public String getCurrentJobId(Proc p);
+    public String getCurrentJobId(ProcInterface p);
 
     /**
      * Returns the unique id of the procs current layer
@@ -284,7 +284,7 @@ public interface ProcDao {
      * @param p
      * @return
      */
-    public String getCurrentLayerId(Proc p);
+    public String getCurrentLayerId(ProcInterface p);
 
     /**
      * Returns the unique id of the procs current frame
@@ -292,7 +292,7 @@ public interface ProcDao {
      * @param p
      * @return
      */
-    public String getCurrentFrameId(Proc p);
+    public String getCurrentFrameId(ProcInterface p);
 
     /**
      * Returns an array of booked virutal procs.
@@ -308,7 +308,7 @@ public interface ProcDao {
      * @param proc
      * @return
      */
-    boolean isOrphan(Proc proc);
+    boolean isOrphan(ProcInterface proc);
 
     /**
      * Return a list of all procs that are booked as part

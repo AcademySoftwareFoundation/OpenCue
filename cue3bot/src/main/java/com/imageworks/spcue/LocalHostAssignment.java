@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.RenderPartitionType;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
 
 /**

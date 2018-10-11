@@ -22,9 +22,7 @@ package com.imageworks.spcue.dispatcher;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
-import java.lang.Math;
 
 import org.apache.log4j.Logger;
 
@@ -33,12 +31,12 @@ import com.google.common.cache.Cache;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchJob;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDispatchException;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
 
 import com.imageworks.spcue.iceclient.RqdClient;
@@ -178,7 +176,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         return procs;
     }
 
-    private Set<String> getGpuJobs(DispatchHost host, Show show) {
+    private Set<String> getGpuJobs(DispatchHost host, ShowInterface show) {
         Set<String> jobs = null;
 
         // TODO: GPU: make index with the 4 components instead of just 3, replace the just 3
@@ -224,7 +222,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Show show) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show) {
 
         Set<String> jobs = getGpuJobs(host, show);
 
@@ -235,7 +233,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Group group) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface group) {
 
         Set<String> jobs = getGpuJobs(host, null);
 
@@ -246,7 +244,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Job job) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
@@ -321,7 +319,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     }
 
-    public void dispatchProcToJob(VirtualProc proc, Job job)
+    public void dispatchProcToJob(VirtualProc proc, JobInterface job)
     {
 
         // Do not throttle this method
@@ -347,12 +345,12 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Layer layer) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer) {
         throw new RuntimeException("not implemented)");
     }
 
     @Override
-    public List<VirtualProc> dispatchHost(DispatchHost host, Frame frame) {
+    public List<VirtualProc> dispatchHost(DispatchHost host, FrameInterface frame) {
         throw new RuntimeException("not implemented)");
     }
 
@@ -445,12 +443,12 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     private abstract class DispatchFrameTemplate {
         protected VirtualProc proc;
-        protected Job job;
+        protected JobInterface job;
         protected DispatchFrame frame;
         boolean procIndb = true;
 
         public DispatchFrameTemplate(VirtualProc p,
-                                     Job j,
+                                     JobInterface j,
                                      DispatchFrame f,
                                      boolean inDb) {
             proc = p;

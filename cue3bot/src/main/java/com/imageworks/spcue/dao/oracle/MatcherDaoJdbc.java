@@ -26,11 +26,11 @@ import java.util.List;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.Matcher;
-import com.imageworks.spcue.MatcherDetail;
-import com.imageworks.spcue.CueIce.MatchSubject;
-import com.imageworks.spcue.CueIce.MatchType;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -43,7 +43,7 @@ public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
             "pk_matcher,pk_filter,str_subject,str_match,str_value"+
         ") VALUES (?,?,?,?,?)";
 
-    public void insertMatcher(MatcherDetail matcher) {
+    public void insertMatcher(MatcherEntity matcher) {
         matcher.id = SqlUtil.genKeyRandom();
 
         getJdbcTemplate().update(INSERT_MATCHER,
@@ -51,7 +51,7 @@ public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
                 matcher.type.toString(), matcher.value);
     }
 
-    public void deleteMatcher(Matcher matcher) {
+    public void deleteMatcher(MatcherInterface matcher) {
         getJdbcTemplate().update(
                 "DELETE FROM matcher WHERE pk_matcher=?",
                 matcher.getMatcherId());
@@ -67,34 +67,34 @@ public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
         "WHERE " +
             "matcher.pk_filter = filter.pk_filter";
 
-    public MatcherDetail getMatcher(String id) {
+    public MatcherEntity getMatcher(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_MATCHER + " AND matcher.pk_matcher=?",
                 MATCHER_DETAIL_MAPPER, id);
     }
 
-    public MatcherDetail getMatcher(Matcher matcher) {
+    public MatcherEntity getMatcher(MatcherInterface matcher) {
         return getJdbcTemplate().queryForObject(
                 GET_MATCHER + " AND matcher.pk_matcher=?", MATCHER_DETAIL_MAPPER,
                 matcher.getMatcherId());
     }
 
-    public List<MatcherDetail> getMatchers(Filter filter) {
+    public List<MatcherEntity> getMatchers(FilterInterface filter) {
         return getJdbcTemplate().query(
                 GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
                 MATCHER_DETAIL_MAPPER, filter.getFilterId());
     }
 
 
-    public void updateMatcher(MatcherDetail matcher) {
+    public void updateMatcher(MatcherEntity matcher) {
         getJdbcTemplate().update(
                 "UPDATE matcher SET str_subject=?,str_match=?,str_value=? WHERE pk_matcher=?",
                 matcher.subject.toString(), matcher.type.toString(), matcher.value, matcher.getMatcherId());
     }
 
-    public static final RowMapper<MatcherDetail> MATCHER_DETAIL_MAPPER = new RowMapper<MatcherDetail>() {
-        public MatcherDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-            MatcherDetail matcher = new MatcherDetail();
+    public static final RowMapper<MatcherEntity> MATCHER_DETAIL_MAPPER = new RowMapper<MatcherEntity>() {
+        public MatcherEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            MatcherEntity matcher = new MatcherEntity();
             matcher.id = rs.getString("pk_matcher");
             matcher.showId = rs.getString("pk_show");
             matcher.filterId = rs.getString("pk_filter");

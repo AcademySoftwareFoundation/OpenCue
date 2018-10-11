@@ -32,10 +32,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public final class TestDatabaseSetup {
-    private static final String USERNAME = "ct" + System.currentTimeMillis();
-    private static final String PASSWORD = "password";
+    private static final String USERNAME = "test";
+    private static final String PASSWORD = "c0r0na";
     private String sysPwd;
-    private String dbTns = "oraxelocal";
+    private String dbTns;
+
+    // private static final String USERNAME = "ct" + System.currentTimeMillis();
+    // private static final String PASSWORD = "password";
     private static AtomicBoolean setupComplete = new AtomicBoolean(false);
 
     public TestDatabaseSetup() {
@@ -44,10 +47,9 @@ public final class TestDatabaseSetup {
             setDbTns(tns);
         }
         String pwd = System.getenv("CUEBOT_DB_SYS_PWD");
-        if (pwd == null) {
-            throw new RuntimeException("CUEBOT_DB_SYS_PWD must be set in your environment");
+        if (pwd != null) {
+            setSysPwd(pwd);
         }
-        setSysPwd(pwd);
     }
 
     private String getDbTns() {
@@ -79,9 +81,6 @@ public final class TestDatabaseSetup {
             return;
         }
 
-        if (System.getenv("TNS_ADMIN") == null) {
-            throw new RuntimeException("TNS_ADMIN must be set in your environment");
-        }
         System.setProperty("oracle.net.tns_admin", System.getenv("TNS_ADMIN"));
         System.out.println("CREATING CUE3 TEST USER");
         Connection sysConn = DriverManager.getConnection(
@@ -113,11 +112,11 @@ public final class TestDatabaseSetup {
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
-                try {
-                    TestDatabaseSetup.this.destroy();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                // try {
+                //     TestDatabaseSetup.this.destroy();
+                // } catch (Exception e) {
+                //     e.printStackTrace();
+                // }
             }
 
         });

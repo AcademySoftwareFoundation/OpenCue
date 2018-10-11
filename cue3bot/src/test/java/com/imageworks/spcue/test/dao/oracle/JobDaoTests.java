@@ -40,14 +40,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Point;
+import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.TaskDetail;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -55,6 +54,7 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
@@ -113,7 +113,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         job.logDir = JobLogUtil.getJobLogPath(job);
         job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId = facilityDao.getDefaultFacility().getId();
-        job.state = JobState.Pending;
+        job.state = JobState.PENDING;
         jobDao.insertJob(job);
         return job;
     }
@@ -161,7 +161,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testFindJob() {
         JobDetail job = insertJob();
-        Job j1 = jobDao.findJob(job.name);
+        JobInterface j1 = jobDao.findJob(job.name);
         JobDetail j2 = jobDao.findJobDetail(job.name);
         assertEquals(job.name, j1.getName());
         assertEquals(job.name, j2.getName());
@@ -181,11 +181,11 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testGetJobsByTask() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
         taskDao.insertTask(t);
         jobDao.getJobs(t);
     }
@@ -212,7 +212,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Transactional
     @Rollback(true)
     public void testActivateJob() {
-        jobDao.activateJob(insertJob(), JobState.Pending);
+        jobDao.activateJob(insertJob(), JobState.PENDING);
     }
 
     @Test
@@ -220,9 +220,9 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testUpdateJobState() {
         JobDetail job = insertJob();
-        assertEquals(JobState.Pending, job.state);
-        jobDao.updateState(job, JobState.Finished);
-        assertEquals(JobState.Finished.toString(),
+        assertEquals(JobState.PENDING, job.state);
+        jobDao.updateState(job, JobState.FINISHED);
+        assertEquals(JobState.FINISHED.toString(),
                 jdbcTemplate.queryForObject(
                         "SELECT str_state FROM job WHERE pk_job=?",
                         String.class, job.getJobId()));
@@ -345,7 +345,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testUpdateJobMinCoresByGroup() {
         JobDetail job = insertJob();
-        Group g = groupDao.getGroup(job.groupId);
+        GroupInterface g = groupDao.getGroup(job.groupId);
         jobDao.updateMinCores(g, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_min_cores FROM job_resource WHERE pk_job=?",
@@ -357,7 +357,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testUpdateJobMaxCoresByGroup() {
         JobDetail job = insertJob();
-        Group g = groupDao.getGroup(job.groupId);
+        GroupInterface g = groupDao.getGroup(job.groupId);
         jobDao.updateMaxCores(g, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_max_cores FROM job_resource WHERE pk_job=?",
@@ -369,7 +369,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Rollback(true)
     public void testUpdateJobPriorityByGroup() {
         JobDetail job = insertJob();
-        Group g = groupDao.getGroup(job.groupId);
+        GroupInterface g = groupDao.getGroup(job.groupId);
         jobDao.updatePriority(g, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_priority FROM job_resource WHERE pk_job=?",
@@ -509,7 +509,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         jobLauncher.launch(spec);
 
-        Job job = spec.getJobs().get(0).detail;
+        JobInterface job = spec.getJobs().get(0).detail;
         jobDao.getFrameStateTotals(job);
         jobManager.shutdownJob(job);
         // this might fail
@@ -612,7 +612,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
 
         jobDao.activatePostJob(spec.getJobs().get(0).detail);
 
-        assertEquals(JobState.Pending.toString(),jdbcTemplate.queryForObject(
+        assertEquals(JobState.PENDING.toString(),jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?", String.class,
                 spec.getJobs().get(0).getPostJob().detail.id));
     }
@@ -626,7 +626,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
                 new File("src/test/resources/conf/jobspec/jobspec.xml"));
         jobLauncher.launch(spec);
 
-        Job job = jobDao.findJob(spec.getJobs().get(0).detail.name);
+        JobInterface job = jobDao.findJob(spec.getJobs().get(0).detail.name);
 
         /** 60 seconds of 100 core units **/
         ResourceUsage usage = new ResourceUsage(60, 33);

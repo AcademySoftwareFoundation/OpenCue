@@ -22,92 +22,68 @@ package com.imageworks.spcue.dao.oracle;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.imageworks.common.spring.remoting.IceServer;
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueClientIce.Action;
-import com.imageworks.spcue.CueClientIce.ActionData;
-import com.imageworks.spcue.CueClientIce.ActionInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Comment;
-import com.imageworks.spcue.CueClientIce.CommentData;
-import com.imageworks.spcue.CueClientIce.CommentInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Deed;
-import com.imageworks.spcue.CueClientIce.DeedInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Department;
-import com.imageworks.spcue.CueClientIce.DepartmentData;
-import com.imageworks.spcue.CueClientIce.DepartmentInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Depend;
-import com.imageworks.spcue.CueClientIce.DependData;
-import com.imageworks.spcue.CueClientIce.DependInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Filter;
-import com.imageworks.spcue.CueClientIce.FilterData;
-import com.imageworks.spcue.CueClientIce.FilterInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Frame;
-import com.imageworks.spcue.CueClientIce.FrameData;
-import com.imageworks.spcue.CueClientIce.FrameInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Group;
-import com.imageworks.spcue.CueClientIce.GroupData;
-import com.imageworks.spcue.CueClientIce.GroupInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.GroupStats;
-import com.imageworks.spcue.CueClientIce.Host;
-import com.imageworks.spcue.CueClientIce.HostData;
-import com.imageworks.spcue.CueClientIce.HostInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Job;
-import com.imageworks.spcue.CueClientIce.JobData;
-import com.imageworks.spcue.CueClientIce.JobInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.JobStats;
-import com.imageworks.spcue.CueClientIce.Layer;
-import com.imageworks.spcue.CueClientIce.LayerData;
-import com.imageworks.spcue.CueClientIce.LayerInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.LayerStats;
-import com.imageworks.spcue.CueClientIce.Matcher;
-import com.imageworks.spcue.CueClientIce.MatcherData;
-import com.imageworks.spcue.CueClientIce.MatcherInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Owner;
-import com.imageworks.spcue.CueClientIce.OwnerInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Proc;
-import com.imageworks.spcue.CueClientIce.ProcData;
-import com.imageworks.spcue.CueClientIce.ProcInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.RenderPartition;
-import com.imageworks.spcue.CueClientIce.RenderPartitionInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Service;
-import com.imageworks.spcue.CueClientIce.ServiceData;
-import com.imageworks.spcue.CueClientIce.ServiceInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.ServiceOverride;
-import com.imageworks.spcue.CueClientIce.ServiceOverrideInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Show;
-import com.imageworks.spcue.CueClientIce.ShowData;
-import com.imageworks.spcue.CueClientIce.ShowInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.ShowStats;
-import com.imageworks.spcue.CueClientIce.Task;
-import com.imageworks.spcue.CueClientIce.TaskData;
-import com.imageworks.spcue.CueClientIce.TaskInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.UpdatedFrame;
-import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
-import com.imageworks.spcue.grpc.facility.Allocation;
-import com.imageworks.spcue.grpc.facility.AllocationStats;
-import com.imageworks.spcue.grpc.facility.Facility;
-import com.imageworks.spcue.CueIce.ActionType;
-import com.imageworks.spcue.CueIce.ActionValueType;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
-import com.imageworks.spcue.CueIce.FilterType;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.HardwareState;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.LayerType;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.MatchSubject;
-import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.CueIce.RenderPartitionType;
-import com.imageworks.spcue.CueIce.ThreadMode;
-import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
+
+import com.imageworks.spcue.grpc.comment.Comment;
+import com.imageworks.spcue.grpc.comment.CommentSeq;
+import com.imageworks.spcue.grpc.department.Department;
+import com.imageworks.spcue.grpc.department.DepartmentSeq;
+import com.imageworks.spcue.grpc.depend.Depend;
+import com.imageworks.spcue.grpc.depend.DependSeq;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationStats;
+import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.filter.*;
+import com.imageworks.spcue.grpc.host.Deed;
+import com.imageworks.spcue.grpc.host.DeedSeq;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSeq;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.NestedHost;
+import com.imageworks.spcue.grpc.host.Owner;
+import com.imageworks.spcue.grpc.host.Proc;
+import com.imageworks.spcue.grpc.host.ProcSeq;
+import com.imageworks.spcue.grpc.host.ThreadMode;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameSeq;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Group;
+import com.imageworks.spcue.grpc.job.GroupSeq;
+import com.imageworks.spcue.grpc.job.GroupStats;
+import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.JobSeq;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.JobStats;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerSeq;
+import com.imageworks.spcue.grpc.job.LayerStats;
+import com.imageworks.spcue.grpc.job.LayerType;
+import com.imageworks.spcue.grpc.job.UpdatedFrame;
+import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
+import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceSeq;
+import com.imageworks.spcue.grpc.show.Show;
+import com.imageworks.spcue.grpc.show.ShowSeq;
+import com.imageworks.spcue.grpc.show.ShowStats;
 import com.imageworks.spcue.grpc.subscription.Subscription;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
+import com.imageworks.spcue.grpc.task.Task;
+
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import org.apache.log4j.Logger;
@@ -118,19 +94,12 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
-
-    // This is static so the row mappe anonymous classes can get ahold of it
-    // for making proxies.
-    private static IceServer iceServer;
-
-    public WhiteboardDaoJdbc(IceServer server) {
-        WhiteboardDaoJdbc.iceServer = server;
-    }
 
     @Override
     public Service getService(String id) {
@@ -146,19 +115,20 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 SERVICE_MAPPER, name);
     }
     @Override
-    public List<Service> getDefaultServices() {
-        return getJdbcTemplate().query(GET_SERVICE, SERVICE_MAPPER);
+    public ServiceSeq getDefaultServices() {
+        List<Service> services = getJdbcTemplate().query(GET_SERVICE, SERVICE_MAPPER);
+        return ServiceSeq.newBuilder().addAllServices(services).build();
     }
 
     @Override
-    public List<ServiceOverride> getServiceOverrides(com.imageworks.spcue.Show show) {
+    public List<ServiceOverride> getServiceOverrides(ShowInterface show) {
         return getJdbcTemplate().query(GET_SERVICE_OVERRIDE +
                 " AND show_service.pk_show = ?", SERVICE_OVERRIDE_MAPPER, show.getId());
     }
 
     @Override
     public ServiceOverride getServiceOverride(
-            com.imageworks.spcue.Show show, String name) {
+            ShowInterface show, String name) {
         return getJdbcTemplate().queryForObject (
                 GET_SERVICE_OVERRIDE +
                 " AND show_service.pk_show=? AND (show_service.str_name=? OR" +
@@ -167,13 +137,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public Filter getFilter(com.imageworks.spcue.Filter filter) {
+    public Filter getFilter(FilterInterface filter) {
         return getJdbcTemplate().queryForObject(GET_FILTER + " AND pk_filter=?",
                 FILTER_MAPPER, filter.getFilterId());
     }
 
     @Override
-    public Filter findFilter(com.imageworks.spcue.Show show, String name) {
+    public Filter findFilter(ShowInterface show, String name) {
         return getJdbcTemplate().queryForObject(
                 GET_FILTER + " AND filter.pk_show=? AND filter.str_name=?",
                 FILTER_MAPPER, show.getShowId(), name);
@@ -187,34 +157,35 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Filter> getFilters(com.imageworks.spcue.Show show) {
-        return getJdbcTemplate().query(
+    public FilterSeq getFilters(ShowInterface show) {
+        List<Filter> filters =  getJdbcTemplate().query(
                 GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC", FILTER_MAPPER, show.getShowId());
+        return FilterSeq.newBuilder().addAllFilters(filters).build();
     }
 
     @Override
-    public List<Action> getActions(com.imageworks.spcue.Filter filter) {
+    public List<Action> getActions(FilterInterface filter) {
         return getJdbcTemplate().query(
                 GET_ACTION + " AND filter.pk_filter=? ORDER BY b_stop ASC, ts_created ASC ",
                 ACTION_MAPPER, filter.getFilterId());
     }
 
     @Override
-    public List<Matcher> getMatchers(com.imageworks.spcue.Filter filter) {
+    public List<Matcher> getMatchers(FilterInterface filter) {
         return getJdbcTemplate().query(
                 GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
                 MATCHER_MAPPER, filter.getFilterId());
     }
 
     @Override
-    public Action getAction(com.imageworks.spcue.Action action) {
+    public Action getAction(ActionInterface action) {
         return getJdbcTemplate().queryForObject(
                 GET_ACTION + " AND action.pk_action=?",
                 ACTION_MAPPER, action.getActionId());
     }
 
     @Override
-    public Matcher getMatcher(com.imageworks.spcue.Matcher matcher) {
+    public Matcher getMatcher(MatcherInterface matcher) {
         return getJdbcTemplate().queryForObject(
                 GET_MATCHER + " AND matcher.pk_matcher=?",
                 MATCHER_MAPPER, matcher.getMatcherId());
@@ -228,14 +199,16 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Show> getShows() {
-        return getJdbcTemplate().query(GET_SHOW, SHOW_MAPPER);
+    public ShowSeq getShows() {
+        List<Show> shows = getJdbcTemplate().query(GET_SHOW, SHOW_MAPPER);
+        return ShowSeq.newBuilder().addAllShows(shows).build();
     }
 
     @Override
-    public List<Show> getActiveShows() {
-        return getJdbcTemplate().query(GET_SHOW + " AND b_active=?",
+    public ShowSeq getActiveShows() {
+        List<Show> shows = getJdbcTemplate().query(GET_SHOW + " AND b_active=?",
                 SHOW_MAPPER, true);
+        return ShowSeq.newBuilder().addAllShows(shows).build();
     }
 
     @Override
@@ -260,17 +233,19 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Subscription> getSubscriptions(com.imageworks.spcue.Show show) {
-        return getJdbcTemplate().query(
+    public SubscriptionSeq getSubscriptions(ShowInterface show) {
+        List<Subscription> subscriptions =  getJdbcTemplate().query(
                 GET_SUBSCRIPTION + " AND show.pk_show=?",
                 SUBSCRIPTION_MAPPER, show.getShowId());
+        return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
     }
 
     @Override
-    public List<Subscription> getSubscriptions(AllocationInterface alloc) {
-        return getJdbcTemplate().query(
+    public SubscriptionSeq getSubscriptions(AllocationInterface alloc) {
+        List<Subscription> subscriptions = getJdbcTemplate().query(
                 GET_SUBSCRIPTION + " AND subscription.pk_alloc=?",
                 SUBSCRIPTION_MAPPER, alloc.getAllocationId());
+        return SubscriptionSeq.newBuilder().addAllSubscriptions(subscriptions).build();
     }
 
     @Override
@@ -302,10 +277,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Job> getJobs(com.imageworks.spcue.Group group) {
-        return getJdbcTemplate().query(
+    public JobSeq getJobs(GroupInterface group) {
+        List<Job> jobs = getJdbcTemplate().query(
                 GET_PENDING_JOBS + " AND job.pk_folder=? ORDER BY job.str_name ASC",
                 JOB_MAPPER, group.getId());
+        return JobSeq.newBuilder().addAllJobs(jobs).build();
     }
 
     @Override
@@ -319,9 +295,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Job> getJobs(JobSearch r) {
-        return getJdbcTemplate().query(
+    public JobSeq getJobs(JobSearch r) {
+        List<Job> jobs = getJdbcTemplate().query(
                 r.getQuery(GET_JOB) + "ORDER BY job.str_name ASC", JOB_MAPPER, r.getValuesArray());
+        return JobSeq.newBuilder().addAllJobs(jobs).build();
     }
 
     @Override
@@ -353,26 +330,27 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Layer> getLayers(com.imageworks.spcue.Job job) {
+    public LayerSeq getLayers(JobInterface job) {
         String query = GET_LAYER + " AND layer.pk_job=? ORDER BY layer.int_dispatch_order ASC";
-        return getJdbcTemplate().query(
+        List<Layer> layers = getJdbcTemplate().query(
                 query, LAYER_MAPPER, job.getJobId());
+        return LayerSeq.newBuilder().addAllLayers(layers).build();
     }
 
     @Override
-    public List<Group> getGroups(com.imageworks.spcue.Show show) {
+    public GroupSeq getGroups(ShowInterface show) {
        List<Group> groups = getJdbcTemplate().query(
                 GET_GROUPS + " AND folder.pk_show=? ORDER BY folder_level.int_level ASC, folder.str_name ASC ",
                 GROUP_MAPPER, show.getShowId());
-       return groups;
+       return GroupSeq.newBuilder().addAllGroups(groups).build();
     }
 
     @Override
-    public List<Group> getGroups(com.imageworks.spcue.Group group) {
+    public GroupSeq getGroups(GroupInterface group) {
         List<Group> groups = getJdbcTemplate().query(
                  GET_GROUPS + " AND folder.pk_parent_folder=? ORDER BY folder_level.int_level ASC, folder.f_order DESC, folder.str_name ASC ",
                  GROUP_MAPPER, group.getGroupId());
-        return groups;
+        return GroupSeq.newBuilder().addAllGroups(groups).build();
     }
 
     @Override
@@ -383,7 +361,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public Group getRootGroup(com.imageworks.spcue.Show show) {
+    public Group getRootGroup(ShowInterface show) {
         return getJdbcTemplate().queryForObject(
                 GET_GROUPS + " AND show.pk_show=? AND folder.b_default=?",
                 GROUP_MAPPER, show.getShowId(), true);
@@ -401,13 +379,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Frame> getFrames(FrameSearch r) {
-        return getJdbcTemplate().query(r.getSortedQuery(GET_FRAMES_CRITERIA),FRAME_MAPPER,
+    public FrameSeq getFrames(FrameSearch r) {
+        List<Frame> frames = getJdbcTemplate().query(r.getSortedQuery(GET_FRAMES_CRITERIA),FRAME_MAPPER,
                 r.getValuesArray());
+        return FrameSeq.newBuilder().addAllFrames(frames).build();
     }
 
     @Override
-    public Depend getDepend(com.imageworks.spcue.Depend depend) {
+    public Depend getDepend(DependInterface depend) {
         return getJdbcTemplate().queryForObject(
                 GET_DEPEND + " WHERE pk_depend=?",DEPEND_MAPPER, depend.getId());
     }
@@ -419,60 +398,66 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Job job) {
-        return getJdbcTemplate().query(
+    public DependSeq getWhatDependsOnThis(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_parent IS NULL AND pk_job_depend_on=?",
                 DEPEND_MAPPER, job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Layer layer) {
-        return getJdbcTemplate().query(
+    public DependSeq getWhatDependsOnThis(LayerInterface layer) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_on=?",
                 DEPEND_MAPPER, layer.getLayerId());
-
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Frame frame) {
-        return getJdbcTemplate().query(
+    public DependSeq getWhatDependsOnThis(FrameInterface frame) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_frame_depend_on=?",
                 DEPEND_MAPPER, frame.getFrameId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Job job) {
-        return getJdbcTemplate().query(
+    public DependSeq getWhatThisDependsOn(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er IS NULL AND " +
                         "pk_frame_depend_er IS NULL AND pk_job_depend_er=?",
                 DEPEND_MAPPER, job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Layer layer) {
-        return getJdbcTemplate().query(
+    public DependSeq getWhatThisDependsOn(LayerInterface layer) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_parent IS NULL AND pk_layer_depend_er=?",
                 DEPEND_MAPPER, layer.getLayerId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Frame frame) {
+    public DependSeq getWhatThisDependsOn(FrameInterface frame) {
         /*
          * This should show anything that is making the frame dependent.
          */
-        return getJdbcTemplate().query(
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE " +
                         "(pk_job_depend_er=? AND str_type IN ('JobOnJob','JobOnLayer','JobOnFrame')) OR " +
                         "(pk_layer_depend_er=? AND str_type IN ('LayerOnJob','LayerOnLayer','LayerOnFrame')) " +
                         "OR (pk_frame_depend_er=?)",
                 DEPEND_MAPPER, frame.getJobId(), frame.getLayerId(), frame.getFrameId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
-    public List<Depend> getDepends(com.imageworks.spcue.Job job) {
-        return getJdbcTemplate().query(
+    public DependSeq getDepends(JobInterface job) {
+        List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE pk_job_depend_er=? AND str_type != 'FrameOnFrame'",
                 DEPEND_MAPPER, job.getJobId());
+        return DependSeq.newBuilder().addAllDepends(depends).build();
     }
 
     @Override
@@ -495,9 +480,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Host> getHosts(HostSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_HOST), HOST_MAPPER,
+    public HostSeq getHosts(HostSearch r) {
+        List<Host> hosts = getJdbcTemplate().query(r.getQuery(GET_HOST), HOST_MAPPER,
                 r.getValuesArray());
+        return HostSeq.newBuilder().addAllHosts(hosts).build();
     }
 
     @Override
@@ -507,37 +493,40 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Proc> getProcs(com.imageworks.spcue.Host h) {
+    public ProcSeq getProcs(HostInterface h) {
         ProcSearch r = new ProcSearch();
         r.addPhrase("host.pk_host", h.getHostId());
         r.addSort(Sort.asc("host.str_name"));
         r.addSort(Sort.asc("proc.ts_dispatched"));
-        return getProcs(r);
+        return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
     }
 
     @Override
-    public List<Proc> getProcs(ProcSearch p) {
+    public ProcSeq getProcs(ProcSearch p) {
         p.addSort(Sort.asc("host.str_name"));
         p.addSort(Sort.asc("proc.ts_dispatched"));
-        return getJdbcTemplate().query(p.getQuery(GET_PROC),
+        List<Proc> procs = getJdbcTemplate().query(p.getQuery(GET_PROC),
                 PROC_MAPPER, p.getValuesArray());
+        return ProcSeq.newBuilder().addAllProcs(procs).build();
     }
 
     @Override
-    public List<Comment> getComments(com.imageworks.spcue.Host h) {
-        return getJdbcTemplate().query(
+    public CommentSeq getComments(HostInterface h) {
+        List<Comment> comments = getJdbcTemplate().query(
                 GET_HOST_COMMENTS, COMMENT_MAPPER, h.getHostId());
+        return CommentSeq.newBuilder().addAllComments(comments).build();
     }
 
     @Override
-    public List<Comment> getComments(com.imageworks.spcue.Job j) {
-        return getJdbcTemplate().query(
+    public CommentSeq getComments(JobInterface j) {
+        List<Comment> comments = getJdbcTemplate().query(
                 GET_JOB_COMMENTS, COMMENT_MAPPER, j.getJobId());
+        return CommentSeq.newBuilder().addAllComments(comments).build();
     }
 
     @Override
-    public UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-            List<com.imageworks.spcue.Layer> layers, int epochSeconds) {
+    public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
+                                                    List<LayerInterface> layers, int epochSeconds) {
 
         if ((System.currentTimeMillis() / 1000) - epochSeconds > 60) {
             long timeDiff = System.currentTimeMillis() - epochSeconds;
@@ -545,40 +534,42 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     "a minute off the current time, difference was: " + timeDiff);
         }
 
-        UpdatedFrameCheckResult result = new UpdatedFrameCheckResult();
-        result.state = JobState.valueOf(getJdbcTemplate().queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",String.class, job.getJobId()));
+        UpdatedFrameCheckResult.Builder resultBuilder = UpdatedFrameCheckResult.newBuilder();
+        resultBuilder.setState(JobState.valueOf(getJdbcTemplate().queryForObject(
+                "SELECT str_state FROM job WHERE pk_job=?",String.class, job.getJobId())));
 
         FrameSearch r = new FrameSearch(job);
         List<String> lids = new ArrayList<String>(layers.size());
-        for (com.imageworks.spcue.Layer l: layers) {
+        for (LayerInterface l: layers) {
             lids.add(l.getLayerId());
         }
         r.addPhrase("layer.pk_layer",lids);
         r.addGreaterThanTimestamp("frame.ts_updated", epochSeconds);
         r.setMaxResults(100);
 
-        result.updatedFrames = getJdbcTemplate().query(
+        List<UpdatedFrame> updatedFrameList = getJdbcTemplate().query(
                 r.getQuery(GET_UPDATED_FRAME), UPDATED_FRAME_MAPPER, r.getValuesArray());
-        result.serverTime = (int) (System.currentTimeMillis() / 1000) - 1;
+        resultBuilder.setUpdatedFrames(UpdatedFrameSeq.newBuilder().addAllUpdatedFrames(updatedFrameList).build());
+        resultBuilder.setServerTime((int) (System.currentTimeMillis() / 1000) - 1);
 
-        return result;
+        return resultBuilder.build();
     }
 
     @Override
     public Department getDepartment(
-            com.imageworks.spcue.Show show, String name) {
+            ShowInterface show, String name) {
         return getJdbcTemplate().queryForObject(
                 GET_DEPARTMENT, DEPARTMENT_MAPPER,
                 show.getShowId(), name);
     }
 
     @Override
-    public List<Department> getDepartments (
-            com.imageworks.spcue.Show show) {
-        return getJdbcTemplate().query(
+    public DepartmentSeq getDepartments (
+            ShowInterface show) {
+        List<Department> departments = getJdbcTemplate().query(
                 GET_DEPARTMENTS, DEPARTMENT_MAPPER,
                 show.getShowId());
+        return DepartmentSeq.newBuilder().addAllDepartments(departments).build();
     }
 
     @Override
@@ -592,14 +583,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public Task getTask(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept, String shot) {
+    public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
         return getJdbcTemplate().queryForObject(
                 GET_TASK + " AND point.pk_show=? AND point.pk_dept=? AND task.str_shot=?",
                 TASK_MAPPER, show.getShowId(), dept.getDepartmentId(), shot);
     }
 
     @Override
-    public List<Task> getTasks(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept) {
+    public List<Task> getTasks(ShowInterface show, DepartmentInterface dept) {
         if (dept == null) {
             return getJdbcTemplate().query(
                     GET_TASK + " AND point.pk_show=? ORDER BY task.str_shot",
@@ -613,35 +604,37 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
 
     @Override
-    public List<Deed> getDeeds(com.imageworks.spcue.Owner owner) {
-        return getJdbcTemplate().query(
+    public DeedSeq getDeeds(OwnerEntity owner) {
+        List<Deed> deeds = getJdbcTemplate().query(
                 QUERY_FOR_DEED + " AND owner.pk_owner=?",
                 DEED_MAPPER, owner.getId());
+        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
     }
 
     @Override
-    public List<Deed> getDeeds(com.imageworks.spcue.Show show) {
-        return getJdbcTemplate().query(
+    public DeedSeq getDeeds(ShowInterface show) {
+        List<Deed> deeds =  getJdbcTemplate().query(
                 QUERY_FOR_DEED + " AND show.pk_show=?",
                 DEED_MAPPER, show.getId());
+        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
     }
 
     @Override
-    public Host getHost(com.imageworks.spcue.Deed deed) {
+    public Host getHost(DeedEntity deed) {
         return getJdbcTemplate().queryForObject(
                 GET_HOST + " AND host.pk_host=?",
                 HOST_MAPPER, deed.id);
     }
 
     @Override
-    public Deed getDeed(com.imageworks.spcue.Host host) {
+    public Deed getDeed(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_DEED + " AND host.pk_host=?",
                 DEED_MAPPER, host.getHostId());
     }
 
     @Override
-    public List<Host> getHosts(com.imageworks.spcue.Owner owner) {
+    public HostSeq getHosts(OwnerEntity owner) {
         StringBuilder sb = new StringBuilder(4096);
         String query = GET_HOST;
         query = query.replace("FROM " , "FROM owner, deed,");
@@ -650,12 +643,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         sb.append("AND deed.pk_owner = owner.pk_owner ");
         sb.append("AND owner.pk_owner = ?");
 
-        return getJdbcTemplate().query(
+        List<Host> hosts = getJdbcTemplate().query(
                 sb.toString(), HOST_MAPPER, owner.getId());
+        return HostSeq.newBuilder().addAllHosts(hosts).build();
     }
 
     @Override
-    public Owner getOwner(com.imageworks.spcue.Deed deed) {
+    public Owner getOwner(DeedEntity deed) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_OWNER + " AND " +
                 "pk_owner = (SELECT deed.pk_owner FROM deed " +
@@ -664,7 +658,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public Owner getOwner(
-            com.imageworks.spcue.Host host) {
+            HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_OWNER + " AND " +
                 "pk_owner = (SELECT deed.pk_owner FROM deed " +
@@ -672,7 +666,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Owner> getOwners(com.imageworks.spcue.Show show) {
+    public List<Owner> getOwners(ShowInterface show) {
         return getJdbcTemplate().query(
                 QUERY_FOR_OWNER + " AND owner.pk_show=?", OWNER_MAPPER,
                 show.getShowId());
@@ -688,11 +682,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
 
     @Override
-    public List<RenderPartition> getRenderPartitions(
-            com.imageworks.spcue.Host host) {
-        return getJdbcTemplate().query(QUERY_FOR_RENDER_PART +
+    public RenderPartitionSeq getRenderPartitions(
+            HostInterface host) {
+        List<RenderPartition> partitions = getJdbcTemplate().query(QUERY_FOR_RENDER_PART +
                 "WHERE host_local.pk_host = ?",
                 RENDER_PARTION_MAPPER, host.getHostId());
+        return RenderPartitionSeq.newBuilder().addAllRenderPartitions(partitions).build();
     }
 
 
@@ -728,75 +723,58 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Matcher> MATCHER_MAPPER =
         new RowMapper<Matcher>() {
             public Matcher mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Matcher matcher = new Matcher();
-                MatcherData data = new MatcherData();
-
-                matcher.data = data;
-                matcher.proxy = MatcherInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_matcher"),"manageMatcher")));
-
-                data.input = rs.getString("str_value");
-                data.subject = MatchSubject.valueOf(rs.getString("str_subject"));
-                data.type = MatchType.valueOf(rs.getString("str_match"));
-                return matcher;
+                return Matcher.newBuilder()
+                        .setId(rs.getString("pk_matcher"))
+                        .setInput(rs.getString("str_value"))
+                        .setSubject(MatchSubject.valueOf(rs.getString("str_subject")))
+                        .setType(MatchType.valueOf(rs.getString("str_match")))
+                        .build();
             }
     };
+
     public static final RowMapper<Filter> FILTER_MAPPER =
         new RowMapper<Filter>() {
             public Filter mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Filter filter = new Filter();
-                FilterData data = new FilterData();
-
-                filter.data = data;
-                filter.proxy = FilterInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_filter"),"manageFilter")));
-
-                data.type = FilterType.valueOf(rs.getString("str_type"));
-                data.order = rs.getInt("f_order");
-                data.name = rs.getString("str_name");
-                data.enabled = rs.getBoolean("b_enabled");
-
-                return filter;
+                return Filter.newBuilder()
+                        .setId(rs.getString("pk_filter"))
+                        .setType(FilterType.valueOf(rs.getString("str_type")))
+                        .setOrder(rs.getInt("f_order"))
+                        .setName(rs.getString("str_name"))
+                        .setEnabled(rs.getBoolean("b_enabled"))
+                        .build();
             }
     };
 
     public static final RowMapper<Action> ACTION_MAPPER =
         new RowMapper<Action>() {
             public Action mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Action action = new Action();
-                ActionData data = new ActionData();
+                Action.Builder builder = Action.newBuilder();
+                builder.setId(rs.getString("pk_action"));
+                builder.setBooleanValue(false);
+                builder.setIntegerValue(0);
+                builder.setFloatValue(0f);
+                builder.setStringValue("");
+                builder.setType(ActionType.valueOf(rs.getString("str_action")));
+                builder.setValueType(ActionValueType.valueOf(rs.getString("str_value_type")));
 
-                action.data = data;
-                action.proxy = ActionInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_action"),"manageAction")));
-
-                data.booleanValue = false;
-                data.groupValue = null;
-                data.integerValue = 0;
-                data.floatValue = 0f;
-                data.stringValue = "";
-                data.type = ActionType.valueOf(rs.getString("str_action"));
-                data.valueType = ActionValueType.valueOf(rs.getString("str_value_type"));
-
-                switch (data.valueType) {
-                    case GroupType:
-                        data.groupValue =  GroupInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                                .createProxy(new Ice.Identity(rs.getString("pk_folder"),"manageGroup")));
+                switch (builder.getValueType()) {
+                    case GROUP_TYPE:
+                        builder.setGroupValue(rs.getString("pk_folder"));
                         break;
-                    case StringType:
-                        data.stringValue = rs.getString("str_value");
+                    case STRING_TYPE:
+                        builder.setStringValue(rs.getString("str_value"));
                         break;
-                    case IntegerType:
-                        data.integerValue = rs.getInt("int_value");
+                    case INTEGER_TYPE:
+                        builder.setIntegerValue(rs.getInt("int_value"));
                         break;
-                    case FloatType:
-                        data.floatValue = rs.getFloat("float_value");
+                    case FLOAT_TYPE:
+                        builder.setFloatValue(rs.getFloat("float_value"));
                         break;
-                    case BooleanType:
-                        data.booleanValue = rs.getBoolean("b_value");
+                    case BOOLEAN_TYPE:
+                        builder.setBooleanValue(rs.getBoolean("b_value"));
                         break;
                 }
-                return action;
+                return builder.build();
             }
     };
 
@@ -811,25 +789,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Deed> DEED_MAPPER =
         new RowMapper<Deed>() {
             public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Deed d = new Deed();
-                d.host = rs.getString("str_host");
-                d.owner = rs.getString("str_username");
-                d.show = rs.getString("str_show");
-                d.blackout = rs.getBoolean("b_blackout");
-
-                d.blackoutStartTime = new int[1];
-                d.blackoutStopTime = new int[1];
-
-                d.blackoutStartTime[0] = rs.getInt("int_blackout_start");
-                d.blackoutStopTime[0] = rs.getInt("int_blackout_stop");
-
-                d.proxy = DeedInterfacePrxHelper.uncheckedCast(
-                        iceServer.getAdapter().createProxy(
-                                new Ice.Identity(
-                                        rs.getString("pk_deed"),
-                                        "manageDeed")));
-
-                return d;
+                return Deed.newBuilder()
+                        .setId(rs.getString("pk_deed"))
+                        .setHost(rs.getString("str_host"))
+                        .setOwner(rs.getString("str_username"))
+                        .setBlackout(rs.getBoolean("b_blackout"))
+                        .setBlackoutStartTime(rs.getInt("int_blackout_start"))
+                        .setBlackoutStopTime(rs.getInt("int_blackout_stop"))
+                        .build();
             }
     };
 
@@ -837,116 +804,97 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         RENDER_PARTION_MAPPER = new RowMapper<RenderPartition>() {
         public RenderPartition mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-            RenderPartition r = new RenderPartition();
-
-            r.cores = rs.getInt("int_cores_max") - rs.getInt("int_cores_idle");
-            r.maxCores = rs.getInt("int_cores_max");
-            r.threads = rs.getInt("int_threads");
-            r.maxMemory = rs.getLong("int_mem_max");
-            r.memory =  rs.getLong("int_mem_max") - rs.getLong("int_mem_idle");
-            r.maxGpu = rs.getLong("int_gpu_max");
-            r.host = rs.getString("str_host_name");
-            r.job = rs.getString("str_job_name");
-            r.renderPartType = RenderPartitionType.valueOf(rs.getString("str_type"));
-
-            r.layer = new String[1];
-            r.frame = new String[1];
+            RenderPartition.Builder builder = RenderPartition.newBuilder()
+                    .setId(rs.getString("pk_host_local"))
+                    .setCores(rs.getInt("int_cores_max") - rs.getInt("int_cores_idle"))
+                    .setMaxCores(rs.getInt("int_cores_max"))
+                    .setThreads(rs.getInt("int_threads"))
+                    .setMaxMemory(rs.getLong("int_mem_max"))
+                    .setMemory( rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
+                    .setMaxGpu(rs.getLong("int_gpu_max"))
+                    .setHost(rs.getString("str_host_name"))
+                    .setJob(rs.getString("str_job_name"))
+                    .setRenderPartType(RenderPartitionType.valueOf(rs.getString("str_type")))
+                    .setLayer("")
+                    .setFrame("");
 
             if (rs.getString("str_layer_name") != null) {
-                r.layer[0] = rs.getString("str_layer_name");
+                builder.setLayer(rs.getString("str_layer_name"));
             }
 
             if (rs.getString("str_frame_name") != null) {
-                r.frame[0] = rs.getString("str_frame_name") ;
+                builder.setFrame(rs.getString("str_frame_name"));
             }
 
-            r.proxy = RenderPartitionInterfacePrxHelper.uncheckedCast(
-                    iceServer.getAdapter().createProxy(
-                            new Ice.Identity(
-                                    rs.getString("pk_host_local"),
-                                    "manageRenderPartition")));
-
-            return r;
+            return builder.build();
 
         }
-};
+    };
 
     public static final RowMapper<Owner>
         OWNER_MAPPER = new RowMapper<Owner>() {
             public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Owner o = new Owner();
-                o.name = rs.getString("str_username");
-                o.show = rs.getString("str_show");
-                o.hostCount = rs.getInt("host_count");
-                o.proxy = OwnerInterfacePrxHelper.uncheckedCast(
-                        iceServer.getAdapter().createProxy(
-                                new Ice.Identity(
-                                        rs.getString("pk_owner"),
-                                        "manageOwner")));
-
-                return o;
+                return Owner.newBuilder()
+                        .setName(rs.getString("str_username"))
+                        .setId(rs.getString("pk_owner"))
+                        .setShow(rs.getString("str_show"))
+                        .setHostCount(rs.getInt("host_count"))
+                        .build();
             }
     };
 
     public static final RowMapper<Department> DEPARTMENT_MAPPER =
         new RowMapper<Department>() {
         public Department mapRow(ResultSet rs, int row) throws SQLException {
-            Department d = new Department();
-            d.data = new DepartmentData();
-            d.data.dept = rs.getString("str_dept");
-            d.data.name = rs.getString("str_name");
-            d.data.tiManaged = rs.getBoolean("b_managed");
-            d.data.tiTask = rs.getString("str_ti_task");
-            d.data.minCores = Convert.coreUnitsToCores(rs.getInt("int_min_cores"));
-            d.proxy = DepartmentInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                    .createProxy(new Ice.Identity(rs.getString("pk_point"),"manageDepartment")));
-            return d;
+            return Department.newBuilder()
+                    .setId(rs.getString("pk_point"))
+                    .setName(rs.getString("str_name"))
+                    .setDept(rs.getString("str_dept"))
+                    .setTiManaged(rs.getBoolean("b_managed"))
+                    .setTiTask(rs.getString("str_ti_task"))
+                    .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                    .build();
         }
     };
 
     public static final RowMapper<Proc> PROC_MAPPER =
         new RowMapper<Proc>() {
         public Proc mapRow(ResultSet rs, int row) throws SQLException {
-            Proc proc = new Proc();
-            proc.data = new ProcData();
-            proc.data.name  = CueUtil.buildProcName(rs.getString("host_name"),
-                    rs.getInt("int_cores_reserved"));
-
-            proc.data.reservedCores = Convert.coreUnitsToCores(rs.getInt("int_cores_reserved"));
-            proc.data.reservedMemory = rs.getLong("int_mem_reserved");
-            proc.data.reservedGpu = rs.getLong("int_gpu_reserved");
-            proc.data.usedMemory = rs.getLong("int_mem_used");
-            proc.data.frameName = rs.getString("frame_name");
-            proc.data.jobName = rs.getString("job_name");
-            proc.data.groupName = rs.getString("folder_name");
-            proc.data.showName = rs.getString("show_name");
-            proc.data.pingTime = (int) (rs.getTimestamp("ts_ping").getTime() / 1000);
-            proc.data.bookedTime = (int) (rs.getTimestamp("ts_booked").getTime() / 1000);
-            proc.data.dispatchTime = (int) (rs.getTimestamp("ts_dispatched").getTime() / 1000);
-            proc.data.unbooked = rs.getBoolean("b_unbooked");
-            proc.data.logPath = String.format("%s/%s.%s.rqlog",
-                    rs.getString("str_log_dir"),rs.getString("job_name"),
-                    rs.getString("frame_name"));
-            proc.data.redirectTarget = rs.getString("str_redirect");
-            proc.data.services = rs.getString("str_services").split(",");
-            proc.proxy = ProcInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                    .createProxy(new Ice.Identity(rs.getString("pk_proc"),"manageProc")));
-            return proc;
+            return Proc.newBuilder()
+                    .setId(rs.getString("pk_proc"))
+                    .setName(CueUtil.buildProcName(rs.getString("host_name"),
+                            rs.getInt("int_cores_reserved")))
+                    .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
+                    .setReservedMemory(rs.getLong("int_mem_reserved"))
+                    .setReservedGpu(rs.getLong("int_gpu_reserved"))
+                    .setUsedMemory(rs.getLong("int_mem_used"))
+                    .setFrameName(rs.getString("frame_name"))
+                    .setJobName(rs.getString("job_name"))
+                    .setGroupName(rs.getString("folder_name"))
+                    .setShowName(rs.getString("show_name"))
+                    .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                    .setBookedTime((int) (rs.getTimestamp("ts_booked").getTime() / 1000))
+                    .setDispatchTime((int) (rs.getTimestamp("ts_dispatched").getTime() / 1000))
+                    .setUnbooked(rs.getBoolean("b_unbooked"))
+                    .setLogPath(String.format("%s/%s.%s.rqlog",
+                            rs.getString("str_log_dir"),rs.getString("job_name"),
+                            rs.getString("frame_name")))
+                    .setRedirectTarget(rs.getString("str_redirect"))
+                    .addAllServices(Arrays.asList(rs.getString("str_services").split(",")))
+                    .build();
         }
     };
 
     public static final RowMapper<Task> TASK_MAPPER =
         new RowMapper<Task>() {
         public Task mapRow(ResultSet rs, int row) throws SQLException {
-            Task t = new Task();
-            t.data = new TaskData();
-            t.data.dept = rs.getString("str_dept");
-            t.data.shot = rs.getString("str_shot");
-            t.data.minCores = Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores"));
-            t.data.adjustCores = Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores"));
-            t.proxy = TaskInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                    .createProxy(new Ice.Identity(rs.getString("pk_task"),"manageTask")));
-            return t;
+            return Task.newBuilder()
+                    .setId(rs.getString("pk_task"))
+                    .setDept(rs.getString("str_dept"))
+                    .setShot(rs.getString("str_shot"))
+                    .setMinCores(Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores")))
+                    .setAdjustCores(Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores")))
+                    .build();
         }
     };
 
@@ -954,94 +902,110 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Comment>() {
 
         public Comment mapRow(ResultSet rs, int row) throws SQLException {
-            Comment comment = new Comment();
-            comment.data = new CommentData();
-            comment.data.message = rs.getString("str_message");
-            comment.data.subject = rs.getString("str_subject");
-            comment.data.timestamp = (int)(rs.getTimestamp("ts_created").getTime() / 1000);
-            comment.data.user = rs.getString("str_user");
-            comment.proxy = CommentInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                    .createProxy(new Ice.Identity(rs.getString("pk_comment"),"manageComment")));
-            return comment;
+            return Comment.newBuilder()
+                    .setId(rs.getString("pk_comment"))
+                    .setMessage(rs.getString("str_message"))
+                    .setSubject(rs.getString("str_subject"))
+                    .setTimestamp((int)(rs.getTimestamp("ts_created").getTime() / 1000))
+                    .setUser(rs.getString("str_user"))
+                    .build();
         }
     };
 
-    // TODO: (gdenton) Remove this once the it is no longer needed by ICE
-    // Map grpc (uppercase) enum to ice (camelcase) enum.
-    public static final String mapHostStateToIceString(String hostState) {
-        String lowerState = hostState.toLowerCase();
-        return lowerState.substring(0, 1).toUpperCase() + lowerState.substring(1);
+    public static NestedHost.Builder mapNestedHostBuilder(ResultSet rs) throws SQLException {
+        NestedHost.Builder builder = NestedHost.newBuilder();
+        builder.setId(rs.getString("pk_host"));
+        builder.setName(rs.getString("host_name"));
+        builder.setAllocName(rs.getString("alloc_name"));
+        builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
+        builder.setFreeMcp(rs.getLong("int_mcp_free"));
+        builder.setFreeMemory(rs.getLong("int_mem_free"));
+        builder.setFreeSwap(rs.getLong("int_swap_free"));
+        builder.setFreeGpu(rs.getLong("int_gpu_free"));
+        builder.setLoad(rs.getInt("int_load"));
+        builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
+        builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
+        builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
+        builder.setMemory(rs.getLong("int_mem"));
+        builder.setIdleMemory(rs.getLong("int_mem_idle"));
+        builder.setGpu(rs.getLong("int_gpu"));
+        builder.setIdleGpu(rs.getLong("int_gpu_idle"));
+        builder.setState(HardwareState.valueOf(rs.getString("host_state")));
+        builder.setTotalMcp(rs.getLong("int_mcp_total"));
+        builder.setTotalMemory(rs.getLong("int_mem_total"));
+        builder.setTotalSwap(rs.getLong("int_swap_total"));
+        builder.setTotalGpu(rs.getLong("int_gpu_total"));
+        builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
+        builder.setLockState(LockState.valueOf(rs.getString("str_lock_state")));
+        builder.setHasComment(rs.getBoolean("b_comment"));
+        builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
+        builder.setOs(rs.getString("str_os"));
+
+        String tags = rs.getString("str_tags");
+        if (tags != null)
+            builder.addAllTags(Arrays.asList(tags.split(" ")));
+        return builder;
     }
 
-    public static final HostData mapHostData(ResultSet rs) throws SQLException {
-        HostData data = new HostData();
-        data.name = rs.getString("host_name");
-        data.allocName = rs.getString("alloc_name");
-        data.bootTime = (int) (rs.getTimestamp("ts_booted").getTime() / 1000);
-        data.freeMcp = rs.getLong("int_mcp_free");
-        data.freeMemory = rs.getLong("int_mem_free");
-        data.freeSwap = rs.getLong("int_swap_free");
-        data.freeGpu = rs.getLong("int_gpu_free");
-        data.load = rs.getInt("int_load");
-        data.nimbyEnabled = rs.getBoolean("b_nimby");
-        data.cores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-        data.idleCores = Convert.coreUnitsToCores(rs.getInt("int_cores_idle"));
-        data.memory = rs.getLong("int_mem");
-        data.idleMemory = rs.getLong("int_mem_idle");
-        data.gpu = rs.getLong("int_gpu");
-        data.idleGpu = rs.getLong("int_gpu_idle");
-        data.state = HardwareState.valueOf(mapHostStateToIceString(rs.getString("host_state")));
-        data.totalMcp = rs.getLong("int_mcp_total");
-        data.totalMemory = rs.getLong("int_mem_total");
-        data.totalSwap = rs.getLong("int_swap_total");
-        data.totalGpu = rs.getLong("int_gpu_total");
-        data.pingTime = (int) (rs.getTimestamp("ts_ping").getTime() / 1000);
-        data.lockState = LockState.valueOf(rs.getString("str_lock_state"));
-        data.hasComment = rs.getBoolean("b_comment");
-        data.threadMode = ThreadMode.valueOf(rs.getInt("int_thread_mode"));
-        data.os = rs.getString("str_os");
+    public static Host.Builder mapHostBuilder(ResultSet rs) throws SQLException {
+        Host.Builder builder = Host.newBuilder();
+        builder.setId(rs.getString("pk_host"));
+        builder.setName(rs.getString("host_name"));
+        builder.setAllocName(rs.getString("alloc_name"));
+        builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
+        builder.setFreeMcp(rs.getLong("int_mcp_free"));
+        builder.setFreeMemory(rs.getLong("int_mem_free"));
+        builder.setFreeSwap(rs.getLong("int_swap_free"));
+        builder.setFreeGpu(rs.getLong("int_gpu_free"));
+        builder.setLoad(rs.getInt("int_load"));
+        builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
+        builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
+        builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
+        builder.setMemory(rs.getLong("int_mem"));
+        builder.setIdleMemory(rs.getLong("int_mem_idle"));
+        builder.setGpu(rs.getLong("int_gpu"));
+        builder.setIdleGpu(rs.getLong("int_gpu_idle"));
+        builder.setState(HardwareState.valueOf(rs.getString("host_state")));
+        builder.setTotalMcp(rs.getLong("int_mcp_total"));
+        builder.setTotalMemory(rs.getLong("int_mem_total"));
+        builder.setTotalSwap(rs.getLong("int_swap_total"));
+        builder.setTotalGpu(rs.getLong("int_gpu_total"));
+        builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
+        builder.setLockState(LockState.valueOf(rs.getString("str_lock_state")));
+        builder.setHasComment(rs.getBoolean("b_comment"));
+        builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
+        builder.setOs(rs.getString("str_os"));
 
         String tags =  rs.getString("str_tags");
         if (tags != null)
-            data.tags = tags.split(" ");
-        else
-            data.tags = new String[0];
-
-        return data;
+            builder.addAllTags(Arrays.asList(tags.split(" ")));
+        return builder;
     }
 
     public static final RowMapper<Host> HOST_MAPPER =
         new RowMapper<Host>() {
         public Host mapRow(ResultSet rs, int row) throws SQLException {
-            String hid = rs.getString("pk_host");
-            Host host = new Host();
-            host.data = mapHostData(rs);
-            host.proxy = HostInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                    .createProxy(new Ice.Identity(hid,"manageHost")));
-            return host;
+            Host.Builder builder = mapHostBuilder(rs);
+            return builder.build();
         }
     };
 
     public static final RowMapper<Depend> DEPEND_MAPPER =
         new RowMapper<Depend>() {
             public Depend mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Depend depend = new Depend();
-                DependData data = new DependData();
-                data.active = rs.getBoolean("b_active");
-                data.anyFrame = rs.getBoolean("b_any");
-                data.dependErFrame = rs.getString("depend_er_frame");
-                data.dependErLayer = rs.getString("depend_er_layer");
-                data.dependErJob = rs.getString("depend_er_job");
-                data.dependOnFrame = rs.getString("depend_on_frame");
-                data.dependOnLayer = rs.getString("depend_on_layer");
-                data.dependOnJob = rs.getString("depend_on_job");
-                data.type = DependType.valueOf(rs.getString("str_type"));
-                data.target = DependTarget.valueOf(rs.getString("str_target"));
-                depend.data = data;
-                depend.proxy = DependInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_depend"),"manageDepend")));
-
-                return depend;
+                return Depend.newBuilder()
+                        .setId(rs.getString("pk_depend"))
+                        .setActive(rs.getBoolean("b_active"))
+                        .setAnyFrame(rs.getBoolean("b_any"))
+                        .setDependErFrame(rs.getString("depend_er_frame"))
+                        .setDependErLayer(rs.getString("depend_er_layer"))
+                        .setDependErJob(rs.getString("depend_er_job"))
+                        .setDependOnFrame(rs.getString("depend_on_frame"))
+                        .setDependOnLayer(rs.getString("depend_on_layer"))
+                        .setDependOnJob(rs.getString("depend_on_job"))
+                        .setType(DependType.valueOf(rs.getString("str_type")))
+                        .setTarget(DependTarget.valueOf(rs.getString("str_target")))
+                        .build();
             }
     };
 
@@ -1071,179 +1035,158 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Group>() {
 
             public Group mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Group group = new Group();
-                group.data = new GroupData();
-                group.stats = new GroupStats();
-
-                group.data.name = rs.getString("group_name");
-                group.data.department = rs.getString("str_dept");
-
-                group.data.defaultJobPriority = rs.getInt("int_job_priority");
-                group.data.defaultJobMinCores =
-                    Convert.coreUnitsToCores(rs.getInt("int_job_min_cores"));
-                group.data.defaultJobMaxCores =
-                    Convert.coreUnitsToCores(rs.getInt("int_job_max_cores"));
-                group.data.maxCores = Convert.coreUnitsToCores(rs.getInt("int_max_cores"));
-                group.data.minCores = Convert.coreUnitsToCores(rs.getInt("int_min_cores"));
-
-                group.data.level = rs.getInt("int_level");
-                group.stats.deadFrames = rs.getInt("int_dead_count");
-                group.stats.runningFrames = rs.getInt("int_running_count");
-                group.stats.waitingFrames = rs.getInt("int_waiting_count");
-                group.stats.dependFrames = rs.getInt("int_depend_count");
-                group.stats.pendingJobs = rs.getInt("int_job_count");
-                group.stats.reservedCores =  Convert.coreUnitsToCores(rs.getInt("int_cores"));
-
-                group.proxy = GroupInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_folder"),"manageGroup")));
-                return group;
+                GroupStats stats = GroupStats.newBuilder()
+                        .setDeadFrames(rs.getInt("int_dead_count"))
+                        .setRunningFrames(rs.getInt("int_running_count"))
+                        .setWaitingFrames(rs.getInt("int_waiting_count"))
+                        .setDependFrames(rs.getInt("int_depend_count"))
+                        .setPendingJobs(rs.getInt("int_job_count"))
+                        .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                        .build();
+                return Group.newBuilder()
+                        .setId(rs.getString("pk_folder"))
+                        .setName(rs.getString("group_name"))
+                        .setDepartment(rs.getString("str_dept"))
+                        .setDefaultJobPriority(rs.getInt("int_job_priority"))
+                        .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
+                        .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))
+                        .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
+                        .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                        .setLevel(rs.getInt("int_level"))
+                        .setGroupStats(stats)
+                        .build();
         }
     };
 
     public static final RowMapper<Job> JOB_MAPPER =
         new RowMapper<Job>() {
             public Job mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Job job = new Job();
-                job.data = new JobData();
-                job.data.logDir = rs.getString("str_log_dir");
-                job.data.maxCores = Convert.coreUnitsToCores(rs.getInt("int_max_cores"));
-                job.data.minCores = Convert.coreUnitsToCores(rs.getInt("int_min_cores"));
-                job.data.name = rs.getString("str_name");
-                job.data.priority = rs.getInt("int_priority");
-                job.data.shot = rs.getString("str_shot");
-                job.data.show = rs.getString("str_show");
-                job.data.facility = rs.getString("facility_name");
-                job.data.group = rs.getString("group_name");
-                job.data.state = JobState.valueOf(rs.getString("str_state"));
-                job.data.uid = rs.getInt("int_uid");
-                job.data.user = rs.getString("str_user");
-                job.data.isPaused = rs.getBoolean("b_paused");
-                job.data.hasComment = rs.getBoolean("b_comment");
-                job.data.autoEat = rs.getBoolean("b_autoeat");
-                job.data.startTime = (int) (rs.getTimestamp("ts_started").getTime() / 1000);
-                job.data.os = rs.getString("str_os");
+                Job.Builder jobBuilder = Job.newBuilder()
+                        .setLogDir(rs.getString("str_log_dir"))
+                        .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
+                        .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                        .setName(rs.getString("str_name"))
+                        .setPriority(rs.getInt("int_priority"))
+                        .setShot(rs.getString("str_shot"))
+                        .setShow(rs.getString("str_show"))
+                        .setFacility(rs.getString("facility_name"))
+                        .setGroup(rs.getString("group_name"))
+                        .setState(JobState.valueOf(rs.getString("str_state")))
+                        .setUid(rs.getInt("int_uid"))
+                        .setUser(rs.getString("str_user"))
+                        .setIsPaused(rs.getBoolean("b_paused"))
+                        .setHasComment(rs.getBoolean("b_comment"))
+                        .setAutoEat(rs.getBoolean("b_autoeat"))
+                        .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                        .setOs(rs.getString("str_os"));
 
                 Timestamp ts = rs.getTimestamp("ts_stopped");
                 if (ts != null) {
-                    job.data.stopTime = (int) (ts.getTime() / 1000);
+                    jobBuilder.setStopTime((int) (ts.getTime() / 1000));
                 }
                 else {
-                    job.data.stopTime = 0;
+                    jobBuilder.setStopTime(0);
                 }
 
-                job.stats = mapJobStats(rs);
-                job.proxy = JobInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_job"),"manageJob")));
-
-                return job;
+                jobBuilder.setJobStats(mapJobStats(rs));
+                return jobBuilder.build();
             }
         };
 
         public static JobStats mapJobStats(ResultSet rs) throws SQLException {
 
-            JobStats stats = new JobStats();
+            JobStats.Builder statsBuilder = JobStats.newBuilder()
+                .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setMaxRss(rs.getLong("int_max_rss"))
+                .setTotalFrames(rs.getInt("int_frame_count"))
+                .setTotalLayers(rs.getInt("int_layer_count"))
+                .setWaitingFrames(rs.getInt("int_waiting_count"))
+                .setRunningFrames(rs.getInt("int_running_count"))
+                .setDeadFrames(rs.getInt("int_dead_count"))
+                .setSucceededFrames(rs.getInt("int_succeeded_count"))
+                .setEatenFrames(rs.getInt("int_eaten_count"))
+                .setDependFrames(rs.getInt("int_depend_count"))
+                .setPendingFrames(rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
+                .setFailedCoreSec(rs.getLong("int_core_time_fail"))
+                .setRenderedCoreSec(rs.getLong("int_core_time_success"))
+                .setTotalCoreSec( rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                .setRenderedFrameCount( rs.getLong("int_frame_success_count"))
+                .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                .setHighFrameSec(rs.getInt("int_clock_time_high"));
 
-            stats.reservedCores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-            stats.maxRss = rs.getLong("int_max_rss");
-
-            stats.totalFrames = rs.getInt("int_frame_count");
-            stats.totalLayers = rs.getInt("int_layer_count");
-            stats.waitingFrames = rs.getInt("int_waiting_count");
-            stats.runningFrames = rs.getInt("int_running_count");
-            stats.deadFrames = rs.getInt("int_dead_count");
-            stats.succeededFrames = rs.getInt("int_succeeded_count");
-            stats.eatenFrames = rs.getInt("int_eaten_count");
-            stats.dependFrames = rs.getInt("int_depend_count");
-            stats.pendingFrames = stats.waitingFrames + stats.dependFrames;
-
-            stats.failedCoreSec = rs.getLong("int_core_time_fail");
-            stats.renderedCoreSec = rs.getLong("int_core_time_success");
-            stats.totalCoreSec =  stats.failedCoreSec + stats.renderedCoreSec;
-
-            stats.renderedFrameCount =  rs.getLong("int_frame_success_count");
-            stats.failedFrameCount = rs.getLong("int_frame_fail_count");
-            stats.highFrameSec = rs.getInt("int_clock_time_high");
-
-            if (stats.renderedFrameCount > 0) {
-                stats.avgFrameSec  =
-                    (int) (rs.getLong("int_clock_time_success") / stats.renderedFrameCount);
-                stats.avgCoreSec =
-                    (int) (stats.renderedCoreSec / stats.renderedFrameCount);
-                stats.remainingCoreSec = stats.pendingFrames * stats.avgCoreSec;
+            if (statsBuilder.getRenderedFrameCount() > 0) {
+                statsBuilder.setAvgCoreSec(
+                        (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
+                statsBuilder.setAvgCoreSec(
+                        (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
+                statsBuilder.setRemainingCoreSec(statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
             }
             else {
-                stats.avgFrameSec = 0;
-                stats.avgCoreSec = 0;
-                stats.remainingCoreSec = 0;
+                statsBuilder.setAvgFrameSec(0);
+                statsBuilder.setAvgCoreSec(0);
+                statsBuilder.setRemainingCoreSec(0);
             }
-
-            return stats;
+            return statsBuilder.build();
         }
 
         public static final RowMapper<Layer> LAYER_MAPPER =
             new RowMapper<Layer>() {
                 public Layer mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    Layer layer = new Layer();
-                    layer.data = new LayerData();
-                    layer.stats =  new LayerStats();
+                    Layer.Builder builder = Layer.newBuilder()
+                            .setId(rs.getString("pk_layer"))
+                            .setParentId(rs.getString("pk_job"))
+                            .setChunkSize(rs.getInt("int_chunk_size"))
+                            .setDispatchOrder(rs.getInt("int_dispatch_order"))
+                            .setName(rs.getString("str_name"))
+                            .setRange(rs.getString("str_range"))
+                            .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_cores_min")))
+                            .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))
+                            .setIsThreadable(rs.getBoolean("b_threadable"))
+                            .setMinMemory(rs.getLong("int_mem_min"))
+                            .setMinGpu(rs.getLong("int_gpu_min"))
+                            .setType(LayerType.valueOf(rs.getString("str_type")))
+                            .addAllTags(Sets.newHashSet(
+                                    rs.getString("str_tags").
+                                    replaceAll(" ","").split("\\|")))
+                            .addAllServices(Arrays.asList(rs.getString("str_services").split(",")))
+                            .setMemoryOptimzerEnabled(rs.getBoolean("b_optimize"));
 
-                    layer.data.chunkSize = rs.getInt("int_chunk_size");
-                    layer.data.dispatchOrder = rs.getInt("int_dispatch_order");
-                    layer.data.name = rs.getString("str_name");
-                    layer.data.range = rs.getString("str_range");
-                    layer.data.minCores = Convert.coreUnitsToCores(rs.getInt("int_cores_min"));
-                    layer.data.maxCores = Convert.coreUnitsToCores(rs.getInt("int_cores_max"));
-                    layer.data.isThreadable = rs.getBoolean("b_threadable");
-                    layer.data.minMemory = rs.getLong("int_mem_min");
-                    layer.data.minGpu = rs.getLong("int_gpu_min");
-                    layer.data.type = LayerType.valueOf(rs.getString("str_type"));
-                    layer.data.tags = Sets.newHashSet(
-                            rs.getString("str_tags").
-                            replaceAll(" ","").split("\\|"));
-                    layer.data.services = rs.getString("str_services").split(",");
-                    layer.data.memoryOptimzerEnabled = rs.getBoolean("b_optimize");
+                    LayerStats.Builder statsBuilder = LayerStats.newBuilder()
+                            .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                            .setMaxRss(rs.getLong("int_max_rss"))
+                            .setTotalFrames(rs.getInt("int_total_count"))
+                            .setWaitingFrames(rs.getInt("int_waiting_count"))
+                            .setRunningFrames(rs.getInt("int_running_count"))
+                            .setDeadFrames(rs.getInt("int_dead_count"))
+                            .setSucceededFrames(rs.getInt("int_succeeded_count"))
+                            .setEatenFrames(rs.getInt("int_eaten_count"))
+                            .setDependFrames(rs.getInt("int_depend_count"))
+                            .setPendingFrames(
+                                    rs.getInt("int_waiting_count") + rs.getInt("int_depend_count"))
+                            .setFailedCoreSec(rs.getLong("int_core_time_fail"))
+                            .setRenderedCoreSec(rs.getLong("int_core_time_success"))
+                            .setTotalCoreSec(
+                                    rs.getLong("int_core_time_fail") + rs.getLong("int_core_time_success"))
+                            .setRenderedFrameCount( rs.getLong("int_frame_success_count"))
+                            .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                            .setHighFrameSec(rs.getInt("int_clock_time_high"))
+                            .setLowFrameSec(rs.getInt("int_clock_time_low"));
 
-                    layer.stats.reservedCores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-                    layer.stats.maxRss = rs.getLong("int_max_rss");
-
-                    layer.stats.totalFrames = rs.getInt("int_total_count");
-                    layer.stats.waitingFrames = rs.getInt("int_waiting_count");
-                    layer.stats.runningFrames = rs.getInt("int_running_count");
-                    layer.stats.deadFrames = rs.getInt("int_dead_count");
-                    layer.stats.succeededFrames = rs.getInt("int_succeeded_count");
-                    layer.stats.eatenFrames = rs.getInt("int_eaten_count");
-                    layer.stats.dependFrames = rs.getInt("int_depend_count");
-                    layer.stats.pendingFrames = layer.stats.waitingFrames + layer.stats.dependFrames;
-
-                    layer.stats.failedCoreSec = rs.getLong("int_core_time_fail");
-                    layer.stats.renderedCoreSec = rs.getLong("int_core_time_success");
-                    layer.stats.totalCoreSec =  layer.stats.failedCoreSec + layer.stats.renderedCoreSec;
-
-                    layer.stats.renderedFrameCount =  rs.getLong("int_frame_success_count");
-                    layer.stats.failedFrameCount = rs.getLong("int_frame_fail_count");
-                    layer.stats.highFrameSec = rs.getInt("int_clock_time_high");
-                    layer.stats.lowFrameSec = rs.getInt("int_clock_time_low");
-
-                    if (layer.stats.renderedFrameCount > 0) {
-                        layer.stats.avgFrameSec  =
-                            (int) (rs.getLong("int_clock_time_success") / layer.stats.renderedFrameCount);
-                        layer.stats.avgCoreSec =
-                            (int) (layer.stats.renderedCoreSec / layer.stats.renderedFrameCount);
-                        layer.stats.remainingCoreSec = layer.stats.pendingFrames * layer.stats.avgCoreSec;
+                    if (statsBuilder.getRenderedFrameCount() > 0) {
+                        statsBuilder.setAvgFrameSec(
+                            (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
+                        statsBuilder.setAvgCoreSec(
+                            (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
+                        statsBuilder.setRemainingCoreSec(
+                                statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
                     }
                     else {
-                        layer.stats.avgFrameSec = 0;
-                        layer.stats.avgCoreSec = 0;
-                        layer.stats.remainingCoreSec = 0;
+                        statsBuilder.setAvgFrameSec(0);
+                        statsBuilder.setAvgCoreSec(0);
+                        statsBuilder.setRemainingCoreSec(0);
                     }
-
-                    layer.proxy = LayerInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                            .createProxy(new Ice.Identity(rs.getString("pk_layer"),"manageLayer")));
-
-                    layer.parent = JobInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                            .createProxy(new Ice.Identity(rs.getString("pk_job"),"manageJob")));
-
-                    return layer;
+                    builder.setLayerStats(statsBuilder.build());
+                    return builder.build();
                 }
     };
 
@@ -1260,167 +1203,159 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setFacility(rs.getString("facility_name"))
                         .build();
             }
-    };
+        };
 
     public static final RowMapper<UpdatedFrame> UPDATED_FRAME_MAPPER =
         new RowMapper<UpdatedFrame>() {
             public UpdatedFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
-                UpdatedFrame frame  = new UpdatedFrame();
-                frame.id = rs.getString("pk_frame");
-                frame.exitStatus = rs.getInt("int_exit_status");
-                frame.maxRss = rs.getInt("int_mem_max_used");
-                frame.retryCount = rs.getInt("int_retries");
-                frame.state = FrameState.valueOf(rs.getString("str_state"));
-                frame.usedMemory = rs.getInt("int_mem_used");
+                UpdatedFrame.Builder builder = UpdatedFrame.newBuilder()
+                        .setId(rs.getString("pk_frame"))
+                        .setExitStatus(rs.getInt("int_exit_status"))
+                        .setMaxRss(rs.getInt("int_mem_max_used"))
+                        .setRetryCount(rs.getInt("int_retries"))
+                        .setState(FrameState.valueOf(rs.getString("str_state")))
+                        .setUsedMemory(rs.getInt("int_mem_used"));
 
                 if (rs.getString("str_host") != null) {
-                    frame.lastResource = String.format("%s/%2.2f",rs.getString("str_host"),
-                            Convert.coreUnitsToCores(rs.getInt("int_cores")));
+                    builder.setLastResource(String.format("%s/%2.2f",rs.getString("str_host"),
+                            Convert.coreUnitsToCores(rs.getInt("int_cores"))));
                 }else {
-                    frame.lastResource = "";
+                    builder.setLastResource("");
                 }
 
                 java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
                 if (ts_started != null) {
-                    frame.startTime = (int) (rs.getTimestamp("ts_started").getTime() / 1000);
+                    builder.setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000));
                 }
                 else {
-                    frame.startTime = 0;
+                    builder.setStartTime(0);
                 }
                 java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
                 if (ts_stopped!= null) {
-                    frame.stopTime = (int) (ts_stopped.getTime() / 1000);
+                    builder.setStopTime((int) (ts_stopped.getTime() / 1000));
                 }
                 else {
-                    frame.stopTime = 0;
+                    builder.setStopTime(0);
                 }
 
-                return frame;
+                return builder.build();
             }
     };
 
     public static final RowMapper<Frame> FRAME_MAPPER =
         new RowMapper<Frame>() {
             public Frame mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Frame frame  = new Frame();
-                frame.data = new FrameData();
-                frame.data.name = rs.getString("str_name");
-                frame.data.exitStatus = rs.getInt("int_exit_status");
-                frame.data.maxRss = rs.getLong("int_mem_max_used");
-                frame.data.number = rs.getInt("int_number");
-                frame.data.dispatchOrder = rs.getInt("int_dispatch_order");
-                frame.data.retryCount = rs.getInt("int_retries");
-                frame.data.state = FrameState.valueOf(rs.getString("str_state"));
-                frame.data.layerName = rs.getString("layer_name");
-                frame.data.usedMemory = rs.getLong("int_mem_used");
-                frame.data.reservedMemory = rs.getLong("int_mem_reserved");
-                frame.data.reservedGpu = rs.getLong("int_gpu_reserved");
-                frame.data.checkpointState = CheckpointState.valueOf(
-                        rs.getString("str_checkpoint_state"));
-                frame.data.checkpointCount = rs.getInt("int_checkpoint_count");
+                Frame.Builder builder = Frame.newBuilder()
+                        .setId(rs.getString("pk_frame"))
+                        .setName(rs.getString("str_name"))
+                        .setExitStatus(rs.getInt("int_exit_status"))
+                        .setMaxRss(rs.getLong("int_mem_max_used"))
+                        .setNumber(rs.getInt("int_number"))
+                        .setDispatchOrder(rs.getInt("int_dispatch_order"))
+                        .setRetryCount(rs.getInt("int_retries"))
+                        .setState(FrameState.valueOf(rs.getString("str_state")))
+                        .setLayerName(rs.getString("layer_name"))
+                        .setUsedMemory(rs.getLong("int_mem_used"))
+                        .setReservedMemory(rs.getLong("int_mem_reserved"))
+                        .setReservedGpu(rs.getLong("int_gpu_reserved"))
+                        .setCheckpointState(CheckpointState.valueOf(
+                                rs.getString("str_checkpoint_state")))
+                        .setCheckpointCount(rs.getInt("int_checkpoint_count"));
 
                 if (rs.getString("str_host") != null) {
-                    frame.data.lastResource = CueUtil.buildProcName(rs.getString("str_host"),
-                            rs.getInt("int_cores"));
+                    builder.setLastResource(CueUtil.buildProcName(rs.getString("str_host"),
+                            rs.getInt("int_cores")));
                 } else {
-                    frame.data.lastResource = "";
+                    builder.setLastResource("");
                 }
-
-                frame.proxy = FrameInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_frame"),"manageFrame")));
 
                 java.sql.Timestamp ts_started = rs.getTimestamp("ts_started");
                 if (ts_started != null) {
-                    frame.data.startTime = (int) (rs.getTimestamp("ts_started").getTime() / 1000);
+                    builder.setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000));
                 }
                 else {
-                    frame.data.startTime = 0;
+                    builder.setStartTime(0);
                 }
                 java.sql.Timestamp ts_stopped = rs.getTimestamp("ts_stopped");
                 if (ts_stopped!= null) {
-                    frame.data.stopTime = (int) (ts_stopped.getTime() / 1000);
+                    builder.setStopTime((int) (ts_stopped.getTime() / 1000));
                 }
                 else {
-                    frame.data.stopTime = 0;
+                    builder.setStopTime(0);
                 }
 
-                frame.data.totalCoreTime = rs.getInt("int_total_past_core_time");
-                if (frame.data.state == FrameState.Running) {
-                    frame.data.totalCoreTime = frame.data.totalCoreTime +
-                        (int)(System.currentTimeMillis() / 1000 - frame.data.startTime) * rs.getInt("int_cores") / 100;
+                builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
+                if (builder.getState() == FrameState.RUNNING) {
+                    builder.setTotalCoreTime(builder.getTotalCoreTime() +
+                        (int)(System.currentTimeMillis() / 1000 - builder.getStartTime()) * rs.getInt("int_cores") / 100);
                 }
-                return frame;
+                return builder.build();
             }
     };
 
     private static final RowMapper<Service> SERVICE_MAPPER =
         new RowMapper<Service>() {
             public Service mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Service service = new Service();
-                service.data = new ServiceData();
-                service.data.name = rs.getString("str_name");
-                service.data.threadable = rs.getBoolean("b_threadable");
-                service.data.minCores = rs.getInt("int_cores_min");
-                service.data.maxCores = rs.getInt("int_cores_max");
-                service.data.minMemory = rs.getInt("int_mem_min");
-                service.data.minGpu = rs.getInt("int_gpu_min");
-                service.data.tags = Lists.newArrayList(ServiceDaoJdbc.splitTags(
-                        rs.getString("str_tags")));
-                service.proxy = ServiceInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_service"),"manageService")));
-                return service;
+                return Service.newBuilder()
+                        .setId(rs.getString("pk_service"))
+                        .setName(rs.getString("str_name"))
+                        .setThreadable(rs.getBoolean("b_threadable"))
+                        .setMinCores(rs.getInt("int_cores_min"))
+                        .setMaxCores(rs.getInt("int_cores_max"))
+                        .setMinMemory(rs.getInt("int_mem_min"))
+                        .setMinGpu(rs.getInt("int_gpu_min"))
+                        .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
+                                rs.getString("str_tags"))))
+                        .build();
             }
     };
 
     private static final RowMapper<ServiceOverride> SERVICE_OVERRIDE_MAPPER =
         new RowMapper<ServiceOverride>() {
             public ServiceOverride mapRow(ResultSet rs, int rowNum) throws SQLException {
-                ServiceOverride service = new ServiceOverride();
-                service.data = new ServiceData();
-                service.data.name = rs.getString("str_name");
-                service.data.threadable = rs.getBoolean("b_threadable");
-                service.data.minCores = rs.getInt("int_cores_min");
-                service.data.maxCores = rs.getInt("int_cores_max");
-                service.data.minMemory = rs.getInt("int_mem_min");
-                service.data.minGpu = rs.getInt("int_gpu_min");
-                service.data.tags = Lists.newArrayList(ServiceDaoJdbc.splitTags(
-                        rs.getString("str_tags")));
-                service.proxy = ServiceOverrideInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_show_service"),
-                                "manageServiceOverride")));
-                return service;
+                Service data = Service.newBuilder()
+                        .setId(rs.getString("pk_show_service"))
+                        .setName(rs.getString("str_name"))
+                        .setThreadable(rs.getBoolean("b_threadable"))
+                        .setMinCores(rs.getInt("int_cores_min"))
+                        .setMaxCores(rs.getInt("int_cores_max"))
+                        .setMinMemory(rs.getInt("int_mem_min"))
+                        .setMinGpu(rs.getInt("int_gpu_min"))
+                        .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
+                                rs.getString("str_tags"))))
+                        .build();
+                return ServiceOverride.newBuilder()
+                        .setId(rs.getString("pk_show_service"))
+                        .setData(data)
+                        .build();
             }
     };
 
     public static final RowMapper<Show> SHOW_MAPPER =
         new RowMapper<Show>() {
             public Show mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Show s = new Show();
-                s.data = new ShowData();
-                s.stats = new ShowStats();
-
-                s.data.name = rs.getString("str_name");
-                s.data.active = rs.getBoolean("b_active");
-                s.data.defaultMaxCores = Convert.coreUnitsToCores(rs.getInt("int_default_max_cores"));
-                s.data.defaultMinCores = Convert.coreUnitsToCores(rs.getInt("int_default_min_cores"));
-                s.data.bookingEnabled = rs.getBoolean("b_booking_enabled");
-                s.data.dispatchEnabled = rs.getBoolean("b_dispatch_enabled");
-                s.data.commentEmail = rs.getString("str_comment_email");
-
-                s.stats.pendingFrames = rs.getInt("int_pending_count");
-                s.stats.runningFrames = rs.getInt("int_running_count");
-                s.stats.deadFrames = rs.getInt("int_dead_count");
-                s.stats.createdFrameCount = rs.getLong("int_frame_insert_count");
-                s.stats.createdJobCount = rs.getLong("int_job_insert_count");
-                s.stats.renderedFrameCount = rs.getLong("int_frame_success_count");
-                s.stats.failedFrameCount = rs.getLong("int_frame_fail_count");
-                s.stats.reservedCores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-                s.stats.pendingJobs = rs.getInt("int_job_count");
-
-                s.proxy = ShowInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_show"),"manageShow")));
-
-                return s;
+                ShowStats stats = ShowStats.newBuilder()
+                        .setPendingFrames(rs.getInt("int_pending_count"))
+                        .setRunningFrames(rs.getInt("int_running_count"))
+                        .setDeadFrames(rs.getInt("int_dead_count"))
+                        .setCreatedFrameCount(rs.getLong("int_frame_insert_count"))
+                        .setCreatedJobCount(rs.getLong("int_job_insert_count"))
+                        .setRenderedFrameCount(rs.getLong("int_frame_success_count"))
+                        .setFailedFrameCount(rs.getLong("int_frame_fail_count"))
+                        .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                        .setPendingJobs(rs.getInt("int_job_count"))
+                        .build();
+                return Show.newBuilder()
+                        .setId(rs.getString("pk_show"))
+                        .setName(rs.getString("str_name"))
+                        .setActive(rs.getBoolean("b_active"))
+                        .setDefaultMaxCores(Convert.coreUnitsToCores(rs.getInt("int_default_max_cores")))
+                        .setDefaultMinCores(Convert.coreUnitsToCores(rs.getInt("int_default_min_cores")))
+                        .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
+                        .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
+                        .setCommentEmail(rs.getString("str_comment_email"))
+                        .setShowStats(stats)
+                        .build();
             }
     };
     /*

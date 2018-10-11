@@ -143,11 +143,12 @@ enum MatchType {
 message Action {
     ActionType type = 1;
     ActionValueType value_type =2;
-    job.Group group_value = 3;
+    string group_value = 3;
     string string_value = 4;
     int32 integer_value = 5;
     float float_value = 6;
     bool boolean_value = 7;
+    string id = 8;
 }
 
 message ActionSeq {
@@ -155,10 +156,11 @@ message ActionSeq {
 }
 
 message Filter {
-    string name = 1;
-    FilterType type = 2;
-    float order = 3;
-    bool enabled = 4;
+    string id = 1;
+    string name = 2;
+    FilterType type = 3;
+    float order = 4;
+    bool enabled = 5;
 }
 
 message FilterSeq {
@@ -169,6 +171,7 @@ message Matcher {
     MatchSubject subject = 1;
     MatchType type = 2;
     string input = 3;
+    string id = 4;
 }
 
 message MatcherSeq {

@@ -48,6 +48,7 @@ message Service {
     int32 min_memory = 5;
     int32 min_gpu = 6;
     repeated string tags = 7;
+    string id = 8;
 }
 
 message ServiceSeq {
@@ -55,7 +56,8 @@ message ServiceSeq {
 }
 
 message ServiceOverride {
-    Service data = 1;
+    string id = 1;
+    Service data = 2;
 }
 
 message ServiceOverrideSeq {

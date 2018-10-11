@@ -40,6 +40,9 @@ service FrameInterface {
     // Get a frame from its unique id
     rpc GetFrame(FrameGetFrameRequest) returns (FrameGetFrameResponse);
 
+    // Get a frame from search criteria
+    rpc GetFrames(FrameGetFramesRequest) returns (FrameGetFramesResponse);
+
     // Returns a list of dependencies setup to depend on this frame.
     rpc GetWhatDependsOnThis(FrameGetWhatDependsOnThisRequest) returns (FrameGetWhatDependsOnThisResponse);
 
@@ -73,10 +76,10 @@ service GroupInterface {
     rpc Delete(GroupDeleteRequest) returns (GroupDeleteResponse);
 
     // Finds a group by show name and group
-    rpc FindGroup(ShowFindGroupRequest) returns (ShowFindGroupResponse);
+    rpc FindGroup(GroupFindGroupRequest) returns (GroupFindGroupResponse);
 
     // Gets a group by its id
-    rpc GetGroup(ShowGetGroupRequest) returns (ShowGetGroupResponse);
+    rpc GetGroup(GroupGetGroupRequest) returns (GroupGetGroupResponse);
 
     // Get child groups of the provided group
     rpc GetGroups(GroupGetGroupsRequest) returns (GroupGetGroupsResponse);
@@ -117,7 +120,7 @@ service GroupInterface {
 
 service JobInterface {
     // Add a comment on this job
-    rpc AddComment(JobAddCommentRequest) returns (JobStaggerFramesResponse);
+    rpc AddComment(JobAddCommentRequest) returns (JobAddCommentResponse);
 
     // Add a render partition to the local host.  This partition will
     // run frames on the specified job.
@@ -146,6 +149,9 @@ service JobInterface {
     // Get the comments for this job
     rpc GetComments(JobGetCommentsRequest) returns (JobGetCommentsResponse);
 
+    // Get the job details
+    rpc GetCurrent(JobGetCurrentRequest) returns (JobGetCurrentResponse);
+
     // Returns a list of all dependencies that this job is involved with
     rpc GetDepends(JobGetDependsRequest) returns (JobGetDependsResponse);
 
@@ -153,13 +159,13 @@ service JobInterface {
     rpc GetFrames(JobGetFramesRequest) returns (JobGetFramesResponse);
 
     // Finds a pending job using the job name
-    rpc GetJob(ShowGetJobRequest) returns (ShowGetJobRequest);
+    rpc GetJob(JobGetJobRequest) returns (JobGetJobResponse);
 
     // Returns a list of jobs based on specified criteria
-    rpc GetJobs(ShowGetJobsRequest) returns (ShowGetJobsResponse);
+    rpc GetJobs(JobGetJobsRequest) returns (JobGetJobsResponse);
 
     // Returns a sequence of job names using search criteria
-    rpc GetJobNames(ShowGetJobNamesRequest) returns (ShowGetJobNamesResponse);
+    rpc GetJobNames(JobGetJobNamesRequest) returns (JobGetJobNamesResponse);
 
     // Returns all layer objects
     rpc GetLayers(JobGetLayersRequest) returns (JobGetLayersResponse);
@@ -242,7 +248,7 @@ service JobInterface {
 
 service LayerInterface {
     // Add RenderPartition to Layer
-    rpc AddRenderPartion(LayerAddRenderPartitionRequest) returns (LayerAddRenderPartitionResponse);
+    rpc AddRenderPartition(LayerAddRenderPartitionRequest) returns (LayerAddRenderPartitionResponse);
 
     // Setup and return a LayerOnFrame dependency
     rpc CreateDependencyOnFrame(LayerCreateDependOnFrameRequest) returns (LayerCreateDependOnFrameResponse);
@@ -424,6 +430,7 @@ message Frame {
     CheckpointState checkpoint_state = 15;
     int32 checkpoint_count = 16;
     int32 total_core_time = 17;
+    string id = 18;
 }
 
 // Object for frame searching
@@ -466,7 +473,7 @@ message UpdatedFrame {
 }
 
 message UpdatedFrameSeq {
-    UpdatedFrame updated_frames = 1;
+    repeated UpdatedFrame updated_frames = 1;
 }
 
 
@@ -490,6 +497,7 @@ message Group {
     float max_cores = 7;
     int32 level = 8;
     GroupStats group_stats = 9;
+    string id = 10;
 }
 
 message GroupSeq {
@@ -526,6 +534,7 @@ message Job {
     int32 start_time = 17;
     int32 stop_time = 18;
     JobStats job_stats = 19;
+    string id = 20;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
@@ -585,6 +594,8 @@ message Layer {
     // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cue3 from lowering memory.
     bool memory_optimzer_enabled = 13;
     LayerStats layer_stats = 14;
+    string id = 15;
+    string parent_id = 16;
 }
 
 message LayerSeq {
@@ -627,6 +638,8 @@ message NestedGroup {
     NestedGroup parent = 9;
     NestedGroupSeq groups = 10;
     NestedJobSeq jobs = 11;
+    GroupStats stats = 12;
+    string id = 13;
 }
 
 message NestedGroupSeq {
@@ -654,6 +667,8 @@ message NestedJob {
     int32 start_time = 17;
     int32 stop_time = 18;
     NestedGroup parent = 19;
+    string id = 20;
+    JobStats stats = 21;
 }
 
 message NestedJobSeq {
@@ -672,6 +687,7 @@ message FrameAddRenderPartitionRequest {
     int32 max_cores = 4;
     int64 max_memory = 5;
     int64 max_gpu = 6;
+    string username = 7;
 }
 
 message FrameAddRenderPartitionResponse {
@@ -815,7 +831,9 @@ message GroupCreateSubGroupRequest {
     string name = 2;
 }
 
-message GroupCreateSubGroupResponse {} // Empty
+message GroupCreateSubGroupResponse {
+    Group group = 1;
+}
 
 // Delete
 message GroupDeleteRequest {
@@ -825,21 +843,21 @@ message GroupDeleteRequest {
 message GroupDeleteResponse {} // Empty
 
 // FindGroup
-message ShowFindGroupRequest {
+message GroupFindGroupRequest {
     string show = 1;
     string name = 2;
 }
 
-message ShowFindGroupResponse {
+message GroupFindGroupResponse {
     Group group = 1;
 }
 
 // GetGroup
-message ShowGetGroupRequest {
+message GroupGetGroupRequest {
     string id = 1;
 }
 
-message ShowGetGroupResponse {
+message GroupGetGroupResponse {
     Group group = 1;
 }
 
@@ -958,6 +976,7 @@ message JobAddRenderPartRequest {
     int32 max_cores = 4;
     int64 max_memory = 5;
     int64 max_gpu = 6;
+    string username = 7;
 }
 
 message JobAddRenderPartResponse {
@@ -1028,6 +1047,15 @@ message JobGetCommentsResponse {
     comment.CommentSeq comments = 1;
 }
 
+// GetCurrent
+message JobGetCurrentRequest {
+    Job job = 1;
+}
+
+message JobGetCurrentResponse {
+    Job job = 1;
+}
+
 // GetDepends
 message JobGetDependsRequest {
     Job job = 1;
@@ -1040,6 +1068,7 @@ message JobGetDependsResponse {
 // GetFrames
 message JobGetFramesRequest {
     Job job = 1;
+    FrameSearchCriteria req = 2;
 }
 
 message JobGetFramesResponse {
@@ -1047,30 +1076,30 @@ message JobGetFramesResponse {
 }
 
 // GetJob
-message ShowGetJobRequest {
+message JobGetJobRequest {
     string id = 1;
 }
 
-message ShowGetJobResponse {
+message JobGetJobResponse {
     Job job = 1;
 }
 
 // GetJobs
-message ShowGetJobsRequest {
+message JobGetJobsRequest {
     JobSearchCriteria r = 1;
 }
 
-message ShowGetJobsResponse {
+message JobGetJobsResponse {
     JobSeq jobs = 1;
 }
 
 // GetJobNames
-message ShowGetJobNamesRequest {
+message JobGetJobNamesRequest {
     job.JobSearchCriteria r = 1;
 }
 
 
-message ShowGetJobNamesResponse {
+message JobGetJobNamesResponse {
     repeated string names = 1;
 }
 
@@ -1203,7 +1232,7 @@ message JobSetAutoEatResponse {} // Empty
 // SetGroup
 message JobSetGroupRequest {
     Job job = 1;
-    string group_name = 2;
+    string group_id = 2;
 }
 
 message JobSetGroupResponse {} // Empty
@@ -1259,6 +1288,7 @@ message LayerAddRenderPartitionRequest {
     int32 max_cores = 4;
     int64 max_memory = 5;
     int64 max_gpu = 6;
+    string username = 7;
 }
 
 message LayerAddRenderPartitionResponse {

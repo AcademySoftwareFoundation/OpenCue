@@ -23,11 +23,11 @@ import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ShowInterface;
 
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.iceclient.RqdClientException;
@@ -154,7 +154,7 @@ public interface Dispatcher {
      * @param numFrames
      * @return
      */
-    List<VirtualProc> dispatchHost(DispatchHost host, Group g);
+    List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface g);
 
     /**
      * Dispatch a host to the specified job.
@@ -164,7 +164,7 @@ public interface Dispatcher {
      * @return A list of procs that were dispatched.
      * @throws DispatcherException if an error occurs.
      */
-    List<VirtualProc> dispatchHost(DispatchHost host, Job job);
+    List<VirtualProc> dispatchHost(DispatchHost host, JobInterface job);
 
     /**
      * Dispatch a host to the specified job.
@@ -174,7 +174,7 @@ public interface Dispatcher {
      * @return A list of procs that were dispatched.
      * @throws DispatcherException if an error occurs.
      */
-    List<VirtualProc> dispatchHost(DispatchHost host, Layer layer);
+    List<VirtualProc> dispatchHost(DispatchHost host, LayerInterface layer);
 
     /**
      * Dispatch a host to the specified job.
@@ -184,7 +184,7 @@ public interface Dispatcher {
      * @return A list of procs that were dispatched.
      * @throws DispatcherException if an error occurs.
      */
-    List<VirtualProc> dispatchHost(DispatchHost host, Frame frame);
+    List<VirtualProc> dispatchHost(DispatchHost host, FrameInterface frame);
 
     /**
      * Dispatch a proc to the specified job.
@@ -193,7 +193,7 @@ public interface Dispatcher {
      * @param job
      * @throws DispatcherException if an error occurs.
      */
-    void dispatchProcToJob(VirtualProc proc, Job job);
+    void dispatchProcToJob(VirtualProc proc, JobInterface job);
 
     /**
      * Return true if the dispatcher should not talk to RQD
@@ -229,6 +229,6 @@ public interface Dispatcher {
      * @param show
      * @return
      */
-    List<VirtualProc> dispatchHost(DispatchHost host, Show show);
+    List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show);
 }
 

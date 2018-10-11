@@ -22,8 +22,6 @@ package com.imageworks.spcue.test.dispatcher;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.annotation.Resource;
@@ -35,9 +33,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.BookingDao;
@@ -194,7 +192,7 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostAutoDetectLayer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, layer, lba);
@@ -243,8 +241,8 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostAutoDetectFrame() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);
@@ -307,7 +305,7 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalLayer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, layer, lba);
@@ -356,8 +354,8 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalFrame() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);
@@ -383,8 +381,8 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalFrameTwice() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);

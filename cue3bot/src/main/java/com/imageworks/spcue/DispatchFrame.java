@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.grpc.job.FrameState;
 
-public class DispatchFrame extends FrameEntity implements Frame {
+public class DispatchFrame extends FrameEntity implements FrameInterface {
 
     public int retries;
     public FrameState state;

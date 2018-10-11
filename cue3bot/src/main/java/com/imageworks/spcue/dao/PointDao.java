@@ -21,11 +21,11 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.PointDetail;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.ShowInterface;
 
 public interface PointDao {
 
@@ -44,7 +44,7 @@ public interface PointDao {
      * @param dept
      * @return
      */
-    PointDetail insertPointConf(Show show, Department dept);
+    PointDetail insertPointConf(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns true if the department is being managed by track-it.
@@ -53,7 +53,7 @@ public interface PointDao {
      * @param dept
      * @return
      */
-    boolean isManaged(Show show, Department dept);
+    boolean isManaged(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns true if a render point config already exists
@@ -63,7 +63,7 @@ public interface PointDao {
      * @param dept
      * @return
      */
-    boolean pointConfExists(Show show, Department dept);
+    boolean pointConfExists(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Updates the number of cores managed by this department
@@ -71,7 +71,7 @@ public interface PointDao {
      * @param cdept
      * @param cores
      */
-    void updateManagedCores(Point cdept, int cores);
+    void updateManagedCores(PointInterface cdept, int cores);
 
     /**
      * Enables TI managed.
@@ -80,14 +80,14 @@ public interface PointDao {
      * @param task
      * @param cores
      */
-    void updateEnableManaged(Point cdept, String task, int cores);
+    void updateEnableManaged(PointInterface cdept, String task, int cores);
 
     /**
      * Disables TI mananaged.
      *
      * @param p
      */
-    void updateDisableManaged(Point cdept);
+    void updateDisableManaged(PointInterface cdept);
 
     /**
      * Returns a list of all managed point configs.
@@ -112,21 +112,21 @@ public interface PointDao {
      * @param dept
      * @return
      */
-    PointDetail getPointConfigDetail(Show show, Department dept);
+    PointDetail getPointConfigDetail(ShowInterface show, DepartmentInterface dept);
 
     /**
     * Updates the time at which the point config was last updated.
     *
     * @param t
     */
-   void updatePointConfUpdateTime(Point t);
+   void updatePointConfUpdateTime(PointInterface t);
 
    /**
     *
     * @param job
     * @return
     */
-   boolean isOverMinCores(Job job);
+   boolean isOverMinCores(JobInterface job);
 
 }
 

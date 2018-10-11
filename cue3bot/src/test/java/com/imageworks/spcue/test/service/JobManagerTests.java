@@ -22,13 +22,12 @@ package com.imageworks.spcue.test.service;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
@@ -42,22 +41,20 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -66,7 +63,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.util.FileSequence.FrameSet;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -358,9 +355,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerFirst() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_2");
+        LayerInterface layer = layerDao.findLayer(job, "pass_2");
 
-        jobManager.reorderLayer(layer, new FrameSet("5-10"), Order.First);
+        jobManager.reorderLayer(layer, new FrameSet("5-10"), Order.FIRST);
 
         assertEquals(Integer.valueOf(-6), jdbcTemplate.queryForObject(
                 "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
@@ -404,7 +401,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         for (String f: order) {
             DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
             jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.Succeeded.toString(),frame.getFrameId());
+                    FrameState.SUCCEEDED.toString(),frame.getFrameId());
             assertEquals(f,frame.getName());
         }
     }
@@ -415,9 +412,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerLast() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Last);
+        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.LAST);
 
         assertEquals(Integer.valueOf(11), jdbcTemplate.queryForObject(
                 "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
@@ -446,7 +443,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         for (String f: order) {
             DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
             jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.Succeeded.toString(),frame.getFrameId());
+                    FrameState.SUCCEEDED.toString(),frame.getFrameId());
             assertEquals(f,frame.getName());
         }
 
@@ -458,9 +455,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerReverse() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Reverse);
+        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.REVERSE);
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
                 "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
@@ -485,7 +482,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testStaggerLayer() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSet staggeredFrameSet = new FrameSet("1-10:2");
         jobManager.staggerLayer(layer,"1-10",2);
 
@@ -510,11 +507,14 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void eatLayer() {
-        Job job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob1();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSearch r = new FrameSearch(layer);
-        r.getCriteria().page = 1;
-        r.getCriteria().limit = 5;
+        FrameSearchCriteria criteria = r.getCriteria();
+        r.setCriteria(criteria.toBuilder()
+                .setPage(1)
+                .setLimit(5)
+                .build());
         jobManagerSupport.eatFrames(r, new Source());
 
         List<Map<String,Object>> frames = jdbcTemplate.queryForList(
@@ -530,8 +530,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void optimizeLayer() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
         assertEquals(Long.valueOf(Dispatcher.MEM_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
                 "SELECT int_mem_min FROM layer WHERE pk_layer=?",
@@ -563,8 +563,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testIsLayerThreadable() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
         assertFalse(jobManager.isLayerThreadable(layer));
     }
@@ -573,8 +573,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testGetLayer() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         assertEquals(layer, jobManager.getLayer(layer.getId()));
     }
 
@@ -583,10 +583,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testFindFrame() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        Frame frame = jobManager.findFrame(layer, 1);
+        FrameInterface frame = jobManager.findFrame(layer, 1);
         assertEquals("0001-pass_1", frame.getName());
     }
 

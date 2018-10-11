@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 
 /**
  * This DAO currently does double duty. It handles the creation, removal, and
@@ -34,7 +34,7 @@ public interface DepartmentDao {
      * @param name
      * @return Department
      */
-    public Department findDepartment(String name);
+    public DepartmentInterface findDepartment(String name);
 
     /**
      * Finds a department by id. Department objects contain only a name and a
@@ -43,7 +43,7 @@ public interface DepartmentDao {
      * @param id
      * @return Department
      */
-    public Department getDepartment(String id);
+    public DepartmentInterface getDepartment(String id);
 
     /**
      * Returns the cue's default department. The default department is assigned
@@ -52,7 +52,7 @@ public interface DepartmentDao {
      *
      * @return Department
      */
-    public Department getDefaultDepartment();
+    public DepartmentInterface getDefaultDepartment();
 
     /**
      * Returns true if the department exists
@@ -75,6 +75,6 @@ public interface DepartmentDao {
      *
      * @param d
      */
-    public void deleteDepartment(Department d);
+    public void deleteDepartment(DepartmentInterface d);
 }
 

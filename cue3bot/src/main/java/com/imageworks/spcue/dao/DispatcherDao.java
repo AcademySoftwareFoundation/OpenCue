@@ -24,11 +24,11 @@ import java.util.Set;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 
 /**
 * DispatcherDao provides DAO methods used by the DispatchService
@@ -43,7 +43,7 @@ public interface DispatcherDao {
      * @param job
      * @return
      */
-    DispatchFrame findNextDispatchFrame(Job job, DispatchHost host);
+    DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host);
 
     /**
      * Returns the next frame based on the supplied job
@@ -52,7 +52,7 @@ public interface DispatcherDao {
      * @param proc
      * @return DispatchFrame
      */
-    DispatchFrame findNextDispatchFrame(Job job, VirtualProc proc);
+    DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc);
 
     /**
      * Finds the next frame on the specified job that can utilize
@@ -62,7 +62,7 @@ public interface DispatcherDao {
      * @param job
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(Job job, DispatchHost host, int limit);
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
 
     /**
      * Returns the next frame based on the supplied job
@@ -71,7 +71,7 @@ public interface DispatcherDao {
      * @param proc
      * @return DispatchFrame
      */
-    List<DispatchFrame> findNextDispatchFrames(Job job, VirtualProc proc, int limit);
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
 
     /**
      * Return a list of jobs which could use resources of the specified
@@ -101,7 +101,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-    Set<String> findDispatchJobs(DispatchHost host, Group g);
+    Set<String> findDispatchJobs(DispatchHost host, GroupInterface g);
 
     /**
      * Finds an under proced job if one exists and returns it,
@@ -111,7 +111,7 @@ public interface DispatcherDao {
      * @param proc
      * @return
      */
-    boolean findUnderProcedJob(Job excludeJob, VirtualProc proc);
+    boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
 
     /**
     * Dispatch the given host to the specified show.  Look for a max of numJobs.
@@ -121,7 +121,7 @@ public interface DispatcherDao {
     * @param numJobs
     * @return
     */
-   Set<String> findDispatchJobs(DispatchHost host, Show show, int numJobs);
+   Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
    /**
     * Find a list of local dispatch jobs.
@@ -139,8 +139,8 @@ public interface DispatcherDao {
     * @param limit
     * @return
     */
-   List<DispatchFrame> findNextDispatchFrames(Layer layer, VirtualProc proc,
-        int limit);
+   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
+                                              int limit);
 
    /**
     * Return a list of frames from the given layer.
@@ -150,8 +150,8 @@ public interface DispatcherDao {
     * @param limit
     * @return
     */
-   List<DispatchFrame> findNextDispatchFrames(Layer layer, DispatchHost host,
-        int limit);
+   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
+                                              int limit);
 }
 
 

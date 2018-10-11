@@ -19,28 +19,28 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.Order;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.util.FileSequence.FrameSet;
 
 public class DispatchReorderFrames implements Runnable {
 
-    private Job job = null;
-    private Layer layer = null;
+    private JobInterface job = null;
+    private LayerInterface layer = null;
     private FrameSet frameSet;
     private Order order;
     private JobManagerSupport jobManagerSupport;
 
-    public DispatchReorderFrames(Job job, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
+    public DispatchReorderFrames(JobInterface job, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
         this.job = job;
         this.frameSet = frameSet;
         this.order = order;
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchReorderFrames(Layer layer, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
+    public DispatchReorderFrames(LayerInterface layer, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
         this.layer = layer;
         this.frameSet = frameSet;
         this.order = order;

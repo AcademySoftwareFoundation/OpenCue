@@ -22,8 +22,6 @@ package com.imageworks.spcue.test.service;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import javax.annotation.Resource;
 
@@ -38,9 +36,9 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.CueIce.RenderPartitionType;
 import com.imageworks.spcue.dao.BookingDao;
@@ -48,7 +46,6 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.iceclient.RqdClient;
@@ -243,7 +240,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         DispatchHost h = createHost();
         JobDetail job = launchJob2();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -267,8 +264,8 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         DispatchHost h = createHost();
         JobDetail job = launchJob2();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);

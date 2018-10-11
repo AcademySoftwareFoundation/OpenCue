@@ -32,9 +32,9 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
@@ -75,9 +75,9 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         // TODO: Fix to allow department tests to run with TrackIt optional
         if (true) { return; }
 
-        Show show = showDao.findShowDetail("pipe");
-        Department dept = departmentDao.getDefaultDepartment();
-        Point rp = pointDao.getPointConfigDetail(show, dept);
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept = departmentDao.getDefaultDepartment();
+        PointInterface rp = pointDao.getPointConfigDetail(show, dept);
 
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
@@ -95,9 +95,9 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
 
         if (true) { return; }
 
-        Show show = showDao.findShowDetail("pipe");
-        Department dept =  departmentDao.getDefaultDepartment();
-        Point rp;
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept =  departmentDao.getDefaultDepartment();
+        PointInterface rp;
 
         try {
             rp = pointDao.getPointConfigDetail(show, dept);

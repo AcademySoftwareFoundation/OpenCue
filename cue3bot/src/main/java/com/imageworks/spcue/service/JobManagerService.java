@@ -28,10 +28,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.google.common.collect.Sets;
 import com.imageworks.spcue.*;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.Order;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -41,9 +40,10 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
-import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.util.FileSequence.FrameSet;
 
 @Transactional
 public class JobManagerService implements JobManager {
@@ -61,18 +61,18 @@ public class JobManagerService implements JobManager {
     private FacilityDao facilityDao;
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobComplete(Job job) {
+    public boolean isJobComplete(JobInterface job) {
         return jobDao.isJobComplete(job);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isLayerComplete(Layer layer) {
+    public boolean isLayerComplete(LayerInterface layer) {
         return layerDao.isLayerComplete(layer);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isLayerThreadable(Layer layer) {
+    public boolean isLayerThreadable(LayerInterface layer) {
         return layerDao.isThreadable(layer);
     }
 
@@ -82,7 +82,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void removeJob(Job job) {
+    public void removeJob(JobInterface job) {
         jobDao.deleteJob(job);
     }
 
@@ -92,7 +92,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Job getJob(String id) {
+    public JobInterface getJob(String id) {
         return jobDao.getJob(id);
     }
 
@@ -102,13 +102,13 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public Job findJob(String name) {
+    public JobInterface findJob(String name) {
         return jobDao.findJob(name);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isOverMinCores(Job job) {
+    public boolean isOverMinCores(JobInterface job) {
         return jobDao.isOverMinCores(job);
     }
 
@@ -119,13 +119,13 @@ public class JobManagerService implements JobManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Frame getFrame(String id) {
+    public FrameInterface getFrame(String id) {
         return frameDao.getFrame(id);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Frame findFrame(Layer layer, int number) {
+    public FrameInterface findFrame(LayerInterface layer, int number) {
         return frameDao.findFrame(layer, number);
     }
 
@@ -140,7 +140,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void setJobPaused(Job job, boolean paused) {
+    public void setJobPaused(JobInterface job, boolean paused) {
         jobDao.updatePaused(job, paused);
     }
 
@@ -165,9 +165,9 @@ public class JobManagerService implements JobManager {
         }
 
         for (BuildableJob job: spec.getJobs()) {
-            jobDao.activateJob(job.detail, JobState.Pending);
+            jobDao.activateJob(job.detail, JobState.PENDING);
             if (job.getPostJob() != null) {
-                jobDao.activateJob(job.getPostJob().detail, JobState.Posted);
+                jobDao.activateJob(job.getPostJob().detail, JobState.POSTED);
             }
         }
     }
@@ -204,7 +204,7 @@ public class JobManagerService implements JobManager {
                 // don't have another version of the job in the DB.
             }
 
-            ShowDetail show = showDao.findShowDetail(job.showName);
+            ShowEntity show = showDao.findShowDetail(job.showName);
             if (!job.isPaused) { job.isPaused = show.paused; }
 
             job.showId = show.id;
@@ -283,7 +283,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public boolean shutdownJob(Job job) {
+    public boolean shutdownJob(JobInterface job) {
         // See JobManagerSupport
         if (jobDao.updateJobFinished(job)) {
             logger.info("shutting down job: " + job.getName());
@@ -295,12 +295,12 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<Frame> findFrames(FrameSearch r) {
+    public List<FrameInterface> findFrames(FrameSearch r) {
         return frameDao.findFrames(r);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateFrameState(Frame frame, FrameState state) {
+    public void updateFrameState(FrameInterface frame, FrameState state) {
         frameDao.updateFrameState(frame, state);
     }
 
@@ -310,7 +310,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Layer getLayer(String id) {
+    public LayerInterface getLayer(String id) {
         return layerDao.getLayer(id);
     }
 
@@ -320,12 +320,12 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void markFrameAsWaiting(Frame frame) {
+    public void markFrameAsWaiting(FrameInterface frame) {
         frameDao.markFrameAsWaiting(frame);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void markFrameAsDepend(Frame frame) {
+    public void markFrameAsDepend(FrameInterface frame) {
         frameDao.markFrameAsDepend(frame);
     }
 
@@ -333,7 +333,7 @@ public class JobManagerService implements JobManager {
      * Creates a new job log directory.  This is only called
      * when launching a job.
      *
-     * @param JobDetail
+     * @param job
      */
     @Transactional(propagation = Propagation.NEVER)
     public void createJobLogDirectory(JobDetail job) {
@@ -343,81 +343,81 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<Layer> getLayers(Job job) {
+    public List<LayerInterface> getLayers(JobInterface job) {
         return layerDao.getLayers(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void increaseLayerMemoryRequirement(Layer layer, long memKb) {
+    public void increaseLayerMemoryRequirement(LayerInterface layer, long memKb) {
         layerDao.increaseLayerMinMemory(layer, memKb);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void reorderLayer(Layer layer, FrameSet frameSet, Order order) {
+    public void reorderLayer(LayerInterface layer, FrameSet frameSet, Order order) {
         switch(order) {
-            case First:
+            case FIRST:
                 frameDao.reorderFramesFirst(layer, frameSet);
                 break;
-            case Last:
+            case LAST:
                 frameDao.reorderFramesLast(layer, frameSet);
                 break;
-            case Reverse:
+            case REVERSE:
                 frameDao.reorderLayerReverse(layer, frameSet);
                 break;
         }
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void staggerLayer(Layer layer, String range, int stagger) {
+    public void staggerLayer(LayerInterface layer, String range, int stagger) {
         frameDao.staggerLayer(layer, range, stagger);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<LayerDetail> getLayerDetails(Job job) {
+    public List<LayerDetail> getLayerDetails(JobInterface job) {
         return layerDao.getLayerDetails(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<ThreadStats> getThreadStats(Layer layer) {
+    public List<ThreadStats> getThreadStats(LayerInterface layer) {
         return layerDao.getThreadStats(layer);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void optimizeLayer(Layer layer, int cores, long maxRss, int runTime) {
+    public void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime) {
         layerDao.balanceLayerMinMemory(layer, maxRss);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void enableMemoryOptimizer(Layer layer, boolean state) {
+    public void enableMemoryOptimizer(LayerInterface layer, boolean state) {
         layerDao.enableMemoryOptimizer(layer, state);
     }
 
     @Override
-    public void appendLayerTag(Layer layer, String tag) {
+    public void appendLayerTag(LayerInterface layer, String tag) {
         layerDao.appendLayerTags(layer, tag);
     }
 
     @Override
-    public void setLayerTag(Layer layer, String tag) {
+    public void setLayerTag(LayerInterface layer, String tag) {
         layerDao.updateLayerTags(layer, Sets.newHashSet(tag));
     }
 
     @Override
-    public void setLayerMinCores(Layer layer, int coreUnits) {
+    public void setLayerMinCores(LayerInterface layer, int coreUnits) {
         layerDao.updateLayerMinCores(layer, coreUnits);
     }
 
     @Override
-    public void setLayerMaxCores(Layer layer, int coreUnits) {
+    public void setLayerMaxCores(LayerInterface layer, int coreUnits) {
         layerDao.updateLayerMaxCores(layer, coreUnits);
     }
 
     @Override
-    public void registerLayerOutput(Layer layer, String filespec) {
+    public void registerLayerOutput(LayerInterface layer, String filespec) {
         try {
             layerDao.insertLayerOutput(layer, filespec);
         } catch (DataAccessException e) {
@@ -428,13 +428,13 @@ public class JobManagerService implements JobManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<String> getLayerOutputs(Layer layer) {
+    public List<String> getLayerOutputs(LayerInterface layer) {
         return layerDao.getLayerOutputs(layer);
     }
 
     @Override
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void updateCheckpointState(Frame frame, CheckpointState state) {
+    public void updateCheckpointState(FrameInterface frame, CheckpointState state) {
 
         if (frameDao.updateFrameCheckpointState(frame, state)) {
             logger.info("Checkpoint state of frame " + frame.getId() +
@@ -448,55 +448,55 @@ public class JobManagerService implements JobManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameDetail findHighestMemoryFrame(Job job) {
+    public FrameDetail findHighestMemoryFrame(JobInterface job) {
         return frameDao.findHighestMemoryFrame(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameDetail findLongestFrame(Job job) {
+    public FrameDetail findLongestFrame(JobInterface job) {
         return frameDao.findLongestFrame(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameDetail findLowestMemoryFrame(Job job) {
+    public FrameDetail findLowestMemoryFrame(JobInterface job) {
         return frameDao.findLowestMemoryFrame(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameDetail findShortestFrame(Job job) {
+    public FrameDetail findShortestFrame(JobInterface job) {
         return frameDao.findShortestFrame(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ExecutionSummary getExecutionSummary(Job job) {
+    public ExecutionSummary getExecutionSummary(JobInterface job) {
         return jobDao.getExecutionSummary(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameStateTotals getFrameStateTotals(Job job) {
+    public FrameStateTotals getFrameStateTotals(JobInterface job) {
         return jobDao.getFrameStateTotals(job);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ExecutionSummary getExecutionSummary(Layer layer) {
+    public ExecutionSummary getExecutionSummary(LayerInterface layer) {
         return layerDao.getExecutionSummary(layer);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public FrameStateTotals getFrameStateTotals(Layer layer) {
+    public FrameStateTotals getFrameStateTotals(LayerInterface layer) {
         return layerDao.getFrameStateTotals(layer);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<Frame> getStaleCheckpoints(int cutoffTimeSec) {
+    public List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec) {
         return frameDao.getStaleCheckpoints(cutoffTimeSec);
     }
 

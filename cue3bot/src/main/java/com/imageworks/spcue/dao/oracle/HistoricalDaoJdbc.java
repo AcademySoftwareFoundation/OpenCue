@@ -23,7 +23,7 @@ import java.util.List;
 
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.dao.HistoricalDao;
 
@@ -36,13 +36,13 @@ public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
          "AND " +
              "systimestamp - job.ts_stopped > ";
 
-    public List<Job> getFinishedJobs(int cutoffHours) {
+    public List<JobInterface> getFinishedJobs(int cutoffHours) {
         String interval = "interval '" + cutoffHours + "' hour";
         return getJdbcTemplate().query(GET_FINISHED_JOBS + interval,
                 JobDaoJdbc.JOB_MAPPER, JobState.Finished.toString());
     }
 
-    public void transferJob(Job job) {
+    public void transferJob(JobInterface job) {
         /**
          * All of the historical transfer happens inside of triggers
          */

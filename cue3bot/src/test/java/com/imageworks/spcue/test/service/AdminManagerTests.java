@@ -31,7 +31,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.service.AdminManager;
 
@@ -62,7 +62,7 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void createShow() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
     }

@@ -20,9 +20,9 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.SubscriptionInterface;
+import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.VirtualProc;
 
 public interface SubscriptionDao {
@@ -33,7 +33,7 @@ public interface SubscriptionDao {
      * @param sub
      * @return
      */
-    boolean hasRunningProcs(Subscription sub);
+    boolean hasRunningProcs(SubscriptionInterface sub);
 
     /**
      * Return true if the given show is at or over its size value for the given
@@ -43,7 +43,7 @@ public interface SubscriptionDao {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverSize(Show show, AllocationInterface alloc);
+    boolean isShowAtOrOverSize(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if the given show is over its size value for the given
@@ -53,7 +53,7 @@ public interface SubscriptionDao {
      * @param show
      * @return
      */
-    boolean isShowOverSize(Show show, AllocationInterface alloc);
+    boolean isShowOverSize(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if adding the given coreUnits would put the show over its
@@ -64,7 +64,7 @@ public interface SubscriptionDao {
      * @param coreUnits
      * @return
      */
-    boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits);
+    boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits);
 
     /**
      * Return true if the given show is at or over its burst value for the given
@@ -74,7 +74,7 @@ public interface SubscriptionDao {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc);
+    boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if the show that is utilizing the given proc has exceeded its
@@ -91,21 +91,21 @@ public interface SubscriptionDao {
      * @param id
      * @return
      */
-    SubscriptionDetail getSubscriptionDetail(String id);
+    SubscriptionEntity getSubscriptionDetail(String id);
 
     /**
      * Insert a new subscription
      *
      * @param detail
      */
-    void insertSubscription(SubscriptionDetail detail);
+    void insertSubscription(SubscriptionEntity detail);
 
     /**
      * Delete specified subscription
      *
      * @param sub
      */
-    void deleteSubscription(Subscription sub);
+    void deleteSubscription(SubscriptionInterface sub);
 
     /**
      * update the size of a subscription
@@ -113,7 +113,7 @@ public interface SubscriptionDao {
      * @param sub
      * @param size
      */
-    void updateSubscriptionSize(Subscription sub, int size);
+    void updateSubscriptionSize(SubscriptionInterface sub, int size);
 
     /**
      * update the subscription burst
@@ -121,6 +121,6 @@ public interface SubscriptionDao {
      * @param sub
      * @param size
      */
-    void updateSubscriptionBurst(Subscription sub, int size);
+    void updateSubscriptionBurst(SubscriptionInterface sub, int size);
 }
 

@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class DepartmentEntity extends Entity implements Department {
+public class DepartmentEntity extends Entity implements DepartmentInterface {
 
     public String getDepartmentId() {
         return id;

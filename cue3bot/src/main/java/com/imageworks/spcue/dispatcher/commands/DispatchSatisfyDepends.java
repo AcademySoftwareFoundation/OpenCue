@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.service.JobManagerSupport;
 
@@ -32,23 +32,23 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchSatisfyDepends implements Runnable {
 
-    private Job job = null;
-    private Layer layer = null;
-    private Frame frame = null;
+    private JobInterface job = null;
+    private LayerInterface layer = null;
+    private FrameInterface frame = null;
     private FrameSearch search;
     private JobManagerSupport jobManagerSupport;
 
-    public DispatchSatisfyDepends(Job job, JobManagerSupport jobManagerSupport) {
+    public DispatchSatisfyDepends(JobInterface job, JobManagerSupport jobManagerSupport) {
         this.job = job;
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchSatisfyDepends(Layer layer, JobManagerSupport jobManagerSupport) {
+    public DispatchSatisfyDepends(LayerInterface layer, JobManagerSupport jobManagerSupport) {
         this.layer = layer;
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchSatisfyDepends(Frame frame, JobManagerSupport jobManagerSupport) {
+    public DispatchSatisfyDepends(FrameInterface frame, JobManagerSupport jobManagerSupport) {
         this.frame = frame;
         this.jobManagerSupport = jobManagerSupport;
     }

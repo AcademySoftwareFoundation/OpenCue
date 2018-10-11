@@ -19,14 +19,13 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueClientIce.HostSearchCriteria;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.grpc.host.HardwareStateSeq;
+import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.grpc.host.HardwareState;
 
 public class HostSearch extends Criteria {
 
@@ -51,21 +50,14 @@ public class HostSearch extends Criteria {
     }
 
     public static final HostSearchCriteria criteriaFactory() {
-        HostSearchCriteria c = new HostSearchCriteria(
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new ArrayList<HardwareState>());
-        return c;
+        return HostSearchCriteria.newBuilder().build();
     }
 
-    public void addHardwareStates(List<HardwareState> s) {
+    public void addHardwareStates(HardwareStateSeq s) {
         // Convert into list of strings and call the
         // super class addPhrase
-        Set<String> items = new HashSet<String>(s.size());
-        for (HardwareState w: s) {
+        Set<String> items = new HashSet<String>(s.getStateCount());
+        for (HardwareState w: s.getStateList()) {
             items.add(w.toString());
         }
         addPhrase("host_stat.str_state",items);
@@ -73,12 +65,12 @@ public class HostSearch extends Criteria {
 
     @Override
     public void buildWhereClause() {
-        addPhrase("host.pk_host",criteria.ids);
-        addPhrase("host.str_name",criteria.hosts);
-        addLikePhrase("host.str_name",criteria.substr);
-        addRegexPhrase("host.str_name",criteria.regex);
-        addPhrase("alloc.str_name",criteria.allocs);
-        addHardwareStates(criteria.states);
+        addPhrase("host.pk_host", criteria.getIdsList());
+        addPhrase("host.str_name", criteria.getHostsList());
+        addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
+        addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
+        addPhrase("alloc.str_name", criteria.getAllocsList());
+        addHardwareStates(criteria.getStates());
     }
 }
 

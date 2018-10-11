@@ -32,12 +32,12 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.ActionType;
-import com.imageworks.spcue.CueIce.ActionValueType;
-import com.imageworks.spcue.CueIce.FilterType;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.ActionValueType;
+import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -69,15 +69,15 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
     private static String FILTER_NAME = "test_filter";
 
-    public Show getShow() {
+    public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
-    public FilterDetail buildFilter() {
-        FilterDetail filter = new FilterDetail();
+    public FilterEntity buildFilter() {
+        FilterEntity filter = new FilterEntity();
         filter.name = FILTER_NAME;
         filter.showId = "00000000-0000-0000-0000-000000000000";
-        filter.type = FilterType.MatchAny;
+        filter.type = FilterType.MATCH_ANY;
         filter.enabled = true;
 
         return filter;
@@ -88,41 +88,41 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rollback(true)
     public void testCreateAction() {
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.PauseJob;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.PAUSE_JOB;
         a1.filterId = f.getFilterId();
         a1.booleanValue = true;
-        a1.valueType = ActionValueType.BooleanType;
+        a1.valueType = ActionValueType.BOOLEAN_TYPE;
         actionDao.createAction(a1);
 
-        ActionDetail a2 = new ActionDetail();
-        a2.type = ActionType.MoveJobToGroup;
+        ActionEntity a2 = new ActionEntity();
+        a2.type = ActionType.MOVE_JOB_TO_GROUP;
         a2.filterId = f.getFilterId();
         a2.groupValue = groupDao.getRootGroupId(getShow());
-        a2.valueType = ActionValueType.GroupType;
+        a2.valueType = ActionValueType.GROUP_TYPE;
         actionDao.createAction(a2);
 
-        ActionDetail a3 = new ActionDetail();
-        a3.type = ActionType.SetJobMaxCores;
+        ActionEntity a3 = new ActionEntity();
+        a3.type = ActionType.SET_JOB_MAX_CORES;
         a3.filterId = f.getFilterId();
         a3.floatValue = 1f;
-        a3.valueType = ActionValueType.FloatType;
+        a3.valueType = ActionValueType.FLOAT_TYPE;
         actionDao.createAction(a3);
 
-        ActionDetail a4 = new ActionDetail();
-        a4.type = ActionType.SetJobMinCores;
+        ActionEntity a4 = new ActionEntity();
+        a4.type = ActionType.SET_JOB_MIN_CORES;
         a4.filterId = f.getFilterId();
         a4.floatValue = 1;
-        a4.valueType = ActionValueType.FloatType;
+        a4.valueType = ActionValueType.FLOAT_TYPE;
         actionDao.createAction(a4);
 
-        ActionDetail a5 = new ActionDetail();
-        a5.type = ActionType.StopProcessing;
+        ActionEntity a5 = new ActionEntity();
+        a5.type = ActionType.STOP_PROCESSING;
         a5.filterId = f.getFilterId();
-        a5.valueType = ActionValueType.NoneType;
+        a5.valueType = ActionValueType.NONE_TYPE;
         actionDao.createAction(a5);
     }
 
@@ -131,13 +131,13 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rollback(true)
     public void testDeleteAction() {
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a = new ActionDetail();
-        a.type = ActionType.StopProcessing;
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
         a.filterId = f.getFilterId();
-        a.valueType = ActionValueType.NoneType;
+        a.valueType = ActionValueType.NONE_TYPE;
         actionDao.createAction(a);
         actionDao.deleteAction(a);
     }
@@ -146,13 +146,13 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testGetAction() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a = new ActionDetail();
-        a.type = ActionType.StopProcessing;
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
         a.filterId = f.getFilterId();
-        a.valueType = ActionValueType.NoneType;
+        a.valueType = ActionValueType.NONE_TYPE;
         actionDao.createAction(a);
         actionDao.getAction(a);
         actionDao.getAction(a.getActionId());
@@ -162,19 +162,19 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testUpdateAction() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a = new ActionDetail();
-        a.type = ActionType.StopProcessing;
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
         a.filterId = f.getFilterId();
         a.name = null;
-        a.valueType = ActionValueType.NoneType;
+        a.valueType = ActionValueType.NONE_TYPE;
         actionDao.createAction(a);
 
         a.floatValue = 1f;
-        a.type = ActionType.SetJobMinCores;
-        a.valueType = ActionValueType.FloatType;
+        a.type = ActionType.SET_JOB_MIN_CORES;
+        a.valueType = ActionValueType.FLOAT_TYPE;
 
         actionDao.updateAction(a);
 
@@ -188,14 +188,14 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testGetActions() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a = new ActionDetail();
-        a.type = ActionType.StopProcessing;
+        ActionEntity a = new ActionEntity();
+        a.type = ActionType.STOP_PROCESSING;
         a.filterId = f.getFilterId();
         a.name = null;
-        a.valueType = ActionValueType.NoneType;
+        a.valueType = ActionValueType.NONE_TYPE;
         actionDao.createAction(a);
 
         actionDao.getActions(f);

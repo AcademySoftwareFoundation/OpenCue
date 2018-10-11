@@ -39,9 +39,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.google.common.collect.Sets;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -76,8 +76,8 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Transactional
     @Rollback(true)
     public void testGetDefaultService() {
-        Service srv1 = serviceManager.getService("default");
-        Service srv2 = serviceManager.getDefaultService();
+        ServiceEntity srv1 = serviceManager.getService("default");
+        ServiceEntity srv2 = serviceManager.getDefaultService();
 
         assertEquals(srv1, srv2);
     }
@@ -86,7 +86,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Transactional
     @Rollback(true)
     public void testCreateService() {
-        Service s = new Service();
+        ServiceEntity s = new ServiceEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -95,7 +95,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         serviceManager.createService(s);
 
-        Service newService = serviceManager.getService(s.id);
+        ServiceEntity newService = serviceManager.getService(s.id);
         assertEquals(s, newService);
     }
 
@@ -103,7 +103,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Transactional
     @Rollback(true)
     public void testOverrideExistingService() {
-        ServiceOverride s = new ServiceOverride();
+        ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "arnold";
         s.minCores = 400;
         s.minMemory = CueUtil.GB8;
@@ -114,7 +114,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         serviceManager.createService(s);
 
         // Check it was overridden
-        Service newService = serviceManager.getService("arnold", s.showId);
+        ServiceEntity newService = serviceManager.getService("arnold", s.showId);
         assertEquals(s, newService);
         assertEquals(400, newService.minCores);
         assertEquals(CueUtil.GB8, newService.minMemory);
@@ -138,7 +138,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
 
-        Service shell = serviceManager.getService("shell");
+        ServiceEntity shell = serviceManager.getService("shell");
 
         assertEquals(Integer.valueOf(shell.minCores), jdbcTemplate.queryForObject(
                 "SELECT int_cores_min FROM layer WHERE pk_layer=?",
@@ -164,7 +164,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
                 "SELECT str_services FROM layer WHERE pk_layer=?",
                 String.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
 
-        Service prman = serviceManager.getService("prman");
+        ServiceEntity prman = serviceManager.getService("prman");
 
         assertEquals(Integer.valueOf(prman.minCores), jdbcTemplate.queryForObject(
                 "SELECT int_cores_min FROM layer WHERE pk_layer=?",
@@ -186,7 +186,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
                 "SELECT str_services FROM layer WHERE pk_layer=?",
                 String.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
 
-        Service cuda = serviceManager.getService("cuda");
+        ServiceEntity cuda = serviceManager.getService("cuda");
 
         assertEquals(Integer.valueOf(cuda.minCores), jdbcTemplate.queryForObject(
                 "SELECT int_cores_min FROM layer WHERE pk_layer=?",
@@ -223,7 +223,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         jobLauncher.launch(spec);
 
         JobDetail job = spec.getJobs().get(0).detail;
-        Layer layer = layerDao.findLayer(job, "arnold_layer");
+        LayerInterface layer = layerDao.findLayer(job, "arnold_layer");
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
                 "SELECT b_threadable FROM layer WHERE pk_layer = ?",

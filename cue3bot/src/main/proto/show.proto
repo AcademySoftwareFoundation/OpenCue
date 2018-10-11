@@ -113,6 +113,7 @@ message Show {
     bool dispatch_enabled = 6;
     bool active = 7;
     ShowStats show_stats = 8;
+    string id = 9;
 }
 
 message ShowSeq {
@@ -176,7 +177,7 @@ message ShowCreateShowResponse {
 // CreateSubscription
 message ShowCreateSubscriptionRequest {
     Show show = 1;
-    string allocation_name = 2;
+    string allocation_id = 2;
     float size = 3;
     float burst = 4;
 }

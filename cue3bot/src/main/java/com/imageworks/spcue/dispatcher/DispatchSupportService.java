@@ -34,19 +34,19 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Proc;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.ThreadMode;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.RqdIce.RunFrame;
 import com.imageworks.spcue.dao.*;
 import com.imageworks.spcue.iceclient.RqdClient;
@@ -82,7 +82,7 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Override
-    public boolean hasStrandedCores(Host host) {
+    public boolean hasStrandedCores(HostInterface host) {
         StrandedCores stranded = strandedCores.get(host.getHostId());
         if (stranded == null) {
             return false;
@@ -98,39 +98,39 @@ public class DispatchSupportService implements DispatchSupport {
     public void strandCores(DispatchHost host, int cores) {
         logger.info(host + " found " + cores + ", stranded cores");
         host.strandedCores  = cores;
-        if (host.threadMode != ThreadMode.Variable.value()) {
-            host.threadMode = ThreadMode.All.value();
+        if (host.threadMode != ThreadMode.VARIABLE.getNumber()) {
+            host.threadMode = ThreadMode.ALL.getNumber();
         }
         strandedCores.putIfAbsent(host.getHostId(), new StrandedCores(cores));
         strandedCoresCount.getAndIncrement();
     }
 
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(Job job, VirtualProc proc, int limit) {
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit) {
         return dispatcherDao.findNextDispatchFrames(job, proc, limit);
     }
 
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(Job job, DispatchHost host, int limit) {
+    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit) {
         return dispatcherDao.findNextDispatchFrames(job, host, limit);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(Layer layer,
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
         return dispatcherDao.findNextDispatchFrames(layer, host, limit);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(Layer layer,
+    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             VirtualProc proc, int limit) {
         return dispatcherDao.findNextDispatchFrames(layer, proc, limit);
     }
 
     @Transactional(readOnly = true)
-    public boolean findUnderProcedJob(Job excludeJob, VirtualProc proc) {
+    public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
         return dispatcherDao.findUnderProcedJob(excludeJob, proc);
     }
 
@@ -145,7 +145,7 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobs(DispatchHost host, Group g) {
+    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         return dispatcherDao.findDispatchJobs(host, g);
     }
 
@@ -157,23 +157,23 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public Set<String> findDispatchJobs(DispatchHost host, Show show,
+    public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public boolean increaseReservedMemory(Proc p, long value) {
+    public boolean increaseReservedMemory(ProcInterface p, long value) {
         return procDao.increaseReservedMemory(p, value);
     }
 
     @Override
-    public boolean clearVirtualProcAssignement(Proc proc) {
+    public boolean clearVirtualProcAssignement(ProcInterface proc) {
         return procDao.clearVirtualProcAssignment(proc);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public boolean balanceReservedMemory(Proc targetProc, long targetMem) {
+    public boolean balanceReservedMemory(ProcInterface targetProc, long targetMem) {
         boolean result = procDao.balanceUnderUtilizedProcs(targetProc, targetMem);
         if (result) {
             DispatchSupport.balanceSuccess.incrementAndGet();
@@ -202,7 +202,7 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobDispatchable(Job job, boolean local) {
+    public boolean isJobDispatchable(JobInterface job, boolean local) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
@@ -217,7 +217,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobBookable(Job job) {
+    public boolean isJobBookable(JobInterface job) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
@@ -232,7 +232,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobBookable(Job job, int coreUnits) {
+    public boolean isJobBookable(JobInterface job, int coreUnits) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
@@ -247,7 +247,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean hasPendingFrames(Job job) {
+    public boolean hasPendingFrames(JobInterface job) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
@@ -258,24 +258,24 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean hasPendingFrames(Layer layer) {
+    public boolean hasPendingFrames(LayerInterface layer) {
         return layerDao.isLayerDispatchable(layer);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean isShowOverBurst(VirtualProc proc) {
-        return subscriptionDao.isShowOverBurst((Show) proc, (AllocationInterface) proc, 0);
+        return subscriptionDao.isShowOverBurst((ShowInterface) proc, (AllocationInterface) proc, 0);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits) {
+    public boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits) {
         return subscriptionDao.isShowOverBurst(show, alloc, coreUnits);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc) {
+    public boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc) {
         return subscriptionDao.isShowAtOrOverBurst(show, alloc);
     }
 
@@ -288,8 +288,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public boolean stopFrame(Frame frame, FrameState state,
-            int exitStatus) {
+    public boolean stopFrame(FrameInterface frame, FrameState state,
+                             int exitStatus) {
         logger.trace("stopping frame " + frame);
         if (frameDao.updateFrameStopped(frame, state, exitStatus)) {
             procDao.clearVirtualProcAssignment(frame);
@@ -301,8 +301,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public boolean stopFrame(Frame frame, FrameState state,
-            int exitStatus, long maxRss) {
+    public boolean stopFrame(FrameInterface frame, FrameState state,
+                             int exitStatus, long maxRss) {
         logger.trace("stopping frame: " + frame);
         if (frameDao.updateFrameStopped(frame, state,
                 exitStatus, maxRss)) {
@@ -421,7 +421,7 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateUsageCounters(Frame frame, int exitStatus) {
+    public void updateUsageCounters(FrameInterface frame, int exitStatus) {
         try {
             ResourceUsage usage = frameDao.getResourceUsage(frame);
             showDao.updateFrameCounters(frame, exitStatus);
@@ -492,21 +492,21 @@ public class DispatchSupportService implements DispatchSupport {
                 " is #" + numCleared + " cleared: " + reason);
 
         if (proc.frameId != null) {
-            Frame f = frameDao.getFrame(proc.frameId);
+            FrameInterface f = frameDao.getFrame(proc.frameId);
             /*
              * Set the checkpoint state to disabled before stopping the
              * the frame because it will go to the checkpoint state.
              * This is not desirable when we're clearing off processes
              * that were lost due to a machine crash.
              */
-            frameDao.updateFrameCheckpointState(f, CheckpointState.Disabled);
+            frameDao.updateFrameCheckpointState(f, CheckpointState.DISABLED);
             /*
              * If the proc has a frame, stop the frame.  Frames
              * can only be stopped that are running, so if the frame
              * is not running it will remain untouched.
              */
             if (frameDao.updateFrameStopped(f,
-                    FrameState.Waiting, exitStatus)) {
+                    FrameState.WAITING, exitStatus)) {
                 updateUsageCounters(proc, exitStatus);
             }
         }
@@ -514,14 +514,14 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateProcMemoryUsage(Frame frame, long rss, long maxRss,
-            long vsize, long maxVsize) {
+    public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
+                                      long vsize, long maxVsize) {
         procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateFrameMemoryUsage(Frame frame, long rss, long maxRss) {
+    public void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss) {
 
         try {
             frameDao.updateFrameMemoryUsage(frame, maxRss, rss);

@@ -32,8 +32,8 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -56,8 +56,8 @@ public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testInsertOwner() {
-        Show show = adminManager.findShowDetail("pipe");
-        Owner o = new Owner();
+        ShowInterface show = adminManager.findShowEntity("pipe");
+        OwnerEntity o = new OwnerEntity();
         o.name = "spongebob";
         ownerDao.insertOwner(o, show);
     }
@@ -66,8 +66,8 @@ public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testIsOwner() {
-        Show show = adminManager.findShowDetail("pipe");
-        Owner o = new Owner();
+        ShowInterface show = adminManager.findShowEntity("pipe");
+        OwnerEntity o = new OwnerEntity();
         o.name = "spongebob";
         ownerDao.insertOwner(o, show);
     }
@@ -76,8 +76,8 @@ public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testGetOwner() {
-        Show show = adminManager.findShowDetail("pipe");
-        Owner o = new Owner();
+        ShowInterface show = adminManager.findShowEntity("pipe");
+        OwnerEntity o = new OwnerEntity();
         o.name = "spongebob";
         ownerDao.insertOwner(o, show);
 
@@ -89,8 +89,8 @@ public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testDeleteOwner() {
-        Show show = adminManager.findShowDetail("pipe");
-        Owner o = new Owner();
+        ShowInterface show = adminManager.findShowEntity("pipe");
+        OwnerEntity o = new OwnerEntity();
         o.name = "spongebob";
         ownerDao.insertOwner(o, show);
 
@@ -109,12 +109,12 @@ public class OwnerDaoTests  extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testUpdateShow() {
-        Show show = adminManager.findShowDetail("pipe");
-        Owner o = new Owner();
+        ShowInterface show = adminManager.findShowEntity("pipe");
+        OwnerEntity o = new OwnerEntity();
         o.name = "spongebob";
         ownerDao.insertOwner(o, show);
 
-        Show newShow = adminManager.findShowDetail("edu");
+        ShowInterface newShow = adminManager.findShowEntity("edu");
 
         ownerDao.updateShow(o, newShow);
 

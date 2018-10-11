@@ -19,17 +19,17 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class JobOnJob extends AbstractDepend implements Depend {
 
-    private final Job dependErJob;
-    private final Job dependOnJob;
+    private final JobInterface dependErJob;
+    private final JobInterface dependOnJob;
 
-    public JobOnJob(Job dependErJob, Job dependOnJob) {
+    public JobOnJob(JobInterface dependErJob, JobInterface dependOnJob) {
 
         if (dependErJob.getJobId().equals(dependOnJob.getJobId())) {
             throw new DependException("A job cannot depend on itself.");
@@ -39,11 +39,11 @@ public class JobOnJob extends AbstractDepend implements Depend {
         this.dependOnJob = dependOnJob;
     }
 
-    public Job getDependErJob() {
+    public JobInterface getDependErJob() {
         return dependErJob;
     }
 
-    public Job getDependOnJob() {
+    public JobInterface getDependOnJob() {
         return dependOnJob;
     }
 

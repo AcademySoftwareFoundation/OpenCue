@@ -27,12 +27,12 @@ import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.SubscriptionInterface;
+import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -57,7 +57,7 @@ public class AdminManagerService implements AdminManager {
 
     private GroupManager groupManager;
 
-    public void setShowActive(Show show, boolean value) {
+    public void setShowActive(ShowInterface show, boolean value) {
         showDao.updateActive(show, value);
     }
 
@@ -65,9 +65,9 @@ public class AdminManagerService implements AdminManager {
         return showDao.showExists(name);
     }
 
-    public void createShow(ShowDetail show) {
+    public void createShow(ShowEntity show) {
 
-        Department dept = getDefaultDepartment();
+        DepartmentInterface dept = getDefaultDepartment();
         showDao.insertShow(show);
 
         /*
@@ -101,30 +101,30 @@ public class AdminManagerService implements AdminManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ShowDetail findShowDetail(String name) {
+    public ShowEntity findShowEntity(String name) {
         return showDao.findShowDetail(name);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ShowDetail getShowDetail(String id) {
+    public ShowEntity getShowEntity(String id) {
         return showDao.getShowDetail(id);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void updateShowCommentEmail(Show s, String[] emails) {
+    public void updateShowCommentEmail(ShowInterface s, String[] emails) {
         showDao.updateShowCommentEmail(s, emails);
     }
 
-    public Subscription createSubscription(SubscriptionDetail sub) {
+    public SubscriptionInterface createSubscription(SubscriptionEntity sub) {
         subscriptionDao.insertSubscription(sub);
         return sub;
     }
 
-    public Subscription createSubscription(Show show, AllocationInterface alloc,
-            int size, int burst) {
-        SubscriptionDetail s = new SubscriptionDetail();
+    public SubscriptionInterface createSubscription(ShowInterface show, AllocationInterface alloc,
+                                                    int size, int burst) {
+        SubscriptionEntity s = new SubscriptionEntity();
         s.size = size;
         s.burst = burst;
         s.showId = show.getShowId();
@@ -145,50 +145,50 @@ public class AdminManagerService implements AdminManager {
         return allocationDao.getAllocationEntity(id);
     }
 
-    public void deleteSubscription(Subscription sub) {
+    public void deleteSubscription(SubscriptionInterface sub) {
         subscriptionDao.deleteSubscription(sub);
     }
 
-    public void setSubscriptionBurst(Subscription sub, int burst) {
+    public void setSubscriptionBurst(SubscriptionInterface sub, int burst) {
         subscriptionDao.updateSubscriptionBurst(sub, burst);
     }
 
-    public void setSubscriptionSize(Subscription sub, int size) {
+    public void setSubscriptionSize(SubscriptionInterface sub, int size) {
         subscriptionDao.updateSubscriptionSize(sub, size);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public SubscriptionDetail getSubscriptionDetail(String id) {
+    public SubscriptionEntity getSubscriptionDetail(String id) {
         return  subscriptionDao.getSubscriptionDetail(id);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Department findDepartment(String name) {
+    public DepartmentInterface findDepartment(String name) {
         return departmentDao.findDepartment(name);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Department getDefaultDepartment() {
+    public DepartmentInterface getDefaultDepartment() {
         return departmentDao.getDefaultDepartment();
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Department getDepartment(Department d) {
+    public DepartmentInterface getDepartment(DepartmentInterface d) {
         return departmentDao.getDepartment(d.getDepartmentId());
     }
 
     @Override
-    public Department createDepartment(String name) {
+    public DepartmentInterface createDepartment(String name) {
         departmentDao.insertDepartment(name);
         return findDepartment(name);
     }
 
     @Override
-    public void removeDepartment(Department d) {
+    public void removeDepartment(DepartmentInterface d) {
         departmentDao.deleteDepartment(d);
     }
 

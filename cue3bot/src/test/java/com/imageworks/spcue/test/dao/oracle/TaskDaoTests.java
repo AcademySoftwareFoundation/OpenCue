@@ -36,8 +36,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
@@ -84,11 +84,11 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 "SELECT pk_dept FROM job WHERE pk_job=?", String.class, job.getJobId());
 
         // Add in a new task, the job should switch to using this task.
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDepartment(dept));
 
-        TaskDetail t = new TaskDetail(p, "dev.foo", 100);
+        TaskEntity t = new TaskEntity(p, "dev.foo", 100);
         taskDao.insertTask(t);
 
         t = taskDao.getTaskDetail(t.id);
@@ -99,10 +99,10 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void deleteTask() {
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
-        TaskDetail t = new TaskDetail(p, "dev.cue", 100);
+        TaskEntity t = new TaskEntity(p, "dev.cue", 100);
         taskDao.insertTask(t);
         taskDao.deleteTask(t);
     }
@@ -112,7 +112,7 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void deleteTasksByShowAndDepartment() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
@@ -120,7 +120,7 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 "SELECT COUNT(*) FROM task WHERE pk_point=?",
                 Integer.class, p.getPointId());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
         taskDao.insertTask(t);
 
         assertEquals(Integer.valueOf(task_count + 1), jdbcTemplate.queryForObject(
@@ -139,11 +139,11 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void deleteTasksByDepartmentConfig() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p,
+        TaskEntity t = new TaskEntity(p,
                 "dev.cue");
         t.minCoreUnits = 100;
         taskDao.insertTask(t);
@@ -163,14 +163,14 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void getTaskDetail() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
 
         taskDao.insertTask(t);
-        TaskDetail newTask = taskDao.getTaskDetail(t.getTaskId());
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
         assertEquals(newTask.id,t.id);
     }
 
@@ -178,14 +178,14 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void getTaskDetailByDept() {
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
 
         taskDao.insertTask(t);
-        TaskDetail newTask = taskDao.getTaskDetail(departmentDao.getDefaultDepartment(), "dev.cue");
+        TaskEntity newTask = taskDao.getTaskDetail(departmentDao.getDefaultDepartment(), "dev.cue");
         assertEquals(newTask.id,t.id);
     }
 
@@ -194,14 +194,14 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void updateTaskMinProcs() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
         t.minCoreUnits = 100;
         taskDao.insertTask(t);
-        TaskDetail newTask = taskDao.getTaskDetail(t.getTaskId());
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
         taskDao.updateTaskMinCores(newTask, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_min_cores FROM task WHERE pk_task=?",
@@ -213,14 +213,14 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void adjustTaskMinProcs() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p,"dev.cue");
+        TaskEntity t = new TaskEntity(p,"dev.cue");
         t.minCoreUnits = 10;
         taskDao.insertTask(t);
-        TaskDetail newTask = taskDao.getTaskDetail(t.getTaskId());
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
         taskDao.updateTaskMinCores(newTask, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_min_cores FROM task WHERE pk_task=?",
@@ -251,18 +251,18 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Rollback(true)
     public void mergeTask() {
 
-        Point p = pointDao.getPointConfigDetail(
+        PointInterface p = pointDao.getPointConfigDetail(
                 showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
 
-        TaskDetail t = new TaskDetail(p, "dev.cue");
+        TaskEntity t = new TaskEntity(p, "dev.cue");
         taskDao.insertTask(t);
 
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
                 "SELECT int_min_cores FROM task WHERE pk_task=?",
                 Integer.class, t.getTaskId()));
 
-        TaskDetail newTask = taskDao.getTaskDetail(t.getTaskId());
+        TaskEntity newTask = taskDao.getTaskDetail(t.getTaskId());
         newTask.minCoreUnits = 200;
         taskDao.mergeTask(newTask);
 

@@ -19,18 +19,18 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class JobOnLayer extends AbstractDepend implements Depend {
 
-    private final Job dependErJob;
-    private final Layer dependOnLayer;
+    private final JobInterface dependErJob;
+    private final LayerInterface dependOnLayer;
 
-    public JobOnLayer(Job dependErJob, Layer dependOnLayer) {
+    public JobOnLayer(JobInterface dependErJob, LayerInterface dependOnLayer) {
 
         if (dependErJob.getJobId().equals(dependOnLayer.getJobId())) {
             throw new DependException(
@@ -40,11 +40,11 @@ public class JobOnLayer extends AbstractDepend implements Depend {
         this.dependErJob = dependErJob;
         this.dependOnLayer = dependOnLayer;
     }
-    public Job getDependErJob() {
+    public JobInterface getDependErJob() {
         return dependErJob;
     }
 
-    public Layer getDependOnLayer() {
+    public LayerInterface getDependOnLayer() {
         return dependOnLayer;
     }
 

@@ -20,7 +20,7 @@
 package com.imageworks.spcue.iceclient;
 
 import com.imageworks.spcue.RqdIce.RunFrame;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.RqdIce.RunningFrameInfo;
 
@@ -46,14 +46,14 @@ public interface RqdClient {
      *
      * @param host
      */
-    public void rebootNow(Host host);
+    public void rebootNow(HostInterface host);
 
     /**
      * Reboots the host when idle
      *
      * @param host
      */
-    public void rebootWhenIdle(Host host);
+    public void rebootWhenIdle(HostInterface host);
 
     /**
      * Attempts to launch a frame

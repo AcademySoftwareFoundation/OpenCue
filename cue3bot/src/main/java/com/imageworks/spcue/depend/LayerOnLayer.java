@@ -19,17 +19,17 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class LayerOnLayer extends AbstractDepend implements Depend {
 
-    public final Layer dependErLayer;
-    public final Layer dependOnLayer;
+    public final LayerInterface dependErLayer;
+    public final LayerInterface dependOnLayer;
 
-    public LayerOnLayer(Layer dependErLayer, Layer dependOnLayer) {
+    public LayerOnLayer(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
 
         if (dependErLayer.getLayerId().equals(
                 dependOnLayer.getLayerId())) {
@@ -41,11 +41,11 @@ public class LayerOnLayer extends AbstractDepend implements Depend {
         this.dependOnLayer = dependOnLayer;
     }
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Layer getDependOnLayer() {
+    public LayerInterface getDependOnLayer() {
         return dependOnLayer;
     }
 

@@ -21,30 +21,44 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueClientIce.Action;
+import com.imageworks.spcue.*;
+
+import com.imageworks.spcue.grpc.comment.CommentSeq;
+import com.imageworks.spcue.grpc.department.Department;
+import com.imageworks.spcue.grpc.department.DepartmentSeq;
+import com.imageworks.spcue.grpc.depend.Depend;
+import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.facility.Allocation;
-import com.imageworks.spcue.CueClientIce.Comment;
-import com.imageworks.spcue.CueClientIce.Deed;
-import com.imageworks.spcue.CueClientIce.Department;
-import com.imageworks.spcue.CueClientIce.Depend;
-import com.imageworks.spcue.CueClientIce.Filter;
-import com.imageworks.spcue.CueClientIce.Frame;
-import com.imageworks.spcue.CueClientIce.Group;
-import com.imageworks.spcue.CueClientIce.Host;
-import com.imageworks.spcue.CueClientIce.Job;
-import com.imageworks.spcue.CueClientIce.Layer;
-import com.imageworks.spcue.CueClientIce.Matcher;
-import com.imageworks.spcue.CueClientIce.Owner;
-import com.imageworks.spcue.CueClientIce.Proc;
-import com.imageworks.spcue.CueClientIce.RenderPartition;
-import com.imageworks.spcue.CueClientIce.Service;
-import com.imageworks.spcue.CueClientIce.ServiceOverride;
-import com.imageworks.spcue.CueClientIce.Show;
-import com.imageworks.spcue.CueClientIce.Task;
-import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.filter.Action;
 import com.imageworks.spcue.grpc.facility.Facility;
-import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.grpc.filter.Filter;
+import com.imageworks.spcue.grpc.filter.FilterSeq;
+import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.host.Deed;
+import com.imageworks.spcue.grpc.host.DeedSeq;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSeq;
+import com.imageworks.spcue.grpc.host.Owner;
+import com.imageworks.spcue.grpc.host.Proc;
+import com.imageworks.spcue.grpc.host.ProcSeq;
+import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameSeq;
+import com.imageworks.spcue.grpc.job.Group;
+import com.imageworks.spcue.grpc.job.GroupSeq;
+import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.JobSeq;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerSeq;
+import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceSeq;
+import com.imageworks.spcue.grpc.show.Show;
+import com.imageworks.spcue.grpc.show.ShowSeq;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
+import com.imageworks.spcue.grpc.task.Task;
 
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
@@ -64,7 +78,7 @@ public interface WhiteboardDao {
      * @param HostSearchCriteria r
      * @return
      */
-    List<Proc> getProcs(com.imageworks.spcue.Host h);
+    ProcSeq getProcs(HostInterface h);
 
     /**
      * Returns a list of hosts
@@ -72,7 +86,7 @@ public interface WhiteboardDao {
      * @param HostSearchCriteria r
      * @return
      */
-    List<Host> getHosts(HostSearch  r);
+    HostSeq getHosts(HostSearch  r);
 
     /**
      * Returns a list of jobs
@@ -80,7 +94,7 @@ public interface WhiteboardDao {
      * @param JobSearchCriteria r
      * @return
      */
-    List<Job> getJobs(JobSearch  r);
+    JobSeq getJobs(JobSearch  r);
 
     /**
      * Returns a list of job names
@@ -97,7 +111,7 @@ public interface WhiteboardDao {
      * @param job
      * @return
      */
-    List<Comment> getComments(com.imageworks.spcue.Job j);
+    CommentSeq getComments(JobInterface j);
 
     /**
      * Returns the comments for the specified host
@@ -105,7 +119,7 @@ public interface WhiteboardDao {
      * @param job
      * @return
      */
-    List<Comment> getComments(com.imageworks.spcue.Host h);
+    CommentSeq getComments(HostInterface h);
 
     /**
      * returns the host a proc is part of
@@ -137,7 +151,7 @@ public interface WhiteboardDao {
      * @param job
      * @return
      */
-    List<Depend> getDepends(com.imageworks.spcue.Job job);
+    DependSeq getDepends(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified job.
@@ -145,7 +159,7 @@ public interface WhiteboardDao {
      * @param job
      * @return
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Job job);
+    DependSeq getWhatDependsOnThis(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified layer.
@@ -153,7 +167,7 @@ public interface WhiteboardDao {
      * @param layer
      * @return
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Layer layer);
+    DependSeq getWhatDependsOnThis(LayerInterface layer);
 
     /**
      * Returns an array of depends that depend on the specified job.
@@ -161,7 +175,7 @@ public interface WhiteboardDao {
      * @param frame
      * @return
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Frame frame);
+    DependSeq getWhatDependsOnThis(FrameInterface frame);
 
     /**
      * Returns an array of depends that the specified job is waiting on.
@@ -169,7 +183,7 @@ public interface WhiteboardDao {
      * @param job
      * @return
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Job job);
+    DependSeq getWhatThisDependsOn(JobInterface job);
 
     /**
      * Returns an array of depends that the specified layer is waiting on.
@@ -177,7 +191,7 @@ public interface WhiteboardDao {
      * @param layer
      * @return
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Layer layer);
+    DependSeq getWhatThisDependsOn(LayerInterface layer);
 
     /**
      * Returns an array of depends that the specified frame is waiting on.
@@ -185,7 +199,7 @@ public interface WhiteboardDao {
      * @param frame
      * @return
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Frame frame);
+    DependSeq getWhatThisDependsOn(FrameInterface frame);
 
     /**
      * Returns the specified dependency
@@ -193,21 +207,21 @@ public interface WhiteboardDao {
      * @param depend
      * @return
      */
-    Depend getDepend(com.imageworks.spcue.Depend depend);
+    Depend getDepend(DependInterface depend);
 
     Filter findFilter(String show, String name);
 
-    Filter findFilter(com.imageworks.spcue.Show show, String name);
+    Filter findFilter(ShowInterface show, String name);
 
-    Filter getFilter(com.imageworks.spcue.Filter filter);
+    Filter getFilter(FilterInterface filter);
 
-    List<Matcher> getMatchers(com.imageworks.spcue.Filter filter);
+    List<Matcher> getMatchers(FilterInterface filter);
 
-    Matcher getMatcher(com.imageworks.spcue.Matcher matcher);
+    Matcher getMatcher(MatcherInterface matcher);
 
-    List<Action> getActions(com.imageworks.spcue.Filter filter);
+    List<Action> getActions(FilterInterface filter);
 
-    Action getAction(com.imageworks.spcue.Action action);
+    Action getAction(ActionInterface action);
 
     /**
      * Returns the frame by unique ID
@@ -224,30 +238,29 @@ public interface WhiteboardDao {
      * @return
      */
 
-    List<Filter> getFilters(com.imageworks.spcue.Show show);
+    FilterSeq getFilters(ShowInterface show);
 
     /**
      * Frame search
      *
-     * @param job
      * @param r
      * @return
      */
-    List<Frame> getFrames(FrameSearch r);
+    FrameSeq getFrames(FrameSearch r);
 
     /**
      * Returns a list of layers for the specified job.
      *
-     * @param JobDetail job
-     * @return List<Layer>
+     * @param  job
+     * @return LayerSeq
      */
-    List<Layer> getLayers(com.imageworks.spcue.Job job);
+    LayerSeq getLayers(JobInterface job);
 
     /**
      * Returns a layer from its unique ID
      *
-     * @param JobDetail job
-     * @return List<Layer>
+     * @param  id
+     * @return Layer
      */
     Layer getLayer(String id);
 
@@ -256,7 +269,7 @@ public interface WhiteboardDao {
      * @param group
      * @return
      */
-    List<Job> getJobs(com.imageworks.spcue.Group group);
+    JobSeq getJobs(GroupInterface group);
 
     /**
      * Finds an active job record based on the name
@@ -297,7 +310,7 @@ public interface WhiteboardDao {
      * @param req
      * @return List<Subscription>
      */
-    List<Subscription> getSubscriptions(com.imageworks.spcue.Show show);
+    SubscriptionSeq getSubscriptions(ShowInterface show);
 
     /**
      * returns all subscriptions on the specified allocation
@@ -305,7 +318,7 @@ public interface WhiteboardDao {
      * @param alloc
      * @return
      */
-    List<Subscription> getSubscriptions(AllocationInterface alloc);
+    SubscriptionSeq getSubscriptions(AllocationInterface alloc);
 
     /**
      * returns a show by Id.
@@ -330,7 +343,7 @@ public interface WhiteboardDao {
      * @param req
      * @return
      */
-    List<Show> getShows();
+    ShowSeq getShows();
 
     /**
      * returns a show by Id.
@@ -372,7 +385,7 @@ public interface WhiteboardDao {
      * @param show
      * @return
      */
-    Group getRootGroup(com.imageworks.spcue.Show show);
+    Group getRootGroup(ShowInterface show);
 
     /**
      *
@@ -393,17 +406,17 @@ public interface WhiteboardDao {
     /**
      *
      *
-     * @param req
-     * @return List<Group>
+     * @param show
+     * @return GroupSeq
      */
-    List<Group> getGroups(com.imageworks.spcue.Show show);
+    GroupSeq getGroups(ShowInterface show);
 
     /**
      *
      * @param group
      * @return
      */
-    List<Group> getGroups(com.imageworks.spcue.Group group);
+    GroupSeq getGroups(GroupInterface group);
 
 
     /**
@@ -432,15 +445,15 @@ public interface WhiteboardDao {
      * @param lastUpdate
      * @return
      */
-    UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-                                             List<com.imageworks.spcue.Layer> layers, int lastUpdate);
+    UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
+                                             List<LayerInterface> layers, int lastUpdate);
 
     /**
      *
      * @param show
      * @return
      */
-    List<Department> getDepartments (com.imageworks.spcue.Show show);
+    DepartmentSeq getDepartments (ShowInterface show);
 
     /**
      *
@@ -448,7 +461,7 @@ public interface WhiteboardDao {
      * @param name
      * @return
      */
-    Department getDepartment(com.imageworks.spcue.Show show, String name);
+    Department getDepartment(ShowInterface show, String name);
 
     /**
      * Returns a list of available department names
@@ -461,7 +474,7 @@ public interface WhiteboardDao {
      *
      * @return
      */
-    Task getTask(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept, String shot);
+    Task getTask(ShowInterface show, DepartmentInterface dept, String shot);
 
     /**
      *
@@ -469,7 +482,7 @@ public interface WhiteboardDao {
      * @param dept
      * @return
      */
-    List<Task> getTasks(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept);
+    List<Task> getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns procs from a ProcSearch criteria.
@@ -477,7 +490,7 @@ public interface WhiteboardDao {
      * @param p
      * @return
      */
-    List<Proc> getProcs(ProcSearch p);
+    ProcSeq getProcs(ProcSearch p);
 
     /**
      * Return the Ice representation of the given AbstractDepend.
@@ -493,7 +506,7 @@ public interface WhiteboardDao {
      * @param deed
      * @return
      */
-    Host getHost(com.imageworks.spcue.Deed deed);
+    Host getHost(DeedEntity deed);
 
     /**
      * Return the Owner of the given Deed.
@@ -501,7 +514,7 @@ public interface WhiteboardDao {
      * @param deed
      * @return
      */
-    Owner getOwner(com.imageworks.spcue.Deed deed);
+    Owner getOwner(DeedEntity deed);
 
     /**
      * Return a list of all Deeds controlled by the given Owner.
@@ -509,7 +522,7 @@ public interface WhiteboardDao {
      * @param owner
      * @return
      */
-    List<Deed> getDeeds(com.imageworks.spcue.Owner owner);
+    DeedSeq getDeeds(OwnerEntity owner);
 
     /**
      * Return a list of all Hosts controlled by the given Owner.
@@ -517,7 +530,7 @@ public interface WhiteboardDao {
      * @param owner
      * @return
      */
-    List<Host> getHosts(com.imageworks.spcue.Owner owner);
+    HostSeq getHosts(OwnerEntity owner);
 
     /**
      * Return the Owner of the given host.
@@ -525,7 +538,7 @@ public interface WhiteboardDao {
      * @param host
      * @return
      */
-    Owner getOwner(com.imageworks.spcue.Host host);
+    Owner getOwner(HostInterface host);
 
     /**
      * Return the Deed for the given Host.
@@ -533,7 +546,7 @@ public interface WhiteboardDao {
      * @param host
      * @return
      */
-    Deed getDeed(com.imageworks.spcue.Host host);
+    Deed getDeed(HostInterface host);
 
     /**
      * Return the owner by name.
@@ -549,7 +562,7 @@ public interface WhiteboardDao {
      * @param show
      * @return
      */
-    List<Owner> getOwners(com.imageworks.spcue.Show show);
+    List<Owner> getOwners(ShowInterface show);
 
     /**
      * Return a list of Deeds by show.
@@ -557,7 +570,7 @@ public interface WhiteboardDao {
      * @param show
      * @return
      */
-    List<Deed> getDeeds(com.imageworks.spcue.Show show);
+    DeedSeq getDeeds(ShowInterface show);
 
     /**
      * Return a RenderPartion from its associated LocalHostAssignment.
@@ -573,7 +586,7 @@ public interface WhiteboardDao {
      * @param host
      * @return
      */
-    List<RenderPartition> getRenderPartitions(com.imageworks.spcue.Host host);
+    RenderPartitionSeq getRenderPartitions(HostInterface host);
 
     /**
      * Return a facility by name or id.
@@ -595,7 +608,7 @@ public interface WhiteboardDao {
      *
      * @return
      */
-    List<Show> getActiveShows();
+    ShowSeq getActiveShows();
 
     /**
      * Return the given service.
@@ -610,7 +623,7 @@ public interface WhiteboardDao {
      *
      * @return
      */
-    List<Service> getDefaultServices();
+    ServiceSeq getDefaultServices();
 
     /**
      * Return the list of service overrides for a particular show.
@@ -618,7 +631,7 @@ public interface WhiteboardDao {
      * @param show
      * @return
      */
-    List<ServiceOverride> getServiceOverrides(com.imageworks.spcue.Show show);
+    List<ServiceOverride> getServiceOverrides(ShowInterface show);
 
     /**
      * Return the given show override.
@@ -627,7 +640,7 @@ public interface WhiteboardDao {
      * @param name
      * @return
      */
-    ServiceOverride getServiceOverride(com.imageworks.spcue.Show show, String name);
+    ServiceOverride getServiceOverride(ShowInterface show, String name);
 
     /**
      * Find a service by name.

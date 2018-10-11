@@ -28,13 +28,23 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.job.Group;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.common.spring.remoting.IceServer;
-import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.CueClientIce.*;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
+
+import com.imageworks.spcue.grpc.host.NestedHost;
+import com.imageworks.spcue.grpc.host.NestedHostSeq;
+import com.imageworks.spcue.grpc.host.NestedProc;
+import com.imageworks.spcue.grpc.job.GroupStats;
+import com.imageworks.spcue.grpc.job.JobStats;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.NestedGroup;
+import com.imageworks.spcue.grpc.job.NestedJob;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -157,58 +167,61 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             String group_id = rs.getString("pk_folder");
             NestedGroup group;
             if (!groups.containsKey(group_id)) {
-                group = new NestedGroup();
-                group.jobs = new ArrayList<NestedJob>();
-                group.groups = new ArrayList<NestedGroup>();
-                group.data = new GroupData();
-                group.stats = new GroupStats(0,0,0,0,0,0f);
-                group.data.name = rs.getString("group_name");
-                group.data.defaultJobPriority = rs.getInt("int_def_job_priority");
-                group.data.defaultJobMinCores =
-                    Convert.coreUnitsToCores(rs.getInt("int_def_job_min_cores"));
-                group.data.defaultJobMaxCores =
-                    Convert.coreUnitsToCores(rs.getInt("int_def_job_max_cores"));
-                group.data.maxCores = Convert.coreUnitsToCores(rs.getInt("folder_max_cores"));
-                group.data.minCores = Convert.coreUnitsToCores(rs.getInt("folder_min_cores"));
-                group.data.level = rs.getInt("int_level");
-                group.data.department = rs.getString("dept_name");
-                group.proxy = GroupInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_folder"),"manageGroup")));
+                String parentGroup = rs.getString("pk_parent_folder");
+                NestedGroup.Builder groupBuilder = NestedGroup.newBuilder()
+                        .setId(rs.getString("pk_folder"))
+                        .setName(rs.getString("group_name"))
+                        .setDefaultJobPriority(rs.getInt("int_def_job_priority"))
+                        .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_def_job_min_cores")))
+                        .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_def_job_max_cores")))
+                        .setMaxCores(Convert.coreUnitsToCores(rs.getInt("folder_max_cores")))
+                        .setMinCores(Convert.coreUnitsToCores(rs.getInt("folder_min_cores")))
+                        .setLevel(rs.getInt("int_level"))
+                        .setDepartment(rs.getString("dept_name"));
+                if (parentGroup != null) {
+                    NestedGroup parent = groups.get(parentGroup);
+                    NestedGroup.Builder parentBuilder = parent.toBuilder();
 
-                if (rs.getString("pk_parent_folder") != null) {
-                    NestedGroup parent = groups.get(rs.getString("pk_parent_folder"));
-                    group.parent = parent;
-                    parent.groups.add(group);
+                    parent = parentBuilder.setGroups(
+                            parentBuilder.getGroupsBuilder().addNestedGroups(groupBuilder.build())).build();
+                    groupBuilder.setParent(parent);
+                    group = groupBuilder.build();
                 }
                 else {
+                    group = groupBuilder.build();
                     groups.put("root", group);
                 }
                 groups.put(group_id, group);
-            }
-            else {
+            } else {
                 group = groups.get(group_id);
             }
 
+
+            GroupStats.Builder statsBuilder = GroupStats.newBuilder();
             if (rs.getString("pk_job") != null) {
                 NestedJob job = mapResultSetToJob(rs);
-                job.parent = group;
-                /*
-                 * Instead of tallying up the group stats on the DB in a view,
-                 * the query is a lot less costly if they are tallied up here.
-                 */
-                group.stats.deadFrames = group.stats.deadFrames + job.stats.deadFrames;
-                group.stats.runningFrames =  group.stats.runningFrames + job.stats.runningFrames;
-                group.stats.waitingFrames = group.stats.waitingFrames + job.stats.waitingFrames;
-                group.stats.dependFrames = group.stats.dependFrames + job.stats.dependFrames;
-                group.stats.reservedCores =  group.stats.reservedCores + job.stats.reservedCores;
-                group.stats.pendingJobs++;
-                group.jobs.add(job);
+                NestedJob.Builder jobBuilder = mapResultSetToJob(rs).toBuilder();
+                jobBuilder.setParent(group);
+                GroupStats oldStats = group.getStats();
+                JobStats jobStats = job.getStats();
+                statsBuilder.setDeadFrames(oldStats.getDeadFrames() + jobStats.getDeadFrames());
+                statsBuilder.setRunningFrames(oldStats.getRunningFrames() + jobStats.getRunningFrames());
+                statsBuilder.setWaitingFrames(oldStats.getWaitingFrames() + jobStats.getWaitingFrames());
+                statsBuilder.setDependFrames(oldStats.getDependFrames() + jobStats.getDependFrames());
+                statsBuilder.setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores());
+                statsBuilder.setPendingJobs(oldStats.getPendingJobs() + 1);
+                GroupStats groupStats = statsBuilder.build();
+                job = jobBuilder.build();
+                group = group.toBuilder()
+                        .setJobs(group.getJobs().toBuilder().addNestedJobs(job).build())
+                        .setStats(groupStats)
+                        .build();
             }
-            return null;
+            return group;
         }
     }
 
-    public NestedGroup getJobWhiteboard(com.imageworks.spcue.Show show) {
+    public NestedGroup getJobWhiteboard(ShowInterface show) {
 
         CachedJobWhiteboardMapper cachedMapper = jobCache.get(show.getShowId());
         if (cachedMapper != null) {
@@ -228,40 +241,34 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
 
     private static final NestedJob mapResultSetToJob(ResultSet rs) throws SQLException {
-
-        NestedJob job = new NestedJob();
-        job.data = new JobData();
-        job.data.logDir = rs.getString("str_log_dir");
-        job.data.maxCores = Convert.coreUnitsToCores(rs.getInt("int_max_cores"));
-        job.data.minCores = Convert.coreUnitsToCores(rs.getInt("int_min_cores"));
-        job.data.name = rs.getString("str_name");
-        job.data.priority = rs.getInt("int_priority");
-        job.data.shot = rs.getString("str_shot");
-        job.data.show = rs.getString("str_show");
-        job.data.os = rs.getString("str_os");
-        job.data.facility = rs.getString("facility_name");
-        job.data.group = rs.getString("group_name");
-        job.data.state = JobState.valueOf(rs.getString("str_state"));
-        job.data.uid = rs.getInt("int_uid");
-        job.data.user = rs.getString("str_user");
-        job.data.isPaused = rs.getBoolean("b_paused");
-        job.data.hasComment = rs.getBoolean("b_comment");
-        job.data.autoEat = rs.getBoolean("b_autoeat");
-
-        job.data.startTime = (int) (rs.getTimestamp("ts_started").getTime() / 1000);
+        NestedJob.Builder jobBuilder = NestedJob.newBuilder()
+                .setId(rs.getString("pk_job"))
+                .setLogDir(rs.getString("str_log_dir"))
+                .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
+                .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
+                .setName(rs.getString("str_name"))
+                .setPriority(rs.getInt("int_priority"))
+                .setShot(rs.getString("str_shot"))
+                .setShow(rs.getString("str_show"))
+                .setOs(rs.getString("str_os"))
+                .setFacility(rs.getString("facility_name"))
+                .setGroup(rs.getString("group_name"))
+                .setState(JobState.valueOf(rs.getString("str_state")))
+                .setUid(rs.getInt("int_uid"))
+                .setUser(rs.getString("str_user"))
+                .setIsPaused(rs.getBoolean("b_paused"))
+                .setHasComment(rs.getBoolean("b_comment"))
+                .setAutoEat(rs.getBoolean("b_autoeat"))
+                .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                .setStats(WhiteboardDaoJdbc.mapJobStats(rs));
         Timestamp ts = rs.getTimestamp("ts_stopped");
         if (ts != null) {
-            job.data.stopTime = (int) (ts.getTime() / 1000);
+            jobBuilder.setStopTime((int) (ts.getTime() / 1000));
         }
         else {
-            job.data.stopTime = 0;
+            jobBuilder.setStopTime(0);
         }
-
-        job.stats = WhiteboardDaoJdbc.mapJobStats(rs);
-        job.proxy = JobInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                .createProxy(new Ice.Identity(rs.getString("pk_job"),"manageJob")));
-
-        return job;
+        return jobBuilder.build();
     }
 
     private static final String GET_HOSTS =
@@ -349,7 +356,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         /**
          * The host whiteboard we're caching
          */
-        private List<NestedHost> hostWhiteboard;
+        private NestedHostSeq hostWhiteboard;
 
         /**
          * The time in which the cache expires.
@@ -357,11 +364,11 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         private long expireTime = 0l;
 
         public void cache(List<NestedHost> hostWhiteboard) {
-            this.hostWhiteboard = hostWhiteboard;
+            this.hostWhiteboard = NestedHostSeq.newBuilder().addAllNestedHosts(hostWhiteboard).build();
             expireTime = System.currentTimeMillis() + CACHE_EXPIRE_TIME_MS;
         }
 
-        public List<NestedHost> get() {
+        public NestedHostSeq get() {
             return hostWhiteboard;
         }
 
@@ -378,7 +385,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     private final CachedHostWhiteboard cachedHostWhiteboard =
         new CachedHostWhiteboard();
 
-    public List<NestedHost> getHostWhiteboard() {
+    public NestedHostSeq getHostWhiteboard() {
 
         if (!cachedHostWhiteboard.isExpired()) {
             return cachedHostWhiteboard.get();
@@ -407,11 +414,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                             NestedHost host;
                             String hid = rs.getString("pk_host");
                             if (!hosts.containsKey(hid)) {
-                                host = new NestedHost();
-                                host.proxy = HostInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                                        .createProxy(new Ice.Identity(hid,"manageHost")));
-                                host.procs = new ArrayList<NestedProc>();
-                                host.data = WhiteboardDaoJdbc.mapHostData(rs);
+                                host = WhiteboardDaoJdbc.mapNestedHostBuilder(rs).build();
                                 hosts.put(hid, host);
                                 result.add(host);
                             }
@@ -423,30 +426,31 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                             if (pid != null) {
                                 NestedProc proc;
                                 if (!procs.containsKey(pid)) {
-                                    proc = new NestedProc();
-                                    proc.data = new ProcData();
-                                    proc.data.name  = CueUtil.buildProcName(host.data.name,
-                                            rs.getInt("proc_cores"));
-                                    proc.data.reservedCores = Convert.coreUnitsToCores(
-                                            rs.getInt("proc_cores"));
-                                    proc.data.reservedMemory = rs.getLong("proc_memory");
-                                    proc.data.usedMemory = rs.getLong("used_memory");
-                                    proc.data.frameName = rs.getString("frame_name");
-                                    proc.data.jobName = rs.getString("job_name");
-                                    proc.data.showName = rs.getString("show_name");
-                                    proc.data.pingTime = (int) (rs.getTimestamp("ts_ping").getTime() / 1000);
-                                    proc.data.bookedTime = (int) (rs.getTimestamp("ts_booked").getTime() / 1000);
-                                    proc.data.dispatchTime = (int) (rs.getTimestamp("ts_dispatched").getTime() / 1000);
-                                    proc.data.unbooked = rs.getBoolean("b_unbooked");
-                                    proc.data.logPath = String.format("%s/%s.%s.rqlog",
-                                            rs.getString("str_log_dir"),rs.getString("job_name"),
-                                            rs.getString("frame_name"));
-                                    proc.data.redirectTarget = rs.getString("str_redirect");
-                                    proc.parent = host;
-                                    proc.proxy = ProcInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                                            .createProxy(new Ice.Identity(pid,"manageProc")));
-                                    host.procs.add(proc);
+                                    proc = NestedProc.newBuilder()
+                                            .setId(pid)
+                                            .setName(CueUtil.buildProcName(host.getName(),
+                                                    rs.getInt("proc_cores")))
+                                            .setReservedCores(Convert.coreUnitsToCores(
+                                                    rs.getInt("proc_cores")))
+                                            .setReservedMemory(rs.getLong("proc_memory"))
+                                            .setUsedMemory(rs.getLong("used_memory"))
+                                            .setFrameName(rs.getString("frame_name"))
+                                            .setJobName(rs.getString("job_name"))
+                                            .setShowName(rs.getString("show_name"))
+                                            .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                                            .setBookedTime((int) (rs.getTimestamp("ts_booked").getTime() / 1000))
+                                            .setDispatchTime((int) (rs.getTimestamp("ts_dispatched").getTime() / 1000))
+                                            .setUnbooked(rs.getBoolean("b_unbooked"))
+                                            .setLogPath(String.format("%s/%s.%s.rqlog",
+                                                    rs.getString("str_log_dir"),rs.getString("job_name"),
+                                                    rs.getString("frame_name")))
+                                            .setRedirectTarget(rs.getString("str_redirect"))
+                                            .setParent(host)
+                                            .build();
 
+                                    host = host.toBuilder().setProcs(
+                                            host.getProcs().toBuilder().addNestedProcs(proc).build())
+                                            .build();
                                     procs.put(pid, proc);
                                 }
                                 else {

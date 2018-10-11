@@ -23,11 +23,12 @@ import static org.junit.Assert.*;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -42,7 +43,7 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -422,7 +423,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(1, procDao.findVirtualProcs(job).size());
         assertEquals(1, procDao.findVirtualProcs(frame).size());
         assertEquals(1, procDao.findVirtualProcs(new FrameSearch(job)).size());
-        assertEquals(1, procDao.findVirtualProcs(new FrameSearch((Layer) frame)).size());
+        assertEquals(1, procDao.findVirtualProcs(new FrameSearch((LayerInterface) frame)).size());
     }
 
     @Test
@@ -806,15 +807,16 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          */
         r = new ProcSearch();
         r.addSort(new Sort("proc.ts_booked",Direction.ASC));
-        r.getCriteria().shows.add("pipe");
+        ProcSearchCriteria criteriaA = r.getCriteria();
+        r.setCriteria(criteriaA.toBuilder().addShows("pipe").build());
         assertEquals(5, procDao.findVirtualProcs(r).size());
 
         /*
          * Limit the result to 1 result.
          */
         r = new ProcSearch();
-        r.getCriteria().shows.add("pipe");
-        r.getCriteria().maxResults = new int[] { 1 };
+        ProcSearchCriteria criteriaB = r.getCriteria();
+        r.setCriteria(criteriaB.toBuilder().addShows("pipe").setMaxResults(0, 1).build());
         assertEquals(1, procDao.findVirtualProcs(r).size());
 
         /*
@@ -822,8 +824,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          * the result to 4.
          */
         r = new ProcSearch();
-        r.getCriteria().shows.add("pipe");
-        r.getCriteria().firstResult = 2;
+        ProcSearchCriteria criteriaC = r.getCriteria();
+        r.setCriteria(criteriaC.toBuilder().addShows("pipe").setFirstResult(2).build());
         r.addSort(new Sort("proc.ts_booked",Direction.ASC));
         assertEquals(4, procDao.findVirtualProcs(r).size());
 
@@ -831,11 +833,13 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          * Now try to do the eqivalent of a limit/offset
          */
         r = new ProcSearch();
-        r.getCriteria().shows.add("pipe");
-        r.getCriteria().firstResult = 3;
-        r.getCriteria().maxResults = new int[] { 2 };
+        ProcSearchCriteria criteriaD = r.getCriteria();
+        r.setCriteria(criteriaD.toBuilder()
+                .addShows("pipe")
+                .setFirstResult(3)
+                .setMaxResults(0, 2)
+                .build());
         assertEquals(2, procDao.findVirtualProcs(r).size());
-
     }
 }
 

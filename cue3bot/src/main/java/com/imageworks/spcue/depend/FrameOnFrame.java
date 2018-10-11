@@ -19,19 +19,19 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnFrame extends AbstractDepend implements Depend {
 
-    private final Frame dependErFrame;
-    private final Frame dependOnFrame;
+    private final FrameInterface dependErFrame;
+    private final FrameInterface dependOnFrame;
     private AbstractDepend parent = null;
 
-    public FrameOnFrame(Frame dependErFrame,
-            Frame dependOnFrame, AbstractDepend parent) {
+    public FrameOnFrame(FrameInterface dependErFrame,
+                        FrameInterface dependOnFrame, AbstractDepend parent) {
 
         if (dependOnFrame.getFrameId().equals(dependErFrame.getFrameId())) {
             throw new DependException("The frame " + dependErFrame.getName() +
@@ -42,16 +42,16 @@ public class FrameOnFrame extends AbstractDepend implements Depend {
         this.dependOnFrame = dependOnFrame;
         this.parent = parent;
     }
-    public FrameOnFrame(Frame dependErFrame,
-            Frame dependOnFrame) {
+    public FrameOnFrame(FrameInterface dependErFrame,
+            FrameInterface dependOnFrame) {
         this.dependErFrame = dependErFrame;
         this.dependOnFrame = dependOnFrame;
     }
-    public Frame getDependErFrame() {
+    public FrameInterface getDependErFrame() {
         return dependErFrame;
     }
 
-    public Frame getDependOnFrame() {
+    public FrameInterface getDependOnFrame() {
         return dependOnFrame;
     }
 

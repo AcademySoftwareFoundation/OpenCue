@@ -27,22 +27,22 @@ import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Action;
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.ActionInterface;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.Matcher;
-import com.imageworks.spcue.MatcherDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.ActionType;
-import com.imageworks.spcue.CueIce.FilterType;
-import com.imageworks.spcue.CueIce.LayerType;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.job.LayerType;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -72,7 +72,7 @@ public class FilterManagerService implements FilterManager {
     private LayerDao layerDao;
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void runFilter(FilterDetail filter) {
+    public void runFilter(FilterEntity filter) {
         List<JobDetail> jobs = jobDao.findJobs(filter);
         for (JobDetail job: jobs) {
             if(!match(filter, job)) {
@@ -83,14 +83,14 @@ public class FilterManagerService implements FilterManager {
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void runFilterOnJob(FilterDetail filter, JobDetail job) {
+    public void runFilterOnJob(FilterEntity filter, JobDetail job) {
         if (match(filter,job)) {
             applyActions(filter,job);
         }
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void runFilterOnJob(FilterDetail filter, String id) {
+    public void runFilterOnJob(FilterEntity filter, String id) {
         JobDetail j = jobDao.getJobDetail(id);
         if (match(filter, j)) {
             applyActions(filter,j);
@@ -98,7 +98,7 @@ public class FilterManagerService implements FilterManager {
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void runFilterOnGroup(FilterDetail filter, Group group) {
+    public void runFilterOnGroup(FilterEntity filter, GroupInterface group) {
         for (JobDetail job: jobDao.findJobs(group)) {
             if (match(filter,job)) {
                 applyActions(filter,job);
@@ -107,13 +107,13 @@ public class FilterManagerService implements FilterManager {
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void filterShow(Show show) {
+    public void filterShow(ShowInterface show) {
 
-        List<FilterDetail> filters = filterDao.getActiveFilters(show);
+        List<FilterEntity> filters = filterDao.getActiveFilters(show);
         List<JobDetail> jobs = jobDao.findJobs(show);
 
         for (JobDetail job: jobs) {
-            for (FilterDetail filter: filters) {
+            for (FilterEntity filter: filters) {
                 if (!match(filter,job)) {
                     continue;
                 }
@@ -124,27 +124,27 @@ public class FilterManagerService implements FilterManager {
             }
         }
     }
-    public void deleteFilter(Filter f) {
+    public void deleteFilter(FilterInterface f) {
         filterDao.deleteFilter(f);
     }
 
-    public void lowerFilterOrder(Filter f) {
+    public void lowerFilterOrder(FilterInterface f) {
         filterDao.lowerFilterOrder(f, 1);
     }
 
-    public void raiseFilterOrder(Filter f) {
+    public void raiseFilterOrder(FilterInterface f) {
         filterDao.raiseFilterOrder(f, 1);
     }
 
-    public void setFilterOrder(Filter f, double order) {
+    public void setFilterOrder(FilterInterface f, double order) {
         filterDao.updateSetFilterOrder(f, order);
     }
 
-    public void createAction(ActionDetail action) {
+    public void createAction(ActionEntity action) {
         actionDao.createAction(action);
     }
 
-    public void createMatcher(MatcherDetail matcher) {
+    public void createMatcher(MatcherEntity matcher) {
         matcherDao.insertMatcher(matcher);
     }
 
@@ -181,8 +181,8 @@ public class FilterManagerService implements FilterManager {
     @Transactional(propagation = Propagation.SUPPORTS)
     public void runFiltersOnJob(JobDetail job) {
         Context context = new Context();
-        List<FilterDetail> filters = filterDao.getActiveFilters(job);
-        for (FilterDetail filter : filters) {
+        List<FilterEntity> filters = filterDao.getActiveFilters(job);
+        for (FilterEntity filter : filters) {
             if(match(filter, job)) {
                 boolean stop_filters = applyActions(filter, job, context);
                 if (stop_filters) { break; }
@@ -190,71 +190,71 @@ public class FilterManagerService implements FilterManager {
         }
     }
 
-    public boolean applyActions(List<ActionDetail> actions, JobDetail job, Context context) {
-        for (ActionDetail action: actions) {
+    public boolean applyActions(List<ActionEntity> actions, JobDetail job, Context context) {
+        for (ActionEntity action: actions) {
             applyAction(action, job, context);
-            if (action.type.equals(ActionType.StopProcessing)) {
+            if (action.type.equals(ActionType.STOP_PROCESSING)) {
                 return true;
             }
         }
         return false;
     }
 
-    public boolean applyActions(List<ActionDetail> actions, JobDetail job) {
+    public boolean applyActions(List<ActionEntity> actions, JobDetail job) {
         return applyActions(actions, job, new Context());
     }
 
-    public boolean applyActions(FilterDetail filter, JobDetail job) {
+    public boolean applyActions(FilterEntity filter, JobDetail job) {
         return applyActions(filter, job, new Context());
     }
 
-    public boolean applyActions(FilterDetail filter, JobDetail job, Context context) {
+    public boolean applyActions(FilterEntity filter, JobDetail job, Context context) {
        return applyActions(actionDao.getActions(filter), job, context);
     }
 
-    private boolean isMatch(final MatcherDetail matcher, final String ... inputs) {
+    private boolean isMatch(final MatcherEntity matcher, final String ... inputs) {
         boolean isMatch = false;
 
         switch (matcher.type) {
-            case Contains:
+            case CONTAINS:
                 for (String s : inputs) {
                     isMatch = s.contains(matcher.value);
                     if (isMatch) break;
                 }
                 break;
-            case DoesNotContain:
+            case DOES_NOT_CONTAIN:
                 for (String s : inputs) {
                     isMatch = s.contains(matcher.value);
                     if (isMatch) return false;
                 }
                 isMatch = true;
                 break;
-            case Is:
+            case IS:
                 for (String s : inputs) {
                     isMatch = s.equals(matcher.value);
                     if (isMatch) break;
                 }
                 break;
-            case IsNot:
+            case IS_NOT:
                 for (String s : inputs) {
                     isMatch = s.equals(matcher.value);
                     if (isMatch) return false;
                 }
                 isMatch = true;
                 break;
-            case BeginsWith:
+            case BEGINS_WITH:
                 for (String s : inputs) {
                     isMatch = s.startsWith(matcher.value);
                     if (isMatch) break;
                 }
                 break;
-            case EndsWith:
+            case ENDS_WITH:
                 for (String s : inputs) {
                     isMatch = s.endsWith(matcher.value);
                     if (isMatch) break;
                 }
                 break;
-            case Regex:
+            case REGEX:
                 Pattern pattern = null;
                 try {
                     pattern = Pattern.compile(matcher.value);
@@ -271,12 +271,12 @@ public class FilterManagerService implements FilterManager {
         return isMatch;
     }
 
-    public boolean isMatch(MatcherDetail matcher, JobDetail job) {
+    public boolean isMatch(MatcherEntity matcher, JobDetail job) {
 
         String input = null;
 
         switch (matcher.subject) {
-            case ServiceName: {
+            case SERVICE_NAME: {
                 List<LayerDetail> layers = layerDao.getLayerDetails(job);
                 List<String> serviceNames = new ArrayList<String>(layers.size());
                 for (LayerDetail layer : layers) {
@@ -287,7 +287,7 @@ public class FilterManagerService implements FilterManager {
 
                 return isMatch(matcher, serviceNames.toArray(new String[0]));
             }
-            case LayerName: {
+            case LAYER_NAME: {
                 List<LayerDetail> layers = layerDao.getLayerDetails(job);
                 List<String> layerNames = new ArrayList<String>(layers.size());
                 for (LayerDetail layer : layers) {
@@ -298,22 +298,22 @@ public class FilterManagerService implements FilterManager {
             }
             default: {
                 switch (matcher.subject) {
-                    case JobName:
+                    case JOB_NAME:
                         input = job.getName().toLowerCase();
                         break;
-                    case Show:
+                    case SHOW:
                         input = job.showName.toLowerCase();
                         break;
-                    case Shot:
+                    case SHOT:
                         input = job.shot.toLowerCase();
                         break;
-                    case User:
+                    case USER:
                         input = job.user.toLowerCase();
                         break;
-                    case Priority:
+                    case PRIORITY:
                         input = Integer.toString(job.priority);
                         break;
-                    case Facility:
+                    case FACILITY:
                         if (job.facilityName == null) {
                             return false;
                         }
@@ -328,11 +328,11 @@ public class FilterManagerService implements FilterManager {
         }
     }
 
-    public boolean applyAction(ActionDetail action, JobDetail job) {
+    public boolean applyAction(ActionEntity action, JobDetail job) {
         return applyAction(action, job, new Context());
     }
 
-    public boolean applyAction(ActionDetail action, JobDetail job, Context context) {
+    public boolean applyAction(ActionEntity action, JobDetail job, Context context) {
 
         boolean stopProcessing = false;
         /**
@@ -341,28 +341,28 @@ public class FilterManagerService implements FilterManager {
          * actions are handlded in applyAction
          */
         switch(action.type) {
-            case PauseJob:
+            case PAUSE_JOB:
                 jobDao.updatePaused(job, action.booleanValue);
                 break;
 
-            case SetJobMinCores:
+            case SET_JOB_MIN_CORES:
                 context.setProperty(Context.SET_MIN_CORES);
                 jobDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue));
                 break;
 
-            case SetJobMaxCores:
+            case SET_JOB_MAX_CORES:
                 context.setProperty(Context.SET_MAX_CORES);
                 jobDao.updateMaxCores(job, Convert.coresToCoreUnits(action.floatValue));
                 break;
 
-            case SetJobPriority:
+            case SET_JOB_PRIORITY:
                 context.setProperty(Context.SET_PRIORITY);
                 int priority = (int) action.intValue;
                 jobDao.updatePriority(job, priority);
                 job.priority = priority;
                 break;
 
-            case MoveJobToGroup:
+            case MOVE_JOB_TO_GROUP:
                 // Just ignore this if the groupValue is null.  The job will launch
                 // and it can be moved to the right group manually.
                 if (action.groupValue == null) {
@@ -388,21 +388,21 @@ public class FilterManagerService implements FilterManager {
                 jobDao.updateParent(job, g, inherits.toArray(new Inherit[0]));
                 break;
 
-            case SetAllRenderLayerTags:
-                layerDao.updateTags(job, action.stringValue, LayerType.Render);
+            case SET_ALL_RENDER_LAYER_TAGS:
+                layerDao.updateTags(job, action.stringValue, LayerType.RENDER);
                 break;
 
-            case SetAllRenderLayerMemory:
-                layerDao.updateMinMemory(job, (int) action.intValue, LayerType.Render);
+            case SET_ALL_RENDER_LAYER_MEMORY:
+                layerDao.updateMinMemory(job, (int) action.intValue, LayerType.RENDER);
                 break;
 
-            case SetAllRenderLayerCores:
-                layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.Render);
+            case SET_ALL_RENDER_LAYER_CORES:
+                layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.RENDER);
                 break;
 
-            case SetMemoryOptimizer:
-                List<Layer> layers =  layerDao.getLayers(job);
-                for (Layer layer : layers) {
+            case SET_MEMORY_OPTIMIZER:
+                List<LayerInterface> layers =  layerDao.getLayers(job);
+                for (LayerInterface layer : layers) {
                     layerDao.enableMemoryOptimizer(layer, action.booleanValue);
                 }
                 break;
@@ -415,29 +415,29 @@ public class FilterManagerService implements FilterManager {
         return stopProcessing;
     }
 
-    private boolean match(FilterDetail filter, JobDetail job) {
+    private boolean match(FilterEntity filter, JobDetail job) {
 
         int numMatched = 0;
         int numMatchesRequired = 1;
 
-        List<MatcherDetail> matchers = matcherDao.getMatchers(filter);
+        List<MatcherEntity> matchers = matcherDao.getMatchers(filter);
         if (matchers.size() == 0) { return false; }
 
-        if (filter.type.equals(FilterType.MatchAll)) {
+        if (filter.type.equals(FilterType.MATCH_ALL)) {
             numMatchesRequired = matchers.size();
         }
 
-        for (MatcherDetail matcher: matchers) {
+        for (MatcherEntity matcher: matchers) {
             boolean itMatches = isMatch(matcher,job);
 
             if (!itMatches) {
-                if (filter.type.equals(FilterType.MatchAll)) {
+                if (filter.type.equals(FilterType.MATCH_ALL)) {
                     break;
                 }
             }
             else {
                 numMatched++;
-                if (filter.type.equals(FilterType.MatchAny)) {
+                if (filter.type.equals(FilterType.MATCH_ANY)) {
                     break;
                 }
             }
@@ -466,47 +466,47 @@ public class FilterManagerService implements FilterManager {
         this.groupDao = groupDao;
     }
 
-    public void deleteAction(Action action) {
+    public void deleteAction(ActionInterface action) {
         actionDao.deleteAction(action);
     }
 
-    public void deleteMatcher(Matcher matcher) {
+    public void deleteMatcher(MatcherInterface matcher) {
         matcherDao.deleteMatcher(matcher);
     }
 
-    public ActionDetail getAction(String id) {
+    public ActionEntity getAction(String id) {
         return actionDao.getAction(id);
     }
 
-    public ActionDetail getAction(Action action) {
+    public ActionEntity getAction(ActionInterface action) {
         return actionDao.getAction(action);
     }
 
-    public FilterDetail getFilter(String id) {
+    public FilterEntity getFilter(String id) {
         return filterDao.getFilter(id);
     }
 
-    public FilterDetail getFilter(Filter filter) {
+    public FilterEntity getFilter(FilterInterface filter) {
         return filterDao.getFilter(filter);
     }
 
-    public MatcherDetail getMatcher(String id) {
+    public MatcherEntity getMatcher(String id) {
         return matcherDao.getMatcher(id);
     }
 
-    public MatcherDetail getMatcher(Matcher matcher) {
+    public MatcherEntity getMatcher(MatcherInterface matcher) {
         return matcherDao.getMatcher(matcher);
     }
 
-    public void updateAction(ActionDetail action) {
+    public void updateAction(ActionEntity action) {
         actionDao.updateAction(action);
     }
 
-    public void updateMatcher(MatcherDetail matcher) {
+    public void updateMatcher(MatcherEntity matcher) {
         matcherDao.updateMatcher(matcher);
     }
 
-    public void createFilter(FilterDetail filter) {
+    public void createFilter(FilterEntity filter) {
         filterDao.insertFilter(filter);
     }
 
