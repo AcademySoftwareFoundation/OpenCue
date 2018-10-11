@@ -325,7 +325,7 @@ public class RedirectManager   {
 
             switch (r.getType()) {
 
-                case JobRedirect:
+                case JOB_REDIRECT:
                     logger.info("attempting a job redirect to " +
                             r.getDestinationId());
                     JobInterface job = jobDao.getJob(r.getDestinationId());
@@ -341,7 +341,7 @@ public class RedirectManager   {
                     }
                     return true;
 
-                case GroupRedirect:
+                case GROUP_REDIRECT:
                     logger.info("attempting a group redirect to " +
                             r.getDestinationId());
                     GroupInterface group = groupDao.getGroup(r.getDestinationId());

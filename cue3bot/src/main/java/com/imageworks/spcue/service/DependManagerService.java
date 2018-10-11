@@ -45,7 +45,7 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.depend.*;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 @Transactional
 public class DependManagerService implements DependManager {

@@ -37,7 +37,7 @@ import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 /**
  * JobManager pretty much handles all job management functions. From launching

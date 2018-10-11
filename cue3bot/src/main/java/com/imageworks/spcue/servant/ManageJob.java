@@ -19,11 +19,7 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobInterface
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Source;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
@@ -41,9 +37,12 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.*;
 import com.imageworks.spcue.util.Convert;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 import io.grpc.stub.StreamObserver;
 import io.grpc.Status;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
@@ -52,6 +51,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private GroupManager groupManager;
     private JobManagerSupport jobManagerSupport;
     private JobDao jobDao;
+    private JobLauncher jobLauncher;
     private DependManager dependManager;
     private CommentManager commentManager;
     private DispatchQueue manageQueue;
@@ -126,6 +126,37 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         manageQueue.execute(new DispatchJobComplete(job,
                 new Source(request.toString()), true, jobManagerSupport));
         responseObserver.onNext(JobKillResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void launchSpecAndWait(JobLaunchSpecAndWaitRequest request,
+                                  StreamObserver<JobLaunchSpecAndWaitResponse> responseObserver) {
+        JobSpec spec = jobLauncher.parse(request.getSpec());
+        jobLauncher.launch(spec);
+        JobSearchCriteria r = JobSearch.criteriaFactory();
+        JobSearchCriteria.Builder builder = r.toBuilder();
+        for (BuildableJob job: spec.getJobs()) {
+            builder.addIds((job.detail.id)).build();
+        }
+        r = builder.build();
+        responseObserver.onNext(JobLaunchSpecAndWaitResponse.newBuilder()
+                .setJobs(whiteboard.getJobs(new JobSearch(r)))
+                .build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void launchSpec(JobLaunchSpecRequest request, StreamObserver<JobLaunchSpecResponse> responseObserver) {
+        JobSpec spec = jobLauncher.parse(request.getSpec());
+        List<String> result = new ArrayList<String>(8);
+        for (BuildableJob j: spec.getJobs()) {
+            result.add(j.detail.name);
+        }
+        jobLauncher.queueAndLaunch(spec);
+        responseObserver.onNext(JobLaunchSpecResponse.newBuilder()
+                .addAllNames(result)
+                .build());
         responseObserver.onCompleted();
     }
 
@@ -453,6 +484,14 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     public void setJobDao(JobDao jobDao) {
         this.jobDao = jobDao;
+    }
+
+    public JobLauncher getJobLauncher() {
+        return jobLauncher;
+    }
+
+    public void setJobLauncher(JobLauncher jobLauncher) {
+        this.jobLauncher = jobLauncher;
     }
 
     public CommentManager getCommentManager() {

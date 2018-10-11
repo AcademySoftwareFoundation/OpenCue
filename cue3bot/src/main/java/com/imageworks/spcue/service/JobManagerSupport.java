@@ -47,7 +47,7 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 /**
  * A non-transaction support class for managing jobs.

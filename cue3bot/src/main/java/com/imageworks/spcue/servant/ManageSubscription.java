@@ -121,7 +121,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
         this.whiteboard = whiteboard;
     }
 
-    private SubscriptionDetail getSubscriptionDetail(Subscription subscription) {
+    private SubscriptionEntity getSubscriptionDetail(Subscription subscription) {
         return adminManager.getSubscriptionDetail(subscription.getName());
     }
 }

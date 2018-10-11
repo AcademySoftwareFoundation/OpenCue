@@ -43,7 +43,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 
 @Transactional
 public class JobManagerService implements JobManager {

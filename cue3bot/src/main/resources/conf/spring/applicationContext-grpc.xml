@@ -26,7 +26,6 @@
         <property name="dispatchQueue" ref="dispatchQueue" />
         <property name="bookingQueue" ref="bookingQueue" />
         <property name="dispatchSupport" ref="dispatchSupport" />
-        <property name="jobLauncher" ref="jobLauncher" />
     </bean>
 
     <bean scope="prototype" id="manageAction" class="com.imageworks.spcue.servant.ManageAction">
@@ -47,7 +46,7 @@
     </bean>
 
     <bean scope="prototype" id="manageDeed" class="com.imageworks.spcue.servant.ManageDeed">
-        <property name="filterManager" ref="filterManager" />
+        <property name="ownerManager" ref="ownerManager" />
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
@@ -59,7 +58,7 @@
 
     <bean scope="prototype" id="manageDepend" class="com.imageworks.spcue.servant.ManageDepend">
         <property name="dependManager" ref="dependManager" />
-        <property name="manageQuue" ref="manageQueue" />
+        <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
@@ -110,6 +109,7 @@
         <property name="groupManager" ref="groupManager" />
         <property name="jobManagerSupport" ref="jobManagerSupport" />
         <property name="jobDao" ref="jobDao" />
+        <property name="jobLauncher" ref="jobLauncher" />
         <property name="commentManager" ref="commentManager" />
         <property name="manageQueue" ref="manageQueue" />
         <property name="localDispatcher" ref="localDispatcher" />
@@ -166,6 +166,15 @@
         <property name="ownerManager" ref="ownerManager" />
         <property name="serviceManager" ref="serviceManager" />
         <property name="whiteboard" ref="whiteboard" />
+    </bean>
+
+    <bean scope="prototype" id="manageSubscription" class="com.imageworks.spcue.servant.ManageSubscription">
+        <property name="adminManager" ref="adminManager" />
+        <property name="whiteboard" ref="whiteboard" />
+    </bean>
+
+    <bean scope="prototype" id="manageTask" class="com.imageworks.spcue.servant.ManageTask">
+        <property name="departmentManager" ref="departmentManager" />
     </bean>
 
 </beans>

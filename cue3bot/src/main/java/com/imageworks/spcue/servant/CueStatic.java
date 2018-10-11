@@ -19,17 +19,11 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.*;
-import com.imageworks.spcue.dao.criteria.*;
 import com.imageworks.spcue.dispatcher.*;
 import com.imageworks.spcue.grpc.cue.*;
-import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.grpc.cue.SystemStats;
 import com.imageworks.spcue.service.*;
 import io.grpc.stub.StreamObserver;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
 
@@ -39,38 +33,6 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
     private HostReportQueue reportQueue;
     private BookingQueue bookingQueue;
     private DispatchSupport dispatchSupport;
-    private JobLauncher jobLauncher;
-
-    @Override
-    public void launchSpecAndWait(CueLaunchSpecAndWaitRequest request,
-                    StreamObserver<CueLaunchSpecAndWaitResponse> responseObserver) {
-        JobSpec spec = jobLauncher.parse(request.getSpec());
-        jobLauncher.launch(spec);
-        JobSearchCriteria r = JobSearch.criteriaFactory();
-        JobSearchCriteria.Builder builder = r.toBuilder();
-        for (BuildableJob job: spec.getJobs()) {
-            builder.addIds((job.detail.id)).build();
-        }
-        r = builder.build();
-        responseObserver.onNext(CueLaunchSpecAndWaitResponse.newBuilder()
-                .setJobs(whiteboard.getJobs(new JobSearch(r)))
-                .build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void launchSpec(CueLaunchSpecRequest request, StreamObserver<CueLaunchSpecResponse> responseObserver) {
-        JobSpec spec = jobLauncher.parse(request.getSpec());
-        List<String> result = new ArrayList<String>(8);
-        for (BuildableJob j: spec.getJobs()) {
-            result.add(j.detail.name);
-        }
-        jobLauncher.queueAndLaunch(spec);
-        responseObserver.onNext(CueLaunchSpecResponse.newBuilder()
-                .addAllNames(result)
-                .build());
-        responseObserver.onCompleted();
-    }
 
     @Override
     public void getSystemStats(CueGetSystemStatsRequest request,
@@ -172,14 +134,6 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
 
     public void setDispatchSupport(DispatchSupport dispatchSupport) {
         this.dispatchSupport = dispatchSupport;
-    }
-
-    public JobLauncher getJobLauncher() {
-        return jobLauncher;
-    }
-
-    public void setJobLauncher(JobLauncher jobLauncher) {
-        this.jobLauncher = jobLauncher;
     }
 }
 

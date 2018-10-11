@@ -83,5 +83,13 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
     public void setManageQueue(DispatchQueue manageQueue) {
         this.manageQueue = manageQueue;
     }
+
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
 }
 

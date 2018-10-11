@@ -155,6 +155,14 @@ public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfac
         responseObserver.onCompleted();
     }
 
+    public AdminManager getAdminManager() {
+        return adminManager;
+    }
+
+    public void setAdminManager(AdminManager adminManager) {
+        this.adminManager = adminManager;
+    }
+
     public DepartmentManager getDepartmentManager() {
         return departmentManager;
     }

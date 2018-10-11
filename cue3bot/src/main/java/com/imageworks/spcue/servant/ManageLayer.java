@@ -38,7 +38,7 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.*;
 import com.imageworks.spcue.util.Convert;
-import com.imageworks.util.FileSequence.FrameSet;
+import com.imageworks.spcue.util.FrameSet;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 

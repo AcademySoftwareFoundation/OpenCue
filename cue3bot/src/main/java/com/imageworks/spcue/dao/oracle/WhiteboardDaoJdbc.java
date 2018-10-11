@@ -1148,7 +1148,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     rs.getString("str_tags").
                                     replaceAll(" ","").split("\\|")))
                             .addAllServices(Arrays.asList(rs.getString("str_services").split(",")))
-                            .setMemoryOptimzerEnabled(rs.getBoolean("b_optimize"));
+                            .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"));
 
                     LayerStats.Builder statsBuilder = LayerStats.newBuilder()
                             .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
