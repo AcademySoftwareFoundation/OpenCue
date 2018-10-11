@@ -30,19 +30,6 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
 
     private ServiceManager serviceManager;
 
-    private ServiceEntity toServiceEntity(Service service) {
-        ServiceEntity entity = new ServiceEntity();
-        entity.id = service.getId();
-        entity.name = service.getName();
-        entity.minCores = service.getMinCores();
-        entity.maxCores = service.getMaxCores();
-        entity.minMemory = service.getMinMemory();
-        entity.minGpu = service.getMinGpu();
-        entity.tags = new LinkedHashSet<>(service.getTagsList());
-        entity.threadable = service.getThreadable();
-        return entity;
-    }
-
     @Override
     public void delete(ServiceOverrideDeleteRequest request,
                        StreamObserver<ServiceOverrideDeleteResponse> responseObserver) {
@@ -65,5 +52,18 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
 
     public void setServiceManager(ServiceManager serviceManager) {
         this.serviceManager = serviceManager;
+    }
+
+    private ServiceEntity toServiceEntity(Service service) {
+        ServiceEntity entity = new ServiceEntity();
+        entity.id = service.getId();
+        entity.name = service.getName();
+        entity.minCores = service.getMinCores();
+        entity.maxCores = service.getMaxCores();
+        entity.minMemory = service.getMinMemory();
+        entity.minGpu = service.getMinGpu();
+        entity.tags = new LinkedHashSet<>(service.getTagsList());
+        entity.threadable = service.getThreadable();
+        return entity;
     }
 }

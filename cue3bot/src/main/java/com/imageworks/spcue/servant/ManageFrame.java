@@ -51,15 +51,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     private Whiteboard whiteboard;
     private LocalBookingSupport localBookingSupport;
 
-    private FrameEntity getFrameEntity(Frame frame) {
-        return frameDao.getFrameDetail(frame.getId());
-    }
-
-    private void updateManagers() {
-        setDependManager(jobManagerSupport.getDependManager());
-        setJobManager(jobManagerSupport.getJobManager());
-    }
-
     @Override
     public void findFrame(FrameFindFrameRequest request, StreamObserver<FrameFindFrameResponse> responseObserver) {
         responseObserver.onNext(FrameFindFrameResponse.newBuilder()
@@ -294,6 +285,15 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
         this.localBookingSupport = localBookingSupport;
+    }
+
+    private FrameEntity getFrameEntity(Frame frame) {
+        return frameDao.getFrameDetail(frame.getId());
+    }
+
+    private void updateManagers() {
+        setDependManager(jobManagerSupport.getDependManager());
+        setJobManager(jobManagerSupport.getJobManager());
     }
 }
 

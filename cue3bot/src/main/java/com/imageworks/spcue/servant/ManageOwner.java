@@ -34,10 +34,6 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
     private Whiteboard whiteboard;
     private AdminManager adminManager;
 
-    private OwnerEntity getOwnerById(String id) {
-        return ownerManager.getOwner(id);
-    }
-
     @Override
     public void getOwner(OwnerGetOwnerRequest request, StreamObserver<OwnerGetOwnerResponse> responseObserver) {
         responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
@@ -122,6 +118,10 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
 
     public void setAdminManager(AdminManager adminManager) {
         this.adminManager = adminManager;
+    }
+
+    private OwnerEntity getOwnerById(String id) {
+        return ownerManager.getOwner(id);
     }
 }
 

@@ -46,10 +46,6 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     private JobManager jobManager;
     private Whiteboard whiteboard;
 
-    private HostInterface getHostInterface(Host host) {
-        return hostManager.getHost(host.getId());
-    }
-
     @Override
     public void getHosts(HostGetHostsRequest request, StreamObserver<HostGetHostsResponse> responseObserver) {
         responseObserver.onNext(HostGetHostsResponse.newBuilder()
@@ -317,6 +313,10 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     public void setJobManager(JobManager jobManager) {
         this.jobManager = jobManager;
+    }
+
+    private HostInterface getHostInterface(Host host) {
+        return hostManager.getHost(host.getId());
     }
 }
 

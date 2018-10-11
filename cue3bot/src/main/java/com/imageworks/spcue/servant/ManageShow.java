@@ -50,10 +50,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     private OwnerManager ownerManager;
     private ServiceManager serviceManager;
 
-    private ShowEntity getShowEntity(Show show) {
-        return adminManager.getShowEntity(show.getId());
-    }
-
     @Override
     public void createShow(ShowCreateShowRequest request, StreamObserver<ShowCreateShowResponse> responseObserver) {
         try {
@@ -399,6 +395,10 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
     public void setServiceManager(ServiceManager serviceManager) {
         this.serviceManager = serviceManager;
+    }
+
+    private ShowEntity getShowEntity(Show show) {
+        return adminManager.getShowEntity(show.getId());
     }
 }
 

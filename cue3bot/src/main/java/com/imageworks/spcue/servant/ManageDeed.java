@@ -43,18 +43,6 @@ public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
     private OwnerManager ownerManager;
     private Whiteboard whiteboard;
 
-    private DeedEntity toEntity(Deed deed) {
-        DeedEntity entity = new DeedEntity();
-        entity.id = deed.getId();
-        entity.host = deed.getHost();
-        entity.owner = deed.getOwner();
-        entity.show = deed.getShow();
-        entity.isBlackoutEnabled = deed.getBlackout();
-        entity.blackoutStart = deed.getBlackoutStartTime();
-        entity.blackoutStop = deed.getBlackoutStopTime();
-        return entity;
-    }
-
     @Override
     public void delete(DeedDeleteRequest request, StreamObserver<DeedDeleteResponse> responseObserver) {
         ownerManager.removeDeed(toEntity(request.getDeed()));
@@ -107,6 +95,18 @@ public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
 
     public void setWhiteboard(Whiteboard whiteboard) {
         this.whiteboard = whiteboard;
+    }
+
+    private DeedEntity toEntity(Deed deed) {
+        DeedEntity entity = new DeedEntity();
+        entity.id = deed.getId();
+        entity.host = deed.getHost();
+        entity.owner = deed.getOwner();
+        entity.show = deed.getShow();
+        entity.isBlackoutEnabled = deed.getBlackout();
+        entity.blackoutStart = deed.getBlackoutStartTime();
+        entity.blackoutStop = deed.getBlackoutStopTime();
+        return entity;
     }
 }
 

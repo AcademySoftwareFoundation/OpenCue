@@ -51,10 +51,6 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
     private GroupManager groupManager;
     private RedirectManager redirectManager;
 
-    private VirtualProc getVirtualProc(Proc proc) {
-        return procDao.getVirtualProc(proc.getId());
-    }
-
     @Override
     public void getProcs(ProcGetProcsRequest request, StreamObserver<ProcGetProcsResponse> responseObserver) {
         responseObserver.onNext(ProcGetProcsResponse.newBuilder()
@@ -274,6 +270,10 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     public void setRedirectManager(RedirectManager redirectManager) {
         this.redirectManager = redirectManager;
+    }
+
+    private VirtualProc getVirtualProc(Proc proc) {
+        return procDao.getVirtualProc(proc.getId());
     }
 }
 

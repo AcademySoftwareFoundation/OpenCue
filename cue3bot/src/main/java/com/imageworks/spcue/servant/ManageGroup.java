@@ -47,10 +47,6 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
     private Whiteboard whiteboard;
     private DispatchQueue manageQueue;
 
-    private GroupInterface getGroupInterface(Group group) {
-        return groupDao.getGroup(group.getId());
-    }
-
     @Override
     public void getGroup(GroupGetGroupRequest request, StreamObserver<GroupGetGroupResponse> responseObserver) {
         responseObserver.onNext(GroupGetGroupResponse.newBuilder()
@@ -264,5 +260,8 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
         this.jobDao = jobDao;
     }
 
+    private GroupInterface getGroupInterface(Group group) {
+        return groupDao.getGroup(group.getId());
+    }
 }
 

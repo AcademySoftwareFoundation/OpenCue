@@ -28,10 +28,6 @@ public class ManageRenderPartition extends RenderPartitionInterfaceGrpc.RenderPa
 
     private BookingManager bookingManager;
 
-    private LocalHostAssignment getLocalHostAssignment(RenderPartition renderPartition) {
-        return bookingManager.getLocalHostAssignment(renderPartition.getId());
-    }
-
     @Override
     public void delete(RenderPartDeleteRequest request, StreamObserver<RenderPartDeleteResponse> responseObserver) {
         bookingManager.deactivateLocalHostAssignment(getLocalHostAssignment(request.getRenderPartition()));
@@ -55,6 +51,10 @@ public class ManageRenderPartition extends RenderPartitionInterfaceGrpc.RenderPa
 
     public void setBookingManager(BookingManager bookingManager) {
         this.bookingManager = bookingManager;
+    }
+
+    private LocalHostAssignment getLocalHostAssignment(RenderPartition renderPartition) {
+        return bookingManager.getLocalHostAssignment(renderPartition.getId());
     }
 }
 

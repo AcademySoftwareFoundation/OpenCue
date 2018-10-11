@@ -39,17 +39,6 @@ public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfac
     private DepartmentManager departmentManager;
     private Whiteboard whiteboard;
 
-    private Task toTask(TaskEntity detail) {
-        return Task.newBuilder()
-                .setId(detail.id)
-                .setName(detail.name)
-                .setShot(detail.shot)
-                .setDept(detail.deptId)
-                .setMinCores(detail.minCoreUnits)
-                .setPointId(detail.pointId)
-                .build();
-    }
-
     private TaskSeq.Builder addTasksToDepartment(Map<String, Integer> tmap, PointDetail deptConfig) {
         TaskSeq.Builder builder = TaskSeq.newBuilder();
         for (Map.Entry<String, Integer> e: tmap.entrySet()) {
@@ -180,6 +169,17 @@ public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfac
 
     public void setWhiteboard(Whiteboard whiteboard) {
         this.whiteboard = whiteboard;
+    }
+
+    private Task toTask(TaskEntity detail) {
+        return Task.newBuilder()
+                .setId(detail.id)
+                .setName(detail.name)
+                .setShot(detail.shot)
+                .setDept(detail.deptId)
+                .setMinCores(detail.minCoreUnits)
+                .setPointId(detail.pointId)
+                .build();
     }
 }
 

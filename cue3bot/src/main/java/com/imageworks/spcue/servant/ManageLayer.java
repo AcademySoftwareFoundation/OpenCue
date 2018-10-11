@@ -53,19 +53,11 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private FrameSearch frameSearch;
     private JobManager jobManager;
     private DependManager dependManager;
-
     private JobManagerSupport jobManagerSupport;
     private LayerDao layerDao;
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
     private LocalBookingSupport localBookingSupport;
-
-    private void updateLayer(Layer layerData) {
-        setJobManager(jobManagerSupport.getJobManager());
-        setDependManager(jobManagerSupport.getDependManager());
-        layer = layerDao.getLayerDetail(layerData.getId());
-        frameSearch = new FrameSearch(layer);
-    }
 
     @Override
     public void findLayer(LayerFindLayerRequest request, StreamObserver<LayerFindLayerResponse> responseObserver) {
@@ -392,6 +384,13 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
     public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
         this.localBookingSupport = localBookingSupport;
+    }
+
+    private void updateLayer(Layer layerData) {
+        setJobManager(jobManagerSupport.getJobManager());
+        setDependManager(jobManagerSupport.getDependManager());
+        layer = layerDao.getLayerDetail(layerData.getId());
+        frameSearch = new FrameSearch(layer);
     }
 }
 

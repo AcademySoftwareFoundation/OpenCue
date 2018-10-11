@@ -44,23 +44,6 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     private GroupDao groupDao;
     private DispatchQueue manageQueue;
 
-    private FilterEntity getFilterEntity(Filter filter) {
-        return filterManager.getFilter(filter.getId());
-    }
-
-    private ActionEntity toActionEntity(Action action) {
-        ActionEntity entity = new ActionEntity();
-        entity.id = action.getId();
-        entity.type = action.getType();
-        entity.valueType = action.getValueType();
-        entity.groupValue = action.getGroupValue();
-        entity.stringValue = action.getStringValue();
-        entity.intValue = action.getIntegerValue();
-        entity.floatValue = action.getFloatValue();
-        entity.booleanValue = action.getBooleanValue();
-        return entity;
-    }
-
     @Override
     public void findFilter(FilterFindFilterRequest request, StreamObserver<FilterFindFilterResponse> responseObserver) {
         responseObserver.onNext(FilterFindFilterResponse.newBuilder()
@@ -253,5 +236,21 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
         this.whiteboard = whiteboard;
     }
 
+    private FilterEntity getFilterEntity(Filter filter) {
+        return filterManager.getFilter(filter.getId());
+    }
+
+    private ActionEntity toActionEntity(Action action) {
+        ActionEntity entity = new ActionEntity();
+        entity.id = action.getId();
+        entity.type = action.getType();
+        entity.valueType = action.getValueType();
+        entity.groupValue = action.getGroupValue();
+        entity.stringValue = action.getStringValue();
+        entity.intValue = action.getIntegerValue();
+        entity.floatValue = action.getFloatValue();
+        entity.booleanValue = action.getBooleanValue();
+        return entity;
+    }
 }
 

@@ -21,6 +21,7 @@ package com.imageworks.spcue.servant;
 
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.JobDao;
@@ -57,14 +58,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private Dispatcher localDispatcher;
     private LocalBookingSupport localBookingSupport;
     private FilterManager filterManager;
-
-    private com.imageworks.spcue.JobInterface job;
-
-    private void setupJobData(Job jobData) {
-        setJobManager(jobManagerSupport.getJobManager());
-        setDependManager(jobManagerSupport.getDependManager());
-        job = jobManager.getJob(jobData.getId());
-    }
+    private JobInterface job;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -507,6 +501,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     public void setFilterManager(FilterManager filterManager) {
         this.filterManager = filterManager;
+    }
+
+    private void setupJobData(Job jobData) {
+        setJobManager(jobManagerSupport.getJobManager());
+        setDependManager(jobManagerSupport.getDependManager());
+        job = jobManager.getJob(jobData.getId());
     }
 }
 

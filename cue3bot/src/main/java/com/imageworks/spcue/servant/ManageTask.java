@@ -37,10 +37,6 @@ public class ManageTask extends TaskInterfaceGrpc.TaskInterfaceImplBase {
 
     private DepartmentManager departmentManager;
 
-    private TaskEntity getTaskDetail(Task task) {
-        return departmentManager.getTaskDetail(task.getName());
-    }
-
     @Override
     public void delete(TaskDeleteRequest request, StreamObserver<TaskDeleteResponse> responseObserver) {
         departmentManager.removeTask(
@@ -79,5 +75,9 @@ public class ManageTask extends TaskInterfaceGrpc.TaskInterfaceImplBase {
 
     public void setDepartmentManager(DepartmentManager departmentManager) {
         this.departmentManager = departmentManager;
+    }
+
+    private TaskEntity getTaskDetail(Task task) {
+        return departmentManager.getTaskDetail(task.getName());
     }
 }
