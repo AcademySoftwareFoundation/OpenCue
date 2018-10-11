@@ -27,16 +27,6 @@ import java.util.List;
  */
 public final class Convert {
 
-    public static final String currentToString(Ice.Current current) {
-        if (current==null) {
-            return "Internal";
-        }
-        return String.format("%s by %s@%s",
-                current.operation,
-                current.ctx.get("username"),
-                current.ctx.get("hostname"));
-    }
-
     public static final int coresToCoreUnits(float cores) {
         return new BigDecimal(cores * 100).setScale(2,BigDecimal.ROUND_HALF_UP).intValue();
     }

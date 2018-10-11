@@ -35,7 +35,7 @@ import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
@@ -349,7 +349,7 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
                     jobManager.getDispatchFrame(lha.getFrameId());
                 frames = new ArrayList<DispatchFrame>(1);
 
-                if (dispatchFrame.state.equals(FrameState.Waiting)) {
+                if (dispatchFrame.state.equals(FrameState.WAITING)) {
                     frames.add(dispatchFrame);
                 }
                 break;

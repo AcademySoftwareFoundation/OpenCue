@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.ThreadMode;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
 public class VirtualProc extends FrameEntity implements ProcInterface {
@@ -72,7 +72,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      *
      * @param host
      * @param frame
-     * @param isFastMode
      * @return
      */
     public static final VirtualProc build(DispatchHost host, DispatchFrame frame) {
@@ -124,7 +123,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
 
             // if (host.threadMode == ThreadMode.Variable.value() &&
             // CueUtil.isDayTime()) {
-            if (host.threadMode == ThreadMode.All.value()) {
+            if (host.threadMode == ThreadMode.ALL_VALUE) {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
@@ -142,7 +141,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                         }
                     }
 
-                    if (host.threadMode == ThreadMode.Variable.value()
+                    if (host.threadMode == ThreadMode.VARIABLE_VALUE
                             && proc.coresReserved <= 200) {
                         proc.coresReserved = 200;
                         if (proc.coresReserved > host.idleCores) {
@@ -177,7 +176,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
             }
 
             if (proc.coresReserved > host.idleCores) {
-                if (host.threadMode == ThreadMode.Variable.value()
+                if (host.threadMode == ThreadMode.VARIABLE_VALUE
                         && frame.threadable && wholeCores == 1) {
                     throw new JobDispatchException(
                             "Do not allow threadable frame running one core on a ThreadMode.Variable host.");
@@ -237,9 +236,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
      * Allocates additional cores when the frame is using more 50% more than a
      * single cores worth of memory.
      *
+     * @param host
      * @param minMemory
-     * @param idleCores
-     * @param totalMemory
      * @return
      */
     public static int getCoreSpan(DispatchHost host, long minMemory) {

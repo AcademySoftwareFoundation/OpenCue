@@ -32,8 +32,7 @@ import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.FrameExitStatusNoRetry;
-import com.imageworks.spcue.CueIce.FrameExitStatusSkipRetry;
+import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -299,7 +298,7 @@ public class FrameCompleteHandler {
              * Frames that return a 256 are not automatically retried.
              */
 
-            else if (report.getExitStatus() == FrameExitStatusNoRetry.value) {
+            else if (report.getExitStatus() == FrameExitStatus.NO_RETRY_VALUE) {
                 logger.info("unbooking " + proc + " frame status was no-retry.");
                 unbookProc = true;
             }
@@ -520,9 +519,9 @@ public class FrameCompleteHandler {
         } else if (report.getExitStatus() != 0) {
 
             FrameState newState = FrameState.WAITING;
-            if (report.getExitStatus() == FrameExitStatusSkipRetry.value
+            if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
-                report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatusSkipRetry.value).build();
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;

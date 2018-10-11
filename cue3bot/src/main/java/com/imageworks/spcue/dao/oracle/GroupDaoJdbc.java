@@ -39,7 +39,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
@@ -412,7 +412,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     private int childJobCount(GroupInterface group) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(*) FROM job WHERE pk_folder=? AND str_state=?",
-                Integer.class, group.getId(), JobState.Pending.toString());
+                Integer.class, group.getId(), JobState.PENDING.toString());
     }
 
     private void recurseParentChange(final String folderId, final String newParentId) {

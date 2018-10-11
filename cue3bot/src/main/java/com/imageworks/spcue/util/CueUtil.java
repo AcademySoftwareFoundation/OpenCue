@@ -43,7 +43,6 @@ import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
-import com.imageworks.spcue.CueIce.CueIceException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
 import java.util.Map;
@@ -109,7 +108,6 @@ public final class CueUtil {
      *
      * @param name
      * @return
-     * @throws CueIceException
      */
     public static String[] splitAllocationName(String name) {
         String[] parts = name.split("\\.", 2);
@@ -259,7 +257,6 @@ public final class CueUtil {
      * return the milliseconds since time
      *
      * @param time
-     * @param message
      */
     public final static long duration(long time) {
         return System.currentTimeMillis() - time;
@@ -302,7 +299,7 @@ public final class CueUtil {
      * Take a frame range and chunk size and return an
      * ordered array of frames with all duplicates removed.
      *
-     * @param range
+     * @param frameSet
      * @param chunkSize
      * @return
      */

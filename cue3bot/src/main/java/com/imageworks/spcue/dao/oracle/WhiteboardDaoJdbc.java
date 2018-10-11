@@ -21,7 +21,6 @@ package com.imageworks.spcue.dao.oracle;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.imageworks.common.spring.remoting.IceServer;
 import com.imageworks.spcue.*;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;

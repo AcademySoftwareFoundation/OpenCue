@@ -41,7 +41,7 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.CueIce.FrameExitStatusSkipRetry;
+import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.dao.FrameDao;
@@ -190,7 +190,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
          * the software do not increment the retry counter.
          */
         getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
-                frame.getFrameId(), -1, FrameExitStatusSkipRetry.value,
+                frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
                 Dispatcher.EXIT_STATUS_FRAME_CLEARED);
     }
 

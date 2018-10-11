@@ -22,7 +22,7 @@ package com.imageworks.spcue.dao.oracle;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.MaintenanceTask;
-import com.imageworks.spcue.CueIce.HardwareState;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.dao.MaintenanceDao;
 
 public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao {
@@ -41,7 +41,7 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
 
     public int setUpHostsToDown() {
         return getJdbcTemplate().update(UPDATE_HOSTS_DOWN,
-                HardwareState.Down.toString());
+                HardwareState.DOWN.toString());
     }
 
     public static final String LOCK_TASK =

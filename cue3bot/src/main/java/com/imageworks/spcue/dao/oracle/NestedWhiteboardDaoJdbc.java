@@ -29,14 +29,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.grpc.job.Group;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
-
-import com.imageworks.common.spring.remoting.IceServer;
-import com.imageworks.spcue.CueClientIce.*;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
-
 import com.imageworks.spcue.grpc.host.NestedHost;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
 import com.imageworks.spcue.grpc.host.NestedProc;
@@ -64,11 +59,6 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     private final ConcurrentHashMap<String,CachedJobWhiteboardMapper> jobCache =
         new ConcurrentHashMap<String,CachedJobWhiteboardMapper>(20);
 
-    private static IceServer iceServer;
-
-    public NestedWhiteboardDaoJdbc(IceServer iceServer) {
-        NestedWhiteboardDaoJdbc.iceServer = iceServer;
-    }
 
     public static final String GET_NESTED_GROUPS =
         "SELECT " +

@@ -73,8 +73,6 @@ public interface HostDao {
      */
     void updateHostState(HostInterface host, HardwareState state);
 
-    void updateHostState(HostInterface host, com.imageworks.spcue.CueIce.HardwareState state);
-
     /**
      * returns a full host detail
      *

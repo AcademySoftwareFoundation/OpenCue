@@ -493,7 +493,7 @@ public interface WhiteboardDao {
     ProcSeq getProcs(ProcSearch p);
 
     /**
-     * Return the Ice representation of the given AbstractDepend.
+     * Return the grpc representation of the given AbstractDepend.
      *
      * @param depend
      * @return

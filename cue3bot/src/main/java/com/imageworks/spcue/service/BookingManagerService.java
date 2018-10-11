@@ -26,7 +26,6 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
@@ -42,6 +41,7 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.job.JobState;
 
 
 @Transactional
@@ -95,7 +95,7 @@ public class BookingManagerService implements BookingManager {
         String jobId = lha.getJobId();
         try {
             JobDetail jobDetail = jobDao.getJobDetail(jobId);
-            if (jobManager.isJobComplete(jobDetail) || jobDetail.state.equals(JobState.Finished)) {
+            if (jobManager.isJobComplete(jobDetail) || jobDetail.state.equals(JobState.FINISHED)) {
                 removeLocalHostAssignment(lha);
             }
         }

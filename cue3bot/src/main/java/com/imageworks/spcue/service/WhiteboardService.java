@@ -65,7 +65,7 @@ import com.imageworks.spcue.depend.AbstractDepend;
 * Traditionally the "Whiteboard" was an actually whiteboard the PSTs used to
 * use to track jobs.  Over time that term has come to mean an interface
 * from which you can query cue data.  The WhiteboardService defines
-* all the methods from which clients can obtain data.  All Ice servants
+* all the methods from which clients can obtain data.  All grpc servants
 * that return something go through here.
 *
 * The whiteboard is a ready only transaction with a SERIALIZABLE transaction

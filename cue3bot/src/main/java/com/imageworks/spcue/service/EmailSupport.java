@@ -53,7 +53,7 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerStats;
 import com.imageworks.spcue.SpcueRuntimeException;
-import com.imageworks.spcue.CueIce.LayerType;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -280,7 +280,7 @@ public class EmailSupport {
             List<LayerStats> layerStats = new ArrayList<LayerStats>(layers.size());
 
             for (LayerDetail layer: layers)  {
-                if (layer.type.equals(LayerType.Render)) {
+                if (layer.type.equals(LayerType.RENDER)) {
                     LayerStats stats = new LayerStats();
                     stats.setDetail(layer);
                     stats.setExecutionSummary(jobManager.getExecutionSummary(layer));

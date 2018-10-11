@@ -496,13 +496,6 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 state.toString(), host.getHostId());
     }
 
-    // TODO: Remove this once ICE is gone!
-    public void updateHostState(HostInterface host, com.imageworks.spcue.CueIce.HardwareState state) {
-        getJdbcTemplate().update(
-                "UPDATE host_stat SET str_state=? WHERE pk_host=?",
-                state.toString(), host.getHostId());
-    }
-
     @Override
     public void updateHostSetAllocation(HostInterface host, AllocationInterface alloc) {
 

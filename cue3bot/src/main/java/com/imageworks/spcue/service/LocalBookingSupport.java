@@ -27,9 +27,9 @@ import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.SpcueRuntimeException;
-
-import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dispatcher.LocalDispatcher;
+import com.imageworks.spcue.grpc.host.LockState;
+
 
 /**
  * Non transactional class for handling local booking logic.
@@ -49,7 +49,7 @@ public class LocalBookingSupport {
         logger.info("Setting up local booking for " + user + " on " + job);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException(
                     "The host "+ host + " is not NIMBY locked");
         }
@@ -85,7 +85,7 @@ public class LocalBookingSupport {
         logger.info("Setting up local booking for " + user + " on " + layer);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException("The host " + host
                     + " is not NIMBY locked");
         }
@@ -122,7 +122,7 @@ public class LocalBookingSupport {
         logger.info("Setting up local booking for " + user + " on " + frame);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException("The host " + host
                     + " is not NIMBY locked");
         }
