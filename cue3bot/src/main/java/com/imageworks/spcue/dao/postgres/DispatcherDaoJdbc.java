@@ -32,7 +32,7 @@ import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
@@ -129,7 +129,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * @param alloc
      * @return a sorted list of shows.
      */
-    private List<SortableShow> getBookableShows(Allocation alloc) {
+    private List<SortableShow> getBookableShows(AllocationInterface alloc) {
         String key = alloc.getAllocationId();
 
         ShowCache cached = bookableShows.get(key);

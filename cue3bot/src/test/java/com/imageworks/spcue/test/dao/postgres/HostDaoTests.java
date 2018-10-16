@@ -21,10 +21,7 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -45,16 +42,16 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -95,7 +92,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setNumProcs(2)
                 .setCoresPerProc(400)
                 .addAllTags(ImmutableList.of("linux", "64bit"))
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
                 .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
@@ -305,7 +302,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertTrue(hostDao.isHostUp(hostDao.findHostDetail(TEST_HOST)));
 
         hostDao.updateHostState(hostDao.findHostDetail(TEST_HOST),
-                HardwareState.Down);
+                HardwareState.DOWN);
         assertFalse(hostDao.isHostUp(hostDao.findHostDetail(TEST_HOST)));
     }
 

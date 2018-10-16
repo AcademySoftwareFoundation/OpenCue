@@ -27,7 +27,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Subscription;
@@ -50,7 +50,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
          "AND " +
             "s.int_cores > s.int_size ";
 
-    public boolean isShowOverSize(Show show, Allocation alloc) {
+    public boolean isShowOverSize(Show show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_OVER_SIZE,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;
@@ -80,7 +80,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         "AND " +
             "s.int_cores >= s.int_size ";
 
-    public boolean isShowAtOrOverSize(Show show, Allocation alloc) {
+    public boolean isShowAtOrOverSize(Show show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_AT_OR_OVER_SIZE,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;
@@ -102,7 +102,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
             "s.int_cores + ? > s.int_burst";
 
     @Override
-    public boolean isShowOverBurst(Show show, Allocation alloc, int coreUnits) {
+    public boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_OVER_BURST,
                     Integer.class, show.getShowId(), alloc.getAllocationId(),
@@ -125,7 +125,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
             "s.int_cores >= s.int_burst";
 
     @Override
-    public boolean isShowAtOrOverBurst(Show show, Allocation alloc) {
+    public boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_AT_OR_OVER_BURST,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;

@@ -22,9 +22,6 @@ package com.imageworks.spcue.test.dao.postgres;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -50,8 +47,6 @@ import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueIce.CheckpointState;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -60,6 +55,8 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -123,7 +120,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 .setNumProcs(1)
                 .setCoresPerProc(100)
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("freeGpu", "512")
                 .putAttributes("totalGpu", "512")

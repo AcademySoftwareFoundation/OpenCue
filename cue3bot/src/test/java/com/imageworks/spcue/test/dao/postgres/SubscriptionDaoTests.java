@@ -34,8 +34,8 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.SubscriptionDetail;
 import com.imageworks.spcue.dao.AllocationDao;
@@ -66,13 +66,13 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     public static final String SUB_NAME = "test.pipe";
     public static final String ALLOC_NAME = "test";
 
-    private AllocationDetail alloc;
+    private AllocationEntity alloc;
 
     public Show getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
-    public SubscriptionDetail buildSubscription(Show t, Allocation a) {
+    public SubscriptionDetail buildSubscription(Show t, AllocationInterface a) {
         SubscriptionDetail s = new SubscriptionDetail();
         s.allocationId = a.getId();
         s.showId = t.getId();
@@ -81,8 +81,8 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
         return s;
     }
 
-    public AllocationDetail buildAllocation() {
-        AllocationDetail a = new AllocationDetail();
+    public AllocationEntity buildAllocation() {
+        AllocationEntity a = new AllocationEntity();
         a.tag = "test";
         a.name = ALLOC_NAME;
         a.facilityId = facilityDao.getDefaultFacility().getFacilityId();
@@ -91,7 +91,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
 
     @Before
     public void before() {
-        alloc =  new AllocationDetail();
+        alloc =  new AllocationEntity();
         alloc.name = ALLOC_NAME;
         alloc.tag = "test";
         allocationDao.insertAllocation(

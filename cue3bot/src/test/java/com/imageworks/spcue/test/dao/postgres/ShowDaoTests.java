@@ -21,9 +21,6 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import javax.annotation.Resource;
 
 import org.junit.Test;
@@ -38,9 +35,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.util.CueUtil;
@@ -78,7 +75,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setNumProcs(2)
                 .setCoresPerProc(100)
                 .addTags("general")
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
                 .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))

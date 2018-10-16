@@ -22,8 +22,6 @@ package com.imageworks.spcue.test.dao.postgres;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -46,9 +44,7 @@ import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -58,6 +54,8 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
@@ -152,7 +150,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .setNumProcs(2)
                 .setCoresPerProc(100)
                 .addTags("test")
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
                 .build();
