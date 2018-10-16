@@ -22,12 +22,11 @@ package com.imageworks.spcue.test.service;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
+import com.imageworks.spcue.AllocationEntity;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -38,7 +37,6 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityModificationError;
@@ -48,18 +46,17 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Owner;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -115,7 +112,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
                 .setCoresPerProc(400)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("linux", "64bit"))
                 .putAttributes("freeGpu", "512")
@@ -143,7 +140,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     public void setAllocation() {
         Host h = createHost();
         hostManager.setAllocation(h,
-                allocationDao.findAllocationDetail("spi", "general"));
+                allocationDao.findAllocationEntity("spi", "general"));
     }
 
     /**
@@ -163,8 +160,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
         DispatchHost h = createHost();
 
-        AllocationDetail ad =
-            allocationDao.findAllocationDetail("spi", "desktop");
+        AllocationEntity ad =
+            allocationDao.findAllocationEntity("spi", "desktop");
 
         VirtualProc proc = VirtualProc.build(h, frame);
         proc.frameId = frame.id;
@@ -174,7 +171,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 "SELECT int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?",
                 Integer.class, job.getShowId(), ad.getAllocationId());
 
-        AllocationDetail ad2 = allocationDao.findAllocationDetail("spi", "desktop");
+        AllocationEntity ad2 = allocationDao.findAllocationEntity("spi", "desktop");
         hostManager.setAllocation(h, ad2);
     }
 

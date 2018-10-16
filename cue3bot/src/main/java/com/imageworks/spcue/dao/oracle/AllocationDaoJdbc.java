@@ -27,6 +27,8 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.FacilityInterface;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.CallableStatementCreator;
@@ -34,17 +36,15 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.EntityRemovalError;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao {
 
-     public static RowMapper<AllocationDetail> ALLOC_MAPPER = new RowMapper<AllocationDetail>() {
-         public AllocationDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-             AllocationDetail alloc = new AllocationDetail();
+     public static RowMapper<AllocationEntity> ALLOC_MAPPER = new RowMapper<AllocationEntity>() {
+         public AllocationEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+             AllocationEntity alloc = new AllocationEntity();
              alloc.id = rs.getString("pk_alloc");
              alloc.facilityId = rs.getString("pk_facility");
              alloc.name = rs.getString("str_name");
@@ -66,20 +66,20 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
          "WHERE " +
              "alloc.pk_facility = facility.pk_facility ";
 
-     public AllocationDetail getAllocationDetail(String id) {
+     public AllocationEntity getAllocationEntity(String id) {
          return getJdbcTemplate().queryForObject(
                  GET_ALLOCATION + " AND pk_alloc=?",
                  ALLOC_MAPPER, id);
      }
 
-     public AllocationDetail findAllocationDetail(String facility, String name) {
+     public AllocationEntity findAllocationEntity(String facility, String name) {
          return getJdbcTemplate().queryForObject(
                  GET_ALLOCATION + " AND alloc.str_name=?",
                  ALLOC_MAPPER, String.format("%s.%s", facility, name));
      }
 
      @Override
-     public AllocationDetail findAllocationDetail(String name) {
+     public AllocationEntity findAllocationEntity(String name) {
          return getJdbcTemplate().queryForObject(
                  GET_ALLOCATION + " AND alloc.str_name=?",
                  ALLOC_MAPPER, name);
@@ -95,7 +95,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
               "str_tag "+
           ") VALUES (?,?,?,?)";
 
-     public void insertAllocation(FacilityInterface facility, AllocationDetail detail) {
+     public void insertAllocation(FacilityInterface facility, AllocationEntity detail) {
 
          String new_alloc_name = String.format("%s.%s",
                  facility.getName(), detail.getName());
@@ -119,7 +119,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
          }
      }
 
-     public void deleteAllocation(Allocation a) {
+     public void deleteAllocation(AllocationInterface a) {
          if (getJdbcTemplate().queryForObject(
                  "SELECT COUNT(1) FROM host WHERE pk_alloc=?", Integer.class,
                  a.getAllocationId()) > 0) {
@@ -145,7 +145,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
          }
      }
 
-     public void updateAllocationName(Allocation a, String name) {
+     public void updateAllocationName(AllocationInterface a, String name) {
 
          if (!Pattern.matches("^\\w+$", name)) {
              throw new IllegalArgumentException("The new allocation name" +
@@ -160,7 +160,7 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
                  new_name, a.getAllocationId());
      }
 
-     public void updateAllocationTag(Allocation a, String tag) {
+     public void updateAllocationTag(AllocationInterface a, String tag) {
          getJdbcTemplate().update("UPDATE alloc SET str_tag=? WHERE pk_alloc=?",
                  tag, a.getAllocationId());
 
@@ -182,20 +182,20 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
          }
      }
 
-     public void setDefaultAllocation(Allocation a) {
+     public void setDefaultAllocation(AllocationInterface a) {
          getJdbcTemplate().update("UPDATE alloc SET b_default = 0 WHERE b_default = 1");
          getJdbcTemplate().update("UPDATE alloc SET b_default = 1 WHERe pk_alloc=?",
                  a.getAllocationId());
      }
 
-     public AllocationDetail getDefaultAllocationDetail() {
+     public AllocationEntity getDefaultAllocationEntity() {
          return getJdbcTemplate().queryForObject(
                  GET_ALLOCATION + " AND alloc.b_default = 1 AND ROWNUM = 1",
                  ALLOC_MAPPER);
      }
 
      @Override
-     public void updateAllocationBillable(Allocation alloc, boolean value) {
+     public void updateAllocationBillable(AllocationInterface alloc, boolean value) {
          getJdbcTemplate().update(
                  "UPDATE alloc SET b_billable = ? WHERE pk_alloc = ?",
                  value, alloc.getAllocationId());

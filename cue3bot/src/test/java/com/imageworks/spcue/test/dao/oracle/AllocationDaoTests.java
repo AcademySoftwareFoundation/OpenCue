@@ -33,7 +33,7 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.dao.AllocationDao;
@@ -58,12 +58,12 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     public static final String ALLOC_NAME = "test_alloc";
     public static final String ALLOC_TAG = "test";
 
-    private AllocationDetail alloc;
+    private AllocationEntity alloc;
 
     @Before
     public void before() {
 
-        alloc = new AllocationDetail();
+        alloc = new AllocationEntity();
         alloc.name = ALLOC_NAME;
         alloc.tag = ALLOC_TAG;
 
@@ -75,7 +75,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testGetAllocation() {
-        allocDao.getAllocationDetail(alloc.getId());
+        allocDao.getAllocationEntity(alloc.getId());
     }
 
     @Test
@@ -83,7 +83,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testFindAllocation() {
         FacilityInterface f = facilityDao.getFacility("spi");
-        allocDao.findAllocationDetail(f.getName(), ALLOC_NAME);
+        allocDao.findAllocationEntity(f.getName(), ALLOC_NAME);
     }
 
     @Test
@@ -91,7 +91,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testFindAllocation2() {
         FacilityInterface f = facilityDao.getFacility("spi");
-        allocDao.findAllocationDetail(ALLOC_FQN);
+        allocDao.findAllocationEntity(ALLOC_FQN);
     }
 
 

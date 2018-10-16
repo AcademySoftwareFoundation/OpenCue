@@ -21,15 +21,16 @@ package com.imageworks.spcue.servant;
 
 import java.util.List;
 
+import com.imageworks.spcue.AllocationEntity;
 import org.springframework.beans.factory.InitializingBean;
 
 import Ice.Current;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Sets;
 import com.imageworks.common.SpiIce.SpiIceException;
 import com.imageworks.common.spring.remoting.SpiIceExceptionGenericTemplate;
 import com.imageworks.common.spring.remoting.SpiIceExceptionMinimalTemplate;
-import com.imageworks.spcue.AllocationDetail;
 
 import com.imageworks.spcue.FilterDetail;
 import com.imageworks.spcue.ShowDetail;
@@ -46,6 +47,7 @@ import com.imageworks.spcue.CueClientIce.ServiceOverride;
 import com.imageworks.spcue.CueIce.EntityNotFoundException;
 import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.SubscriptionData;
 import com.imageworks.spcue.CueClientIce._ShowInterfaceDisp;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.JobSearch;
@@ -96,7 +98,25 @@ public class ManageShowI  extends _ShowInterfaceDisp implements InitializingBean
     public List<Subscription> getSubscriptions(Current __current) throws SpiIceException {
         return new SpiIceExceptionGenericTemplate<List<Subscription>>() {
             public List<Subscription> throwOnlyIceExceptions() {
-                return whiteboard.getSubscriptions(show);
+                // TODO: (gdenton) revert to whiteboard method once grpc is in
+                // This is a temporary conversion of grpc obj to ice obj
+                // return whiteboard.getSubscriptions(show);
+                List <com.imageworks.spcue.grpc.subscription.Subscription> grpcSubscriptions =
+                        whiteboard.getSubscriptions(show);
+                ImmutableList.Builder<Subscription> builder = ImmutableList.builder();
+                for (com.imageworks.spcue.grpc.subscription.Subscription grpcSubscription : grpcSubscriptions) {
+                    Subscription iceSubscription = new Subscription();
+                    iceSubscription.data = new SubscriptionData();
+                    iceSubscription.data.burst = Convert.coreUnitsToCores(grpcSubscription.getBurst());
+                    iceSubscription.data.name = grpcSubscription.getName();
+                    iceSubscription.data.reservedCores = Convert.coreUnitsToCores(grpcSubscription.getReservedCores());
+                    iceSubscription.data.size = Convert.coreUnitsToCores(grpcSubscription.getSize());
+                    iceSubscription.data.allocationName = grpcSubscription.getAllocationName();
+                    iceSubscription.data.showName = grpcSubscription.getShowName();
+                    iceSubscription.data.facility = grpcSubscription.getFacility();
+                    builder.add(iceSubscription);
+                }
+                return  builder.build();
             }
         }.execute();
     }
@@ -113,14 +133,28 @@ public class ManageShowI  extends _ShowInterfaceDisp implements InitializingBean
             final float size, final float burst, Current __current) throws SpiIceException {
         return new SpiIceExceptionGenericTemplate<Subscription>() {
             public Subscription throwOnlyIceExceptions() {
-                AllocationDetail a = adminManager.getAllocationDetail(
+                AllocationEntity a = adminManager.getAllocationDetail(
                         alloc.ice_getIdentity().name);
                 com.imageworks.spcue.Subscription s =
                     adminManager.createSubscription(show, a,
                         Convert.coresToCoreUnits(size),
                         Convert.coresToCoreUnits(burst));
 
-                return whiteboard.getSubscription(s.getSubscriptionId());
+                // TODO: (gdenton) revert to whiteboard method once grpc is in
+                // This is a temporary conversion of grpc obj to ice obj
+                // return whiteboard.getSubscription(s.getSubscriptionId());
+                com.imageworks.spcue.grpc.subscription.Subscription grpcSubscription =
+                        whiteboard.getSubscription(s.getSubscriptionId());
+                Subscription iceSubscription = new Subscription();
+                iceSubscription.data = new SubscriptionData();
+                iceSubscription.data.burst = Convert.coreUnitsToCores(grpcSubscription.getBurst());
+                iceSubscription.data.name = grpcSubscription.getName();
+                iceSubscription.data.reservedCores = Convert.coreUnitsToCores(grpcSubscription.getReservedCores());
+                iceSubscription.data.size = Convert.coreUnitsToCores(grpcSubscription.getSize());
+                iceSubscription.data.allocationName = grpcSubscription.getAllocationName();
+                iceSubscription.data.showName = grpcSubscription.getShowName();
+                iceSubscription.data.facility = grpcSubscription.getFacility();
+                return iceSubscription;
             }
         }.execute();
     }

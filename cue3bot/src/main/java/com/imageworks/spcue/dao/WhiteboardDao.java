@@ -21,8 +21,9 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.CueClientIce.Action;
-import com.imageworks.spcue.CueClientIce.Allocation;
+import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.CueClientIce.Comment;
 import com.imageworks.spcue.CueClientIce.Deed;
 import com.imageworks.spcue.CueClientIce.Department;
@@ -40,10 +41,9 @@ import com.imageworks.spcue.CueClientIce.RenderPartition;
 import com.imageworks.spcue.CueClientIce.Service;
 import com.imageworks.spcue.CueClientIce.ServiceOverride;
 import com.imageworks.spcue.CueClientIce.Show;
-import com.imageworks.spcue.CueClientIce.Subscription;
 import com.imageworks.spcue.CueClientIce.Task;
 import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
-import com.imageworks.spcue.CueGrpc.Facility;
+import com.imageworks.spcue.grpc.facility.Facility;
 import com.imageworks.spcue.LocalHostAssignment;
 
 import com.imageworks.spcue.dao.criteria.FrameSearch;
@@ -51,6 +51,7 @@ import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.depend.AbstractDepend;
+import com.imageworks.spcue.grpc.subscription.Subscription;
 
 /**
  * @category DAO
@@ -304,7 +305,7 @@ public interface WhiteboardDao {
      * @param alloc
      * @return
      */
-    List<Subscription> getSubscriptions(com.imageworks.spcue.Allocation alloc);
+    List<Subscription> getSubscriptions(AllocationInterface alloc);
 
     /**
      * returns a show by Id.

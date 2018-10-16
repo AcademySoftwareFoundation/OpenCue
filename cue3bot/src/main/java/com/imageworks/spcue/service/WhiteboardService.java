@@ -21,8 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.CueClientIce.Action;
-import com.imageworks.spcue.CueClientIce.Allocation;
 import com.imageworks.spcue.CueClientIce.Comment;
 import com.imageworks.spcue.CueClientIce.Deed;
 import com.imageworks.spcue.CueClientIce.Depend;
@@ -41,10 +41,11 @@ import com.imageworks.spcue.CueClientIce.RenderPartition;
 import com.imageworks.spcue.CueClientIce.Service;
 import com.imageworks.spcue.CueClientIce.ServiceOverride;
 import com.imageworks.spcue.CueClientIce.Show;
-import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.CueClientIce.Task;
 import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
-import com.imageworks.spcue.CueGrpc.Facility;
+import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.Facility;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -59,6 +60,7 @@ import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.depend.AbstractDepend;
+
 
 /**
 * Traditionally the "Whiteboard" was an actually whiteboard the PSTs used to
@@ -291,7 +293,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     public List<Subscription> getSubscriptions(
-            com.imageworks.spcue.Allocation alloc) {
+            AllocationInterface alloc) {
         return whiteboardDao.getSubscriptions(alloc);
     }
 

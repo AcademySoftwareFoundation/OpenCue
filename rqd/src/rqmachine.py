@@ -419,7 +419,7 @@ class Machine:
         self.updateMachineStats()
 
         __numProcs = __totalCores = 0
-        if platform.system() == "Linux":
+        if platform.system() == "Linux" or pathCpuInfo is not None:
             # Reads static information for mcp
             mcpStat = os.statvfs(self.getTempPath())
             self.__renderHost.totalMcp = (mcpStat[statvfs.F_BLOCKS]
@@ -453,14 +453,18 @@ class Machine:
                 elif len(lineList) == 1:
                     singleCore[lineList[0]] = ""
 
-            # Reads static information from /proc/meminfo
-            meminfoFile = open(rqconstants.PATH_MEMINFO, "r")
-            for line in meminfoFile:
-                if line.startswith("MemTotal"):
-                    self.__renderHost.totalMem = int(line.split()[1])
-                elif line.startswith("SwapTotal"):
-                    self.__renderHost.totalSwap = int(line.split()[1])
-            meminfoFile.close()
+            # Running unittests on osx
+            if platform.system() == 'Darwin' and pathCpuInfo is not None:
+                self.__renderHost.totalMem = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+                self.__renderHost.totalSwap = 0
+            else:
+                # Reads static information from /proc/meminfo
+                with  open(rqconstants.PATH_MEMINFO, "r") as meminfoFile:
+                    for line in meminfoFile:
+                        if line.startswith("MemTotal"):
+                            self.__renderHost.totalMem = int(line.split()[1])
+                        elif line.startswith("SwapTotal"):
+                            self.__renderHost.totalSwap = int(line.split()[1])
 
             self.__renderHost.attributes['totalGpu'] = str(self.getGpuMemoryTotal())
         else:
@@ -501,8 +505,8 @@ class Machine:
         # Don't report/reserve cores added due to hyperthreading
         __totalCores = __totalCores / hyperthreadingMultipler
 
-        self.__coreInfo.idleCores = __totalCores
-        self.__coreInfo.totalCores = __totalCores
+        self.__coreInfo.idle_cores = __totalCores
+        self.__coreInfo.total_cores = __totalCores
         self.__renderHost.numProcs = __numProcs
         self.__renderHost.coresPerProc = __totalCores / __numProcs
 

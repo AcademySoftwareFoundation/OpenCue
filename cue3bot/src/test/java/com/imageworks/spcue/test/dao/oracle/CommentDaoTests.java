@@ -41,9 +41,9 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.CommentDao;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -149,7 +149,7 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setNumProcs(2)
                 .setCoresPerProc(400)
                 .addTags("linux")
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
                 .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))

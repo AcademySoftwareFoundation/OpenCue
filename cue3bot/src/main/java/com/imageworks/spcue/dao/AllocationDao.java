@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.FacilityInterface;
 
 /**
@@ -31,44 +31,44 @@ import com.imageworks.spcue.FacilityInterface;
 public interface AllocationDao {
 
     /**
-     * returns an AllocationDetail from its unique ID
+     * returns an AllocationEntity from its unique ID
      *
      * @param id
-     * @return AllocationDetail
+     * @return AllocationEntity
      */
-    AllocationDetail getAllocationDetail(String id);
+    AllocationEntity getAllocationEntity(String id);
 
     /**
-     * Return an AllocationDetail for the given facility and unique allocation
+     * Return an AllocationEntity for the given facility and unique allocation
      * name.
      *
      * @param name
-     * @return AllocationDetail
+     * @return AllocationEntity
      */
-    AllocationDetail findAllocationDetail(String facility, String name);
+    AllocationEntity findAllocationEntity(String facility, String name);
 
     /**
-     * Return an AllocationDetail from its fully qualified name which should be
+     * Return an AllocationEntity from its fully qualified name which should be
      * formatted as facility.name.
      *
      * @param name
      * @return
      */
-    AllocationDetail findAllocationDetail(String name);
+    AllocationEntity findAllocationEntity(String name);
 
     /**
      * Creates a new allocation
      *
      * @param detail
      */
-    void insertAllocation(FacilityInterface facility, AllocationDetail detail);
+    void insertAllocation(FacilityInterface facility, AllocationEntity detail);
 
     /**
      * Deletes an allocation
      *
      * @param alloc
      */
-    void deleteAllocation(Allocation alloc);
+    void deleteAllocation(AllocationInterface alloc);
 
     /**
      * Updates the name of the allocation. This method also updates all child
@@ -78,7 +78,7 @@ public interface AllocationDao {
      * @param alloc
      * @param name
      */
-    void updateAllocationName(Allocation alloc, String name);
+    void updateAllocationName(AllocationInterface alloc, String name);
 
     /**
      * Updates the allocation tag. All hosts in the allocation are retagged.
@@ -86,21 +86,21 @@ public interface AllocationDao {
      * @param a
      * @param tag
      */
-    void updateAllocationTag(Allocation a, String tag);
+    void updateAllocationTag(AllocationInterface a, String tag);
 
     /**
      * Sets the default allocation, AKA where procs go first.
      *
      * @param a
      */
-    void setDefaultAllocation(Allocation a);
+    void setDefaultAllocation(AllocationInterface a);
 
     /**
      * Returns the current default allocation.
      *
      * @return
      */
-    AllocationDetail getDefaultAllocationDetail();
+    AllocationEntity getDefaultAllocationEntity();
 
     /**
      * Set the allocation as billable or not billble.
@@ -108,6 +108,6 @@ public interface AllocationDao {
      * @param alloc
      * @param value
      */
-    void updateAllocationBillable(Allocation alloc, boolean value);
+    void updateAllocationBillable(AllocationInterface alloc, boolean value);
 }
 

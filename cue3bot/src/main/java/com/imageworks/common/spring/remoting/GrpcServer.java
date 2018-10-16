@@ -4,6 +4,7 @@ package com.imageworks.common.spring.remoting;
 import java.io.IOException;
 import java.util.Properties;
 
+import com.imageworks.spcue.servant.ManageAllocation;
 import com.imageworks.spcue.servant.ManageFacility;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
@@ -48,6 +49,7 @@ public class GrpcServer implements ApplicationContextAware {
         server = ServerBuilder
                 .forPort(this.port)
                 .addService(new RqdReportStatic())
+                .addService(applicationContext.getBean("manageAllocation", ManageAllocation.class))
                 .addService(applicationContext.getBean("manageFacility", ManageFacility.class))
                 .build();
         server.start();

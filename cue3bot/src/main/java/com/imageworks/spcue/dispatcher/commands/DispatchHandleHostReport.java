@@ -21,10 +21,10 @@ package com.imageworks.spcue.dispatcher.commands;
 
 import java.util.ArrayList;
 
-import com.imageworks.spcue.CueGrpc.BootReport;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RunningFrameInfo;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
+import com.imageworks.spcue.grpc.report.BootReport;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 
 /**
  * A command for handling a host report.

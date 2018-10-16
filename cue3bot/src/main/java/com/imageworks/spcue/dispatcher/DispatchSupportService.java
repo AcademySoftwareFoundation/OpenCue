@@ -24,13 +24,13 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.imageworks.spcue.AllocationInterface;
 import org.apache.log4j.Logger;
 
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.dao.EmptyResultDataAccessException;
 
-import com.imageworks.spcue.Allocation;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
@@ -264,18 +264,18 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean isShowOverBurst(VirtualProc proc) {
-        return subscriptionDao.isShowOverBurst((Show) proc, (Allocation) proc, 0);
+        return subscriptionDao.isShowOverBurst((Show) proc, (AllocationInterface) proc, 0);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isShowOverBurst(Show show, Allocation alloc, int coreUnits) {
+    public boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits) {
         return subscriptionDao.isShowOverBurst(show, alloc, coreUnits);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isShowAtOrOverBurst(Show show, Allocation alloc) {
+    public boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc) {
         return subscriptionDao.isShowAtOrOverBurst(show, alloc);
     }
 

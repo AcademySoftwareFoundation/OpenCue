@@ -47,10 +47,6 @@ libPath = "%s/../" % os.path.dirname(__file__)
 sys.path.append(libPath)
 
 from rqconstants import STRING_TO_CUEBOT, CUEBOT_PORT
-import rqutil
-
-import python_ice_server.loader
-python_ice_server.loader.setup_python_for_ice_3_3()
 
 import Ice
 Ice.loadSlice('--all -I%s/slice/spi -I%s/slice/cue %s/slice/cue/cue_ice.ice' % (libPath, libPath, libPath))

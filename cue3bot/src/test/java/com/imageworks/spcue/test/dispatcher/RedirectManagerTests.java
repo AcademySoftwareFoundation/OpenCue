@@ -49,12 +49,12 @@ import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueIce.RedirectType;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
@@ -132,7 +132,7 @@ public class RedirectManagerTests
                 .setNimbyEnabled(false)
                 .setNumProcs(1)
                 .setCoresPerProc(100)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("test")
                 .putAttributes("SP_OS", "Linux")

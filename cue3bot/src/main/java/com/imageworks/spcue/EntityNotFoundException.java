@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2018 Sony Pictures Imageworks Inc.
  *
@@ -16,22 +15,20 @@
  */
 
 
-
 package com.imageworks.spcue;
 
-public class AllocationDetail extends Entity implements Allocation {
 
-    public String tag;
-    public String facilityId;
+import org.springframework.core.NestedRuntimeException;
 
-    public String getAllocationId() {
-        return id;
+
+public class EntityNotFoundException extends NestedRuntimeException {
+
+    public EntityNotFoundException(String message) {
+        super(message);
     }
 
-    @Override
-    public String getFacilityId() {
-        return facilityId;
+    public EntityNotFoundException(String message, Throwable cause) {
+        super(message, cause);
     }
 
 }
-

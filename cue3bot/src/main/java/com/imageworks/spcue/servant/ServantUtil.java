@@ -23,7 +23,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.Group;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.Job;
@@ -38,8 +38,8 @@ import com.imageworks.spcue.CueClientIce.SubscriptionInterfacePrx;
 
 public class ServantUtil {
 
-    public static Allocation convertAllocationProxy(final AllocationInterfacePrx prx) {
-        return new Allocation() {
+    public static AllocationInterface convertAllocationProxy(final AllocationInterfacePrx prx) {
+        return new AllocationInterface() {
             String _id = prx.ice_getIdentity().name;
             public String getAllocationId() { return _id; }
             public String getId() { return _id; }
@@ -48,11 +48,11 @@ public class ServantUtil {
         };
     }
 
-    public static List<Allocation> convertAllocationProxyList(List<AllocationInterfacePrx> allocs)  {
-        final List<Allocation> result = new ArrayList<Allocation>();
+    public static List<AllocationInterface> convertAllocationProxyList(List<AllocationInterfacePrx> allocs)  {
+        final List<AllocationInterface> result = new ArrayList<AllocationInterface>();
         for (final AllocationInterfacePrx proxy: allocs) {
             final String id = proxy.ice_getIdentity().name;
-            result.add(new Allocation() {
+            result.add(new AllocationInterface() {
                 String _id = id;
                 public String getAllocationId() { return _id; }
                 public String getId() { return _id; }
