@@ -39,8 +39,8 @@ import com.imageworks.spcue.Deed;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Owner;
 import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
@@ -76,7 +76,7 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))

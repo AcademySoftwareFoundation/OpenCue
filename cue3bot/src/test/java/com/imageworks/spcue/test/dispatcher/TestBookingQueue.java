@@ -36,12 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -75,7 +75,7 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
                 .setNimbyEnabled(false)
                 .setNumProcs(1)
                 .setCoresPerProc(100)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))

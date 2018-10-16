@@ -39,13 +39,13 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {

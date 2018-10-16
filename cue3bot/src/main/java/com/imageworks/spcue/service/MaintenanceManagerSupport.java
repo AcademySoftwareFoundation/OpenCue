@@ -30,12 +30,12 @@ import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueIce.CheckpointState;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
 
 public class MaintenanceManagerSupport {
 
@@ -141,7 +141,7 @@ public class MaintenanceManagerSupport {
     }
 
     private void clearDownProcs() {
-        List<VirtualProc> procs = procDao.findVirtualProcs(HardwareState.Down);
+        List<VirtualProc> procs = procDao.findVirtualProcs(HardwareState.DOWN);
         logger.warn("found " + procs.size() + " that are down.");
         for (VirtualProc proc: procs) {
             try {

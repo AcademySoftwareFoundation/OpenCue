@@ -1,0 +1,359 @@
+
+syntax = "proto3";
+package filter;
+
+option java_package = "com.imageworks.spcue.grpc.filter";
+option java_multiple_files = true;
+
+import "job.proto";
+
+
+// -------- Services --------
+
+service ActionInterface {
+    // Sets new properties for the [Action] on the server side using a [ActionData] object.
+    rpc Commit(ActionCommitRequest) returns (ActionCommitResponse);
+
+    // Delete this [Action]
+    rpc Delete(ActionDeleteRequest) returns (ActionDeleteResponse);
+
+    // Returns the [Filter] this action is part of.
+    rpc GetParentFilter(ActionGetParentFilterRequest) returns (ActionGetParentFilterResponse);
+}
+
+service FilterInterface {
+    // Creates a new [Action] that will execute for this filter.
+    rpc CreateAction(FilterCreateActionRequest) returns (FilterCreateActionResponse);
+
+    // Creates a new [Matcher] for this filter.
+    rpc CreateMatcher(FilterCreateMatcherRequest) returns (FilterCreateMatcherResponse);
+
+    // Delete this filter.
+    rpc Delete(FilterDeleteRequest) returns (FilterDeleteResponse);
+
+    // Find a filter by it's show and name
+    rpc FindFilter(FilterFindFilterRequest) returns (FilterFindFilterResponse);
+
+    // Returns a list of [Action]s configured for this filter.
+    rpc GetActions(FilterGetActionsRequest) returns (FilterGetActionsResponse);
+
+    // Returns a list of [Matcher]s configured for this filter
+    rpc GetMatchers(FilterGetMatchersRequest) returns (FilterGetMatchersResponse);
+
+    // Lowers the order of the filter, this makes it run after the next filter
+    rpc LowerOrder(FilterLowerOrderRequest) returns (FilterLowerOrderResponse);
+
+    // Moves the filter to first in the order list.
+    rpc OrderFirst(FilterOrderFirstRequest) returns (FilterOrderFirstResponse);
+
+    // Moves the filter to last in the order list.
+    rpc OrderLast(FilterOrderLastRequest) returns (FilterOrderLastResponse);
+
+    // Raises the order of the filter, this makes it run before the previous filter.
+    rpc RaiseOrder(FilterRaiseOrderRequest) returns (FilterRaiseOrderResponse);
+
+    // Executes the filter on a specified group.
+    rpc RunFilterOnGroup(FilterRunFilterOnGroupRequest) returns (FilterRunFilterOnGroupResponse);
+
+    // Executes the filter on a specified sequence of jobs.
+    rpc RunFilterOnJobs(FilterRunFilterOnJobsRequest) returns (FilterRunFilterOnJobsResponse);
+
+    // Set the filter to enabled or disabled
+    rpc SetEnabled(FilterSetEnabledRequest) returns (FilterSetEnabledResponse);
+
+    // Set the filter name.
+    rpc SetName(FilterSetNameRequest) returns (FilterSetNameResponse);
+
+    //  Directly sets the order of the filter.
+    rpc SetOrder(FilterSetOrderRequest) returns (FilterSetOrderResponse);
+
+    // Set the type of the filter. See FilterType
+    rpc SetType(FilterSetTypeRequest) returns (FilterSetTypeResponse);
+}
+
+service MatcherInterface {
+    //Sets new properties for the [Matcher] on the server side using a [MatcherData] object.
+    rpc Commit(MatcherCommitRequest) returns (MatcherCommitResponse);
+
+    //Delete this matcher.
+    rpc Delete(MatcherDeleteRequest) returns (MatcherDeleteResponse);
+
+    // Returns the [Filter] this matcher is part of.
+    rpc GetParentFilter(MatcherGetParentFilterRequest) returns (MatcherGetParentFilterResponse);
+}
+
+
+// -------- Enums --------
+
+enum ActionType {
+    MOVE_JOB_TO_GROUP = 0;
+    PAUSE_JOB = 1;
+    SET_JOB_MIN_CORES = 2;
+    SET_JOB_MAX_CORES = 3;
+    STOP_PROCESSING = 4;
+    SET_JOB_PRIORITY = 5;
+    // Sets all layer tags for any layer with the type "Render"
+    SET_ALL_RENDER_LAYER_TAGS = 6;
+    // Sets all layer minimum memory for any layer with the type "Render"
+    SET_ALL_RENDER_LAYER_MEMORY = 7;
+    // Sets all min cores for any layer with the type "Render"
+    SET_ALL_RENDER_LAYER_CORES = 8;
+    // Set memory optimizer
+    SET_MEMORY_OPTIMIZER = 9;
+};
+
+enum ActionValueType {
+    GROUP_TYPE = 0;
+    STRING_TYPE = 1;
+    INTEGER_TYPE = 2;
+    FLOAT_TYPE = 3;
+    BOOLEAN_TYPE = 4;
+    NONE_TYPE = 5;
+};
+
+enum FilterType {
+    MATCH_ANY = 0;
+    MATCH_ALL = 1;
+}
+
+enum MatchSubject {
+    JOB_NAME = 0;
+    SHOW = 1;
+    SHOT = 2;
+    USER = 3;
+    SERVICE_NAME = 4;
+    PRIORITY = 5;
+    FACILITY = 6;
+    LAYER_NAME = 7;
+}
+
+enum MatchType {
+    CONTAINS = 0;
+    DOES_NOT_CONTAIN = 1;
+    IS = 2;
+    IS_NOT = 3;
+    REGEX = 4;
+    BEGINS_WITH = 5;
+    ENDS_WITH = 6;
+}
+
+
+// -------- Primary Message Types --------
+
+message Action {
+    ActionType type = 1;
+    ActionValueType value_type =2;
+    job.Group group_value = 3;
+    string string_value = 4;
+    int32 integer_value = 5;
+    float float_value = 6;
+    bool boolean_value = 7;
+}
+
+message ActionSeq {
+    repeated Action actions = 1;
+}
+
+message Filter {
+    string name = 1;
+    FilterType type = 2;
+    float order = 3;
+    bool enabled = 4;
+}
+
+message FilterSeq {
+    repeated Filter filters = 1;
+}
+
+message Matcher {
+    MatchSubject subject = 1;
+    MatchType type = 2;
+    string input = 3;
+}
+
+message MatcherSeq {
+    repeated Matcher matchers = 1;
+}
+
+
+// -------- Requests & Responses --------
+
+// ACTION ----
+// Commit
+message ActionCommitRequest {
+    Action action = 1;
+}
+
+message ActionCommitResponse {} // Empty
+
+// Delete
+message ActionDeleteRequest {
+    Action action = 1;
+}
+
+message ActionDeleteResponse {} // Empty
+
+// GetParentFilter
+message ActionGetParentFilterRequest {
+    Action action = 1;
+}
+
+message ActionGetParentFilterResponse {
+    Filter filter = 1;
+}
+
+// FILTER ----
+// CreateAction
+message FilterCreateActionRequest {
+    Filter filter = 1;
+    Action data = 2;
+}
+
+message FilterCreateActionResponse {
+    Action action = 1;
+}
+
+// CreateMatcher
+message FilterCreateMatcherRequest {
+    Filter filter = 1;
+    Matcher data = 2;
+}
+
+message FilterCreateMatcherResponse {
+    Matcher matcher = 1;
+}
+
+// Delete
+message FilterDeleteRequest {
+    Filter filter = 1;
+}
+
+message FilterDeleteResponse {} // Empty
+
+// FindFilter
+message FilterFindFilterRequest {
+    string show = 1;
+    string name = 2;
+}
+
+message FilterFindFilterResponse {
+    Filter filter = 1;
+}
+
+// GetActions
+message FilterGetActionsRequest {
+    Filter filter = 1;
+}
+
+message FilterGetActionsResponse {
+    ActionSeq actions = 1;
+}
+
+// GetMatchers
+message FilterGetMatchersRequest {
+    Filter filter = 1;
+}
+
+message FilterGetMatchersResponse {
+    MatcherSeq matchers = 1;
+}
+
+// LowerOrder
+message FilterLowerOrderRequest {
+    Filter filter = 1;
+}
+
+message FilterLowerOrderResponse {} // Empty
+
+// OrderFirst
+message FilterOrderFirstRequest {
+    Filter filter = 1;
+}
+
+message FilterOrderFirstResponse {} // Empty
+
+// OrderLast
+message FilterOrderLastRequest {
+    Filter filter = 1;
+}
+
+message FilterOrderLastResponse {} // Empty
+
+// RaiseOrder
+message FilterRaiseOrderRequest {
+    Filter filter = 1;
+}
+
+message FilterRaiseOrderResponse {} // Empty
+
+// RunFilterOnGroup
+message FilterRunFilterOnGroupRequest {
+    Filter filter = 1;
+    job.Group group = 2;
+}
+
+message FilterRunFilterOnGroupResponse {} // Emptuy
+
+// RunFilterOnJobs
+message FilterRunFilterOnJobsRequest {
+    Filter filter = 1;
+    job.JobSeq jobs = 2;
+}
+
+message FilterRunFilterOnJobsResponse {} // Empty
+
+// SetEnabled
+message FilterSetEnabledRequest {
+    Filter filter = 1;
+    bool enabled = 2;
+}
+
+message FilterSetEnabledResponse {} // Empty
+
+// SetName
+message FilterSetNameRequest {
+    Filter filter = 1;
+    string name = 2;
+}
+
+message FilterSetNameResponse {} // Empty
+
+// SetOrder
+message FilterSetOrderRequest {
+    Filter filter = 1;
+    int32 order = 2;
+}
+
+message FilterSetOrderResponse {} // Empty
+
+// SetType
+message FilterSetTypeRequest {
+    Filter filter = 1;
+    FilterType type = 2;
+}
+
+message FilterSetTypeResponse {} // Empty
+
+// MATCHER ----
+// Commit
+message MatcherCommitRequest {
+    Matcher matcher = 1;
+}
+
+message MatcherCommitResponse {}
+
+// Delete
+message MatcherDeleteRequest {
+    Matcher matcher = 1;
+}
+
+message MatcherDeleteResponse {}
+
+// GetParentFilter
+message MatcherGetParentFilterRequest {
+    Matcher matcher = 1;
+}
+
+message MatcherGetParentFilterResponse {
+    Filter filter = 1;
+}

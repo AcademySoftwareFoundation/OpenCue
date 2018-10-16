@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public interface Host extends Allocation {
+public interface Host extends AllocationInterface {
 
     String getHostId();
 

@@ -1,12 +1,15 @@
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.CueGrpc.Empty;
-import com.imageworks.spcue.CueGrpc.Facility;
-import com.imageworks.spcue.CueGrpc.FacilityCreateRequest;
-import com.imageworks.spcue.CueGrpc.FacilityDeleteRequest;
-import com.imageworks.spcue.CueGrpc.FacilityGetRequest;
-import com.imageworks.spcue.CueGrpc.FacilityInterfaceGrpc;
-import com.imageworks.spcue.CueGrpc.FacilityRenameRequest;
+import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.facility.FacilityCreateRequest;
+import com.imageworks.spcue.grpc.facility.FacilityCreateResponse;
+import com.imageworks.spcue.grpc.facility.FacilityDeleteRequest;
+import com.imageworks.spcue.grpc.facility.FacilityDeleteResponse;
+import com.imageworks.spcue.grpc.facility.FacilityGetRequest;
+import com.imageworks.spcue.grpc.facility.FacilityGetResponse;
+import com.imageworks.spcue.grpc.facility.FacilityInterfaceGrpc;
+import com.imageworks.spcue.grpc.facility.FacilityRenameRequest;
+import com.imageworks.spcue.grpc.facility.FacilityRenameResponse;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.Whiteboard;
 import io.grpc.stub.StreamObserver;
@@ -20,31 +23,37 @@ public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplB
     // TODO(cipriano) Add error handling.
 
     @Override
-    public void create(FacilityCreateRequest request, StreamObserver<Facility> responseObserver) {
+    public void create(FacilityCreateRequest request, StreamObserver<FacilityCreateResponse> responseObserver) {
         adminManager.createFacility(request.getName());
-        responseObserver.onNext(whiteboard.getFacility(request.getName()));
+        FacilityCreateResponse response = FacilityCreateResponse.newBuilder()
+                .setFacility(whiteboard.getFacility(request.getName()))
+                .build();
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void get(FacilityGetRequest request, StreamObserver<Facility> responseObserver) {
-        responseObserver.onNext(whiteboard.getFacility(request.getName()));
+    public void get(FacilityGetRequest request, StreamObserver<FacilityGetResponse> responseObserver) {
+        FacilityGetResponse response = FacilityGetResponse.newBuilder()
+                .setFacility(whiteboard.getFacility(request.getName()))
+                .build();
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
     @Override
-    public void rename(FacilityRenameRequest request, StreamObserver<Empty> responseObserver) {
+    public void rename(FacilityRenameRequest request, StreamObserver<FacilityRenameResponse> responseObserver) {
         adminManager.setFacilityName(
                 adminManager.getFacility(request.getFacility().getName()),
                 request.getNewName());
-        responseObserver.onNext(Empty.newBuilder().build());
+        responseObserver.onNext(FacilityRenameResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
     @Override
-    public void delete(FacilityDeleteRequest request, StreamObserver<Empty> responseObserver) {
+    public void delete(FacilityDeleteRequest request, StreamObserver<FacilityDeleteResponse> responseObserver) {
         adminManager.deleteFacility(adminManager.getFacility(request.getName()));
-        responseObserver.onNext(Empty.newBuilder().build());
+        responseObserver.onNext(FacilityDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

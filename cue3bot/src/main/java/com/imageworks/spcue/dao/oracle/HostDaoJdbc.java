@@ -36,22 +36,22 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -306,7 +306,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     };
 
     @Override
-    public void insertRenderHost(RenderHost host, Allocation a, boolean useLongNames) {
+    public void insertRenderHost(RenderHost host, AllocationInterface a, boolean useLongNames) {
 
         ThreadMode threadMode = ThreadMode.Auto;
         if (host.getNimbyEnabled()) {
@@ -504,7 +504,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void updateHostSetAllocation(Host host, Allocation alloc) {
+    public void updateHostSetAllocation(Host host, AllocationInterface alloc) {
 
         String tag = getJdbcTemplate().queryForObject(
                 "SELECT str_tag FROM alloc WHERE pk_alloc=?",
@@ -620,7 +620,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public boolean isHostUp(Host host) {
         return getJdbcTemplate().queryForObject(IS_HOST_UP,
-                Integer.class, HardwareState.Up.toString(),
+                Integer.class, HardwareState.UP.toString(),
                 host.getHostId()) == 1;
     }
 

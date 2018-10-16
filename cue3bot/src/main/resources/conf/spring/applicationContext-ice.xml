@@ -137,22 +137,6 @@
     <property name="redirectManager" ref="redirectManager" />
   </bean>
 
-  <!-- Allocation Servant -->
-  <bean id="manageAllocationServantLocator" class="com.imageworks.common.spring.remoting.CachingSpringServantLocator">
-    <constructor-arg index="0" ref="manageIceServer" />
-    <constructor-arg index="1" value="manageAllocation" />
-    <constructor-arg index="2" value="25" />
-  </bean>
-
-  <bean scope="prototype" id="manageAllocation" class="com.imageworks.spcue.servant.ManageAllocationI">
-    <property name="allocationDao" ref="allocationDao" />
-    <property name="adminManager" ref="adminManager" />
-    <property name="hostManager" ref="hostManager" />
-    <property name="manageQueue" ref="manageQueue" />
-    <property name="whiteboard" ref="whiteboard" />
-  </bean>
-
-
   <!-- Show Servant -->
   <bean id="manageShowServantLocator" class="com.imageworks.common.spring.remoting.CachingSpringServantLocator">
     <constructor-arg index="0" ref="manageIceServer" />

@@ -1,4 +1,3 @@
-
 /*
  * Copyright (c) 2018 Sony Pictures Imageworks Inc.
  *
@@ -16,11 +15,20 @@
  */
 
 
-
 package com.imageworks.spcue;
 
-public interface Allocation extends EntityInterface, FacilityInterface {
 
-    public String getAllocationId();
+import org.springframework.core.NestedRuntimeException;
+
+
+public class CueGrpcException extends NestedRuntimeException {
+
+    public CueGrpcException(String message) {
+        super(message);
+    }
+
+    public CueGrpcException(String message, Throwable cause) {
+        super(message, cause);
+    }
+    
 }
-

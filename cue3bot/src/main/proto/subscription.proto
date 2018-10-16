@@ -1,0 +1,91 @@
+
+syntax = "proto3";
+package subscription;
+
+option java_package = "com.imageworks.spcue.grpc.subscription";
+option java_multiple_files = true;
+
+// Subscriptions
+// A subscription is what a show sets up when they want to use hosts in
+// an allocation.
+
+
+// -------- Services --------]
+
+service SubscriptionInterface {
+    // Delete a subscription
+    rpc Delete(SubscriptionDeleteRequest) returns (SubscriptionDeleteResponse);
+
+    // Find a subscription by name
+    rpc Find(SubscriptionFindRequest) returns (SubscriptionFindResponse);
+
+    // Locate a subscription by id
+    rpc Get(SubscriptionGetRequest) returns (SubscriptionGetResponse);
+
+    // Set the burst size of a subscription
+    rpc SetBurst(SubscriptionSetBurstRequest) returns (SubscriptionSetBurstResponse);
+
+    // Set the size of a subscription
+    rpc SetSize(SubscriptionSetSizeRequest) returns (SubscriptionSetSizeResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message Subscription {
+    string name = 1;
+    string show_name = 2;
+    string facility = 3;
+    string allocation_name = 4;
+    int32 size = 5;
+    int32 burst = 6;
+    int32 reserved_cores = 7;
+}
+
+message SubscriptionSeq {
+    repeated Subscription subscriptions = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+// Delete
+message SubscriptionDeleteRequest {
+    Subscription subscription = 1;
+}
+
+message SubscriptionDeleteResponse {} // Empty
+
+// Find
+message SubscriptionFindRequest {
+    string name = 1;
+}
+
+message SubscriptionFindResponse {
+    Subscription subscription = 1;
+}
+
+// Get
+message SubscriptionGetRequest {
+    string id = 1;
+}
+
+message SubscriptionGetResponse {
+    Subscription subscription = 1;
+}
+
+// SetBurst
+message SubscriptionSetBurstRequest {
+    Subscription subscription = 1;
+    int32 burst = 2;
+}
+
+message SubscriptionSetBurstResponse {} // Empty
+
+// SetSize
+message SubscriptionSetSizeRequest {
+    Subscription subscription = 1;
+    int32 new_size = 2;
+}
+
+message SubscriptionSetSizeResponse {} // Empty

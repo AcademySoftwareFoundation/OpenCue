@@ -44,8 +44,6 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -60,6 +58,8 @@ import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -127,7 +127,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setNimbyEnabled(false)
                 .setNumProcs(8)
                 .setCoresPerProc(100)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .build();
 
@@ -417,7 +417,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc.showId = frame.showId;
         procDao.insertVirtualProc(proc);
 
-        assertEquals(1, procDao.findVirtualProcs(HardwareState.Up).size());
+        assertEquals(1, procDao.findVirtualProcs(HardwareState.UP).size());
         assertEquals(1, procDao.findVirtualProcs(host).size());
         assertEquals(1, procDao.findVirtualProcs(job).size());
         assertEquals(1, procDao.findVirtualProcs(frame).size());

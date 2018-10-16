@@ -26,8 +26,8 @@ import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.Frame;
@@ -38,9 +38,6 @@ import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Show;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dao.AllocationDao;
@@ -51,6 +48,9 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.iceclient.RqdClientException;
 
@@ -98,7 +98,7 @@ public class HostManagerService implements HostManager {
 
     public void rebootWhenIdle(Host host) {
         try {
-            hostDao.updateHostState(host, HardwareState.RebootWhenIdle);
+            hostDao.updateHostState(host, HardwareState.REBOOT_WHEN_IDLE);
             rqdClient.rebootWhenIdle(host);
         }
         catch (RqdClientException e) {
@@ -108,12 +108,12 @@ public class HostManagerService implements HostManager {
 
     public void rebootNow(Host host) {
         try {
-            hostDao.updateHostState(host, HardwareState.Rebooting);
+            hostDao.updateHostState(host, HardwareState.REBOOTING);
             rqdClient.rebootNow(host);
         }
         catch (RqdClientException e) {
             logger.info("failed to contact host: " + host.getName() + " for reboot");
-            hostDao.updateHostState(host, HardwareState.Down);
+            hostDao.updateHostState(host, HardwareState.DOWN);
         }
     }
 
@@ -155,7 +155,7 @@ public class HostManagerService implements HostManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public DispatchHost createHost(RenderHost rhost, AllocationDetail alloc) {
+    public DispatchHost createHost(RenderHost rhost, AllocationEntity alloc) {
 
         hostDao.insertRenderHost(rhost, alloc, false);
         DispatchHost host = hostDao.findDispatchHost(rhost.getName());
@@ -196,8 +196,8 @@ public class HostManagerService implements HostManager {
     }
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public AllocationDetail getDefaultAllocationDetail() {
-        return allocationDao.getDefaultAllocationDetail();
+    public AllocationEntity getDefaultAllocationDetail() {
+        return allocationDao.getDefaultAllocationEntity();
     }
 
     public void addTags(Host host, String[] tags) {
@@ -221,7 +221,7 @@ public class HostManagerService implements HostManager {
         hostDao.recalcuateTags(host.getHostId());
     }
 
-    public void setAllocation(Host host, Allocation alloc) {
+    public void setAllocation(Host host, AllocationInterface alloc) {
 
         if (procDao.findVirtualProcs(host).size() > 0) {
             throw new EntityModificationError("You cannot move hosts with " +

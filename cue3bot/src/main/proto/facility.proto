@@ -1,0 +1,246 @@
+syntax = "proto3";
+package facility;
+
+option java_package = "com.imageworks.spcue.grpc.facility";
+option java_multiple_files = true;
+
+import "host.proto";
+import "subscription.proto";
+
+
+// -------- Services --------
+
+service FacilityInterface {
+    // Create a facility.
+    rpc Create(FacilityCreateRequest) returns (FacilityCreateResponse);
+
+    // A facility is never really deleted, just make inactive.
+    rpc Delete(FacilityDeleteRequest) returns (FacilityDeleteResponse);
+
+    // Look up a facility by name.
+    rpc Get(FacilityGetRequest) returns (FacilityGetResponse);
+
+    // Rename the facility to a given name.
+    rpc Rename(FacilityRenameRequest) returns (FacilityRenameResponse);
+
+    // Get Allocations associated with this facility.
+    rpc GetAllocations(FacilityGetAllocationsRequest) returns (FacilityGetAllocationsResponse);
+}
+
+service AllocationInterface {
+    rpc Create(AllocCreateRequest) returns (AllocCreateResponse) {}
+
+    // Delete this allocation
+    rpc Delete(AllocDeleteRequest) returns (AllocDeleteResponse);
+
+    // Find an allocation by name
+    rpc Find(AllocFindRequest) returns (AllocFindResponse);
+
+    // Use HostSearchCriteria to find a list of hosts
+    rpc FindHosts(AllocFindHostsRequest) returns (AllocFindHostsResponse);
+
+    // Look up an allocation by id
+    rpc Get(AllocGetRequest) returns (AllocGetResponse);
+
+    // Return a list of all allocations
+    rpc GetAll(AllocGetAllRequest) returns (AllocGetAllResponse);
+
+    // Returns the list of hosts in this allocation
+    rpc GetHosts(AllocGetHostsRequest) returns (AllocGetHostsResponse);
+
+    //Returns all subscriptions for this allocation
+    rpc GetSubscriptions(AllocGetSubscriptionsRequest) returns (AllocGetSubscriptionsResponse);
+
+    // Assigns a list of hosts to this allocation.
+    rpc ReparentHosts(AllocReparentHostsRequest) returns (AllocReparentHostsResponse);
+
+    // Set an allocation billable or not billable.
+    rpc SetBillable(AllocSetBillableRequest) returns (AllocSetBillableResponse);
+
+    // Set the allocation name
+    rpc SetName(AllocSetNameRequest) returns (AllocSetNameResponse);
+
+    // Set the allocation tag.  Setting this will re-tag all the hosts in this allocation.
+    rpc SetTag(AllocSetTagRequest) returns (AllocSetTagResponse);
+}
+
+
+// -------- Primary Message Types --------
+
+message Facility {
+    string name = 1;
+}
+
+message FacilitySeq {
+    repeated Facility facilities = 1;
+}
+
+message Allocation {
+    string name = 1;
+    string tag = 2;
+    string facility = 3;
+    bool billable = 4;
+    AllocationStats stats = 5;
+}
+
+message AllocationSeq {
+    repeated Allocation allocations = 1;
+}
+
+//Statistics relevant to an allocation
+message AllocationStats {
+    float cores = 1;
+    float available_cores = 2;
+    float idle_cores = 3;
+    float running_cores = 4;
+    float locked_cores = 5;
+    int32 hosts = 6;
+    int32 locked_hosts = 7;
+    int32 down_hosts = 8;
+}
+
+
+// -------- Requests & Responses --------
+
+// Create
+message FacilityCreateRequest {
+    string name = 1;
+}
+
+message FacilityCreateResponse {
+    Facility facility = 1;
+}
+
+// Delete
+message FacilityDeleteRequest {
+    string name = 1;
+}
+
+message FacilityDeleteResponse {} // Empty
+
+// GetAllocations
+message FacilityGetAllocationsRequest {
+    Facility facility = 1;
+}
+
+message FacilityGetAllocationsResponse {
+    AllocationSeq allocations = 1;
+}
+
+// Get
+message FacilityGetRequest {
+    string name = 1;
+}
+
+message FacilityGetResponse {
+    Facility facility = 1;
+}
+
+// Rename
+message FacilityRenameRequest {
+    Facility facility = 1;
+    string new_name = 2;
+}
+
+message FacilityRenameResponse {}
+
+message AllocCreateRequest {
+    string name = 1;
+    string tag = 2;
+    facility.Facility facility = 3;
+}
+
+message AllocCreateResponse {
+    Allocation allocation = 1;
+}
+
+// Delete
+message AllocDeleteRequest {
+    Allocation allocation = 1;
+}
+
+message AllocDeleteResponse {} // empty
+
+message AllocFindRequest {
+    string name = 1;
+}
+
+message AllocFindResponse {
+    Allocation allocation = 1;
+}
+
+// FindHosts
+message AllocFindHostsRequest {
+    Allocation allocation = 1;
+    host.HostSearchCriteria r = 2;
+}
+
+message AllocFindHostsResponse {
+    host.HostSeq hosts = 1;
+}
+
+// GetAllocation
+message AllocGetRequest {
+    string id = 1;
+}
+
+message AllocGetResponse {
+    Allocation allocation = 1;
+}
+
+// GetAllocations
+message AllocGetAllRequest {} // Empty
+
+message AllocGetAllResponse {
+    AllocationSeq allocations = 1;
+}
+
+// GetHosts
+message AllocGetHostsRequest {
+    Allocation allocation = 1;
+}
+
+message AllocGetHostsResponse {
+    host.HostSeq hosts = 1;
+}
+
+// GetSubscriptions
+message AllocGetSubscriptionsRequest {
+    Allocation allocation = 1;
+}
+
+message AllocGetSubscriptionsResponse {
+    subscription.SubscriptionSeq subscriptions = 1;
+}
+
+// ReparentHosts
+message AllocReparentHostsRequest {
+    Allocation allocation = 1;
+    host.HostSeq hosts = 2;
+}
+
+message AllocReparentHostsResponse {} // Empty
+
+// SetBillable
+message AllocSetBillableRequest {
+    Allocation allocation = 1;
+    bool value = 2;
+}
+
+message AllocSetBillableResponse {} // Empty
+
+// SetName
+message AllocSetNameRequest {
+    Allocation allocation = 1;
+    string name = 2;
+}
+
+message AllocSetNameResponse {} // Empty
+
+// SetTag
+message AllocSetTagRequest {
+    Allocation allocation = 1;
+    string tag = 2;
+}
+
+message AllocSetTagResponse {} //

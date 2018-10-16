@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.Allocation;
-import com.imageworks.spcue.AllocationDetail;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.Department;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.Show;
@@ -51,18 +51,18 @@ public interface AdminManager {
     /*
      * Allocations
      */
-    void createAllocation(FacilityInterface facility, AllocationDetail alloc);
-    void deleteAllocation(Allocation alloc);
-    void setAllocationName(Allocation a, String name);
-    void setAllocationTag(Allocation a, String tag);
-    AllocationDetail findAllocationDetail(String facility, String name);
-    AllocationDetail getAllocationDetail(String id);
-    void setAllocationBillable(Allocation alloc, boolean value);
+    void createAllocation(FacilityInterface facility, AllocationEntity alloc);
+    void deleteAllocation(AllocationInterface alloc);
+    void setAllocationName(AllocationInterface a, String name);
+    void setAllocationTag(AllocationInterface a, String tag);
+    AllocationEntity findAllocationDetail(String facility, String name);
+    AllocationEntity getAllocationDetail(String id);
+    void setAllocationBillable(AllocationInterface alloc, boolean value);
 
     /*
      * Subscriptions
      */
-    Subscription createSubscription(Show show, Allocation alloc, int size, int burst);
+    Subscription createSubscription(Show show, AllocationInterface alloc, int size, int burst);
     Subscription createSubscription(SubscriptionDetail sub);
     void deleteSubscription(Subscription sub);
     void setSubscriptionBurst(Subscription sub, int burst);

@@ -39,11 +39,6 @@ import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.BootReport;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
-import com.imageworks.spcue.CueGrpc.RunningFrameInfo;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
@@ -51,6 +46,11 @@ import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.BootReport;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.iceclient.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
@@ -237,7 +237,7 @@ public class HostReportHandler {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
                         host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
             }
-            else if(!host.hardwareState.equals(HardwareState.Up)) {
+            else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
             }
             else if (host.lockState.equals(LockState.Locked)) {
@@ -343,17 +343,17 @@ public class HostReportHandler {
          * repair state.  Removing the repair state must
          * be done manually.
          */
-        if (host.hardwareState.equals(HardwareState.Repair)) {
+        if (host.hardwareState.equals(HardwareState.REPAIR)) {
             return;
         }
 
         /*
          * Hosts in these states always change to Up.
          */
-        if (reportState.equals(HardwareState.Up) && EnumSet.of(HardwareState.Down,
-                HardwareState.Rebooting,
-                HardwareState.RebootWhenIdle).contains(host.hardwareState)) {
-            hostManager.setHostState(host, HardwareState.Up);
+        if (reportState.equals(HardwareState.UP) && EnumSet.of(HardwareState.DOWN,
+                HardwareState.REBOOTING,
+                HardwareState.REBOOT_WHEN_IDLE).contains(host.hardwareState)) {
+            hostManager.setHostState(host, HardwareState.UP);
         }
         else {
             hostManager.setHostState(host, reportState);

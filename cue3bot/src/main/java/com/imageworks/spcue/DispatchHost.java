@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.util.CueUtil;
 
 public class DispatchHost extends Entity

@@ -77,7 +77,7 @@ import cue.CueIce as CueIce
 import spi.SpiIce as SpiIce
 
 import grpc
-import cue_pb2
+import report_pb2
 import rqd_pb2_grpc
 import rqdservicers
 
@@ -110,7 +110,7 @@ class RunningFrame(object):
 
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
-        runningFrameInfo = cue_pb2.RunningFrameInfo(
+        runningFrameInfo = report_pb2.RunningFrameInfo(
             resourceId=self.runFrame.resourceId,
             jobId=self.runFrame.jobId,
             jobName=self.runFrame.jobName,

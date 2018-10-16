@@ -1,0 +1,116 @@
+
+syntax = "proto3";
+package depend;
+
+option java_package = "com.imageworks.spcue.grpc.depend";
+option java_multiple_files = true;
+
+
+// -------- Services --------
+
+service DependInterface {
+    // Get a Depend by it's id
+    rpc GetDepend(DependGetDependRequest) returns (DependGetDependResponse);
+
+    // Satisfies the dependency which sets any frames waiting on this dependency to the WAITING state.
+    rpc Satisfy(DependSatisfyRequest) returns (DependSatisfyResponse);
+
+    // Unsatisfies the dependency making it active again and sets matching frames to DEPEND
+    rpc Unsatisfy(DependUnsatisfyRequest) returns (DependUnsatisfyResponse);
+}
+
+
+// -------- Enums --------
+
+// Defines the type of dependency.  The names are pretty much self
+// explanatory except for FrameByFrame, which is basically a hard
+// depend.
+enum DependType {
+    JOB_ON_JOB = 0;
+    JOB_ON_LAYER = 1;
+    JOB_ON_FRAME = 2;
+    LAYER_ON_JOB = 3;
+    LAYER_ON_LAYER = 4;
+    LAYER_ON_FRAME = 5;
+    FRAME_ON_JOB = 6;
+    FRAME_ON_LAYER = 7;
+    FRAME_ON_FRAME = 8;
+    FRAME_BY_FRAME = 9;
+    PREVIOUS_FRAME = 10;
+    LAYER_ON_SIM_FRAME = 11;
+}
+
+
+// The depend visibility.  If the depend-er-job and the depend-on-job is
+// the same, the depend is Internal, if not, its External.
+enum DependTarget {
+    INTERNAL = 0;
+    EXTERNAL = 1;
+    ANY_TARGET = 2;
+}
+
+
+// -------- Primary Message Types --------
+
+// The Depend object repesents a unique dependency on the Cue3 server.
+message Depend {
+    // The type of depend.
+    DependType type = 1;
+
+    // The target of depend, either internal or external.
+    DependTarget target = 2;
+
+    // True if the depend is an any frame depend.
+    bool any_frame = 3;
+
+    // True if the depend is active.
+    bool active = 4;
+
+    // Name of the job that is depending.
+    string depend_er_job = 5;
+
+    // Name of the layer that is depending.
+    string depend_er_layer = 6;
+
+    // Name of the frame that is depending
+    string depend_er_frame = 7;
+
+    // Name of the job to depend on
+    string depend_on_job = 8;
+
+    // Name of the layer to depend on.
+    string depend_on_layer = 9;
+
+    // Name of the name to depend on.
+    string depend_on_frame = 10;
+}
+
+// An array of Depend objects
+message DependSeq {
+    repeated Depend depends = 1;
+}
+
+
+// -------- Requests & Responses --------
+
+message DependGetDependRequest {
+    string id = 1;
+}
+
+message DependGetDependResponse {
+    Depend depend = 1;
+}
+
+// Satisfy
+message DependSatisfyRequest {
+    Depend depend = 1;
+}
+
+message DependSatisfyResponse {} // Empty
+
+// Unsatisfy
+message DependUnsatisfyRequest {
+    Depend depend = 1;
+}
+
+message DependUnsatisfyResponse {} // Empty
