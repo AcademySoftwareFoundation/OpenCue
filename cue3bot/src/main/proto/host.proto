@@ -202,7 +202,7 @@ enum LockState {
 // Proc redirects can have two different types of destinations, jobs and groups.
 enum RedirectType {
     JOB_REDIRECT = 0;
-    GROUP_REDIRECT =1;
+    GROUP_REDIRECT = 1;
 }
 
 // Defines the possible states for a core or proc

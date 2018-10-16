@@ -20,7 +20,6 @@ package com.imageworks.spcue.servant;
 
 
 import io.grpc.stub.StreamObserver;
-import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.CueGrpcException;
 import com.imageworks.spcue.EntityNotFoundException;
@@ -71,7 +70,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            throw new EntityNotFoundException("A subscrition to " + name + " was not found.");
+            throw new EntityNotFoundException("A subscription to " + name + " was not found.");
         }
     }
 
