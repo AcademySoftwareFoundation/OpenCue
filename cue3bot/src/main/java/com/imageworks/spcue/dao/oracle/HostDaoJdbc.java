@@ -359,12 +359,11 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         else
             freeGpu = 0;
 
-
         getJdbcTemplate().update(INSERT_HOST_DETAIL[0],
                 hid, a.getAllocationId(), name, host.getNimbyEnabled(),
                 LockState.OPEN.toString(), host.getNumProcs(), coreUnits, coreUnits,
                 memUnits, memUnits, totalGpu, totalGpu,
-                fqdn, threadMode);
+                fqdn, threadMode.getNumber());
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
                 hid, hid, host.getTotalMem(), host.getFreeMem(),

@@ -816,7 +816,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          */
         r = new ProcSearch();
         ProcSearchCriteria criteriaB = r.getCriteria();
-        r.setCriteria(criteriaB.toBuilder().addShows("pipe").setMaxResults(0, 1).build());
+        r.setCriteria(criteriaB.toBuilder().addShows("pipe").addMaxResults(1).build());
         assertEquals(1, procDao.findVirtualProcs(r).size());
 
         /*
@@ -837,7 +837,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         r.setCriteria(criteriaD.toBuilder()
                 .addShows("pipe")
                 .setFirstResult(3)
-                .setMaxResults(0, 2)
+                .addMaxResults(2)
                 .build());
         assertEquals(2, procDao.findVirtualProcs(r).size());
     }

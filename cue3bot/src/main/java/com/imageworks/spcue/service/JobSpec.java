@@ -348,9 +348,7 @@ public class JobSpec {
              * The Enum is capitalized so make sure that we capitalize the
              * string we received from the user.
              */
-            layerType = String.format("%s%s", layerType.substring(0, 1)
-                    .toUpperCase(), layerType.substring(1).toLowerCase());
-            layer.type = LayerType.valueOf(layerType);
+            layer.type = LayerType.valueOf(layerType.toUpperCase());
             if (layer.type == null) {
                 throw new SpecBuilderException("error, the layer " + layer.name
                         + " was defined with an invalid type: "
@@ -713,7 +711,7 @@ public class JobSpec {
     private BuildableDependency handleDependTag(Element tag) {
 
         BuildableDependency depend = new BuildableDependency();
-        depend.type = DependType.valueOf(tag.getAttributeValue("type"));
+        depend.type = DependType.valueOf(tag.getAttributeValue("type").toUpperCase());
 
         /*
          * If the depend type is layer on layer, allow dependAny to be set.

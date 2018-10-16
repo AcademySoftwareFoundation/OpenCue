@@ -40,13 +40,13 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueIce.RenderPartitionType;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.service.AdminManager;
@@ -227,7 +227,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(lja.getJobId());
         assertEquals(job.getJobId(), lja.getJobId());
-        assertEquals(RenderPartitionType.JobPartition, lja.getType());
+        assertEquals(RenderPartitionType.JOB_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);
@@ -251,7 +251,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(layer.getLayerId());
         assertEquals(layer.getLayerId(), lja.getLayerId());
-        assertEquals(RenderPartitionType.LayerPartition, lja.getType());
+        assertEquals(RenderPartitionType.LAYER_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);
@@ -276,7 +276,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(frame.getFrameId());
         assertEquals(frame.getFrameId(), lja.getFrameId());
-        assertEquals(RenderPartitionType.FramePartition, lja.getType());
+        assertEquals(RenderPartitionType.FRAME_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);
