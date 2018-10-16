@@ -102,8 +102,7 @@ public abstract class Criteria {
 
         if (firstResult > 1 || maxResults > 0) {
             if (order.size() == 0) {
-                // TODO(cipriano) This is a temporary fix to keep all DAO objects happy; this
-                // criteria system will need to be revisited in a future change.
+                // TODO(cipriano) Remove this check. (b/117847423)
                 if (getDatabaseEngine().equals("postgres")) {
                     query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
                 } else {
@@ -128,6 +127,7 @@ public abstract class Criteria {
         }
 
         if (firstResult > 1 || maxResults > 0) {
+            // TODO(cipriano) Remove this check. (b/117847423)
             if (getDatabaseEngine().equals("postgres")) {
                 sb.append(") AS getQueryT WHERE ");
             } else {
@@ -356,6 +356,9 @@ public abstract class Criteria {
         built = true;
     }
 
+    // TODO(cipriano) This is a temporary hack to keep both Oracle and Postgres happy. The
+    // Criteria system will be migrated to support multiple database engines in a future
+    // change. (b/117847423)
     String getDatabaseEngine() {
         String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
         if (dbEngine == null || dbEngine.toLowerCase().equals("postgres")) {
