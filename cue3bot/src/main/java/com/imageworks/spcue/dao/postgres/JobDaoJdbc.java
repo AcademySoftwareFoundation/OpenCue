@@ -259,10 +259,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     public static final String GET_JOBS_BY_TASK =
         "SELECT " +
-            "job.pk_job, "+
-            "job.pk_show, "+
-            "job.pk_dept,"+
-            "job.pk_facility,"+
+            "job.pk_job, " +
+            "job.pk_show, " +
+            "job.pk_dept, " +
+            "job.pk_facility, " +
             "job.str_name " +
         "FROM " +
             "job," +
@@ -270,7 +270,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "WHERE " +
             "job.pk_folder = folder.pk_folder " +
         "AND " +
-            "folder.b_exclude_managed = 0 " +
+            "folder.b_exclude_managed = false " +
         "AND " +
             "job.str_state = ? " +
         "AND " +
@@ -395,8 +395,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job " +
         "SET " +
             "str_state = ?, "+
-            "str_visible_name=NULL, " +
-            "ts_stopped = systimestamp "+
+            "str_visible_name = NULL, " +
+            "ts_stopped = current_timestamp "+
         "WHERE " +
             "str_state = 'Pending'" +
         "AND " +
@@ -825,27 +825,26 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "SELECT " +
             "job.pk_job " +
         "FROM " +
-            "job,"+
+            "job, " +
             "job_stat, " +
-            "job_resource "+
+            "job_resource " +
         "WHERE " +
             "job.pk_job = job_stat.pk_job " +
         "AND " +
             "job.pk_job = job_resource.pk_job " +
         "AND " +
-            "job.str_state='Pending' " +
+            "job.str_state = 'Pending' " +
         "AND " +
-            "job.b_paused = 0 " +
+            "job.b_paused = false " +
         "AND " +
-            "job.b_auto_book = 1 " +
+            "job.b_auto_book = true " +
         "AND " +
             "job_stat.int_waiting_count != 0" +
         "AND " +
             "job_resource.int_cores < job_resource.int_max_cores " +
         "AND " +
             "job.pk_facility = ? " +
-        "AND "+
-            "ROWNUM = 1";
+        "LIMIT 1";
 
     @Override
     public boolean cueHasPendingJobs(FacilityInterface f) {

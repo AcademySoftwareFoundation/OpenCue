@@ -150,8 +150,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public boolean isThreadable(Layer l) {
-        return getJdbcTemplate().queryForObject(IS_THREADABLE,
-                Integer.class, l.getLayerId()) > 0;
+        return getJdbcTemplate().queryForObject(IS_THREADABLE, Boolean.class, l.getLayerId());
     }
 
     /**
@@ -340,7 +339,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "AND " +
             "int_mem_min > ? " +
         "AND " +
-            "b_optimize = 1";
+            "b_optimize = true";
 
     @Override
     public boolean balanceLayerMinMemory(Layer layer, long frameMaxRss) {
@@ -401,9 +400,9 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "UPDATE " +
             "layer_mem " +
         "SET " +
-            "int_max_rss=? " +
+            "int_max_rss = ? " +
         "WHERE " +
-            "pk_layer=?";
+            "pk_layer = ?";
 
     @Override
     public void updateLayerMaxRSS(Layer layer, long val, boolean force) {

@@ -189,9 +189,9 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateBookingEnabled() {
         ShowDetail show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateBookingEnabled(show,false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_booking_enabled FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
     }
 
     @Test
@@ -200,13 +200,13 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateActive() {
         ShowDetail show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateActive(show, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
         showDao.updateActive(show, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
     }
 
     @Test

@@ -28,7 +28,7 @@ public class DispatchQuery {
                     "point.float_tier ASC, " +
                     "folder_resource.float_tier ASC, " +
                     "job_resource.float_tier ASC " +
-                    ") AS rank," +
+                    ") AS rank, " +
                 "job.pk_job, " +
                 "job_resource.float_tier " +
             "FROM " +
@@ -66,7 +66,8 @@ public class DispatchQuery {
                 "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
                 "AND layer.int_gpu_min              BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
-                "AND CATSEARCH(host.str_tags, layer.str_tags, ?) > 0 " +
+                "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
+                "AND host.str_name = ? " +
         ") AS t1 WHERE rank < ?";
 
 
@@ -84,63 +85,67 @@ public class DispatchQuery {
      * Dispatch a host in local booking mode.
      */
     public static final String FIND_JOBS_BY_LOCAL =
-        "/* FIND_JOBS_BY_LOCAL */ SELECT pk_job,float_tier, rank FROM ( " +
-        "SELECT " +
-            "ROW_NUMBER() OVER (ORDER BY " +
-                "host_local.float_tier ASC " +
-            ") AS rank, " +
-            "job.pk_job, " +
-            "host_local.float_tier " +
-        "FROM " +
-            "job, " +
-            "host_local " +
-        "WHERE " +
-            "job.pk_job = host_local.pk_job " +
-        "AND " +
-            "host_local.pk_host = ? " +
-        "AND " +
-            "job.str_state = 'Pending' " +
-        "AND " +
-            "job.b_paused = 0 " +
-        "AND " +
-            "job.pk_facility =  ? " +
-        "AND " +
-            "job.str_os = ? " +
-        "AND " +
-            "job.pk_job IN ( " +
-                "SELECT " +
-                    "l.pk_job " +
-                "FROM " +
-                    "job j, " +
-                    "layer l, " +
-                    "layer_stat lst, " +
-                    "host h, " +
-                    "host_local " +
-                "WHERE " +
-                    "j.pk_job = l.pk_job " +
-                "AND " +
-                    "j.pk_job = host_local.pk_job " +
-                "AND " +
-                    "h.pk_host = host_local.pk_host " +
-                "AND " +
-                    "h.pk_host = ? " +
-                "AND " +
-                    "j.str_state = 'Pending' " +
-                "AND " +
-                    "j.b_paused = 0 " +
-                "AND " +
-                    "j.pk_facility = ? " +
-                "AND " +
-                    "j.str_os = ? " +
-                "AND " +
-                    "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
-                "AND " +
-                    "(CASE WHEN lst.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
-                "AND " +
-                    "l.int_mem_min <= host_local.int_mem_idle " +
-                "AND " +
-                    "l.int_gpu_min <= host_local.int_gpu_idle " +
-        ")) AS t1 WHERE rank < 5";
+        "/* FIND_JOBS_BY_LOCAL */ " +
+        "SELECT pk_job, float_tier, rank " +
+        "FROM ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER (ORDER BY " +
+                    "host_local.float_tier ASC " +
+                ") AS rank, " +
+                "job.pk_job, " +
+                "host_local.float_tier " +
+            "FROM " +
+                "job, " +
+                "host_local " +
+            "WHERE " +
+                "job.pk_job = host_local.pk_job " +
+            "AND " +
+                "host_local.pk_host = ? " +
+            "AND " +
+                "job.str_state = 'Pending' " +
+            "AND " +
+                "job.b_paused = false " +
+            "AND " +
+                "job.pk_facility =  ? " +
+            "AND " +
+                "job.str_os = ? " +
+            "AND " +
+                "job.pk_job IN ( " +
+                    "SELECT " +
+                        "l.pk_job " +
+                    "FROM " +
+                        "job j, " +
+                        "layer l, " +
+                        "layer_stat lst, " +
+                        "host h, " +
+                        "host_local " +
+                    "WHERE " +
+                        "j.pk_job = l.pk_job " +
+                    "AND " +
+                        "j.pk_job = host_local.pk_job " +
+                    "AND " +
+                        "h.pk_host = host_local.pk_host " +
+                    "AND " +
+                        "h.pk_host = ? " +
+                    "AND " +
+                        "j.str_state = 'Pending' " +
+                    "AND " +
+                        "j.b_paused = false " +
+                    "AND " +
+                        "j.pk_facility = ? " +
+                    "AND " +
+                        "j.str_os = ? " +
+                    "AND " +
+                        "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
+                    "AND " +
+                        "(CASE WHEN lst.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
+                    "AND " +
+                        "l.int_mem_min <= host_local.int_mem_idle " +
+                    "AND " +
+                        "l.int_gpu_min <= host_local.int_gpu_idle " +
+                ") " +
+        ") AS t1 " +
+        "WHERE rank < 5";
 
     /**
      * This query is run before a proc is dispatched to the next frame.
@@ -176,7 +181,7 @@ public class DispatchQuery {
         "AND " +
             "job.str_state = 'Pending' " +
         "AND " +
-            "job.b_paused = 0 " +
+            "job.b_paused = false " +
         "AND " +
             "job.pk_show = ? " +
         "AND " +
@@ -197,7 +202,7 @@ public class DispatchQuery {
                 "AND " +
                     "j.str_state = 'Pending' " +
                 "AND " +
-                    "j.b_paused = 0 " +
+                    "j.b_paused = false " +
                 "AND " +
                     "j.pk_show = ? " +
                 "AND " +
@@ -215,362 +220,374 @@ public class DispatchQuery {
                 "AND " +
                     "l.int_gpu_min = ? " +
                 "AND " +
-                    "CATSEARCH(h.str_tags, l.str_tags, ?) > 0) " +
-    "AND ROWNUM < 2 ";
+                    "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                "AND " +
+                    "h.str_name = ? " +
+            ") " +
+        "LIMIT 1";
 
     /**
      * Finds the next frame in a job for a proc.
      */
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT "+
-            "show_name, "+
+        "SELECT " +
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "b_threadable,"+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, " +
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.b_threadable,"+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_cores_min <= ? " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min BETWEEN ? AND ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "job.pk_job=? "+
-        "AND layer.pk_layer IN ( " +
-            "SELECT /*+ index (h i_str_host_tag) */ " +
-                "pk_layer " +
+        "FROM ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.b_threadable, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
             "FROM " +
-                "layer l,"+
-                "host h " +
+                "job, " +
+                "frame, " +
+                "layer " +
             "WHERE " +
-                "l.pk_job= ? " +
+                "frame.pk_layer = layer.pk_layer " +
             "AND " +
-                "CATSEARCH(h.str_tags, l.str_tags, ?) > 0 "+
-        ")) WHERE LINENUM <= ?";
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_cores_min <= ? " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min BETWEEN ? AND ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "job.pk_job=? " +
+            "AND layer.pk_layer IN ( " +
+                "SELECT /*+ index (h i_str_host_tag) */ " +
+                    "pk_layer " +
+                "FROM " +
+                    "layer l, " +
+                    "host h "  +
+                "WHERE " +
+                    "l.pk_job= ? " +
+                "AND " +
+                    "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                "AND " +
+                    "h.str_name = ? " +
+            ") " +
+        ") AS t1 WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
      */
     public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_HOST =
         "SELECT " +
-            "show_name, "+
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "b_threadable,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "b_threadable, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, "+
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.b_threadable,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_cores_min <= ? " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.b_threadable >= ? " +
-        "AND " +
-            "layer.int_gpu_min BETWEEN ? AND ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "job.pk_job=? "+
-        "AND " +
-            "layer.pk_layer IN ( " +
-            "SELECT /*+ index (h i_str_host_tag) */ " +
-                "pk_layer " +
+        "FROM ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.b_threadable, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
             "FROM " +
-                "layer l,"+
-                "host h " +
+                "job, " +
+                "frame, " +
+                "layer " +
             "WHERE " +
-                "l.pk_job=? " +
+                "frame.pk_layer = layer.pk_layer " +
             "AND " +
-                "CATSEARCH(h.str_tags, l.str_tags,?) > 0 "+
-        ") " +
-        ") WHERE LINENUM <= ?";
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_cores_min <= ? " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
+            "AND " +
+                "layer.int_gpu_min BETWEEN ? AND ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "job.pk_job=? " +
+            "AND " +
+                "layer.pk_layer IN ( " +
+                    "SELECT /*+ index (h i_str_host_tag) */ " +
+                        "pk_layer " +
+                    "FROM " +
+                        "layer l, " +
+                        "host h " +
+                    "WHERE " +
+                        "l.pk_job=? " +
+                    "AND " +
+                        "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                    "AND " +
+                        "h.str_name = ? " +
+                ") " +
+        ") AS t1 WHERE LINENUM <= ?";
 
 
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT "+
-            "show_name, "+
+        "SELECT " +
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "b_threadable,"+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, " +
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.b_threadable,"+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min <= ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "job.pk_job=? "+
-        ") WHERE LINENUM <= ?";
+        "FROM ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.b_threadable, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
+            "FROM " +
+                "job, " +
+                "frame, " +
+                "layer " +
+            "WHERE " +
+                "frame.pk_layer = layer.pk_layer " +
+            "AND " +
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min <= ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "job.pk_job=? " +
+        ") AS t1 WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
      */
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST =
         "SELECT " +
-            "show_name, "+
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "b_threadable,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "b_threadable, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, "+
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.b_threadable,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min <= ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "job.pk_job=? "+
-        ") WHERE LINENUM <= ?";
+        "FROM (" +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.b_threadable, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
+            "FROM " +
+                "job, " +
+                "frame, " +
+                "layer " +
+            "WHERE " +
+                "frame.pk_layer = layer.pk_layer " +
+            "AND " +
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min <= ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "job.pk_job=? " +
+        ") AS t1 WHERE LINENUM <= ?";
 
 
     /**** LAYER DISPATCHING **/
@@ -579,356 +596,364 @@ public class DispatchQuery {
      * Finds the next frame in a job for a proc.
      */
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-
-        "SELECT "+
-            "show_name, "+
+        "SELECT " +
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "b_threadable,"+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, " +
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.b_threadable,"+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_cores_min <= ? " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min = ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "job.pk_layer=? "+
-        "AND layer.pk_layer IN ( " +
-            "SELECT /*+ index (h i_str_host_tag) */ " +
-                "pk_layer " +
+        "FROM (" +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.b_threadable, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
             "FROM " +
-                "layer l,"+
-                "host h " +
+                "job, " +
+                "frame, " +
+                "layer " +
             "WHERE " +
-                "l.pk_layer= ? " +
+                "frame.pk_layer = layer.pk_layer " +
             "AND " +
-                "CATSEARCH(h.str_tags, l.str_tags, ?) > 0 "+
-        ")) WHERE LINENUM <= ?";
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_cores_min <= ? " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min = ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "job.pk_layer=? " +
+            "AND layer.pk_layer IN ( " +
+                "SELECT /*+ index (h i_str_host_tag) */ " +
+                    "pk_layer " +
+                "FROM " +
+                    "layer l, " +
+                    "host h " +
+                "WHERE " +
+                    "l.pk_layer= ? " +
+                "AND " +
+                    "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                "AND " +
+                    "h.str_name = ? " +
+            ")" +
+        ") WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
      */
     public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST =
         "SELECT " +
-            "show_name, "+
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "b_threadable,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "b_threadable, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, "+
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.b_threadable,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_cores_min <= ? " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.b_threadable >= ? " +
-        "AND " +
-            "layer.int_gpu_min <= ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "layer.pk_layer=? "+
-        "AND " +
-            "layer.pk_layer IN ( " +
-            "SELECT /*+ index (h i_str_host_tag) */ " +
-                "pk_layer " +
+        "FROM (" +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.b_threadable, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
             "FROM " +
-                "layer l,"+
-                "host h " +
+                "job, " +
+                "frame, " +
+                "layer " +
             "WHERE " +
-                "l.pk_layer=? " +
+                "frame.pk_layer = layer.pk_layer " +
             "AND " +
-                "CATSEARCH(h.str_tags, l.str_tags,?) > 0 "+
-        ") " +
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_cores_min <= ? " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
+            "AND " +
+                "layer.int_gpu_min <= ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "layer.pk_layer=? " +
+            "AND " +
+                "layer.pk_layer IN ( " +
+                    "SELECT /*+ index (h i_str_host_tag) */ " +
+                        "pk_layer " +
+                    "FROM " +
+                        "layer l, " +
+                        "host h " +
+                    "WHERE " +
+                        "l.pk_layer=? " +
+                    "AND " +
+                        "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                    "AND " +
+                        "h.str_name = ? " +
+                ") " +
         ") WHERE LINENUM <= ?";
 
 
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-        "SELECT "+
-            "show_name, "+
+        "SELECT " +
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "b_threadable,"+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, " +
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.b_threadable,"+
-            "layer.int_cores_min,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.int_cores_max,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services " +
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min <= ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "layer.pk_layer =? "+
-        ") WHERE LINENUM <= ?";
+        "FROM (" +
+            "SELECT " +
+                "ROW_NUMBER() OVER ( ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.b_threadable, " +
+                "layer.int_cores_min, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.int_cores_max, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
+            "FROM " +
+                "job, " +
+                "frame, " +
+                "layer " +
+            "WHERE " +
+                "frame.pk_layer = layer.pk_layer " +
+            "AND " +
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min <= ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "layer.pk_layer = ? " +
+        ") AS t1 WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
      */
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST =
         "SELECT " +
-            "show_name, "+
+            "show_name, " +
             "job_name, " +
-            "pk_job,"+
-            "pk_show,"+
-            "pk_facility,"+
-            "str_name,"+
-            "str_shot,"+
-            "str_user,"+
-            "int_uid,"+
-            "str_log_dir,"+
-            "frame_name, "+
-            "frame_state, "+
-            "pk_frame, "+
-            "pk_layer, "+
-            "int_retries, "+
+            "pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_name, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "pk_frame, " +
+            "pk_layer, " +
+            "int_retries, " +
             "int_version, " +
             "layer_name, " +
-            "layer_type, "+
-            "int_cores_min,"+
-            "int_cores_max,"+
-            "b_threadable,"+
-            "int_mem_min,"+
-            "int_gpu_min,"+
-            "str_cmd, "+
-            "str_range,"+
-            "int_chunk_size, "+
+            "layer_type, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "b_threadable, " +
+            "int_mem_min, " +
+            "int_gpu_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
             "str_services " +
-        "FROM (SELECT " +
-            "ROW_NUMBER() OVER ( ORDER BY " +
-                "frame.int_dispatch_order ASC, " +
-                "frame.int_layer_order ASC " +
-            ") LINENUM, " +
-            "job.str_show AS show_name, "+
-            "job.str_name AS job_name, " +
-            "job.pk_job,"+
-            "job.pk_show,"+
-            "job.pk_facility,"+
-            "job.str_name,"+
-            "job.str_shot,"+
-            "job.str_user,"+
-            "job.int_uid,"+
-            "job.str_log_dir,"+
-            "frame.str_name AS frame_name, "+
-            "frame.str_state AS frame_state, "+
-            "frame.pk_frame, "+
-            "frame.pk_layer, "+
-            "frame.int_retries, "+
-            "frame.int_version, "+
-            "layer.str_name AS layer_name, " +
-            "layer.str_type AS layer_type, "+
-            "layer.int_cores_min,"+
-            "layer.int_cores_max,"+
-            "layer.b_threadable,"+
-            "layer.int_mem_min,"+
-            "layer.int_gpu_min,"+
-            "layer.str_cmd, "+
-            "layer.str_range, "+
-            "layer.int_chunk_size, "+
-            "layer.str_services "+
-        "FROM " +
-            "job,"+
-            "frame," +
-            "layer " +
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "layer.pk_job = job.pk_job " +
-        "AND " +
-            "layer.int_mem_min <= ? " +
-        "AND " +
-            "layer.int_gpu_min <= ? " +
-        "AND " +
-            "frame.str_state='Waiting' " +
-        "AND " +
-            "layer.pk_layer=? "+
-        ") WHERE LINENUM <= ?";
+        "FROM (" +
+            "SELECT " +
+                "ROW_NUMBER() OVER (ORDER BY " +
+                    "frame.int_dispatch_order ASC, " +
+                    "frame.int_layer_order ASC " +
+                ") AS LINENUM, " +
+                "job.str_show AS show_name, " +
+                "job.str_name AS job_name, " +
+                "job.pk_job, " +
+                "job.pk_show, " +
+                "job.pk_facility, " +
+                "job.str_name, " +
+                "job.str_shot, " +
+                "job.str_user, " +
+                "job.int_uid, " +
+                "job.str_log_dir, " +
+                "frame.str_name AS frame_name, " +
+                "frame.str_state AS frame_state, " +
+                "frame.pk_frame, " +
+                "frame.pk_layer, " +
+                "frame.int_retries, " +
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, " +
+                "layer.int_cores_min, " +
+                "layer.int_cores_max, " +
+                "layer.b_threadable, " +
+                "layer.int_mem_min, " +
+                "layer.int_gpu_min, " +
+                "layer.str_cmd, " +
+                "layer.str_range, " +
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
+            "FROM " +
+                "job, " +
+                "frame, " +
+                "layer " +
+            "WHERE " +
+                "frame.pk_layer = layer.pk_layer " +
+            "AND " +
+                "layer.pk_job = job.pk_job " +
+            "AND " +
+                "layer.int_mem_min <= ? " +
+            "AND " +
+                "layer.int_gpu_min <= ? " +
+            "AND " +
+                "frame.str_state='Waiting' " +
+            "AND " +
+                "layer.pk_layer= ? " +
+        ") AS t1 WHERE LINENUM <= ?";
 
     /**
      * Looks for shows that are under their burst for a particular
@@ -937,13 +962,13 @@ public class DispatchQuery {
      */
     public static final String FIND_SHOWS =
         "SELECT " +
-            "vs_waiting.pk_show,"+
+            "vs_waiting.pk_show, " +
             "s.float_tier, " +
             "s.int_burst " +
         "FROM " +
-            "subscription s,"+
+            "subscription s, " +
             "vs_waiting " +
-        "WHERE "+
+        "WHERE " +
             "vs_waiting.pk_show = s.pk_show " +
         "AND " +
             "s.pk_alloc = ? " +

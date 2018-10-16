@@ -394,15 +394,15 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     public void testUpdateJobPaused() {
         JobDetail job = insertJob();
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_paused FROM job WHERE pk_job=?",
-                Integer.class, job.getJobId()));
+                Boolean.class, job.getJobId()));
 
         jobDao.updatePaused(job, false);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_paused FROM job WHERE pk_job=?",
-                Integer.class, job.getJobId()));
+                Boolean.class, job.getJobId()));
     }
 
     @Test
@@ -411,15 +411,15 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     public void testUpdateJobAutoEat() {
         JobDetail job = insertJob();
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_autoeat FROM job WHERE pk_job=?",
-                Integer.class, job.getJobId()));
+                Boolean.class, job.getJobId()));
 
         jobDao.updateAutoEat(job, true);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_autoeat FROM job WHERE pk_job=?",
-                Integer.class, job.getJobId()));
+                Boolean.class, job.getJobId()));
     }
 
     @Test

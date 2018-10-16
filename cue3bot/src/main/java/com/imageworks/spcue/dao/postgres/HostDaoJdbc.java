@@ -390,20 +390,20 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         "UPDATE " +
             "host_stat " +
         "SET " +
-            "int_mem_total=?, " +
-            "int_mem_free=?, " +
-            "int_swap_total=?, " +
-            "int_swap_free=?, "+
-            "int_mcp_total=?, " +
-            "int_mcp_free=?, " +
-            "int_gpu_total=?, " +
-            "int_gpu_free=?, " +
-            "int_load=?," +
+            "int_mem_total = ?, " +
+            "int_mem_free = ?, " +
+            "int_swap_total = ?, " +
+            "int_swap_free = ?, "+
+            "int_mcp_total = ?, " +
+            "int_mcp_free = ?, " +
+            "int_gpu_total = ?, " +
+            "int_gpu_free = ?, " +
+            "int_load = ?," +
             "ts_booted = ?,  " +
-            "ts_ping = systimestamp, "+
-            "str_os=? " +
+            "ts_ping = current_timestamp, "+
+            "str_os = ? " +
         "WHERE " +
-            "pk_host=?";
+            "pk_host = ?";
 
     @Override
     public void updateHostStats(Host host,
@@ -560,14 +560,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public void removeTag(Host host, String tag) {
         getJdbcTemplate().update(
-                "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 host.getHostId(), tag);
     }
 
     @Override
     public void renameTag(Host host, String oldTag, String newTag) {
         getJdbcTemplate().update(
-                "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 newTag, host.getHostId(), oldTag);
     }
 
@@ -647,7 +647,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public boolean isNimbyHost(Host h) {
         return getJdbcTemplate().queryForObject(
-                "SELECT COUNT(1) FROM host WHERE b_nimby=1 AND pk_host=?",
+                "SELECT COUNT(1) FROM host WHERE b_nimby=true AND pk_host=?",
                 Integer.class, h.getHostId()) > 0;
     }
 

@@ -102,7 +102,13 @@ public abstract class Criteria {
 
         if (firstResult > 1 || maxResults > 0) {
             if (order.size() == 0) {
-                query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
+                // TODO(cipriano) This is a temporary fix to keep all DAO objects happy; this
+                // criteria system will need to be revisited in a future change.
+                if (getDatabaseEngine().equals("postgres")) {
+                    query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
+                } else {
+                    query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
+                }
             } else {
                 query = query.replaceFirst("SELECT ", "SELECT row_number() OVER ("+getOrder()+") AS RN, ");
             }
@@ -122,7 +128,11 @@ public abstract class Criteria {
         }
 
         if (firstResult > 1 || maxResults > 0) {
-            sb.append(") WHERE ");
+            if (getDatabaseEngine().equals("postgres")) {
+                sb.append(") AS getQueryT WHERE ");
+            } else {
+                sb.append(") WHERE ");
+            }
         }
 
         if (firstResult > 1) {
@@ -344,6 +354,17 @@ public abstract class Criteria {
             buildWhereClause();
         }
         built = true;
+    }
+
+    String getDatabaseEngine() {
+        String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
+        if (dbEngine == null || dbEngine.toLowerCase().equals("postgres")) {
+            return "postgres";
+        } else if (dbEngine.toLowerCase().equals("oracle")) {
+            return "oracle";
+        } else {
+            throw new RuntimeException("invalid database engine \"" + dbEngine + "\"");
+        }
     }
 }
 

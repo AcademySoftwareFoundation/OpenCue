@@ -2158,8 +2158,8 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1,
-        int_ts_stopped = nvl(epoch(OLD.ts_stopped), epoch(current_timestamp))
+        b_archived = true,
+        int_ts_stopped = COALESCE(epoch(OLD.ts_stopped), epoch(current_timestamp))
     WHERE
         pk_job = OLD.pk_job;
 
@@ -2186,7 +2186,7 @@ EXECUTE PROCEDURE trigger__before_delete_job();
 CREATE FUNCTION trigger__after_job_finished()
 RETURNS TRIGGER AS $body$
 DECLARE
-    ts INT := epoch(current_timestamp);
+    ts INT := cast(epoch(current_timestamp) as integer);
     js JobStatType;
     ls LayerStatType;
     one_layer RECORD;
@@ -2454,7 +2454,7 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1
+        b_archived = true
     WHERE
         pk_layer = OLD.pk_layer;
 

@@ -170,7 +170,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
        int result =  jdbcTemplate.update(
                 "UPDATE job SET ts_stopped = " +
-                "systimestamp - interval '10' minute " +
+                "current_timestamp - interval '10' minute " +
                 "WHERE pk_job=?", job.id);
 
         assertEquals(1, result);
@@ -455,7 +455,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         * This is destructive to running jobs
         */
         jdbcTemplate.update(
-        "UPDATE proc SET ts_ping = (systimestamp - interval '30' day)");
+        "UPDATE proc SET ts_ping = (current_timestamp - interval '30' day)");
 
         assertEquals(1, procDao.findOrphanedVirtualProcs().size());
         assertTrue(procDao.isOrphan(proc));
@@ -483,9 +483,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
 
         procDao.unbookProc(proc);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_unbooked FROM proc WHERE pk_proc=?",
-                Integer.class, proc.id));
+                Boolean.class, proc.id));
     }
 
     @Test
@@ -515,9 +515,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         procDao.unbookVirtualProcs(procs);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_unbooked FROM proc WHERE pk_proc=?",
-                Integer.class, proc.id));
+                Boolean.class, proc.id));
     }
 
 

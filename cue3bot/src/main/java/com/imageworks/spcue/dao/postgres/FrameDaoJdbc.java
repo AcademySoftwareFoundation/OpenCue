@@ -60,11 +60,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state=?, "+
             "int_exit_status = ?, " +
-            "ts_stopped = systimestamp, " +
-            "ts_updated = systimestamp,  " +
+            "ts_stopped = current_timestamp, " +
+            "ts_updated = current_timestamp,  " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(systimestamp - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -86,12 +86,12 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state=?, "+
             "int_exit_status = ?, " +
-            "ts_stopped = systimestamp + interval '1' second, " +
-            "ts_updated = systimestamp, " +
+            "ts_stopped = current_timestamp + interval '1' second, " +
+            "ts_updated = current_timestamp, " +
             "int_mem_max_used = ?, " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(systimestamp + interval '1' second - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_cores / 100) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -116,8 +116,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state = ?, "+
             "int_exit_status = ?, " +
-            "ts_stopped = systimestamp, " +
-            "ts_updated = systimestamp, " +
+            "ts_stopped = current_timestamp, " +
+            "ts_updated = current_timestamp, " +
             "int_version = int_version + 1 " +
         "WHERE " +
             "frame.pk_frame = ? " +
@@ -140,18 +140,18 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     private static final String UPDATE_FRAME_STARTED =
-        "UPDATE "+
-            "frame "+
+        "UPDATE " +
+            "frame " +
         "SET " +
-            "str_state = ?,"+
-            "str_host=?, " +
-            "int_cores=?, "+
+            "str_state = ?, " +
+            "str_host = ?, " +
+            "int_cores = ?, " +
             "int_mem_reserved = ?, " +
             "int_gpu_reserved = ?, " +
-            "ts_updated = systimestamp,"+
-            "ts_started = systimestamp,"+
-            "ts_stopped = null, "+
-            "int_version = int_version + 1 "+
+            "ts_updated = current_timestamp, " +
+            "ts_started = current_timestamp, " +
+            "ts_stopped = null, " +
+            "int_version = int_version + 1 " +
         "WHERE " +
             "pk_frame = ? " +
         "AND " +
@@ -203,8 +203,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
             "int_gpu_reserved = ?, " +
-            "ts_updated = systimestamp,"+
-            "ts_started = systimestamp,"+
+            "ts_updated = current_timestamp,"+
+            "ts_started = current_timestamp,"+
             "ts_stopped = null, "+
             "int_version = int_version + 1 " +
         "WHERE " +
@@ -402,13 +402,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "job.pk_job = frame.pk_job " +
         "AND " +
-            "frame.str_state='Running' " +
+            "frame.str_state = 'Running' " +
         "AND " +
             "job.str_state = 'Pending' " +
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +
-            "systimestamp - frame.ts_updated > interval '300' second";
+            "current_timestamp - frame.ts_updated > interval '300' second";
 
     @Override
     public List<Frame> getOrphanedFrames() {
@@ -582,24 +582,20 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     private static final String FIND_SHORTEST_FRAME =
         "SELECT " +
             "pk_frame " +
-        "FROM (" +
-        "SELECT " +
-            "pk_frame,"+
-            "ts_stopped - ts_started AS duration " +
         "FROM " +
             "frame, " +
             "layer " +
         "WHERE " +
             "frame.pk_layer = layer.pk_layer " +
         "AND " +
-            "frame.pk_job = ? "+
+            "frame.pk_job = ? " +
         "AND " +
-            "frame.str_state=? "+
+            "frame.str_state = ? " +
         "AND " +
-            "layer.str_type=? " +
-        "ORDER BY "+
-            "duration ASC "+
-        ") WHERE ROWNUM = 1";
+            "layer.str_type = ? " +
+        "ORDER BY " +
+            "ts_stopped - ts_started ASC " +
+        "LIMIT 1";
 
     @Override
     public FrameDetail findShortestFrame(Job job) {
@@ -639,25 +635,12 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         }
     }
 
-    public static final String GET_FRAME_ID =
-        "SELECT " +
-            "frame.pk_frame "+
-        "FROM " +
-            "frame,"+
-            "layer,"+
-            "job "+
-        "WHERE " +
-            "frame.pk_layer = layer.pk_layer " +
-        "AND " +
-            "frame.pk_job = job.pk_job ";
-
-
     private static final String UPDATE_FRAME_STATE =
         "UPDATE " +
             "frame "+
         "SET " +
-            "str_state=?, " +
-            "ts_updated = systimestamp, " +
+            "str_state = ?, " +
+            "ts_updated = current_timestamp, " +
             "int_version = int_version + 1 " +
         "WHERE " +
             "pk_frame = ? " +
@@ -684,7 +667,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "frame "+
         "SET " +
             "str_state=?, " +
-            "ts_updated = systimestamp, " +
+            "ts_updated = current_timestamp, " +
             "int_depend_count = 0, " +
             "int_version = int_version + 1 " +
         "WHERE " +
@@ -710,7 +693,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state=?, " +
             "int_depend_count = ?, "+
-            "ts_updated = systimestamp, " +
+            "ts_updated = current_timestamp, " +
             "int_version = int_version + 1 " +
         "WHERE " +
             "pk_frame = ? " +
@@ -725,17 +708,17 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            " ( " +
+            "( " +
                "(pk_job_depend_er = ? AND str_type LIKE 'JobOn%') " +
             "OR " +
-                "pk_layer_depend_er=? " +
+                "pk_layer_depend_er = ? " +
             "OR " +
-                "pk_frame_depend_er=? " +
-            " ) " +
+                "pk_frame_depend_er = ? " +
+            ") " +
         "AND " +
-            "depend.b_active = 1 " +
+            "depend.b_active = true " +
         "AND " +
-            "depend.b_composite = 0 ";
+            "depend.b_composite = false ";
 
     public void markFrameAsDepend(Frame frame) {
         // We need to full depend count in this case to reset the
@@ -758,18 +741,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     private static final String FIND_HIGHEST_MEM_FRAME =
         "SELECT " +
             "pk_frame " +
-        "FROM (" +
-        "SELECT " +
-            "pk_frame " +
         "FROM " +
             "frame " +
         "WHERE " +
-            "pk_job = ? "+
+            "pk_job = ? " +
         "AND " +
-            "str_state=? "+
-        "ORDER BY "+
-            "int_mem_max_used DESC "+
-        ") WHERE ROWNUM = 1";
+            "str_state = ? " +
+        "ORDER BY " +
+            "int_mem_max_used DESC " +
+        "LIMIT 1";
 
     @Override
     public FrameDetail findHighestMemoryFrame(Job job) {
@@ -782,18 +762,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     private static final String FIND_LOWEST_MEM_FRAME =
         "SELECT " +
             "pk_frame " +
-        "FROM (" +
-        "SELECT " +
-            "pk_frame " +
         "FROM " +
             "frame " +
         "WHERE " +
-            "pk_job = ? "+
+            "pk_job = ? " +
         "AND " +
-            "str_state=? "+
-        "ORDER BY "+
-            "int_mem_max_used ASC "+
-        ") WHERE ROWNUM = 1";
+            "str_state = ? " +
+        "ORDER BY " +
+            "int_mem_max_used ASC " +
+        "LIMIT 1";
 
     @Override
     public FrameDetail findLowestMemoryFrame(Job job) {
@@ -949,15 +926,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     @Override
     public ResourceUsage getResourceUsage(Frame f) {
         /*
-         * Using systimestamp = ts_started here because ts_stopped is not set.
+         * Using current_timestamp = ts_started here because ts_stopped is not set.
          * Stopping the frame allows it to be dispatched again, which could
          * blow away the ts_stopped time.
          */
         return getJdbcTemplate().queryForObject(
                 "SELECT " +
-                    "NVL(interval_to_seconds(systimestamp - ts_started),1) " +
+                    "COALESCE(interval_to_seconds(current_timestamp - ts_started), 1) " +
                         "AS int_clock_time, " +
-                    "NVL(int_cores,100) AS int_cores " +
+                    "COALESCE(int_cores, 100) AS int_cores " +
                 "FROM " +
                     "frame " +
                 "WHERE " +
@@ -968,7 +945,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "UPDATE " +
             "frame " +
         "SET " +
-            "ts_updated = systimestamp," +
+            "ts_updated = current_timestamp," +
             "int_mem_max_used = ?," +
             "int_mem_used = ? " +
         "WHERE " +
@@ -1053,7 +1030,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 GET_MINIMAL_FRAME +
                 " AND job.str_state=? " +
                 " AND frame.str_state=? " +
-                " AND systimestamp - frame.ts_stopped > interval '" + cutoffTimeSec + "' second",
+                " AND current_timestamp - frame.ts_stopped > interval '" + cutoffTimeSec + "' second",
                 FRAME_MAPPER,
                 JobState.Pending.toString(),
                 FrameState.Checkpoint.toString());

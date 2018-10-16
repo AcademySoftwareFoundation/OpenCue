@@ -32,9 +32,9 @@ public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
     private static final String GET_FINISHED_JOBS =
         JobDaoJdbc.GET_JOB +
         "WHERE " +
-            "job.str_state=? " +
+            "job.str_state = ? " +
          "AND " +
-             "systimestamp - job.ts_stopped > ";
+             "current_timestamp - job.ts_stopped > ";
 
     public List<Job> getFinishedJobs(int cutoffHours) {
         String interval = "interval '" + cutoffHours + "' hour";

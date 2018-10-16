@@ -133,7 +133,11 @@ public class FrameSearch extends Criteria {
         StringBuilder sb = new StringBuilder(q.length() + 256);
         sb.append("SELECT * FROM (");
         sb.append(q);
-        sb.append(" ) WHERE row_number > ?");
+        if (getDatabaseEngine().equals("postgres")) {
+            sb.append(" ) AS getSortedQueryT WHERE row_number > ?");
+        } else {
+            sb.append(" ) WHERE row_number > ?");
+        }
         sb.append(" AND row_number <= ?");
         values.add((page-1) * limit);
         values.add(page * limit);

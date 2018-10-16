@@ -33,11 +33,11 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
         "UPDATE " +
             "host_stat " +
         "SET " +
-            "str_state=? " +
+            "str_state = ? " +
         "WHERE " +
-            "str_state='Up' " +
+            "str_state = 'Up' " +
         "AND " +
-            "systimestamp - ts_ping > " + HOST_DOWN_INTERVAL;
+            "current_timestamp - ts_ping > " + HOST_DOWN_INTERVAL;
 
     public int setUpHostsToDown() {
         return getJdbcTemplate().update(UPDATE_HOSTS_DOWN,
@@ -49,9 +49,9 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
             "task_lock " +
         "SET " +
             "int_lock = ?, " +
-            "ts_lastrun = systimestamp " +
+            "ts_lastrun = current_timestamp " +
         "WHERE " +
-            "str_name= ? "+
+            "str_name = ? "+
         "AND " +
             "(int_lock = ? OR ? - int_lock > int_timeout)";
 
@@ -66,13 +66,13 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
             "task_lock " +
         "SET " +
             "int_lock = ?, " +
-            "ts_lastrun = systimestamp " +
+            "ts_lastrun = current_timestamp " +
         "WHERE " +
             "str_name= ? "+
         "AND " +
             "int_lock = ? " +
         "AND " +
-            "interval_to_seconds(systimestamp - ts_lastrun) > ? ";
+            "interval_to_seconds(current_timestamp - ts_lastrun) > ? ";
 
     public boolean lockTask(MaintenanceTask task, int minutes) {
         long now = System.currentTimeMillis();

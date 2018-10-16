@@ -1505,52 +1505,34 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private static final String GET_PROC =
         "SELECT " +
-            "host.str_name AS host_name,"+
-            "job.str_name AS job_name,"+
-            "job.str_log_dir,"+
-            "folder.str_name as folder_name, "+
-            "show.str_name AS show_name,"+
-            "frame.str_name AS frame_name,"+
-            "layer.str_services,"+
-            "proc.pk_proc,"+
-            "proc.pk_host,"+
-            "proc.int_cores_reserved,"+
-            "proc.int_mem_reserved, "+
-            "proc.int_mem_used,"+
-            "proc.int_mem_max_used,"+
-            "proc.int_gpu_reserved, "+
-            "proc.ts_ping,"+
-            "proc.ts_booked,"+
-            "proc.ts_dispatched,"+
-            "proc.b_unbooked,"+
-            "redirect.str_name AS str_redirect "+
-       "FROM " +
-           "proc,"+
-           "host, "+
-           "alloc,"+
-           "frame, "+
-           "layer,"+
-           "job,"+
-           "folder, "+
-           "show, " +
-           "redirect "+
-       "WHERE " +
-           "proc.pk_host = host.pk_host " +
-       "AND " +
-           "host.pk_alloc = alloc.pk_alloc " +
-       "AND " +
-           "proc.pk_frame = frame.pk_frame " +
-       "AND " +
-           "proc.pk_layer = layer.pk_layer "+
-       "AND " +
-           "proc.pk_job = job.pk_job " +
-       "AND " +
-           "job.pk_folder = folder.pk_folder " +
-       "AND " +
-           "proc.pk_show = show.pk_show " +
-       "AND " +
-           "proc.pk_proc = redirect.pk_proc (+) ";
-
+            "host.str_name AS host_name, " +
+            "job.str_name AS job_name, " +
+            "job.str_log_dir, " +
+            "folder.str_name as folder_name, " +
+            "show.str_name AS show_name, " +
+            "frame.str_name AS frame_name, " +
+            "layer.str_services, " +
+            "proc.pk_proc, " +
+            "proc.pk_host, " +
+            "proc.int_cores_reserved, " +
+            "proc.int_mem_reserved, " +
+            "proc.int_mem_used, " +
+            "proc.int_mem_max_used, " +
+            "proc.int_gpu_reserved, " +
+            "proc.ts_ping, " +
+            "proc.ts_booked, " +
+            "proc.ts_dispatched, " +
+            "proc.b_unbooked, " +
+            "redirect.str_name AS str_redirect " +
+        "FROM proc " +
+        "JOIN host ON proc.pk_host = host.pk_host " +
+        "JOIN alloc ON host.pk_alloc = alloc.pk_alloc " +
+        "JOIN frame ON proc.pk_frame = frame.pk_frame " +
+        "JOIN layer ON proc.pk_layer = layer.pk_layer " +
+        "JOIN job ON proc.pk_job = job.pk_job " +
+        "JOIN folder ON job.pk_folder = folder.pk_folder " +
+        "JOIN show ON proc.pk_show = show.pk_show " +
+        "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc";
 
     private static final String GET_JOB_COMMENTS =
         "SELECT " +
@@ -1572,8 +1554,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.str_state,"+
             "frame.str_host,"+
             "frame.int_cores,"+
-            "NVL(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
-            "NVL(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
+            "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
+            "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
         "FROM "+
              "job, " +
              "layer,"+
@@ -1607,7 +1589,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "AND " +
             "alloc.pk_facility = facility.pk_facility " +
         "AND " +
-            "alloc.b_enabled = 1";
+            "alloc.b_enabled = true";
 
 
     private static final String GET_MATCHER =
@@ -1856,15 +1838,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     private static final String GET_SHOW =
         "SELECT " +
             "show.*," +
-            "NVL(vs_show_stat.int_pending_count,0) AS int_pending_count," +
-            "NVL(vs_show_stat.int_running_count,0) AS int_running_count," +
-            "NVL(vs_show_stat.int_dead_count,0) AS int_dead_count," +
-            "NVL(vs_show_resource.int_cores,0) AS int_cores, " +
-            "NVL(vs_show_stat.int_job_count,0) AS int_job_count " +
+            "COALESCE(vs_show_stat.int_pending_count, 0) AS int_pending_count," +
+            "COALESCE(vs_show_stat.int_running_count, 0) AS int_running_count," +
+            "COALESCE(vs_show_stat.int_dead_count, 0) AS int_dead_count," +
+            "COALESCE(vs_show_resource.int_cores, 0) AS int_cores, " +
+            "COALESCE(vs_show_stat.int_job_count, 0) AS int_job_count " +
         "FROM " +
             "show " +
-                "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) "+
-                "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
+        "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) "+
+        "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
         "WHERE " +
             "1 = 1 ";
 

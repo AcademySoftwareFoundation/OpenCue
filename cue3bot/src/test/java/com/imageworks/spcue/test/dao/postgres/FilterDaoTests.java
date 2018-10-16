@@ -98,13 +98,13 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         FilterDetail f = buildFilter(createShow());
         filterDao.insertFilter(f);
         filterDao.updateSetFilterEnabled(f, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_enabled FROM filter WHERE pk_filter=?",
-                Integer.class, f.getFilterId()));
+                Boolean.class, f.getFilterId()));
         filterDao.updateSetFilterEnabled(f, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_enabled FROM filter WHERE pk_filter=?",
-                Integer.class, f.getFilterId()));
+                Boolean.class, f.getFilterId()));
     }
 
     @Test
