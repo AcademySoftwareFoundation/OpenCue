@@ -103,7 +103,7 @@ public abstract class Criteria {
         if (firstResult > 1 || maxResults > 0) {
             if (order.size() == 0) {
                 // TODO(cipriano) Remove this check. (b/117847423)
-                if (getDatabaseEngine().equals("postgres")) {
+                if ("postgres".equals(getDatabaseEngine())) {
                     query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
                 } else {
                     query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
@@ -128,7 +128,7 @@ public abstract class Criteria {
 
         if (firstResult > 1 || maxResults > 0) {
             // TODO(cipriano) Remove this check. (b/117847423)
-            if (getDatabaseEngine().equals("postgres")) {
+            if ("postgres".equals(getDatabaseEngine())) {
                 sb.append(") AS getQueryT WHERE ");
             } else {
                 sb.append(") WHERE ");

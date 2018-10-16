@@ -134,7 +134,7 @@ public class FrameSearch extends Criteria {
         sb.append("SELECT * FROM (");
         sb.append(q);
         // TODO(cipriano) Remove this check. (b/117847423)
-        if (getDatabaseEngine().equals("postgres")) {
+        if ("postgres".equals(getDatabaseEngine())) {
             sb.append(" ) AS getSortedQueryT WHERE row_number > ?");
         } else {
             sb.append(" ) WHERE row_number > ?");
