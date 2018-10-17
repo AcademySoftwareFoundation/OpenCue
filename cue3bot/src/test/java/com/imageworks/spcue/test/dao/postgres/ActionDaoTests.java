@@ -24,6 +24,7 @@ import static org.junit.Assert.*;
 import javax.annotation.Resource;
 
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
@@ -46,7 +47,7 @@ import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingDbEngine;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 
 @Transactional
@@ -55,12 +56,8 @@ import com.imageworks.spcue.test.AssumingDbEngine;
 public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Autowired
-    private ApplicationContext context;
-
-    @ClassRule
-    public static AssumingDbEngine assumingDbEngine =
-            new AssumingDbEngine(context);
-
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     private static final ActionType ActionType = null;
 
@@ -99,8 +96,6 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testCreateAction() {
-        System.out.println(context.getBean("dbEngine").toString());
-
         FilterDetail f = buildFilter();
         filterDao.insertFilter(f);
 
