@@ -36,12 +36,12 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.CueIce.DependType;
-import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -91,7 +91,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public boolean hasDependFrames(JobInterface j) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_job=? AND str_state=?",
-                Integer.class, j.getJobId(), FrameState.Depend.toString()) > 0;
+                Integer.class, j.getJobId(), FrameState.DEPEND.toString()) > 0;
     }
 
     public int getTotalDependSum(LayerInterface l) {
@@ -103,7 +103,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public boolean hasDependFrames(LayerInterface l) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_layer=? AND str_state=?",
-                Integer.class, l.getLayerId(), FrameState.Depend.toString()) > 0;
+                Integer.class, l.getLayerId(), FrameState.DEPEND.toString()) > 0;
     }
 
     public int getTotalDependSum(FrameInterface f) {
@@ -115,7 +115,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public boolean hasDependFrames(FrameInterface f) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_frame=? AND str_state=?",
-                Integer.class, f.getFrameId(), FrameState.Depend.toString()) > 0;
+                Integer.class, f.getFrameId(), FrameState.DEPEND.toString()) > 0;
     }
 
     public int getDependRecordCount(LayerInterface l) {
@@ -150,7 +150,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
         assertEquals(1, getDependRecordCount(layer_a));
 
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
-            assertEquals(DependType.LayerOnLayer, lwd.type);
+            assertEquals(DependType.LAYER_ON_LAYER, lwd.type);
             dependManager.satisfyDepend(lwd);
         }
 
@@ -184,7 +184,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
         assertEquals(1, getDependRecordCount(layer_a));
 
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
-            assertEquals(DependType.LayerOnLayer, lwd.type);
+            assertEquals(DependType.LAYER_ON_LAYER, lwd.type);
             dependManager.satisfyDepend(lwd);
         }
 

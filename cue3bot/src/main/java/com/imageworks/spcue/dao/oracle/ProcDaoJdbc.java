@@ -59,7 +59,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "WHERE " +
             "proc.pk_job = job.pk_job " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "proc.pk_proc= ? ";
 

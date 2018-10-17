@@ -318,7 +318,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         DispatchHost host = getHost();
 
         assertTrue(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job WHERE str_state='Pending'", Integer.class) > 0);
+                "SELECT COUNT(*) FROM job WHERE str_state='PENDING'", Integer.class) > 0);
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
         assertTrue(jobs.size() > 0);

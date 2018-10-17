@@ -991,7 +991,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         ProcSearchCriteria criteriaA = r.getCriteria();
         r.setCriteria(criteriaA.toBuilder()
                 .addShows("pipe")
-                .setMaxResults(0, 1)
+                .addMaxResults(1)
                 .build());
         assertEquals(1, whiteboardDao.getProcs(r).getProcsCount());
 
@@ -1015,7 +1015,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         r.setCriteria(criteriaC.toBuilder()
                 .addShows("pipe")
                 .setFirstResult(3)
-                .setMaxResults(0, 2)
+                .addMaxResults(2)
                 .build());
         assertEquals(2, whiteboardDao.getProcs(r).getProcsCount());
     }

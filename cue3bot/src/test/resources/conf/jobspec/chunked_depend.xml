@@ -30,7 +30,7 @@
         <paused>true</paused>
         <maxretries>0</maxretries>
         <layers>
-            <layer name="pass_1" type="Render">
+            <layer name="pass_1" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>100-180</range>
                 <chunk>20</chunk>
@@ -43,7 +43,7 @@
                 
             </layer>
             
-            <layer name="pass_2" type="Render">
+            <layer name="pass_2" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>100-180</range>
                 <chunk>20</chunk>
@@ -58,7 +58,7 @@
     </job>
 
     <depends>
-        <depend type="FrameByFrame">
+        <depend type="FRAME_BY_FRAME">
             <depjob>pipe-dev.cue-testuser_chunked_depend</depjob>
             <deplayer>pass_2</deplayer>
             <onjob>pipe-dev.cue-testuser_chunked_depend</onjob>

@@ -33,7 +33,7 @@
             <key name="VNP_VCR_SESSION">9000</key>
         </env>
         <layers>
-            <layer name="pass_1_preprocess" type="Util">
+            <layer name="pass_1_preprocess" type="UTIL">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1</range>
                 <chunk>1</chunk>
@@ -48,7 +48,7 @@
                 </services>
             </layer>
 
-            <layer name="pass_1" type="Render">
+            <layer name="pass_1" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>

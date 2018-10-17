@@ -112,6 +112,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      * which could benefit from the specified allocation.
      *
      * @param alloc
+     * '
      * @return a sorted list of shows.
      */
     private List<SortableShow> getBookableShows(AllocationInterface alloc) {
@@ -128,7 +129,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     DispatchQuery.FIND_SHOWS,
                     SHOW_MAPPER, alloc.getAllocationId())));
         }
-
         return bookableShows.get(key).shows;
     }
 

@@ -567,7 +567,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public void updateThreadMode(HostInterface host, ThreadMode mode) {
         getJdbcTemplate().update(
                 "UPDATE host SET int_thread_mode=? WHERE pk_host=?",
-                mode, host.getHostId());
+                mode.getNumber(), host.getHostId());
     }
 
     @Override

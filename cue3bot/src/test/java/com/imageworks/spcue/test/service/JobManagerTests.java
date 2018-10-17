@@ -244,10 +244,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobManager.shutdownJob(job1);
         jobManager.shutdownJob(job2);
 
-        assertEquals("Finished",jdbcTemplate.queryForObject(
+        assertEquals("FINISHED", jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",String.class, job1.id));
 
-        assertEquals(null ,jdbcTemplate.queryForObject(
+        assertEquals(null, jdbcTemplate.queryForObject(
                 "SELECT str_visible_name FROM job WHERE pk_job=?",String.class, job1.id));
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
@@ -278,7 +278,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobLauncher.launch(spec);
 
         assertEquals(spec.conformJobName("autoname") ,jdbcTemplate.queryForObject(
-                "SELECT str_visible_name FROM job WHERE str_state='Pending' AND str_name=?",String.class,
+                "SELECT str_visible_name FROM job WHERE str_state='PENDING' AND str_name=?",String.class,
                 spec.conformJobName("autoname")));
     }
 
@@ -318,7 +318,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobLauncher.launch(spec);
 
         String pk_job = jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM job WHERE pk_job=? AND str_state='Pending'",
+                "SELECT pk_job FROM job WHERE pk_job=? AND str_state='PENDING'",
                 String.class, spec.getJobs().get(0).detail.id);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
@@ -329,21 +329,21 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 "SELECT pk_post_job FROM job_post WHERE pk_job=?",
                 String.class, pk_job);
 
-        assertEquals("Pending",jdbcTemplate.queryForObject(
+        assertEquals("PENDING", jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, pk_job));
 
        assertTrue(jobManager.shutdownJob(jobManager.getJob(pk_job)));
 
-       assertEquals("Finished",jdbcTemplate.queryForObject(
+       assertEquals("FINISHED", jdbcTemplate.queryForObject(
                "SELECT str_state FROM job WHERE pk_job=?",
                String.class, pk_job));
 
-        assertEquals(pk_post_job,jdbcTemplate.queryForObject(
+        assertEquals(pk_post_job, jdbcTemplate.queryForObject(
                 "SELECT pk_job FROM job WHERE pk_job=?",
                 String.class, pk_post_job));
 
-        assertEquals("Pending",jdbcTemplate.queryForObject(
+        assertEquals("PENDING", jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, pk_post_job));
     }
@@ -522,7 +522,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 layer.getLayerId());
 
         for (Map<String,Object> m: frames) {
-            assertEquals("Eaten", (String) m.get("str_state"));
+            assertEquals("EATEN", (String) m.get("str_state"));
         }
     }
 

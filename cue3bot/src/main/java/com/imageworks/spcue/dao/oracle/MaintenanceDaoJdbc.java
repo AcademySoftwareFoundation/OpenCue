@@ -35,7 +35,7 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
         "SET " +
             "str_state=? " +
         "WHERE " +
-            "str_state='Up' " +
+            "str_state='UP' " +
         "AND " +
             "systimestamp - ts_ping > " + HOST_DOWN_INTERVAL;
 

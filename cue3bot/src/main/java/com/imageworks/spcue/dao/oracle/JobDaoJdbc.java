@@ -247,7 +247,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
         return getJdbcTemplate().queryForObject(
                 "SELECT * FROM (" + GET_JOB_DETAIL +
-                    " AND job.str_state = 'Finished' AND job.str_name LIKE ? ORDER BY job.ts_stopped DESC) " +
+                    " AND job.str_state = 'FINISHED' AND job.str_name LIKE ? ORDER BY job.ts_stopped DESC) " +
                     "WHERE ROWNUM = 1", JOB_DETAIL_MAPPER, name);
     }
 
@@ -399,7 +399,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "str_visible_name=NULL, " +
             "ts_stopped = systimestamp "+
         "WHERE " +
-            "str_state = 'Pending'" +
+            "str_state = 'PENDING'" +
         "AND " +
             "pk_job = ?";
 
@@ -459,7 +459,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "WHERE " +
             "str_name = ? " +
         "AND " +
-            "str_state='Pending' " +
+            "str_state='PENDING' " +
         "AND " +
             "ROWNUM = 1";
 
@@ -552,7 +552,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "WHERE " +
             "job.pk_job = job_stat.pk_job " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "job.b_paused = 0 " +
         "AND " +
@@ -835,7 +835,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.pk_job = job_resource.pk_job " +
         "AND " +
-            "job.str_state='Pending' " +
+            "job.str_state='PENDING' " +
         "AND " +
             "job.b_paused = 0 " +
         "AND " +

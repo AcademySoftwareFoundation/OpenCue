@@ -162,7 +162,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         dispatcher.dispatch(frame, proc);
 
         // Confirm was have a running frame.
-        assertEquals("Running", jdbcTemplate.queryForObject(
+        assertEquals("RUNNING", jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?",
                 String.class, frame.id));
 

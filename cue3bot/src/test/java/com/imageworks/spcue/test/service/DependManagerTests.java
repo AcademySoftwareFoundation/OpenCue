@@ -37,12 +37,12 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -96,7 +96,7 @@ public class DependManagerTests extends TransactionalTest {
     public boolean hasDependFrames(JobInterface j) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_job=? AND str_state=?",
-                Integer.class, j.getJobId(), FrameState.Depend.toString()) > 0;
+                Integer.class, j.getJobId(), FrameState.DEPEND.toString()) > 0;
     }
 
     public int getTotalDependCount(LayerInterface l) {
@@ -108,7 +108,7 @@ public class DependManagerTests extends TransactionalTest {
     public boolean hasDependFrames(LayerInterface l) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_layer=? AND str_state=?",
-                Integer.class, l.getLayerId(), FrameState.Depend.toString()) > 0;
+                Integer.class, l.getLayerId(), FrameState.DEPEND.toString()) > 0;
     }
 
     public int getTotalDependCount(FrameInterface f) {
@@ -120,7 +120,7 @@ public class DependManagerTests extends TransactionalTest {
     public boolean hasDependFrames(FrameInterface f) {
         return jdbcTemplate.queryForObject(
                 "SELECT COUNT(1) FROM frame WHERE pk_frame=? AND str_state=?",
-                Integer.class, f.getFrameId(), FrameState.Depend.toString()) > 0;
+                Integer.class, f.getFrameId(), FrameState.DEPEND.toString()) > 0;
     }
 
     @Test
@@ -532,7 +532,7 @@ public class DependManagerTests extends TransactionalTest {
         jdbcTemplate.update(
                 "UPDATE frame SET str_state=? WHERE pk_layer=? AND " +
                 "int_number IN (1,2,3)",
-                FrameState.Succeeded.toString(), layer_b.getLayerId());
+                FrameState.SUCCEEDED.toString(), layer_b.getLayerId());
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);

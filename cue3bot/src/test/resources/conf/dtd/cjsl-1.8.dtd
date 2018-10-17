@@ -40,7 +40,7 @@
 <!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,gpu?,tags?,env*,services?)>
 <!ATTLIST layer
     name                    NMTOKEN                #REQUIRED
-    type                    (Render | Util | Post) #REQUIRED
+    type                    (RENDER | UTIL | POST) #REQUIRED
 >
 <!ELEMENT cmd               (#PCDATA)*>
 <!ELEMENT range             (#PCDATA)*>
@@ -76,7 +76,7 @@
 <!ELEMENT depend            (depjob,deplayer?,depframe?,onjob,onlayer?,onframe?)>
 <!ATTLIST depend
     anyframe               NMTOKEN                  #IMPLIED
-    type                   (LayerOnSimFrame|PreviousFrame|JobOnJob|JobOnLayer|JobOnFrame|LayerOnJob|LayerOnFrame|LayerOnLayer|FrameOnJob|FrameOnLayer|FrameOnFrame|FrameByFrame)   #REQUIRED
+    type                   (LAYER_ON_SIM_FRAME|PREVIOUS_FRAME|JOB_ON_JOB|JOB_ON_LAYER|JOB_ON_FRAME|LAYER_ON_JOB|LAYER_ON_FRAME|LAYER_ON_LAYER|FRAME_ON_JOB|FRAME_ON_LAYER|FRAME_ON_FRAME|FRAME_BY_FRAME)   #REQUIRED
 >
 <!ELEMENT depjob           (#PCDATA)*>
 <!ELEMENT onjob            (#PCDATA)*>

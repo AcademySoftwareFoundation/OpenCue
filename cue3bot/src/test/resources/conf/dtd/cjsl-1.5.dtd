@@ -33,7 +33,7 @@
 <!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,tags?,env*,services?)>
 <!ATTLIST layer
     name                    NMTOKEN                #REQUIRED
-    type                    (Render | Util | Post) #REQUIRED
+    type                    (RENDER | UTIL | POST) #REQUIRED
 >
 <!ELEMENT cmd               (#PCDATA)*>
 <!ELEMENT range             (#PCDATA)*>

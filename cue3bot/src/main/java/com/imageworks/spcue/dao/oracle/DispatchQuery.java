@@ -55,7 +55,7 @@ public class DispatchQuery {
                     "OR " +
                         "folder_resource.int_cores < folder_resource.int_max_cores " +
                     ") " +
-                "AND job.str_state                  = 'Pending' " +
+                "AND job.str_state                  = 'PENDING' " +
                 "AND job.b_paused                   = 0 " +
                 "AND job.pk_show                    = ? " +
                 "AND job.pk_facility                = ? " +
@@ -99,7 +99,7 @@ public class DispatchQuery {
         "AND " +
             "host_local.pk_host = ? " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "job.b_paused = 0 " +
         "AND " +
@@ -125,7 +125,7 @@ public class DispatchQuery {
                 "AND " +
                     "h.pk_host = ? " +
                 "AND " +
-                    "j.str_state = 'Pending' " +
+                    "j.str_state = 'PENDING' " +
                 "AND " +
                     "j.b_paused = 0 " +
                 "AND " +
@@ -174,7 +174,7 @@ public class DispatchQuery {
         "AND " +
             "job_resource.int_cores < job_resource.int_max_cores " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "job.b_paused = 0 " +
         "AND " +
@@ -195,7 +195,7 @@ public class DispatchQuery {
                 "WHERE " +
                     "j.pk_job = l.pk_job " +
                 "AND " +
-                    "j.str_state = 'Pending' " +
+                    "j.str_state = 'PENDING' " +
                 "AND " +
                     "j.b_paused = 0 " +
                 "AND " +
@@ -297,7 +297,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min BETWEEN ? AND ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
         "AND layer.pk_layer IN ( " +
@@ -393,7 +393,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min BETWEEN ? AND ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
         "AND " +
@@ -485,7 +485,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min <= ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
         ") WHERE LINENUM <= ?";
@@ -567,7 +567,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min <= ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
         ") WHERE LINENUM <= ?";
@@ -655,7 +655,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min = ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_layer=? "+
         "AND layer.pk_layer IN ( " +
@@ -751,7 +751,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min <= ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "layer.pk_layer=? "+
         "AND " +
@@ -843,7 +843,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min <= ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "layer.pk_layer =? "+
         ") WHERE LINENUM <= ?";
@@ -925,7 +925,7 @@ public class DispatchQuery {
         "AND " +
             "layer.int_gpu_min <= ? " +
         "AND " +
-            "frame.str_state='Waiting' " +
+            "frame.str_state='WAITING' " +
         "AND " +
             "layer.pk_layer=? "+
         ") WHERE LINENUM <= ?";
