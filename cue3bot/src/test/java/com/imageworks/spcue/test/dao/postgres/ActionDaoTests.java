@@ -19,35 +19,33 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
-import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Show;
 import com.imageworks.spcue.CueIce.ActionType;
 import com.imageworks.spcue.CueIce.ActionValueType;
 import com.imageworks.spcue.CueIce.FilterType;
+import com.imageworks.spcue.FilterDetail;
+import com.imageworks.spcue.Show;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertEquals;
 
 
 @Transactional
