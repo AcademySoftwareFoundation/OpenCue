@@ -21,7 +21,12 @@
        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
        xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
-    <bean id="dbEngine" class="com.imageworks.spcue.config.DatabaseEngine" factory-method="fromEnv"
-          lazy-init="false"/>
+    <bean id="assumingOracleEngine" class="com.imageworks.spcue.test.AssumingOracleEngine">
+        <property name="dbEngine" ref="dbEngine" />
+    </bean>
+
+    <bean id="assumingPostgresEngine" class="com.imageworks.spcue.test.AssumingPostgresEngine">
+        <property name="dbEngine" ref="dbEngine" />
+    </bean>
 
 </beans>
