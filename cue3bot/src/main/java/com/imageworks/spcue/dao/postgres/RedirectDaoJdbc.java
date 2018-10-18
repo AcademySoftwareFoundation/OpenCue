@@ -56,32 +56,36 @@ public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
 
     @Override
     public void put(String key, Redirect r) {
+        System.out.println(getJdbcTemplate().queryForObject("SELECT version();", String.class));
+
         getJdbcTemplate().update(
-            "MERGE INTO redirect D "
-          + "USING (SELECT 1 FROM dual) S "
-          + "ON (D.pk_proc = ?) "
-          + "WHEN MATCHED THEN UPDATE SET "
-          + "  D.str_group_id = ?, "
-          + "  D.int_type = ?, "
-          + "  D.str_destination_id = ?, "
-          + "  D.str_name = ?, "
-          + "  D.lng_creation_time = ? "
-          + "WHEN NOT MATCHED THEN INSERT (D.pk_proc, D.str_group_id, D.int_type, D.str_destination_id, D.str_name, D.lng_creation_time) "
-          + "                      VALUES (        ?,             ?,          ?,                    ?,          ?,                   ?)",
-          key,
+                "INSERT INTO redirect (" +
+                    "pk_proc, " +
+                    "str_group_id, " +
+                    "int_type, " +
+                    "str_destination_id, " +
+                    "str_name, " +
+                    "lng_creation_time" +
+                ") VALUES (?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (pk_proc) " +
+                    "DO UPDATE SET " +
+                        "str_group_id = ?, " +
+                        "int_type = ?, " +
+                        "str_destination_id = ?, " +
+                        "str_name = ?, " +
+                        "lng_creation_time = ?",
+                key,
+                r.getGroupId(),
+                r.getType().value(),
+                r.getDestinationId(),
+                r.getDestinationName(),
+                r.getCreationTime(),
 
-          r.getGroupId(),
-          r.getType().value(),
-          r.getDestinationId(),
-          r.getDestinationName(),
-          r.getCreationTime(),
-
-          key,
-          r.getGroupId(),
-          r.getType().value(),
-          r.getDestinationId(),
-          r.getDestinationName(),
-          r.getCreationTime());
+                r.getGroupId(),
+                r.getType().value(),
+                r.getDestinationId(),
+                r.getDestinationName(),
+                r.getCreationTime());
     }
 
     @Override
