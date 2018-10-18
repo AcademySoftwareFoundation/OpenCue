@@ -29,6 +29,7 @@ import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.transaction.TransactionConfiguration;
@@ -347,9 +348,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         DispatchHost h = createHost();
         JobDetail j = launchJob();
 
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_idle FROM host WHERE pk_host=?",
-                Integer.class, h.getId()));
+        assertEquals(200, h.idleCores);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -389,13 +388,16 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         /*
          * Ensure its gone.
          */
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM host_local WHERE pk_host_local = ?",
-                Integer.class, lja.getId()));
+        try {
+            hostDao.getHost(lja);
+            fail("Local host is still present but should be gone");
+        } catch (EmptyResultDataAccessException e) {}
 
         /*
          * Ensure the cores are back on the host.
          */
+        // assertEquals(200, hostDao.getHost(h.getId()) h.idleCores);
+
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
                 "SELECT int_cores_idle FROM host WHERE pk_host= ?",
                 Integer.class, h.getId()));
