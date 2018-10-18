@@ -16,10 +16,9 @@
 
 package com.imageworks.spcue.test;
 
-import IceInternal.Ex;
 import com.google.common.base.Charsets;
 import com.google.common.io.Resources;
-import com.opentable.db.postgres.embedded.EmbeddedPostgreSQL;
+import com.opentable.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
 
 import java.net.URL;
@@ -32,7 +31,7 @@ public final class TestDatabaseSetupPostgres {
     private static final String DB_NAME = "postgres";
     private static final String USERNAME = "postgres";
     private static AtomicBoolean setupComplete = new AtomicBoolean(false);
-    private EmbeddedPostgreSQL postgres;
+    private EmbeddedPostgres postgres;
 
     public TestDatabaseSetupPostgres() {}
 
@@ -53,7 +52,7 @@ public final class TestDatabaseSetupPostgres {
             return;
         }
 
-        postgres = EmbeddedPostgreSQL.start();
+        postgres = EmbeddedPostgres.start();
         Flyway flyway = Flyway.configure()
             .dataSource(postgres.getPostgresDatabase())
             .locations("classpath:conf/ddl/postgres/migrations")
