@@ -9,7 +9,6 @@ fi
 
 export CUEBOT_DB_TNS=oraxetest
 export CUEBOT_DB_SYS_PWD=$1
-export CUEBOT_ENABLE_JMS=false
 
 cd /src && bin/sbt test
 

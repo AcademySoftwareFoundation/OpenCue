@@ -108,7 +108,6 @@ ARG cuebot_db_sys_pwd=foobar32
 
 ENV CUEBOT_DB_TNS=$cuebot_db_tns
 ENV CUEBOT_DB_SYS_PWD=$cuebot_db_sys_pwd
-ENV CUEBOT_ENABLE_JMS=false
 
 COPY src/test/ src/test/
 
@@ -163,7 +162,5 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 
 EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
-
-ENV CUEBOT_ENABLE_JMS=false
 
 ENTRYPOINT ["bin/cuebot"]
