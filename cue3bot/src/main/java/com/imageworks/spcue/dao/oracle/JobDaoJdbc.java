@@ -953,5 +953,11 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                         job.getJobId());
         }
     }
+
+    public void updateEmail(Job job, String email) {
+        getJdbcTemplate().update(
+                "UPDATE job SET str_email=? WHERE pk_job=?",
+                email, job.getJobId());
+    }
 }
 

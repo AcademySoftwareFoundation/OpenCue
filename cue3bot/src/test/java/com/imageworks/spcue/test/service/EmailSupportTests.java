@@ -20,6 +20,7 @@
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
+import java.util.List;
 
 import javax.annotation.Resource;
 
@@ -32,8 +33,13 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
@@ -49,6 +55,12 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
     @Resource
     EmailSupport emailSupport;
 
+    @Resource
+    JobDao jobDao;
+
+    @Resource
+    FrameDao frameDao;
+
     @Before
     public void setTestMode() {
         jobLauncher.testMode = true;
@@ -63,12 +75,26 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
         JobDetail job = spec.getJobs().get(0).detail;
 
-        jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
-                System.getProperty("user.name"), job.getId());
+        jobDao.updateEmail(job, System.getProperty("user.name"));
+        /*jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
+                System.getProperty("user.name"), job.getId());*/
 
-        jdbcTemplate.update("UPDATE job_stat SET int_succeeded_count = " +
+
+        // System.out.println(jdbcTemplate.queryForObject("SELECT count(1) FROM frame WHERE pk_job=?", Integer.class, job.getJobId()));
+
+        List<Frame> jobFrames = frameDao.findFrames(new FrameSearch(job));
+
+        System.out.println(jobFrames.size());
+        //frameDao.findFrames(new FrameSearch(job))
+
+        jobFrames.forEach(frame -> frameDao.updateFrameState(frame, FrameState.Running));
+        jobFrames.forEach(frame -> frameDao.updateFrameState(frame, FrameState.Succeeded));
+
+        System.out.println(jdbcTemplate.queryForObject("SELECT int_succeeded_count FROM job_stat WHERE pk_job=?", Integer.class, job.getJobId()));
+
+        /*jdbcTemplate.update("UPDATE job_stat SET int_succeeded_count = " +
                 "(SELECT count(1) FROM frame WHERE pk_job=?) " +
-                "WHERE pk_job=?", job.getId(), job.getId());
+                "WHERE pk_job=?", job.getId(), job.getId());*/
 
         emailSupport.sendShutdownEmail(job);
     }

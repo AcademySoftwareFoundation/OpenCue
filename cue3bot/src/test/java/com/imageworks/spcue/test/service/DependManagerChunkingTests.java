@@ -101,7 +101,8 @@ public class DependManagerChunkingTests extends TransactionalTest {
     private int getDependRecordCount(Layer l) {
         List<LightweightDependency> activeDeps = dependDao.getWhatThisDependsOn(
                 l, DependTarget.AnyTarget);
-        int numChildDeps = activeDeps.stream().mapToInt(dep -> dependDao.getChildDepends(dep).size()).sum();
+        int numChildDeps = activeDeps.stream().mapToInt(
+                dep -> dependDao.getChildDepends(dep).size()).sum();
         return numChildDeps + activeDeps.size();
     }
 
