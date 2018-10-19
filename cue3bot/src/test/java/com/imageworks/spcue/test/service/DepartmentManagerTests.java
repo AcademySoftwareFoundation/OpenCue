@@ -61,10 +61,6 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Resource
     PointDao pointDao;
 
-    /**
-     * Only In Progress task on the pipe show, for shot usr_sam.  I don't
-     * want to use a real show because tests will fail once the show wraps.
-     */
     private static final String TEST_TI_TASK_NAME = "RINT";
 
     @Test
@@ -72,7 +68,7 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Rollback(true)
     public void enableTiManaged() {
 
-        // TODO: Fix to allow department tests to run with TrackIt optional
+        // TODO(cipriano) Fix to allow department tests to run with TrackIt optional. (b/77489145)
         if (true) { return; }
 
         Show show = showDao.findShowDetail("pipe");
@@ -82,6 +78,8 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
+        // TODO(cipriano) Once this test is enabled this assert should be updated to use
+        // DAO objects instead of querying the db directly.
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
                 "point.pk_dept=? AND point.pk_show=?",
@@ -93,10 +91,11 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Rollback(true)
     public void updateTiManagedTasks() {
 
+        // TODO(cipriano) Fix to allow department tests to run with TrackIt optional. (b/77489145)
         if (true) { return; }
 
         Show show = showDao.findShowDetail("pipe");
-        Department dept =  departmentDao.getDefaultDepartment();
+        Department dept = departmentDao.getDefaultDepartment();
         Point rp;
 
         try {
@@ -108,6 +107,9 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         }
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
+
+        // TODO(cipriano) Once this test is enabled these asserts should be updated to use
+        // DAO objects instead of querying the db directly.
 
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +

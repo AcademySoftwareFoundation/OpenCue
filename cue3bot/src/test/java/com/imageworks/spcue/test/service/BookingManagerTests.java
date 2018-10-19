@@ -396,11 +396,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         /*
          * Ensure the cores are back on the host.
          */
-        // assertEquals(200, hostDao.getHost(h.getId()) h.idleCores);
-
-        assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
-                "SELECT int_cores_idle FROM host WHERE pk_host= ?",
-                Integer.class, h.getId()));
+        assertEquals(200, hostDao.getDispatchHost(h.getId()).idleCores);
     }
 }
 
