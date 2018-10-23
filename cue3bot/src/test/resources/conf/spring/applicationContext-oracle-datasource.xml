@@ -48,7 +48,9 @@
 
     <bean id="cue3DataSource" primary="true" class="org.springframework.jdbc.datasource.DriverManagerDataSource" depends-on="dataSourceSetup">
         <property name="driverClassName" value="oracle.jdbc.driver.OracleDriver"/>
-        <property name="url" value="jdbc:oracle:oci:@dbname"/>
+        <property name="url">
+            <util:property-path path="dataSourceSetup.url"/>
+        </property>
         <property name="username">
             <util:property-path path="dataSourceSetup.username"/>
         </property>
