@@ -33,13 +33,17 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
@@ -61,6 +65,15 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
     @Resource
     FrameDao frameDao;
 
+    @Resource
+    DependDao dependDao;
+
+    @Resource
+    LayerDao layerDao;
+
+    @Resource
+    DependManager dependManager;
+
     @Before
     public void setTestMode() {
         jobLauncher.testMode = true;
@@ -76,25 +89,15 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
         JobDetail job = spec.getJobs().get(0).detail;
 
         jobDao.updateEmail(job, System.getProperty("user.name"));
-        /*jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
-                System.getProperty("user.name"), job.getId());*/
 
+        // Satisfy layer dependency, this will allow us to mark frames as complete.
+        dependManager.satisfyDepend(
+                dependDao.getWhatThisDependsOn(
+                        layerDao.getLayers(job).get(0), DependTarget.AnyTarget).get(0));
 
-        // System.out.println(jdbcTemplate.queryForObject("SELECT count(1) FROM frame WHERE pk_job=?", Integer.class, job.getJobId()));
-
-        List<Frame> jobFrames = frameDao.findFrames(new FrameSearch(job));
-
-        System.out.println(jobFrames.size());
-        //frameDao.findFrames(new FrameSearch(job))
-
-        jobFrames.forEach(frame -> frameDao.updateFrameState(frame, FrameState.Running));
-        jobFrames.forEach(frame -> frameDao.updateFrameState(frame, FrameState.Succeeded));
-
-        System.out.println(jdbcTemplate.queryForObject("SELECT int_succeeded_count FROM job_stat WHERE pk_job=?", Integer.class, job.getJobId()));
-
-        /*jdbcTemplate.update("UPDATE job_stat SET int_succeeded_count = " +
-                "(SELECT count(1) FROM frame WHERE pk_job=?) " +
-                "WHERE pk_job=?", job.getId(), job.getId());*/
+        frameDao.findFrames(new FrameSearch(job)).forEach(
+                frame -> frameDao.updateFrameState(
+                        frameDao.getFrame(frame.getFrameId()), FrameState.Succeeded));
 
         emailSupport.sendShutdownEmail(job);
     }
@@ -108,11 +111,15 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
         JobDetail job = spec.getJobs().get(0).detail;
 
-        jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
-                System.getProperty("user.name"), job.getId());
+        jobDao.updateEmail(job, System.getProperty("user.name"));
 
-        jdbcTemplate.update("UPDATE job_stat SET int_dead_count=1 " +
-        		"WHERE pk_job=?", job.getId());
+        dependManager.satisfyDepend(
+                dependDao.getWhatThisDependsOn(
+                        layerDao.getLayers(job).get(0), DependTarget.AnyTarget).get(0));
+
+        frameDao.findFrames(new FrameSearch(job)).forEach(
+                frame -> frameDao.updateFrameState(
+                        frameDao.getFrame(frame.getFrameId()), FrameState.Dead));
 
         emailSupport.sendShutdownEmail(job);
     }
