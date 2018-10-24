@@ -62,7 +62,7 @@ public class JmsMover extends ThreadPoolExecutor {
     }
 
     public void send(Object m) {
-        if (env.getProperty("messaging.enabled", Boolean.class)) {
+        if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
             try {
                 execute(new Runnable() {
                     @Override
