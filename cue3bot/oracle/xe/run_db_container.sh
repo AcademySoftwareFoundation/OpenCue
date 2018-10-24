@@ -4,7 +4,7 @@ set -e
 
 cd $(dirname $0)
 
-DEP_BUCKET="gs://queue-manager-third-party" # Where the oracle rpm was copied.
+DEP_BUCKET="GCS BUCKET NAME" # Where the oracle rpm was copied.
 
 XE_DIRECTORY=`pwd`
 CUEBOT_ROOT_DIRECTORY=$(dirname $(dirname $XE_DIRECTORY))
