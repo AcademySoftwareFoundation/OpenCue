@@ -21,9 +21,9 @@ package com.imageworks.spcue;
 
 import java.util.Date;
 
+import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.HardwareState;
-
 
 public class HostEntity extends Entity implements HostInterface {
 
@@ -46,6 +46,20 @@ public class HostEntity extends Entity implements HostInterface {
     public Date dateCreated;
     public Date datePinged;
     public Date dateBooted;
+
+    public HostEntity(Host grpcHost) {
+        this.id = grpcHost.getId();
+        this.allocId = grpcHost.getAllocName();
+        this.state = grpcHost.getState();
+        this.lockState = grpcHost.getLockState();
+        this.nimbyEnabled = grpcHost.getNimbyEnabled();
+        this.cores = (int) grpcHost.getCores();
+        this.idleCores = (int) grpcHost.getIdleCores();
+        this.memory = (int) grpcHost.getMemory();
+        this.idleMemory = (int) grpcHost.getIdleMemory();
+        this.gpu = (int) grpcHost.getGpu();
+        this.idleGpu = (int) grpcHost.getIdleGpu();
+    }
 
     public String getHostId() {
         return id;

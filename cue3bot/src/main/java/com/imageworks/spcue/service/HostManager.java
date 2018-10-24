@@ -57,9 +57,8 @@ public interface HostManager {
     /**
      * Updates the state of a host.
      *
-     * @param host
-     * @param state
-     * @param source
+     * @param host HostInterface
+     * @param state HardwareState
      */
     void setHostState(HostInterface host, HardwareState state);
 

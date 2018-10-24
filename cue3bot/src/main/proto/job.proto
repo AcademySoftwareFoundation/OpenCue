@@ -1169,7 +1169,7 @@ message JobKillResponse {} // Empty
 
 // KillFrames
 message JobKillFramesRequest {
-    Job job  = 1;
+    Job job = 1;
     FrameSearchCriteria req = 2;
 }
 

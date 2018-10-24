@@ -88,6 +88,7 @@ import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 
 

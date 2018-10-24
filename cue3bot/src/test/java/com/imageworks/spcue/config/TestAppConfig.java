@@ -20,23 +20,21 @@
 package com.imageworks.spcue.config;
 
 import javax.sql.DataSource;
+
 import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
-import org.springframework.context.annotation.Lazy;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@ImportResource({"classpath:conf/spring/applicationContext-oracle-datasource.xml",
-                 "classpath:conf/spring/applicationContext-ice.xml",
+@ImportResource({"classpath:conf/spring/applicationContext-ice.xml",
                  "classpath:conf/spring/applicationContext-iceServer.xml",
                  "classpath:conf/spring/applicationContext-grpc.xml",
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
-                 "classpath:conf/spring/applicationContext-dao-oracle.xml",
                  "classpath:conf/spring/applicationContext-service.xml",
                  "classpath:conf/spring/applicationContext-jms.xml"})
 @EnableConfigurationProperties
@@ -48,5 +46,22 @@ public class TestAppConfig {
     public DataSource trackitDataSource() {
         return DataSourceBuilder.create().build();
     }
+
+    @Configuration
+    @Conditional(OracleDatabaseCondition.class)
+    @ImportResource({
+        "classpath:conf/spring/applicationContext-oracle-datasource.xml",
+        "classpath:conf/spring/applicationContext-dao-oracle.xml"
+    })
+    static class OracleEngineConfig {}
+
+    @Configuration
+    @Conditional(PostgresDatabaseCondition.class)
+    @ImportResource({
+        "classpath:conf/spring/applicationContext-postgres-datasource.xml",
+        "classpath:conf/spring/applicationContext-dao-postgres.xml"
+    })
+    static class PostgresEngineConfig {}
 }
+
 

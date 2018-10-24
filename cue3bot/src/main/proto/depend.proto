@@ -83,7 +83,6 @@ message Depend {
 
     // Name of the name to depend on.
     string depend_on_frame = 10;
-
     // Id for the depend
     string id = 11;
 }

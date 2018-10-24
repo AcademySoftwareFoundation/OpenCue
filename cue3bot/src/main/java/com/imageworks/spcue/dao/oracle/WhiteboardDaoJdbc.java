@@ -28,7 +28,6 @@ import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
-
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
@@ -82,7 +81,6 @@ import com.imageworks.spcue.grpc.show.ShowStats;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
-
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;

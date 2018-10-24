@@ -22,7 +22,6 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 import com.imageworks.spcue.*;
-
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
 import com.imageworks.spcue.grpc.department.DepartmentSeq;
@@ -39,7 +38,6 @@ import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSeq;
 import com.imageworks.spcue.grpc.host.Owner;
-import com.imageworks.spcue.grpc.host.Proc;
 import com.imageworks.spcue.grpc.host.ProcSeq;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSeq;
@@ -59,7 +57,6 @@ import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
-
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
@@ -75,32 +72,32 @@ public interface WhiteboardDao {
     /**
      * Returns a list of hosts
      *
-     * @param HostSearchCriteria r
-     * @return
+     * @param h HostInterface
+     * @return ProcSeq
      */
     ProcSeq getProcs(HostInterface h);
 
     /**
      * Returns a list of hosts
      *
-     * @param HostSearchCriteria r
-     * @return
+     * @param r HostSearch
+     * @return HostSeq
      */
     HostSeq getHosts(HostSearch  r);
 
     /**
      * Returns a list of jobs
      *
-     * @param JobSearchCriteria r
-     * @return
+     * @param r JobSearch
+     * @return JobSeq
      */
     JobSeq getJobs(JobSearch  r);
 
     /**
      * Returns a list of job names
      *
-     * @param JobSearchCriteria r
-     * @return
+     * @param r JobSearch
+     * @return List of Strings
      */
 
     List<String> getJobNames(JobSearch  r);
@@ -108,104 +105,104 @@ public interface WhiteboardDao {
     /**
      * Returns the comments for the specified job
      *
-     * @param job
-     * @return
+     * @param j JobInterface
+     * @return CommentSeq
      */
     CommentSeq getComments(JobInterface j);
 
     /**
      * Returns the comments for the specified host
      *
-     * @param job
-     * @return
+     * @param h HostInterface
+     * @return CommentSeq
      */
     CommentSeq getComments(HostInterface h);
 
     /**
      * returns the host a proc is part of
      *
-     * @param p
-     * @return
+     * @param id String
+     * @return Host
      */
     Host getHost(String id);
 
     /**
      * returns the host by name
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Host
      */
     Host findHost(String name);
 
     /**
      * Return a dependency by its unique id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Depend
      */
     Depend getDepend(String id);
 
     /**
      * Returns a list of all dependencies this job is involved with.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
     DependSeq getDepends(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified job.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
     DependSeq getWhatDependsOnThis(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified layer.
      *
-     * @param layer
-     * @return
+     * @param layer LayerInterface
+     * @return DependSeq
      */
     DependSeq getWhatDependsOnThis(LayerInterface layer);
 
     /**
      * Returns an array of depends that depend on the specified job.
      *
-     * @param frame
-     * @return
+     * @param frame FrameInterface
+     * @return DependSeq
      */
     DependSeq getWhatDependsOnThis(FrameInterface frame);
 
     /**
      * Returns an array of depends that the specified job is waiting on.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
     DependSeq getWhatThisDependsOn(JobInterface job);
 
     /**
      * Returns an array of depends that the specified layer is waiting on.
      *
-     * @param layer
-     * @return
+     * @param layer LayerInterface
+     * @return DependSeq
      */
     DependSeq getWhatThisDependsOn(LayerInterface layer);
 
     /**
      * Returns an array of depends that the specified frame is waiting on.
      *
-     * @param frame
-     * @return
+     * @param frame FrameInterface
+     * @return DependSeq
      */
     DependSeq getWhatThisDependsOn(FrameInterface frame);
 
     /**
      * Returns the specified dependency
      *
-     * @param depend
-     * @return
+     * @param depend DependInterface
+     * @return Depend
      */
     Depend getDepend(DependInterface depend);
 
@@ -226,16 +223,16 @@ public interface WhiteboardDao {
     /**
      * Returns the frame by unique ID
      *
-     * @param p
-     * @return
+     * @param id String
+     * @return Frame
      */
     Frame getFrame(String id);
 
     /**
      * Returns a list of filters by show
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return FilterSeq
      */
 
     FilterSeq getFilters(ShowInterface show);
@@ -243,15 +240,15 @@ public interface WhiteboardDao {
     /**
      * Frame search
      *
-     * @param r
-     * @return
+     * @param r FrameSearch
+     * @return FrameSeq
      */
     FrameSeq getFrames(FrameSearch r);
 
     /**
      * Returns a list of layers for the specified job.
      *
-     * @param  job
+     * @param  job JobInterface
      * @return LayerSeq
      */
     LayerSeq getLayers(JobInterface job);
@@ -259,31 +256,31 @@ public interface WhiteboardDao {
     /**
      * Returns a layer from its unique ID
      *
-     * @param  id
+     * @param  id String
      * @return Layer
      */
     Layer getLayer(String id);
 
     /**
      *
-     * @param group
-     * @return
+     * @param group GroupInterface
+     * @return JobSeq
      */
     JobSeq getJobs(GroupInterface group);
 
     /**
      * Finds an active job record based on the name
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Job
      */
     Job findJob(String name);
 
     /**
      * Gets an active job based on the Id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Job
      */
     Job getJob(String id);
 
@@ -297,33 +294,32 @@ public interface WhiteboardDao {
     /**
      * Find subscription using the show, facility, and alloc name.
      *
-     * @param show
-     * @param facility
-     * @param alloc
-     * @return
+     * @param show String
+     * @param alloc String
+     * @return Subscription
      */
     Subscription findSubscription(String show, String alloc);
 
     /**
      * returns a list of subscriptions
      *
-     * @param req
-     * @return List<Subscription>
+     * @param show ShowInterface
+     * @return SubscriptionSeq
      */
     SubscriptionSeq getSubscriptions(ShowInterface show);
 
     /**
      * returns all subscriptions on the specified allocation
      *
-     * @param alloc
-     * @return
+     * @param alloc AllocationInterface
+     * @return SubscriptionSeq
      */
     SubscriptionSeq getSubscriptions(AllocationInterface alloc);
 
     /**
      * returns a show by Id.
      *
-     * @param req
+     * @param id String
      * @return Show
      */
     Show getShow(String id);
@@ -331,33 +327,32 @@ public interface WhiteboardDao {
     /**
      * returns a show by its name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Show
      */
     Show findShow(String name);
 
     /**
      *
-     * return a list of shows rom a whiteboard request
+     * return a list of shows from a whiteboard request
      *
-     * @param req
-     * @return
+     * @return ShowSeq
      */
     ShowSeq getShows();
 
     /**
-     * returns a show by Id.
+     * returns an allocation by Id.
      *
-     * @param req
-     * @return Show
+     * @param id String
+     * @return Allocation
      */
     Allocation getAllocation(String id);
 
     /**
      * returns a show by its name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Allocation
      */
     Allocation findAllocation(String name);
 
@@ -365,8 +360,7 @@ public interface WhiteboardDao {
      *
      * return the current list of allocations
      *
-     * @param req
-     * @return
+     * @return List of Allocations
      */
     List<Allocation> getAllocations();
 
@@ -374,22 +368,22 @@ public interface WhiteboardDao {
     *
     * return the current list of allocations
     *
-    * @param req
-    * @return
+    * @param facility FacilityInterface
+    * @return List of Allocations
     */
-   List<Allocation> getAllocations(com.imageworks.spcue.FacilityInterface facility);
+   List<Allocation> getAllocations(FacilityInterface facility);
 
 
     /**
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return Group
      */
     Group getRootGroup(ShowInterface show);
 
     /**
      *
-     * @param id
+     * @param id String
      * @return Group
      */
     Group getGroup(String id);
@@ -397,42 +391,42 @@ public interface WhiteboardDao {
     /**
      * Finds a group by show name and group name
      *
-     * @param show
-     * @param group
-     * @return
+     * @param show  String
+     * @param group String
+     * @return Group
      */
     Group findGroup(String show, String group);
 
     /**
      *
      *
-     * @param show
+     * @param show ShowInterface
      * @return GroupSeq
      */
     GroupSeq getGroups(ShowInterface show);
 
     /**
      *
-     * @param group
-     * @return
+     * @param group GroupInterface
+     * @return GroupSeq
      */
     GroupSeq getGroups(GroupInterface group);
 
 
     /**
      *
-     * @param job
-     * @param layer
-     * @return
+     * @param job   String
+     * @param layer String
+     * @return Layer
      */
     Layer findLayer(String job, String layer);
 
     /**
      *
-     * @param job
-     * @param layer
-     * @param frame
-     * @return
+     * @param job   String
+     * @param layer String
+     * @param frame int
+     * @return Frame
      */
     Frame findFrame(String job, String layer, int frame);
 
@@ -440,213 +434,216 @@ public interface WhiteboardDao {
     /**
      * returns an UpdatedFrameCheckResult which contains an array of updated frames.
      *
-     * @param job
-     * @param layers
-     * @param lastUpdate
-     * @return
+     * @param job        JobInterface
+     * @param layers     List of LayerInterfaces
+     * @param lastUpdate int
+     * @return UpdatedFrameCheckResult
      */
     UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
                                              List<LayerInterface> layers, int lastUpdate);
 
     /**
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return DepartmentSeq
      */
     DepartmentSeq getDepartments (ShowInterface show);
 
     /**
      *
-     * @param show
-     * @param name
-     * @return
+     * @param show ShowInterface
+     * @param name String
+     * @return Department
      */
     Department getDepartment(ShowInterface show, String name);
 
     /**
      * Returns a list of available department names
      *
-     * @return
+     * @return List of Strings
      */
     List<String> getDepartmentNames();
 
     /**
      *
-     * @return
+     * @param show ShowInterface
+     * @param dept DepartmentInterface
+     * @param shot String
+     * @return Task
      */
     Task getTask(ShowInterface show, DepartmentInterface dept, String shot);
 
     /**
      *
-     * @param show
-     * @param dept
-     * @return
+     * @param show ShowInterface
+     * @param dept DepartmentInterface
+     * @return List of Tasks
      */
     List<Task> getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns procs from a ProcSearch criteria.
      *
-     * @param p
-     * @return
+     * @param p ProcSearch
+     * @return ProcSeq
      */
     ProcSeq getProcs(ProcSearch p);
 
     /**
      * Return the grpc representation of the given AbstractDepend.
      *
-     * @param depend
-     * @return
+     * @param depend AbstractDepend
+     * @return Depend
      */
     Depend getDepend(AbstractDepend depend);
 
     /**
      * Return the Host record for the given Deed.
      *
-     * @param deed
-     * @return
+     * @param deed DeedEntity
+     * @return Host
      */
     Host getHost(DeedEntity deed);
 
     /**
      * Return the Owner of the given Deed.
      *
-     * @param deed
-     * @return
+     * @param deed DeedEntity
+     * @return Owner
      */
     Owner getOwner(DeedEntity deed);
 
     /**
      * Return a list of all Deeds controlled by the given Owner.
      *
-     * @param owner
-     * @return
+     * @param owner OwnerEntity
+     * @return DeedSeq
      */
     DeedSeq getDeeds(OwnerEntity owner);
 
     /**
      * Return a list of all Hosts controlled by the given Owner.
      *
-     * @param owner
-     * @return
+     * @param owner OwnerEntity
+     * @return HostSeq
      */
     HostSeq getHosts(OwnerEntity owner);
 
     /**
      * Return the Owner of the given host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return Owner
      */
     Owner getOwner(HostInterface host);
 
     /**
      * Return the Deed for the given Host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return Deed
      */
     Deed getDeed(HostInterface host);
 
     /**
      * Return the owner by name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Owner
      */
     Owner getOwner(String name);
 
     /**
      * Return a list of owners by show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return List of Owners
      */
     List<Owner> getOwners(ShowInterface show);
 
     /**
      * Return a list of Deeds by show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return DeedSeq
      */
     DeedSeq getDeeds(ShowInterface show);
 
     /**
      * Return a RenderPartion from its associated LocalHostAssignment.
      *
-     * @param l
-     * @return
+     * @param l LocalHostAssignment
+     * @return RenderPartition
      */
     RenderPartition getRenderPartition(LocalHostAssignment l);
 
     /**
      * Return a list or RenderPartition for the given Host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return RenderPartitionSeq
      */
     RenderPartitionSeq getRenderPartitions(HostInterface host);
 
     /**
      * Return a facility by name or id.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Facility
      */
     Facility getFacility(String name);
 
     /**
      * Return the full list of facilities.
      *
-     * @return
+     * @return List of Facilities
      */
     List<Facility> getFacilities();
 
     /**
      * Return a list of all active shows.
      *
-     * @return
+     * @return ShowSeq
      */
     ShowSeq getActiveShows();
 
     /**
      * Return the given service.
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Service
      */
     Service getService(String id);
 
     /**
      * Return the list of cluster wide service defaults.
      *
-     * @return
+     * @return ServiceSeq
      */
     ServiceSeq getDefaultServices();
 
     /**
      * Return the list of service overrides for a particular show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return List of ServiceOverrides
      */
     List<ServiceOverride> getServiceOverrides(ShowInterface show);
 
     /**
      * Return the given show override.
      *
-     * @param show
-     * @param name
-     * @return
+     * @param show ShowInterface
+     * @param name String
+     * @return ServiceOverride
      */
     ServiceOverride getServiceOverride(ShowInterface show, String name);
 
     /**
      * Find a service by name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Service
      */
     Service findService(String name);
 }

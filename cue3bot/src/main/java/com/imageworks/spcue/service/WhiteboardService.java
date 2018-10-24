@@ -23,7 +23,6 @@ import java.util.List;
 
 import com.imageworks.spcue.*;
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
 import com.imageworks.spcue.grpc.department.DepartmentSeq;

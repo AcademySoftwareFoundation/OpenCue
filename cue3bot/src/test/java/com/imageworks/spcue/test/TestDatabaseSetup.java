@@ -76,6 +76,10 @@ public final class TestDatabaseSetup {
         return PASSWORD;
     }
 
+    public String getUrl() {
+        return "jdbc:oracle:oci:@" + getDbTns();
+    }
+
     public void create() throws Exception  {
         if (!setupComplete.compareAndSet(false, true)) {
             return;
