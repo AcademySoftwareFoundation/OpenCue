@@ -21,16 +21,16 @@ package com.imageworks.spcue.dispatcher.commands;
 
 import java.util.List;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.service.HostManager;
 
 public class ManageReparentHosts implements Runnable {
-    Allocation alloc;
+    AllocationInterface alloc;
     List<Host> hosts;
     HostManager hostManager;
 
-    public ManageReparentHosts(Allocation alloc, List<Host> hosts, HostManager hostManager) {
+    public ManageReparentHosts(AllocationInterface alloc, List<Host> hosts, HostManager hostManager) {
         this.alloc = alloc;
         this.hosts = hosts;
         this.hostManager = hostManager;

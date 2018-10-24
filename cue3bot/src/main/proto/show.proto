@@ -1,0 +1,376 @@
+
+syntax = "proto3";
+package show;
+
+option java_package = "com.imageworks.spcue.grpc.show";
+option java_multiple_files = true;
+
+import "department.proto";
+import "filter.proto";
+import "host.proto";
+import "job.proto";
+import "service.proto";
+import "subscription.proto";
+
+// Shows are the top level object for work.
+
+// -------- Services --------]
+
+service ShowInterface {
+    // Creates a new empty filter
+    rpc CreateFilter(ShowCreateFilterRequest) returns (ShowCreateFilterResponse);
+
+    // Create a new owner.
+    rpc CreateOwner(ShowCreateOwnerRequest) returns (ShowCreateOwnerResponse);
+
+    // Add a new service overrides.
+    rpc CreateServiceOverride(ShowCreateServiceOverrideRequest) returns (ShowCreateServiceOverrideResponse);
+
+    // Creates a show with the specified name and returns it.
+    rpc CreateShow(ShowCreateShowRequest) returns (ShowCreateShowResponse);
+
+    // creates a new subscription
+    rpc CreateSubscription(ShowCreateSubscriptionRequest) returns (ShowCreateSubscriptionResponse);
+
+    // Deletes a show if no jobs were ever launched for the show
+    rpc Delete(ShowDeleteRequest) returns (ShowDeleteResponse);
+
+    // Enables/disables automated resource assignment. If this is disabled no new resources will be assigned but
+    // existing resources will continue to dispatch.
+    rpc EnableBooking(ShowEnableBookingRequest) returns (ShowEnableBookingResponse);
+
+    // Enables/disables job dispatching.  If this is disabled then new resources are assigned but existing resources
+    // are always unbooked after each completed frame.
+    rpc EnableDispatching(ShowEnableDispatchingRequest) returns (ShowEnableDispatchingResponse);
+
+    // finds a filter by name
+    rpc FindFilter(ShowFindFilterRequest) returns (ShowFindFilterResponse);
+
+    // Find a show with the specified name.
+    rpc FindShow(ShowFindShowRequest) returns (ShowFindShowResponse);
+
+    // Returns a list of all active shows.
+    rpc GetActiveShows(ShowGetActiveShowsRequest) returns (ShowGetActiveShowsResponse);
+
+    // Return all the host deeds for the specified show.
+    rpc GetDeeds(ShowGetDeedsRequest) returns (ShowGetDeedsResponse);
+
+    // Returns the department manager for the specified department
+    rpc GetDepartment(ShowGetDepartmentRequest) returns (ShowGetDepartmentResponse);
+
+    // Returns a list of all active departments
+    rpc GetDepartments(ShowGetDepartmentsRequest) returns (ShowGetDepartmentsResponse);
+
+    // Grabs a list of show filters
+    rpc GetFilters(ShowGetFiltersRequest) returns (ShowGetFiltersResponse);
+
+    // returns a list of job groups
+    rpc GetGroups(ShowGetGroupsRequest) returns (ShowGetGroupsResponse);
+
+    // returns a flat list of jobs
+    rpc GetJobs(ShowGetJobsRequest) returns (ShowGetJobsResponse);
+
+    // returns the show's job whiteboard
+    rpc GetJobWhiteboard(ShowGetJobWhiteboardRequest) returns (ShowGetJobWhiteboardResponse);
+
+    // returns the root group
+    rpc GetRootGroup(ShowGetRootGroupRequest) returns (ShowGetRootGroupResponse);
+
+    // Get a service override based on its name or id.
+    rpc GetServiceOverride(ShowGetServiceOverrideRequest) returns (ShowGetServiceOverrideResponse);
+
+    // Get a list of service overrides for this show.
+    rpc GetServiceOverrides(ShowGetServiceOverridesRequest) returns (ShowGetServiceOverridesResponse);
+
+    // Returns a list of all shows
+    rpc GetShows(ShowGetShowsRequest) returns (ShowGetShowsResponse);
+
+    // returns a list of a shows subscriptions
+    rpc GetSubscriptions(ShowGetSubscriptionRequest) returns (ShowGetSubscriptionResponse);
+
+    //Set a show's active to enabled/disabled. Active shows can be queried using the getActiveShows() method.
+    rpc SetActive(ShowSetActiveRequest) returns (ShowSetActiveResponse);
+
+    // If set, all comments on a show are echoed to the given list of email addresses.
+    rpc SetCommentEmail(ShowSetCommentEmailRequest) returns (ShowSetCommentEmailResponse);
+
+    // sets a show's default max procs
+    rpc SetDefaultMaxCores(ShowSetDefaultMaxCoresRequest) returns (ShowSetDefaultMaxCoresResponse);
+
+    // sets a show's default min procs
+    rpc SetDefaultMinCores(ShowSetDefaultMinCoresRequest) returns (ShowSetDefaultMinCoresResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message Show {
+    string name = 1;
+    float default_min_cores = 2;
+    float default_max_cores = 3;
+    string comment_email = 4;
+    bool booking_enabled = 5;
+    bool dispatch_enabled = 6;
+    bool active = 7;
+    ShowStats show_stats = 8;
+}
+
+message ShowSeq {
+    repeated Show shows = 1;
+}
+
+message ShowStats {
+    int32 running_frames = 1;
+    int32 dead_frames = 2;
+    int32 pending_frames = 3;
+    int32 pending_jobs = 4;
+    int64 created_job_count = 5;
+    int64 created_frame_count = 6;
+    int64 rendered_frame_count = 7;
+    int64 failed_frame_count = 8;
+    float reserved_cores = 9;
+}
+
+
+// -------- Requests & Responses --------]
+
+// CreateFilter
+message ShowCreateFilterRequest {
+    Show show = 1;
+    string name = 2;
+}
+
+message ShowCreateFilterResponse {
+    filter.Filter filter = 1;
+}
+
+// CreateOwner
+message ShowCreateOwnerRequest {
+    Show show = 1;
+    string name = 2;
+}
+
+message ShowCreateOwnerResponse {
+    host.Owner owner = 1;
+}
+
+// CreateServiceOverride
+message ShowCreateServiceOverrideRequest {
+    Show show = 1;
+    service.Service service = 2;
+}
+
+message ShowCreateServiceOverrideResponse {
+    service.ServiceOverride service_override = 1;
+}
+
+// CreateShow
+message ShowCreateShowRequest {
+    string name = 1;
+}
+
+message ShowCreateShowResponse {
+    Show show = 1;
+}
+
+// CreateSubscription
+message ShowCreateSubscriptionRequest {
+    Show show = 1;
+    string allocation_name = 2;
+    float size = 3;
+    float burst = 4;
+}
+
+message ShowCreateSubscriptionResponse {
+    subscription.Subscription subscription = 1;
+}
+
+// Delete
+message ShowDeleteRequest {
+    Show show = 1;
+}
+
+message ShowDeleteResponse {} // Empty
+
+// EnableBooking
+message ShowEnableBookingRequest {
+    Show show = 1;
+    bool enabled = 2;
+}
+
+message ShowEnableBookingResponse {} // Empty
+
+// EnableDispatching
+message ShowEnableDispatchingRequest {
+    Show show = 1;
+    bool enabled = 2;
+}
+
+message ShowEnableDispatchingResponse {} // Empty
+
+// FindFilter
+message ShowFindFilterRequest {
+    Show show = 1;
+    string name = 2;
+}
+
+message ShowFindFilterResponse {
+    filter.Filter filter = 1;
+}
+
+// FindShow
+message ShowFindShowRequest {
+    string name = 1;
+}
+
+message ShowFindShowResponse {
+    Show show = 1;
+}
+
+// GetActiveShows
+message ShowGetActiveShowsRequest {} // Empty
+
+message ShowGetActiveShowsResponse {
+    ShowSeq shows = 1;
+}
+
+// GetDeeds
+message ShowGetDeedsRequest {
+    Show show = 1;
+}
+
+message ShowGetDeedsResponse {
+    host.DeedSeq deeds = 1;
+}
+
+// GetDepartment
+message ShowGetDepartmentRequest {
+    Show show = 1;
+    string department = 2;
+}
+
+message ShowGetDepartmentResponse {
+    department.Department department = 1;
+}
+
+// GetDepartments
+message ShowGetDepartmentsRequest {
+    Show show = 1;
+}
+
+message ShowGetDepartmentsResponse {
+    department.DepartmentSeq departments = 1;
+}
+
+// GetFilters
+message ShowGetFiltersRequest {
+    Show show = 1;
+}
+
+message ShowGetFiltersResponse {
+    filter.FilterSeq filters =1 ;
+}
+
+// GetGroups
+message ShowGetGroupsRequest {
+    Show show = 1;
+}
+
+message ShowGetGroupsResponse {
+    job.GroupSeq groups = 1;
+}
+
+// GetJobs
+message ShowGetJobsRequest {
+    Show show = 1;
+}
+
+message ShowGetJobsResponse {
+    job.JobSeq jobs = 1;
+}
+
+// GetJobWhiteboard
+message ShowGetJobWhiteboardRequest {
+    Show show = 1;
+}
+
+message ShowGetJobWhiteboardResponse {
+    job.NestedGroup whiteboard = 1;
+}
+
+// GetRootGroup
+message ShowGetRootGroupRequest {
+    Show show = 1;
+}
+
+message ShowGetRootGroupResponse {
+    job.Group group = 1;
+}
+
+// GetServiceOverride
+message ShowGetServiceOverrideRequest {
+    Show show = 1;
+    string name = 2;
+}
+
+message ShowGetServiceOverrideResponse {
+    service.ServiceOverride service_override = 1;
+}
+
+// GetServiceOverrides
+message ShowGetServiceOverridesRequest {
+    Show show = 1;
+}
+
+message ShowGetServiceOverridesResponse {
+    service.ServiceOverrideSeq service_overrides = 1;
+}
+
+// GetShows
+message ShowGetShowsRequest {} // Empty
+
+message ShowGetShowsResponse {
+    ShowSeq shows = 1;
+}
+
+// GetSubscription
+message ShowGetSubscriptionRequest {
+    Show show = 1;
+}
+
+message ShowGetSubscriptionResponse {
+    subscription.SubscriptionSeq subscriptions = 1;
+}
+
+// SetActive
+message ShowSetActiveRequest {
+    Show show = 1;
+    bool value = 2;
+}
+
+message ShowSetActiveResponse {} // Empty
+
+
+// SetCommentEmail
+message ShowSetCommentEmailRequest {
+    Show show = 1;
+    string email = 2;
+}
+
+message ShowSetCommentEmailResponse {} // Empty
+
+// SetDefaultMaxCores
+message ShowSetDefaultMaxCoresRequest {
+    Show show = 1;
+    float max_cores = 2;
+}
+
+message ShowSetDefaultMaxCoresResponse {} // Empty
+
+// SetDefaultMinCores
+message ShowSetDefaultMinCoresRequest {
+    Show show = 1;
+    float min_cores = 2;
+}
+
+message ShowSetDefaultMinCoresResponse {} // Empty

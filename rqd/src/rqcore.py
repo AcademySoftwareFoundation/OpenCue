@@ -49,7 +49,7 @@ from rqnetwork import RqdIceException
 from rqmachine import Machine
 from rqnimby import Nimby
 
-import cue_pb2
+import report_pb2
 
 import Ice
 Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
@@ -208,7 +208,7 @@ class FrameAttendantThread(threading.Thread):
 
     def __sendFrameCompleteReport(self):
         """Send report to cuebot that frame has finished"""
-        report = cue_pb2.FrameCompleteReport()
+        report = report_pb2.FrameCompleteReport()
         report.host = self.rqCore.machine.getHostInfo()
         report.frame = self.frameInfo.runningFrameInfo()
 
@@ -543,7 +543,12 @@ class RqCore:
 
         self.__optNimbyoff = optNimbyoff
 
-        self.cores = cue_pb2.CoreDetail()
+        self.cores = report_pb2.CoreDetail(
+            total_cores = 0,
+            idle_cores = 0,
+            locked_cores = 0,
+            booked_cores = 0,
+        )
 
         self.nimby = Nimby(self)
 

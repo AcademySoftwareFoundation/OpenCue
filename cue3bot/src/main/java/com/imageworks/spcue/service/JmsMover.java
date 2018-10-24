@@ -35,6 +35,8 @@ import javax.jms.TextMessage;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
 import org.springframework.jms.JmsException;
@@ -45,6 +47,8 @@ public class JmsMover extends ThreadPoolExecutor {
     private static final Logger logger = Logger.getLogger(JmsMover.class);
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
+    @Autowired
+    private Environment env;
     private JmsTemplate template;
     private Topic topic;
 
@@ -58,7 +62,7 @@ public class JmsMover extends ThreadPoolExecutor {
     }
 
     public void send(Object m) {
-        if (System.getenv("CUEBOT_ENABLE_JMS") == "true") {
+        if (env.getRequiredProperty("messaging.enabled", Boolean.class)) {
             try {
                 execute(new Runnable() {
                     @Override

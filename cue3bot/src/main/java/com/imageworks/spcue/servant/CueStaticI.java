@@ -47,6 +47,7 @@ import com.imageworks.spcue.CueClientIce.Service;
 import com.imageworks.spcue.CueClientIce.ServiceData;
 import com.imageworks.spcue.CueClientIce.Show;
 import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.SubscriptionData;
 import com.imageworks.spcue.CueClientIce.SystemStats;
 import com.imageworks.spcue.CueClientIce._CueStaticDisp;
 import com.imageworks.spcue.CueIce.CueIceException;
@@ -74,7 +75,9 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
+import org.apache.commons.lang.NotImplementedException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import java.util.ArrayList;
@@ -214,11 +217,7 @@ public class CueStaticI extends _CueStaticDisp {
     @Override
     public List<Allocation> getAllocations(Current __current)
             throws SpiIceException {
-        return new SpiIceExceptionGenericTemplate<List<Allocation>>() {
-            public List<Allocation> throwOnlyIceExceptions() {
-                return whiteboard.getAllocations();
-            }
-        }.execute();
+        throw new SpiIceException(new NotImplementedException());
     }
 
     @Override
@@ -232,32 +231,13 @@ public class CueStaticI extends _CueStaticDisp {
 
     @Override
     public Allocation findAllocation(final String name, Current __current) throws SpiIceException {
-        return new SpiIceExceptionGenericTemplate<Allocation>() {
-            public Allocation throwOnlyIceExceptions() throws SpiIceException {
-                try {
-                    CueUtil.splitAllocationName(name);
-                    return whiteboard.findAllocation(name);
-                } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-                    throw new EntityNotFoundException("alloc " + name + " not found",null,null);
-                }
-
-            }
-        }.execute();
+        throw new SpiIceException(new NotImplementedException());
     }
 
     @Override
     public Allocation getAllocation(final String id, Current arg1)
             throws SpiIceException {
-        return new SpiIceExceptionGenericTemplate<Allocation>() {
-            public Allocation throwOnlyIceExceptions() throws SpiIceException {
-                try {
-                    return whiteboard.getAllocation(id);
-                } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-                    throw new EntityNotFoundException("alloc not found",null,null);
-                }
-
-            }
-        }.execute();
+        throw new SpiIceException(new NotImplementedException());
     }
 
     @Override
@@ -531,7 +511,22 @@ public class CueStaticI extends _CueStaticDisp {
                                 "Subscription names must be in the form of alloc.show",
                                 new String[] {}, null);
                     }
-                    return whiteboard.findSubscription(parts[2], parts[0]+"."+parts[1]);
+                    // TODO: (gdenton) Switch to whiteboard method once grpc switch is complete
+                    // This is a temporary conversion of grpc obj to ice obj
+                    //return whiteboard.findSubscription(parts[2], parts[0]+"."+parts[1]);
+                    com.imageworks.spcue.grpc.subscription.Subscription grpcSubscription =
+                            whiteboard.findSubscription(parts[2], parts[0]+"."+parts[1]);
+                    Subscription iceSubscription = new Subscription();
+                    iceSubscription.data = new SubscriptionData();
+                    iceSubscription.data.burst = Convert.coreUnitsToCores(grpcSubscription.getBurst());
+                    iceSubscription.data.name = grpcSubscription.getName();
+                    iceSubscription.data.reservedCores = Convert.coreUnitsToCores(grpcSubscription.getReservedCores());
+                    iceSubscription.data.size = Convert.coreUnitsToCores(grpcSubscription.getSize());
+                    iceSubscription.data.allocationName = grpcSubscription.getAllocationName();
+                    iceSubscription.data.showName = grpcSubscription.getShowName();
+                    iceSubscription.data.facility = grpcSubscription.getFacility();
+                    return iceSubscription;
+
                 } catch (org.springframework.dao.EmptyResultDataAccessException e) {
                     throw new EntityNotFoundException(
                             "A subscrition to " + name + " was not found.", null, null);
@@ -544,7 +539,20 @@ public class CueStaticI extends _CueStaticDisp {
     public Subscription getSubscription(final String id, Current __current) throws SpiIceException {
         return new SpiIceExceptionGenericTemplate<Subscription>() {
             public Subscription throwOnlyIceExceptions() {
-                return whiteboard.getSubscription(id);
+                // TODO: (gdenton) Switch to whiteboard method once grpc switch is complete
+                // This is a temporary conversion of grpc obj to ice obj
+                //return whiteboard.getSubscription(id);
+                com.imageworks.spcue.grpc.subscription.Subscription grpcSubscription = whiteboard.getSubscription(id);
+                Subscription iceSubscription = new Subscription();
+                iceSubscription.data = new SubscriptionData();
+                iceSubscription.data.burst = Convert.coreUnitsToCores(grpcSubscription.getBurst());
+                iceSubscription.data.name = grpcSubscription.getName();
+                iceSubscription.data.reservedCores = Convert.coreUnitsToCores(grpcSubscription.getReservedCores());
+                iceSubscription.data.size = Convert.coreUnitsToCores(grpcSubscription.getSize());
+                iceSubscription.data.allocationName = grpcSubscription.getAllocationName();
+                iceSubscription.data.showName = grpcSubscription.getShowName();
+                iceSubscription.data.facility = grpcSubscription.getFacility();
+                return iceSubscription;
             }
         }.execute();
     }

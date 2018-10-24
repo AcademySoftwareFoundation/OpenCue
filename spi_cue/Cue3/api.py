@@ -29,8 +29,10 @@ SVN: $Id$
 """
 import os
 
-from Cue3 import cue_pb2
-from Cue3 import cue_pb2_grpc
+from Cue3 import allocation_pb2
+from Cue3 import allocation_pb2_grpc
+from Cue3 import facility_pb2
+from Cue3 import facility_pb2_grpc
 from cuebot import Cuebot
 from search import *
 from exception import *
@@ -47,7 +49,7 @@ def takesproxy(f):
     return takesProxyFactory
 
 #
-# These are conviniennce methods that get imported into
+# These are convenience methods that get imported into
 # package namespace.
 #
 def getDefaultServices():
@@ -91,8 +93,8 @@ def getSystemStats():
 #
 
 def createFacility(name):
-    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    return stub.Create(cue_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout)
+    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    return stub.Create(facility_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout)
 
 def getFacility(name):
     """Return a given facility by name or unique ID.
@@ -101,16 +103,16 @@ def getFacility(name):
     @rtype: Facility
     @return: A facility object.
     """
-    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    return stub.Get(cue_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout)
+    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    return stub.Get(facility_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout)
 
 def renameFacility(facility, new_name):
-    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    stub.Rename(cue_pb2.FacilityRenameRequest(facility=facility, new_name=new_name), timeout=Cuebot.Timeout)
+    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    stub.Rename(facility_pb2.FacilityRenameRequest(facility=facility, new_name=new_name), timeout=Cuebot.Timeout)
 
 def deleteFacility(name):
-    stub = cue_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    stub.Delete(cue_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
+    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
+    stub.Delete(facility_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
 
 #
 # Shows
@@ -375,7 +377,7 @@ def findFilter(show_name, filter_name):
 #
 # Allocation
 #
-def createAllocation(name, tag):
+def createAllocation(name, tag, facility):
     """Creates and returns an allocation.
     The host tag will be the lowercase of the allocation name.
     @type  name: str
@@ -384,13 +386,20 @@ def createAllocation(name, tag):
     @param tag: The tag for the allocation
     @rtype:  Allocation
     @return: The created allocation object"""
-    return Cuebot.Proxy.createAllocation(name, tag)
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.Create(allocation_pb2.AllocCreateRequest(
+        name=name,
+        tag=tag,
+        facility=facility), timeout=Cuebot.Timeout)
+
 
 def getAllocations():
     """Returns a list of allocation objects
     @rtype:  list<Allocation>
     @return: List of allocation objects"""
-    return Cuebot.Proxy.getAllocations()
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.GetAll(allocation_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout)
+
 
 def findAllocation(name):
     """Returns the Allocation object that matches the name.
@@ -398,7 +407,37 @@ def findAllocation(name):
     @param name: The name of the allocation
     @rtype:  Allocation
     @return: Allocation object"""
-    return Cuebot.Proxy.findAllocation(name)
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.Find(allocation_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout)
+
+
+def getAllocation(allocId):
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.Get(allocation_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout)
+
+
+def deleteAllocation(alloc):
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.Delete(allocation_pb2.AllocDeleteRequest(allocation=alloc), timeout=Cuebot.Timeout)
+
+
+def allocSetBillable(alloc, is_billable):
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.SetBillable(
+        allocation_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable), timeout=Cuebot.Timeout)
+
+
+def allocSetName(alloc, name):
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.SetName(
+        allocation_pb2.AllocSetNameRequest(allocation=alloc, name=name), timeout=Cuebot.Timeout)
+
+
+def allocSetTag(alloc, tag):
+    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
+    return stub.SetTag(
+        allocation_pb2.AllocSetTagRequest(allocation=alloc, tag=tag), timeout=Cuebot.Timeout)
+
 
 #
 # Subscriptions

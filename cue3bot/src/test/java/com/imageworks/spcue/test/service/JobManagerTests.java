@@ -48,10 +48,8 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.Order;
-import com.imageworks.spcue.CueGrpc.RenderHost;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -59,6 +57,8 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -132,7 +132,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
-                .setState(HardwareState.Up)
+                .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
                 .build();

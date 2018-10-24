@@ -1,0 +1,121 @@
+
+syntax = "proto3";
+package service;
+
+option java_package = "com.imageworks.spcue.grpc.service";
+option java_multiple_files = true;
+
+
+// Interface for managing Service objects
+
+
+// -------- Services --------]
+
+service ServiceInterface {
+    // Create a new service.
+    rpc CreateService(ServiceCreateServiceRequest) returns (ServiceCreateServiceResponse);
+
+    // Delete the provided service
+    rpc Delete(ServiceDeleteRequest) returns (ServiceDeleteResponse);
+
+    // Return a the list of default services.
+    rpc GetDefaultServices(ServiceGetDefaultServicesRequest) returns (ServiceGetDefaultServicesResponse);
+
+    // Return the given service using its name or unique id.
+    rpc GetService(ServiceGetServiceRequest) returns (ServiceGetServiceResponse);
+
+    // Update the provided service
+    rpc Update(ServiceUpdateRequest) returns (ServiceUpdateResponse);
+}
+
+
+service ServiceOverrideInterface {
+    // Delete the service override
+    rpc Delete(ServiceOverrideDeleteRequest) returns (ServiceOverrideDeleteResponse);
+
+    // Update this service override
+    rpc Update(ServiceOverrideUpdateRequest) returns (ServiceOverrideUpdateResponse);
+}
+
+
+// -------- Primary Message Types --------]
+
+message Service {
+    string name = 1;
+    bool threadable = 2;
+    int32 min_cores = 3;
+    int32 max_cores = 4;
+    int32 min_memory = 5;
+    int32 min_gpu = 6;
+    repeated string tags = 7;
+}
+
+message ServiceSeq {
+    repeated Service services = 1;
+}
+
+message ServiceOverride {
+    Service data = 1;
+}
+
+message ServiceOverrideSeq {
+    repeated ServiceOverride service_overrides = 1;
+}
+
+
+// -------- Requests & Responses --------]
+
+// SERVICE ----
+// CreateService
+message ServiceCreateServiceRequest {
+    Service data = 1;
+}
+
+message ServiceCreateServiceResponse {
+    Service service = 1;
+}
+
+// Delete
+message ServiceDeleteRequest {
+    Service service = 1;
+}
+
+message ServiceDeleteResponse {} // Empty
+
+// GetDefaultServices
+message ServiceGetDefaultServicesRequest {} // Empty
+
+message ServiceGetDefaultServicesResponse {
+    ServiceSeq services = 1;
+}
+
+// GetService
+message ServiceGetServiceRequest {
+    string name = 1;
+}
+
+message ServiceGetServiceResponse {
+    Service service = 1;
+}
+
+// Update
+message ServiceUpdateRequest {
+    Service service = 1;
+}
+
+message ServiceUpdateResponse {} // Empty
+
+// SERVICE OVERRIDE ----
+// Delete
+message ServiceOverrideDeleteRequest {
+    Service service = 1;
+}
+
+message ServiceOverrideDeleteResponse {} // Empty
+
+// Update
+message ServiceOverrideUpdateRequest {
+    Service service = 1;
+}
+
+message ServiceOverrideUpdateResponse {} // Empty

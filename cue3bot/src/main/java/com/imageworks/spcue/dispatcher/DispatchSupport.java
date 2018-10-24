@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
@@ -422,7 +422,7 @@ public interface DispatchSupport {
      * @param coreUnits
      * @return
      */
-    boolean isShowOverBurst(Show show, Allocation alloc, int coreUnits);
+    boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits);
 
     /**
      * Return true if the job can take new procs.
@@ -448,7 +448,7 @@ public interface DispatchSupport {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverBurst(Show show, Allocation alloc);
+    boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc);
 
     /**
      * Return true if the specified show is over its

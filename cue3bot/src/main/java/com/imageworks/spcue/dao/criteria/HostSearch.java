@@ -24,7 +24,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.CueClientIce.HostSearchCriteria;
 import com.imageworks.spcue.CueIce.HardwareState;
 
@@ -44,7 +44,7 @@ public class HostSearch extends Criteria {
         return this.criteria;
     }
 
-    public static final HostSearch byAllocation(Allocation a) {
+    public static final HostSearch byAllocation(AllocationInterface a) {
         HostSearch r = new HostSearch();
         r.addPhrase("host.pk_alloc",a.getAllocationId());
         return r;

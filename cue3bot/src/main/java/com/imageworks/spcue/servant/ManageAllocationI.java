@@ -21,31 +21,34 @@ package com.imageworks.spcue.servant;
 
 import java.util.List;
 
+import com.imageworks.spcue.AllocationEntity;
 import org.springframework.beans.factory.InitializingBean;
 
 import Ice.Current;
-
+import com.google.common.collect.ImmutableList;
 import com.imageworks.common.SpiIce.SpiIceException;
 import com.imageworks.common.spring.remoting.SpiIceExceptionGenericTemplate;
 import com.imageworks.common.spring.remoting.SpiIceExceptionMinimalTemplate;
-import com.imageworks.spcue.AllocationDetail;
 import com.imageworks.spcue.CueClientIce.Host;
 import com.imageworks.spcue.CueClientIce.HostInterfacePrx;
 import com.imageworks.spcue.CueClientIce.HostSearchCriteria;
 import com.imageworks.spcue.CueClientIce.Subscription;
+import com.imageworks.spcue.CueClientIce.SubscriptionData;
 import com.imageworks.spcue.CueClientIce._AllocationInterfaceDisp;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.commands.ManageReparentHosts;
+// import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.util.Convert;
 
 public class ManageAllocationI  extends _AllocationInterfaceDisp implements InitializingBean {
 
     private final String id;
-    private AllocationDetail allocation;
+    private AllocationEntity allocation;
     private AllocationDao allocationDao;
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
@@ -65,7 +68,7 @@ public class ManageAllocationI  extends _AllocationInterfaceDisp implements Init
 
     @Override
     public void afterPropertiesSet() throws Exception {
-        allocation = allocationDao.getAllocationDetail(id);
+        allocation = allocationDao.getAllocationEntity(id);
     }
 
     @Override
@@ -110,7 +113,25 @@ public class ManageAllocationI  extends _AllocationInterfaceDisp implements Init
             throws SpiIceException {
         return new SpiIceExceptionGenericTemplate<List<Subscription>>() {
             public List<Subscription> throwOnlyIceExceptions() {
-                return whiteboard.getSubscriptions(allocation);
+                // TODO: (gdenton) revert to whiteboard method once grpc is in
+                // This is a temporary conversion of grpc obj to ice obj
+                // return whiteboard.getSubscriptions(allocation);
+                List <com.imageworks.spcue.grpc.subscription.Subscription> grpcSubscriptions =
+                        whiteboard.getSubscriptions(allocation);
+                ImmutableList.Builder<Subscription> builder = ImmutableList.builder();
+                for (com.imageworks.spcue.grpc.subscription.Subscription grpcSubscription : grpcSubscriptions) {
+                    Subscription iceSubscription = new Subscription();
+                    iceSubscription.data = new SubscriptionData();
+                    iceSubscription.data.burst = Convert.coreUnitsToCores(grpcSubscription.getBurst());
+                    iceSubscription.data.name = grpcSubscription.getName();
+                    iceSubscription.data.reservedCores = Convert.coreUnitsToCores(grpcSubscription.getReservedCores());
+                    iceSubscription.data.size = Convert.coreUnitsToCores(grpcSubscription.getSize());
+                    iceSubscription.data.allocationName = grpcSubscription.getAllocationName();
+                    iceSubscription.data.showName = grpcSubscription.getShowName();
+                    iceSubscription.data.facility = grpcSubscription.getFacility();
+                    builder.add(iceSubscription);
+                }
+                return  builder.build();
             }
         }.execute();
     }

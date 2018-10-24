@@ -19,6 +19,14 @@
        xsi:schemaLocation="
        http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd">
 
+    <bean scope="prototype" id="manageAllocation" class="com.imageworks.spcue.servant.ManageAllocation">
+        <property name="allocationDao" ref="allocationDao" />
+        <property name="adminManager" ref="adminManager" />
+        <property name="hostManager" ref="hostManager" />
+        <property name="manageQueue" ref="manageQueue" />
+        <property name="whiteboard" ref="whiteboard" />
+    </bean>
+
     <bean scope="prototype" id="manageFacility" class="com.imageworks.spcue.servant.ManageFacility">
         <property name="adminManager" ref="adminManager" />
         <property name="whiteboard" ref="whiteboard" />
