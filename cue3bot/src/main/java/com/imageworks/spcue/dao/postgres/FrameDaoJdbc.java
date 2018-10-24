@@ -555,7 +555,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
     private static final String FIND_LONGEST_FRAME =
         "SELECT " +
-            "pk_frame "+
+            "pk_frame " +
         "FROM " +
             "frame, " +
             "layer " +

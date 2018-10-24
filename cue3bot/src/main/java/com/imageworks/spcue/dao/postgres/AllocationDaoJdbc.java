@@ -160,7 +160,6 @@ public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao 
      }
 
      public void updateAllocationName(AllocationInterface a, String name) {
-
          if (!Pattern.matches("^\\w+$", name)) {
              throw new IllegalArgumentException("The new allocation name" +
              		"must be alpha numeric and not contain the facility prefix.");
