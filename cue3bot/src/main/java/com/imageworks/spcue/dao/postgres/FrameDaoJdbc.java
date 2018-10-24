@@ -204,7 +204,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_mem_reserved = ?, " +
             "int_gpu_reserved = ?, " +
             "ts_updated = current_timestamp, " +
-            "ts_started = current_timestamp,"+
+            "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
             "int_version = int_version + 1 " +
         "WHERE " +
