@@ -568,7 +568,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "layer.str_type=? " +
         "ORDER BY "+
-            "ts_stopped - ts_started DESC "+
+            "ts_stopped - ts_started DESC " +
         "LIMIT 1";
 
     @Override
