@@ -15,19 +15,10 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.test.service;
 
-import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -35,33 +26,29 @@ import org.junit.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.BuildableJob;
+import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.DispatchJob;
-import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.Order;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
@@ -76,6 +63,12 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
+
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -99,9 +92,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
     @Resource
     LayerDao layerDao;
-
-    @Resource
-    HostDao hostDao;
 
     @Resource
     DispatcherDao dispatcherDao;
@@ -155,7 +145,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         return dh;
     }
 
-
     @BeforeTransaction
     public void init() {
         jobLauncher.testMode = true;
@@ -170,12 +159,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
             }
         }
 
-        /*jdbcTemplate.update(
-                "UPDATE job SET ts_stopped=systimestamp WHERE str_name IN  (?,?,?)", JOB1, JOB2, JOB3);
-
-        jdbcTemplate.update(
-            "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);*/
-
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         jobLauncher.launch(spec);
 
@@ -185,32 +168,15 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
             jobDao.updatePaused(jobDao.findJob(jobName), true);
         }
-
-        /*jdbcTemplate.update(
-                "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_dispatch_test_v2' OR str_name='pipe-dev.cue-testuser_shell_dispatch_test_v1'");
-
-        jdbcTemplate.update(
-            "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_v1'");*/
     }
 
     @AfterTransaction
     public void destroy() {
-
         for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
-         //    try {
-                Job job = jobDao.findJob(jobName);
-                jobDao.updateJobFinished(job);
-                jobDao.deleteJob(job);
-            // } catch (EmptyResultDataAccessException e) {
-                // Job doesn't exist, ignore.
-            // }
+            Job job = jobDao.findJob(jobName);
+            jobDao.updateJobFinished(job);
+            jobDao.deleteJob(job);
         }
-
-        /*jdbcTemplate.update(
-                "UPDATE job SET ts_stopped=systimestamp WHERE str_name IN  (?,?,?)", JOB1, JOB2, JOB3);
-
-        jdbcTemplate.update(
-                "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);*/
     }
 
     @Test
@@ -515,9 +481,4 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         Frame frame = jobManager.findFrame(layer, 1);
         assertEquals("0001-pass_1", frame.getName());
     }
-
-
-
-
 }
-
