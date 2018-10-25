@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.test.service;
 
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.Assert.*;
 
 import java.io.File;
@@ -29,7 +30,9 @@ import java.util.Map;
 
 import javax.annotation.Resource;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.Test;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -39,6 +42,12 @@ import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.BuildableJob;
+import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.FrameStateTotals;
+import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
@@ -100,6 +109,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Resource
     FrameDao frameDao;
 
+    @Resource
+    JobDao jobDao;
+
     private static final String JOB1 = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
     private static final String JOB2 = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
     private static final String JOB3 = "pipe-dev.cue-testuser_shell_v1";
@@ -111,7 +123,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public JobDetail getJob2() {
         return jobManager.findJobDetail(JOB2);
     }
-
 
     public JobDetail getJob3() {
         return jobManager.findJobDetail(JOB3);
@@ -149,31 +160,57 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void init() {
         jobLauncher.testMode = true;
 
-        jdbcTemplate.update(
+        for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
+            try {
+                Job job = jobDao.findJob(jobName);
+                jobDao.updateJobFinished(job);
+                jobDao.deleteJob(job);
+            } catch (EmptyResultDataAccessException e) {
+                // Job doesn't exist, ignore.
+            }
+        }
+
+        /*jdbcTemplate.update(
                 "UPDATE job SET ts_stopped=systimestamp WHERE str_name IN  (?,?,?)", JOB1, JOB2, JOB3);
 
         jdbcTemplate.update(
-            "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);
+            "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);*/
 
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         jobLauncher.launch(spec);
-        jdbcTemplate.update(
-                "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_dispatch_test_v2' OR str_name='pipe-dev.cue-testuser_shell_dispatch_test_v1'");
 
         spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         jobLauncher.launch(spec);
+
+        for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
+            jobDao.updatePaused(jobDao.findJob(jobName), true);
+        }
+
+        /*jdbcTemplate.update(
+                "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_dispatch_test_v2' OR str_name='pipe-dev.cue-testuser_shell_dispatch_test_v1'");
+
         jdbcTemplate.update(
-            "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_v1'");
+            "UPDATE job SET b_paused=1 WHERE str_name='pipe-dev.cue-testuser_shell_v1'");*/
     }
 
     @AfterTransaction
     public void destroy() {
 
-        jdbcTemplate.update(
+        for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
+         //    try {
+                Job job = jobDao.findJob(jobName);
+                jobDao.updateJobFinished(job);
+                jobDao.deleteJob(job);
+            // } catch (EmptyResultDataAccessException e) {
+                // Job doesn't exist, ignore.
+            // }
+        }
+
+        /*jdbcTemplate.update(
                 "UPDATE job SET ts_stopped=systimestamp WHERE str_name IN  (?,?,?)", JOB1, JOB2, JOB3);
 
         jdbcTemplate.update(
-                "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);
+                "DELETE FROM job WHERE str_name IN (?,?,?)", JOB1, JOB2, JOB3);*/
     }
 
     @Test
@@ -182,53 +219,28 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testLaunchAutoEatJob() {
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/autoeat.xml"));
         jobLauncher.launch(spec);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT b_autoeat FROM job WHERE pk_job=?",
-                Integer.class, spec.getJobs().get(0).detail.id));
+
+        assertTrue(jobDao.getDispatchJob(spec.getJobs().get(0).detail.id).autoEat);
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testLaunchJob() {
-
-        JobDetail job1 = getJob1();
-
-        assertEquals(Long.valueOf(CueUtil.GB2), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_job=? AND str_name='pass_1'",
-                Long.class, job1.id));
-        assertEquals(Long.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_cores_min FROM layer WHERE pk_job=? AND str_name='pass_1'",
-                Long.class, job1.id));
+        LayerDetail job1Layer = layerDao.findLayerDetail(jobDao.findJob(JOB1), "pass_1");
+        assertEquals(Long.valueOf(CueUtil.GB2), Long.valueOf(job1Layer.minimumMemory));
+        assertEquals(Long.valueOf(100), Long.valueOf(job1Layer.minimumCores));
 
         // check some job_stats values
-        assertEquals(Integer.valueOf(20), jdbcTemplate.queryForObject(
-                "SELECT int_frame_count FROM job WHERE " +
-                "job.str_visible_name =?",
-                Integer.class, "pipe-dev.cue-testuser_shell_dispatch_test_v1"));
+        assertEquals(Integer.valueOf(20), Integer.valueOf(getJob1().totalFrames));
+        assertEquals(Integer.valueOf(10),
+                Integer.valueOf(jobDao.getFrameStateTotals(jobDao.findJob(JOB2)).waiting));
+        assertEquals(Integer.valueOf(0),
+                Integer.valueOf(jobDao.getFrameStateTotals(jobDao.findJob(JOB1)).depend));
 
-        assertEquals(Integer.valueOf(10), jdbcTemplate.queryForObject(
-                "SELECT int_waiting_count FROM job, job_stat WHERE " +
-                "job.pk_job = job_stat.pk_job AND job.str_visible_name =?",
-                Integer.class, "pipe-dev.cue-testuser_shell_dispatch_test_v2"));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_depend_count FROM job, job_stat WHERE " +
-                "job.pk_job = job_stat.pk_job AND job.str_visible_name =?",
-                Integer.class, "pipe-dev.cue-testuser_shell_dispatch_test_v1"));
-
-
-        JobDetail job3 = getJob3();
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_waiting_count FROM job, job_stat WHERE " +
-                "job.pk_job = job_stat.pk_job AND job.str_visible_name =?",
-                Integer.class, job3.getName()));
-
-        assertEquals(Integer.valueOf(10), jdbcTemplate.queryForObject(
-                "SELECT int_depend_count FROM job, job_stat WHERE " +
-                "job.pk_job = job_stat.pk_job AND job.str_visible_name =?",
-                Integer.class, job3.getName()));
+        FrameStateTotals job3FrameStates = jobDao.getFrameStateTotals(jobDao.findJob(JOB3));
+        assertEquals(Integer.valueOf(1), Integer.valueOf(job3FrameStates.waiting));
+        assertEquals(Integer.valueOf(10), Integer.valueOf(job3FrameStates.depend));
     }
 
     @Test
@@ -240,18 +252,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         logger.info("job detail: " + job2.getName());
         logger.info("job state " + job2.state.toString());
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job WHERE pk_job=?",
-                Integer.class, job1.id));
-
         jobManager.shutdownJob(job1);
         jobManager.shutdownJob(job2);
 
-        assertEquals("Finished",jdbcTemplate.queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",String.class, job1.id));
-
-        assertEquals(null ,jdbcTemplate.queryForObject(
-                "SELECT str_visible_name FROM job WHERE pk_job=?",String.class, job1.id));
+        assertEquals(JobState.Finished, jobDao.getJobDetail(job1.id).state);
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
 
@@ -266,11 +270,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         logger.info("job detail: " + job.getName());
         logger.info("job state " + job.state.toString());
 
-        assertEquals(Integer.valueOf(1),jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job WHERE pk_job=?",
-                Integer.class, job.id));
-
         jobManager.shutdownJob(getJob1());
+
+        assertEquals(JobState.Finished, jobDao.getJobDetail(job.id).state);
     }
 
     @Test
@@ -280,9 +282,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_autoname.xml"));
         jobLauncher.launch(spec);
 
-        assertEquals(spec.conformJobName("autoname") ,jdbcTemplate.queryForObject(
-                "SELECT str_visible_name FROM job WHERE str_state='Pending' AND str_name=?",String.class,
-                spec.conformJobName("autoname")));
+        assertEquals(JobState.Pending, jobDao.findJobDetail(spec.conformJobName("autoname")).state);
     }
 
 
@@ -316,39 +316,16 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testPostFrameJobLaunch() {
-
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_postframes.xml"));
         jobLauncher.launch(spec);
 
-        String pk_job = jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM job WHERE pk_job=? AND str_state='Pending'",
-                String.class, spec.getJobs().get(0).detail.id);
+        String jobId = spec.getJobs().get(0).detail.id;
+        String postJobId = spec.getJobs().get(0).getPostJob().detail.id;
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job_post WHERE pk_job=?",
-                Integer.class, pk_job));
-
-        String pk_post_job = jdbcTemplate.queryForObject(
-                "SELECT pk_post_job FROM job_post WHERE pk_job=?",
-                String.class, pk_job);
-
-        assertEquals("Pending",jdbcTemplate.queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",
-                String.class, pk_job));
-
-       assertTrue(jobManager.shutdownJob(jobManager.getJob(pk_job)));
-
-       assertEquals("Finished",jdbcTemplate.queryForObject(
-               "SELECT str_state FROM job WHERE pk_job=?",
-               String.class, pk_job));
-
-        assertEquals(pk_post_job,jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM job WHERE pk_job=?",
-                String.class, pk_post_job));
-
-        assertEquals("Pending",jdbcTemplate.queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",
-                String.class, pk_post_job));
+        assertEquals(JobState.Pending, jobDao.getJobDetail(jobId).state);
+        assertTrue(jobManager.shutdownJob(jobManager.getJob(jobId)));
+        assertEquals(JobState.Finished, jobDao.getJobDetail(jobId).state);
+        assertEquals(JobState.Pending, jobDao.getJobDetail(postJobId).state);
     }
 
 
@@ -362,36 +339,16 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         jobManager.reorderLayer(layer, new FrameSet("5-10"), Order.First);
 
-        assertEquals(Integer.valueOf(-6), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0005-pass_2", job.id));
-        assertEquals(Integer.valueOf(-5), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0006-pass_2",job.id));
-        assertEquals(Integer.valueOf(-4), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0007-pass_2", job.id));
-        assertEquals(Integer.valueOf(-3), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0008-pass_2",job.id));
-        assertEquals(Integer.valueOf(-2), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0009-pass_2", job.id));
-        assertEquals(Integer.valueOf(-1), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0010-pass_2",job.id));
-        assertEquals(Integer.valueOf(3), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0004-pass_2", job.id));
-        assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0003-pass_2",job.id));
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0002-pass_2", job.id));
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0001-pass_2",job.id));
+        assertEquals(-6, frameDao.findFrameDetail(job, "0005-pass_2").dispatchOrder);
+        assertEquals(-5, frameDao.findFrameDetail(job, "0006-pass_2").dispatchOrder);
+        assertEquals(-4, frameDao.findFrameDetail(job, "0007-pass_2").dispatchOrder);
+        assertEquals(-3, frameDao.findFrameDetail(job, "0008-pass_2").dispatchOrder);
+        assertEquals(-2, frameDao.findFrameDetail(job, "0009-pass_2").dispatchOrder);
+        assertEquals(-1, frameDao.findFrameDetail(job, "0010-pass_2").dispatchOrder);
+        assertEquals(3, frameDao.findFrameDetail(job, "0004-pass_2").dispatchOrder);
+        assertEquals(2, frameDao.findFrameDetail(job, "0003-pass_2").dispatchOrder);
+        assertEquals(1, frameDao.findFrameDetail(job, "0002-pass_2").dispatchOrder);
+        assertEquals(0, frameDao.findFrameDetail(job, "0001-pass_2").dispatchOrder);
 
         DispatchHost host = createHost();
         jobManager.setJobPaused(job, false);
@@ -403,9 +360,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         for (String f: order) {
             DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
-            jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.Succeeded.toString(),frame.getFrameId());
-            assertEquals(f,frame.getName());
+            frameDao.updateFrameState(frame, FrameState.Succeeded);
+            assertEquals(f, frame.getName());
         }
     }
 
@@ -419,21 +375,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Last);
 
-        assertEquals(Integer.valueOf(11), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0001-pass_1", job.id));
-        assertEquals(Integer.valueOf(12), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0002-pass_1",job.id));
-        assertEquals(Integer.valueOf(13), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0003-pass_1", job.id));
-        assertEquals(Integer.valueOf(14), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0004-pass_1",job.id));
-        assertEquals(Integer.valueOf(15), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0005-pass_1", job.id));
+        assertEquals(11, frameDao.findFrameDetail(job, "0001-pass_1").dispatchOrder);
+        assertEquals(12, frameDao.findFrameDetail(job, "0002-pass_1").dispatchOrder);
+        assertEquals(13, frameDao.findFrameDetail(job, "0003-pass_1").dispatchOrder);
+        assertEquals(14, frameDao.findFrameDetail(job, "0004-pass_1").dispatchOrder);
+        assertEquals(15, frameDao.findFrameDetail(job, "0005-pass_1").dispatchOrder);
 
         DispatchHost host = createHost();
         jobManager.setJobPaused(job, false);
@@ -444,12 +390,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         };
 
         for (String f: order) {
-            DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
-            jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.Succeeded.toString(),frame.getFrameId());
-            assertEquals(f,frame.getName());
+            DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job, host);
+            frameDao.updateFrameState(frame, FrameState.Succeeded);
+            assertEquals(f, frame.getName());
         }
-
     }
 
     @Test
@@ -462,21 +406,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Reverse);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0005-pass_1", job.id));
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0004-pass_1",job.id));
-        assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0003-pass_1", job.id));
-        assertEquals(Integer.valueOf(3), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0002-pass_1",job.id));
-        assertEquals(Integer.valueOf(4), jdbcTemplate.queryForObject(
-                "SELECT int_dispatch_order FROM frame WHERE str_name=? AND pk_job=?",
-                Integer.class, "0001-pass_1", job.id));
+        assertEquals(0, frameDao.findFrameDetail(job, "0005-pass_1").dispatchOrder);
+        assertEquals(1, frameDao.findFrameDetail(job, "0004-pass_1").dispatchOrder);
+        assertEquals(2, frameDao.findFrameDetail(job, "0003-pass_1").dispatchOrder);
+        assertEquals(3, frameDao.findFrameDetail(job, "0002-pass_1").dispatchOrder);
+        assertEquals(4, frameDao.findFrameDetail(job, "0001-pass_1").dispatchOrder);
     }
 
     @Test
@@ -490,9 +424,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobManager.staggerLayer(layer,"1-10",2);
 
         for (int i=0; i < staggeredFrameSet.size(); i++) {
-            assertEquals(Integer.valueOf(staggeredFrameSet.get(i)), jdbcTemplate.queryForObject(
-                    "SELECT int_number FROM frame WHERE str_name=? AND pk_job=?",
-                    Integer.class, CueUtil.buildFrameName(layer, staggeredFrameSet.get(i)), layer.getJobId()));
+            assertEquals(
+                    staggeredFrameSet.get(i),
+                    frameDao.findFrameDetail(
+                            job, CueUtil.buildFrameName(layer, staggeredFrameSet.get(i))).number);
         }
 
     }
@@ -517,13 +452,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         r.getCriteria().limit = 5;
         jobManagerSupport.eatFrames(r, new Source());
 
-        List<Map<String,Object>> frames = jdbcTemplate.queryForList(
-                "SELECT str_state FROM frame WHERE pk_layer=?",
-                layer.getLayerId());
-
-        for (Map<String,Object> m: frames) {
-            assertEquals("Eaten", (String) m.get("str_state"));
-        }
+        assertTrue(
+                frameDao.findFrameDetails(new FrameSearch(layer))
+                        .stream()
+                        .allMatch(frame -> frame.state == FrameState.Eaten));
     }
 
     @Test
@@ -531,32 +463,26 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Rollback(true)
     public void optimizeLayer() {
         Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerDetail layer = layerDao.findLayerDetail(job, "pass_1");
 
-        assertEquals(Long.valueOf(Dispatcher.MEM_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_layer=?",
-                Long.class, layer.getLayerId()));
-
-        assertEquals("general", jdbcTemplate.queryForObject(
-                "SELECT str_tags FROM layer WHERE pk_layer=?",
-                String.class, layer.getLayerId()));
+        assertEquals(Dispatcher.MEM_RESERVED_DEFAULT, layer.minimumMemory);
+        assertThat(layer.tags, containsInAnyOrder("general"));
 
         /*
          * Make sure the layer is optimizable.
          */
-        jdbcTemplate.update("UPDATE layer_stat SET int_succeeded_count = 5 WHERE pk_layer=?",
-                layer.getLayerId());
-
-        jdbcTemplate.update(
-                "UPDATE layer_usage SET layer_usage.int_core_time_success = 3500 * 5" +
-                "WHERE pk_layer=?", layer.getLayerId());
+        List<Frame> layerFrames = frameDao.findFrames(new FrameSearch(layer));
+        for (int i = 0; i < 5; i++) {
+            frameDao.updateFrameState(layerFrames.get(i), FrameState.Succeeded);
+        }
+        layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5), 0);
 
         // Test to make sure our optimization
         jobManager.optimizeLayer(layer, 100, CueUtil.MB512, 120);
 
-        assertEquals(Long.valueOf(CueUtil.MB512 + CueUtil.MB256), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_layer=?",
-                Long.class, layer.getLayerId()));
+        assertEquals(
+                CueUtil.MB512 + CueUtil.MB256,
+                layerDao.findLayerDetail(job, "pass_1").minimumMemory);
     }
 
     @Test
