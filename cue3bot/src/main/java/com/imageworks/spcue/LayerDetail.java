@@ -38,7 +38,6 @@ public class LayerDetail extends LayerEntity implements Layer  {
     public int chunkSize;
     public int dispatchOrder;
     public int totalFrameCount;
-    public boolean memoryOptimizerEnabled;
 
     public Set<String> tags = new LinkedHashSet<String>();
     public Set<String> services = new LinkedHashSet<String>();
@@ -128,14 +127,6 @@ public class LayerDetail extends LayerEntity implements Layer  {
 
     public void setTotalFrameCount(int totalFrameCount) {
         this.totalFrameCount = totalFrameCount;
-    }
-
-    public boolean isMemoryOptimizerEnabled() {
-        return memoryOptimizerEnabled;
-    }
-
-    public void setMemoryOptimizerEnabled(boolean memoryOptimizerEnabled) {
-        this.memoryOptimizerEnabled = memoryOptimizerEnabled;
     }
 
     public Set<String> getTags() {

@@ -16,36 +16,32 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
-
 import javax.annotation.Resource;
 
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.MatcherDetail;
-import com.imageworks.spcue.Show;
 import com.imageworks.spcue.CueIce.ActionType;
 import com.imageworks.spcue.CueIce.ActionValueType;
 import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.CueIce.MatchSubject;
 import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.dao.ActionDao;
+import com.imageworks.spcue.FilterDetail;
+import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.MatcherDetail;
+import com.imageworks.spcue.Show;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -56,19 +52,21 @@ import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
-import java.math.BigDecimal;
-import static java.util.Collections.nCopies;
-import static java.util.Collections.singletonMap;
-import java.util.List;
-import java.util.Map;
+
+import static org.hamcrest.Matchers.contains;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
-public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContextTests
-{
+public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     FilterDao filterDao;
@@ -99,6 +97,9 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     GroupDao groupDao;
+
+    @Resource
+    Whiteboard whiteboard;
 
     private static String FILTER_NAME = "test_filter";
 
@@ -210,13 +211,17 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
         filterManager.applyAction(a1, job);
 
-        assertTrue(layerDao.getLayerDetails(job).stream().noneMatch(
-                layerDetail -> layerDetail.memoryOptimizerEnabled));
+        assertTrue(
+                whiteboard.getLayers(job)
+                        .stream()
+                        .noneMatch(layer -> layer.data.memoryOptimzerEnabled));
 
         a1.booleanValue = true;
         filterManager.applyAction(a1, job);
-        assertTrue(layerDao.getLayerDetails(job).stream().allMatch(
-                layerDetail -> layerDetail.memoryOptimizerEnabled));
+        assertTrue(
+                whiteboard.getLayers(job)
+                        .stream()
+                        .allMatch(layer -> layer.data.memoryOptimzerEnabled));
     }
 
     @Test
@@ -237,14 +242,16 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterManager.applyAction(a1, job);
 
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(a1.floatValue)),
-                (Integer) jobDao.getJobDetail(job.getJobId()).minCoreUnits);
+                Convert.coresToCoreUnits(a1.floatValue),
+                jobDao.getJobDetail(job.getJobId()).minCoreUnits,
+                0);
 
         a1.floatValue = 100f;
         filterManager.applyAction(a1, job);
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(a1.floatValue)),
-                (Integer) jobDao.getJobDetail(job.getJobId()).minCoreUnits);
+                Convert.coresToCoreUnits(a1.floatValue),
+                jobDao.getJobDetail(job.getJobId()).minCoreUnits,
+                0);
     }
 
     @Test
@@ -265,14 +272,16 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterManager.applyAction(a1, job);
 
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(a1.floatValue)),
-                (Integer) jobDao.getJobDetail(job.getJobId()).maxCoreUnits);
+                Convert.coresToCoreUnits(a1.floatValue),
+                jobDao.getJobDetail(job.getJobId()).maxCoreUnits,
+                0);
 
         a1.intValue = 100;
         filterManager.applyAction(a1, job);
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(a1.floatValue)),
-                (Integer) jobDao.getJobDetail(job.getJobId()).maxCoreUnits);
+                Convert.coresToCoreUnits(a1.floatValue),
+                jobDao.getJobDetail(job.getJobId()).maxCoreUnits,
+                0);
     }
 
     @Test
@@ -293,14 +302,14 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterManager.applyAction(a1, job);
 
         assertEquals(
-                Long.valueOf(a1.intValue),
-                Long.valueOf(jobDao.getJobDetail(job.getJobId()).priority));
+                a1.intValue,
+                jobDao.getJobDetail(job.getJobId()).priority);
 
         a1.intValue = 1001;
         filterManager.applyAction(a1, job);
         assertEquals(
-                Long.valueOf(a1.intValue),
-                Long.valueOf(jobDao.getJobDetail(job.getJobId()).priority));
+                a1.intValue,
+                jobDao.getJobDetail(job.getJobId()).priority);
     }
 
 
@@ -359,12 +368,14 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterManager.applyAction(a1, job);
 
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(a1.floatValue)),
-                (Integer) layerDao.findLayerDetail(job, "pass_1").minimumCores);
+                Convert.coresToCoreUnits(a1.floatValue),
+                layerDao.findLayerDetail(job, "pass_1").minimumCores,
+                0);
 
         assertEquals(
-                Integer.valueOf(Convert.coresToCoreUnits(.25f)),
-                (Integer) layerDao.findLayerDetail(job, "pass_1_preprocess").minimumCores);
+                Convert.coresToCoreUnits(.25f),
+                layerDao.findLayerDetail(job, "pass_1_preprocess").minimumCores,
+                0);
     }
 
     @Test
@@ -387,8 +398,8 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterManager.applyAction(a1, job);
 
         assertEquals(
-                Long.valueOf(CueUtil.GB8),
-                Long.valueOf(layerDao.findLayerDetail(job, "pass_1").minimumMemory));
+                CueUtil.GB8,
+                layerDao.findLayerDetail(job, "pass_1").minimumMemory);
     }
 
     @Test
@@ -410,13 +421,8 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
         filterManager.applyAction(a1, job);
 
-        assertEquals(
-                "blah",
-                String.join(" ", layerDao.findLayerDetail(job, "pass_1").tags));
-
-        assertEquals(
-                "general",
-                String.join(" ", layerDao.findLayerDetail(job, "pass_1_preprocess").tags));
+        assertThat(layerDao.findLayerDetail(job, "pass_1").tags, contains("blah"));
+        assertThat(layerDao.findLayerDetail(job, "pass_1_preprocess").tags, contains("general"));
     }
 }
 

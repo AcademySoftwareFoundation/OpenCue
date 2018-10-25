@@ -286,7 +286,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.unbooked = rs.getBoolean("b_unbooked");
                 proc.isLocalDispatch = rs.getBoolean("b_local");
                 proc.os = rs.getString("str_os");
-                proc.redirect = rs.getString("str_redirect");
                 return proc;
             }
     };
@@ -311,8 +310,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
-            "host_stat.str_os, " +
-            "proc.str_redirect " +
+            "host_stat.str_os " +
         "FROM " +
             "proc," +
             "host, " +
@@ -558,8 +556,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "int_virt_max_used,"+
               "int_virt_used,"+
               "host_name, " +
-              "str_os, " +
-              "str_redirect " +
+              "str_os " +
           "FROM ("
               + GET_VIRTUAL_PROC + " " +
               "AND " +

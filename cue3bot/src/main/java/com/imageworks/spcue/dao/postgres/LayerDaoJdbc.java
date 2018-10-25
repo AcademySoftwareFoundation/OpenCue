@@ -204,7 +204,6 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.minimumCores = rs.getInt("int_cores_min");
             layer.minimumMemory = rs.getLong("int_mem_min");
             layer.minimumGpu = rs.getLong("int_gpu_min");
-            layer.memoryOptimizerEnabled = rs.getBoolean("b_optimize");
             layer.type = LayerType.valueOf(rs.getString("str_type"));
             layer.tags = Sets.newHashSet(
                     rs.getString("str_tags").replaceAll(" ", "").split("\\|"));

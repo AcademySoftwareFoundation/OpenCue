@@ -193,11 +193,11 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(TARGET_JOB, procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(procDao.getVirtualProc(proc.getId()).redirect);
+        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
     }
 
     @Test
@@ -237,11 +237,11 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(group.getName(), procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(procDao.getVirtualProc(proc.getId()).redirect);
+        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
     }
 
     @Test
@@ -257,15 +257,18 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.getCriteria().jobs.add(job.getName());
+
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(procDao.getVirtualProc(proc.getId()).redirect);
+        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
     }
 
     @Test
@@ -290,16 +293,19 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.getCriteria().jobs.add(job.getName());
+
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
         assertTrue(redirectManager.addRedirect(proc, group, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(procDao.getVirtualProc(proc.getId()).redirect);
+        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
     }
 
     @Test
@@ -315,11 +321,14 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.getCriteria().jobs.add(job.getName());
+
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         assertTrue(redirectManager.redirect(proc));
 
@@ -351,13 +360,16 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.getCriteria().jobs.add(job.getName());
+
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
         assertTrue(redirectManager.addRedirect(proc, group,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), procDao.getVirtualProc(proc.getId()).redirect);
+        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
 
         redirectManager.redirect(proc);
 

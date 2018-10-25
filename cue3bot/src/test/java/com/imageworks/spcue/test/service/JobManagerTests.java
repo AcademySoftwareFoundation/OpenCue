@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
+
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
-import java.util.List;
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -64,11 +64,12 @@ import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 
-import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.contains;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -194,19 +195,17 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Rollback(true)
     public void testLaunchJob() {
         LayerDetail job1Layer = layerDao.findLayerDetail(jobDao.findJob(JOB1), "pass_1");
-        assertEquals(Long.valueOf(CueUtil.GB2), Long.valueOf(job1Layer.minimumMemory));
-        assertEquals(Long.valueOf(100), Long.valueOf(job1Layer.minimumCores));
+        assertEquals(CueUtil.GB2, job1Layer.minimumMemory);
+        assertEquals(100, job1Layer.minimumCores);
 
         // check some job_stats values
-        assertEquals(Integer.valueOf(20), Integer.valueOf(getJob1().totalFrames));
-        assertEquals(Integer.valueOf(10),
-                Integer.valueOf(jobDao.getFrameStateTotals(jobDao.findJob(JOB2)).waiting));
-        assertEquals(Integer.valueOf(0),
-                Integer.valueOf(jobDao.getFrameStateTotals(jobDao.findJob(JOB1)).depend));
+        assertEquals(20, getJob1().totalFrames);
+        assertEquals(10, jobDao.getFrameStateTotals(jobDao.findJob(JOB2)).waiting);
+        assertEquals(0, jobDao.getFrameStateTotals(jobDao.findJob(JOB1)).depend);
 
         FrameStateTotals job3FrameStates = jobDao.getFrameStateTotals(jobDao.findJob(JOB3));
-        assertEquals(Integer.valueOf(1), Integer.valueOf(job3FrameStates.waiting));
-        assertEquals(Integer.valueOf(10), Integer.valueOf(job3FrameStates.depend));
+        assertEquals(1, job3FrameStates.waiting);
+        assertEquals(10, job3FrameStates.depend);
     }
 
     @Test
@@ -432,15 +431,15 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         LayerDetail layer = layerDao.findLayerDetail(job, "pass_1");
 
         assertEquals(Dispatcher.MEM_RESERVED_DEFAULT, layer.minimumMemory);
-        assertThat(layer.tags, containsInAnyOrder("general"));
+        assertThat(layer.tags, contains("general"));
 
         /*
          * Make sure the layer is optimizable.
          */
-        List<Frame> layerFrames = frameDao.findFrames(new FrameSearch(layer));
-        for (int i = 0; i < 5; i++) {
-            frameDao.updateFrameState(layerFrames.get(i), FrameState.Succeeded);
-        }
+        frameDao.findFrames(new FrameSearch(layer))
+                .stream()
+                .limit(5)
+                .forEach(frame -> frameDao.updateFrameState(frame, FrameState.Succeeded));
         layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5), 0);
 
         // Test to make sure our optimization

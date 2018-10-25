@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import javax.annotation.Resource;
@@ -35,17 +34,18 @@ import com.imageworks.spcue.Owner;
 import com.imageworks.spcue.ShowDetail;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DeedDao;
-import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
+import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -62,10 +62,10 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     HostManager hostManager;
 
     @Resource
-    OwnerDao ownerDao;
+    DeedDao deedDao;
 
     @Resource
-    DeedDao deedDao;
+    Whiteboard whiteboard;
 
     public DispatchHost createHost() {
 
@@ -150,7 +150,7 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
         ShowDetail newShow = adminManager.findShowDetail("edu");
         ownerManager.setShow(o, newShow);
 
-        assertEquals(newShow.id, ownerDao.getOwner(o.id).showId);
+        assertEquals(newShow.name, whiteboard.getOwner(o.name).show);
     }
 
     @Test

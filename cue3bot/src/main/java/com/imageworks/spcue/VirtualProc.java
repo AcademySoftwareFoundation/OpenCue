@@ -30,7 +30,6 @@ public class VirtualProc extends FrameEntity implements Proc {
     public String frameId;
     public String hostName;
     public String os;
-    public String redirect;
 
     public int coresReserved;
     public long memoryReserved;
