@@ -16,38 +16,36 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
-
-import static org.junit.Assert.*;
-
 import java.io.File;
-
 import javax.annotation.Resource;
 
-import org.apache.commons.lang.StringUtils;
+import com.google.common.collect.Sets;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.common.collect.Sets;
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.Service;
 import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
 @Transactional
@@ -60,9 +58,6 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
 
     @Resource
     JobLauncher jobLauncher;
-
-    @Resource
-    JobManager jobManager;
 
     @Resource
     LayerDao layerDao;
@@ -92,7 +87,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.minMemory = CueUtil.GB4;
         s.minGpu = CueUtil.GB2;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet("general"));
         serviceManager.createService(s);
 
         Service newService = serviceManager.getService(s.id);
@@ -109,7 +104,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.minMemory = CueUtil.GB8;
         s.minGpu = CueUtil.GB2;
         s.threadable = false;
-        s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.tags.addAll(Sets.newHashSet("general"));
         s.showId = "00000000-0000-0000-0000-000000000000";
         serviceManager.createService(s);
 
@@ -119,7 +114,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         assertEquals(400, newService.minCores);
         assertEquals(CueUtil.GB8, newService.minMemory);
         assertEquals(CueUtil.GB2, newService.minGpu);
-        assertEquals(false, newService.threadable);
+        assertFalse(newService.threadable);
         assertTrue(s.tags.contains("general"));
 
         serviceManager.deleteService(s);
@@ -135,83 +130,39 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Rollback(true)
     public void testJobLaunch() {
 
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
+        JobSpec spec = jobLauncher.parse(
+                new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
 
         Service shell = serviceManager.getService("shell");
-
-        assertEquals(Integer.valueOf(shell.minCores), jdbcTemplate.queryForObject(
-                "SELECT int_cores_min FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
-        assertEquals(Long.valueOf(shell.minMemory), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_layer=?",
-                Long.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
-        assertEquals(Long.valueOf(shell.minGpu), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
-                Long.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_threadable FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
-        assertEquals(StringUtils.join(shell.tags," | "), jdbcTemplate.queryForObject(
-                "SELECT str_tags FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
-        assertEquals("shell,katana,unknown", jdbcTemplate.queryForObject(
-                "SELECT str_services FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id));
-
         Service prman = serviceManager.getService("prman");
-
-        assertEquals(Integer.valueOf(prman.minCores), jdbcTemplate.queryForObject(
-                "SELECT int_cores_min FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
-
-        assertEquals(Long.valueOf(prman.minMemory), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_layer=?",
-                Long.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_threadable FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
-
-        assertEquals(StringUtils.join(prman.tags," | "), jdbcTemplate.queryForObject(
-                "SELECT str_tags FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
-
-        assertEquals("prman,katana", jdbcTemplate.queryForObject(
-                "SELECT str_services FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id));
-
         Service cuda = serviceManager.getService("cuda");
+        LayerDetail shellLayer = layerDao.getLayerDetail(
+                spec.getJobs().get(0).getBuildableLayers().get(0).layerDetail.id);
+        LayerDetail prmanLayer = layerDao.getLayerDetail(
+                spec.getJobs().get(0).getBuildableLayers().get(1).layerDetail.id);
+        LayerDetail cudaLayer = layerDao.getLayerDetail(
+                spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id);
 
-        assertEquals(Integer.valueOf(cuda.minCores), jdbcTemplate.queryForObject(
-                "SELECT int_cores_min FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
+        assertEquals(shell.minCores, shellLayer.minimumCores);
+        assertEquals(shell.minMemory, shellLayer.minimumMemory);
+        assertEquals(shell.minGpu, shellLayer.minimumGpu);
+        assertFalse(shellLayer.isThreadable);
+        assertEquals(shell.tags, shellLayer.tags);
+        assertThat(shellLayer.services, contains("shell", "katana", "unknown"));
 
-        assertEquals(Long.valueOf(cuda.minMemory), jdbcTemplate.queryForObject(
-                "SELECT int_mem_min FROM layer WHERE pk_layer=?",
-                Long.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
+        assertEquals(prman.minCores, prmanLayer.minimumCores);
+        assertEquals(prman.minMemory, prmanLayer.minimumMemory);
+        assertFalse(prmanLayer.isThreadable);
+        assertEquals(prman.tags, prmanLayer.tags);
+        assertThat(prmanLayer.services, contains("prman", "katana"));
 
-        assertEquals(Long.valueOf(cuda.minGpu), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
-                Long.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_threadable FROM layer WHERE pk_layer=?",
-                Integer.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
-
-        assertEquals(StringUtils.join(cuda.tags," | "), jdbcTemplate.queryForObject(
-                "SELECT str_tags FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
-
-        assertEquals("cuda", jdbcTemplate.queryForObject(
-                "SELECT str_services FROM layer WHERE pk_layer=?",
-                String.class, spec.getJobs().get(0).getBuildableLayers().get(3).layerDetail.id));
-
+        assertEquals(cuda.minCores, cudaLayer.minimumCores);
+        assertEquals(cuda.minMemory, cudaLayer.minimumMemory);
+        assertEquals(cuda.minGpu, cudaLayer.minimumGpu);
+        assertFalse(cudaLayer.isThreadable);
+        assertEquals(cuda.tags, cudaLayer.tags);
+        assertThat(cudaLayer.services, contains("cuda"));
     }
 
     @Test
@@ -222,12 +173,9 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/services.xml"));
         jobLauncher.launch(spec);
 
-        JobDetail job = spec.getJobs().get(0).detail;
-        Layer layer = layerDao.findLayer(job, "arnold_layer");
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_threadable FROM layer WHERE pk_layer = ?",
-                Integer.class, layer.getLayerId()));
+        assertFalse(
+                layerDao.findLayerDetail(
+                        spec.getJobs().get(0).detail, "arnold_layer").isThreadable);
     }
 }
 

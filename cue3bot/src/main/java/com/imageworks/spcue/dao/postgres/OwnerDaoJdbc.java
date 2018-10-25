@@ -41,6 +41,7 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
                 Owner o = new Owner();
                 o.id = rs.getString("pk_owner");
                 o.name = rs.getString("str_username");
+                o.showId = rs.getString("pk_show");
                 return o;
             }
     };
@@ -55,7 +56,8 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
     private static final String QUERY_FOR_OWNER =
         "SELECT " +
             "owner.pk_owner," +
-            "owner.str_username " +
+            "owner.str_username, " +
+            "owner.pk_show " +
         "FROM " +
             "owner ";
 

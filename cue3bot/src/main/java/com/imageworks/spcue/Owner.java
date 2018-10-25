@@ -20,6 +20,7 @@
 package com.imageworks.spcue;
 
 public class Owner extends Entity {
+    public String showId;
 
     public Owner() {}
 
@@ -27,5 +28,8 @@ public class Owner extends Entity {
         this.name = name;
     }
 
+    public String getShowId() {
+        return showId;
+    }
 }
 
