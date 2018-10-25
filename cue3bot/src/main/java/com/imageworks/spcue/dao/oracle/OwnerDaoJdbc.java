@@ -56,7 +56,8 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
     private static final String QUERY_FOR_OWNER =
         "SELECT " +
             "owner.pk_owner," +
-            "owner.str_username " +
+            "owner.str_username, " +
+            "owner.pk_show " +
         "FROM " +
             "owner ";
 

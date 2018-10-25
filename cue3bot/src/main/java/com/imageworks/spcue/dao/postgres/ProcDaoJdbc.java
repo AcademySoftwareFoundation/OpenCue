@@ -506,7 +506,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
       public List<VirtualProc> findOrphanedVirtualProcs(int limit) {
           return getJdbcTemplate().query(
-                  GET_ORPHANED_PROC_LIST + " AND rownum < " + limit,
+                  GET_ORPHANED_PROC_LIST + " LIMIT " + limit,
                   VIRTUAL_PROC_MAPPER);
       }
 
