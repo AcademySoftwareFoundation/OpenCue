@@ -16,32 +16,24 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
 import javax.annotation.Resource;
 
-import javafx.scene.effect.Light;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.CueIce.DependTarget;
 import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -51,6 +43,7 @@ import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
