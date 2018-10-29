@@ -37,7 +37,7 @@ import static org.junit.Assert.*;
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
-public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+public class FacilityDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     FacilityDao facilityDao;
@@ -47,7 +47,7 @@ public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4Spring
     @Rollback(true)
     public void testGetDetaultFacility() {
         assertEquals(jdbcTemplate.queryForObject(
-                "SELECT pk_facility FROM facility WHERE b_default=1",
+                "SELECT pk_facility FROM facility WHERE b_default=true",
                 String.class),facilityDao.getDefaultFacility().getId());
     }
 

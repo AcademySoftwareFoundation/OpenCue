@@ -20,8 +20,6 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
-import java.util.ArrayList;
-import java.util.HashMap;
 
 import javax.annotation.Resource;
 
@@ -173,14 +171,14 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         Deed d = deedDao.insertDeed(o, host);
 
         deedDao.updateBlackoutTimeEnabled(d, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
+                Boolean.class, d.getId()));
 
         deedDao.updateBlackoutTimeEnabled(d, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
+                Boolean.class, d.getId()));
     }
 
     @Test
@@ -196,7 +194,7 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         deedDao.setBlackoutTime(d, 3600, 7200);
 
         assertEquals(Integer.valueOf(3600), jdbcTemplate.queryForObject(
-                "SELECT  int_blackout_start FROM deed WHERE pk_deed=?",
+                "SELECT int_blackout_start FROM deed WHERE pk_deed=?",
                 Integer.class, d.getId()));
 
         assertEquals(Integer.valueOf(7200), jdbcTemplate.queryForObject(

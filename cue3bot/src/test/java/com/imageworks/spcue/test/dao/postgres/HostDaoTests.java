@@ -21,10 +21,7 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
 
-import java.math.BigDecimal;
 import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -344,13 +341,13 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 false);
 
         HostDetail host = hostDao.findHostDetail(TEST_HOST);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_reboot_idle FROM host WHERE pk_host=?",
-                Integer.class, host.getHostId()));
+                Boolean.class, host.getHostId()));
         hostDao.updateHostRebootWhenIdle(host, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_reboot_idle FROM host WHERE pk_host=?",
-                Integer.class, host.getHostId()));
+                Boolean.class, host.getHostId()));
     }
 
     @Test
@@ -380,19 +377,19 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 "SELECT * FROM host_stat WHERE pk_host=?",
                 dispatchHost.getHostId());
 
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_mem_total"))).longValue());
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_mem_free"))).longValue());
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_swap_total"))).longValue());
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_swap_free"))).longValue());
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_mcp_total"))).longValue());
-        assertEquals(CueUtil.GB8, ((BigDecimal)
+        assertEquals(CueUtil.GB8, ((Long)
                 (result.get("int_mcp_free"))).longValue());
-        assertEquals(100, ((BigDecimal)
+        assertEquals(100, ((Long)
                 (result.get("int_load"))).intValue());
         assertEquals(new Timestamp(1247526000 * 1000l),
                 (Timestamp) result.get("ts_booted"));

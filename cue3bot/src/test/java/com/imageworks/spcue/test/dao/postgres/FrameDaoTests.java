@@ -22,9 +22,6 @@ package com.imageworks.spcue.test.dao.postgres;
 import static org.junit.Assert.*;
 
 import java.io.File;
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 import javax.annotation.Resource;
@@ -237,11 +234,11 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         /*
          * Update the first frame to the orphan state, which is a frame
          * that is in the running state, has no corresponding proc entry
-         * and has not been udpated in the last 5 min.
+         * and has not been updated in the last 5 min.
          */
         jdbcTemplate.update(
-                "UPDATE frame SET str_state='Running', " +
-                "ts_updated=systimestamp - interval '301' second WHERE pk_frame=?",
+                "UPDATE frame SET str_state = 'Running', " +
+                "ts_updated = current_timestamp - interval '301' second WHERE pk_frame = ?",
                 f.getFrameId());
 
         assertEquals(1, frameDao.getOrphanedFrames().size());
@@ -255,7 +252,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testUpdateFrameState() {
         JobDetail job = launchJob();
         Frame f = frameDao.findFrame(job, "0001-pass_1");
-        assertEquals(true, frameDao.updateFrameState(f,FrameState.Running));
+        assertTrue(frameDao.updateFrameState(f, FrameState.Running));
 
         assertEquals(FrameState.Running.toString(),
                 jdbcTemplate.queryForObject(
@@ -445,9 +442,9 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 "SELECT int_depend_count FROM frame WHERE pk_frame=?",
                 Integer.class, f.getFrameId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM depend WHERE pk_layer_depend_er=?",
-                Integer.class, f.getLayerId()));
+                Boolean.class, f.getLayerId()));
 
         frameDao.markFrameAsWaiting(f);
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
@@ -581,8 +578,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
 
         assertEquals(0, frameDao.getStaleCheckpoints(300).size());
-        jdbcTemplate.update("UPDATE frame SET str_state=?, " +
-                "ts_stopped=systimestamp - interval '400' second WHERE pk_frame=?",
+        jdbcTemplate.update("UPDATE frame SET str_state = ?, " +
+                "ts_stopped = current_timestamp - interval '400' second WHERE pk_frame = ?",
                 FrameState.Checkpoint.toString(), frame.getFrameId());
         assertEquals(1, frameDao.getStaleCheckpoints(300).size());
     }
@@ -609,7 +606,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          */
         frameDao.updateFrameState(frame, FrameState.Checkpoint);
         jdbcTemplate.update(
-                "UPDATE frame SET ts_started=systimestamp, ts_stopped=systimestamp + INTERVAL '20' second WHERE pk_frame=?",
+                "UPDATE frame SET ts_started=current_timestamp, ts_stopped=current_timestamp + INTERVAL '20' second WHERE pk_frame=?",
                 frame.getFrameId());
 
         assertTrue(frameDao.updateFrameCheckpointState(frame, CheckpointState.Complete));
@@ -617,7 +614,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 "SELECT int_checkpoint_count FROM frame WHERE pk_frame=?",
                 frame.getFrameId());
 
-        BigDecimal checkPointCount = (BigDecimal) result.get("int_checkpoint_count");
+        Integer checkPointCount = (Integer) result.get("int_checkpoint_count");
         assertEquals(1, checkPointCount.intValue());
     }
 

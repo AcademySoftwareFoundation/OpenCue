@@ -38,7 +38,6 @@ import java.util.List;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionDetail;
-
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.Deed;
@@ -66,14 +65,28 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.CueClientIce.Host;
 import com.imageworks.spcue.CueClientIce.HostSearchCriteria;
 import com.imageworks.spcue.CueClientIce.JobSearchCriteria;
-
-import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.dao.ActionDao;
+import com.imageworks.spcue.dao.AllocationDao;
+import com.imageworks.spcue.dao.DepartmentDao;
+import com.imageworks.spcue.dao.FilterDao;
+import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.GroupDao;
+import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.MatcherDao;
+import com.imageworks.spcue.dao.PointDao;
+import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.DependManager;
@@ -91,8 +104,6 @@ import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.MatchSubject;
 import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.report.RenderHost;
 
 
 @Transactional

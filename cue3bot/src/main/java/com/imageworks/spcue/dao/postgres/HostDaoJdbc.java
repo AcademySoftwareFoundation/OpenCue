@@ -36,16 +36,16 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
 
-import com.imageworks.spcue.Allocation;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.Host;
 import com.imageworks.spcue.HostDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueGrpc.HardwareState;
-import com.imageworks.spcue.CueGrpc.HostReport;
-import com.imageworks.spcue.CueGrpc.RenderHost;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.CueIce.HostTagType;
 import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.CueIce.ThreadMode;
@@ -306,7 +306,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     };
 
     @Override
-    public void insertRenderHost(RenderHost host, Allocation a, boolean useLongNames) {
+    public void insertRenderHost(RenderHost host, AllocationInterface a, boolean useLongNames) {
 
         ThreadMode threadMode = ThreadMode.Auto;
         if (host.getNimbyEnabled()) {
@@ -390,20 +390,20 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         "UPDATE " +
             "host_stat " +
         "SET " +
-            "int_mem_total=?, " +
-            "int_mem_free=?, " +
-            "int_swap_total=?, " +
-            "int_swap_free=?, "+
-            "int_mcp_total=?, " +
-            "int_mcp_free=?, " +
-            "int_gpu_total=?, " +
-            "int_gpu_free=?, " +
-            "int_load=?," +
+            "int_mem_total = ?, " +
+            "int_mem_free = ?, " +
+            "int_swap_total = ?, " +
+            "int_swap_free = ?, "+
+            "int_mcp_total = ?, " +
+            "int_mcp_free = ?, " +
+            "int_gpu_total = ?, " +
+            "int_gpu_free = ?, " +
+            "int_load = ?," +
             "ts_booted = ?,  " +
-            "ts_ping = systimestamp, "+
-            "str_os=? " +
+            "ts_ping = current_timestamp, "+
+            "str_os = ? " +
         "WHERE " +
-            "pk_host=?";
+            "pk_host = ?";
 
     @Override
     public void updateHostStats(Host host,
@@ -504,7 +504,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void updateHostSetAllocation(Host host, Allocation alloc) {
+    public void updateHostSetAllocation(Host host, AllocationInterface alloc) {
 
         String tag = getJdbcTemplate().queryForObject(
                 "SELECT str_tag FROM alloc WHERE pk_alloc=?",
@@ -560,14 +560,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public void removeTag(Host host, String tag) {
         getJdbcTemplate().update(
-                "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 host.getHostId(), tag);
     }
 
     @Override
     public void renameTag(Host host, String oldTag, String newTag) {
         getJdbcTemplate().update(
-                "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=0",
+                "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 newTag, host.getHostId(), oldTag);
     }
 
@@ -620,7 +620,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public boolean isHostUp(Host host) {
         return getJdbcTemplate().queryForObject(IS_HOST_UP,
-                Integer.class, HardwareState.Up.toString(),
+                Integer.class, HardwareState.UP.toString(),
                 host.getHostId()) == 1;
     }
 
@@ -647,7 +647,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public boolean isNimbyHost(Host h) {
         return getJdbcTemplate().queryForObject(
-                "SELECT COUNT(1) FROM host WHERE b_nimby=1 AND pk_host=?",
+                "SELECT COUNT(1) FROM host WHERE b_nimby=true AND pk_host=?",
                 Integer.class, h.getHostId()) > 0;
     }
 

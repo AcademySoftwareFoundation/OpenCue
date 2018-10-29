@@ -69,7 +69,7 @@ public class DepartmentDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testgetDefaultDepartment() {
         assertEquals(jdbcTemplate.queryForObject(
-                "SELECT pk_dept FROM dept WHERE b_default=1",
+                "SELECT pk_dept FROM dept WHERE b_default=true",
                 String.class),departmentDao.getDefaultDepartment().getId());
     }
 

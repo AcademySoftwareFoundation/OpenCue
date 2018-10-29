@@ -114,17 +114,17 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
         allocDao.deleteAllocation(alloc);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM alloc WHERE pk_alloc=? AND b_enabled = 0",
+                "SELECT COUNT(1) FROM alloc WHERE pk_alloc=? AND b_enabled = false",
                 Integer.class, alloc.getAllocationId()));
 
         assertEquals(ALLOC_FQN, jdbcTemplate.queryForObject(
-                "SELECT str_name FROM alloc WHERE pk_alloc=? AND b_enabled = 0",
+                "SELECT str_name FROM alloc WHERE pk_alloc=? AND b_enabled = false",
                 String.class, alloc.getAllocationId()));
 
         // Now re-enable it.
         allocDao.insertAllocation(facilityDao.getDefaultFacility(), alloc);
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM alloc WHERE pk_alloc=? AND b_enabled = 1",
+                "SELECT COUNT(1) FROM alloc WHERE pk_alloc=? AND b_enabled = true",
                 Integer.class, alloc.getAllocationId()));
     }
 
@@ -165,15 +165,15 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testUpdateAllocationBillable() {
         allocDao.updateAllocationBillable(alloc, false);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_billable FROM alloc WHERE pk_alloc=?",
-                Integer.class, alloc.getId()));
+                Boolean.class, alloc.getId()));
 
         allocDao.updateAllocationBillable(alloc, true);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_billable FROM alloc WHERE pk_alloc=?",
-                Integer.class, alloc.getId()));
+                Boolean.class, alloc.getId()));
     }
 }
 

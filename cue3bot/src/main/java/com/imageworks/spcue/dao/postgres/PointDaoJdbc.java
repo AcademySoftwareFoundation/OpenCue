@@ -78,7 +78,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
         "UPDATE " +
             "point " +
         "SET " +
-            "b_managed = 1,"+
+            "b_managed = true,"+
             "str_ti_task=?, "+
             "int_min_cores=? " +
         "WHERE " +
@@ -94,7 +94,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
         "UPDATE " +
             "point " +
         "SET " +
-            "b_managed = 0,"+
+            "b_managed = false,"+
             "str_ti_task=null, "+
             "int_min_cores=0 " +
         "WHERE " +
@@ -183,7 +183,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
         "FROM " +
             "point " +
         "WHERE " +
-            "b_managed = 1 ";
+            "b_managed = true ";
 
     @Override
     public List<PointDetail> getManagedPointConfs() {
@@ -194,7 +194,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
     @Override
     public void updatePointConfUpdateTime(Point t) {
         getJdbcTemplate().update(
-                "UPDATE point SET ts_updated=systimestamp WHERE pk_point=?",
+                "UPDATE point SET ts_updated=current_timestamp WHERE pk_point=?",
                 t.getPointId());
     }
 
