@@ -59,6 +59,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATC
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
 
+
 /**
  * Dispatcher DAO
  *
@@ -382,5 +383,4 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return result;
     }
 }
-
 

@@ -240,7 +240,7 @@ public class BookingDaoJdbc extends
         "WHERE " +
             "host_local.pk_host = proc.pk_host " +
         "AND " +
-            "proc.b_local = 1 " +
+            "proc.b_local = true " +
         "AND " +
             "host_local.pk_host = ? ";
 
@@ -260,7 +260,7 @@ public class BookingDaoJdbc extends
         "WHERE " +
             "host.pk_host = deed.pk_host " +
         "AND " +
-            "deed.b_blackout = 1 " +
+            "deed.b_blackout = true " +
         "AND " +
             "host.pk_host = ? ";
 
@@ -360,8 +360,8 @@ public class BookingDaoJdbc extends
     @Override
     public boolean deactivate(LocalHostAssignment l) {
         return getJdbcTemplate().update(
-                "UPDATE host_local SET b_active = 0 WHERE " +
-                "pk_host_local = ? AND b_active = 1",
+                "UPDATE host_local SET b_active = false WHERE " +
+                "pk_host_local = ? AND b_active = true",
                 l.getId()) > 0;
     }
 

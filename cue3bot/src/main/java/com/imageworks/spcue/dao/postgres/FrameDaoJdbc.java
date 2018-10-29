@@ -203,8 +203,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
             "int_gpu_reserved = ?, " +
-            "ts_updated = current_timestamp,"+
-            "ts_started = current_timestamp,"+
+            "ts_updated = current_timestamp, " +
+            "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
             "int_version = int_version + 1 " +
         "WHERE " +
@@ -555,7 +555,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
     private static final String FIND_LONGEST_FRAME =
         "SELECT " +
-            "pk_frame "+
+            "pk_frame " +
         "FROM " +
             "frame, " +
             "layer " +
@@ -568,7 +568,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "layer.str_type=? " +
         "ORDER BY "+
-            "ts_stopped - ts_started DESC "+
+            "ts_stopped - ts_started DESC " +
         "LIMIT 1";
 
     @Override

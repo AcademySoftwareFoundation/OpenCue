@@ -446,7 +446,7 @@ CREATE FUNCTION public.reorder_filters(character varying) RETURNS void
 DECLARE
     p_str_show_id ALIAS FOR $1;
 
-    f_new_order INT := 1.0;
+    f_new_order INT := 1;
     r_filter RECORD;
 BEGIN
     FOR r_filter IN
@@ -456,7 +456,7 @@ BEGIN
         ORDER BY f_order ASC
     LOOP
         UPDATE filter SET f_order=f_new_order WHERE pk_filter = r_filter.pk_filter;
-        f_new_order := f_new_order + 1.0;
+        f_new_order := f_new_order + 1;
     END LOOP;
 END;
 $_$;
@@ -684,7 +684,7 @@ CREATE FUNCTION public.trigger__after_job_finished() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    ts INT := epoch(current_timestamp);
+    ts INT := cast(epoch(current_timestamp) as integer);
     js JobStatType;
     ls LayerStatType;
     one_layer RECORD;
@@ -888,8 +888,8 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1,
-        int_ts_stopped = nvl(epoch(OLD.ts_stopped), epoch(current_timestamp))
+        b_archived = true,
+        int_ts_stopped = COALESCE(epoch(OLD.ts_stopped), epoch(current_timestamp))
     WHERE
         pk_job = OLD.pk_job;
 
@@ -955,7 +955,7 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1
+        b_archived = true
     WHERE
         pk_layer = OLD.pk_layer;
 

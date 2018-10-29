@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
@@ -53,6 +52,7 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
