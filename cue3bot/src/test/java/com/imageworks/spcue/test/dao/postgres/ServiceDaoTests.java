@@ -23,7 +23,9 @@ import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -36,12 +38,17 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.Service;
 import com.imageworks.spcue.ServiceOverride;
 import com.imageworks.spcue.dao.ServiceDao;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     ServiceDao serviceDao;

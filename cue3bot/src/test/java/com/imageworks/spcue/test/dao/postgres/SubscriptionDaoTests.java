@@ -16,13 +16,14 @@
  */
 
 
-
 package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -40,16 +41,22 @@ import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
+
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     AllocationDao allocDao;
