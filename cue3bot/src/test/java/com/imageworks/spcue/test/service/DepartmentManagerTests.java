@@ -61,20 +61,12 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Resource
     PointDao pointDao;
 
-    /**
-     * Only In Progress task on the pipe show, for shot usr_sam.  I don't
-     * want to use a real show because tests will fail once the show wraps.
-     */
     private static final String TEST_TI_TASK_NAME = "RINT";
 
     @Test
     @Transactional
     @Rollback(true)
     public void enableTiManaged() {
-
-        // TODO: Fix to allow department tests to run with TrackIt optional
-        if (true) { return; }
-
         Show show = showDao.findShowDetail("pipe");
         Department dept = departmentDao.getDefaultDepartment();
         Point rp = pointDao.getPointConfigDetail(show, dept);
@@ -92,9 +84,6 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void updateTiManagedTasks() {
-
-        if (true) { return; }
-
         Show show = showDao.findShowDetail("pipe");
         Department dept =  departmentDao.getDefaultDepartment();
         Point rp;
