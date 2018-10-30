@@ -102,7 +102,12 @@ public abstract class Criteria {
 
         if (firstResult > 1 || maxResults > 0) {
             if (order.size() == 0) {
-                query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
+                // TODO(cipriano) Remove this check. (b/117847423)
+                if ("postgres".equals(getDatabaseEngine())) {
+                    query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
+                } else {
+                    query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
+                }
             } else {
                 query = query.replaceFirst("SELECT ", "SELECT row_number() OVER ("+getOrder()+") AS RN, ");
             }
@@ -122,7 +127,12 @@ public abstract class Criteria {
         }
 
         if (firstResult > 1 || maxResults > 0) {
-            sb.append(") WHERE ");
+            // TODO(cipriano) Remove this check. (b/117847423)
+            if ("postgres".equals(getDatabaseEngine())) {
+                sb.append(") AS getQueryT WHERE ");
+            } else {
+                sb.append(") WHERE ");
+            }
         }
 
         if (firstResult > 1) {
@@ -344,6 +354,20 @@ public abstract class Criteria {
             buildWhereClause();
         }
         built = true;
+    }
+
+    // TODO(cipriano) This is a temporary hack to keep both Oracle and Postgres happy. The
+    // Criteria system will be migrated to support multiple database engines in a future
+    // change. (b/117847423)
+    String getDatabaseEngine() {
+        String dbEngine = System.getenv("CUEBOT_DB_ENGINE");
+        if (dbEngine == null || dbEngine.toLowerCase().equals("postgres")) {
+            return "postgres";
+        } else if (dbEngine.toLowerCase().equals("oracle")) {
+            return "oracle";
+        } else {
+            throw new RuntimeException("invalid database engine \"" + dbEngine + "\"");
+        }
     }
 }
 

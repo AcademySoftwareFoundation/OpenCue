@@ -16,16 +16,22 @@
 
 package com.imageworks.spcue.test;
 
-import com.opentable.db.postgres.embedded.EmbeddedPostgreSQL;
+import com.google.common.base.Charsets;
+import com.google.common.io.Resources;
+import com.opentable.db.postgres.embedded.EmbeddedPostgres;
 import org.flywaydb.core.Flyway;
 
+import java.net.URL;
+import java.sql.Connection;
+import java.sql.Statement;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class TestDatabaseSetupPostgres {
     private static final String DB_NAME = "postgres";
     private static final String USERNAME = "postgres";
     private static AtomicBoolean setupComplete = new AtomicBoolean(false);
-    private EmbeddedPostgreSQL postgres;
+    private EmbeddedPostgres postgres;
 
     public TestDatabaseSetupPostgres() {}
 
@@ -41,16 +47,32 @@ public final class TestDatabaseSetupPostgres {
         return null;
     }
 
-    public void create() throws Exception  {
+    public void create() throws Exception {
         if (!setupComplete.compareAndSet(false, true)) {
             return;
         }
 
-        postgres = EmbeddedPostgreSQL.start();
+        postgres = EmbeddedPostgres.start();
         Flyway flyway = Flyway.configure()
             .dataSource(postgres.getPostgresDatabase())
             .locations("classpath:conf/ddl/postgres/migrations")
             .load();
         flyway.migrate();
+
+        populateTestData();
+    }
+
+    private void populateTestData() throws Exception {
+        Connection conn = postgres.getPostgresDatabase().getConnection();
+
+        URL url = Resources.getResource("conf/ddl/postgres/test_data.sql");
+        List<String> testDataStatements = Resources.readLines(url, Charsets.UTF_8);
+        for (String testDataStatement : testDataStatements) {
+            Statement st = conn.createStatement();
+            st.execute(testDataStatement);
+            st.close();
+        }
+
+        conn.close();
     }
 }

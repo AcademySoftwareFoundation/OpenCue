@@ -21,12 +21,11 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import static org.junit.Assert.*;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
@@ -43,12 +42,17 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     ShowDao showDao;
@@ -189,9 +193,9 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateBookingEnabled() {
         ShowDetail show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateBookingEnabled(show,false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_booking_enabled FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
     }
 
     @Test
@@ -200,13 +204,13 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateActive() {
         ShowDetail show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateActive(show, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
         showDao.updateActive(show, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM show WHERE pk_show=?",
-                Integer.class, show.id));
+                Boolean.class, show.id));
     }
 
     @Test
