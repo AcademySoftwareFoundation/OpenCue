@@ -22,13 +22,10 @@ package com.imageworks.spcue.dao.postgres;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.imageworks.common.spring.remoting.IceServer;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.CueClientIce.Action;
 import com.imageworks.spcue.CueClientIce.ActionData;
 import com.imageworks.spcue.CueClientIce.ActionInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.Allocation;
-import com.imageworks.spcue.CueClientIce.AllocationData;
-import com.imageworks.spcue.CueClientIce.AllocationInterfacePrxHelper;
-import com.imageworks.spcue.CueClientIce.AllocationStats;
 import com.imageworks.spcue.CueClientIce.Comment;
 import com.imageworks.spcue.CueClientIce.CommentData;
 import com.imageworks.spcue.CueClientIce.CommentInterfacePrxHelper;
@@ -80,15 +77,14 @@ import com.imageworks.spcue.CueClientIce.Show;
 import com.imageworks.spcue.CueClientIce.ShowData;
 import com.imageworks.spcue.CueClientIce.ShowInterfacePrxHelper;
 import com.imageworks.spcue.CueClientIce.ShowStats;
-import com.imageworks.spcue.CueClientIce.Subscription;
-import com.imageworks.spcue.CueClientIce.SubscriptionData;
-import com.imageworks.spcue.CueClientIce.SubscriptionInterfacePrxHelper;
 import com.imageworks.spcue.CueClientIce.Task;
 import com.imageworks.spcue.CueClientIce.TaskData;
 import com.imageworks.spcue.CueClientIce.TaskInterfacePrxHelper;
 import com.imageworks.spcue.CueClientIce.UpdatedFrame;
 import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
-import com.imageworks.spcue.CueGrpc.Facility;
+import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationStats;
+import com.imageworks.spcue.grpc.facility.Facility;
 import com.imageworks.spcue.CueIce.ActionType;
 import com.imageworks.spcue.CueIce.ActionValueType;
 import com.imageworks.spcue.CueIce.CheckpointState;
@@ -111,6 +107,7 @@ import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import org.apache.log4j.Logger;
@@ -270,7 +267,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Subscription> getSubscriptions(com.imageworks.spcue.Allocation alloc) {
+    public List<Subscription> getSubscriptions(AllocationInterface alloc) {
         return getJdbcTemplate().query(
                 GET_SUBSCRIPTION + " AND subscription.pk_alloc=?",
                 SUBSCRIPTION_MAPPER, alloc.getAllocationId());
@@ -969,6 +966,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         }
     };
 
+    // TODO: (gdenton) Remove this once the it is no longer needed by ICE
+    // Map grpc (uppercase) enum to ice (camelcase) enum.
+    public static final String mapHostStateToIceString(String hostState) {
+        String lowerState = hostState.toLowerCase();
+        return lowerState.substring(0, 1).toUpperCase() + lowerState.substring(1);
+    }
+
     public static final HostData mapHostData(ResultSet rs) throws SQLException {
         HostData data = new HostData();
         data.name = rs.getString("host_name");
@@ -986,7 +990,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         data.idleMemory = rs.getLong("int_mem_idle");
         data.gpu = rs.getLong("int_gpu");
         data.idleGpu = rs.getLong("int_gpu_idle");
-        data.state = HardwareState.valueOf(rs.getString("host_state"));
+        data.state = HardwareState.valueOf(mapHostStateToIceString(rs.getString("host_state")));
         data.totalMcp = rs.getLong("int_mcp_total");
         data.totalMemory = rs.getLong("int_mem_total");
         data.totalSwap = rs.getLong("int_swap_total");
@@ -1044,26 +1048,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Allocation> ALLOCATION_MAPPER =
         new RowMapper<Allocation>() {
             public Allocation mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Allocation a = new Allocation();
-
-                a.data = new AllocationData();
-                a.stats = new AllocationStats();
-                a.data.name = rs.getString("str_name");
-                a.data.facility = rs.getString("facility_name");
-                a.data.tag = rs.getString("str_tag");
-                a.data.billable = rs.getBoolean("b_billable");
-                a.stats.cores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-                a.stats.availableCores = Convert.coreUnitsToCores(rs.getInt("int_available_cores"));
-                a.stats.idleCores =  Convert.coreUnitsToCores(rs.getInt("int_idle_cores"));
-                a.stats.runningCores = Convert.coreUnitsToCores(rs.getInt("int_running_cores"));
-                a.stats.lockedCores = Convert.coreUnitsToCores(rs.getInt("int_locked_cores"));
-                a.stats.hosts = rs.getInt("int_hosts");
-                a.stats.downHosts = rs.getInt("int_down_hosts");
-                a.stats.lockedHosts = rs.getInt("int_locked_hosts");
-
-                a.proxy = AllocationInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_alloc"),"manageAllocation")));
-                return a;
+                return Allocation.newBuilder()
+                        .setName(rs.getString("str_name"))
+                        .setFacility(rs.getString("facility_name"))
+                        .setTag(rs.getString("str_tag"))
+                        .setBillable(rs.getBoolean("b_billable"))
+                        .setStats(AllocationStats.newBuilder()
+                                .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                                .setAvailableCores(Convert.coreUnitsToCores(rs.getInt("int_available_cores")))
+                                .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_idle_cores")))
+                                .setRunningCores(Convert.coreUnitsToCores(rs.getInt("int_running_cores")))
+                                .setLockedCores(Convert.coreUnitsToCores(rs.getInt("int_locked_cores")))
+                                .setHosts(rs.getInt("int_hosts"))
+                                .setDownHosts(rs.getInt("int_down_hosts"))
+                                .setLockedHosts(rs.getInt("int_locked_hosts"))
+                                .build())
+                        .build();
             }
     };
 
@@ -1250,20 +1250,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Subscription> SUBSCRIPTION_MAPPER =
         new RowMapper<Subscription>() {
             public Subscription mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Subscription s = new Subscription();
-                s.data = new SubscriptionData();
-                s.data.burst =  Convert.coreUnitsToCores(rs.getInt("int_burst"));
-                s.data.name = rs.getString("name");
-                s.data.reservedCores = Convert.coreUnitsToCores(rs.getInt("int_cores"));
-                s.data.size =  Convert.coreUnitsToCores(rs.getInt("int_size"));
-                s.data.allocationName = rs.getString("alloc_name");
-                s.data.showName = rs.getString("show_name");
-                s.data.facility = rs.getString("facility_name");
-
-                s.proxy = SubscriptionInterfacePrxHelper.uncheckedCast(iceServer.getAdapter()
-                        .createProxy(new Ice.Identity(rs.getString("pk_subscription"),"manageSubscription")));
-
-                return s;
+                return Subscription.newBuilder()
+                        .setBurst(rs.getInt("int_burst"))
+                        .setName(rs.getString("name"))
+                        .setReservedCores(rs.getInt("int_cores"))
+                        .setSize(rs.getInt("int_size"))
+                        .setAllocationName(rs.getString("alloc_name"))
+                        .setShowName(rs.getString("show_name"))
+                        .setFacility(rs.getString("facility_name"))
+                        .build();
             }
     };
 
@@ -1505,52 +1500,34 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private static final String GET_PROC =
         "SELECT " +
-            "host.str_name AS host_name,"+
-            "job.str_name AS job_name,"+
-            "job.str_log_dir,"+
-            "folder.str_name as folder_name, "+
-            "show.str_name AS show_name,"+
-            "frame.str_name AS frame_name,"+
-            "layer.str_services,"+
-            "proc.pk_proc,"+
-            "proc.pk_host,"+
-            "proc.int_cores_reserved,"+
-            "proc.int_mem_reserved, "+
-            "proc.int_mem_used,"+
-            "proc.int_mem_max_used,"+
-            "proc.int_gpu_reserved, "+
-            "proc.ts_ping,"+
-            "proc.ts_booked,"+
-            "proc.ts_dispatched,"+
-            "proc.b_unbooked,"+
-            "redirect.str_name AS str_redirect "+
-       "FROM " +
-           "proc,"+
-           "host, "+
-           "alloc,"+
-           "frame, "+
-           "layer,"+
-           "job,"+
-           "folder, "+
-           "show, " +
-           "redirect "+
-       "WHERE " +
-           "proc.pk_host = host.pk_host " +
-       "AND " +
-           "host.pk_alloc = alloc.pk_alloc " +
-       "AND " +
-           "proc.pk_frame = frame.pk_frame " +
-       "AND " +
-           "proc.pk_layer = layer.pk_layer "+
-       "AND " +
-           "proc.pk_job = job.pk_job " +
-       "AND " +
-           "job.pk_folder = folder.pk_folder " +
-       "AND " +
-           "proc.pk_show = show.pk_show " +
-       "AND " +
-           "proc.pk_proc = redirect.pk_proc (+) ";
-
+            "host.str_name AS host_name, " +
+            "job.str_name AS job_name, " +
+            "job.str_log_dir, " +
+            "folder.str_name as folder_name, " +
+            "show.str_name AS show_name, " +
+            "frame.str_name AS frame_name, " +
+            "layer.str_services, " +
+            "proc.pk_proc, " +
+            "proc.pk_host, " +
+            "proc.int_cores_reserved, " +
+            "proc.int_mem_reserved, " +
+            "proc.int_mem_used, " +
+            "proc.int_mem_max_used, " +
+            "proc.int_gpu_reserved, " +
+            "proc.ts_ping, " +
+            "proc.ts_booked, " +
+            "proc.ts_dispatched, " +
+            "proc.b_unbooked, " +
+            "redirect.str_name AS str_redirect " +
+        "FROM proc " +
+        "JOIN host ON proc.pk_host = host.pk_host " +
+        "JOIN alloc ON host.pk_alloc = alloc.pk_alloc " +
+        "JOIN frame ON proc.pk_frame = frame.pk_frame " +
+        "JOIN layer ON proc.pk_layer = layer.pk_layer " +
+        "JOIN job ON proc.pk_job = job.pk_job " +
+        "JOIN folder ON job.pk_folder = folder.pk_folder " +
+        "JOIN show ON proc.pk_show = show.pk_show " +
+        "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc";
 
     private static final String GET_JOB_COMMENTS =
         "SELECT " +
@@ -1572,8 +1549,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.str_state,"+
             "frame.str_host,"+
             "frame.int_cores,"+
-            "NVL(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
-            "NVL(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
+            "COALESCE(proc.int_mem_max_used, frame.int_mem_max_used) AS int_mem_max_used," +
+            "COALESCE(proc.int_mem_used, frame.int_mem_used) AS int_mem_used " +
         "FROM "+
              "job, " +
              "layer,"+
@@ -1607,7 +1584,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "AND " +
             "alloc.pk_facility = facility.pk_facility " +
         "AND " +
-            "alloc.b_enabled = 1";
+            "alloc.b_enabled = true";
 
 
     private static final String GET_MATCHER =
@@ -1856,15 +1833,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     private static final String GET_SHOW =
         "SELECT " +
             "show.*," +
-            "NVL(vs_show_stat.int_pending_count,0) AS int_pending_count," +
-            "NVL(vs_show_stat.int_running_count,0) AS int_running_count," +
-            "NVL(vs_show_stat.int_dead_count,0) AS int_dead_count," +
-            "NVL(vs_show_resource.int_cores,0) AS int_cores, " +
-            "NVL(vs_show_stat.int_job_count,0) AS int_job_count " +
+            "COALESCE(vs_show_stat.int_pending_count,0) AS int_pending_count," +
+            "COALESCE(vs_show_stat.int_running_count,0) AS int_running_count," +
+            "COALESCE(vs_show_stat.int_dead_count,0) AS int_dead_count," +
+            "COALESCE(vs_show_resource.int_cores,0) AS int_cores, " +
+            "COALESCE(vs_show_stat.int_job_count,0) AS int_job_count " +
         "FROM " +
             "show " +
-                "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) "+
-                "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
+        "LEFT JOIN vs_show_stat ON (vs_show_stat.pk_show = show.pk_show) " +
+        "LEFT JOIN vs_show_resource ON (vs_show_resource.pk_show=show.pk_show) " +
         "WHERE " +
             "1 = 1 ";
 

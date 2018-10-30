@@ -27,7 +27,9 @@ import com.imageworks.spcue.grpc.department.Department;
 import com.imageworks.spcue.grpc.host.*;
 import com.imageworks.spcue.grpc.job.*;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -82,6 +84,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
+import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
@@ -96,6 +99,10 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingOracleEngine assumingOracleEngine;
 
     @Resource
     AllocationDao allocationDao;

@@ -39,13 +39,13 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Proc;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueGrpc.HardwareState;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
@@ -154,15 +154,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "UPDATE " +
             "proc " +
         "SET " +
-            "pk_show=?," +
-            "pk_job=?,"+
-            "pk_layer=?,"+
-            "pk_frame=?, " +
-            "int_mem_used = 0,"+
-            "int_mem_max_used = 0, "+
-            "int_virt_used = 0,"+
-            "int_virt_max_used = 0, "+
-            "ts_dispatched=systimestamp " +
+            "pk_show = ?, " +
+            "pk_job = ?, " +
+            "pk_layer = ?, " +
+            "pk_frame = ?, " +
+            "int_mem_used = 0, " +
+            "int_mem_max_used = 0, " +
+            "int_virt_used = 0, " +
+            "int_virt_max_used = 0, " +
+            "ts_dispatched = current_timestamp " +
         "WHERE " +
             "pk_proc = ?";
 
@@ -229,10 +229,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_mem_used = ?, " +
             "int_mem_max_used = ?," +
             "int_virt_used = ?, " +
-            "int_virt_max_used = ?, "+
-            "ts_ping = systimestamp " +
+            "int_virt_max_used = ?, " +
+            "ts_ping = current_timestamp " +
         "WHERE " +
-            "pk_frame=?";
+            "pk_frame = ?";
 
     @Override
     public void updateProcMemoryUsage(Frame f, long rss, long maxRss,
@@ -254,11 +254,10 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 getJdbcTemplate().update(UPDATE_PROC_MEMORY_USAGE,
                         rss, maxRss, vss, maxVss, f.getFrameId());
             }
-        }
-       catch (DataAccessException dae) {
+        } catch (DataAccessException dae) {
            logger.info("The proc for frame " + f +
                    " could not be updated with new memory stats: " + dae);
-       }
+        }
     }
 
     /**
@@ -342,17 +341,17 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "host.str_name AS host_name, " +
               "host.pk_alloc, " +
               "host_stat.str_os, " +
-              "alloc.pk_facility "+
+              "alloc.pk_facility " +
           "FROM " +
               "proc, " +
               "frame, " +
               "host," +
-              "host_stat, "+
+              "host_stat, " +
               "alloc, " +
               "layer," +
               "job, " +
               "folder, " +
-              "show "+
+              "show " +
           "WHERE " +
               "proc.pk_show = show.pk_show " +
           "AND " +
@@ -378,7 +377,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
       @Override
       public List<VirtualProc> findBookedVirtualProcs(ProcSearch r) {
           return getJdbcTemplate().query(r.getQuery(GET_VIRTUAL_PROC_LIST +
-                  "AND proc.b_unbooked = 0"), VIRTUAL_PROC_MAPPER, r.getValuesArray());
+                  "AND proc.b_unbooked = false"), VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
       public List<VirtualProc> findVirtualProcs(FrameSearch r) {
@@ -429,7 +428,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           }
 
           getJdbcTemplate().batchUpdate(
-                  "UPDATE proc SET b_unbooked=1 WHERE pk_proc=?", batchArgs);
+                  "UPDATE proc SET b_unbooked=true WHERE pk_proc=?", batchArgs);
       }
 
       @Override
@@ -453,7 +452,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
       }
 
       public void unbookProc(Proc proc) {
-          getJdbcTemplate().update("UPDATE proc SET b_unbooked=1 WHERE pk_proc=?",
+          getJdbcTemplate().update("UPDATE proc SET b_unbooked=true WHERE pk_proc=?",
                   proc.getProcId());
       }
 
@@ -497,7 +496,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "AND " +
               "host.pk_alloc = alloc.pk_alloc " +
           "AND " +
-              "systimestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
+              "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
 
       public List<VirtualProc> findOrphanedVirtualProcs() {
           return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER);
@@ -517,7 +516,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "WHERE " +
               "proc.pk_proc = ? " +
           "AND " +
-              "systimestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
+              "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
 
       @Override
       public boolean isOrphan(Proc proc) {
@@ -560,14 +559,13 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "str_os " +
           "FROM ("
               + GET_VIRTUAL_PROC + " " +
-          "AND " +
-              "host.pk_host =? " +
-          "AND " +
-              "proc.int_mem_reserved != 0 " +
-          "ORDER BY " +
-              "proc.int_virt_used / proc.int_mem_pre_reserved DESC ) " +
-          "WHERE " +
-              "ROWNUM = 1";
+              "AND " +
+                  "host.pk_host = ? " +
+              "AND " +
+                  "proc.int_mem_reserved != 0 " +
+              "ORDER BY " +
+                  "proc.int_virt_used / proc.int_mem_pre_reserved DESC " +
+          ") AS t1 LIMIT 1";
 
       @Override
       public VirtualProc getWorstMemoryOffender(Host host) {
@@ -636,8 +634,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               // a little bit of memory from each one.
               for (Map<String,Object> map: result) {
                   String pk_proc = (String) map.get("pk_proc");
-                  BigDecimal free_mem = (BigDecimal) map.get("free_mem");
-                  long available = free_mem.longValueExact() - borrowMap.get(pk_proc) - Dispatcher.MEM_RESERVED_MIN;
+                  Long free_mem = (Long) map.get("free_mem");
+                  long available = free_mem - borrowMap.get(pk_proc) - Dispatcher.MEM_RESERVED_MIN;
                   if (available > memPerFrame) {
                       borrowMap.put(pk_proc, borrowMap.get(pk_proc) + memPerFrame);
                       memBorrowedTotal = memBorrowedTotal + memPerFrame;

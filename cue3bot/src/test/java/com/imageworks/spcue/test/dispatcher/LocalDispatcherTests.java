@@ -166,13 +166,13 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check to ensure the procs are marked as local.
          */
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(0).getId()));
+                Boolean.class, procs.get(0).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(1).getId()));
+                Boolean.class, procs.get(1).getId()));
 
         /*
          * Check to ensure the right job was booked.
@@ -206,17 +206,17 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(0).getId()));
+                Boolean.class, procs.get(0).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(1).getId()));
+                Boolean.class, procs.get(1).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(2).getId()));
+                Boolean.class, procs.get(2).getId()));
 
         /*
          * Check that they are all frame the same layer.
@@ -279,13 +279,13 @@ public class LocalDispatcherTests extends TransactionalTest {
         assertTrue(bookingManager.hasActiveLocalFrames(host));
 
         // Check that they are local.
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(0).getId()));
+                Boolean.class, procs.get(0).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(1).getId()));
+                Boolean.class, procs.get(1).getId()));
 
         /*
          * Check to ensure the right job was booked.
@@ -319,17 +319,17 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(0).getId()));
+                Boolean.class, procs.get(0).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(1).getId()));
+                Boolean.class, procs.get(1).getId()));
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(2).getId()));
+                Boolean.class, procs.get(2).getId()));
 
         /*
          * Check that they are all frame the same layer.
@@ -422,9 +422,9 @@ public class LocalDispatcherTests extends TransactionalTest {
         assertTrue(bookingManager.hasActiveLocalFrames(host));
 
         // Check that they are local.
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_local FROM proc WHERE pk_proc=?",
-                Integer.class, procs.get(0).getId()));
+                Boolean.class, procs.get(0).getId()));
         /*
          * Check to ensure the right job was booked.
          */

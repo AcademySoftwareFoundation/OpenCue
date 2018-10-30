@@ -30,7 +30,9 @@ import javax.annotation.Resource;
 
 import org.apache.commons.lang.StringUtils;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -53,6 +55,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.FrameSet;
@@ -61,6 +64,10 @@ import com.imageworks.spcue.util.FrameSet;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     JobDao jobDao;
@@ -215,9 +222,9 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testUpdateLayerThreadable() {
         LayerDetail layer = getLayer();
         layerDao.updateThreadable(layer, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_threadable FROM layer WHERE pk_layer=?",
-                Integer.class, layer.getLayerId()));
+                Boolean.class, layer.getLayerId()));
     }
 
 
@@ -480,7 +487,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 layer.getLayerId());
 
         jdbcTemplate.update(
-                "UPDATE layer_usage SET layer_usage.int_core_time_success = 3600 * 6" +
+                "UPDATE layer_usage SET int_core_time_success = 3600 * 6" +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertFalse(layerDao.isOptimizable(layer, 5, 3600));
@@ -490,7 +497,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          * Assert True
          */
         jdbcTemplate.update(
-                "UPDATE layer_usage SET layer_usage.int_core_time_success = 3500 * 5" +
+                "UPDATE layer_usage SET int_core_time_success = 3500 * 5" +
                 "WHERE pk_layer=?", layer.getLayerId());
 
         assertTrue(layerDao.isOptimizable(layer, 5, 3600));
@@ -594,13 +601,13 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void isLayerThreadable() {
         LayerDetail layer = getLayer();
         jdbcTemplate.update(
-                "UPDATE layer set b_threadable = 0 WHERE pk_layer=?",
+                "UPDATE layer set b_threadable = false WHERE pk_layer = ?",
                 layer.getId());
 
         assertFalse(layerDao.isThreadable(layer));
 
         jdbcTemplate.update(
-                "UPDATE layer set b_threadable = 1 WHERE pk_layer=?",
+                "UPDATE layer set b_threadable = true WHERE pk_layer = ?",
                 layer.getId());
 
         assertTrue(layerDao.isThreadable(layer));
@@ -612,14 +619,14 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void enableMemoryOptimizer() {
         LayerDetail layer = getLayer();
         layerDao.enableMemoryOptimizer(layer, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_optimize FROM layer WHERE pk_layer=?",
-                Integer.class, layer.getLayerId()));
+                Boolean.class, layer.getLayerId()));
 
         layerDao.enableMemoryOptimizer(layer, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_optimize FROM layer WHERE pk_layer=?",
-                Integer.class, layer.getLayerId()));
+                Boolean.class, layer.getLayerId()));
     }
 
     @Test

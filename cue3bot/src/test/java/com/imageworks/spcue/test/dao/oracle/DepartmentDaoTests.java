@@ -22,7 +22,9 @@ package com.imageworks.spcue.test.dao.oracle;
 import javax.annotation.Resource;
 import static org.junit.Assert.*;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -34,11 +36,16 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.test.AssumingOracleEngine;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class DepartmentDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingOracleEngine assumingOracleEngine;
 
     @Resource
     DepartmentDao departmentDao;

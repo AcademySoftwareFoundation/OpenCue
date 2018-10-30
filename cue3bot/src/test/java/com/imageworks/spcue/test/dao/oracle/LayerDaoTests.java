@@ -30,7 +30,9 @@ import javax.annotation.Resource;
 
 import org.apache.commons.lang.StringUtils;
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -53,6 +55,7 @@ import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
+import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.FrameSet;
@@ -61,6 +64,10 @@ import com.imageworks.spcue.util.FrameSet;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingOracleEngine assumingOracleEngine;
 
     @Resource
     JobDao jobDao;
@@ -73,7 +80,6 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
     @Resource
     JobLauncher jobLauncher;
-
 
     @Resource
     DepartmentDao departmentDao;

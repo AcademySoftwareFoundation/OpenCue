@@ -58,7 +58,7 @@ public class DepartmentDaoJdbc extends JdbcDaoSupport implements DepartmentDao {
     @Override
     public Department getDefaultDepartment() {
         return getJdbcTemplate().queryForObject(
-                "SELECT pk_dept, str_name FROM dept WHERE b_default=1",
+                "SELECT pk_dept, str_name FROM dept WHERE b_default=true",
                 DEPARTMENT_MAPPER);
     }
 

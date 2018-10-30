@@ -359,9 +359,9 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     	"AND " +
     		"folder.pk_dept = point.pk_dept " +
     	"AND " +
-    		"folder.b_exclude_managed = 0 " +
+    		"folder.b_exclude_managed = false " +
     	"AND " +
-    		"point.b_managed = 1 " +
+    		"point.b_managed = true " +
     	"AND " +
     		"folder.pk_folder = ?";
 

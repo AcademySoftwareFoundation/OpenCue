@@ -23,7 +23,9 @@ import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -39,11 +41,16 @@ import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     FilterDao filterDao;
@@ -98,13 +105,13 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         FilterDetail f = buildFilter(createShow());
         filterDao.insertFilter(f);
         filterDao.updateSetFilterEnabled(f, false);
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+        assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_enabled FROM filter WHERE pk_filter=?",
-                Integer.class, f.getFilterId()));
+                Boolean.class, f.getFilterId()));
         filterDao.updateSetFilterEnabled(f, true);
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
+        assertTrue(jdbcTemplate.queryForObject(
                 "SELECT b_enabled FROM filter WHERE pk_filter=?",
-                Integer.class, f.getFilterId()));
+                Boolean.class, f.getFilterId()));
     }
 
     @Test
