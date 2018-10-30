@@ -26,7 +26,9 @@ import java.util.HashMap;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
@@ -43,12 +45,17 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingOracleEngine assumingOracleEngine;
 
     @Resource
     ShowDao showDao;

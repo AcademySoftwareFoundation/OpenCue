@@ -26,7 +26,9 @@ import java.io.File;
 import javax.annotation.Resource;
 
 import org.junit.Before;
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -44,11 +46,16 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     ShowDao showDao;

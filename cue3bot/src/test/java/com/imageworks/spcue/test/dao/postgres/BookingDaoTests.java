@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
+import org.junit.Rule;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import static org.junit.Assert.*;
 
@@ -53,6 +55,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 
@@ -60,6 +63,10 @@ import com.imageworks.spcue.util.CueUtil;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     HostManager hostManager;
