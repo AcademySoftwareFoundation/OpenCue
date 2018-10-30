@@ -36,6 +36,7 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.TrackitTaskDetail;
 import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+import com.imageworks.spcue.test.AssumingTrackitEnabled;
 
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 public class TrackitDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
@@ -43,6 +44,10 @@ public class TrackitDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Autowired
     @Rule
     public AssumingOracleEngine assumingOracleEngine;
+
+    @Autowired
+    @Rule
+    public AssumingTrackitEnabled assumingTrackitEnabled;
 
     @Resource
     TrackitDao trackitDao;

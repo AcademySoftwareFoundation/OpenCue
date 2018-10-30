@@ -23,7 +23,9 @@ import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.transaction.TransactionConfiguration;
@@ -40,11 +42,16 @@ import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
+import com.imageworks.spcue.test.AssumingTrackitEnabled;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingTrackitEnabled assumingTrackitEnabled;
 
     @Resource
     DepartmentManager departmentManager;

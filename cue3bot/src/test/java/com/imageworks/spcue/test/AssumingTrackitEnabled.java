@@ -1,3 +1,4 @@
+
 /*
  * Copyright (c) 2018 Sony Pictures Imageworks Inc.
  *
@@ -21,38 +22,29 @@ import org.junit.AssumptionViolatedException;
 import org.junit.rules.TestRule;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
-import com.imageworks.spcue.config.DatabaseEngine;
 
+public class AssumingTrackitEnabled implements TestRule {
 
-public class AssumingPostgresEngine implements TestRule {
+    @Autowired
+    private Environment env;
 
-    private DatabaseEngine dbEngine;
-
-    public AssumingPostgresEngine() {
-    }
+    public AssumingTrackitEnabled() {}
 
     @Override
     public Statement apply(Statement base, Description description) {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
-                if (dbEngine == DatabaseEngine.POSTGRES) {
+                if (env.getRequiredProperty("trackit.enabled", Boolean.class)) {
                     base.evaluate();
                 } else {
                     throw new AssumptionViolatedException(
-                            "Current database engine is " + dbEngine.toString() +
-                            ", test requires POSTGRES. Skipping");
+                            "Trackit is not enabled in this environment. Skipping");
                 }
             }
         };
-    }
-
-    public DatabaseEngine getDbEngine() {
-        return dbEngine;
-    }
-
-    public void setDbEngine(DatabaseEngine dbEngine) {
-        this.dbEngine = dbEngine;
     }
 }
