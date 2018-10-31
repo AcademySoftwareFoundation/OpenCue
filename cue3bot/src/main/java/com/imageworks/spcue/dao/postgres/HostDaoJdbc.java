@@ -39,28 +39,28 @@ import org.springframework.jdbc.core.SqlParameter;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityCreationError;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.report.HostReport;
-import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.CueIce.HostTagType;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostTagType;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
+import com.imageworks.spcue.grpc.report.HostReport;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 
 public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
-    public static final RowMapper<HostDetail> HOST_DETAIL_MAPPER = new RowMapper<HostDetail>() {
-        public HostDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-            HostDetail host = new HostDetail();
+    public static final RowMapper<HostEntity> HOST_DETAIL_MAPPER = new RowMapper<HostEntity>() {
+        public HostEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            HostEntity host = new HostEntity();
             host.facilityId = rs.getString("pk_facility");
             host.allocId = rs.getString("pk_alloc");
             host.id = rs.getString("pk_host");
@@ -82,9 +82,9 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     };
 
-    public static final RowMapper<Host> HOST_MAPPER = new RowMapper<Host>() {
-        public Host mapRow(final ResultSet rs, int rowNum) throws SQLException {
-            return new Host() {
+    public static final RowMapper<HostInterface> HOST_MAPPER = new RowMapper<HostInterface>() {
+        public HostInterface mapRow(final ResultSet rs, int rowNum) throws SQLException {
+            return new HostInterface() {
                 final String id = rs.getString("pk_host");
                 final String allocid =  rs.getString("pk_alloc");
                 final String name = rs.getString("str_name");
@@ -128,7 +128,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host.pk_alloc = alloc.pk_alloc ";
 
     @Override
-    public void lockForUpdate(Host host) {
+    public void lockForUpdate(HostInterface host) {
         try {
             getJdbcTemplate().queryForObject(
                     "SELECT pk_host FROM host WHERE pk_host=? " +
@@ -141,19 +141,19 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public HostDetail getHostDetail(Host host) {
+    public HostEntity getHostDetail(HostInterface host) {
         return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.pk_host=?",
                 HOST_DETAIL_MAPPER, host.getHostId());
     }
 
     @Override
-    public HostDetail getHostDetail(String id) {
+    public HostEntity getHostDetail(String id) {
         return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.pk_host=?",
                 HOST_DETAIL_MAPPER, id);
     }
 
     @Override
-    public HostDetail findHostDetail(String name) {
+    public HostEntity findHostDetail(String name) {
         return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.str_name=?",
                 HOST_DETAIL_MAPPER, name);
     }
@@ -171,20 +171,20 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host.pk_alloc = alloc.pk_alloc " ;
 
     @Override
-    public Host getHost(String id) {
+    public HostInterface getHost(String id) {
         return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?",
                 HOST_MAPPER, id);
     }
 
     @Override
-    public Host getHost(LocalHostAssignment l) {
+    public HostInterface getHost(LocalHostAssignment l) {
         return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host = ("+
                 "SELECT pk_host FROM host_local WHERE pk_host_local=?)",
                 HOST_MAPPER, l.getId());
     }
 
     @Override
-    public Host findHost(String name) {
+    public HostInterface findHost(String name) {
         return getJdbcTemplate().queryForObject(
                 GET_HOST + " AND (host.str_name=? OR host.str_fqdn=?)",
                 HOST_MAPPER, name, name);
@@ -308,9 +308,9 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public void insertRenderHost(RenderHost host, AllocationInterface a, boolean useLongNames) {
 
-        ThreadMode threadMode = ThreadMode.Auto;
+        ThreadMode threadMode = ThreadMode.AUTO;
         if (host.getNimbyEnabled()) {
-            threadMode = ThreadMode.All;
+            threadMode = ThreadMode.ALL;
         }
 
         long memUnits = convertMemoryUnits(host);
@@ -362,9 +362,9 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[0],
                 hid, a.getAllocationId(), name, host.getNimbyEnabled(),
-                LockState.Open.toString(), host.getNumProcs(), coreUnits, coreUnits,
+                LockState.OPEN.toString(), host.getNumProcs(), coreUnits, coreUnits,
                 memUnits, memUnits, totalGpu, totalGpu,
-                fqdn, threadMode.value());
+                fqdn, threadMode.getNumber());
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
                 hid, hid, host.getTotalMem(), host.getFreeMem(),
@@ -406,7 +406,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "pk_host = ?";
 
     @Override
-    public void updateHostStats(Host host,
+    public void updateHostStats(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
@@ -436,7 +436,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void updateHostResources(Host host, HostReport report) {
+    public void updateHostResources(HostInterface host, HostReport report) {
 
         long memory = convertMemoryUnits(report.getHost());
         int cores = report.getHost().getNumProcs() * report.getHost().getCoresPerProc();
@@ -469,20 +469,20 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void updateHostLock(Host host, LockState state, Source source) {
+    public void updateHostLock(HostInterface host, LockState state, Source source) {
         getJdbcTemplate().update(
                 "UPDATE host SET str_lock_state=?, str_lock_source=? WHERE pk_host=?",
                 state.toString(), source.toString(), host.getHostId());
     }
 
     @Override
-    public void updateHostRebootWhenIdle(Host host, boolean enabled) {
+    public void updateHostRebootWhenIdle(HostInterface host, boolean enabled) {
         getJdbcTemplate().update("UPDATE host SET b_reboot_idle=? WHERE pk_host=?",
                 enabled, host.getHostId());
     }
 
     @Override
-    public void deleteHost(Host host) {
+    public void deleteHost(HostInterface host) {
         getJdbcTemplate().update(
                 "DELETE FROM comments WHERE pk_host=?",host.getHostId());
         getJdbcTemplate().update(
@@ -490,21 +490,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void updateHostState(Host host, HardwareState state) {
-        getJdbcTemplate().update(
-                "UPDATE host_stat SET str_state=? WHERE pk_host=?",
-                state.toString(), host.getHostId());
-    }
-
-    // TODO: Remove this once ICE is gone!
-    public void updateHostState(Host host, com.imageworks.spcue.CueIce.HardwareState state) {
+    public void updateHostState(HostInterface host, HardwareState state) {
         getJdbcTemplate().update(
                 "UPDATE host_stat SET str_state=? WHERE pk_host=?",
                 state.toString(), host.getHostId());
     }
 
     @Override
-    public void updateHostSetAllocation(Host host, AllocationInterface alloc) {
+    public void updateHostSetAllocation(HostInterface host, AllocationInterface alloc) {
 
         String tag = getJdbcTemplate().queryForObject(
                 "SELECT str_tag FROM alloc WHERE pk_alloc=?",
@@ -513,15 +506,15 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 "UPDATE host SET pk_alloc=? WHERE pk_host=?",
                 alloc.getAllocationId(), host.getHostId());
 
-        removeTagsByType(host, HostTagType.Alloc);
-        tagHost(host, tag, HostTagType.Alloc);
+        removeTagsByType(host, HostTagType.ALLOC);
+        tagHost(host, tag, HostTagType.ALLOC);
     }
 
     @Override
-    public boolean isHostLocked(Host host) {
+    public boolean isHostLocked(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host WHERE pk_host=? AND str_lock_state!=?",
-                Integer.class, host.getHostId(), LockState.Open.toString()) > 0;
+                Integer.class, host.getHostId(), LockState.OPEN.toString()) > 0;
     }
 
     private static final String INSERT_TAG =
@@ -539,7 +532,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     @Override
     public void tagHost(String id, String tag, HostTagType type) {
         boolean constant = false;
-        if (type.equals(HostTagType.Alloc))
+        if (type.equals(HostTagType.ALLOC))
             constant = true;
 
         getJdbcTemplate().update(INSERT_TAG,
@@ -547,46 +540,46 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public void tagHost(Host host, String tag, HostTagType type) {
+    public void tagHost(HostInterface host, String tag, HostTagType type) {
         tagHost(host.getHostId(), tag, type);
     }
 
     @Override
-    public void removeTagsByType(Host host, HostTagType type) {
+    public void removeTagsByType(HostInterface host, HostTagType type) {
         getJdbcTemplate().update("DELETE FROM host_tag WHERE pk_host=? AND str_tag_type=?",
                 host.getHostId(), type.toString());
     }
 
     @Override
-    public void removeTag(Host host, String tag) {
+    public void removeTag(HostInterface host, String tag) {
         getJdbcTemplate().update(
                 "DELETE FROM host_tag WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 host.getHostId(), tag);
     }
 
     @Override
-    public void renameTag(Host host, String oldTag, String newTag) {
+    public void renameTag(HostInterface host, String oldTag, String newTag) {
         getJdbcTemplate().update(
                 "UPDATE host_tag SET str_tag=? WHERE pk_host=? AND str_tag=? AND b_constant=false",
                 newTag, host.getHostId(), oldTag);
     }
 
     @Override
-    public void updateThreadMode(Host host, ThreadMode mode) {
+    public void updateThreadMode(HostInterface host, ThreadMode mode) {
         getJdbcTemplate().update(
                 "UPDATE host SET int_thread_mode=? WHERE pk_host=?",
-                mode.value(), host.getHostId());
+                mode.getNumber(), host.getHostId());
     }
 
     @Override
-    public void updateHostOs(Host host, String os) {
+    public void updateHostOs(HostInterface host, String os) {
         getJdbcTemplate().update(
                 "UPDATE host_stat SET str_os=? WHERE pk_host=?",
                  os, host.getHostId());
     }
 
     @Override
-    public boolean isKillMode(Host h) {
+    public boolean isKillMode(HostInterface h) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host_stat WHERE pk_host = ? " +
                 "AND int_swap_total - int_swap_free > ? AND int_mem_free < ?",
@@ -595,7 +588,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
-    public int getStrandedCoreUnits(Host h) {
+    public int getStrandedCoreUnits(HostInterface h) {
         try {
             int idle_cores =  getJdbcTemplate().queryForObject(
                     "SELECT int_cores_idle FROM host WHERE pk_host = ? AND int_mem_idle <= ?",
@@ -618,7 +611,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host_stat.pk_host = ? ";
 
     @Override
-    public boolean isHostUp(Host host) {
+    public boolean isHostUp(HostInterface host) {
         return getJdbcTemplate().queryForObject(IS_HOST_UP,
                 Integer.class, HardwareState.UP.toString(),
                 host.getHostId()) == 1;
@@ -639,13 +632,13 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host.pk_host = ?";
 
     @Override
-    public boolean isPreferShow(Host h) {
+    public boolean isPreferShow(HostInterface h) {
         return getJdbcTemplate().queryForObject(IS_PREFER_SHOW,
                 Integer.class, h.getHostId()) > 0;
     }
 
     @Override
-    public boolean isNimbyHost(Host h) {
+    public boolean isNimbyHost(HostInterface h) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host WHERE b_nimby=true AND pk_host=?",
                 Integer.class, h.getHostId()) > 0;

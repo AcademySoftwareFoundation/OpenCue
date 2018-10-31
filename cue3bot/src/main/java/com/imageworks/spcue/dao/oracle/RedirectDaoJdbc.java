@@ -18,13 +18,13 @@
 
 package com.imageworks.spcue.dao.oracle;
 
-import com.imageworks.spcue.grpc.host.RedirectType;
-import com.imageworks.spcue.Redirect;
-import com.imageworks.spcue.dao.RedirectDao;
-
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
+
+import com.imageworks.spcue.Redirect;
+import com.imageworks.spcue.dao.RedirectDao;
+import com.imageworks.spcue.grpc.host.RedirectType;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;

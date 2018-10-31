@@ -22,8 +22,9 @@ package com.imageworks.spcue.dao.oracle;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.MaintenanceTask;
-import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.dao.MaintenanceDao;
+import com.imageworks.spcue.grpc.host.HardwareState;
+
 
 public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao {
 

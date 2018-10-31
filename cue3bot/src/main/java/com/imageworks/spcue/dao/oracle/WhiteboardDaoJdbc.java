@@ -654,8 +654,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public Owner getOwner(
-            HostInterface host) {
+    public Owner getOwner(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_OWNER + " AND " +
                 "pk_owner = (SELECT deed.pk_owner FROM deed " +
@@ -679,8 +678,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
 
     @Override
-    public RenderPartitionSeq getRenderPartitions(
-            HostInterface host) {
+    public RenderPartitionSeq getRenderPartitions(HostInterface host) {
         List<RenderPartition> partitions = getJdbcTemplate().query(QUERY_FOR_RENDER_PART +
                 "WHERE host_local.pk_host = ?",
                 RENDER_PARTION_MAPPER, host.getHostId());
@@ -778,7 +776,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Facility> FACILITY_MAPPER =
         new RowMapper<Facility>() {
             public Facility mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return Facility.newBuilder().setName(SqlUtil.getString(rs,"str_name")).build();
+                return Facility.newBuilder()
+                        .setName(rs.getString("str_name"))
+                        .setId(rs.getString("pk_facility"))
+                        .build();
             }
     };
 
@@ -1010,6 +1011,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Allocation>() {
             public Allocation mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Allocation.newBuilder()
+                        .setId(rs.getString("pk_alloc"))
                         .setName(SqlUtil.getString(rs,"str_name"))
                         .setFacility(SqlUtil.getString(rs,"facility_name"))
                         .setTag(SqlUtil.getString(rs,"str_tag"))
@@ -1191,6 +1193,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Subscription>() {
             public Subscription mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Subscription.newBuilder()
+                        .setId(SqlUtil.getString(rs, "pk_subscription"))
                         .setBurst(rs.getInt("int_burst"))
                         .setName(SqlUtil.getString(rs,"name"))
                         .setReservedCores(rs.getInt("int_cores"))

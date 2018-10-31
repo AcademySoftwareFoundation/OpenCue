@@ -31,10 +31,10 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
 
-import com.imageworks.spcue.Filter;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.FilterType;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -74,9 +74,9 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         "ORDER BY " +
             "f_order ASC";
 
-    public static final RowMapper<FilterDetail> FILTER_DETAIL_MAPPER = new RowMapper<FilterDetail>() {
-        public FilterDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-            FilterDetail d = new FilterDetail();
+    public static final RowMapper<FilterEntity> FILTER_DETAIL_MAPPER = new RowMapper<FilterEntity>() {
+        public FilterEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            FilterEntity d = new FilterEntity();
             d.type = FilterType.valueOf(rs.getString("str_type"));
             d.id = rs.getString("pk_filter");
             d.name = rs.getString("str_name");
@@ -87,17 +87,17 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         }
     };
 
-    public List<FilterDetail> getActiveFilters(Show show) {
+    public List<FilterEntity> getActiveFilters(ShowInterface show) {
         return getJdbcTemplate().query(
                 GET_ACTIVE_FILTERS, FILTER_DETAIL_MAPPER, show.getShowId());
     }
 
-    public List<FilterDetail> getFilters(Show show) {
+    public List<FilterEntity> getFilters(ShowInterface show) {
         return getJdbcTemplate().query(
                 GET_FILTERS, FILTER_DETAIL_MAPPER, show.getShowId());
     }
 
-    public void deleteFilter(Filter f) {
+    public void deleteFilter(FilterInterface f) {
         getJdbcTemplate().update(
                 "DELETE FROM action WHERE pk_filter=?",f.getFilterId());
         getJdbcTemplate().update(
@@ -118,33 +118,33 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
             "f_order "+
         ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1) FROM filter WHERE pk_show=?))";
 
-    public void insertFilter(FilterDetail f) {
+    public void insertFilter(FilterEntity f) {
         f.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_FILTER,
                 f.id, f.getShowId(),f.name, f.type.toString(), f.getShowId());
         reorderFilters(f);
     }
 
-    public void updateSetFilterEnabled(Filter f, boolean enabled) {
+    public void updateSetFilterEnabled(FilterInterface f, boolean enabled) {
         getJdbcTemplate().update(
                 "UPDATE filter SET b_enabled=? WHERE pk_filter=?",
                 enabled, f.getFilterId());
     }
 
-    public void updateSetFilterName(Filter f, String name) {
+    public void updateSetFilterName(FilterInterface f, String name) {
         getJdbcTemplate().update(
                 "UPDATE filter SET str_name=? WHERE pk_filter=?",
                 name, f.getFilterId());
     }
 
-    public void updateSetFilterOrder(Filter f, double order) {
+    public void updateSetFilterOrder(FilterInterface f, double order) {
         getJdbcTemplate().update(
                 "UPDATE filter SET f_order=? - 0.1 WHERE pk_filter=?",
                 order, f.getFilterId());
         reorderFilters(f);
     }
 
-    public void lowerFilterOrder(Filter f, int by) {
+    public void lowerFilterOrder(FilterInterface f, int by) {
         double lower_by = by + 0.1;
         getJdbcTemplate().update(
                 "UPDATE filter SET f_order=f_order + ? WHERE pk_filter=?",
@@ -152,7 +152,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         reorderFilters(f);
     }
 
-    public void raiseFilterOrder(Filter f, int by) {
+    public void raiseFilterOrder(FilterInterface f, int by) {
         double raise_by = (by * -1) - 0.1;
         getJdbcTemplate().update(
                 "UPDATE filter SET f_order=f_order + ? WHERE pk_filter=?",
@@ -160,13 +160,13 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         reorderFilters(f);
     }
 
-    public void updateSetFilterType(Filter f, FilterType type) {
+    public void updateSetFilterType(FilterInterface f, FilterType type) {
         getJdbcTemplate().update(
                 "UPDATE filter SET str_type=? WHERE pk_filter=?",
                 type.toString(), f.getFilterId());
     }
 
-    public void reorderFilters(final Show s) {
+    public void reorderFilters(final ShowInterface s) {
         getJdbcTemplate().update("LOCK TABLE filter IN SHARE MODE");
         getJdbcTemplate().call(new CallableStatementCreator() {
 
@@ -178,19 +178,19 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         }, new ArrayList<SqlParameter>());
     }
 
-    public FilterDetail findFilter(Show show, String name) {
+    public FilterEntity findFilter(ShowInterface show, String name) {
         return getJdbcTemplate().queryForObject(
                 GET_FILTER + " WHERE pk_show=? AND str_name=?",
                 FILTER_DETAIL_MAPPER, show.getShowId(), name);
     }
 
-    public FilterDetail getFilter(String id) {
+    public FilterEntity getFilter(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_FILTER + " WHERE pk_filter=?",
                 FILTER_DETAIL_MAPPER, id);
     }
 
-    public FilterDetail getFilter(Filter filter) {
+    public FilterEntity getFilter(FilterInterface filter) {
         return getJdbcTemplate().queryForObject(
                 GET_FILTER + " WHERE pk_filter=?",
                 FILTER_DETAIL_MAPPER, filter.getFilterId());

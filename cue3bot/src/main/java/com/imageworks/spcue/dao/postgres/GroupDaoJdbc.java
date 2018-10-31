@@ -31,15 +31,15 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
 
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.EntityRemovalError;
-import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
@@ -49,14 +49,14 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     private static final int MAX_NESTING_LEVEL = 10;
 
     @Override
-    public String getRootGroupId(Show show) {
+    public String getRootGroupId(ShowInterface show) {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_folder FROM folder WHERE pk_show=? AND pk_parent_folder IS NULL",
                 String.class, show.getShowId());
     }
 
     @Override
-    public void deleteGroup(Group group) {
+    public void deleteGroup(GroupInterface group) {
 
         if (childGroupCount(group) > 0) {
             throw new EntityRemovalError("failed to delete group " + group.getName() +
@@ -102,7 +102,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void insertGroup(GroupDetail group, Group parent) {
+    public void insertGroup(GroupDetail group, GroupInterface parent) {
         if (parent != null) {
             group.parentId = parent.getGroupId();
         }
@@ -110,7 +110,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void updateGroupParent(Group group, Group dest) {
+    public void updateGroupParent(GroupInterface group, GroupInterface dest) {
 
         if (group.getGroupId().equals(dest.getGroupId())) {
             throw new EntityModificationError("error moving group, " +
@@ -152,21 +152,21 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void updateName(Group group, String value) {
+    public void updateName(GroupInterface group, String value) {
         getJdbcTemplate().update(
                 "UPDATE folder SET str_name=? WHERE pk_folder=?",
                 value, group.getId());
     }
 
     @Override
-    public void updateDepartment(Group group, Department dept) {
+    public void updateDepartment(GroupInterface group, DepartmentInterface dept) {
         getJdbcTemplate().update(
                 "UPDATE folder SET pk_dept=? WHERE pk_folder=?",
                 dept.getDepartmentId(), group.getId());
     }
 
     @Override
-    public void updateDefaultJobMaxCores(Group group, int value) {
+    public void updateDefaultJobMaxCores(GroupInterface group, int value) {
         if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
         if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
             String msg = "The default max cores for a job must " +
@@ -179,7 +179,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void updateDefaultJobMinCores(Group group, int value) {
+    public void updateDefaultJobMinCores(GroupInterface group, int value) {
         if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
         if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
             String msg = "The default min cores for a job must " +
@@ -192,7 +192,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void updateMaxCores(Group group, int value) {
+    public void updateMaxCores(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
         if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
             String msg = "The group max cores feature must " +
@@ -206,7 +206,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public void updateMinCores(Group group, int value) {
+    public void updateMinCores(GroupInterface group, int value) {
         if (value < 0) { value = 0; }
         getJdbcTemplate().update(
                 "UPDATE folder_resource SET int_min_cores=? WHERE pk_folder=?",
@@ -227,13 +227,13 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "job.pk_job = ?";
 
     @Override
-    public boolean isOverMinCores(Job job) {
+    public boolean isOverMinCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_OVER_MIN_CORES,
                 Integer.class, job.getJobId()) > 0;
     }
 
     @Override
-    public void updateDefaultJobPriority(Group group, int value) {
+    public void updateDefaultJobPriority(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
         getJdbcTemplate().update(
                 "UPDATE folder SET int_job_priority=? WHERE pk_folder=?",
@@ -302,27 +302,27 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public GroupDetail getGroupDetail(Job job) {
+    public GroupDetail getGroupDetail(JobInterface job) {
         return getJdbcTemplate().queryForObject(GET_GROUP_DETAIL_BY_JOB,
                 GROUP_DETAIL_MAPPER, job.getId());
     }
 
     @Override
-    public GroupDetail getRootGroupDetail(Show show) {
+    public GroupDetail getRootGroupDetail(ShowInterface show) {
         return getJdbcTemplate().queryForObject(
                 GET_GROUP_DETAIL + " AND folder.pk_show=? AND pk_parent_folder IS NULL",
                 GROUP_DETAIL_MAPPER, show.getShowId());
     }
 
     @Override
-    public Group getGroup(String id) {
+    public GroupInterface getGroup(String id) {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_show, pk_folder,str_name FROM folder WHERE pk_folder=?",
                 GROUP_MAPPER, id);
     }
 
     @Override
-    public List<Group> getGroups(List<String> idl) {
+    public List<GroupInterface> getGroups(List<String> idl) {
         return getJdbcTemplate().query(
                 "SELECT pk_show, pk_folder, str_name FROM folder WHERE  " +
                 SqlUtil.buildBindVariableArray("pk_folder", idl),
@@ -330,10 +330,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public List<Group> getChildrenRecursive(Group group) {
-        List<Group> groups = new ArrayList<Group>(32);
-        Group current = group;
-        for (Group g: getChildren(current)) {
+    public List<GroupInterface> getChildrenRecursive(GroupInterface group) {
+        List<GroupInterface> groups = new ArrayList<GroupInterface>(32);
+        GroupInterface current = group;
+        for (GroupInterface g: getChildren(current)) {
             current = g;
             groups.add(current);
             groups.addAll(getChildrenRecursive(current));
@@ -342,7 +342,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
-    public List<Group> getChildren(Group group) {
+    public List<GroupInterface> getChildren(GroupInterface group) {
         return getJdbcTemplate().query(
                 "SELECT pk_show, pk_folder, str_name FROM folder WHERE pk_parent_folder = ?",
                 GROUP_MAPPER, group.getGroupId());
@@ -366,15 +366,15 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     		"folder.pk_folder = ?";
 
     @Override
-    public boolean isManaged(Group group) {
+    public boolean isManaged(GroupInterface group) {
     	return getJdbcTemplate().queryForObject(IS_MANAGED,
     			Integer.class, group.getGroupId()) > 0;
     }
 
-    public static final RowMapper<Group> GROUP_MAPPER =
-        new RowMapper<Group>() {
-            public Group mapRow(final ResultSet rs, int rowNum) throws SQLException {
-                return new Group() {
+    public static final RowMapper<GroupInterface> GROUP_MAPPER =
+        new RowMapper<GroupInterface>() {
+            public GroupInterface mapRow(final ResultSet rs, int rowNum) throws SQLException {
+                return new GroupInterface() {
                     String id = rs.getString("pk_folder");
                     String show = rs.getString("pk_show");
                     String name = rs.getString("str_name");
@@ -403,16 +403,16 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     };
 
 
-    private int childGroupCount(Group group) {
+    private int childGroupCount(GroupInterface group) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(*) FROM folder WHERE pk_parent_folder=?",
                 Integer.class, group.getId());
     }
 
-    private int childJobCount(Group group) {
+    private int childJobCount(GroupInterface group) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(*) FROM job WHERE pk_folder=? AND str_state=?",
-                Integer.class, group.getId(), JobState.Pending.toString());
+                Integer.class, group.getId(), JobState.PENDING.toString());
     }
 
     private void recurseParentChange(final String folderId, final String newParentId) {

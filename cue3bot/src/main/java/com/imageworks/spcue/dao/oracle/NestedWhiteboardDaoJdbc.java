@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.imageworks.spcue.ShowInterface;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
+
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.grpc.host.NestedHost;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
@@ -58,7 +59,6 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     private static final int CACHE_TIMEOUT = 5000;
     private final ConcurrentHashMap<String,CachedJobWhiteboardMapper> jobCache =
         new ConcurrentHashMap<String,CachedJobWhiteboardMapper>(20);
-
 
     public static final String GET_NESTED_GROUPS =
         "SELECT " +

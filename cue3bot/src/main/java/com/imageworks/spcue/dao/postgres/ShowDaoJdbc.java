@@ -28,18 +28,18 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
 
-    private static final RowMapper<ShowDetail> SHOW_MAPPER =
-        new RowMapper<ShowDetail>() {
-            public ShowDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-                ShowDetail show = new ShowDetail();
+    private static final RowMapper<ShowEntity> SHOW_MAPPER =
+        new RowMapper<ShowEntity>() {
+            public ShowEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                ShowEntity show = new ShowEntity();
                 show.name = rs.getString("str_name");
                 show.id = rs.getString("pk_show");
                 show.defaultMaxCores = rs.getInt("int_default_max_cores");
@@ -81,7 +81,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         "WHERE " +
             "show.pk_show = show_alias.pk_show " ;
 
-    public ShowDetail findShowDetail(String name) {
+    public ShowEntity findShowDetail(String name) {
         try {
             return getJdbcTemplate().queryForObject(GET_SHOW + "WHERE show.str_name=?",
                     SHOW_MAPPER, name);
@@ -91,7 +91,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         }
     }
 
-    public ShowDetail getShowDetail(String id) {
+    public ShowEntity getShowDetail(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_SHOW + "WHERE show.pk_show=?", SHOW_MAPPER, id);
     }
@@ -115,7 +115,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         "AND " +
             "deed.pk_host = ?";
 
-    public ShowDetail getShowDetail(Host host) {
+    public ShowEntity getShowDetail(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 GET_PREFERRED_SHOW, SHOW_MAPPER, host.getHostId());
     }
@@ -123,7 +123,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     private static final String INSERT_SHOW =
         "INSERT INTO show (pk_show,str_name) VALUES (?,?)";
 
-    public void insertShow(ShowDetail show) {
+    public void insertShow(ShowEntity show) {
         show.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SHOW, show.id, show.name);
     }
@@ -145,7 +145,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     }
 
     @Override
-    public void delete(Show s) {
+    public void delete(ShowInterface s) {
         getJdbcTemplate().update("DELETE FROM point WHERE pk_show=?",
                 s.getShowId());
         getJdbcTemplate().update("DELETE FROM folder WHERE pk_show=?",
@@ -158,7 +158,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 s.getShowId());
     }
 
-    public void updateShowDefaultMinCores(Show s, int val) {
+    public void updateShowDefaultMinCores(ShowInterface s, int val) {
         if (val < 0) {
             String msg = "Invalid argument, default min cores " + val +
                     "must be greater tham 0";
@@ -169,7 +169,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 val, s.getShowId());
     }
 
-    public void updateShowDefaultMaxCores(Show s, int val) {
+    public void updateShowDefaultMaxCores(ShowInterface s, int val) {
         if (val < 0) {
             String msg = "Invalid argument, default max cores " + val +
                     "must be greater tham 0";
@@ -181,35 +181,35 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
     }
 
     @Override
-    public void updateBookingEnabled(Show s, boolean enabled) {
+    public void updateBookingEnabled(ShowInterface s, boolean enabled) {
         getJdbcTemplate().update(
                 "UPDATE show SET b_booking_enabled = ? WHERE pk_show=?",
                 enabled, s.getShowId());
     }
 
     @Override
-    public void updateDispatchingEnabled(Show s, boolean enabled) {
+    public void updateDispatchingEnabled(ShowInterface s, boolean enabled) {
         getJdbcTemplate().update(
                 "UPDATE show SET b_dispatch_enabled = ? WHERE pk_show=?",
                 enabled, s.getShowId());
     }
 
     @Override
-    public void updateActive(Show s, boolean enabled) {
+    public void updateActive(ShowInterface s, boolean enabled) {
         getJdbcTemplate().update(
                 "UPDATE show SET b_active= ? WHERE pk_show=?",
                 enabled, s.getShowId());
     }
 
     @Override
-    public void updateShowCommentEmail(Show s, String[] email) {
+    public void updateShowCommentEmail(ShowInterface s, String[] email) {
         getJdbcTemplate().update(
                 "UPDATE show SET str_comment_email = ? WHERE pk_show=?",
                 StringUtils.join(email, ","), s.getShowId());
     }
 
     @Override
-    public void updateFrameCounters(Show s, int exitStatus) {
+    public void updateFrameCounters(ShowInterface s, int exitStatus) {
         String col = "int_frame_success_count = int_frame_success_count + 1";
         if (exitStatus > 0) {
             col = "int_frame_fail_count = int_frame_fail_count + 1";

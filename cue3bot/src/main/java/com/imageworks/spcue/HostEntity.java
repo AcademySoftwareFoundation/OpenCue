@@ -47,6 +47,8 @@ public class HostEntity extends Entity implements HostInterface {
     public Date datePinged;
     public Date dateBooted;
 
+    public HostEntity() {}
+
     public HostEntity(Host grpcHost) {
         this.id = grpcHost.getId();
         this.allocId = grpcHost.getAllocName();

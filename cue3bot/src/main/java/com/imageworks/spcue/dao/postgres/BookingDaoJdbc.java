@@ -28,12 +28,12 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueIce.RenderPartitionType;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.util.SqlUtil;
@@ -63,12 +63,12 @@ public class BookingDaoJdbc extends
             "(?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
-    public void insertLocalHostAssignment(Host h, Job job, LocalHostAssignment l) {
+    public void insertLocalHostAssignment(HostInterface h, JobInterface job, LocalHostAssignment l) {
         l.id = SqlUtil.genKeyRandom();
         l.name = String.format("%s->%s", h.getName(), job.getName());
         l.setHostId(h.getHostId());
         l.setJobId(job.getJobId());
-        l.setType(RenderPartitionType.JobPartition);
+        l.setType(RenderPartitionType.JOB_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
         l.setIdleGpu(l.getMaxGpu());
@@ -91,13 +91,13 @@ public class BookingDaoJdbc extends
     }
 
     @Override
-    public void insertLocalHostAssignment(Host h, Layer layer, LocalHostAssignment l) {
+    public void insertLocalHostAssignment(HostInterface h, LayerInterface layer, LocalHostAssignment l) {
         l.id = SqlUtil.genKeyRandom();
         l.name = String.format("%s->%s", h.getName(), layer.getName());
         l.setHostId(h.getHostId());
         l.setJobId(layer.getJobId());
         l.setLayerId(layer.getLayerId());
-        l.setType(RenderPartitionType.LayerPartition);
+        l.setType(RenderPartitionType.LAYER_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
         l.setIdleGpu(l.getMaxGpu());
@@ -120,14 +120,14 @@ public class BookingDaoJdbc extends
     }
 
     @Override
-    public void insertLocalHostAssignment(Host h, Frame frame, LocalHostAssignment l) {
+    public void insertLocalHostAssignment(HostInterface h, FrameInterface frame, LocalHostAssignment l) {
         l.id = SqlUtil.genKeyRandom();
         l.name = String.format("%s->%s", h.getName(), frame.getName());
         l.setHostId(h.getHostId());
         l.setJobId(frame.getJobId());
         l.setLayerId(frame.getLayerId());
         l.setFrameId(frame.getFrameId());
-        l.setType(RenderPartitionType.FramePartition);
+        l.setType(RenderPartitionType.FRAME_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
         l.setIdleGpu(l.getMaxGpu());
@@ -188,7 +188,7 @@ public class BookingDaoJdbc extends
             "host_local ";
 
     @Override
-    public List<LocalHostAssignment> getLocalJobAssignment(Host host) {
+    public List<LocalHostAssignment> getLocalJobAssignment(HostInterface host) {
         return getJdbcTemplate().query(
                 QUERY_FOR_LJA +
                 "WHERE " +
@@ -226,7 +226,7 @@ public class BookingDaoJdbc extends
             "host_local.pk_host = ? ";
 
     @Override
-    public boolean hasLocalJob(Host host) {
+    public boolean hasLocalJob(HostInterface host) {
         return getJdbcTemplate().queryForObject(HAS_LOCAL_JOB,
                 Integer.class, host.getHostId()) > 0;
     }
@@ -245,7 +245,7 @@ public class BookingDaoJdbc extends
             "host_local.pk_host = ? ";
 
     @Override
-    public boolean hasActiveLocalJob(Host host) {
+    public boolean hasActiveLocalJob(HostInterface host) {
         return getJdbcTemplate().queryForObject(HAS_ACTIVE_LOCAL_JOB,
                 Integer.class, host.getHostId()) > 0;
     }
@@ -296,7 +296,7 @@ public class BookingDaoJdbc extends
     };
 
     @Override
-    public boolean isBlackoutTime(Host h) {
+    public boolean isBlackoutTime(HostInterface h) {
         try {
             return getJdbcTemplate().queryForObject(IS_BLACKOUT_TIME,
                     BLACKOUT_MAPPER, h.getHostId());
@@ -367,12 +367,12 @@ public class BookingDaoJdbc extends
 
     /**
      *
-     * @param id
-     * @param cores
-     * @return
+     * @param h HostInterface
+     * @param cores int
+     * @return boolean
      */
     @Override
-    public boolean allocateCoresFromHost(Host h, int cores) {
+    public boolean allocateCoresFromHost(HostInterface h, int cores) {
 
         try {
             return getJdbcTemplate().update(
@@ -388,12 +388,12 @@ public class BookingDaoJdbc extends
 
     /**
      *
-     * @param id
-     * @param cores
-     * @return
+     * @param h HostInterface
+     * @param cores int
+     * @return boolean
      */
     @Override
-    public boolean deallocateCoresFromHost(Host h, int cores) {
+    public boolean deallocateCoresFromHost(HostInterface h, int cores) {
         try {
             return getJdbcTemplate().update(
                     "UPDATE host SET int_cores_idle = int_cores_idle + ? WHERE pk_host = ?",
@@ -405,7 +405,7 @@ public class BookingDaoJdbc extends
     }
 
     @Override
-    public boolean hasResourceDeficit(Host host) {
+    public boolean hasResourceDeficit(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host_local WHERE " +
                 "(int_cores_max < int_cores_max - int_cores_idle OR " +

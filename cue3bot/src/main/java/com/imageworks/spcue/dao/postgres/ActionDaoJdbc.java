@@ -27,12 +27,12 @@ import java.util.List;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Action;
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.Filter;
+import com.imageworks.spcue.ActionInterface;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
-import com.imageworks.spcue.CueIce.ActionType;
-import com.imageworks.spcue.CueIce.ActionValueType;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -45,9 +45,9 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
             "pk_action,pk_filter,str_action,str_value_type,b_stop" +
         ") VALUES (?,?,?,?,?)";
 
-    public void createAction(ActionDetail action) {
+    public void createAction(ActionEntity action) {
         action.id = SqlUtil.genKeyRandom();
-        boolean stopAction = ActionType.StopProcessing.equals(action.type);
+        boolean stopAction = ActionType.STOP_PROCESSING.equals(action.type);
         getJdbcTemplate().update(INSERT_ACTION,
                 action.id, action.filterId,action.type.toString(),
                 action.valueType.toString(), stopAction);
@@ -64,25 +64,25 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
         "WHERE " +
             "action.pk_filter = filter.pk_filter";
 
-    public ActionDetail getAction(String id) {
+    public ActionEntity getAction(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_ACTION + " AND pk_action=?",
                 ACTION_DETAIL_MAPPER, id);
     }
 
-    public ActionDetail getAction(Action action) {
+    public ActionEntity getAction(ActionInterface action) {
         return getJdbcTemplate().queryForObject(
                 GET_ACTION + " AND pk_action=?",
                 ACTION_DETAIL_MAPPER, action.getActionId());
     }
 
-    public List<ActionDetail> getActions(Filter filter) {
+    public List<ActionEntity> getActions(FilterInterface filter) {
         return getJdbcTemplate().query(
                 GET_ACTION + " AND filter.pk_filter=? ORDER BY b_stop ASC, ts_created ASC",
                 ACTION_DETAIL_MAPPER, filter.getFilterId());
     }
 
-    public void updateAction(ActionDetail action) {
+    public void updateAction(ActionEntity action) {
         if (action.isNew()) {
             throw new SpcueRuntimeException("unable to update action that is not already commited");
         }
@@ -101,32 +101,32 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
         args.add(action.valueType.toString());
 
         switch(action.valueType) {
-            case GroupType:
+            case GROUP_TYPE:
                 query.append(",pk_folder=?  WHERE pk_action=?");
                 args.add(action.groupValue);
                 break;
 
-            case StringType:
+            case STRING_TYPE:
                 query.append(",str_value=?  WHERE pk_action=?");
                 args.add(action.stringValue);
                 break;
 
-            case IntegerType:
+            case INTEGER_TYPE:
                 query.append(",int_value=? WHERE pk_action=?");
                 args.add(action.intValue);
                 break;
 
-            case FloatType:
+            case FLOAT_TYPE:
                 query.append(",float_value=? WHERE pk_action=?");
                 args.add(action.floatValue);
                 break;
 
-            case BooleanType:
+            case BOOLEAN_TYPE:
                 query.append(",b_value=?  WHERE pk_action=?");
                 args.add(action.booleanValue);
                 break;
 
-            case NoneType:
+            case NONE_TYPE:
                 query.append(" WHERE pk_action=?");
                 break;
 
@@ -140,13 +140,13 @@ public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
 
     }
 
-    public void deleteAction(Action action) {
+    public void deleteAction(ActionInterface action) {
         getJdbcTemplate().update("DELETE FROM action WHERE pk_action=?",action.getActionId());
     }
 
-    public static final RowMapper<ActionDetail> ACTION_DETAIL_MAPPER = new RowMapper<ActionDetail>() {
-        public ActionDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-            ActionDetail action = new ActionDetail();
+    public static final RowMapper<ActionEntity> ACTION_DETAIL_MAPPER = new RowMapper<ActionEntity>() {
+        public ActionEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            ActionEntity action = new ActionEntity();
             action.id = rs.getString("pk_action");
             action.showId = rs.getString("pk_show");
             action.filterId = rs.getString("pk_filter");

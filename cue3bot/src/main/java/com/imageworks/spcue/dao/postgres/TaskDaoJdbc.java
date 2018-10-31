@@ -27,12 +27,12 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Task;
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskInterface;
+import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -42,28 +42,28 @@ import com.imageworks.spcue.util.SqlUtil;
 public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
 
     @Override
-    public void deleteTasks(Point cdept) {
+    public void deleteTasks(PointInterface cdept) {
         getJdbcTemplate().update(
                 "DELETE FROM task WHERE pk_point=?",
                 cdept.getPointId());
     }
 
     @Override
-    public void deleteTasks(Show show, Department dept) {
+    public void deleteTasks(ShowInterface show, DepartmentInterface dept) {
         getJdbcTemplate().update(
                 "DELETE FROM task WHERE pk_show=? AND pk_dept=?",
                 show.getShowId(), dept.getDepartmentId());
     }
 
     @Override
-    public void deleteTask(Task task) {
+    public void deleteTask(TaskInterface task) {
         getJdbcTemplate().update(
                 "DELETE FROM task WHERE pk_task=?",
                 task.getId());
     }
 
     @Override
-    public boolean isManaged(Task t) {
+    public boolean isManaged(TaskInterface t) {
         try {
             return getJdbcTemplate().queryForObject("SELECT b_managed FROM point WHERE pk_show=? and pk_dept=?",
                 Integer.class, t.getShowId(), t.getDepartmentId()) == 1;
@@ -84,7 +84,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
         "VALUES (?,?,?,?)";
 
     @Override
-    public void insertTask(TaskDetail task) {
+    public void insertTask(TaskEntity task) {
         task.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_TASK,
                 task.id, task.getPointId(), task.shot, task.minCoreUnits);
@@ -111,10 +111,10 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
         "AND " +
             "point.pk_point = task.pk_point ";
 
-    public static final RowMapper<TaskDetail> TASK_DETAIL_MAPPER =
-        new RowMapper<TaskDetail>() {
-        public TaskDetail mapRow(ResultSet rs, int row) throws SQLException {
-            TaskDetail t = new TaskDetail();
+    public static final RowMapper<TaskEntity> TASK_DETAIL_MAPPER =
+        new RowMapper<TaskEntity>() {
+        public TaskEntity mapRow(ResultSet rs, int row) throws SQLException {
+            TaskEntity t = new TaskEntity();
             t.pointId = rs.getString("pk_point");
             t.deptId = rs.getString("pk_dept");
             t.showId = rs.getString("pk_show");
@@ -127,21 +127,21 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
     };
 
     @Override
-    public TaskDetail getTaskDetail(String id) {
+    public TaskEntity getTaskDetail(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_TASK_DETAIL + " AND task.pk_task=?",
                 TASK_DETAIL_MAPPER, id);
     }
 
     @Override
-    public TaskDetail getTaskDetail(Department d, String shot) {
+    public TaskEntity getTaskDetail(DepartmentInterface d, String shot) {
         return getJdbcTemplate().queryForObject(
                 GET_TASK_DETAIL + " AND point.pk_dept = ? AND task.str_shot = ?",
                 TASK_DETAIL_MAPPER, d.getDepartmentId(), shot);
     }
 
     @Override
-    public TaskDetail getTaskDetail(Job j) {
+    public TaskEntity getTaskDetail(JobInterface j) {
         Map<String,Object> map = getJdbcTemplate().queryForMap(
                 "SELECT pk_dept, str_shot FROM job WHERE job.pk_job=?", j.getJobId());
 
@@ -150,7 +150,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
                 TASK_DETAIL_MAPPER, map.get("str_shot").toString(), map.get("pk_dept").toString());
     }
 
-    public void updateTaskMinCores(Task t, int value) {
+    public void updateTaskMinCores(TaskInterface t, int value) {
         if (value < 0) {
             throw new IllegalArgumentException("min cores must be greater than or equal to 0");
         }
@@ -160,7 +160,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
     }
 
     @Override
-    public void adjustTaskMinCores(Task t, int value) {
+    public void adjustTaskMinCores(TaskInterface t, int value) {
         if (value < 0) {
             throw new IllegalArgumentException("min cores must be greater than or equal to 0");
         }
@@ -170,7 +170,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
     }
 
     @Override
-    public void mergeTask(TaskDetail t) {
+    public void mergeTask(TaskEntity t) {
         String pkTask = null;
         try {
             pkTask = getJdbcTemplate().queryForObject(
@@ -214,7 +214,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
             "pk_dept = ? ";
 
     @Override
-    public void clearTaskAdjustments(Point cdept) {
+    public void clearTaskAdjustments(PointInterface cdept) {
         getJdbcTemplate().update(CLEAR_TASK_ADJUSTMENTS,
                 cdept.getShowId(), cdept.getDepartmentId());
     }
@@ -228,7 +228,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
             "pk_task=?";
 
     @Override
-    public void clearTaskAdjustment(Task t) {
+    public void clearTaskAdjustment(TaskInterface t) {
         getJdbcTemplate().update(CLEAR_TASK_ADJUSTMENT, t.getTaskId());
     }
 
@@ -251,7 +251,7 @@ public class TaskDaoJdbc extends JdbcDaoSupport implements TaskDao {
             "job.pk_job = ?";
 
     @Override
-    public boolean isManaged(Job j) {
+    public boolean isManaged(JobInterface j) {
         return getJdbcTemplate().queryForObject(IS_JOB_MANAGED,
                 Integer.class, j.getJobId()) > 0;
     }

@@ -29,9 +29,9 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.EntityModificationError;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.SubscriptionInterface;
+import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.util.SqlUtil;
@@ -50,7 +50,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
          "AND " +
             "s.int_cores > s.int_size ";
 
-    public boolean isShowOverSize(Show show, AllocationInterface alloc) {
+    public boolean isShowOverSize(ShowInterface show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_OVER_SIZE,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;
@@ -80,7 +80,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         "AND " +
             "s.int_cores >= s.int_size ";
 
-    public boolean isShowAtOrOverSize(Show show, AllocationInterface alloc) {
+    public boolean isShowAtOrOverSize(ShowInterface show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_AT_OR_OVER_SIZE,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;
@@ -102,7 +102,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
             "s.int_cores + ? > s.int_burst";
 
     @Override
-    public boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits) {
+    public boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_OVER_BURST,
                     Integer.class, show.getShowId(), alloc.getAllocationId(),
@@ -125,7 +125,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
             "s.int_cores >= s.int_burst";
 
     @Override
-    public boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc) {
+    public boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc) {
         try {
             return getJdbcTemplate().queryForObject(IS_SHOW_AT_OR_OVER_BURST,
                     Integer.class, show.getShowId(), alloc.getAllocationId()) > 0;
@@ -154,9 +154,9 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         "AND " +
             "alloc.pk_facility = facility.pk_facility ";
 
-    public static RowMapper<SubscriptionDetail> SUB_MAPPER = new RowMapper<SubscriptionDetail>() {
-        public SubscriptionDetail mapRow(ResultSet rs, int rowNum) throws SQLException {
-            SubscriptionDetail s = new SubscriptionDetail();
+    public static RowMapper<SubscriptionEntity> SUB_MAPPER = new RowMapper<SubscriptionEntity>() {
+        public SubscriptionEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            SubscriptionEntity s = new SubscriptionEntity();
             s.allocationId = rs.getString("pk_alloc");
             s.burst = rs.getInt("int_burst");
             s.size = rs.getInt("int_size");
@@ -167,7 +167,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     };
 
-    public SubscriptionDetail getSubscriptionDetail(String id) {
+    public SubscriptionEntity getSubscriptionDetail(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_SUB + " AND pk_subscription=?",
                 SUB_MAPPER, id);
@@ -181,7 +181,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         ") " +
         "VALUES (?,?,?,?,?)";
 
-    public void insertSubscription(SubscriptionDetail detail) {
+    public void insertSubscription(SubscriptionEntity detail) {
         detail.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SUBSCRIPTION,
                 detail.id, detail.allocationId, detail.showId, detail.size, detail.burst);
@@ -196,7 +196,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         "AND " +
             "s.int_cores > 0 ";
 
-    public boolean hasRunningProcs(Subscription sub) {
+    public boolean hasRunningProcs(SubscriptionInterface sub) {
         try {
             return getJdbcTemplate().queryForObject(HAS_RUNNING_PROCS,
                     Integer.class, sub.getSubscriptionId()) > 0;
@@ -205,7 +205,7 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
         }
     }
 
-    public void deleteSubscription(Subscription sub) {
+    public void deleteSubscription(SubscriptionInterface sub) {
         if (hasRunningProcs(sub)) {
             throw new EntityModificationError("You cannot delete a subscription with running procs");
         }
@@ -214,13 +214,13 @@ public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionD
                 sub.getSubscriptionId());
     }
 
-    public void updateSubscriptionSize(Subscription sub, int size) {
+    public void updateSubscriptionSize(SubscriptionInterface sub, int size) {
         getJdbcTemplate().update(
                 "UPDATE subscription SET int_size=? WHERE pk_subscription=?",
                 size, sub.getSubscriptionId());
     }
 
-    public void updateSubscriptionBurst(Subscription sub, int size) {
+    public void updateSubscriptionBurst(SubscriptionInterface sub, int size) {
         getJdbcTemplate().update(
                 "UPDATE subscription SET int_burst=? WHERE pk_subscription=?",
                 size, sub.getSubscriptionId());
