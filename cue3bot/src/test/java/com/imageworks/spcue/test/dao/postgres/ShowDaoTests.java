@@ -36,7 +36,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -99,7 +99,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testFindShowDetail() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         assertEquals(SHOW_ID, show.id);
         assertEquals(SHOW_NAME,show.name);
         assertFalse(show.paused);
@@ -118,7 +118,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testGetShowDetail() {
-        ShowDetail show = showDao.getShowDetail(SHOW_ID);
+        ShowEntity show = showDao.getShowDetail(SHOW_ID);
         assertEquals(SHOW_ID, show.id);
         assertEquals(SHOW_NAME,show.name);
         assertFalse(show.paused);
@@ -128,7 +128,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testInsertShow() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "uber";
         showDao.insertShow(show);
 
@@ -136,7 +136,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 "SELECT count(*) FROM show where str_name=?",
                 Integer.class, show.name));
 
-        ShowDetail newShow = showDao.findShowDetail(show.name);
+        ShowEntity newShow = showDao.findShowDetail(show.name);
         assertEquals(newShow.id, show.id);
         assertEquals(newShow.name,show.name);
         assertFalse(show.paused);
@@ -155,7 +155,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateShowDefaultMinCores() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateShowDefaultMinCores(show, 100);
         assertTrue(jdbcTemplate.queryForObject(
                 "SELECT int_default_min_cores FROM show WHERE pk_show=?",
@@ -167,7 +167,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateShowDefaultMaxCores() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateShowDefaultMaxCores(show, 1000);
         assertTrue(jdbcTemplate.queryForObject(
                 "SELECT int_default_max_cores FROM show WHERE pk_show=?",
@@ -179,7 +179,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateShowCommentEmail() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateShowCommentEmail(show, new String[] {"test@imageworks.com"});
         String email = jdbcTemplate.queryForObject(
                 "SELECT str_comment_email FROM show WHERE pk_show=?",
@@ -191,7 +191,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateBookingEnabled() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateBookingEnabled(show,false);
         assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_booking_enabled FROM show WHERE pk_show=?",
@@ -202,7 +202,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateActive() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         showDao.updateActive(show, false);
         assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_active FROM show WHERE pk_show=?",
@@ -217,7 +217,7 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testUpdateFrameCounters() {
-        ShowDetail show = showDao.findShowDetail(SHOW_NAME);
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
         int frameSuccess =  jdbcTemplate.queryForObject(
                 "SELECT int_frame_success_count FROM show WHERE pk_show=?",
                 Integer.class, show.id);

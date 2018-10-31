@@ -41,17 +41,17 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.HostTagType;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostTagType;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
@@ -146,11 +146,11 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 true);
 
-        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
         assertEquals(TEST_HOST_NEW, hostDetail.name);
 
-        Host host = hostDao.findHost(FQDN_HOST);
-        HostDetail hostDetail2 = hostDao.getHostDetail(host);
+        HostInterface host = hostDao.findHost(FQDN_HOST);
+        HostEntity hostDetail2 = hostDao.getHostDetail(host);
         assertEquals(TEST_HOST_NEW, hostDetail2.name);
     }
 
@@ -164,11 +164,11 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
         assertEquals(TEST_HOST_NEW, hostDetail.name);
 
-        Host host = hostDao.findHost(FQDN_HOST);
-        HostDetail hostDetail2 = hostDao.getHostDetail(host);
+        HostInterface host = hostDao.findHost(FQDN_HOST);
+        HostEntity hostDetail2 = hostDao.getHostDetail(host);
         assertEquals(TEST_HOST_NEW, hostDetail2.name);
 
     }
@@ -183,11 +183,11 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
             hostManager.getDefaultAllocationDetail(),
             false);
 
-        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
         assertEquals(TEST_HOST_NEW, hostDetail.name);
 
-        Host host = hostDao.findHost(FQDN_HOST);
-        HostDetail hostDetail2 = hostDao.getHostDetail(host);
+        HostInterface host = hostDao.findHost(FQDN_HOST);
+        HostEntity hostDetail2 = hostDao.getHostDetail(host);
         assertEquals(TEST_HOST_NEW, hostDetail2.name);
 
     }
@@ -237,16 +237,16 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail d = hostDao.findHostDetail(TEST_HOST);
-        hostDao.updateThreadMode(d, ThreadMode.Auto);
+        HostEntity d = hostDao.findHostDetail(TEST_HOST);
+        hostDao.updateThreadMode(d, ThreadMode.AUTO);
 
-        assertEquals(Integer.valueOf(ThreadMode.Auto.value()), jdbcTemplate.queryForObject(
+        assertEquals(Integer.valueOf(ThreadMode.AUTO_VALUE), jdbcTemplate.queryForObject(
                 "SELECT int_thread_mode FROM host WHERE pk_host=?",
                 Integer.class, d.id));
 
-        hostDao.updateThreadMode(d, ThreadMode.All);
+        hostDao.updateThreadMode(d, ThreadMode.ALL);
 
-        assertEquals(Integer.valueOf(ThreadMode.All.value()), jdbcTemplate.queryForObject(
+        assertEquals(Integer.valueOf(ThreadMode.ALL_VALUE), jdbcTemplate.queryForObject(
                 "SELECT int_thread_mode FROM host WHERE pk_host=?",
                 Integer.class, d.id));
     }
@@ -260,7 +260,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail host = hostDao.findHostDetail(TEST_HOST);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
         hostDao.getHostDetail(host);
         hostDao.getHostDetail(host.getHostId());
     }
@@ -273,10 +273,10 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail host = hostDao.findHostDetail(TEST_HOST);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
         assertEquals(hostDao.isHostLocked(host),false);
 
-        hostDao.updateHostLock(host, LockState.Locked, new Source("TEST"));
+        hostDao.updateHostLock(host, LockState.LOCKED, new Source("TEST"));
         assertEquals(hostDao.isHostLocked(host),true);
     }
 
@@ -288,7 +288,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail host = hostDao.findHostDetail(TEST_HOST);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
         assertFalse(hostDao.isKillMode(host));
 
         jdbcTemplate.update(
@@ -333,7 +333,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail host = hostDao.findHostDetail(TEST_HOST);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
         assertEquals(hostDao.hostExists(TEST_HOST),true);
         hostDao.deleteHost(host);
         assertEquals(hostDao.hostExists(TEST_HOST),false);
@@ -347,7 +347,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail host = hostDao.findHostDetail(TEST_HOST);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
         assertFalse(jdbcTemplate.queryForObject(
                 "SELECT b_reboot_idle FROM host WHERE pk_host=?",
                 Boolean.class, host.getHostId()));
@@ -449,7 +449,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST);
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST);
         DispatchHost dispatchHost = hostDao.findDispatchHost(TEST_HOST);
 
         assertEquals(dispatchHost.name, TEST_HOST);
@@ -467,7 +467,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 hostManager.getDefaultAllocationDetail(),
                 false);
 
-        HostDetail hostDetail = hostDao.findHostDetail(TEST_HOST);
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST);
 
         hostDao.updateHostSetAllocation(hostDetail,
                 hostManager.getDefaultAllocationDetail());
@@ -481,8 +481,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     public void testUpdateHostSetManualTags() {
         DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
 
-        hostDao.tagHost(host,"frick", HostTagType.Manual);
-        hostDao.tagHost(host,"jack", HostTagType.Manual);
+        hostDao.tagHost(host,"frick", HostTagType.MANUAL);
+        hostDao.tagHost(host,"jack", HostTagType.MANUAL);
         hostDao.recalcuateTags(host.id);
 
         String tag = jdbcTemplate.queryForObject(
@@ -517,7 +517,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals("unassigned beta", jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class, host.id));
 
-        hostDao.tagHost(host, "32bit",HostTagType.Manual);
+        hostDao.tagHost(host, "32bit",HostTagType.MANUAL);
         hostDao.recalcuateTags(host.id);
 
         assertEquals("unassigned beta 32bit", jdbcTemplate.queryForObject(

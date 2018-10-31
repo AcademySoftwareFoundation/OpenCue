@@ -33,7 +33,7 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
@@ -94,7 +94,7 @@ public class DepartmentDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testInsertDepartment() {
         String deptName = "TestDept";
         departmentDao.insertDepartment(deptName);
-        Department d = departmentDao.findDepartment(deptName);
+        DepartmentInterface d = departmentDao.findDepartment(deptName);
         assertEquals(d.getName(), deptName);
     }
 
@@ -104,7 +104,7 @@ public class DepartmentDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testDeleteDepartment() {
         String deptName = "TestDept";
         departmentDao.insertDepartment(deptName);
-        Department d = departmentDao.findDepartment(deptName);
+        DepartmentInterface d = departmentDao.findDepartment(deptName);
         assertEquals(d.getName(), deptName);
         departmentDao.deleteDepartment(d);
     }

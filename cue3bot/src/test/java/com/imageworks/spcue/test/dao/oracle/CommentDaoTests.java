@@ -61,7 +61,6 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     @Rule
     public AssumingOracleEngine assumingOracleEngine;
 
-
     @Resource
     CommentDao commentDao;
 

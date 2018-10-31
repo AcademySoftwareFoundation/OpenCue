@@ -42,11 +42,10 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.JobState;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -57,6 +56,7 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
@@ -267,7 +267,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindNextDispatchFramesByHostAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
@@ -301,7 +301,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindNextDispatchFramesByProcAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
@@ -355,7 +355,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertNotNull(job);
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host,
-                adminManager.findShowDetail("pipe"), 5);
+                adminManager.findShowEntity("pipe"), 5);
         assertTrue(jobs.size() > 0);
     }
 
@@ -395,12 +395,12 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
-        assertEquals(JobState.Pending.toString(),
+        assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, job1.id));
 
-        assertEquals(JobState.Pending.toString(),
+        assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, job2.id));

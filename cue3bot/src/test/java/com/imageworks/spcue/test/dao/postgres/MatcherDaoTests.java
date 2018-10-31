@@ -21,6 +21,7 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.ShowEntity;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,16 +33,16 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.MatcherDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueIce.FilterType;
-import com.imageworks.spcue.CueIce.MatchSubject;
-import com.imageworks.spcue.CueIce.MatchType;
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 @Transactional
@@ -67,28 +68,28 @@ public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTes
 
     private static String FILTER_NAME = "test_filter";
 
-    public Show getShow() {
+    public ShowEntity getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
-    public MatcherDetail createMatcher() {
-        FilterDetail filter = createFilter();
-        MatcherDetail matcher = new MatcherDetail();
+    public MatcherEntity createMatcher() {
+        FilterEntity filter = createFilter();
+        MatcherEntity matcher = new MatcherEntity();
         matcher.filterId = filter.id;
         matcher.name = null;
         matcher.showId = getShow().getId();
-        matcher.subject = MatchSubject.JobName;
-        matcher.type = MatchType.Contains;
+        matcher.subject = MatchSubject.JOB_NAME;
+        matcher.type = MatchType.CONTAINS;
         matcher.value = "testuser";
         matcherDao.insertMatcher(matcher);
         return matcher;
     }
 
-    public FilterDetail createFilter() {
-        FilterDetail filter = new FilterDetail();
+    public FilterEntity createFilter() {
+        FilterEntity filter = new FilterEntity();
         filter.name = FILTER_NAME;
         filter.showId = "00000000-0000-0000-0000-000000000000";
-        filter.type = FilterType.MatchAny;
+        filter.type = FilterType.MATCH_ANY;
         filter.enabled = true;
         filterDao.insertFilter(filter);
         return filter;
@@ -105,7 +106,7 @@ public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testDeleteMatcher() {
-        MatcherDetail matcher = createMatcher();
+        MatcherEntity matcher = createMatcher();
         matcherDao.deleteMatcher(matcher);
     }
 
@@ -113,10 +114,10 @@ public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testUpdateMatcher() {
-        MatcherDetail matcher = createMatcher();
-        matcher.subject = MatchSubject.User;
+        MatcherEntity matcher = createMatcher();
+        matcher.subject = MatchSubject.USER;
         matcher.value = "testuser";
-        matcher.type = MatchType.Is;
+        matcher.type = MatchType.IS;
         matcherDao.updateMatcher(matcher);
     }
 
@@ -124,7 +125,7 @@ public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testGetMatcher() {
-        MatcherDetail matcher = createMatcher();
+        MatcherEntity matcher = createMatcher();
         matcherDao.getMatcher(matcher);
         matcherDao.getMatcher(matcher.getMatcherId());
     }
@@ -133,7 +134,7 @@ public class MatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testGetMatchers() {
-        MatcherDetail matcher = createMatcher();
+        MatcherEntity matcher = createMatcher();
         matcherDao.getMatchers(matcher);
     }
 

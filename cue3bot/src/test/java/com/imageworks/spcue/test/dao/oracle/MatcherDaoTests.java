@@ -35,13 +35,13 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.MatchSubject;
-import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 
 @Transactional

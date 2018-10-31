@@ -56,7 +56,6 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
     @Rule
     public AssumingOracleEngine assumingOracleEngine;
 
-
     @Resource
     OwnerManager ownerManager;
 
@@ -210,10 +209,4 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
                 Integer.class, d.getId()));
     }
 }
-
-
-
-
-
-
 

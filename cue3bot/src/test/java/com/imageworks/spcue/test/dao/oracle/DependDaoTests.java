@@ -38,9 +38,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LightweightDependency;
-
 import com.imageworks.spcue.JobDetail;
-
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;

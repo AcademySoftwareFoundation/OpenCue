@@ -37,16 +37,14 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LightweightDependency;
-
 import com.imageworks.spcue.JobDetail;
-
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -111,8 +109,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.JobOnJob, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.JOB_ON_JOB, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -125,14 +123,14 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
 
-        Layer layer = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job_b, "pass_1");
         JobOnLayer depend = new JobOnLayer(job_a, layer);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.JobOnLayer, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.JOB_ON_LAYER, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -151,8 +149,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.JobOnFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.JOB_ON_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -164,15 +162,15 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnJob depend = new LayerOnJob(layer, job_a);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.LayerOnJob, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.LAYER_ON_JOB, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -184,16 +182,16 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnLayer depend = new LayerOnLayer(layer_a, layer_b);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.LayerOnLayer, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.LAYER_ON_LAYER, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -205,7 +203,7 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job_a, "pass_1");
         FrameDetail frame = frameDao.findFrameDetail(job_b, "0001-pass_1");
 
         LayerOnFrame depend = new LayerOnFrame(layer, frame);
@@ -213,8 +211,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.LayerOnFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.LAYER_ON_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -233,8 +231,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.FrameOnJob, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.FRAME_ON_JOB, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -246,7 +244,7 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job_a, "pass_1");
         FrameDetail frame = frameDao.findFrameDetail(job_b, "0001-pass_1");
 
         FrameOnLayer depend = new FrameOnLayer(frame,layer);
@@ -254,8 +252,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.FrameOnLayer, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.FRAME_ON_LAYER, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -276,8 +274,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.FrameOnFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.FRAME_ON_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -289,16 +287,16 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.FrameByFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.FRAME_BY_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -310,16 +308,16 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         PreviousFrame depend = new PreviousFrame(layer_a, layer_b);
         dependDao.insertDepend(depend);
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.PreviousFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.PREVIOUS_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
     }
@@ -340,8 +338,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
         LightweightDependency lwd = dependDao.getDepend(depend.getId());
         assertEquals(depend.getId(), lwd.getId());
-        assertEquals(DependType.FrameOnFrame, lwd.type);
-        assertEquals(DependTarget.External, lwd.target);
+        assertEquals(DependType.FRAME_ON_FRAME, lwd.type);
+        assertEquals(DependTarget.EXTERNAL, lwd.target);
         assertTrue(lwd.active);
         assertFalse(lwd.anyFrame);
 
@@ -375,8 +373,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
 
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnLayer depend = new LayerOnLayer(layer_a, layer_b);
         dependDao.insertDepend(depend);
@@ -393,8 +391,8 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         JobDetail job_a = getJobA();
         JobDetail job_b = getJobB();
 
-        Layer layer_a = layerDao.findLayer(job_a, "pass_1");
-        Layer layer_b = layerDao.findLayer(job_b, "pass_1");
+        LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
+        LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
         LayerOnLayer depend = new LayerOnLayer(layer_a, layer_b);
         dependDao.insertDepend(depend);

@@ -23,9 +23,6 @@ import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.grpc.department.Department;
-import com.imageworks.spcue.grpc.host.*;
-import com.imageworks.spcue.grpc.job.*;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -43,7 +40,6 @@ import java.util.List;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionEntity;
-
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DeedEntity;
@@ -75,6 +71,25 @@ import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.department.Department;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.ActionValueType;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.Owner;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
+import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.DependManager;
@@ -86,13 +101,6 @@ import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.spcue.grpc.filter.ActionType;
-import com.imageworks.spcue.grpc.filter.ActionValueType;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.MatchSubject;
-import com.imageworks.spcue.grpc.filter.MatchType;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.report.RenderHost;
 
 
 @Transactional
