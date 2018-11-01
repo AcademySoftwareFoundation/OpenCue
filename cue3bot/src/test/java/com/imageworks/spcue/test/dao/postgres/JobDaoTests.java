@@ -203,7 +203,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     public void testJobExists() {
         assertFalse(jobDao.exists(JOB_NAME));
         JobDetail job = insertJob();
-        jdbcTemplate.update("UPDATE job SET str_state='Pending' WHERE pk_job=?",
+        jdbcTemplate.update("UPDATE job SET str_state='PENDING' WHERE pk_job=?",
                 job.id);
         assertTrue(jobDao.exists(JOB_NAME));
     }

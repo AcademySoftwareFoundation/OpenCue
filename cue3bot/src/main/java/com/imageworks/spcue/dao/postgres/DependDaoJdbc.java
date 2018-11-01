@@ -307,11 +307,11 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "frame " +
         "SET " +
-            "str_state='Depend' " +
+            "str_state='DEPEND' " +
         "WHERE " +
             "int_depend_count != 0 " +
         "AND " +
-             "frame.str_state NOT IN ('Succeeded','Eaten','Running','Depend') " +
+             "frame.str_state NOT IN ('SUCCEEDED','EATEN','RUNNING','DEPEND') " +
         "AND " +
             "frame.pk_frame = ?";
 

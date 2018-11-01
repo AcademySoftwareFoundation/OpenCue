@@ -32,7 +32,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
@@ -42,6 +41,7 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SortableShow;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.DispatcherDao;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST;
@@ -84,9 +84,9 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     };
 
     private int threadMode(int mode) {
-        if (mode == ThreadMode.All.value())
+        if (mode == ThreadMode.ALL_VALUE)
             return mode;
-        return ThreadMode.Auto.value();
+        return ThreadMode.AUTO_VALUE;
     }
 
     /**
