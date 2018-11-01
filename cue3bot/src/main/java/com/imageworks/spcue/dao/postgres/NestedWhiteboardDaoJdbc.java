@@ -118,7 +118,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         "LEFT JOIN " +
             "job " +
         "ON " +
-            " (folder.pk_folder = job.pk_folder AND job.str_state='Pending') " +
+            " (folder.pk_folder = job.pk_folder AND job.str_state='PENDING') " +
         "LEFT JOIN " +
             "facility "+
         "ON " +

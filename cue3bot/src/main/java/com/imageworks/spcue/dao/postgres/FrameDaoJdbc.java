@@ -210,7 +210,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "pk_frame = ? " +
         "AND " +
-            "str_state = 'Running'";
+            "str_state = 'RUNNING'";
 
     @Override
     public boolean updateFrameFixed(VirtualProc proc, FrameInterface frame) {
@@ -402,9 +402,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "job.pk_job = frame.pk_job " +
         "AND " +
-            "frame.str_state = 'Running' " +
+            "frame.str_state = 'RUNNING' " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +
@@ -424,7 +424,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
-            "frame.str_state = 'Running' " +
+            "frame.str_state = 'RUNNING' " +
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +

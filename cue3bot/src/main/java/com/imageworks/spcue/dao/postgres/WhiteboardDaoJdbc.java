@@ -330,7 +330,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @Override
     public Layer findLayer(String job, String layer) {
         return getJdbcTemplate().queryForObject(
-                GET_LAYER + " AND job.str_state='Pending' AND job.str_name=? AND layer.str_name=?",
+                GET_LAYER + " AND job.str_state='PENDING' AND job.str_name=? AND layer.str_name=?",
                 LAYER_MAPPER, job, layer);
     }
 
@@ -451,8 +451,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
          */
         List<Depend> depends = getJdbcTemplate().query(
                 GET_DEPEND + " WHERE " +
-                        "(pk_job_depend_er=? AND str_type IN ('JobOnJob','JobOnLayer','JobOnFrame')) OR " +
-                        "(pk_layer_depend_er=? AND str_type IN ('LayerOnJob','LayerOnLayer','LayerOnFrame')) " +
+                        "(pk_job_depend_er=? AND str_type IN ('JOB_ON_JOB','JOB_ON_LAYER','JOB_ON_FRAME')) OR " +
+                        "(pk_layer_depend_er=? AND str_type IN ('LAYER_ON_JOB','LAYER_ON_LAYER','LAYER_ON_FRAME')) " +
                         "OR (pk_frame_depend_er=?)",
                 DEPEND_MAPPER, frame.getJobId(), frame.getLayerId(), frame.getFrameId());
         return DependSeq.newBuilder().addAllDepends(depends).build();
@@ -461,7 +461,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @Override
     public DependSeq getDepends(JobInterface job) {
         List<Depend> depends = getJdbcTemplate().query(
-                GET_DEPEND + " WHERE pk_job_depend_er=? AND str_type != 'FrameOnFrame'",
+                GET_DEPEND + " WHERE pk_job_depend_er=? AND str_type != 'FRAME_ON_FRAME'",
                 DEPEND_MAPPER, job.getJobId());
         return DependSeq.newBuilder().addAllDepends(depends).build();
     }
@@ -1377,7 +1377,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "WHERE " +
             "job.pk_show = show.pk_show " +
         "AND " +
-            "job.str_state = 'Pending' ";
+            "job.str_state = 'PENDING' ";
 
     private static final String GET_HOST_COMMENTS =
         "SELECT " +
@@ -1431,7 +1431,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     private static final String FIND_FRAME = GET_FRAME + " " +
         "AND " +
-            "job.str_state='Pending' " +
+            "job.str_state='PENDING' " +
         "AND " +
             "job.str_name=? " +
         "AND " +
@@ -1913,7 +1913,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     private static final String GET_PENDING_JOBS =
         GET_JOB +
         "AND " +
-            "job.str_state = 'Pending' ";
+            "job.str_state = 'PENDING' ";
 
     private static final String GET_FRAMES_CRITERIA =
 

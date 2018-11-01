@@ -252,7 +252,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          * and has not been updated in the last 5 min.
          */
         jdbcTemplate.update(
-                "UPDATE frame SET str_state = 'Running', " +
+                "UPDATE frame SET str_state = 'RUNNING', " +
                 "ts_updated = current_timestamp - interval '301' second WHERE pk_frame = ?",
                 f.getFrameId());
 
