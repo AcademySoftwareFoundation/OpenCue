@@ -30,18 +30,18 @@ enum RenderPartitionType {
 // -------- Primary Message Types --------]
 
 message RenderPartition {
-    string job = 1;
-    string layer = 2;
-    string frame = 3;
-    RenderPartitionType render_part_type = 4;
-    string host = 5;
-    int32 cores = 6;
-    int64 memory = 7;
-    int32 max_cores = 8;
-    int64 max_memory = 9;
-    int64 max_gpu = 10;
-    int32 threads = 11;
-    string id = 12;
+    string id = 1;
+    string job = 2;
+    string layer = 3;
+    string frame = 4;
+    RenderPartitionType render_part_type = 5;
+    string host = 6;
+    int32 cores = 7;
+    int64 memory = 8;
+    int32 max_cores = 9;
+    int64 max_memory = 10;
+    int64 max_gpu = 11;
+    int32 threads = 12;
 }
 
 message RenderPartitionSeq {

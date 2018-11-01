@@ -33,14 +33,14 @@ service SubscriptionInterface {
 // -------- Primary Message Types --------]
 
 message Subscription {
-    string name = 1;
-    string show_name = 2;
-    string facility = 3;
-    string allocation_name = 4;
-    int32 size = 5;
-    int32 burst = 6;
-    int32 reserved_cores = 7;
-    string id = 8;
+    string id = 1;
+    string name = 2;
+    string show_name = 3;
+    string facility = 4;
+    string allocation_name = 5;
+    int32 size = 6;
+    int32 burst = 7;
+    int32 reserved_cores = 8;
 }
 
 message SubscriptionSeq {

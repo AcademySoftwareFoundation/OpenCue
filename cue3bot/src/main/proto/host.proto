@@ -248,33 +248,33 @@ message HardwareStateSeq {
 }
 
 message Host {
-    string name = 1;
-    string alloc_name = 2;
-    bool nimby_enabled = 3;
-    bool has_comment = 4;
-    float cores = 5;
-    float idle_cores = 6;
-    int64 memory = 7;
-    int64 idle_memory = 8;
-    int64 gpu = 9;
-    int64 idle_gpu = 10;
-    int64 total_swap = 11;
-    int64 total_memory = 12;
-    int64 total_gpu = 13;
-    int64 total_mcp = 14;
-    int64 free_swap = 15;
-    int64 free_memory = 16;
-    int64 free_mcp = 17;
-    int64 free_gpu = 18;
-    int32 load = 19;
-    int32 boot_time = 20;
-    int32 ping_time = 21;
-    string os = 22;
-    repeated string tags = 23;
-    HardwareState state = 24;
-    LockState lock_state = 25;
-    ThreadMode thread_mode = 26;
-    string id = 27;
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu = 10;
+    int64 idle_gpu = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
 }
 
 message HostSearchCriteria {
@@ -291,34 +291,34 @@ message HostSeq {
 }
 
 message NestedHost {
-    string name = 1;
-    string alloc_name = 2;
-    bool nimby_enabled = 3;
-    bool has_comment = 4;
-    float cores = 5;
-    float idle_cores = 6;
-    int64 memory = 7;
-    int64 idle_memory = 8;
-    int64 gpu = 9;
-    int64 idle_gpu = 10;
-    int64 total_swap = 11;
-    int64 total_memory = 12;
-    int64 total_gpu = 13;
-    int64 total_mcp = 14;
-    int64 free_swap = 15;
-    int64 free_memory = 16;
-    int64 free_mcp = 17;
-    int64 free_gpu = 18;
-    int32 load = 19;
-    int32 boot_time = 20;
-    int32 ping_time = 21;
-    string os = 22;
-    repeated string tags = 23;
-    HardwareState state = 24;
-    LockState lock_state = 25;
-    ThreadMode thread_mode = 26;
-    NestedProcSeq procs = 27;
-    string id = 28;
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu = 10;
+    int64 idle_gpu = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
+    NestedProcSeq procs = 28;
 }
 
 message NestedHostSeq {

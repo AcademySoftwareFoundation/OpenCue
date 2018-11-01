@@ -105,15 +105,15 @@ service ShowInterface {
 // -------- Primary Message Types --------]
 
 message Show {
-    string name = 1;
-    float default_min_cores = 2;
-    float default_max_cores = 3;
-    string comment_email = 4;
-    bool booking_enabled = 5;
-    bool dispatch_enabled = 6;
-    bool active = 7;
-    ShowStats show_stats = 8;
-    string id = 9;
+    string id = 1;
+    string name = 2;
+    float default_min_cores = 3;
+    float default_max_cores = 4;
+    string comment_email = 5;
+    bool booking_enabled = 6;
+    bool dispatch_enabled = 7;
+    bool active = 8;
+    ShowStats show_stats = 9;
 }
 
 message ShowSeq {
