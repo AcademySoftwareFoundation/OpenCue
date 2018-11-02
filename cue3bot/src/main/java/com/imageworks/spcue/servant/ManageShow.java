@@ -369,11 +369,8 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     public void getServiceOverrides(ShowGetServiceOverridesRequest request,
                                    StreamObserver<ShowGetServiceOverridesResponse> responseObserver) {
         ShowEntity show = getShowEntity(request.getShow());
-        ServiceOverrideSeq serviceOverrides = ServiceOverrideSeq.newBuilder()
-                .addAllServiceOverrides(whiteboard.getServiceOverrides(show))
-                .build();
         responseObserver.onNext(ShowGetServiceOverridesResponse.newBuilder()
-                .setServiceOverrides(serviceOverrides)
+                .setServiceOverrides(whiteboard.getServiceOverrides(show))
                 .build());
         responseObserver.onCompleted();
     }

@@ -62,9 +62,12 @@ import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationSeq;
 import com.imageworks.spcue.grpc.facility.AllocationStats;
 import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.facility.FacilitySeq;
 import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.grpc.filter.Filter;
@@ -73,6 +76,7 @@ import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.host.Deed;
 import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -107,6 +111,7 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
 import com.imageworks.spcue.grpc.service.ServiceSeq;
 import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowSeq;
@@ -114,6 +119,7 @@ import com.imageworks.spcue.grpc.show.ShowStats;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
+import com.imageworks.spcue.grpc.task.TaskSeq;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
@@ -142,9 +148,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<ServiceOverride> getServiceOverrides(ShowInterface show) {
-        return getJdbcTemplate().query(GET_SERVICE_OVERRIDE +
-                " AND show_service.pk_show = ?", SERVICE_OVERRIDE_MAPPER, show.getId());
+    public ServiceOverrideSeq getServiceOverrides(ShowInterface show) {
+        return ServiceOverrideSeq.newBuilder().addAllServiceOverrides(getJdbcTemplate().query(
+                GET_SERVICE_OVERRIDE + " AND show_service.pk_show = ?",
+                SERVICE_OVERRIDE_MAPPER, show.getId())).build();
     }
 
     @Override
@@ -184,17 +191,17 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Action> getActions(FilterInterface filter) {
-        return getJdbcTemplate().query(
+    public ActionSeq getActions(FilterInterface filter) {
+        return ActionSeq.newBuilder().addAllActions(getJdbcTemplate().query(
                 GET_ACTION + " AND filter.pk_filter=? ORDER BY b_stop ASC, ts_created ASC ",
-                ACTION_MAPPER, filter.getFilterId());
+                ACTION_MAPPER, filter.getFilterId())).build();
     }
 
     @Override
-    public List<Matcher> getMatchers(FilterInterface filter) {
-        return getJdbcTemplate().query(
+    public MatcherSeq getMatchers(FilterInterface filter) {
+        return MatcherSeq.newBuilder().addAllMatchers(getJdbcTemplate().query(
                 GET_MATCHER + " AND filter.pk_filter=? ORDER BY ts_created ASC",
-                MATCHER_MAPPER, filter.getFilterId());
+                MATCHER_MAPPER, filter.getFilterId())).build();
     }
 
     @Override
@@ -282,18 +289,18 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Allocation> getAllocations() {
-        return getJdbcTemplate().query(
+    public AllocationSeq getAllocations() {
+        return AllocationSeq.newBuilder().addAllAllocations(getJdbcTemplate().query(
                 GET_ALLOCATION + " ORDER BY alloc.str_name ",
-                ALLOCATION_MAPPER);
+                ALLOCATION_MAPPER)).build();
     }
 
     @Override
-    public List<Allocation> getAllocations(
+    public AllocationSeq getAllocations(
             com.imageworks.spcue.FacilityInterface facility) {
-        return getJdbcTemplate().query(
+        return AllocationSeq.newBuilder().addAllAllocations(getJdbcTemplate().query(
                 GET_ALLOCATION + " AND alloc.pk_facility = ?",
-                ALLOCATION_MAPPER, facility.getFacilityId());
+                ALLOCATION_MAPPER, facility.getFacilityId())).build();
     }
 
     @Override
@@ -609,15 +616,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Task> getTasks(ShowInterface show, DepartmentInterface dept) {
+    public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
         if (dept == null) {
-            return getJdbcTemplate().query(
+            return TaskSeq.newBuilder().addAllTasks(getJdbcTemplate().query(
                     GET_TASK + " AND point.pk_show=? ORDER BY task.str_shot",
-                    TASK_MAPPER, show.getShowId());
+                    TASK_MAPPER, show.getShowId())).build();
         } else {
-            return getJdbcTemplate().query(
+            return TaskSeq.newBuilder().addAllTasks(getJdbcTemplate().query(
                     GET_TASK + " AND point.pk_show=? AND point.pk_dept=? ORDER BY task.str_shot",
-                    TASK_MAPPER, show.getShowId(), dept.getDepartmentId());
+                    TASK_MAPPER, show.getShowId(), dept.getDepartmentId())).build();
         }
     }
 
@@ -728,9 +735,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<Facility> getFacilities() {
-        return getJdbcTemplate().query(
-                QUERY_FOR_FACILITY, FACILITY_MAPPER);
+    public FacilitySeq getFacilities() {
+        return FacilitySeq.newBuilder().addAllFacilities(getJdbcTemplate().query(
+                QUERY_FOR_FACILITY, FACILITY_MAPPER)).build();
     }
 
     /*

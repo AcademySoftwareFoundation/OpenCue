@@ -128,9 +128,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     @Override
     public void getActions(FilterGetActionsRequest request, StreamObserver<FilterGetActionsResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
-        List<Action> actions = whiteboard.getActions(filter);
         FilterGetActionsResponse response = FilterGetActionsResponse.newBuilder()
-                .setActions(ActionSeq.newBuilder().addAllActions(actions).build())
+                .setActions(whiteboard.getActions(filter))
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -140,10 +139,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     public void getMatchers(FilterGetMatchersRequest request,
                             StreamObserver<FilterGetMatchersResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
-        List<Matcher> matchers = whiteboard.getMatchers(filter);
-        MatcherSeq matcherSeq = MatcherSeq.newBuilder().addAllMatchers(matchers).build();
         FilterGetMatchersResponse response = FilterGetMatchersResponse.newBuilder()
-                .setMatchers(matcherSeq)
+                .setMatchers(whiteboard.getMatchers(filter))
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();

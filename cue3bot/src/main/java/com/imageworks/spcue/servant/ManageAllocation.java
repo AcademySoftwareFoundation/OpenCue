@@ -82,10 +82,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
             AllocGetAllRequest request, StreamObserver<AllocGetAllResponse> responseObserver) {
         responseObserver.onNext(
                 AllocGetAllResponse.newBuilder()
-                    .setAllocations(
-                        AllocationSeq.newBuilder()
-                                .addAllAllocations(whiteboard.getAllocations())
-                                .build())
+                    .setAllocations(whiteboard.getAllocations())
                     .build());
         responseObserver.onCompleted();
     }

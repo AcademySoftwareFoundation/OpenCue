@@ -54,11 +54,15 @@ import com.imageworks.spcue.grpc.department.DepartmentSeq;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationSeq;
 import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.facility.FacilitySeq;
 import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.host.Deed;
 import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.Host;
@@ -80,12 +84,14 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
 import com.imageworks.spcue.grpc.service.ServiceSeq;
 import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
+import com.imageworks.spcue.grpc.task.TaskSeq;
 
 
 /**
@@ -180,7 +186,7 @@ public class WhiteboardService implements Whiteboard {
         return this.whiteboardDao.getAllocation(id);
     }
 
-    public List<Allocation> getAllocations() {
+    public AllocationSeq getAllocations() {
         return this.whiteboardDao.getAllocations();
     }
 
@@ -208,7 +214,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getAction(action);
     }
 
-    public List<Action> getActions(FilterInterface filter) {
+    public ActionSeq getActions(FilterInterface filter) {
         return whiteboardDao.getActions(filter);
     }
 
@@ -216,7 +222,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getMatcher(matcher);
     }
 
-    public List<Matcher> getMatchers(FilterInterface filter) {
+    public MatcherSeq getMatchers(FilterInterface filter) {
         return whiteboardDao.getMatchers(filter);
     }
 
@@ -332,7 +338,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Task> getTasks(ShowInterface show, DepartmentInterface dept) {
+    public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
         return whiteboardDao.getTasks(show, dept);
     }
 
@@ -452,7 +458,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Facility> getFacilities() {
+    public FacilitySeq getFacilities() {
         return whiteboardDao.getFacilities();
     }
 
@@ -462,7 +468,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<Allocation> getAllocations(
+    public AllocationSeq getAllocations(
             com.imageworks.spcue.FacilityInterface facility) {
         return whiteboardDao.getAllocations(facility);
     }
@@ -488,7 +494,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public List<ServiceOverride> getServiceOverrides(
+    public ServiceOverrideSeq getServiceOverrides(
             ShowInterface show) {
         return whiteboardDao.getServiceOverrides(show);
     }

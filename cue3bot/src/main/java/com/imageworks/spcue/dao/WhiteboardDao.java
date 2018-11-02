@@ -48,11 +48,15 @@ import com.imageworks.spcue.grpc.department.DepartmentSeq;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationSeq;
 import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.facility.FacilitySeq;
 import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.host.Deed;
 import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.Host;
@@ -72,12 +76,14 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
 import com.imageworks.spcue.grpc.service.ServiceSeq;
 import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.grpc.task.Task;
+import com.imageworks.spcue.grpc.task.TaskSeq;
 
 /**
  * @category DAO
@@ -227,11 +233,11 @@ public interface WhiteboardDao {
 
     Filter getFilter(FilterInterface filter);
 
-    List<Matcher> getMatchers(FilterInterface filter);
+    MatcherSeq getMatchers(FilterInterface filter);
 
     Matcher getMatcher(MatcherInterface matcher);
 
-    List<Action> getActions(FilterInterface filter);
+    ActionSeq getActions(FilterInterface filter);
 
     Action getAction(ActionInterface action);
 
@@ -377,7 +383,7 @@ public interface WhiteboardDao {
      *
      * @return List of Allocations
      */
-    List<Allocation> getAllocations();
+    AllocationSeq getAllocations();
 
     /**
     *
@@ -386,7 +392,7 @@ public interface WhiteboardDao {
     * @param facility FacilityInterface
     * @return List of Allocations
     */
-   List<Allocation> getAllocations(FacilityInterface facility);
+   AllocationSeq getAllocations(FacilityInterface facility);
 
 
     /**
@@ -494,7 +500,7 @@ public interface WhiteboardDao {
      * @param dept DepartmentInterface
      * @return List of Tasks
      */
-    List<Task> getTasks(ShowInterface show, DepartmentInterface dept);
+    TaskSeq getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns procs from a ProcSearch criteria.
@@ -613,7 +619,7 @@ public interface WhiteboardDao {
      *
      * @return List of Facilities
      */
-    List<Facility> getFacilities();
+    FacilitySeq getFacilities();
 
     /**
      * Return a list of all active shows.
@@ -643,7 +649,7 @@ public interface WhiteboardDao {
      * @param show ShowInterface
      * @return List of ServiceOverrides
      */
-    List<ServiceOverride> getServiceOverrides(ShowInterface show);
+    ServiceOverrideSeq getServiceOverrides(ShowInterface show);
 
     /**
      * Return the given show override.

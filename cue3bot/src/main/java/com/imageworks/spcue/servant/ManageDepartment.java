@@ -148,8 +148,8 @@ public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfac
     @Override
     public void getTasks(DeptGetTasksRequest request, StreamObserver<DeptGetTasksResponse> responseObserver) {
         PointDetail deptConfig = departmentManager.getDepartmentConfigDetail(request.getDepartment().getId());
-        List<Task> tasks = whiteboard.getTasks(deptConfig, deptConfig);
-        TaskSeq taskSeq = TaskSeq.newBuilder().addAllTasks(tasks).build();
+        TaskSeq tasks = whiteboard.getTasks(deptConfig, deptConfig);
+        TaskSeq taskSeq = TaskSeq.newBuilder().addAllTasks(tasks.getTasksList()).build();
         responseObserver.onNext(DeptGetTasksResponse.newBuilder().setTasks(taskSeq).build());
         responseObserver.onCompleted();
     }
