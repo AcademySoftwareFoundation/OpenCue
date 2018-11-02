@@ -114,7 +114,7 @@ public class ProcSearch extends Criteria {
         addPhrase("show.str_name", criteria.getShowsList());
         addPhrase("alloc.str_name", criteria.getAllocsList());
 
-//        TODO: (gdenton) reimplement the Criterion objects in grpc
+//        TODO: (gdenton) b/117847423 reimplement the Criterion objects in grpc
 //        if (criteria.getMemoryRangeCount() > 0) {
 //            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
 //        }
