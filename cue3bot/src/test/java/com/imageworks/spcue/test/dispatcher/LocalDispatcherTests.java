@@ -19,11 +19,8 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -52,6 +49,10 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @ContextConfiguration
 public class LocalDispatcherTests extends TransactionalTest {

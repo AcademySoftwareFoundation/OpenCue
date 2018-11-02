@@ -43,10 +43,10 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.SpecBuilderException;
+import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
-import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 

@@ -33,9 +33,9 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class BookingDaoJdbc extends

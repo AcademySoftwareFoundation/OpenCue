@@ -25,7 +25,6 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.DispatchHost;
-
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ProcInterface;

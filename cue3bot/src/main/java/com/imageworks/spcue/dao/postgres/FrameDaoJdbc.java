@@ -33,8 +33,8 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameEntity;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.VirtualProc;
@@ -42,15 +42,15 @@ import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameReservationException;
-import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.depend.DependType;
-import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.spcue.util.SqlUtil;
 import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 

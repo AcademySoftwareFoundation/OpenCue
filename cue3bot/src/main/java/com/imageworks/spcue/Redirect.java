@@ -20,7 +20,6 @@
 package com.imageworks.spcue;
 
 import java.io.Serializable;
-
 import java.util.concurrent.TimeUnit;
 
 import com.imageworks.spcue.grpc.host.RedirectType;

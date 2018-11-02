@@ -23,8 +23,8 @@ import java.util.List;
 
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.PointDetail;
+import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ShowInterface;
 
 public interface PointDao {

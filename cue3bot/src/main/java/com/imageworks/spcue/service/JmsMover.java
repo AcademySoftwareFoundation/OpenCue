@@ -19,29 +19,24 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.util.CueExceptionUtil;
-
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import javax.jms.Topic;
-import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.Session;
-import javax.jms.TextMessage;
+import javax.jms.Topic;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-
+import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.jms.JmsException;
 import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
-import org.springframework.jms.JmsException;
-import org.apache.log4j.Logger;
-import org.apache.activemq.command.ActiveMQTopic;
+
+import com.imageworks.spcue.util.CueExceptionUtil;
 
 public class JmsMover extends ThreadPoolExecutor {
     private static final Logger logger = Logger.getLogger(JmsMover.class);

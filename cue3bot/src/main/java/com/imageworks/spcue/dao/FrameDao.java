@@ -22,17 +22,17 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.util.FrameSet;
 
 public interface FrameDao {

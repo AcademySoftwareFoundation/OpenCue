@@ -19,11 +19,19 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.grpc.filter.*;
+import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherCommitRequest;
+import com.imageworks.spcue.grpc.filter.MatcherCommitResponse;
+import com.imageworks.spcue.grpc.filter.MatcherDeleteRequest;
+import com.imageworks.spcue.grpc.filter.MatcherDeleteResponse;
+import com.imageworks.spcue.grpc.filter.MatcherGetParentFilterRequest;
+import com.imageworks.spcue.grpc.filter.MatcherGetParentFilterResponse;
+import com.imageworks.spcue.grpc.filter.MatcherInterfaceGrpc;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
 
 
 public class ManageMatcher extends MatcherInterfaceGrpc.MatcherInterfaceImplBase {

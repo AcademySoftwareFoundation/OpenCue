@@ -19,7 +19,12 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.HashSet;
+
 import com.google.protobuf.Descriptors;
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
@@ -30,19 +35,78 @@ import com.imageworks.spcue.depend.LayerOnFrame;
 import com.imageworks.spcue.depend.LayerOnJob;
 import com.imageworks.spcue.depend.LayerOnLayer;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
-import com.imageworks.spcue.dispatcher.commands.*;
-import com.imageworks.spcue.grpc.job.*;
+import com.imageworks.spcue.dispatcher.commands.DispatchDropDepends;
+import com.imageworks.spcue.dispatcher.commands.DispatchEatFrames;
+import com.imageworks.spcue.dispatcher.commands.DispatchKillFrames;
+import com.imageworks.spcue.dispatcher.commands.DispatchReorderFrames;
+import com.imageworks.spcue.dispatcher.commands.DispatchRetryFrames;
+import com.imageworks.spcue.dispatcher.commands.DispatchSatisfyDepends;
+import com.imageworks.spcue.dispatcher.commands.DispatchStaggerFrames;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameSeq;
 import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionRequest;
+import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionResponse;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnFrameRequest;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnFrameResponse;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnJobRequest;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnJobResponse;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnLayerRequest;
+import com.imageworks.spcue.grpc.job.LayerCreateDependOnLayerResponse;
+import com.imageworks.spcue.grpc.job.LayerCreateFrameByFrameDependRequest;
+import com.imageworks.spcue.grpc.job.LayerCreateFrameByFrameDependResponse;
+import com.imageworks.spcue.grpc.job.LayerDropDependsRequest;
+import com.imageworks.spcue.grpc.job.LayerDropDependsResponse;
+import com.imageworks.spcue.grpc.job.LayerEatFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerEatFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerEnableMemoryOptimizerRequest;
+import com.imageworks.spcue.grpc.job.LayerEnableMemoryOptimizerResponse;
+import com.imageworks.spcue.grpc.job.LayerFindLayerRequest;
+import com.imageworks.spcue.grpc.job.LayerFindLayerResponse;
+import com.imageworks.spcue.grpc.job.LayerGetFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerGetFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerGetLayerRequest;
+import com.imageworks.spcue.grpc.job.LayerGetLayerResponse;
+import com.imageworks.spcue.grpc.job.LayerGetOutputPathsRequest;
+import com.imageworks.spcue.grpc.job.LayerGetOutputPathsResponse;
+import com.imageworks.spcue.grpc.job.LayerGetWhatDependsOnThisRequest;
+import com.imageworks.spcue.grpc.job.LayerGetWhatDependsOnThisResponse;
+import com.imageworks.spcue.grpc.job.LayerGetWhatThisDependsOnRequest;
+import com.imageworks.spcue.grpc.job.LayerGetWhatThisDependsOnResponse;
+import com.imageworks.spcue.grpc.job.LayerInterfaceGrpc;
+import com.imageworks.spcue.grpc.job.LayerKillFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerKillFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerMarkdoneFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerMarkdoneFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerRegisterOutputPathRequest;
+import com.imageworks.spcue.grpc.job.LayerRegisterOutputPathResponse;
+import com.imageworks.spcue.grpc.job.LayerReorderFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerReorderFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerRetryFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerRetryFramesResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMaxCoresRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMinCoresRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMinMemoryRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMinMemoryResponse;
+import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
+import com.imageworks.spcue.grpc.job.LayerSetTagsResponse;
+import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
+import com.imageworks.spcue.grpc.job.LayerSetThreadableResponse;
+import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
+import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
-import com.imageworks.spcue.service.*;
+import com.imageworks.spcue.service.DependManager;
+import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.JobManagerSupport;
+import com.imageworks.spcue.service.LocalBookingSupport;
+import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
-import io.grpc.Status;
-import io.grpc.stub.StreamObserver;
-
-import java.util.HashSet;
 
 public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 

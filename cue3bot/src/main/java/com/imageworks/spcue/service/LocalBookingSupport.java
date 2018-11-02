@@ -20,6 +20,7 @@
 package com.imageworks.spcue.service;
 
 import org.apache.log4j.Logger;
+
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;

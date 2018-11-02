@@ -21,7 +21,6 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
@@ -30,9 +29,9 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.grpc.host.HardwareState;
 
 /**
  * @category DAO

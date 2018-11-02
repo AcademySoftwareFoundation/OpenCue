@@ -21,9 +21,9 @@ package com.imageworks.spcue;
 
 import java.util.Date;
 
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.LockState;
-import com.imageworks.spcue.grpc.host.HardwareState;
 
 public class HostEntity extends Entity implements HostInterface {
 

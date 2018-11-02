@@ -19,6 +19,9 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.FrameEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
@@ -33,13 +36,47 @@ import com.imageworks.spcue.dispatcher.commands.DispatchEatFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchKillFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchRetryFrames;
 import com.imageworks.spcue.grpc.depend.Depend;
-import com.imageworks.spcue.grpc.job.*;
 import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameAddRenderPartitionRequest;
+import com.imageworks.spcue.grpc.job.FrameAddRenderPartitionResponse;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnFrameRequest;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnFrameResponse;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnJobRequest;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnJobResponse;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnLayerRequest;
+import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnLayerResponse;
+import com.imageworks.spcue.grpc.job.FrameDropDependsRequest;
+import com.imageworks.spcue.grpc.job.FrameDropDependsResponse;
+import com.imageworks.spcue.grpc.job.FrameEatRequest;
+import com.imageworks.spcue.grpc.job.FrameEatResponse;
+import com.imageworks.spcue.grpc.job.FrameFindFrameRequest;
+import com.imageworks.spcue.grpc.job.FrameFindFrameResponse;
+import com.imageworks.spcue.grpc.job.FrameGetFrameRequest;
+import com.imageworks.spcue.grpc.job.FrameGetFrameResponse;
+import com.imageworks.spcue.grpc.job.FrameGetFramesRequest;
+import com.imageworks.spcue.grpc.job.FrameGetFramesResponse;
+import com.imageworks.spcue.grpc.job.FrameGetWhatDependsOnThisRequest;
+import com.imageworks.spcue.grpc.job.FrameGetWhatDependsOnThisResponse;
+import com.imageworks.spcue.grpc.job.FrameGetWhatThisDependsOnRequest;
+import com.imageworks.spcue.grpc.job.FrameGetWhatThisDependsOnResponse;
+import com.imageworks.spcue.grpc.job.FrameInterfaceGrpc;
+import com.imageworks.spcue.grpc.job.FrameKillRequest;
+import com.imageworks.spcue.grpc.job.FrameKillResponse;
+import com.imageworks.spcue.grpc.job.FrameMarkAsDependRequest;
+import com.imageworks.spcue.grpc.job.FrameMarkAsDependResponse;
+import com.imageworks.spcue.grpc.job.FrameMarkAsWaitingRequest;
+import com.imageworks.spcue.grpc.job.FrameMarkAsWaitingResponse;
+import com.imageworks.spcue.grpc.job.FrameRetryRequest;
+import com.imageworks.spcue.grpc.job.FrameRetryResponse;
+import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateRequest;
+import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateResponse;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
-import com.imageworks.spcue.service.*;
-import io.grpc.stub.StreamObserver;
-import io.grpc.Status;
+import com.imageworks.spcue.service.DependManager;
+import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.JobManagerSupport;
+import com.imageworks.spcue.service.LocalBookingSupport;
+import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 

@@ -20,9 +20,9 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.Entity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.HostInterface;
 
 public interface OwnerDao {
 

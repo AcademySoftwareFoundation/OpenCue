@@ -19,11 +19,17 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.dispatcher.*;
-import com.imageworks.spcue.grpc.cue.*;
-import com.imageworks.spcue.grpc.cue.SystemStats;
-import com.imageworks.spcue.service.*;
 import io.grpc.stub.StreamObserver;
+
+import com.imageworks.spcue.dispatcher.BookingQueue;
+import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.HostReportQueue;
+import com.imageworks.spcue.grpc.cue.CueGetSystemStatsRequest;
+import com.imageworks.spcue.grpc.cue.CueGetSystemStatsResponse;
+import com.imageworks.spcue.grpc.cue.CueInterfaceGrpc;
+import com.imageworks.spcue.grpc.cue.SystemStats;
+import com.imageworks.spcue.service.Whiteboard;
 
 public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
 

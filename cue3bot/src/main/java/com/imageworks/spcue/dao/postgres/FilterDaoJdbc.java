@@ -28,14 +28,14 @@ import java.util.List;
 
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.dao.FilterDao;
+import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.util.SqlUtil;
 
 /**

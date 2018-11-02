@@ -19,11 +19,8 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import static org.junit.Assert.*;
-
 import java.sql.Timestamp;
 import java.util.Map;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -32,18 +29,18 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -57,6 +54,10 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

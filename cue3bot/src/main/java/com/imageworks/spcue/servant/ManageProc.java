@@ -19,6 +19,12 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
+
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Source;
@@ -28,19 +34,40 @@ import com.imageworks.spcue.dao.criteria.Direction;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.dispatcher.RedirectManager;
-import com.imageworks.spcue.grpc.host.*;
 import com.imageworks.spcue.grpc.host.Proc;
+import com.imageworks.spcue.grpc.host.ProcClearRedirectRequest;
+import com.imageworks.spcue.grpc.host.ProcClearRedirectResponse;
+import com.imageworks.spcue.grpc.host.ProcGetFrameRequest;
+import com.imageworks.spcue.grpc.host.ProcGetFrameResponse;
+import com.imageworks.spcue.grpc.host.ProcGetHostRequest;
+import com.imageworks.spcue.grpc.host.ProcGetHostResponse;
+import com.imageworks.spcue.grpc.host.ProcGetJobRequest;
+import com.imageworks.spcue.grpc.host.ProcGetJobResponse;
+import com.imageworks.spcue.grpc.host.ProcGetLayerRequest;
+import com.imageworks.spcue.grpc.host.ProcGetLayerResponse;
+import com.imageworks.spcue.grpc.host.ProcGetProcsRequest;
+import com.imageworks.spcue.grpc.host.ProcGetProcsResponse;
+import com.imageworks.spcue.grpc.host.ProcInterfaceGrpc;
+import com.imageworks.spcue.grpc.host.ProcKillRequest;
+import com.imageworks.spcue.grpc.host.ProcKillResponse;
+import com.imageworks.spcue.grpc.host.ProcRedirectToGroupRequest;
+import com.imageworks.spcue.grpc.host.ProcRedirectToGroupResponse;
+import com.imageworks.spcue.grpc.host.ProcRedirectToJobRequest;
+import com.imageworks.spcue.grpc.host.ProcRedirectToJobResponse;
+import com.imageworks.spcue.grpc.host.ProcUnbookProcsRequest;
+import com.imageworks.spcue.grpc.host.ProcUnbookProcsResponse;
+import com.imageworks.spcue.grpc.host.ProcUnbookRequest;
+import com.imageworks.spcue.grpc.host.ProcUnbookResponse;
+import com.imageworks.spcue.grpc.host.ProcUnbookToGroupRequest;
+import com.imageworks.spcue.grpc.host.ProcUnbookToGroupResponse;
+import com.imageworks.spcue.grpc.host.ProcUnbookToJobRequest;
+import com.imageworks.spcue.grpc.host.ProcUnbookToJobResponse;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
-import org.springframework.dao.EmptyResultDataAccessException;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 

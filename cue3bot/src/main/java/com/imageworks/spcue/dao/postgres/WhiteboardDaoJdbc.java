@@ -19,9 +19,34 @@
 
 package com.imageworks.spcue.dao.postgres;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.imageworks.spcue.*;
+import org.apache.log4j.Logger;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
+
+import com.imageworks.spcue.ActionInterface;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.DeedEntity;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.DependInterface;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
@@ -39,17 +64,17 @@ import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.AllocationStats;
 import com.imageworks.spcue.grpc.facility.Facility;
-import com.imageworks.spcue.grpc.host.Deed;
-import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.filter.Action;
 import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.host.Deed;
+import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSeq;
@@ -75,8 +100,8 @@ import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.LayerStats;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.grpc.job.UpdatedFrame;
-import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
@@ -92,16 +117,6 @@ import com.imageworks.spcue.grpc.task.Task;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
-import org.apache.log4j.Logger;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
-
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")

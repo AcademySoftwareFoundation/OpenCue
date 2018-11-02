@@ -27,9 +27,9 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.Entity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.util.SqlUtil;
 

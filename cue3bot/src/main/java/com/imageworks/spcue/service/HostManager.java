@@ -22,12 +22,12 @@ package com.imageworks.spcue.service;
 import java.sql.Timestamp;
 import java.util.List;
 
-import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ShowInterface;

@@ -20,47 +20,49 @@
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
-
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 import javax.annotation.Resource;
 
-import static org.junit.Assert.*;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.grpc.filter.ActionType;
-import com.imageworks.spcue.grpc.filter.ActionValueType;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.MatchSubject;
-import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.ActionValueType;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
-import java.math.BigDecimal;
+
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonMap;
-import java.util.List;
-import java.util.Map;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

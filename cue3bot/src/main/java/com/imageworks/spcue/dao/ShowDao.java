@@ -20,8 +20,8 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.ShowInterface;
 
 /**
  * @category DAO

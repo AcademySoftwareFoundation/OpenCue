@@ -19,32 +19,35 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.FacilityInterface;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

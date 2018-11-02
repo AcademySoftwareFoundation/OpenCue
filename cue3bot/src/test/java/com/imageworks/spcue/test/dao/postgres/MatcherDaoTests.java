@@ -21,21 +21,20 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.ShowEntity;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.MatcherDao;

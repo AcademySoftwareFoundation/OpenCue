@@ -22,8 +22,8 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 import com.imageworks.spcue.FilterInterface;
-import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.MatcherInterface;
 
 public interface MatcherDao {
 

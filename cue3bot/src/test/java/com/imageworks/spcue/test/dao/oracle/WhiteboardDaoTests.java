@@ -19,8 +19,9 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -29,16 +30,11 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
@@ -47,11 +43,11 @@ import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FilterEntity;
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostEntity;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.LocalHostAssignment;
@@ -59,12 +55,26 @@ import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ServiceOverrideEntity;
-import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.ActionDao;
+import com.imageworks.spcue.dao.AllocationDao;
+import com.imageworks.spcue.dao.DepartmentDao;
+import com.imageworks.spcue.dao.FilterDao;
+import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.GroupDao;
+import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.MatcherDao;
+import com.imageworks.spcue.dao.PointDao;
+import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
@@ -86,21 +96,24 @@ import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
+import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 @Transactional

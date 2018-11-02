@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;

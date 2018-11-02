@@ -26,9 +26,9 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.LayerInterface;
 
 /**
 * DispatcherDao provides DAO methods used by the DispatchService

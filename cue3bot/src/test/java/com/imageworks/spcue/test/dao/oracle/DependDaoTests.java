@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import javax.annotation.Resource;
 
@@ -30,27 +28,41 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.grpc.depend.DependTarget;
-import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.depend.FrameByFrame;
+import com.imageworks.spcue.depend.FrameOnFrame;
+import com.imageworks.spcue.depend.FrameOnJob;
+import com.imageworks.spcue.depend.FrameOnLayer;
+import com.imageworks.spcue.depend.JobOnFrame;
+import com.imageworks.spcue.depend.JobOnJob;
+import com.imageworks.spcue.depend.JobOnLayer;
+import com.imageworks.spcue.depend.LayerOnFrame;
+import com.imageworks.spcue.depend.LayerOnJob;
+import com.imageworks.spcue.depend.LayerOnLayer;
+import com.imageworks.spcue.depend.PreviousFrame;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

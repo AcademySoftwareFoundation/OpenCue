@@ -20,10 +20,7 @@
 package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -47,7 +44,8 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @ContextConfiguration
 public class StrandedCoreTests extends TransactionalTest {

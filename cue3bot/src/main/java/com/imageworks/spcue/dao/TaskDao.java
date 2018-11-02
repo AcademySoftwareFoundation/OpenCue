@@ -23,8 +23,8 @@ import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.TaskInterface;
 import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.TaskInterface;
 
 public interface TaskDao {
 

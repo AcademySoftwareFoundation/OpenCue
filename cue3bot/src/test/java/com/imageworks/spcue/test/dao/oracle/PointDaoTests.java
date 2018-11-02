@@ -20,32 +20,33 @@
 package com.imageworks.spcue.test.dao.oracle;
 
 import java.io.File;
-
 import javax.annotation.Resource;
-
-import static org.junit.Assert.*;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

@@ -19,13 +19,20 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.dispatcher.DispatchQueue;
-import com.imageworks.spcue.grpc.depend.*;
-import com.imageworks.spcue.service.DependManager;
-import com.imageworks.spcue.service.Whiteboard;
 import io.grpc.stub.StreamObserver;
 import org.apache.log4j.Logger;
+
+import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.grpc.depend.DependGetDependRequest;
+import com.imageworks.spcue.grpc.depend.DependGetDependResponse;
+import com.imageworks.spcue.grpc.depend.DependInterfaceGrpc;
+import com.imageworks.spcue.grpc.depend.DependSatisfyRequest;
+import com.imageworks.spcue.grpc.depend.DependSatisfyResponse;
+import com.imageworks.spcue.grpc.depend.DependUnsatisfyRequest;
+import com.imageworks.spcue.grpc.depend.DependUnsatisfyResponse;
+import com.imageworks.spcue.service.DependManager;
+import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 

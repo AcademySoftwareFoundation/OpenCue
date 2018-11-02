@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.dispatcher.ResourceContainer;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
 /**
  * Contains information about local desktop cores a user has

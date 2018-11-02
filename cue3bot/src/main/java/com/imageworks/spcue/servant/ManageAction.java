@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.grpc.filter.Action;
@@ -32,7 +34,6 @@ import com.imageworks.spcue.grpc.filter.ActionInterfaceGrpc;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
 
 public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
 

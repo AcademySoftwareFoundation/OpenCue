@@ -20,7 +20,6 @@
 package com.imageworks.spcue.service;
 
 import java.io.File;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -32,13 +31,13 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dispatcher.commands.DispatchLaunchJob;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
 /**
  * Job launching functions.

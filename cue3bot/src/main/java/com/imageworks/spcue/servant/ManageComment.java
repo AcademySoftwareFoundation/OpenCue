@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.grpc.comment.CommentDeleteRequest;
 import com.imageworks.spcue.grpc.comment.CommentDeleteResponse;
@@ -26,7 +28,6 @@ import com.imageworks.spcue.grpc.comment.CommentInterfaceGrpc;
 import com.imageworks.spcue.grpc.comment.CommentSaveRequest;
 import com.imageworks.spcue.grpc.comment.CommentSaveResponse;
 import com.imageworks.spcue.service.CommentManager;
-import io.grpc.stub.StreamObserver;
 
 public class ManageComment extends CommentInterfaceGrpc.CommentInterfaceImplBase {
 

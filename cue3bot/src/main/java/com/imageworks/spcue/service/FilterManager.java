@@ -21,14 +21,14 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.ActionEntity;
-import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.MatcherInterface;
 
 public interface FilterManager {
 

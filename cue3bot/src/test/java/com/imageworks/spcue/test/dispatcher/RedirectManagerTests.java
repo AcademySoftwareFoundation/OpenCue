@@ -19,39 +19,36 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.concurrent.CountDownLatch;
 import java.util.ArrayList;
 import java.util.List;
-
+import java.util.concurrent.CountDownLatch;
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.host.RedirectType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
@@ -60,6 +57,11 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.RedirectService;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 
 /**

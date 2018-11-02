@@ -23,8 +23,8 @@ import java.sql.Timestamp;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.grpc.host.HardwareState;

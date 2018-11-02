@@ -19,13 +19,26 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.OwnerEntity;
-import com.imageworks.spcue.grpc.host.*;
+import com.imageworks.spcue.grpc.host.OwnerDeleteRequest;
+import com.imageworks.spcue.grpc.host.OwnerDeleteResponse;
+import com.imageworks.spcue.grpc.host.OwnerGetDeedsRequest;
+import com.imageworks.spcue.grpc.host.OwnerGetDeedsResponse;
+import com.imageworks.spcue.grpc.host.OwnerGetHostsRequest;
+import com.imageworks.spcue.grpc.host.OwnerGetHostsResponse;
+import com.imageworks.spcue.grpc.host.OwnerGetOwnerRequest;
+import com.imageworks.spcue.grpc.host.OwnerGetOwnerResponse;
+import com.imageworks.spcue.grpc.host.OwnerInterfaceGrpc;
+import com.imageworks.spcue.grpc.host.OwnerSetShowRequest;
+import com.imageworks.spcue.grpc.host.OwnerSetShowResponse;
+import com.imageworks.spcue.grpc.host.OwnerTakeOwnershipRequest;
+import com.imageworks.spcue.grpc.host.OwnerTakeOwnershipResponse;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
 
 public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
 

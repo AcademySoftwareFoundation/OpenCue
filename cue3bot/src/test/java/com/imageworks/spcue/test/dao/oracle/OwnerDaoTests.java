@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -28,18 +26,20 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

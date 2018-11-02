@@ -21,8 +21,8 @@ package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.SubscriptionEntity;
+import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.VirtualProc;
 
 public interface SubscriptionDao {

@@ -25,8 +25,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DepartmentInterface;
-import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;

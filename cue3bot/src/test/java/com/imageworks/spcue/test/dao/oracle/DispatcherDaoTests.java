@@ -19,12 +19,9 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -33,20 +30,19 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -57,6 +53,7 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
@@ -65,6 +62,10 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

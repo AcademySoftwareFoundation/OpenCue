@@ -19,22 +19,75 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.dao.criteria.HostSearch;
-import com.imageworks.spcue.grpc.comment.Comment;
-import com.imageworks.spcue.grpc.comment.CommentSeq;
-import com.imageworks.spcue.grpc.host.*;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dispatcher.RedirectManager;
+import com.imageworks.spcue.grpc.comment.Comment;
+import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.host.Host;
-import com.imageworks.spcue.service.*;
-import io.grpc.stub.StreamObserver;
-
-import java.util.ArrayList;
-import java.util.List;
+import com.imageworks.spcue.grpc.host.HostAddCommentRequest;
+import com.imageworks.spcue.grpc.host.HostAddCommentResponse;
+import com.imageworks.spcue.grpc.host.HostAddTagsRequest;
+import com.imageworks.spcue.grpc.host.HostAddTagsResponse;
+import com.imageworks.spcue.grpc.host.HostDeleteRequest;
+import com.imageworks.spcue.grpc.host.HostDeleteResponse;
+import com.imageworks.spcue.grpc.host.HostFindHostRequest;
+import com.imageworks.spcue.grpc.host.HostFindHostResponse;
+import com.imageworks.spcue.grpc.host.HostGetCommentsRequest;
+import com.imageworks.spcue.grpc.host.HostGetCommentsResponse;
+import com.imageworks.spcue.grpc.host.HostGetDeedRequest;
+import com.imageworks.spcue.grpc.host.HostGetDeedResponse;
+import com.imageworks.spcue.grpc.host.HostGetHostRequest;
+import com.imageworks.spcue.grpc.host.HostGetHostResponse;
+import com.imageworks.spcue.grpc.host.HostGetHostWhiteboardRequest;
+import com.imageworks.spcue.grpc.host.HostGetHostWhiteboardResponse;
+import com.imageworks.spcue.grpc.host.HostGetHostsRequest;
+import com.imageworks.spcue.grpc.host.HostGetHostsResponse;
+import com.imageworks.spcue.grpc.host.HostGetOwnerRequest;
+import com.imageworks.spcue.grpc.host.HostGetOwnerResponse;
+import com.imageworks.spcue.grpc.host.HostGetProcsRequest;
+import com.imageworks.spcue.grpc.host.HostGetProcsResponse;
+import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsRequest;
+import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsResponse;
+import com.imageworks.spcue.grpc.host.HostInterfaceGrpc;
+import com.imageworks.spcue.grpc.host.HostLockRequest;
+import com.imageworks.spcue.grpc.host.HostLockResponse;
+import com.imageworks.spcue.grpc.host.HostRebootRequest;
+import com.imageworks.spcue.grpc.host.HostRebootResponse;
+import com.imageworks.spcue.grpc.host.HostRebootWhenIdleRequest;
+import com.imageworks.spcue.grpc.host.HostRebootWhenIdleResponse;
+import com.imageworks.spcue.grpc.host.HostRedirectToJobRequest;
+import com.imageworks.spcue.grpc.host.HostRedirectToJobResponse;
+import com.imageworks.spcue.grpc.host.HostRemoveTagsRequest;
+import com.imageworks.spcue.grpc.host.HostRemoveTagsResponse;
+import com.imageworks.spcue.grpc.host.HostRenameTagRequest;
+import com.imageworks.spcue.grpc.host.HostRenameTagResponse;
+import com.imageworks.spcue.grpc.host.HostSetAllocationRequest;
+import com.imageworks.spcue.grpc.host.HostSetAllocationResponse;
+import com.imageworks.spcue.grpc.host.HostSetHardwareStateRequest;
+import com.imageworks.spcue.grpc.host.HostSetHardwareStateResponse;
+import com.imageworks.spcue.grpc.host.HostSetOsRequest;
+import com.imageworks.spcue.grpc.host.HostSetOsResponse;
+import com.imageworks.spcue.grpc.host.HostSetThreadModeRequest;
+import com.imageworks.spcue.grpc.host.HostSetThreadModeResponse;
+import com.imageworks.spcue.grpc.host.HostUnlockRequest;
+import com.imageworks.spcue.grpc.host.HostUnlockResponse;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.ProcSeq;
+import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.service.CommentManager;
+import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 

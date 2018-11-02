@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.grpc.filter.Matcher;
 
 public class MatcherEntity extends Entity implements MatcherInterface {
 

@@ -19,26 +19,23 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -47,6 +44,8 @@ import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
+
+import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

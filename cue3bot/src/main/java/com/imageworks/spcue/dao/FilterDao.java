@@ -21,8 +21,8 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.grpc.filter.FilterType;
 

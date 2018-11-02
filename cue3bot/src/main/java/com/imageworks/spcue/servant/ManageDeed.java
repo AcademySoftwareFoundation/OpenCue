@@ -19,8 +19,9 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.grpc.host.DeedInterfaceGrpc;
 import com.imageworks.spcue.grpc.host.Deed;
 import com.imageworks.spcue.grpc.host.DeedDeleteRequest;
 import com.imageworks.spcue.grpc.host.DeedDeleteResponse;
@@ -28,15 +29,15 @@ import com.imageworks.spcue.grpc.host.DeedGetHostRequest;
 import com.imageworks.spcue.grpc.host.DeedGetHostResponse;
 import com.imageworks.spcue.grpc.host.DeedGetOwnerRequest;
 import com.imageworks.spcue.grpc.host.DeedGetOwnerResponse;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeRequest;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeResponse;
+import com.imageworks.spcue.grpc.host.DeedInterfaceGrpc;
 import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeEnabledRequest;
 import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeEnabledResponse;
+import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeRequest;
+import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeResponse;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
 
 public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
 

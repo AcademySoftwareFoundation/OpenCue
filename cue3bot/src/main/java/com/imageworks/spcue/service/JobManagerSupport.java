@@ -22,8 +22,6 @@ package com.imageworks.spcue.service;
 import java.util.Collection;
 import java.util.List;
 
-import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
-import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import org.apache.log4j.Logger;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -43,7 +41,9 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
 import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;

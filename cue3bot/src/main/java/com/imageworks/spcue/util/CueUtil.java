@@ -19,40 +19,36 @@
 
 package com.imageworks.spcue.util;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import java.lang.Math;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
-
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-
-import java.util.Map;
-import java.util.Map.Entry;
-import javax.activation.DataHandler;
-import javax.activation.DataSource;
-import javax.mail.BodyPart;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
 
 /**
  * CueUtil is set of common methods used throughout the application.

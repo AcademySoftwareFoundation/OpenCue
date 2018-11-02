@@ -19,11 +19,8 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.Map;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -32,21 +29,21 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -65,6 +62,10 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 
 @Transactional

@@ -19,22 +19,57 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.List;
+
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
-import com.imageworks.spcue.grpc.filter.*;
 import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
+import com.imageworks.spcue.grpc.filter.FilterCreateActionRequest;
+import com.imageworks.spcue.grpc.filter.FilterCreateActionResponse;
+import com.imageworks.spcue.grpc.filter.FilterCreateMatcherRequest;
+import com.imageworks.spcue.grpc.filter.FilterCreateMatcherResponse;
+import com.imageworks.spcue.grpc.filter.FilterDeleteRequest;
+import com.imageworks.spcue.grpc.filter.FilterDeleteResponse;
+import com.imageworks.spcue.grpc.filter.FilterFindFilterRequest;
+import com.imageworks.spcue.grpc.filter.FilterFindFilterResponse;
+import com.imageworks.spcue.grpc.filter.FilterGetActionsRequest;
+import com.imageworks.spcue.grpc.filter.FilterGetActionsResponse;
+import com.imageworks.spcue.grpc.filter.FilterGetMatchersRequest;
+import com.imageworks.spcue.grpc.filter.FilterGetMatchersResponse;
+import com.imageworks.spcue.grpc.filter.FilterInterfaceGrpc;
+import com.imageworks.spcue.grpc.filter.FilterLowerOrderRequest;
+import com.imageworks.spcue.grpc.filter.FilterLowerOrderResponse;
+import com.imageworks.spcue.grpc.filter.FilterOrderFirstRequest;
+import com.imageworks.spcue.grpc.filter.FilterOrderFirstResponse;
+import com.imageworks.spcue.grpc.filter.FilterOrderLastRequest;
+import com.imageworks.spcue.grpc.filter.FilterOrderLastResponse;
+import com.imageworks.spcue.grpc.filter.FilterRaiseOrderRequest;
+import com.imageworks.spcue.grpc.filter.FilterRaiseOrderResponse;
+import com.imageworks.spcue.grpc.filter.FilterRunFilterOnGroupRequest;
+import com.imageworks.spcue.grpc.filter.FilterRunFilterOnGroupResponse;
+import com.imageworks.spcue.grpc.filter.FilterRunFilterOnJobsRequest;
+import com.imageworks.spcue.grpc.filter.FilterRunFilterOnJobsResponse;
+import com.imageworks.spcue.grpc.filter.FilterSetEnabledRequest;
+import com.imageworks.spcue.grpc.filter.FilterSetEnabledResponse;
+import com.imageworks.spcue.grpc.filter.FilterSetNameRequest;
+import com.imageworks.spcue.grpc.filter.FilterSetNameResponse;
+import com.imageworks.spcue.grpc.filter.FilterSetOrderRequest;
+import com.imageworks.spcue.grpc.filter.FilterSetOrderResponse;
+import com.imageworks.spcue.grpc.filter.FilterSetTypeRequest;
+import com.imageworks.spcue.grpc.filter.FilterSetTypeResponse;
 import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
-
-import java.util.List;
 
 public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 

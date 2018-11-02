@@ -19,19 +19,44 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.grpc.department.*;
-import com.imageworks.spcue.grpc.task.Task;
-import com.imageworks.spcue.grpc.task.TaskSeq;
+import java.util.List;
+import java.util.Map;
+
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.grpc.department.DepartmentInterfaceGrpc;
+import com.imageworks.spcue.grpc.department.DeptAddDeptNameRequest;
+import com.imageworks.spcue.grpc.department.DeptAddDeptNameResponse;
+import com.imageworks.spcue.grpc.department.DeptAddTaskRequest;
+import com.imageworks.spcue.grpc.department.DeptAddTaskResponse;
+import com.imageworks.spcue.grpc.department.DeptAddTasksRequest;
+import com.imageworks.spcue.grpc.department.DeptAddTasksResponse;
+import com.imageworks.spcue.grpc.department.DeptClearTaskAdjustmentsRequest;
+import com.imageworks.spcue.grpc.department.DeptClearTaskAdjustmentsResponse;
+import com.imageworks.spcue.grpc.department.DeptClearTasksRequest;
+import com.imageworks.spcue.grpc.department.DeptClearTasksResponse;
+import com.imageworks.spcue.grpc.department.DeptDisableTiManagedRequest;
+import com.imageworks.spcue.grpc.department.DeptDisableTiManagedResponse;
+import com.imageworks.spcue.grpc.department.DeptEnableTiManagedRequest;
+import com.imageworks.spcue.grpc.department.DeptEnableTiManagedResponse;
+import com.imageworks.spcue.grpc.department.DeptGetDepartmentNamesRequest;
+import com.imageworks.spcue.grpc.department.DeptGetDepartmentNamesResponse;
+import com.imageworks.spcue.grpc.department.DeptGetTasksRequest;
+import com.imageworks.spcue.grpc.department.DeptGetTasksResponse;
+import com.imageworks.spcue.grpc.department.DeptRemoveDepartmentNameRequest;
+import com.imageworks.spcue.grpc.department.DeptRemoveDepartmentNameResponse;
+import com.imageworks.spcue.grpc.department.DeptReplaceTaskRequest;
+import com.imageworks.spcue.grpc.department.DeptReplaceTaskResponse;
+import com.imageworks.spcue.grpc.department.DeptSetManagedCoresRequest;
+import com.imageworks.spcue.grpc.department.DeptSetManagedCoresResponse;
+import com.imageworks.spcue.grpc.task.Task;
+import com.imageworks.spcue.grpc.task.TaskSeq;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
-import io.grpc.stub.StreamObserver;
-
-import java.util.List;
-import java.util.Map;
 
 public class ManageDepartment extends DepartmentInterfaceGrpc.DepartmentInterfaceImplBase {
 

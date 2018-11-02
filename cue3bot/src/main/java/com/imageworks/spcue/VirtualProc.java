@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 
 public class VirtualProc extends FrameEntity implements ProcInterface {
 

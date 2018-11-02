@@ -25,18 +25,18 @@ import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ThreadStats;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Order;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.util.FrameSet;
 
 /**

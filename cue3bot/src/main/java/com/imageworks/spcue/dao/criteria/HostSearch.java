@@ -23,9 +23,9 @@ import java.util.HashSet;
 import java.util.Set;
 
 import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HardwareStateSeq;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
-import com.imageworks.spcue.grpc.host.HardwareState;
 
 public class HostSearch extends Criteria {
 

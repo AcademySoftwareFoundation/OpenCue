@@ -19,10 +19,16 @@
 
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.grpc.renderpartition.*;
-import com.imageworks.spcue.service.BookingManager;
 import io.grpc.stub.StreamObserver;
+
+import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartDeleteRequest;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartDeleteResponse;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartSetMaxResourcesRequest;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartSetMaxResourcesResponse;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionInterfaceGrpc;
+import com.imageworks.spcue.service.BookingManager;
 
 public class ManageRenderPartition extends RenderPartitionInterfaceGrpc.RenderPartitionInterfaceImplBase {
 

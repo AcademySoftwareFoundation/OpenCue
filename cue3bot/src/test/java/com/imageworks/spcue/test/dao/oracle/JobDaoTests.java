@@ -19,36 +19,33 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.FacilityEntity;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -62,6 +59,11 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.JobLogUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

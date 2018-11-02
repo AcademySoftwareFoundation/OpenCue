@@ -22,11 +22,11 @@ package com.imageworks.spcue.dao.oracle;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
-import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.FacilityEntity;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
+import com.imageworks.spcue.FacilityEntity;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.util.SqlUtil;
 

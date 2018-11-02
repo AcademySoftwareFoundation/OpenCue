@@ -19,20 +19,20 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.FacilityEntity;
 import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.FacilityEntity;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.ShowEntity;
-import com.imageworks.spcue.SubscriptionInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
+import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;

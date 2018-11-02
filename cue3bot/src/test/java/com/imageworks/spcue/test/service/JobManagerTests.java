@@ -19,33 +19,29 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.List;
 import java.util.Map;
-
 import javax.annotation.Resource;
 
-import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -53,6 +49,7 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -64,6 +61,10 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)

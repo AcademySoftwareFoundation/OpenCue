@@ -21,7 +21,6 @@ package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -48,7 +47,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 @ContextConfiguration
 public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {

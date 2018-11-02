@@ -27,13 +27,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.JobInterface;

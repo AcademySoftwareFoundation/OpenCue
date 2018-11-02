@@ -27,28 +27,28 @@ import org.apache.log4j.Logger;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.ActionEntity;
-import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.FilterEntity;
-import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.MatcherInterface;
-import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.grpc.filter.ActionType;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.MatcherDao;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.Convert;
 
 //TODO: add filter caching

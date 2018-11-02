@@ -19,14 +19,26 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.LinkedHashSet;
+
 import com.google.common.collect.Sets;
-import com.imageworks.spcue.ServiceEntity;
-import com.imageworks.spcue.grpc.service.*;
-import com.imageworks.spcue.service.ServiceManager;
-import com.imageworks.spcue.service.Whiteboard;
 import io.grpc.stub.StreamObserver;
 
-import java.util.LinkedHashSet;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceCreateServiceRequest;
+import com.imageworks.spcue.grpc.service.ServiceCreateServiceResponse;
+import com.imageworks.spcue.grpc.service.ServiceDeleteRequest;
+import com.imageworks.spcue.grpc.service.ServiceDeleteResponse;
+import com.imageworks.spcue.grpc.service.ServiceGetDefaultServicesRequest;
+import com.imageworks.spcue.grpc.service.ServiceGetDefaultServicesResponse;
+import com.imageworks.spcue.grpc.service.ServiceGetServiceRequest;
+import com.imageworks.spcue.grpc.service.ServiceGetServiceResponse;
+import com.imageworks.spcue.grpc.service.ServiceInterfaceGrpc;
+import com.imageworks.spcue.grpc.service.ServiceUpdateRequest;
+import com.imageworks.spcue.grpc.service.ServiceUpdateResponse;
+import com.imageworks.spcue.service.ServiceManager;
+import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase {
 

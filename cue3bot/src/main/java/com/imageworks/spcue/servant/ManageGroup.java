@@ -19,24 +19,59 @@
 
 package com.imageworks.spcue.servant;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
-import com.imageworks.spcue.grpc.job.*;
 import com.imageworks.spcue.grpc.job.Group;
+import com.imageworks.spcue.grpc.job.GroupCreateSubGroupRequest;
+import com.imageworks.spcue.grpc.job.GroupCreateSubGroupResponse;
+import com.imageworks.spcue.grpc.job.GroupDeleteRequest;
+import com.imageworks.spcue.grpc.job.GroupDeleteResponse;
+import com.imageworks.spcue.grpc.job.GroupFindGroupRequest;
+import com.imageworks.spcue.grpc.job.GroupFindGroupResponse;
+import com.imageworks.spcue.grpc.job.GroupGetGroupRequest;
+import com.imageworks.spcue.grpc.job.GroupGetGroupResponse;
+import com.imageworks.spcue.grpc.job.GroupGetGroupsRequest;
+import com.imageworks.spcue.grpc.job.GroupGetGroupsResponse;
+import com.imageworks.spcue.grpc.job.GroupGetJobsRequest;
+import com.imageworks.spcue.grpc.job.GroupGetJobsResponse;
+import com.imageworks.spcue.grpc.job.GroupInterfaceGrpc;
+import com.imageworks.spcue.grpc.job.GroupReparentGroupsRequest;
+import com.imageworks.spcue.grpc.job.GroupReparentGroupsResponse;
+import com.imageworks.spcue.grpc.job.GroupReparentJobsRequest;
+import com.imageworks.spcue.grpc.job.GroupReparentJobsResponse;
+import com.imageworks.spcue.grpc.job.GroupSeq;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxCoresRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMinCoresRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMinCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobPriorityRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobPriorityResponse;
+import com.imageworks.spcue.grpc.job.GroupSetDeptRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDeptResponse;
+import com.imageworks.spcue.grpc.job.GroupSetGroupRequest;
+import com.imageworks.spcue.grpc.job.GroupSetGroupResponse;
+import com.imageworks.spcue.grpc.job.GroupSetMaxCoresRequest;
+import com.imageworks.spcue.grpc.job.GroupSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetMinCoresRequest;
+import com.imageworks.spcue.grpc.job.GroupSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetNameRequest;
+import com.imageworks.spcue.grpc.job.GroupSetNameResponse;
 import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
-import io.grpc.stub.StreamObserver;
-import io.grpc.Status;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
 

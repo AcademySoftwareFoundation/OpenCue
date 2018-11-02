@@ -25,8 +25,8 @@ import java.sql.SQLException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DepartmentEntity;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.util.SqlUtil;
 

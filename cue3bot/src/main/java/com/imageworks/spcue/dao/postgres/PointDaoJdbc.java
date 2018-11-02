@@ -28,8 +28,8 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.PointDetail;
+import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.util.SqlUtil;

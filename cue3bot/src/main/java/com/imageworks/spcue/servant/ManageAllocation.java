@@ -1,5 +1,10 @@
 package com.imageworks.spcue.servant;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
@@ -7,9 +12,6 @@ import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.commands.ManageReparentHosts;
-import com.imageworks.spcue.grpc.host.Host;
-import com.imageworks.spcue.grpc.host.HostSearchCriteria;
-import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.AllocCreateRequest;
 import com.imageworks.spcue.grpc.facility.AllocCreateResponse;
 import com.imageworks.spcue.grpc.facility.AllocDeleteRequest;
@@ -34,16 +36,15 @@ import com.imageworks.spcue.grpc.facility.AllocSetNameRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetNameResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetTagRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetTagResponse;
+import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.AllocationInterfaceGrpc;
 import com.imageworks.spcue.grpc.facility.AllocationSeq;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
-import io.grpc.stub.StreamObserver;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfaceImplBase {
     private AllocationDao allocationDao;

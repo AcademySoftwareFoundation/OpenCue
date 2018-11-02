@@ -31,8 +31,8 @@ import java.util.regex.Pattern;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;

@@ -27,8 +27,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.FilterInterface;
-import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;

@@ -27,25 +27,25 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
-import com.imageworks.spcue.grpc.job.JobState;
-import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 

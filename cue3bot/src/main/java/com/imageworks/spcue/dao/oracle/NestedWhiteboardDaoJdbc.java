@@ -28,17 +28,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import com.imageworks.spcue.ShowInterface;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.grpc.host.NestedHost;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
 import com.imageworks.spcue.grpc.host.NestedProc;
 import com.imageworks.spcue.grpc.job.GroupStats;
-import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.NestedGroup;
 import com.imageworks.spcue.grpc.job.NestedJob;
 import com.imageworks.spcue.util.Convert;

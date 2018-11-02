@@ -20,34 +20,34 @@
 package com.imageworks.spcue.test.service;
 
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-
 import javax.annotation.Resource;
 
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.common.collect.Sets;
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.ServiceOverrideEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 @Transactional

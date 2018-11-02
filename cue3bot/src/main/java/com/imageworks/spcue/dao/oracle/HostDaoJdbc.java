@@ -33,14 +33,14 @@ import java.util.regex.Pattern;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityCreationError;
-import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.HostDao;

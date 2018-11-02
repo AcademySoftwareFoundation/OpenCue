@@ -24,8 +24,8 @@ import java.util.List;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.dao.HistoricalDao;
+import com.imageworks.spcue.grpc.job.JobState;
 
 public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
 

@@ -4,6 +4,13 @@ package com.imageworks.common.spring.remoting;
 import java.io.IOException;
 import java.util.Properties;
 
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import org.apache.log4j.Logger;
+import org.springframework.beans.BeansException;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+
 import com.imageworks.spcue.servant.CueStatic;
 import com.imageworks.spcue.servant.ManageAction;
 import com.imageworks.spcue.servant.ManageAllocation;
@@ -27,14 +34,7 @@ import com.imageworks.spcue.servant.ManageServiceOverride;
 import com.imageworks.spcue.servant.ManageShow;
 import com.imageworks.spcue.servant.ManageSubscription;
 import com.imageworks.spcue.servant.ManageTask;
-import io.grpc.Server;
-import io.grpc.ServerBuilder;
-import org.apache.log4j.Logger;
-
 import com.imageworks.spcue.servant.RqdReportStatic;
-import org.springframework.beans.BeansException;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationContextAware;
 
 
 public class GrpcServer implements ApplicationContextAware {
