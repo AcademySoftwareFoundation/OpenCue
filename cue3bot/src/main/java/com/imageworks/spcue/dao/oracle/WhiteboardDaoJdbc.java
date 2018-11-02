@@ -179,9 +179,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public FilterSeq getFilters(ShowInterface show) {
-        List<Filter> filters =  getJdbcTemplate().query(
-                GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC", FILTER_MAPPER, show.getShowId());
-        return FilterSeq.newBuilder().addAllFilters(filters).build();
+        return FilterSeq.newBuilder().addAllFilters(
+                getJdbcTemplate().query(
+                        GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC",
+                        FILTER_MAPPER, show.getShowId())).build();
     }
 
     @Override
@@ -310,7 +311,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         return getJdbcTemplate().query(r.getQuery(GET_JOB_NAMES),
                 new RowMapper<String>() {
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
-                return SqlUtil.getString(rs,1);
+                return SqlUtil.getString(rs, 1);
             }
         }, r.getValuesArray());
     }
@@ -557,7 +558,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
         UpdatedFrameCheckResult.Builder resultBuilder = UpdatedFrameCheckResult.newBuilder();
         resultBuilder.setState(JobState.valueOf(getJdbcTemplate().queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",String.class, job.getJobId())));
+                "SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId())));
 
         FrameSearch r = new FrameSearch(job);
         List<String> lids = new ArrayList<String>(layers.size());
@@ -597,7 +598,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         return getJdbcTemplate().query("SELECT str_name FROM dept ORDER BY str_name ASC",
             new RowMapper<String>() {
                 public String mapRow(ResultSet rs, int row) throws SQLException {
-                    return SqlUtil.getString(rs,"str_name");
+                    return SqlUtil.getString(rs, "str_name");
                 }
             });
     }
@@ -742,10 +743,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Matcher>() {
             public Matcher mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Matcher.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_matcher"))
-                        .setInput(SqlUtil.getString(rs,"str_value"))
-                        .setSubject(MatchSubject.valueOf(SqlUtil.getString(rs,"str_subject")))
-                        .setType(MatchType.valueOf(SqlUtil.getString(rs,"str_match")))
+                        .setId(SqlUtil.getString(rs, "pk_matcher"))
+                        .setInput(SqlUtil.getString(rs, "str_value"))
+                        .setSubject(MatchSubject.valueOf(SqlUtil.getString(rs, "str_subject")))
+                        .setType(MatchType.valueOf(SqlUtil.getString(rs, "str_match")))
                         .build();
             }
     };
@@ -754,10 +755,10 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Filter>() {
             public Filter mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Filter.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_filter"))
-                        .setType(FilterType.valueOf(SqlUtil.getString(rs,"str_type")))
+                        .setId(SqlUtil.getString(rs, "pk_filter"))
+                        .setType(FilterType.valueOf(SqlUtil.getString(rs, "str_type")))
                         .setOrder(rs.getInt("f_order"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setEnabled(rs.getBoolean("b_enabled"))
                         .build();
             }
@@ -766,21 +767,21 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Action> ACTION_MAPPER =
         new RowMapper<Action>() {
             public Action mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Action.Builder builder = Action.newBuilder();
-                builder.setId(SqlUtil.getString(rs,"pk_action"));
-                builder.setBooleanValue(false);
-                builder.setIntegerValue(0);
-                builder.setFloatValue(0f);
-                builder.setStringValue("");
-                builder.setType(ActionType.valueOf(SqlUtil.getString(rs,"str_action")));
-                builder.setValueType(ActionValueType.valueOf(SqlUtil.getString(rs,"str_value_type")));
+                Action.Builder builder = Action.newBuilder()
+                        .setId(SqlUtil.getString(rs, "pk_action"))
+                        .setBooleanValue(false)
+                        .setIntegerValue(0)
+                        .setFloatValue(0f)
+                        .setStringValue("")
+                        .setType(ActionType.valueOf(SqlUtil.getString(rs, "str_action")))
+                        .setValueType(ActionValueType.valueOf(SqlUtil.getString(rs, "str_value_type")));
 
                 switch (builder.getValueType()) {
                     case GROUP_TYPE:
-                        builder.setGroupValue(SqlUtil.getString(rs,"pk_folder"));
+                        builder.setGroupValue(SqlUtil.getString(rs, "pk_folder"));
                         break;
                     case STRING_TYPE:
-                        builder.setStringValue(SqlUtil.getString(rs,"str_value"));
+                        builder.setStringValue(SqlUtil.getString(rs, "str_value"));
                         break;
                     case INTEGER_TYPE:
                         builder.setIntegerValue(rs.getInt("int_value"));
@@ -811,9 +812,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Deed>() {
             public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Deed.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_deed"))
-                        .setHost(SqlUtil.getString(rs,"str_host"))
-                        .setOwner(SqlUtil.getString(rs,"str_username"))
+                        .setId(SqlUtil.getString(rs, "pk_deed"))
+                        .setHost(SqlUtil.getString(rs, "str_host"))
+                        .setOwner(SqlUtil.getString(rs, "str_username"))
                         .setBlackout(rs.getBoolean("b_blackout"))
                         .setBlackoutStartTime(rs.getInt("int_blackout_start"))
                         .setBlackoutStopTime(rs.getInt("int_blackout_stop"))
@@ -826,25 +827,25 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         public RenderPartition mapRow(ResultSet rs, int rowNum) throws SQLException {
 
             RenderPartition.Builder builder = RenderPartition.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_host_local"))
+                    .setId(SqlUtil.getString(rs, "pk_host_local"))
                     .setCores(rs.getInt("int_cores_max") - rs.getInt("int_cores_idle"))
                     .setMaxCores(rs.getInt("int_cores_max"))
                     .setThreads(rs.getInt("int_threads"))
                     .setMaxMemory(rs.getLong("int_mem_max"))
                     .setMemory( rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
                     .setMaxGpu(rs.getLong("int_gpu_max"))
-                    .setHost(SqlUtil.getString(rs,"str_host_name"))
-                    .setJob(SqlUtil.getString(rs,"str_job_name"))
-                    .setRenderPartType(RenderPartitionType.valueOf(SqlUtil.getString(rs,"str_type")))
+                    .setHost(SqlUtil.getString(rs, "str_host_name"))
+                    .setJob(SqlUtil.getString(rs, "str_job_name"))
+                    .setRenderPartType(RenderPartitionType.valueOf(SqlUtil.getString(rs, "str_type")))
                     .setLayer("")
                     .setFrame("");
 
-            if (SqlUtil.getString(rs,"str_layer_name") != null) {
-                builder.setLayer(SqlUtil.getString(rs,"str_layer_name"));
+            if (SqlUtil.getString(rs, "str_layer_name") != null) {
+                builder.setLayer(SqlUtil.getString(rs, "str_layer_name"));
             }
 
-            if (SqlUtil.getString(rs,"str_frame_name") != null) {
-                builder.setFrame(SqlUtil.getString(rs,"str_frame_name"));
+            if (SqlUtil.getString(rs, "str_frame_name") != null) {
+                builder.setFrame(SqlUtil.getString(rs, "str_frame_name"));
             }
 
             return builder.build();
@@ -856,9 +857,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         OWNER_MAPPER = new RowMapper<Owner>() {
             public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Owner.newBuilder()
-                        .setName(SqlUtil.getString(rs,"str_username"))
-                        .setId(SqlUtil.getString(rs,"pk_owner"))
-                        .setShow(SqlUtil.getString(rs,"str_show"))
+                        .setName(SqlUtil.getString(rs, "str_username"))
+                        .setId(SqlUtil.getString(rs, "pk_owner"))
+                        .setShow(SqlUtil.getString(rs, "str_show"))
                         .setHostCount(rs.getInt("host_count"))
                         .build();
             }
@@ -868,11 +869,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Department>() {
         public Department mapRow(ResultSet rs, int row) throws SQLException {
             return Department.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_point"))
-                    .setName(SqlUtil.getString(rs,"str_name"))
-                    .setDept(SqlUtil.getString(rs,"str_dept"))
+                    .setId(SqlUtil.getString(rs, "pk_point"))
+                    .setName(SqlUtil.getString(rs, "str_name"))
+                    .setDept(SqlUtil.getString(rs, "str_dept"))
                     .setTiManaged(rs.getBoolean("b_managed"))
-                    .setTiTask(SqlUtil.getString(rs,"str_ti_task"))
+                    .setTiTask(SqlUtil.getString(rs, "str_ti_task"))
                     .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                     .build();
         }
@@ -882,26 +883,26 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Proc>() {
         public Proc mapRow(ResultSet rs, int row) throws SQLException {
             return Proc.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_proc"))
-                    .setName(CueUtil.buildProcName(SqlUtil.getString(rs,"host_name"),
+                    .setId(SqlUtil.getString(rs, "pk_proc"))
+                    .setName(CueUtil.buildProcName(SqlUtil.getString(rs, "host_name"),
                             rs.getInt("int_cores_reserved")))
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
                     .setReservedMemory(rs.getLong("int_mem_reserved"))
                     .setReservedGpu(rs.getLong("int_gpu_reserved"))
                     .setUsedMemory(rs.getLong("int_mem_used"))
                     .setFrameName(SqlUtil.getString(rs, "frame_name"))
-                    .setJobName(SqlUtil.getString(rs,"job_name"))
-                    .setGroupName(SqlUtil.getString(rs,"folder_name"))
-                    .setShowName(SqlUtil.getString(rs,"show_name"))
+                    .setJobName(SqlUtil.getString(rs, "job_name"))
+                    .setGroupName(SqlUtil.getString(rs, "folder_name"))
+                    .setShowName(SqlUtil.getString(rs, "show_name"))
                     .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
                     .setBookedTime((int) (rs.getTimestamp("ts_booked").getTime() / 1000))
                     .setDispatchTime((int) (rs.getTimestamp("ts_dispatched").getTime() / 1000))
                     .setUnbooked(rs.getBoolean("b_unbooked"))
                     .setLogPath(String.format("%s/%s.%s.rqlog",
-                            SqlUtil.getString(rs,"str_log_dir"), SqlUtil.getString(rs,"job_name"),
-                            SqlUtil.getString(rs,"frame_name")))
+                            SqlUtil.getString(rs, "str_log_dir"), SqlUtil.getString(rs, "job_name"),
+                            SqlUtil.getString(rs, "frame_name")))
                     .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
-                    .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
+                    .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(",")))
                     .build();
         }
     };
@@ -910,9 +911,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Task>() {
         public Task mapRow(ResultSet rs, int row) throws SQLException {
             return Task.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_task"))
-                    .setDept(SqlUtil.getString(rs,"str_dept"))
-                    .setShot(SqlUtil.getString(rs,"str_shot"))
+                    .setId(SqlUtil.getString(rs, "pk_task"))
+                    .setDept(SqlUtil.getString(rs, "str_dept"))
+                    .setShot(SqlUtil.getString(rs, "str_shot"))
                     .setMinCores(Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores")))
                     .setAdjustCores(Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores")))
                     .build();
@@ -924,45 +925,45 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
         public Comment mapRow(ResultSet rs, int row) throws SQLException {
             return Comment.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_comment"))
-                    .setMessage(SqlUtil.getString(rs,"str_message"))
-                    .setSubject(SqlUtil.getString(rs,"str_subject"))
+                    .setId(SqlUtil.getString(rs, "pk_comment"))
+                    .setMessage(SqlUtil.getString(rs, "str_message"))
+                    .setSubject(SqlUtil.getString(rs, "str_subject"))
                     .setTimestamp((int)(rs.getTimestamp("ts_created").getTime() / 1000))
-                    .setUser(SqlUtil.getString(rs,"str_user"))
+                    .setUser(SqlUtil.getString(rs, "str_user"))
                     .build();
         }
     };
 
     public static NestedHost.Builder mapNestedHostBuilder(ResultSet rs) throws SQLException {
-        NestedHost.Builder builder = NestedHost.newBuilder();
-        builder.setId(SqlUtil.getString(rs,"pk_host"));
-        builder.setName(SqlUtil.getString(rs,"host_name"));
-        builder.setAllocName(SqlUtil.getString(rs,"alloc_name"));
-        builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
-        builder.setFreeMcp(rs.getLong("int_mcp_free"));
-        builder.setFreeMemory(rs.getLong("int_mem_free"));
-        builder.setFreeSwap(rs.getLong("int_swap_free"));
-        builder.setFreeGpu(rs.getLong("int_gpu_free"));
-        builder.setLoad(rs.getInt("int_load"));
-        builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
-        builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
-        builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
-        builder.setMemory(rs.getLong("int_mem"));
-        builder.setIdleMemory(rs.getLong("int_mem_idle"));
-        builder.setGpu(rs.getLong("int_gpu"));
-        builder.setIdleGpu(rs.getLong("int_gpu_idle"));
-        builder.setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")));
-        builder.setTotalMcp(rs.getLong("int_mcp_total"));
-        builder.setTotalMemory(rs.getLong("int_mem_total"));
-        builder.setTotalSwap(rs.getLong("int_swap_total"));
-        builder.setTotalGpu(rs.getLong("int_gpu_total"));
-        builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
-        builder.setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")));
-        builder.setHasComment(rs.getBoolean("b_comment"));
-        builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
-        builder.setOs(SqlUtil.getString(rs,"str_os"));
+        NestedHost.Builder builder = NestedHost.newBuilder()
+                .setId(SqlUtil.getString(rs, "pk_host"))
+                .setName(SqlUtil.getString(rs, "host_name"))
+                .setAllocName(SqlUtil.getString(rs, "alloc_name"))
+                .setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000))
+                .setFreeMcp(rs.getLong("int_mcp_free"))
+                .setFreeMemory(rs.getLong("int_mem_free"))
+                .setFreeSwap(rs.getLong("int_swap_free"))
+                .setFreeGpu(rs.getLong("int_gpu_free"))
+                .setLoad(rs.getInt("int_load"))
+                .setNimbyEnabled(rs.getBoolean("b_nimby"))
+                .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")))
+                .setMemory(rs.getLong("int_mem"))
+                .setIdleMemory(rs.getLong("int_mem_idle"))
+                .setGpu(rs.getLong("int_gpu"))
+                .setIdleGpu(rs.getLong("int_gpu_idle"))
+                .setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")))
+                .setTotalMcp(rs.getLong("int_mcp_total"))
+                .setTotalMemory(rs.getLong("int_mem_total"))
+                .setTotalSwap(rs.getLong("int_swap_total"))
+                .setTotalGpu(rs.getLong("int_gpu_total"))
+                .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                .setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")))
+                .setHasComment(rs.getBoolean("b_comment"))
+                .setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")])
+                .setOs(SqlUtil.getString(rs, "str_os"));
 
-        String tags = SqlUtil.getString(rs,"str_tags");
+        String tags = SqlUtil.getString(rs, "str_tags");
         if (tags != null)
             builder.addAllTags(Arrays.asList(tags.split(" ")));
         return builder;
@@ -970,9 +971,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     public static Host.Builder mapHostBuilder(ResultSet rs) throws SQLException {
         Host.Builder builder = Host.newBuilder();
-        builder.setId(SqlUtil.getString(rs,"pk_host"));
-        builder.setName(SqlUtil.getString(rs,"host_name"));
-        builder.setAllocName(SqlUtil.getString(rs,"alloc_name"));
+        builder.setId(SqlUtil.getString(rs, "pk_host"));
+        builder.setName(SqlUtil.getString(rs, "host_name"));
+        builder.setAllocName(SqlUtil.getString(rs, "alloc_name"));
         builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
         builder.setFreeMcp(rs.getLong("int_mcp_free"));
         builder.setFreeMemory(rs.getLong("int_mem_free"));
@@ -986,18 +987,18 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setIdleMemory(rs.getLong("int_mem_idle"));
         builder.setGpu(rs.getLong("int_gpu"));
         builder.setIdleGpu(rs.getLong("int_gpu_idle"));
-        builder.setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")));
+        builder.setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")));
         builder.setTotalMcp(rs.getLong("int_mcp_total"));
         builder.setTotalMemory(rs.getLong("int_mem_total"));
         builder.setTotalSwap(rs.getLong("int_swap_total"));
         builder.setTotalGpu(rs.getLong("int_gpu_total"));
         builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
-        builder.setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")));
+        builder.setLockState(LockState.valueOf(SqlUtil.getString(rs, "str_lock_state")));
         builder.setHasComment(rs.getBoolean("b_comment"));
         builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
-        builder.setOs(SqlUtil.getString(rs,"str_os"));
+        builder.setOs(SqlUtil.getString(rs, "str_os"));
 
-        String tags =  SqlUtil.getString(rs,"str_tags");
+        String tags =  SqlUtil.getString(rs, "str_tags");
         if (tags != null)
             builder.addAllTags(Arrays.asList(tags.split(" ")));
         return builder;
@@ -1015,17 +1016,17 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Depend>() {
             public Depend mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Depend.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_depend"))
+                        .setId(SqlUtil.getString(rs, "pk_depend"))
                         .setActive(rs.getBoolean("b_active"))
                         .setAnyFrame(rs.getBoolean("b_any"))
-                        .setDependErFrame(SqlUtil.getString(rs,"depend_er_frame"))
-                        .setDependErLayer(SqlUtil.getString(rs,"depend_er_layer"))
-                        .setDependErJob(SqlUtil.getString(rs,"depend_er_job"))
-                        .setDependOnFrame(SqlUtil.getString(rs,"depend_on_frame"))
-                        .setDependOnLayer(SqlUtil.getString(rs,"depend_on_layer"))
+                        .setDependErFrame(SqlUtil.getString(rs, "depend_er_frame"))
+                        .setDependErLayer(SqlUtil.getString(rs, "depend_er_layer"))
+                        .setDependErJob(SqlUtil.getString(rs, "depend_er_job"))
+                        .setDependOnFrame(SqlUtil.getString(rs, "depend_on_frame"))
+                        .setDependOnLayer(SqlUtil.getString(rs, "depend_on_layer"))
                         .setDependOnJob(SqlUtil.getString(rs, "depend_on_job"))
-                        .setType(DependType.valueOf(SqlUtil.getString(rs,"str_type")))
-                        .setTarget(DependTarget.valueOf(SqlUtil.getString(rs,"str_target")))
+                        .setType(DependType.valueOf(SqlUtil.getString(rs, "str_type")))
+                        .setTarget(DependTarget.valueOf(SqlUtil.getString(rs, "str_target")))
                         .build();
             }
     };
@@ -1035,9 +1036,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             public Allocation mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Allocation.newBuilder()
                         .setId(rs.getString("pk_alloc"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
-                        .setFacility(SqlUtil.getString(rs,"facility_name"))
-                        .setTag(SqlUtil.getString(rs,"str_tag"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
+                        .setFacility(SqlUtil.getString(rs, "facility_name"))
+                        .setTag(SqlUtil.getString(rs, "str_tag"))
                         .setBillable(rs.getBoolean("b_billable"))
                         .setStats(AllocationStats.newBuilder()
                                 .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
@@ -1066,9 +1067,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
                         .build();
                 return Group.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_folder"))
-                        .setName(SqlUtil.getString(rs,"group_name"))
-                        .setDepartment(SqlUtil.getString(rs,"str_dept"))
+                        .setId(SqlUtil.getString(rs, "pk_folder"))
+                        .setName(SqlUtil.getString(rs, "group_name"))
+                        .setDepartment(SqlUtil.getString(rs, "str_dept"))
                         .setDefaultJobPriority(rs.getInt("int_job_priority"))
                         .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
                         .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))
@@ -1084,23 +1085,23 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Job>() {
             public Job mapRow(ResultSet rs, int rowNum) throws SQLException {
                 Job.Builder jobBuilder = Job.newBuilder()
-                        .setLogDir(SqlUtil.getString(rs,"str_log_dir"))
+                        .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
                         .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                         .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setPriority(rs.getInt("int_priority"))
-                        .setShot(SqlUtil.getString(rs,"str_shot"))
-                        .setShow(SqlUtil.getString(rs,"str_show"))
-                        .setFacility(SqlUtil.getString(rs,"facility_name"))
-                        .setGroup(SqlUtil.getString(rs,"group_name"))
-                        .setState(JobState.valueOf(SqlUtil.getString(rs,"str_state")))
+                        .setShot(SqlUtil.getString(rs, "str_shot"))
+                        .setShow(SqlUtil.getString(rs, "str_show"))
+                        .setFacility(SqlUtil.getString(rs, "facility_name"))
+                        .setGroup(SqlUtil.getString(rs, "group_name"))
+                        .setState(JobState.valueOf(SqlUtil.getString(rs, "str_state")))
                         .setUid(rs.getInt("int_uid"))
-                        .setUser(SqlUtil.getString(rs,"str_user"))
+                        .setUser(SqlUtil.getString(rs, "str_user"))
                         .setIsPaused(rs.getBoolean("b_paused"))
                         .setHasComment(rs.getBoolean("b_comment"))
                         .setAutoEat(rs.getBoolean("b_autoeat"))
                         .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
-                        .setOs(SqlUtil.getString(rs,"str_os"));
+                        .setOs(SqlUtil.getString(rs, "str_os"));
 
                 Timestamp ts = rs.getTimestamp("ts_stopped");
                 if (ts != null) {
@@ -1155,22 +1156,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             new RowMapper<Layer>() {
                 public Layer mapRow(ResultSet rs, int rowNum) throws SQLException {
                     Layer.Builder builder = Layer.newBuilder()
-                            .setId(SqlUtil.getString(rs,"pk_layer"))
-                            .setParentId(SqlUtil.getString(rs,"pk_job"))
+                            .setId(SqlUtil.getString(rs, "pk_layer"))
+                            .setParentId(SqlUtil.getString(rs, "pk_job"))
                             .setChunkSize(rs.getInt("int_chunk_size"))
                             .setDispatchOrder(rs.getInt("int_dispatch_order"))
-                            .setName(SqlUtil.getString(rs,"str_name"))
-                            .setRange(SqlUtil.getString(rs,"str_range"))
+                            .setName(SqlUtil.getString(rs, "str_name"))
+                            .setRange(SqlUtil.getString(rs, "str_range"))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_cores_min")))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_cores_max")))
                             .setIsThreadable(rs.getBoolean("b_threadable"))
                             .setMinMemory(rs.getLong("int_mem_min"))
                             .setMinGpu(rs.getLong("int_gpu_min"))
-                            .setType(LayerType.valueOf(SqlUtil.getString(rs,"str_type")))
+                            .setType(LayerType.valueOf(SqlUtil.getString(rs, "str_type")))
                             .addAllTags(Sets.newHashSet(
-                                    SqlUtil.getString(rs,"str_tags").
+                                    SqlUtil.getString(rs, "str_tags").
                                     replaceAll(" ","").split("\\|")))
-                            .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
+                            .addAllServices(Arrays.asList(SqlUtil.getString(rs, "str_services").split(",")))
                             .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"));
 
                     LayerStats.Builder statsBuilder = LayerStats.newBuilder()
@@ -1218,12 +1219,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 return Subscription.newBuilder()
                         .setId(SqlUtil.getString(rs, "pk_subscription"))
                         .setBurst(rs.getInt("int_burst"))
-                        .setName(SqlUtil.getString(rs,"name"))
+                        .setName(SqlUtil.getString(rs, "name"))
                         .setReservedCores(rs.getInt("int_cores"))
                         .setSize(rs.getInt("int_size"))
-                        .setAllocationName(SqlUtil.getString(rs,"alloc_name"))
-                        .setShowName(SqlUtil.getString(rs,"show_name"))
-                        .setFacility(SqlUtil.getString(rs,"facility_name"))
+                        .setAllocationName(SqlUtil.getString(rs, "alloc_name"))
+                        .setShowName(SqlUtil.getString(rs, "show_name"))
+                        .setFacility(SqlUtil.getString(rs, "facility_name"))
                         .build();
             }
         };
@@ -1232,15 +1233,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<UpdatedFrame>() {
             public UpdatedFrame mapRow(ResultSet rs, int rowNum) throws SQLException {
                 UpdatedFrame.Builder builder = UpdatedFrame.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_frame"))
+                        .setId(SqlUtil.getString(rs, "pk_frame"))
                         .setExitStatus(rs.getInt("int_exit_status"))
                         .setMaxRss(rs.getInt("int_mem_max_used"))
                         .setRetryCount(rs.getInt("int_retries"))
-                        .setState(FrameState.valueOf(SqlUtil.getString(rs,"str_state")))
+                        .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
                         .setUsedMemory(rs.getInt("int_mem_used"));
 
-                if (SqlUtil.getString(rs,"str_host") != null) {
-                    builder.setLastResource(String.format("%s/%2.2f",SqlUtil.getString(rs,"str_host"),
+                if (SqlUtil.getString(rs, "str_host") != null) {
+                    builder.setLastResource(String.format("%s/%2.2f",SqlUtil.getString(rs, "str_host"),
                             Convert.coreUnitsToCores(rs.getInt("int_cores"))));
                 }else {
                     builder.setLastResource("");
@@ -1269,24 +1270,24 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Frame>() {
             public Frame mapRow(ResultSet rs, int rowNum) throws SQLException {
                 Frame.Builder builder = Frame.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_frame"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setId(SqlUtil.getString(rs, "pk_frame"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setExitStatus(rs.getInt("int_exit_status"))
                         .setMaxRss(rs.getLong("int_mem_max_used"))
                         .setNumber(rs.getInt("int_number"))
                         .setDispatchOrder(rs.getInt("int_dispatch_order"))
                         .setRetryCount(rs.getInt("int_retries"))
-                        .setState(FrameState.valueOf(SqlUtil.getString(rs,"str_state")))
-                        .setLayerName(SqlUtil.getString(rs,"layer_name"))
+                        .setState(FrameState.valueOf(SqlUtil.getString(rs, "str_state")))
+                        .setLayerName(SqlUtil.getString(rs, "layer_name"))
                         .setUsedMemory(rs.getLong("int_mem_used"))
                         .setReservedMemory(rs.getLong("int_mem_reserved"))
                         .setReservedGpu(rs.getLong("int_gpu_reserved"))
                         .setCheckpointState(CheckpointState.valueOf(
-                                SqlUtil.getString(rs,"str_checkpoint_state")))
+                                SqlUtil.getString(rs, "str_checkpoint_state")))
                         .setCheckpointCount(rs.getInt("int_checkpoint_count"));
 
-                if (SqlUtil.getString(rs,"str_host") != null) {
-                    builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs,"str_host"),
+                if (SqlUtil.getString(rs, "str_host") != null) {
+                    builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs, "str_host"),
                             rs.getInt("int_cores")));
                 } else {
                     builder.setLastResource("");
@@ -1320,15 +1321,15 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<Service>() {
             public Service mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return Service.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_service"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setId(SqlUtil.getString(rs, "pk_service"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setThreadable(rs.getBoolean("b_threadable"))
                         .setMinCores(rs.getInt("int_cores_min"))
                         .setMaxCores(rs.getInt("int_cores_max"))
                         .setMinMemory(rs.getInt("int_mem_min"))
                         .setMinGpu(rs.getInt("int_gpu_min"))
                         .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
-                                SqlUtil.getString(rs,"str_tags"))))
+                                SqlUtil.getString(rs, "str_tags"))))
                         .build();
             }
     };
@@ -1337,18 +1338,18 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         new RowMapper<ServiceOverride>() {
             public ServiceOverride mapRow(ResultSet rs, int rowNum) throws SQLException {
                 Service data = Service.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_show_service"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setId(SqlUtil.getString(rs, "pk_show_service"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setThreadable(rs.getBoolean("b_threadable"))
                         .setMinCores(rs.getInt("int_cores_min"))
                         .setMaxCores(rs.getInt("int_cores_max"))
                         .setMinMemory(rs.getInt("int_mem_min"))
                         .setMinGpu(rs.getInt("int_gpu_min"))
                         .addAllTags(Lists.newArrayList(ServiceDaoJdbc.splitTags(
-                                SqlUtil.getString(rs,"str_tags"))))
+                                SqlUtil.getString(rs, "str_tags"))))
                         .build();
                 return ServiceOverride.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_show_service"))
+                        .setId(SqlUtil.getString(rs, "pk_show_service"))
                         .setData(data)
                         .build();
             }
@@ -1369,14 +1370,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setPendingJobs(rs.getInt("int_job_count"))
                         .build();
                 return Show.newBuilder()
-                        .setId(SqlUtil.getString(rs,"pk_show"))
-                        .setName(SqlUtil.getString(rs,"str_name"))
+                        .setId(SqlUtil.getString(rs, "pk_show"))
+                        .setName(SqlUtil.getString(rs, "str_name"))
                         .setActive(rs.getBoolean("b_active"))
                         .setDefaultMaxCores(Convert.coreUnitsToCores(rs.getInt("int_default_max_cores")))
                         .setDefaultMinCores(Convert.coreUnitsToCores(rs.getInt("int_default_min_cores")))
                         .setBookingEnabled(rs.getBoolean("b_booking_enabled"))
                         .setDispatchEnabled(rs.getBoolean("b_dispatch_enabled"))
-                        .setCommentEmail(SqlUtil.getString(rs,"str_comment_email"))
+                        .setCommentEmail(SqlUtil.getString(rs, "str_comment_email"))
                         .setShowStats(stats)
                         .build();
             }

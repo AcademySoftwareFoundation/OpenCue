@@ -178,9 +178,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public FilterSeq getFilters(ShowInterface show) {
-        List<Filter> filters = getJdbcTemplate().query(
-                GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC", FILTER_MAPPER, show.getShowId());
-        return FilterSeq.newBuilder().addAllFilters(filters).build();
+        return FilterSeq.newBuilder().addAllFilters(getJdbcTemplate().query(
+                GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC",
+                FILTER_MAPPER, show.getShowId())).build();
     }
 
     @Override
@@ -557,7 +557,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
         UpdatedFrameCheckResult.Builder resultBuilder = UpdatedFrameCheckResult.newBuilder();
         resultBuilder.setState(JobState.valueOf(getJdbcTemplate().queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",String.class, job.getJobId())));
+                "SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId())));
 
         FrameSearch r = new FrameSearch(job);
         List<String> lids = new ArrayList<String>(layers.size());
@@ -765,14 +765,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Action> ACTION_MAPPER =
             new RowMapper<Action>() {
                 public Action mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    Action.Builder builder = Action.newBuilder();
-                    builder.setId(SqlUtil.getString(rs,"pk_action"));
-                    builder.setBooleanValue(false);
-                    builder.setIntegerValue(0);
-                    builder.setFloatValue(0f);
-                    builder.setStringValue("");
-                    builder.setType(ActionType.valueOf(SqlUtil.getString(rs,"str_action")));
-                    builder.setValueType(ActionValueType.valueOf(SqlUtil.getString(rs,"str_value_type")));
+                    Action.Builder builder = Action.newBuilder()
+                            .setId(SqlUtil.getString(rs,"pk_action"))
+                            .setBooleanValue(false)
+                            .setIntegerValue(0)
+                            .setFloatValue(0f)
+                            .setStringValue("")
+                            .setType(ActionType.valueOf(SqlUtil.getString(rs,"str_action")))
+                            .setValueType(ActionValueType.valueOf(SqlUtil.getString(rs,"str_value_type")));
 
                     switch (builder.getValueType()) {
                         case GROUP_TYPE:
@@ -934,33 +934,33 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
 
     public static NestedHost.Builder mapNestedHostBuilder(ResultSet rs) throws SQLException {
-        NestedHost.Builder builder = NestedHost.newBuilder();
-        builder.setId(SqlUtil.getString(rs,"pk_host"));
-        builder.setName(SqlUtil.getString(rs,"host_name"));
-        builder.setAllocName(SqlUtil.getString(rs,"alloc_name"));
-        builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
-        builder.setFreeMcp(rs.getLong("int_mcp_free"));
-        builder.setFreeMemory(rs.getLong("int_mem_free"));
-        builder.setFreeSwap(rs.getLong("int_swap_free"));
-        builder.setFreeGpu(rs.getLong("int_gpu_free"));
-        builder.setLoad(rs.getInt("int_load"));
-        builder.setNimbyEnabled(rs.getBoolean("b_nimby"));
-        builder.setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")));
-        builder.setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")));
-        builder.setMemory(rs.getLong("int_mem"));
-        builder.setIdleMemory(rs.getLong("int_mem_idle"));
-        builder.setGpu(rs.getLong("int_gpu"));
-        builder.setIdleGpu(rs.getLong("int_gpu_idle"));
-        builder.setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")));
-        builder.setTotalMcp(rs.getLong("int_mcp_total"));
-        builder.setTotalMemory(rs.getLong("int_mem_total"));
-        builder.setTotalSwap(rs.getLong("int_swap_total"));
-        builder.setTotalGpu(rs.getLong("int_gpu_total"));
-        builder.setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000));
-        builder.setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")));
-        builder.setHasComment(rs.getBoolean("b_comment"));
-        builder.setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")]);
-        builder.setOs(SqlUtil.getString(rs,"str_os"));
+        NestedHost.Builder builder = NestedHost.newBuilder()
+                .setId(SqlUtil.getString(rs,"pk_host"))
+                .setName(SqlUtil.getString(rs,"host_name"))
+                .setAllocName(SqlUtil.getString(rs,"alloc_name"))
+                .setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000))
+                .setFreeMcp(rs.getLong("int_mcp_free"))
+                .setFreeMemory(rs.getLong("int_mem_free"))
+                .setFreeSwap(rs.getLong("int_swap_free"))
+                .setFreeGpu(rs.getLong("int_gpu_free"))
+                .setLoad(rs.getInt("int_load"))
+                .setNimbyEnabled(rs.getBoolean("b_nimby"))
+                .setCores(Convert.coreUnitsToCores(rs.getInt("int_cores")))
+                .setIdleCores(Convert.coreUnitsToCores(rs.getInt("int_cores_idle")))
+                .setMemory(rs.getLong("int_mem"))
+                .setIdleMemory(rs.getLong("int_mem_idle"))
+                .setGpu(rs.getLong("int_gpu"))
+                .setIdleGpu(rs.getLong("int_gpu_idle"))
+                .setState(HardwareState.valueOf(SqlUtil.getString(rs,"host_state")))
+                .setTotalMcp(rs.getLong("int_mcp_total"))
+                .setTotalMemory(rs.getLong("int_mem_total"))
+                .setTotalSwap(rs.getLong("int_swap_total"))
+                .setTotalGpu(rs.getLong("int_gpu_total"))
+                .setPingTime((int) (rs.getTimestamp("ts_ping").getTime() / 1000))
+                .setLockState(LockState.valueOf(SqlUtil.getString(rs,"str_lock_state")))
+                .setHasComment(rs.getBoolean("b_comment"))
+                .setThreadMode(ThreadMode.values()[rs.getInt("int_thread_mode")])
+                .setOs(SqlUtil.getString(rs,"str_os"));
 
         String tags = SqlUtil.getString(rs,"str_tags");
         if (tags != null)

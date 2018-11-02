@@ -187,21 +187,19 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             else {
                 group = groups.get(group_id);
             }
-
-            GroupStats.Builder statsBuilder = GroupStats.newBuilder();
             if (rs.getString("pk_job") != null) {
                 NestedJob job = mapResultSetToJob(rs);
                 NestedJob.Builder jobBuilder = mapResultSetToJob(rs).toBuilder();
                 jobBuilder.setParent(group);
                 GroupStats oldStats = group.getStats();
                 JobStats jobStats = job.getStats();
-                statsBuilder.setDeadFrames(oldStats.getDeadFrames() + jobStats.getDeadFrames());
-                statsBuilder.setRunningFrames(oldStats.getRunningFrames() + jobStats.getRunningFrames());
-                statsBuilder.setWaitingFrames(oldStats.getWaitingFrames() + jobStats.getWaitingFrames());
-                statsBuilder.setDependFrames(oldStats.getDependFrames() + jobStats.getDependFrames());
-                statsBuilder.setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores());
-                statsBuilder.setPendingJobs(oldStats.getPendingJobs() + 1);
-                GroupStats groupStats = statsBuilder.build();
+                GroupStats groupStats = GroupStats.newBuilder()
+                        .setDeadFrames(oldStats.getDeadFrames() + jobStats.getDeadFrames())
+                        .setRunningFrames(oldStats.getRunningFrames() + jobStats.getRunningFrames())
+                        .setWaitingFrames(oldStats.getWaitingFrames() + jobStats.getWaitingFrames())
+                        .setDependFrames(oldStats.getDependFrames() + jobStats.getDependFrames())
+                        .setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores())
+                        .setPendingJobs(oldStats.getPendingJobs() + 1).build();
                 job = jobBuilder.build();
                 group = group.toBuilder()
                         .setJobs(group.getJobs().toBuilder().addNestedJobs(job).build())
