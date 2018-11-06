@@ -765,7 +765,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 return Filter.newBuilder()
                         .setId(SqlUtil.getString(rs, "pk_filter"))
                         .setType(FilterType.valueOf(SqlUtil.getString(rs, "str_type")))
-                        .setOrder(rs.getInt("f_order"))
+                        .setOrder(rs.getFloat("f_order"))
                         .setName(SqlUtil.getString(rs, "str_name"))
                         .setEnabled(rs.getBoolean("b_enabled"))
                         .build();

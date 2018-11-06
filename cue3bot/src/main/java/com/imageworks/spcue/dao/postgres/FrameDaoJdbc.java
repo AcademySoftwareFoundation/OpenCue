@@ -709,7 +709,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "depend " +
         "WHERE " +
             "( " +
-               "(pk_job_depend_er = ? AND str_type LIKE 'JOB_ON%') " +
+               "(pk_job_depend_er = ? AND str_type LIKE 'JOB#_ON%' ESCAPE '#') " +
             "OR " +
                 "pk_layer_depend_er = ? " +
             "OR " +

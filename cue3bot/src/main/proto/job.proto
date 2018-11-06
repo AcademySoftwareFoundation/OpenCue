@@ -1162,7 +1162,7 @@ message JobIsJobPendingResponse {
 
 // Kill
 message JobKillRequest {
-    Job job  = 1;
+    Job job = 1;
 }
 
 message JobKillResponse {} // Empty
