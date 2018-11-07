@@ -27,17 +27,16 @@ import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Proc;
-import com.imageworks.spcue.Show;
-
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.RqdIce.RunFrame;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.grpc.job.FrameState;
 
 /**
  * A class for common dispatcher methods.
@@ -128,7 +127,7 @@ public interface DispatchSupport {
      * @param proc
      * @return
      */
-    boolean clearVirtualProcAssignement(Proc proc);
+    boolean clearVirtualProcAssignement(ProcInterface proc);
 
     /**
      * Stops the specified frame and sets a new frame state
@@ -138,7 +137,7 @@ public interface DispatchSupport {
      * @param state
      * @param exitStatus
      */
-    boolean stopFrame(Frame frame, FrameState state, int exitStatus);
+    boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus);
 
     /**
      * Updates the frame to the Running state.  This should
@@ -161,8 +160,8 @@ public interface DispatchSupport {
      * @param maxrss
      * @return
      */
-    boolean stopFrame(Frame frame, FrameState state,
-            int exitStatus, long maxrss);
+    boolean stopFrame(FrameInterface frame, FrameState state,
+                      int exitStatus, long maxrss);
 
     /**
      * Reserve the resources in the specified proc for the
@@ -212,7 +211,7 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(Job job,
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             VirtualProc proc, int limit);
 
     /**
@@ -225,8 +224,8 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(Job job, DispatchHost host,
-            int limit);
+    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host,
+                                               int limit);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.
@@ -236,8 +235,8 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(Layer layer, DispatchHost host,
-            int limit);
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
+                                               int limit);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.
@@ -247,15 +246,15 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(Layer layer, VirtualProc proc,
-            int limit);
+    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
+                                               int limit);
     /**
      *
      * @param excludeJob
      * @param proc
      * @return
      */
-    boolean findUnderProcedJob(Job excludeJob, VirtualProc proc);
+    boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
 
     /**
      * Run the frame on the specified proc.
@@ -300,7 +299,7 @@ public interface DispatchSupport {
      * @param host
      * @return  A set of unique job ids.
      */
-    Set<String> findDispatchJobs(DispatchHost host, Group p);
+    Set<String> findDispatchJobs(DispatchHost host, GroupInterface p);
 
     /**
      *
@@ -321,8 +320,8 @@ public interface DispatchSupport {
      * [JOB] - the job name
      * [LAYER] - the layer name
      *
-     * @param VirtualProc
-     * @param DispatchFrame
+     * @param proc
+     * @param frame
      * @return RunFrame
      */
     RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame);
@@ -338,7 +337,7 @@ public interface DispatchSupport {
      * @param local indicates a local dispatch or not
      * @return boolean
      */
-    boolean isJobDispatchable(Job job, boolean local);
+    boolean isJobDispatchable(JobInterface job, boolean local);
 
     /**
      * returns true of the cue has jobs with pending frames
@@ -353,9 +352,10 @@ public interface DispatchSupport {
      * Returns true if the memory value actually increased.  If the value
      * is lower than current reserved memory it is ignored.
      *
-     * @param report
+     * @param proc
+     * @param value
      */
-    boolean increaseReservedMemory(Proc proc, long value);
+    boolean increaseReservedMemory(ProcInterface proc, long value);
 
     /**
      * Attempts to balance the reserved memory on a proc by
@@ -365,7 +365,7 @@ public interface DispatchSupport {
      * @param proc
      * @param value
      */
-    boolean balanceReservedMemory(Proc proc, long value);
+    boolean balanceReservedMemory(ProcInterface proc, long value);
 
     /**
      * Update the jobs usage counters.
@@ -373,7 +373,7 @@ public interface DispatchSupport {
      * @param frame
      * @param exitStatus
      */
-    void updateUsageCounters(Frame frame, int exitStatus);
+    void updateUsageCounters(FrameInterface frame, int exitStatus);
 
     /**
      * Sets a frame to running if there is a proc with the frame.
@@ -397,7 +397,7 @@ public interface DispatchSupport {
      * @param rss
      * @param maxRss
      */
-    void updateFrameMemoryUsage(Frame frame, long rss, long maxRss);
+    void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss);
 
     /**
      * Update memory usage data for a given frame's proc record.  The
@@ -410,8 +410,8 @@ public interface DispatchSupport {
      * @param vsize
      * @param maxVsize
      */
-    void updateProcMemoryUsage(Frame frame, long rss, long maxRss, long vsize,
-            long maxVsize);
+    void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
+                               long maxVsize);
 
     /**
      * Return true if adding the given core units would put the show
@@ -422,7 +422,7 @@ public interface DispatchSupport {
      * @param coreUnits
      * @return
      */
-    boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits);
+    boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits);
 
     /**
      * Return true if the job can take new procs.
@@ -430,7 +430,7 @@ public interface DispatchSupport {
      * @param job
      * @return
      */
-    boolean isJobBookable(Job job);
+    boolean isJobBookable(JobInterface job);
 
     /**
      * Return true if the job can take the given number of new core units.
@@ -438,7 +438,7 @@ public interface DispatchSupport {
      * @param job
      * @return
      */
-    boolean isJobBookable(Job job, int coreUnits);
+    boolean isJobBookable(JobInterface job, int coreUnits);
 
     /**
      * Return true if the specified show is at or over its
@@ -448,7 +448,7 @@ public interface DispatchSupport {
      * @param alloc
      * @return
      */
-    boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc);
+    boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if the specified show is over its
@@ -472,7 +472,7 @@ public interface DispatchSupport {
      * @param host
      * @return
      */
-    boolean hasStrandedCores(Host host);
+    boolean hasStrandedCores(HostInterface host);
 
     /**
      * Add stranded cores for the given host. Stranded
@@ -501,7 +501,7 @@ public interface DispatchSupport {
      * @param numJobs
      * @return
      */
-    Set<String> findDispatchJobs(DispatchHost host, Show show, int numJobs);
+    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
     /**
      * Return true of the job has pending frames.
@@ -509,7 +509,7 @@ public interface DispatchSupport {
      * @param job
      * @return
      */
-    boolean hasPendingFrames(Job job);
+    boolean hasPendingFrames(JobInterface job);
 
     /**
      * Return true if the layer has pending frames.
@@ -517,7 +517,7 @@ public interface DispatchSupport {
      * @param layer
      * @return
      */
-    boolean hasPendingFrames(Layer layer);
+    boolean hasPendingFrames(LayerInterface layer);
 
 }
 

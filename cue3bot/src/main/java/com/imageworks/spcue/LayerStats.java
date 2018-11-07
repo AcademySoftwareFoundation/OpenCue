@@ -20,9 +20,9 @@
 package com.imageworks.spcue;
 
 import java.io.File;
-import java.util.List;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 public class LayerStats {
 

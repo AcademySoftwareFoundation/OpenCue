@@ -21,7 +21,7 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 
 public interface HistoricalDao {
 
@@ -32,7 +32,7 @@ public interface HistoricalDao {
      * @param cutoffHours
      * @return
      */
-    List<Job> getFinishedJobs(int cutoffHours);
+    List<JobInterface> getFinishedJobs(int cutoffHours);
 
 
     /**
@@ -40,7 +40,7 @@ public interface HistoricalDao {
      *
      * @param job
      */
-    void transferJob(Job job);
+    void transferJob(JobInterface job);
 
 }
 

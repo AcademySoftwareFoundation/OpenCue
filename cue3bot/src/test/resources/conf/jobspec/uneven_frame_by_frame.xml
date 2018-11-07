@@ -30,7 +30,7 @@
         <paused>false</paused>
         <layers>
 
-            <layer name="depend_on_layer" type="Render">
+            <layer name="depend_on_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -41,7 +41,7 @@
                 </services>
             </layer>
 
-             <layer name="depend_er_layer" type="Render">
+             <layer name="depend_er_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1</range>
                 <chunk>1</chunk>

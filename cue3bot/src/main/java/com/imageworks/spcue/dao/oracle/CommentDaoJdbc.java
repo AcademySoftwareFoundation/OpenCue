@@ -27,8 +27,8 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.CommentDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -102,7 +102,7 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
             "pk_comment,pk_job,str_user,str_subject,str_message"+
         ") VALUES (?,?,?,?,?)";
 
-    public void insertComment(Job job, CommentDetail comment) {
+    public void insertComment(JobInterface job, CommentDetail comment) {
         comment.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_JOB_COMMENT,
                 comment.id, job.getJobId(), comment.user,
@@ -120,7 +120,7 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
         ") VALUES (?,?,?,?,?)";
 
 
-    public void insertComment(Host host, CommentDetail comment) {
+    public void insertComment(HostInterface host, CommentDetail comment) {
         comment.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_HOST_COMMENT,
                 comment.id, host.getHostId(), comment.user,

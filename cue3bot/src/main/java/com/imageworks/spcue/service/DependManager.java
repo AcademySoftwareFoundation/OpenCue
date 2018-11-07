@@ -22,12 +22,23 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import com.imageworks.spcue.BuildableDependency;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.depend.FrameByFrame;
+import com.imageworks.spcue.depend.FrameOnFrame;
+import com.imageworks.spcue.depend.FrameOnJob;
+import com.imageworks.spcue.depend.FrameOnLayer;
+import com.imageworks.spcue.depend.JobOnFrame;
+import com.imageworks.spcue.depend.JobOnJob;
+import com.imageworks.spcue.depend.JobOnLayer;
+import com.imageworks.spcue.depend.LayerOnFrame;
+import com.imageworks.spcue.depend.LayerOnJob;
+import com.imageworks.spcue.depend.LayerOnLayer;
+import com.imageworks.spcue.depend.LayerOnSimFrame;
+import com.imageworks.spcue.depend.PreviousFrame;
+import com.imageworks.spcue.grpc.depend.DependTarget;
 
 public interface DependManager {
 
@@ -40,8 +51,8 @@ public interface DependManager {
      */
     void createDepend(BuildableDependency depend);
 
-    List<LightweightDependency> getWhatDependsOn(Job job);
-    List<LightweightDependency> getWhatDependsOn(Job job, DependTarget target);
+    List<LightweightDependency> getWhatDependsOn(JobInterface job);
+    List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target);
 
     /**
      * Return any dependencies that reference the given frame
@@ -53,9 +64,9 @@ public interface DependManager {
      *                   inactive depends, set this to false.
      * @return
      */
-    List<LightweightDependency> getWhatDependsOn(Frame frame, boolean active);
-    List<LightweightDependency> getWhatDependsOn(Frame frame);
-    List<LightweightDependency> getWhatDependsOn(Layer layer);
+    List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active);
+    List<LightweightDependency> getWhatDependsOn(FrameInterface frame);
+    List<LightweightDependency> getWhatDependsOn(LayerInterface layer);
 
     /**
     * Return any dependencies that reference the given layer
@@ -67,7 +78,7 @@ public interface DependManager {
     *                   inactive depends, set this to false.
     * @return
     */
-    List<LightweightDependency> getWhatDependsOn(Layer layer, boolean active);
+    List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active);
 
     LightweightDependency getDepend(String id);
     void satisfyDepend(LightweightDependency depend);
@@ -81,7 +92,7 @@ public interface DependManager {
      * @param DependTarget
      * @return  List<LightweightDependency>
      */
-    public List<LightweightDependency> getWhatThisDependsOn(Job job, DependTarget target);
+    public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target);
 
     /**
      * Returns a list of depends the layer depends on.  Passing in a depend
@@ -91,7 +102,7 @@ public interface DependManager {
      * @param Layer
      * @return List<LightweightDependency>
      */
-    public List<LightweightDependency> getWhatThisDependsOn(Layer layer, DependTarget target);
+    public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer, DependTarget target);
 
     /**
      * Returns a list of depends the frame depends on.  Passing in a depend
@@ -101,7 +112,7 @@ public interface DependManager {
      * @param Frame
      * @return List<LightweightDependency>
      */
-    public List<LightweightDependency> getWhatThisDependsOn(Frame frame, DependTarget target);
+    public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame, DependTarget target);
 
     /**
      * Create a JobOnJob depend.

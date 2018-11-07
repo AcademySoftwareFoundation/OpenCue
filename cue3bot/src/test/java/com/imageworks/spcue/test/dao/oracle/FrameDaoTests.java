@@ -19,14 +19,9 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -35,23 +30,21 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.AfterTransaction;
 import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -61,12 +54,19 @@ import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -165,7 +165,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testGetFrameDetail() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
         FrameDetail frame = frameDao.getFrameDetail(f);
         frame = frameDao.getFrameDetail(f.getFrameId());
         assertEquals("0001-pass_1", frame.name);
@@ -185,8 +185,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testGetFrame() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
-        Frame frame = frameDao.getFrame(f.getFrameId());
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface frame = frameDao.getFrame(f.getFrameId());
         assertEquals("0001-pass_1", frame.getName());
     }
 
@@ -195,8 +195,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testGetFrameByLayer() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
-        Frame f2 = frameDao.findFrame((Layer)f, 1);
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface f2 = frameDao.findFrame((LayerInterface)f, 1);
 
         assertEquals(f.getFrameId(), f2.getFrameId());
         assertEquals(f.getLayerId(), f2.getLayerId());
@@ -208,7 +208,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindFrame() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
         assertEquals(f.getName(),"0001-pass_1");
     }
 
@@ -218,7 +218,10 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testFindFrames() {
         JobDetail job = launchJob();
         FrameSearch r = new FrameSearch(job);
-        r.getCriteria().frames.add("0001-pass_1");
+        FrameSearchCriteria criteria = r.getCriteria();
+        r.setCriteria(criteria.toBuilder()
+                .addFrames("0001-pass_1")
+                .build());
         assertTrue(frameDao.findFrames(r).size() == 1);
     }
 
@@ -228,7 +231,10 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testFindFrameDetails() {
         JobDetail job = launchJob();
         FrameSearch r = new FrameSearch(job);
-        r.getCriteria().frames.add("0001-pass_1");
+        FrameSearchCriteria criteria = r.getCriteria();
+        r.setCriteria(criteria.toBuilder()
+                .addFrames("0001-pass_1")
+                .build());
         assertTrue(frameDao.findFrameDetails(r).size() == 1);
     }
 
@@ -239,7 +245,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         assertEquals(0, frameDao.getOrphanedFrames().size());
 
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
 
         /*
          * Update the first frame to the orphan state, which is a frame
@@ -247,7 +253,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
          * and has not been udpated in the last 5 min.
          */
         jdbcTemplate.update(
-                "UPDATE frame SET str_state='Running', " +
+                "UPDATE frame SET str_state='RUNNING', " +
                 "ts_updated=systimestamp - interval '301' second WHERE pk_frame=?",
                 f.getFrameId());
 
@@ -261,10 +267,10 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testUpdateFrameState() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
-        assertEquals(true, frameDao.updateFrameState(f,FrameState.Running));
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
+        assertEquals(true, frameDao.updateFrameState(f, FrameState.RUNNING));
 
-        assertEquals(FrameState.Running.toString(),
+        assertEquals(FrameState.RUNNING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?",
                 String.class,
@@ -276,14 +282,14 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFailUpdateFrameState() {
         JobDetail job = launchJob();
-        Frame f = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
 
         /** Change the version so the update fails **/
         jdbcTemplate.update(
                 "UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
                 f.getFrameId());
 
-        assertEquals(false, frameDao.updateFrameState(f, FrameState.Running));
+        assertEquals(false, frameDao.updateFrameState(f, FrameState.RUNNING));
     }
 
 
@@ -306,7 +312,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         proc.layerId = frame.layerId;
         proc.showId = frame.showId;
 
-        assertEquals(FrameState.Waiting, frame.state);
+        assertEquals(FrameState.WAITING, frame.state);
 
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
@@ -325,7 +331,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
 
         assertEquals("0001-pass_1_preprocess",frame.getName());
-        assertEquals(FrameState.Waiting,frame.state);
+        assertEquals(FrameState.WAITING, frame.state);
 
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.allocationId;
@@ -350,9 +356,9 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         }
 
         DispatchFrame fd2 = frameDao.getDispatchFrame(frame.getId());
-        assertTrue(frameDao.updateFrameStopped(fd2, FrameState.Dead, 1, 1000l));
+        assertTrue(frameDao.updateFrameStopped(fd2, FrameState.DEAD, 1, 1000l));
 
-        assertEquals(FrameState.Dead.toString(),jdbcTemplate.queryForObject(
+        assertEquals(FrameState.DEAD.toString(),jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?",
                 String.class, frame.getFrameId()));
     }
@@ -368,7 +374,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         DispatchFrame fd = frameDao.getDispatchFrame(frame.getId());
 
         assertEquals("0001-pass_1_preprocess",frame.getName());
-        assertEquals(FrameState.Waiting,frame.state);
+        assertEquals(FrameState.WAITING, frame.state);
 
         VirtualProc proc = new VirtualProc();
         proc.allocationId = host.allocationId;
@@ -390,10 +396,10 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
-        frameDao.updateFrameState(frame, FrameState.Waiting);
+        frameDao.updateFrameState(frame, FrameState.WAITING);
         frameDao.updateFrameFixed(proc, frame);
 
-        assertEquals(FrameState.Running.toString(),
+        assertEquals(FrameState.RUNNING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?",
                 String.class, frame.getFrameId()));
@@ -430,7 +436,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testMarkFrameAsWaiting() {
         JobDetail job = launchJob();
 
-        Frame f = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrameDetail(job, "0001-pass_1");
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
                 "SELECT int_depend_count FROM frame WHERE pk_frame=?",
                 Integer.class, f.getFrameId()));
@@ -447,7 +453,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testMarkFrameAsDepend() {
         JobDetail job = launchJob();
 
-        Frame f = frameDao.findFrameDetail(job, "0001-pass_1");
+        FrameInterface f = frameDao.findFrameDetail(job, "0001-pass_1");
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
                 "SELECT int_depend_count FROM frame WHERE pk_frame=?",
                 Integer.class, f.getFrameId()));
@@ -510,8 +516,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testGetDependentFrames() {
         JobDetail job = launchJob();
-        Frame frame_a = frameDao.findFrame(job, "0001-pass_1");
-        Frame frame_b = frameDao.findFrame(job, "0002-pass_1");
+        FrameInterface frame_a = frameDao.findFrame(job, "0001-pass_1");
+        FrameInterface frame_b = frameDao.findFrame(job, "0002-pass_1");
 
         dependManager.createDepend(new FrameOnFrame(
                 frame_a, frame_b));
@@ -590,7 +596,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         assertEquals(0, frameDao.getStaleCheckpoints(300).size());
         jdbcTemplate.update("UPDATE frame SET str_state=?, " +
                 "ts_stopped=systimestamp - interval '400' second WHERE pk_frame=?",
-                FrameState.Checkpoint.toString(), frame.getFrameId());
+                FrameState.CHECKPOINT.toString(), frame.getFrameId());
         assertEquals(1, frameDao.getStaleCheckpoints(300).size());
     }
 
@@ -603,23 +609,23 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
 
-        frameDao.updateFrameCheckpointState(frame, CheckpointState.Enabled);
+        frameDao.updateFrameCheckpointState(frame, CheckpointState.ENABLED);
 
         String state = jdbcTemplate.queryForObject(
                 "SELECT str_checkpoint_state FROM frame WHERE pk_frame=?",
                 String.class, frame.getFrameId());
 
-        assertEquals(CheckpointState.Enabled.toString(), state);
+        assertEquals(CheckpointState.ENABLED.toString(), state);
 
         /**
          * To set a checkpoint complete the frame state must be in the checkpoint state.
          */
-        frameDao.updateFrameState(frame, FrameState.Checkpoint);
+        frameDao.updateFrameState(frame, FrameState.CHECKPOINT);
         jdbcTemplate.update(
                 "UPDATE frame SET ts_started=systimestamp, ts_stopped=systimestamp + INTERVAL '20' second WHERE pk_frame=?",
                 frame.getFrameId());
 
-        assertTrue(frameDao.updateFrameCheckpointState(frame, CheckpointState.Complete));
+        assertTrue(frameDao.updateFrameCheckpointState(frame, CheckpointState.COMPLETE));
         Map<String, Object> result = jdbcTemplate.queryForMap(
                 "SELECT int_checkpoint_count FROM frame WHERE pk_frame=?",
                 frame.getFrameId());
@@ -637,17 +643,15 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         JobDetail job = launchJob();
         FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
 
-        frameDao.updateFrameState(frame, FrameState.Eaten);
+        frameDao.updateFrameState(frame, FrameState.EATEN);
         assertTrue(frameDao.isFrameComplete(frame));
 
         frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
-        frameDao.updateFrameState(frame, FrameState.Succeeded);
+        frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
         assertTrue(frameDao.isFrameComplete(frame));
 
         frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
-        frameDao.updateFrameState(frame, FrameState.Waiting);
+        frameDao.updateFrameState(frame, FrameState.WAITING);
         assertFalse(frameDao.isFrameComplete(frame));
     }
 }
-
-

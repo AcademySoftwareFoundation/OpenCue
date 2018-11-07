@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class GroupEntity extends Entity implements Group {
+public class GroupEntity extends Entity implements GroupInterface {
 
     public String showId;
 

@@ -29,7 +29,7 @@ import com.imageworks.spcue.RqdIce.RunningFrameInfo;
 import com.imageworks.spcue.RqdIce.RunningFramePrx;
 import com.imageworks.spcue.RqdIce.RunningFramePrxHelper;
 
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
 
 public final class RqdClientIce implements RqdClient {
@@ -47,7 +47,7 @@ public final class RqdClientIce implements RqdClient {
         this.communicator = bean.getCommunicator();
     }
 
-    public void rebootNow(Host host) {
+    public void rebootNow(HostInterface host) {
         if (testMode) {
             return;
         }
@@ -60,7 +60,7 @@ public final class RqdClientIce implements RqdClient {
         }
     }
 
-    public void rebootWhenIdle(Host host) {
+    public void rebootWhenIdle(HostInterface host) {
         if (testMode) {
             return;
         }

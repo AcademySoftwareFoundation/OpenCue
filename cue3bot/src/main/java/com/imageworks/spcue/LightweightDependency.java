@@ -19,10 +19,10 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 
-public class LightweightDependency extends Entity implements Depend {
+public class LightweightDependency extends Entity implements DependInterface {
 
     public DependType type;
     public DependTarget target;

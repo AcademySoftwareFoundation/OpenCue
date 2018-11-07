@@ -23,14 +23,14 @@ import java.sql.Timestamp;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.CueIce.HostTagType;
-import com.imageworks.spcue.CueIce.LockState;
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostTagType;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 
@@ -44,66 +44,63 @@ public interface HostDao {
      * Attempt to obtain an exclusive lock on the host. If another thread alrady
      * has the host locked, a ResourceReservationFailureException is thrown.
      *
-     * @param host
+     * @param host HostInterface
      * @throws ResourceReservationFailureException when an exclusive lock cannot
      *         be made.
      */
-    public void lockForUpdate(Host host);
+    void lockForUpdate(HostInterface host);
 
     /**
      * returns true if the specified host id is locked
      *
-     * @param hostId
-     * @return
+     * @param host  HostInterface
+     * @return  Boolean
      */
-    boolean isHostLocked(Host host);
+    boolean isHostLocked(HostInterface host);
 
     /**
      * deletes the passed host
      *
-     * @param Host
+     * @param host  HostInterface object to delete
      */
-    void deleteHost(Host host);
+    void deleteHost(HostInterface host);
 
     /**
      * updates a host with the passed hardware state
      *
-     * @param Host
-     * @param HardwareState
+     * @param host  HostInterface
+     * @param state HardwareState
      */
-    void updateHostState(Host host, HardwareState state);
-
-    void updateHostState(Host host, com.imageworks.spcue.CueIce.HardwareState state);
+    void updateHostState(HostInterface host, HardwareState state);
 
     /**
      * returns a full host detail
      *
-     * @param Host
-     * @returns HostDetail
+     * @param host  HostInterface
+     * @return HostDetail
      */
-    HostDetail getHostDetail(Host host);
+    HostEntity getHostDetail(HostInterface host);
 
     /**
      * returns full host detail
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return HostEntity
      */
-    HostDetail getHostDetail(String id);
+    HostEntity getHostDetail(String id);
 
     /**
      * returns full host detail
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return HostEntity
      */
-    HostDetail findHostDetail(String name);
+    HostEntity findHostDetail(String name);
 
     /**
      * Return a DispatchHost object from its unique host name
      *
-     * @param id
-     * @parm lock
+     * @param fqdn String
      * @return DispatchHost
      */
     DispatchHost findDispatchHost(String fqdn);
@@ -111,41 +108,41 @@ public interface HostDao {
     /**
      * Return a dispatch host object by id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return DispatchHost
      */
     DispatchHost getDispatchHost(String id);
 
     /**
      * Returns a host object by name
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return HostInterface
      */
-    Host findHost(String name);
+    HostInterface findHost(String name);
 
     /**
      * Returns a host object by ID.
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return HostInterface
      */
-    Host getHost(String id);
+    HostInterface getHost(String id);
 
     /**
      * Return the host involved with the given LocalJobAssignment.
      *
-     * @param l
-     * @return
+     * @param l LocalHostAssignment
+     * @return HostInterface
      */
-    Host getHost(LocalHostAssignment l);
+    HostInterface getHost(LocalHostAssignment l);
 
     /**
      * Inserts a render host and its supporting procs into an allocation.
      *
-     * @param host
-     * @param allocation
-     * @param useLongNames
+     * @param report        RenderHost
+     * @param a             AllocationInterface
+     * @param useLongNames  boolean
      */
     void insertRenderHost(RenderHost report, AllocationInterface a, boolean useLongNames);
 
@@ -153,8 +150,8 @@ public interface HostDao {
      * Checks to see if a render host exists by name and returns true if it
      * does, false if it doesn't.
      *
-     * @param hostname
-     * @returns boolean
+     * @param hostname String
+     * @return boolean
      */
     boolean hostExists(String hostname);
 
@@ -162,111 +159,111 @@ public interface HostDao {
      * Updates the host's lock state. Open, Locked, NimbyLocked. Records the
      * source of the lock.
      *
-     * @param host
-     * @param state
+     * @param host   HostInterface
+     * @param state  LockState
+     * @param source Source
      */
-    void updateHostLock(Host host, LockState state, Source source);
+    void updateHostLock(HostInterface host, LockState state, Source source);
 
     /**
      * Sets the reboot when idle boolean to true or false. If true the cue will
      * issue the reboot command to hosts that ping in idle then set the flag
      * back to false.
      *
-     * @param host
-     * @param enabled
+     * @param host    HostInterface
+     * @param enabled boolean
      */
-    void updateHostRebootWhenIdle(Host host, boolean enabled);
+    void updateHostRebootWhenIdle(HostInterface host, boolean enabled);
 
     /**
      * Updates a host's allocation
      *
-     * @param host
-     * @param alloc
+     * @param host  HostInterface
+     * @param alloc AllocationInterface
      */
-    void updateHostSetAllocation(Host host, AllocationInterface alloc);
+    void updateHostSetAllocation(HostInterface host, AllocationInterface alloc);
 
     /**
      *
-     * @param id
-     * @param tag
-     * @param type
+     * @param id   String
+     * @param tag  String
+     * @param type HostTagType
      */
     void tagHost(String id, String tag, HostTagType type);
 
     /**
      *
-     * @param host
-     * @param tag
-     * @param type
+     * @param host HostInterface
+     * @param tag  String
+     * @param type HostTagType
      */
-    void tagHost(Host host, String tag, HostTagType type);
+    void tagHost(HostInterface host, String tag, HostTagType type);
 
     /**
      *
-     * @param host
-     * @param type
+     * @param host HostInterface
+     * @param type HostTagType
      */
-    void removeTagsByType(Host host, HostTagType type);
+    void removeTagsByType(HostInterface host, HostTagType type);
 
     /**
      * removes a tag
      *
-     * @param host
-     * @param tag
+     * @param host HostInterface
+     * @param tag  String
      */
-    void removeTag(Host host, String tag);
+    void removeTag(HostInterface host, String tag);
 
     /**
      * renames a tag from oldTag to newTag
      *
-     * @param host
-     * @param oldTag
-     * @param newTag
+     * @param host   HostInterface
+     * @param oldTag String
+     * @param newTag String
      */
-    void renameTag(Host host, String oldTag, String newTag);
+    void renameTag(HostInterface host, String oldTag, String newTag);
 
     /**
      * You must run this AFTER you've changed any type of job tags. The reason
      * this is not a trigger or something of that nature is because is an
      * intense process.
      *
-     * @param id
+     * @param id String
      */
     void recalcuateTags(final String id);
 
     /**
      *
-     * @param host
-     * @param mode
+     * @param host HostInterface
+     * @param mode ThreadMode
      */
-    void updateThreadMode(Host host, ThreadMode mode);
+    void updateThreadMode(HostInterface host, ThreadMode mode);
 
     /**
      * When a host is in kill mode that means its 256MB+ into the swap and the
      * the worst memory offender is killed.
      *
-     * @param h
-     * @return
+     * @param h HostInterface
+     * @return boolean
      */
-    boolean isKillMode(Host h);
+    boolean isKillMode(HostInterface h);
 
     /**
      * Update the specified host's hardware information.
      *
-     * @param host
-     * @param bootEpochSeconds
-     * @param totalMemory
-     * @param freeMemory
-     * @param totalSwap
-     * @param freeSwap
-     * @param totalMcp
-     * @param freeMcp
-     * @param totalGpu
-     * @param freeGpu
-     * @param load
-     * @param os
+     * @param host        HostInterface
+     * @param totalMemory long
+     * @param freeMemory  long
+     * @param totalSwap   long
+     * @param freeSwap    long
+     * @param totalMcp    long
+     * @param freeMcp     long
+     * @param totalGpu    long
+     * @param freeGpu     long
+     * @param load        int
+     * @param os          String
      */
-    void updateHostStats(Host host,
+    void updateHostStats(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
@@ -276,52 +273,52 @@ public interface HostDao {
     /**
      * Return true if the HardwareState is Up, false if it is anything else.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return boolean
      */
-    boolean isHostUp(Host host);
+    boolean isHostUp(HostInterface host);
 
     /**
      * Return the number of whole stranded cores on this host. The must have
      * less than Dispacher.MEM_STRANDED_THRESHHOLD for the cores to be
      * considered stranded.
      *
-     * @param h
-     * @return
+     * @param h HostInterface
+     * @return int
      */
-    int getStrandedCoreUnits(Host h);
+    int getStrandedCoreUnits(HostInterface h);
 
     /**
      * Return true if the host is preferring a particular show.
      *
-     * @param h
-     * @return
+     * @param h HostInterface
+     * @return boolean
      */
-    boolean isPreferShow(Host h);
+    boolean isPreferShow(HostInterface h);
 
     /**
      * Return true if the host is a NIMBY host.
      *
-     * @param h
-     * @return
+     * @param h HostInterface
+     * @return boolean
      */
-    boolean isNimbyHost(Host h);
+    boolean isNimbyHost(HostInterface h);
 
     /**
      * Update the host's operating system setting.
      *
-     * @param host
-     * @param os
+     * @param host HostInterface
+     * @param os   String
      */
-    void updateHostOs(Host host, String os);
+    void updateHostOs(HostInterface host, String os);
 
     /**
      * Update a host's resource pool using the latest host report.
      *
-     * @param host
-     * @param report
+     * @param host   HostInterface
+     * @param report HostReport
      */
-    void updateHostResources(Host host, HostReport report);
+    void updateHostResources(HostInterface host, HostReport report);
 
 }
 

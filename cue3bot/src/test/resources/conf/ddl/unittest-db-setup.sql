@@ -587,7 +587,7 @@ CREATE TABLE "FRAME"
 	"TS_LAST_RUN" TIMESTAMP (6) WITH TIME ZONE,
 	"TS_UPDATED" TIMESTAMP (6) WITH TIME ZONE,
 	"INT_VERSION" NUMBER(16,0) DEFAULT 0,
-	"STR_CHECKPOINT_STATE" VARCHAR2(12 BYTE) DEFAULT 'Disabled' NOT NULL,
+	"STR_CHECKPOINT_STATE" VARCHAR2(12 BYTE) DEFAULT 'DISABLED' NOT NULL,
 	"INT_CHECKPOINT_COUNT" NUMBER(6,0) DEFAULT 0 NOT NULL,
 	"INT_GPU_RESERVED" NUMBER(10,0) DEFAULT 0 NOT NULL,
 	"INT_TOTAL_PAST_CORE_TIME" NUMBER(16,0) DEFAULT 0 NOT NULL
@@ -1539,7 +1539,7 @@ CREATE VIEW "VS_SHOW_RESOURCE" ("PK_SHOW", "INT_CORES") AS
     WHERE
        job.pk_job = job_resource.pk_job
     AND
-       job.str_state='Pending'
+       job.str_state='PENDING'
     GROUP BY
        job.pk_show
 
@@ -1557,7 +1557,7 @@ CREATE VIEW "VS_SHOW_STAT" ("PK_SHOW", "INT_PENDING_COUNT", "INT_RUNNING_COUNT",
     WHERE
         job_stat.pk_job = job.pk_job
     AND
-        job.str_state = 'Pending'
+        job.str_state = 'PENDING'
     GROUP BY job.pk_show
 
 -- SPLIT HERE!
@@ -1579,11 +1579,11 @@ CREATE VIEW "VS_ALLOC_USAGE" ("PK_ALLOC", "INT_CORES", "INT_IDLE_CORES", "INT_RU
         NVL(SUM(host.int_cores),0) AS int_cores,
         NVL(SUM(host.int_cores_idle),0) AS int_idle_cores,
         NVL(SUM(host.int_cores - host.int_cores_idle),0) as int_running_cores,
-        NVL((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NimbyLocked' OR str_lock_state='Locked')),0) AS int_locked_cores,
-        NVL((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='Open' AND hs.str_state ='Up'),0) AS int_available_cores,
+        NVL((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NIMBY_LOCKED' OR str_lock_state='LOCKED')),0) AS int_locked_cores,
+        NVL((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='OPEN' AND hs.str_state ='UP'),0) AS int_available_cores,
         COUNT(host.pk_host) AS int_hosts,
-        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='Locked') AS int_locked_hosts,
-        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='Down') AS int_down_hosts
+        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='LOCKED') AS int_locked_hosts,
+        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='DOWN') AS int_down_hosts
     FROM
         alloc LEFT JOIN host ON (alloc.pk_alloc = host.pk_alloc)
     GROUP BY
@@ -1602,7 +1602,7 @@ CREATE VIEW "VS_FOLDER_COUNTS" ("PK_FOLDER", "INT_DEPEND_COUNT", "INT_WAITING_CO
 FROM
     folder
       LEFT JOIN
-        job ON (folder.pk_folder = job.pk_folder AND job.str_state='Pending')
+        job ON (folder.pk_folder = job.pk_folder AND job.str_state='PENDING')
       LEFT JOIN
         job_stat ON (job.pk_job = job_stat.pk_job)
       LEFT JOIN
@@ -1623,7 +1623,7 @@ CREATE VIEW "VS_WAITING" ("PK_SHOW") AS
     AND
         jr.pk_job = job.pk_job
     AND
-        job.str_state = 'Pending'
+        job.str_state = 'PENDING'
     AND
         job.b_paused = 0
     AND
@@ -2174,7 +2174,7 @@ END;
 
 CREATE TRIGGER "AFTER_JOB_FINISHED" AFTER UPDATE ON job
 FOR EACH ROW
-      WHEN (old.str_state = 'Pending' AND new.str_state = 'Finished') DECLARE
+      WHEN (old.str_state = 'PENDING' AND new.str_state = 'FINISHED') DECLARE
     ts NUMERIC(12,0) := epoch(systimestamp);
     TYPE StatType IS RECORD (
         int_core_time_success NUMERIC(38),
@@ -2313,7 +2313,7 @@ END;
 
 CREATE TRIGGER "AFTER_JOB_DEPT_UPDATE" AFTER UPDATE ON job
 FOR EACH ROW
-  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='Pending') DECLARE
+  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='PENDING') DECLARE
     int_running_cores NUMERIC(16,0);
 BEGIN
   /**
@@ -2611,8 +2611,8 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_WAIT_TO_DEP" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('Dead','Succeeded','Waiting','Checkpoint')) BEGIN
-    :NEW.str_state := 'Depend';
+  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('DEAD','SUCCEEDED','WAITING','CHECKPOINT')) BEGIN
+    :NEW.str_state := 'DEPEND';
     :NEW.ts_updated := systimestamp;
     :NEW.int_version := :NEW.int_version + 1;
 END;
@@ -2620,15 +2620,15 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_EATEN" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state='Eaten' AND OLD.str_state='Succeeded') BEGIN
-    :NEW.str_state :='Succeeded';
+  WHEN (NEW.str_state='EATEN' AND OLD.str_state='SUCCEEDED') BEGIN
+    :NEW.str_state :='SUCCEEDED';
 END;
 -- SPLIT HERE!
 
 CREATE TRIGGER "UPDATE_FRAME_DEP_TO_WAIT" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='Depend') BEGIN
-    :NEW.str_state := 'Waiting';
+  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='DEPEND') BEGIN
+    :NEW.str_state := 'WAITING';
     :NEW.ts_updated := systimestamp;
     :NEW.int_version := :NEW.int_version + 1;
 END;
@@ -2641,7 +2641,7 @@ FOR EACH ROW
   int_checkpoint integer := 0;
 BEGIN
 
-    IF :old.str_state = 'Running' THEN
+    IF :old.str_state = 'RUNNING' THEN
 
         IF :new.int_exit_status = 299 THEN
 
@@ -2654,7 +2654,7 @@ BEGIN
             :new.pk_frame;
 
         ELSE
-          If :new.str_state = 'Checkpoint' THEN
+          If :new.str_state = 'CHECKPOINT' THEN
               int_checkpoint := 1;
           END IF;
 
@@ -2677,7 +2677,7 @@ BEGIN
         END IF;
     END IF;
 
-    IF :new.str_state = 'Running' THEN
+    IF :new.str_state = 'RUNNING' THEN
 
       SELECT pk_alloc INTO str_pk_alloc FROM host WHERE str_name=:new.str_host;
 
@@ -2702,7 +2702,7 @@ BEGIN
             :new.pk_layer,
             :new.pk_job,
             :new.str_name,
-            'Running',
+            'RUNNING',
             :new.int_cores,
             :new.int_mem_reserved,
             :new.str_host,
@@ -2724,14 +2724,14 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_CHECKPOINT_STATE" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state='Waiting' AND OLD.str_state='Running' AND NEW.str_checkpoint_state IN ('Enabled', 'Copying')) BEGIN
-    :NEW.str_state :='Checkpoint';
+  WHEN (NEW.str_state='WAITING' AND OLD.str_state='RUNNING' AND NEW.str_checkpoint_state IN ('ENABLED', 'COPYING')) BEGIN
+    :NEW.str_state :='CHECKPOINT';
 END;
 -- SPLIT HERE!
 
 CREATE TRIGGER "UPDATE_FRAME_STATUS_COUNTS" AFTER UPDATE ON frame
 FOR EACH ROW
-  WHEN (old.str_state != 'Setup' AND old.str_state != new.str_state) DECLARE
+  WHEN (old.str_state != 'SETUP' AND old.str_state != new.str_state) DECLARE
     s_old_status_col VARCHAR2(32);
     s_new_status_col VARCHAR2(32);
 BEGIN

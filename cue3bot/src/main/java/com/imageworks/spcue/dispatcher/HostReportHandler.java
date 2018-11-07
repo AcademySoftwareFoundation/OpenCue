@@ -33,13 +33,12 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
@@ -47,6 +46,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.BootReport;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -240,7 +240,7 @@ public class HostReportHandler {
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
             }
-            else if (host.lockState.equals(LockState.Locked)) {
+            else if (host.lockState.equals(LockState.LOCKED)) {
                 msg = host + " is locked.";
             }
             else if (report.getHost().getNimbyLocked()) {
@@ -325,7 +325,6 @@ public class HostReportHandler {
      *
      * @param host
      * @param reportState
-     * @param isBoot
      */
     private void changeHardwareState(DispatchHost host,
             HardwareState reportState) {
@@ -372,15 +371,15 @@ public class HostReportHandler {
      */
     private void changeNimbyState(DispatchHost host, RenderHost rh) {
         if (rh.getNimbyLocked()) {
-            if (host.lockState.equals(LockState.Open)) {
-                host.lockState = LockState.NimbyLocked;
-                hostManager.setHostLock(host,LockState.NimbyLocked, new Source("NIMBY"));
+            if (host.lockState.equals(LockState.OPEN)) {
+                host.lockState = LockState.NIMBY_LOCKED;
+                hostManager.setHostLock(host,LockState.NIMBY_LOCKED, new Source("NIMBY"));
             }
         }
         else {
-            if (host.lockState.equals(LockState.NimbyLocked)) {
-                host.lockState = LockState.Open;
-                hostManager.setHostLock(host,LockState.Open, new Source("NIMBY"));
+            if (host.lockState.equals(LockState.NIMBY_LOCKED)) {
+                host.lockState = LockState.OPEN;
+                hostManager.setHostLock(host,LockState.OPEN, new Source("NIMBY"));
             }
         }
     }
@@ -489,7 +488,7 @@ public class HostReportHandler {
 
         for (RunningFrameInfo rf: rFrames) {
 
-            Frame frame = jobManager.getFrame(rf.getFrameId());
+            FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsage(frame,
                     rf.getRss(), rf.getMaxRss());

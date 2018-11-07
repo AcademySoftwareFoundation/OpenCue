@@ -27,25 +27,25 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.google.common.collect.Lists;
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.google.common.collect.Lists;
-import com.google.common.collect.Sets;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.LayerType;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -62,7 +62,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         ") VALUES (?,?,?,?)";
 
     @Override
-    public void insertLayerOutput(Layer layer, String filespec) {
+    public void insertLayerOutput(LayerInterface layer, String filespec) {
         getJdbcTemplate().update(
                 INSERT_OUTPUT_PATH, UUID.randomUUID().toString(),
                 layer.getLayerId(), layer.getJobId(),
@@ -85,7 +85,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     };
 
     @Override
-    public List<String> getLayerOutputs(Layer layer) {
+    public List<String> getLayerOutputs(LayerInterface layer) {
         return getJdbcTemplate().query(GET_OUTPUT,
                 OUTPUT_MAPPER, layer.getLayerId());
     }
@@ -99,7 +99,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "pk_layer=?";
 
     @Override
-    public boolean isLayerDispatchable(Layer l ) {
+    public boolean isLayerDispatchable(LayerInterface l ) {
         return getJdbcTemplate().queryForObject(IS_LAYER_DISPATCHABLE,
                 Integer.class, l.getLayerId()) > 0;
     }
@@ -117,7 +117,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "WHERE " +
             "pk_layer=?";
 
-    public boolean isLayerComplete(Layer l) {
+    public boolean isLayerComplete(LayerInterface l) {
         if (isLaunching(l)) {
             return false;
         }
@@ -134,10 +134,10 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "pk_job=?";
 
     @Override
-    public boolean isLaunching(Layer l) {
+    public boolean isLaunching(LayerInterface l) {
         return getJdbcTemplate().queryForObject(
                 IS_LAUNCHING, String.class, l.getJobId()).equals(
-                        JobState.Startup.toString());
+                        JobState.STARTUP.toString());
     }
 
     private static final String IS_THREADABLE =
@@ -149,7 +149,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "pk_layer = ?";
 
     @Override
-    public boolean isThreadable(Layer l) {
+    public boolean isThreadable(LayerInterface l) {
         return getJdbcTemplate().queryForObject(IS_THREADABLE,
                 Integer.class, l.getLayerId()) > 0;
     }
@@ -217,7 +217,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     /**
      * Maps a ResultSet to a LayerDetail
      */
-     private static final RowMapper<Layer> LAYER_MAPPER = new RowMapper<Layer>() {
+     private static final RowMapper<LayerInterface> LAYER_MAPPER = new RowMapper<LayerInterface>() {
          public LayerEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
              LayerEntity layer = new LayerEntity();
              layer.id = rs.getString("pk_layer");
@@ -237,20 +237,20 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
      }
 
      @Override
-     public LayerDetail getLayerDetail(Layer layer) {
+     public LayerDetail getLayerDetail(LayerInterface layer) {
          return getJdbcTemplate().queryForObject(GET_LAYER_DETAIL + " AND layer.pk_layer=?",
                  LAYER_DETAIL_MAPPER, layer.getLayerId());
      }
 
      @Override
-     public LayerDetail findLayerDetail(Job job, String name) {
+     public LayerDetail findLayerDetail(JobInterface job, String name) {
          return getJdbcTemplate().queryForObject(
                  GET_LAYER_DETAIL + " AND layer.pk_job=? AND layer.str_name=?",
                  LAYER_DETAIL_MAPPER, job.getJobId(), name);
      }
 
      @Override
-     public Layer findLayer(Job job, String name) {
+     public LayerInterface findLayer(JobInterface job, String name) {
          try {
              return getJdbcTemplate().queryForObject(
                      GET_LAYER + " AND layer.pk_job=? AND layer.str_name=?",
@@ -262,21 +262,21 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
      }
 
      @Override
-     public List<LayerDetail> getLayerDetails(Job job) {
+     public List<LayerDetail> getLayerDetails(JobInterface job) {
          return getJdbcTemplate().query(
                  GET_LAYER_DETAIL + " AND layer.pk_job=?",
                  LAYER_DETAIL_MAPPER, job.getJobId());
      }
 
      @Override
-     public List<Layer> getLayers(Job job) {
+     public List<LayerInterface> getLayers(JobInterface job) {
          return getJdbcTemplate().query(
                  GET_LAYER + " AND layer.pk_job=?",
                  LAYER_MAPPER, job.getJobId());
      }
 
      @Override
-     public Layer getLayer(String id) {
+     public LayerInterface getLayer(String id) {
          return getJdbcTemplate().queryForObject(
                  GET_LAYER + " AND layer.pk_layer=?",
                  LAYER_MAPPER, id);
@@ -316,7 +316,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateLayerMinMemory(Layer layer, long val) {
+    public void updateLayerMinMemory(LayerInterface layer, long val) {
         if (val < Dispatcher.MEM_RESERVED_MIN) {
             val = Dispatcher.MEM_RESERVED_MIN;
         }
@@ -325,7 +325,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateLayerMinGpu(Layer layer, long gpu) {
+    public void updateLayerMinGpu(LayerInterface layer, long gpu) {
         getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=?",
                 gpu, layer.getLayerId());
     }
@@ -343,7 +343,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "b_optimize = 1";
 
     @Override
-    public boolean balanceLayerMinMemory(Layer layer, long frameMaxRss) {
+    public boolean balanceLayerMinMemory(LayerInterface layer, long frameMaxRss) {
 
         /**
          * Lowers the memory value on the frame when the maxrss is lower than
@@ -371,19 +371,19 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void increaseLayerMinMemory(Layer layer, long val) {
+    public void increaseLayerMinMemory(LayerInterface layer, long val) {
         getJdbcTemplate().update("UPDATE layer SET int_mem_min=? WHERE pk_layer=? AND int_mem_min < ?",
                 val, layer.getLayerId(), val);
     }
 
     @Override
-    public void increaseLayerMinGpu(Layer layer, long gpu) {
+    public void increaseLayerMinGpu(LayerInterface layer, long gpu) {
         getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=? AND int_gpu_min < ?",
                 gpu, layer.getLayerId(), gpu);
     }
 
     @Override
-    public void updateLayerMinCores(Layer layer, int val) {
+    public void updateLayerMinCores(LayerInterface layer, int val) {
         if (val < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             val = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
@@ -392,7 +392,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateLayerMaxCores(Layer layer, int val) {
+    public void updateLayerMaxCores(LayerInterface layer, int val) {
         getJdbcTemplate().update("UPDATE layer SET int_cores_max=? WHERE pk_layer=?",
                 val, layer.getLayerId());
     }
@@ -406,7 +406,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "pk_layer=?";
 
     @Override
-    public void updateLayerMaxRSS(Layer layer, long val, boolean force) {
+    public void updateLayerMaxRSS(LayerInterface layer, long val, boolean force) {
         StringBuilder sb = new StringBuilder(UPDATE_LAYER_MAX_RSS);
         Object[] options;
         if (!force) {
@@ -420,7 +420,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateLayerTags(Layer layer, Set<String> tags) {
+    public void updateLayerTags(LayerInterface layer, Set<String> tags) {
         if (tags.size() == 0) {
             throw new IllegalArgumentException(
                     "Layers must have at least one tag.");
@@ -443,7 +443,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void appendLayerTags(Layer layer, String val) {
+    public void appendLayerTags(LayerInterface layer, String val) {
         String appendTag = " | " + val;
         String matchTag = "%" + val + "%";
 
@@ -452,7 +452,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 appendTag, layer.getLayerId(), matchTag);
     }
 
-    public FrameStateTotals getFrameStateTotals(Layer layer) {
+    public FrameStateTotals getFrameStateTotals(LayerInterface layer) {
         return getJdbcTemplate().queryForObject(
                 "SELECT * FROM layer_stat WHERE pk_layer=?",
                 new RowMapper<FrameStateTotals>() {
@@ -488,7 +488,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "layer.pk_layer = ?";
 
     @Override
-    public ExecutionSummary getExecutionSummary(Layer layer) {
+    public ExecutionSummary getExecutionSummary(LayerInterface layer) {
         return getJdbcTemplate().queryForObject(
                 GET_EXECUTION_SUMMARY,
                 new RowMapper<ExecutionSummary>() {
@@ -512,7 +512,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         "VALUES (?,?,?,?,?)";
 
     @Override
-    public void insertLayerEnvironment(Layer layer, Map<String,String> env) {
+    public void insertLayerEnvironment(LayerInterface layer, Map<String,String> env) {
         for (Map.Entry<String,String> e: env.entrySet()) {
             String pk = SqlUtil.genKeyRandom();
             getJdbcTemplate().update(INSERT_LAYER_ENV,
@@ -521,14 +521,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void insertLayerEnvironment(Layer layer, String key, String value) {
+    public void insertLayerEnvironment(LayerInterface layer, String key, String value) {
         String pk = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_LAYER_ENV,
                 pk, layer.getLayerId(), layer.getJobId(), key, value);
     }
 
     @Override
-    public Map<String,String> getLayerEnvironment(Layer layer) {
+    public Map<String,String> getLayerEnvironment(LayerInterface layer) {
         Map<String,String> result = new HashMap<String,String>();
         List<Map<String, Object>> _result = getJdbcTemplate().queryForList(
                 "SELECT str_key, str_value FROM layer_env WHERE pk_layer=?", layer.getLayerId());
@@ -558,7 +558,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
            "layer_stat.int_succeeded_count >= ceil(layer_stat.int_total_count * .5) ";
 
     @Override
-    public long findPastMaxRSS(Job job, String name) {
+    public long findPastMaxRSS(JobInterface job, String name) {
         try {
             long maxRss = getJdbcTemplate().queryForObject(FIND_PAST_MAX_RSS,
                     Long.class, job.getJobId(), name);
@@ -576,14 +576,14 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateTags(Job job, String tags, LayerType type) {
+    public void updateTags(JobInterface job, String tags, LayerType type) {
         getJdbcTemplate().update(
                 "UPDATE layer SET str_tags=? WHERE pk_job=? AND str_type=?",
                 tags, job.getJobId(), type.toString());
     }
 
     @Override
-    public void updateMinMemory(Job job, long mem, LayerType type) {
+    public void updateMinMemory(JobInterface job, long mem, LayerType type) {
         if (mem < Dispatcher.MEM_RESERVED_MIN) {
             mem = Dispatcher.MEM_RESERVED_MIN;
         }
@@ -593,28 +593,28 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateMinGpu(Job job, long gpu, LayerType type) {
+    public void updateMinGpu(JobInterface job, long gpu, LayerType type) {
         getJdbcTemplate().update(
                 "UPDATE layer SET int_gpu_min=? WHERE pk_job=? AND str_type=?",
                 gpu, job.getJobId(), type.toString());
     }
 
     @Override
-    public void updateMinCores(Job job, int cores, LayerType type) {
+    public void updateMinCores(JobInterface job, int cores, LayerType type) {
         getJdbcTemplate().update(
                 "UPDATE layer SET int_cores_min=? WHERE pk_job=? AND str_type=?",
                 cores, job.getJobId(), type.toString());
     }
 
     @Override
-    public void updateThreadable(Layer layer, boolean threadable) {
+    public void updateThreadable(LayerInterface layer, boolean threadable) {
         getJdbcTemplate().update(
                 "UPDATE layer SET b_threadable=? WHERE pk_layer=?",
                 threadable, layer.getLayerId());
     }
 
     @Override
-    public void enableMemoryOptimizer(Layer layer, boolean value) {
+    public void enableMemoryOptimizer(LayerInterface layer, boolean value) {
         getJdbcTemplate().update(
                 "UPDATE layer SET b_optimize=? WHERE pk_layer=?",
                 value, layer.getLayerId());
@@ -645,7 +645,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "(layer_usage.int_core_time_success / layer_stat.int_succeeded_count) <= ?";
 
     @Override
-    public boolean isOptimizable(Layer l, int succeeded, float avg) {
+    public boolean isOptimizable(LayerInterface l, int succeeded, float avg) {
         if (succeeded < 1) {
             throw new IllegalArgumentException("Succeeded frames option " +
                     "must be greater than zero");
@@ -672,7 +672,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             "int_cores DESC ";
 
     @Override
-    public List<ThreadStats> getThreadStats(Layer layer) {
+    public List<ThreadStats> getThreadStats(LayerInterface layer) {
 
         return getJdbcTemplate().query(THREAD_STATS,
                 new RowMapper<ThreadStats>() {
@@ -686,7 +686,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateUsage(Layer layer, ResourceUsage usage, int exitStatus) {
+    public void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus) {
 
         if (exitStatus == 0) {
 

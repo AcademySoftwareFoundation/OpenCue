@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class MinimalHost extends Entity implements Host {
+public class MinimalHost extends Entity implements HostInterface {
 
     public String allocId;
     public String facilityId;

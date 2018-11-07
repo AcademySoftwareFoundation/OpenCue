@@ -22,7 +22,6 @@ package com.imageworks.spcue.test.util;
 import java.util.List;
 
 import junit.framework.TestCase;
-
 import org.junit.Test;
 
 import com.imageworks.spcue.util.Convert;

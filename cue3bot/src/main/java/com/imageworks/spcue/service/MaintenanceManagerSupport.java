@@ -24,18 +24,18 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameState;
 
 public class MaintenanceManagerSupport {
 
@@ -128,10 +128,10 @@ public class MaintenanceManagerSupport {
             }
         }
 
-        List<Frame> frames = frameDao.getOrphanedFrames();
-        for (Frame frame: frames) {
+        List<FrameInterface> frames = frameDao.getOrphanedFrames();
+        for (FrameInterface frame: frames) {
             try {
-                frameDao.updateFrameStopped(frame, FrameState.Waiting,
+                frameDao.updateFrameStopped(frame, FrameState.WAITING,
                         Dispatcher.EXIT_STATUS_FRAME_ORPHAN);
             } catch (Exception e) {
                 logger.info("failed to clear orphaned frame: " +
@@ -158,11 +158,11 @@ public class MaintenanceManagerSupport {
         logger.info("Checking for stale checkpoint frames.");
         if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_STALE_CHECKPOINT)) { return; }
         try {
-            List<Frame> frames = jobManager.getStaleCheckpoints(CHECKPOINT_MAX_WAIT_SEC);
+            List<FrameInterface> frames = jobManager.getStaleCheckpoints(CHECKPOINT_MAX_WAIT_SEC);
             logger.warn("found " + frames.size() + " frames that failed to checkpoint");
-            for (Frame frame: frames) {
-                jobManager.updateCheckpointState(frame, CheckpointState.Disabled);
-                jobManager.updateFrameState(frame, FrameState.Waiting);
+            for (FrameInterface frame: frames) {
+                jobManager.updateCheckpointState(frame, CheckpointState.DISABLED);
+                jobManager.updateFrameState(frame, FrameState.WAITING);
             }
         } catch (Exception e) {
             logger.warn("failed to unlock stale checkpoint " + e);

@@ -21,37 +21,69 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
+import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.CueClientIce.Action;
-import com.imageworks.spcue.grpc.facility.Allocation;
-import com.imageworks.spcue.CueClientIce.Comment;
-import com.imageworks.spcue.CueClientIce.Deed;
-import com.imageworks.spcue.CueClientIce.Department;
-import com.imageworks.spcue.CueClientIce.Depend;
-import com.imageworks.spcue.CueClientIce.Filter;
-import com.imageworks.spcue.CueClientIce.Frame;
-import com.imageworks.spcue.CueClientIce.Group;
-import com.imageworks.spcue.CueClientIce.Host;
-import com.imageworks.spcue.CueClientIce.Job;
-import com.imageworks.spcue.CueClientIce.Layer;
-import com.imageworks.spcue.CueClientIce.Matcher;
-import com.imageworks.spcue.CueClientIce.Owner;
-import com.imageworks.spcue.CueClientIce.Proc;
-import com.imageworks.spcue.CueClientIce.RenderPartition;
-import com.imageworks.spcue.CueClientIce.Service;
-import com.imageworks.spcue.CueClientIce.ServiceOverride;
-import com.imageworks.spcue.CueClientIce.Show;
-import com.imageworks.spcue.CueClientIce.Task;
-import com.imageworks.spcue.CueClientIce.UpdatedFrameCheckResult;
-import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.DeedEntity;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.DependInterface;
+import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.FilterInterface;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-
+import com.imageworks.spcue.MatcherInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.JobSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.depend.AbstractDepend;
+import com.imageworks.spcue.grpc.comment.CommentSeq;
+import com.imageworks.spcue.grpc.department.Department;
+import com.imageworks.spcue.grpc.department.DepartmentSeq;
+import com.imageworks.spcue.grpc.depend.Depend;
+import com.imageworks.spcue.grpc.depend.DependSeq;
+import com.imageworks.spcue.grpc.facility.Allocation;
+import com.imageworks.spcue.grpc.facility.AllocationSeq;
+import com.imageworks.spcue.grpc.facility.Facility;
+import com.imageworks.spcue.grpc.facility.FacilitySeq;
+import com.imageworks.spcue.grpc.filter.Action;
+import com.imageworks.spcue.grpc.filter.ActionSeq;
+import com.imageworks.spcue.grpc.filter.Filter;
+import com.imageworks.spcue.grpc.filter.FilterSeq;
+import com.imageworks.spcue.grpc.filter.Matcher;
+import com.imageworks.spcue.grpc.filter.MatcherSeq;
+import com.imageworks.spcue.grpc.host.Deed;
+import com.imageworks.spcue.grpc.host.DeedSeq;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSeq;
+import com.imageworks.spcue.grpc.host.Owner;
+import com.imageworks.spcue.grpc.host.ProcSeq;
+import com.imageworks.spcue.grpc.job.Frame;
+import com.imageworks.spcue.grpc.job.FrameSeq;
+import com.imageworks.spcue.grpc.job.Group;
+import com.imageworks.spcue.grpc.job.GroupSeq;
+import com.imageworks.spcue.grpc.job.Job;
+import com.imageworks.spcue.grpc.job.JobSeq;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerSeq;
+import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
+import com.imageworks.spcue.grpc.service.Service;
+import com.imageworks.spcue.grpc.service.ServiceOverride;
+import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
+import com.imageworks.spcue.grpc.service.ServiceSeq;
+import com.imageworks.spcue.grpc.show.Show;
+import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.Subscription;
+import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
+import com.imageworks.spcue.grpc.task.Task;
+import com.imageworks.spcue.grpc.task.TaskSeq;
 
 /**
  * @category DAO
@@ -61,32 +93,32 @@ public interface WhiteboardDao {
     /**
      * Returns a list of hosts
      *
-     * @param HostSearchCriteria r
-     * @return
+     * @param h HostInterface
+     * @return ProcSeq
      */
-    List<Proc> getProcs(com.imageworks.spcue.Host h);
+    ProcSeq getProcs(HostInterface h);
 
     /**
      * Returns a list of hosts
      *
-     * @param HostSearchCriteria r
-     * @return
+     * @param r HostSearch
+     * @return HostSeq
      */
-    List<Host> getHosts(HostSearch  r);
+    HostSeq getHosts(HostSearch  r);
 
     /**
      * Returns a list of jobs
      *
-     * @param JobSearchCriteria r
-     * @return
+     * @param r JobSearch
+     * @return JobSeq
      */
-    List<Job> getJobs(JobSearch  r);
+    JobSeq getJobs(JobSearch  r);
 
     /**
      * Returns a list of job names
      *
-     * @param JobSearchCriteria r
-     * @return
+     * @param r JobSearch
+     * @return List of Strings
      */
 
     List<String> getJobNames(JobSearch  r);
@@ -94,183 +126,182 @@ public interface WhiteboardDao {
     /**
      * Returns the comments for the specified job
      *
-     * @param job
-     * @return
+     * @param j JobInterface
+     * @return CommentSeq
      */
-    List<Comment> getComments(com.imageworks.spcue.Job j);
+    CommentSeq getComments(JobInterface j);
 
     /**
      * Returns the comments for the specified host
      *
-     * @param job
-     * @return
+     * @param h HostInterface
+     * @return CommentSeq
      */
-    List<Comment> getComments(com.imageworks.spcue.Host h);
+    CommentSeq getComments(HostInterface h);
 
     /**
      * returns the host a proc is part of
      *
-     * @param p
-     * @return
+     * @param id String
+     * @return Host
      */
     Host getHost(String id);
 
     /**
      * returns the host by name
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Host
      */
     Host findHost(String name);
 
     /**
      * Return a dependency by its unique id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Depend
      */
     Depend getDepend(String id);
 
     /**
      * Returns a list of all dependencies this job is involved with.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
-    List<Depend> getDepends(com.imageworks.spcue.Job job);
+    DependSeq getDepends(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified job.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Job job);
+    DependSeq getWhatDependsOnThis(JobInterface job);
 
     /**
      * Returns an array of depends that depend on the specified layer.
      *
-     * @param layer
-     * @return
+     * @param layer LayerInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Layer layer);
+    DependSeq getWhatDependsOnThis(LayerInterface layer);
 
     /**
      * Returns an array of depends that depend on the specified job.
      *
-     * @param frame
-     * @return
+     * @param frame FrameInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatDependsOnThis(com.imageworks.spcue.Frame frame);
+    DependSeq getWhatDependsOnThis(FrameInterface frame);
 
     /**
      * Returns an array of depends that the specified job is waiting on.
      *
-     * @param job
-     * @return
+     * @param job JobInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Job job);
+    DependSeq getWhatThisDependsOn(JobInterface job);
 
     /**
      * Returns an array of depends that the specified layer is waiting on.
      *
-     * @param layer
-     * @return
+     * @param layer LayerInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Layer layer);
+    DependSeq getWhatThisDependsOn(LayerInterface layer);
 
     /**
      * Returns an array of depends that the specified frame is waiting on.
      *
-     * @param frame
-     * @return
+     * @param frame FrameInterface
+     * @return DependSeq
      */
-    List<Depend> getWhatThisDependsOn(com.imageworks.spcue.Frame frame);
+    DependSeq getWhatThisDependsOn(FrameInterface frame);
 
     /**
      * Returns the specified dependency
      *
-     * @param depend
-     * @return
+     * @param depend DependInterface
+     * @return Depend
      */
-    Depend getDepend(com.imageworks.spcue.Depend depend);
+    Depend getDepend(DependInterface depend);
 
     Filter findFilter(String show, String name);
 
-    Filter findFilter(com.imageworks.spcue.Show show, String name);
+    Filter findFilter(ShowInterface show, String name);
 
-    Filter getFilter(com.imageworks.spcue.Filter filter);
+    Filter getFilter(FilterInterface filter);
 
-    List<Matcher> getMatchers(com.imageworks.spcue.Filter filter);
+    MatcherSeq getMatchers(FilterInterface filter);
 
-    Matcher getMatcher(com.imageworks.spcue.Matcher matcher);
+    Matcher getMatcher(MatcherInterface matcher);
 
-    List<Action> getActions(com.imageworks.spcue.Filter filter);
+    ActionSeq getActions(FilterInterface filter);
 
-    Action getAction(com.imageworks.spcue.Action action);
+    Action getAction(ActionInterface action);
 
     /**
      * Returns the frame by unique ID
      *
-     * @param p
-     * @return
+     * @param id String
+     * @return Frame
      */
     Frame getFrame(String id);
 
     /**
      * Returns a list of filters by show
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return FilterSeq
      */
 
-    List<Filter> getFilters(com.imageworks.spcue.Show show);
+    FilterSeq getFilters(ShowInterface show);
 
     /**
      * Frame search
      *
-     * @param job
-     * @param r
-     * @return
+     * @param r FrameSearch
+     * @return FrameSeq
      */
-    List<Frame> getFrames(FrameSearch r);
+    FrameSeq getFrames(FrameSearch r);
 
     /**
      * Returns a list of layers for the specified job.
      *
-     * @param JobDetail job
-     * @return List<Layer>
+     * @param  job JobInterface
+     * @return LayerSeq
      */
-    List<Layer> getLayers(com.imageworks.spcue.Job job);
+    LayerSeq getLayers(JobInterface job);
 
     /**
      * Returns a layer from its unique ID
      *
-     * @param JobDetail job
-     * @return List<Layer>
+     * @param  id String
+     * @return Layer
      */
     Layer getLayer(String id);
 
     /**
      *
-     * @param group
-     * @return
+     * @param group GroupInterface
+     * @return JobSeq
      */
-    List<Job> getJobs(com.imageworks.spcue.Group group);
+    JobSeq getJobs(GroupInterface group);
 
     /**
      * Finds an active job record based on the name
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Job
      */
     Job findJob(String name);
 
     /**
      * Gets an active job based on the Id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Job
      */
     Job getJob(String id);
 
@@ -284,33 +315,32 @@ public interface WhiteboardDao {
     /**
      * Find subscription using the show, facility, and alloc name.
      *
-     * @param show
-     * @param facility
-     * @param alloc
-     * @return
+     * @param show String
+     * @param alloc String
+     * @return Subscription
      */
     Subscription findSubscription(String show, String alloc);
 
     /**
      * returns a list of subscriptions
      *
-     * @param req
-     * @return List<Subscription>
+     * @param show ShowInterface
+     * @return SubscriptionSeq
      */
-    List<Subscription> getSubscriptions(com.imageworks.spcue.Show show);
+    SubscriptionSeq getSubscriptions(ShowInterface show);
 
     /**
      * returns all subscriptions on the specified allocation
      *
-     * @param alloc
-     * @return
+     * @param alloc AllocationInterface
+     * @return SubscriptionSeq
      */
-    List<Subscription> getSubscriptions(AllocationInterface alloc);
+    SubscriptionSeq getSubscriptions(AllocationInterface alloc);
 
     /**
      * returns a show by Id.
      *
-     * @param req
+     * @param id String
      * @return Show
      */
     Show getShow(String id);
@@ -318,33 +348,32 @@ public interface WhiteboardDao {
     /**
      * returns a show by its name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Show
      */
     Show findShow(String name);
 
     /**
      *
-     * return a list of shows rom a whiteboard request
+     * return a list of shows from a whiteboard request
      *
-     * @param req
-     * @return
+     * @return ShowSeq
      */
-    List<Show> getShows();
+    ShowSeq getShows();
 
     /**
-     * returns a show by Id.
+     * returns an allocation by Id.
      *
-     * @param req
-     * @return Show
+     * @param id String
+     * @return Allocation
      */
     Allocation getAllocation(String id);
 
     /**
      * returns a show by its name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Allocation
      */
     Allocation findAllocation(String name);
 
@@ -352,31 +381,30 @@ public interface WhiteboardDao {
      *
      * return the current list of allocations
      *
-     * @param req
-     * @return
+     * @return List of Allocations
      */
-    List<Allocation> getAllocations();
+    AllocationSeq getAllocations();
 
     /**
     *
     * return the current list of allocations
     *
-    * @param req
-    * @return
+    * @param facility FacilityInterface
+    * @return List of Allocations
     */
-   List<Allocation> getAllocations(com.imageworks.spcue.FacilityInterface facility);
+   AllocationSeq getAllocations(FacilityInterface facility);
 
 
     /**
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return Group
      */
-    Group getRootGroup(com.imageworks.spcue.Show show);
+    Group getRootGroup(ShowInterface show);
 
     /**
      *
-     * @param id
+     * @param id String
      * @return Group
      */
     Group getGroup(String id);
@@ -384,42 +412,42 @@ public interface WhiteboardDao {
     /**
      * Finds a group by show name and group name
      *
-     * @param show
-     * @param group
-     * @return
+     * @param show  String
+     * @param group String
+     * @return Group
      */
     Group findGroup(String show, String group);
 
     /**
      *
      *
-     * @param req
-     * @return List<Group>
+     * @param show ShowInterface
+     * @return GroupSeq
      */
-    List<Group> getGroups(com.imageworks.spcue.Show show);
+    GroupSeq getGroups(ShowInterface show);
 
     /**
      *
-     * @param group
-     * @return
+     * @param group GroupInterface
+     * @return GroupSeq
      */
-    List<Group> getGroups(com.imageworks.spcue.Group group);
+    GroupSeq getGroups(GroupInterface group);
 
 
     /**
      *
-     * @param job
-     * @param layer
-     * @return
+     * @param job   String
+     * @param layer String
+     * @return Layer
      */
     Layer findLayer(String job, String layer);
 
     /**
      *
-     * @param job
-     * @param layer
-     * @param frame
-     * @return
+     * @param job   String
+     * @param layer String
+     * @param frame int
+     * @return Frame
      */
     Frame findFrame(String job, String layer, int frame);
 
@@ -427,213 +455,216 @@ public interface WhiteboardDao {
     /**
      * returns an UpdatedFrameCheckResult which contains an array of updated frames.
      *
-     * @param job
-     * @param layers
-     * @param lastUpdate
-     * @return
+     * @param job        JobInterface
+     * @param layers     List of LayerInterfaces
+     * @param lastUpdate int
+     * @return UpdatedFrameCheckResult
      */
-    UpdatedFrameCheckResult getUpdatedFrames(com.imageworks.spcue.Job job,
-                                             List<com.imageworks.spcue.Layer> layers, int lastUpdate);
+    UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
+                                             List<LayerInterface> layers, int lastUpdate);
 
     /**
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return DepartmentSeq
      */
-    List<Department> getDepartments (com.imageworks.spcue.Show show);
+    DepartmentSeq getDepartments (ShowInterface show);
 
     /**
      *
-     * @param show
-     * @param name
-     * @return
+     * @param show ShowInterface
+     * @param name String
+     * @return Department
      */
-    Department getDepartment(com.imageworks.spcue.Show show, String name);
+    Department getDepartment(ShowInterface show, String name);
 
     /**
      * Returns a list of available department names
      *
-     * @return
+     * @return List of Strings
      */
     List<String> getDepartmentNames();
 
     /**
      *
-     * @return
+     * @param show ShowInterface
+     * @param dept DepartmentInterface
+     * @param shot String
+     * @return Task
      */
-    Task getTask(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept, String shot);
+    Task getTask(ShowInterface show, DepartmentInterface dept, String shot);
 
     /**
      *
-     * @param show
-     * @param dept
-     * @return
+     * @param show ShowInterface
+     * @param dept DepartmentInterface
+     * @return List of Tasks
      */
-    List<Task> getTasks(com.imageworks.spcue.Show show, com.imageworks.spcue.Department dept);
+    TaskSeq getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns procs from a ProcSearch criteria.
      *
-     * @param p
-     * @return
+     * @param p ProcSearch
+     * @return ProcSeq
      */
-    List<Proc> getProcs(ProcSearch p);
+    ProcSeq getProcs(ProcSearch p);
 
     /**
-     * Return the Ice representation of the given AbstractDepend.
+     * Return the grpc representation of the given AbstractDepend.
      *
-     * @param depend
-     * @return
+     * @param depend AbstractDepend
+     * @return Depend
      */
     Depend getDepend(AbstractDepend depend);
 
     /**
      * Return the Host record for the given Deed.
      *
-     * @param deed
-     * @return
+     * @param deed DeedEntity
+     * @return Host
      */
-    Host getHost(com.imageworks.spcue.Deed deed);
+    Host getHost(DeedEntity deed);
 
     /**
      * Return the Owner of the given Deed.
      *
-     * @param deed
-     * @return
+     * @param deed DeedEntity
+     * @return Owner
      */
-    Owner getOwner(com.imageworks.spcue.Deed deed);
+    Owner getOwner(DeedEntity deed);
 
     /**
      * Return a list of all Deeds controlled by the given Owner.
      *
-     * @param owner
-     * @return
+     * @param owner OwnerEntity
+     * @return DeedSeq
      */
-    List<Deed> getDeeds(com.imageworks.spcue.Owner owner);
+    DeedSeq getDeeds(OwnerEntity owner);
 
     /**
      * Return a list of all Hosts controlled by the given Owner.
      *
-     * @param owner
-     * @return
+     * @param owner OwnerEntity
+     * @return HostSeq
      */
-    List<Host> getHosts(com.imageworks.spcue.Owner owner);
+    HostSeq getHosts(OwnerEntity owner);
 
     /**
      * Return the Owner of the given host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return Owner
      */
-    Owner getOwner(com.imageworks.spcue.Host host);
+    Owner getOwner(HostInterface host);
 
     /**
      * Return the Deed for the given Host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return Deed
      */
-    Deed getDeed(com.imageworks.spcue.Host host);
+    Deed getDeed(HostInterface host);
 
     /**
      * Return the owner by name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Owner
      */
     Owner getOwner(String name);
 
     /**
      * Return a list of owners by show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return List of Owners
      */
-    List<Owner> getOwners(com.imageworks.spcue.Show show);
+    List<Owner> getOwners(ShowInterface show);
 
     /**
      * Return a list of Deeds by show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return DeedSeq
      */
-    List<Deed> getDeeds(com.imageworks.spcue.Show show);
+    DeedSeq getDeeds(ShowInterface show);
 
     /**
      * Return a RenderPartion from its associated LocalHostAssignment.
      *
-     * @param l
-     * @return
+     * @param l LocalHostAssignment
+     * @return RenderPartition
      */
     RenderPartition getRenderPartition(LocalHostAssignment l);
 
     /**
      * Return a list or RenderPartition for the given Host.
      *
-     * @param host
-     * @return
+     * @param host HostInterface
+     * @return RenderPartitionSeq
      */
-    List<RenderPartition> getRenderPartitions(com.imageworks.spcue.Host host);
+    RenderPartitionSeq getRenderPartitions(HostInterface host);
 
     /**
      * Return a facility by name or id.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Facility
      */
     Facility getFacility(String name);
 
     /**
      * Return the full list of facilities.
      *
-     * @return
+     * @return List of Facilities
      */
-    List<Facility> getFacilities();
+    FacilitySeq getFacilities();
 
     /**
      * Return a list of all active shows.
      *
-     * @return
+     * @return ShowSeq
      */
-    List<Show> getActiveShows();
+    ShowSeq getActiveShows();
 
     /**
      * Return the given service.
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return Service
      */
     Service getService(String id);
 
     /**
      * Return the list of cluster wide service defaults.
      *
-     * @return
+     * @return ServiceSeq
      */
-    List<Service> getDefaultServices();
+    ServiceSeq getDefaultServices();
 
     /**
      * Return the list of service overrides for a particular show.
      *
-     * @param show
-     * @return
+     * @param show ShowInterface
+     * @return List of ServiceOverrides
      */
-    List<ServiceOverride> getServiceOverrides(com.imageworks.spcue.Show show);
+    ServiceOverrideSeq getServiceOverrides(ShowInterface show);
 
     /**
      * Return the given show override.
      *
-     * @param show
-     * @param name
-     * @return
+     * @param show ShowInterface
+     * @param name String
+     * @return ServiceOverride
      */
-    ServiceOverride getServiceOverride(com.imageworks.spcue.Show show, String name);
+    ServiceOverride getServiceOverride(ShowInterface show, String name);
 
     /**
      * Find a service by name.
      *
-     * @param name
-     * @return
+     * @param name String
+     * @return Service
      */
     Service findService(String name);
 }

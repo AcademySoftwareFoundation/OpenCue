@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.service.JobManagerSupport;
 
@@ -29,12 +29,12 @@ import com.imageworks.spcue.service.JobManagerSupport;
  * @category command
  */
 public class DispatchJobComplete implements Runnable {
-    private Job job;
+    private JobInterface job;
     private Source source;
     private boolean isManualKill;
 
     private JobManagerSupport jobManagerSupport;
-    public DispatchJobComplete(Job job, Source source, boolean isManualKill, JobManagerSupport jobManagerSupport) {
+    public DispatchJobComplete(JobInterface job, Source source, boolean isManualKill, JobManagerSupport jobManagerSupport) {
         this.job = job;
         this.source = source;
         this.isManualKill = isManualKill;

@@ -2,9 +2,10 @@
 
 package com.imageworks.spcue.servant;
 
-import org.apache.log4j.Logger;
 import io.grpc.stub.StreamObserver;
 
+import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.grpc.report.RqdReportInterfaceGrpc;
 import com.imageworks.spcue.grpc.report.RqdReportRqdStartupRequest;
 import com.imageworks.spcue.grpc.report.RqdReportRqdStartupResponse;
@@ -12,8 +13,6 @@ import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionRequest;
 import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionResponse;
 import com.imageworks.spcue.grpc.report.RqdReportStatusRequest;
 import com.imageworks.spcue.grpc.report.RqdReportStatusResponse;
-import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
-import com.imageworks.spcue.dispatcher.HostReportHandler;
 
 
 public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceImplBase {

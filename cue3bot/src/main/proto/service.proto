@@ -41,13 +41,14 @@ service ServiceOverrideInterface {
 // -------- Primary Message Types --------]
 
 message Service {
-    string name = 1;
-    bool threadable = 2;
-    int32 min_cores = 3;
-    int32 max_cores = 4;
-    int32 min_memory = 5;
-    int32 min_gpu = 6;
-    repeated string tags = 7;
+    string id = 1;
+    string name = 2;
+    bool threadable = 3;
+    int32 min_cores = 4;
+    int32 max_cores = 5;
+    int32 min_memory = 6;
+    int32 min_gpu = 7;
+    repeated string tags = 8;
 }
 
 message ServiceSeq {
@@ -55,7 +56,8 @@ message ServiceSeq {
 }
 
 message ServiceOverride {
-    Service data = 1;
+    string id = 1;
+    Service data = 2;
 }
 
 message ServiceOverrideSeq {

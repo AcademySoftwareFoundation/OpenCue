@@ -29,16 +29,15 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.FrameExitStatusNoRetry;
-import com.imageworks.spcue.CueIce.FrameExitStatusSkipRetry;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
+import com.imageworks.spcue.grpc.host.LockState;
+import com.imageworks.spcue.grpc.job.FrameExitStatus;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
@@ -234,10 +233,10 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            if (newFrameState.equals(FrameState.Succeeded)) {
+            if (newFrameState.equals(FrameState.SUCCEEDED)) {
                 jobManagerSupport.satisfyWhatDependsOn(frame);
                 if (jobManager.isLayerComplete(frame)) {
-                    jobManagerSupport.satisfyWhatDependsOn((Layer) frame);
+                    jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
                 } else {
                     /*
                      * If the layer meets some specific criteria then try to
@@ -255,10 +254,10 @@ public class FrameCompleteHandler {
              * check, then jobs that finish with the auto-eat flag enabled will
              * not leave the cue.
              */
-            if (newFrameState.equals(FrameState.Succeeded)
-                    || newFrameState.equals(FrameState.Eaten)) {
+            if (newFrameState.equals(FrameState.SUCCEEDED)
+                    || newFrameState.equals(FrameState.EATEN)) {
                 if (jobManager.isJobComplete(job)) {
-                    job.state = JobState.Finished;
+                    job.state = JobState.FINISHED;
                     jobManagerSupport.queueShutdownJob(job, new Source(
                             "natural"), false);
                 }
@@ -299,7 +298,7 @@ public class FrameCompleteHandler {
              * Frames that return a 256 are not automatically retried.
              */
 
-            else if (report.getExitStatus() == FrameExitStatusNoRetry.value) {
+            else if (report.getExitStatus() == FrameExitStatus.NO_RETRY_VALUE) {
                 logger.info("unbooking " + proc + " frame status was no-retry.");
                 unbookProc = true;
             }
@@ -312,7 +311,7 @@ public class FrameCompleteHandler {
                 }
 
                 /* Update the NIMBY locked state */
-                hostManager.setHostLock(proc, LockState.NimbyLocked,
+                hostManager.setHostLock(proc, LockState.NIMBY_LOCKED,
                         new Source("NIMBY"));
             } else if (report.getHost().getFreeMem() < CueUtil.MB512) {
                 /*
@@ -358,7 +357,7 @@ public class FrameCompleteHandler {
              * Check to see if the job the proc is currently assigned is still
              * dispatchable.
              */
-            if (job.state.equals(JobState.Finished)
+            if (job.state.equals(JobState.FINISHED)
                     || !dispatchSupport.isJobDispatchable(job,
                             proc.isLocalDispatch)) {
 
@@ -378,7 +377,7 @@ public class FrameCompleteHandler {
                             .getDispatchHost(proc.getHostId()), dispatcher));
                 }
 
-                if (job.state.equals(JobState.Finished)) {
+                if (job.state.equals(JobState.FINISHED)) {
                     jsmMover.send(job);
                 }
                 return;
@@ -426,8 +425,8 @@ public class FrameCompleteHandler {
                 }
             }
 
-            if (newFrameState.equals(FrameState.Waiting)
-                    || newFrameState.equals(FrameState.Succeeded)) {
+            if (newFrameState.equals(FrameState.WAITING)
+                    || newFrameState.equals(FrameState.SUCCEEDED)) {
 
                 /*
                  * Check for stranded cores on the host.
@@ -506,36 +505,36 @@ public class FrameCompleteHandler {
      */
     public static final FrameState determineFrameState(DispatchJob job, DispatchFrame frame, FrameCompleteReport report) {
 
-        if (EnumSet.of(FrameState.Waiting, FrameState.Eaten).contains(
+        if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(
                 frame.state)) {
             return frame.state;
         }
         // Checks for frames that have reached max retries.
-        else if (frame.state.equals(FrameState.Dead)) {
+        else if (frame.state.equals(FrameState.DEAD)) {
             if (job.autoEat) {
-                return FrameState.Eaten;
+                return FrameState.EATEN;
             } else {
-                return FrameState.Dead;
+                return FrameState.DEPEND;
             }
         } else if (report.getExitStatus() != 0) {
 
-            FrameState newState = FrameState.Waiting;
-            if (report.getExitStatus() == FrameExitStatusSkipRetry.value
+            FrameState newState = FrameState.WAITING;
+            if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
-                report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatusSkipRetry.value).build();
-                newState = FrameState.Waiting;
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
+                newState = FrameState.WAITING;
             } else if (job.autoEat) {
-                newState = FrameState.Eaten;
+                newState = FrameState.EATEN;
             } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
-                newState = FrameState.Dead;
+                newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {
                 if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
-                    newState = FrameState.Dead;
+                    newState = FrameState.DEAD;
             }
 
             return newState;
         } else {
-            return FrameState.Succeeded;
+            return FrameState.SUCCEEDED;
         }
     }
 

@@ -26,11 +26,11 @@ import java.util.List;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.PointDetail;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -45,7 +45,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
     }
 
     @Override
-    public boolean isManaged(Show show, Department dept) {
+    public boolean isManaged(ShowInterface show, DepartmentInterface dept) {
         try {
             return getJdbcTemplate().queryForObject(
                     "SELECT b_managed FROM point WHERE pk_show=? and pk_dept=?",
@@ -56,7 +56,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
     }
 
     @Override
-    public PointDetail insertPointConf(Show show, Department dept) {
+    public PointDetail insertPointConf(ShowInterface show, DepartmentInterface dept) {
         PointDetail r = new PointDetail();
         r.deptId = dept.getId();
         r.showId = show.getShowId();
@@ -68,7 +68,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
     }
 
     @Override
-    public boolean pointConfExists(Show show, Department dept) {
+    public boolean pointConfExists(ShowInterface show, DepartmentInterface dept) {
         return getJdbcTemplate().queryForObject(
             "SELECT COUNT(1) FROM point WHERE pk_show=? AND pk_dept=?",
             Integer.class, show.getShowId(), dept.getDepartmentId()) > 0;
@@ -85,7 +85,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
             "pk_point=?";
 
     @Override
-    public void updateEnableManaged(Point p, String task, int coreUnits) {
+    public void updateEnableManaged(PointInterface p, String task, int coreUnits) {
         getJdbcTemplate().update(UPDATE_TI_MANAGED,
                 task, coreUnits, p.getPointId());
     }
@@ -101,7 +101,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
             "pk_point=?";
 
     @Override
-    public void updateDisableManaged(Point p) {
+    public void updateDisableManaged(PointInterface p) {
         getJdbcTemplate().update(UPDATE_DISABLE_TI_MANAGED, p.getPointId());
     }
 
@@ -152,7 +152,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
             "pk_dept = ? ";
 
     @Override
-    public PointDetail getPointConfigDetail(Show show, Department dept) {
+    public PointDetail getPointConfigDetail(ShowInterface show, DepartmentInterface dept) {
         return getJdbcTemplate().queryForObject(GET_POINT_CONFIG_DETAIL_BY_SHOW_DEPT,
                 DEPARTMENT_CONFIG_DETAIL_MAPPER, show.getShowId(), dept.getDepartmentId());
     }
@@ -166,7 +166,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
             "pk_point=?";
 
     @Override
-    public void updateManagedCores(Point cdept, int cores) {
+    public void updateManagedCores(PointInterface cdept, int cores) {
         getJdbcTemplate().update(UPDATE_TI_MANAGED_CORES, cores,
                 cdept.getPointId());
 
@@ -192,7 +192,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
     }
 
     @Override
-    public void updatePointConfUpdateTime(Point t) {
+    public void updatePointConfUpdateTime(PointInterface t) {
         getJdbcTemplate().update(
                 "UPDATE point SET ts_updated=systimestamp WHERE pk_point=?",
                 t.getPointId());
@@ -214,7 +214,7 @@ public class PointDaoJdbc extends JdbcDaoSupport implements PointDao {
             "job.pk_job = ?";
 
     @Override
-    public boolean isOverMinCores(Job job) {
+    public boolean isOverMinCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_OVER_MIN_CORES,
                 Integer.class, job.getJobId()) > 0;
     }

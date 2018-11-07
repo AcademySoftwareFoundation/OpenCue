@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -29,19 +27,21 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+
+import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -115,7 +115,7 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testDeleteAllocationWithProc() {
 
         // Use the alloc so deleting triggers it just to be disaled.
-        ShowDetail show = adminManager.getShowDetail(
+        ShowEntity show = adminManager.getShowEntity(
                 "00000000-0000-0000-0000-000000000000");
         adminManager.createSubscription(show, alloc, 10, 10);
         allocDao.deleteAllocation(alloc);

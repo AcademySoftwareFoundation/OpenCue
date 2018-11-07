@@ -27,16 +27,16 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
-import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.FacilityInterface;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.jdbc.core.SqlParameter;
+import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
+import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.EntityRemovalError;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.util.SqlUtil;
 

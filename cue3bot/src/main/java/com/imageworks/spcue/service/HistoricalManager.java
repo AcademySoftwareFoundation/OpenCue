@@ -21,7 +21,7 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 
 public interface HistoricalManager {
 
@@ -30,14 +30,14 @@ public interface HistoricalManager {
      *
      * @return List<Job>
      */
-    List<Job> getFinishedJobs();
+    List<JobInterface> getFinishedJobs();
 
     /**
      * Transfers data from the lives to the historical tables.
      *
      * @param job
      */
-    void transferJob(Job job);
+    void transferJob(JobInterface job);
 
 }
 

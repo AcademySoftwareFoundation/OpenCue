@@ -19,10 +19,6 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
-import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -30,14 +26,13 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.CueClientIce.NestedHost;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;
@@ -57,7 +52,7 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
     @Resource
     ShowDao showDao;
 
-    public ShowDetail getShow() {
+    public ShowEntity getShow() {
         return showDao.findShowDetail("pipe");
     }
 
