@@ -19,38 +19,32 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueIce.RenderPartitionType;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.iceclient.RqdClient;
 import com.imageworks.spcue.service.AdminManager;
@@ -60,6 +54,12 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -231,7 +231,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(lja.getJobId());
         assertEquals(job.getJobId(), lja.getJobId());
-        assertEquals(RenderPartitionType.JobPartition, lja.getType());
+        assertEquals(RenderPartitionType.JOB_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);
@@ -244,7 +244,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         DispatchHost h = createHost();
         JobDetail job = launchJob2();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -255,7 +255,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(layer.getLayerId());
         assertEquals(layer.getLayerId(), lja.getLayerId());
-        assertEquals(RenderPartitionType.LayerPartition, lja.getType());
+        assertEquals(RenderPartitionType.LAYER_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);
@@ -268,8 +268,8 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         DispatchHost h = createHost();
         JobDetail job = launchJob2();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -280,7 +280,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertNotNull(frame.getFrameId());
         assertEquals(frame.getFrameId(), lja.getFrameId());
-        assertEquals(RenderPartitionType.FramePartition, lja.getType());
+        assertEquals(RenderPartitionType.FRAME_PARTITION, lja.getType());
         assertFalse(bookingManager.hasActiveLocalFrames(h));
 
         whiteboard.getRenderPartition(lja);

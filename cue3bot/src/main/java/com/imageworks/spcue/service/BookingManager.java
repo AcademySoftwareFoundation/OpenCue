@@ -22,10 +22,10 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 
 public interface BookingManager {
@@ -36,7 +36,7 @@ public interface BookingManager {
      * @param host
      * @return
      */
-    public List<LocalHostAssignment> getLocalHostAssignment(Host host);
+    public List<LocalHostAssignment> getLocalHostAssignment(HostInterface host);
 
     /**
      * Return an active LocalHostAssignment for the given unique ID.
@@ -63,7 +63,7 @@ public interface BookingManager {
      * @param lja
      */
     public void createLocalHostAssignment(DispatchHost host,
-            Job job, LocalHostAssignment lja);
+                                          JobInterface job, LocalHostAssignment lja);
 
     /**
      * Create a local host assignment for the given layer.
@@ -73,7 +73,7 @@ public interface BookingManager {
      * @param lja
      */
     public void createLocalHostAssignment(DispatchHost host,
-            Layer layer, LocalHostAssignment lja);
+                                          LayerInterface layer, LocalHostAssignment lja);
 
     /**
      * Create a local host assignment for the given frame.
@@ -83,7 +83,7 @@ public interface BookingManager {
      * @param lja
      */
     public void createLocalHostAssignment(DispatchHost host,
-            Frame frame, LocalHostAssignment lja);
+                                          FrameInterface frame, LocalHostAssignment lja);
 
     /**
      * Return true if the host as a local assignment.
@@ -91,7 +91,7 @@ public interface BookingManager {
      * @param host
      * @return
      */
-    public boolean hasLocalHostAssignment(Host host);
+    public boolean hasLocalHostAssignment(HostInterface host);
 
     /**
      * Return true if the given host has active local frames.
@@ -99,7 +99,7 @@ public interface BookingManager {
      * @param host
      * @return
      */
-    public boolean hasActiveLocalFrames(Host host);
+    public boolean hasActiveLocalFrames(HostInterface host);
 
     /**
      * Remove the given LocalHostAssignment.
@@ -138,7 +138,7 @@ public interface BookingManager {
      * @param host
      * @return
      */
-    boolean isBlackOutTime(Host host);
+    boolean isBlackOutTime(HostInterface host);
 
     /**
      * Return true if the host is running more cores than the maximum allowed.
@@ -146,6 +146,6 @@ public interface BookingManager {
      * @param host
      * @return
      */
-    boolean hasResourceDeficit(Host host);
+    boolean hasResourceDeficit(HostInterface host);
 }
 

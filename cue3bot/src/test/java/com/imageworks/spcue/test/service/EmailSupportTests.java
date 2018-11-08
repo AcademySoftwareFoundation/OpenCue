@@ -30,8 +30,6 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DependDao;
@@ -39,6 +37,8 @@ import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
@@ -89,12 +89,12 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
         // Satisfy all dependencies, this will allow us to mark frames as complete.
         layerDao.getLayers(job)
-                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.AnyTarget)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
                         .forEach(dep -> dependManager.satisfyDepend(dep)));
 
         frameDao.findFrames(new FrameSearch(job)).forEach(
                 frame -> frameDao.updateFrameState(
-                        frameDao.getFrame(frame.getFrameId()), FrameState.Succeeded));
+                        frameDao.getFrame(frame.getFrameId()), FrameState.SUCCEEDED));
 
         emailSupport.sendShutdownEmail(job);
     }
@@ -111,12 +111,12 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
         jobDao.updateEmail(job, System.getProperty("user.name"));
 
         layerDao.getLayers(job)
-                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.AnyTarget)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
                         .forEach(dep -> dependManager.satisfyDepend(dep)));
 
         frameDao.findFrames(new FrameSearch(job)).forEach(
                 frame -> frameDao.updateFrameState(
-                        frameDao.getFrame(frame.getFrameId()), FrameState.Dead));
+                        frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
 
         emailSupport.sendShutdownEmail(job);
     }

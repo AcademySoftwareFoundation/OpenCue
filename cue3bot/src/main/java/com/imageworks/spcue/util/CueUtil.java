@@ -19,41 +19,36 @@
 
 package com.imageworks.spcue.util;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.ThreadMXBean;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Pattern;
-
-import java.lang.Math;
-import java.lang.management.ManagementFactory;
-import java.lang.management.ThreadMXBean;
-
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
+import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.Session;
 import javax.mail.Transport;
 import javax.mail.internet.InternetAddress;
+import javax.mail.internet.MimeBodyPart;
 import javax.mail.internet.MimeMessage;
+import javax.mail.internet.MimeMultipart;
+import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.log4j.Logger;
 
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
-import com.imageworks.spcue.CueIce.CueIceException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.util.FrameSet;
-import java.util.Map;
-import java.util.Map.Entry;
-import javax.activation.DataHandler;
-import javax.activation.DataSource;
-import javax.mail.BodyPart;
-import javax.mail.internet.MimeBodyPart;
-import javax.mail.internet.MimeMultipart;
-import javax.mail.util.ByteArrayDataSource;
 
 /**
  * CueUtil is set of common methods used throughout the application.
@@ -109,7 +104,6 @@ public final class CueUtil {
      *
      * @param name
      * @return
-     * @throws CueIceException
      */
     public static String[] splitAllocationName(String name) {
         String[] parts = name.split("\\.", 2);
@@ -236,7 +230,7 @@ public final class CueUtil {
      * @param num
      * @return String
      */
-    public final static String buildFrameName(Layer layer, int num) {
+    public final static String buildFrameName(LayerInterface layer, int num) {
         return String.format("%04d-%s",num,layer.getName());
     }
 
@@ -259,7 +253,6 @@ public final class CueUtil {
      * return the milliseconds since time
      *
      * @param time
-     * @param message
      */
     public final static long duration(long time) {
         return System.currentTimeMillis() - time;
@@ -302,7 +295,7 @@ public final class CueUtil {
      * Take a frame range and chunk size and return an
      * ordered array of frames with all duplicates removed.
      *
-     * @param range
+     * @param frameSet
      * @param chunkSize
      * @return
      */

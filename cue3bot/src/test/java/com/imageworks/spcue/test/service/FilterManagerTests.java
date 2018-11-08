@@ -30,17 +30,12 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.CueIce.ActionType;
-import com.imageworks.spcue.CueIce.ActionValueType;
-import com.imageworks.spcue.CueIce.FilterType;
-import com.imageworks.spcue.CueIce.MatchSubject;
-import com.imageworks.spcue.CueIce.MatchType;
-import com.imageworks.spcue.FilterDetail;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.MatcherDetail;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.MatcherEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FilterDao;
@@ -48,6 +43,12 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.filter.ActionType;
+import com.imageworks.spcue.grpc.filter.ActionValueType;
+import com.imageworks.spcue.grpc.filter.FilterType;
+import com.imageworks.spcue.grpc.filter.MatchSubject;
+import com.imageworks.spcue.grpc.filter.MatchType;
+import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -61,7 +62,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
-
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -108,15 +108,15 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.testMode = true;
     }
 
-    public Show getShow() {
+    public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
-    public FilterDetail buildFilter() {
-        FilterDetail filter = new FilterDetail();
+    public FilterEntity buildFilter() {
+        FilterEntity filter = new FilterEntity();
         filter.name = FILTER_NAME;
         filter.showId = "00000000-0000-0000-0000-000000000000";
-        filter.type = FilterType.MatchAny;
+        filter.type = FilterType.MATCH_ANY;
         filter.enabled = true;
 
         return filter;
@@ -127,14 +127,14 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testShotEndsWith() {
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        MatcherDetail m = new MatcherDetail();
+        MatcherEntity m = new MatcherEntity();
         m.filterId = f.getFilterId();
         m.name = "match end of shot";
-        m.subject = MatchSubject.Shot;
-        m.type = MatchType.EndsWith;
+        m.subject = MatchSubject.SHOT;
+        m.type = MatchType.ENDS_WITH;
         m.value = ".cue";
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -150,14 +150,14 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testLayerNameContains() {
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        MatcherDetail m = new MatcherDetail();
+        MatcherEntity m = new MatcherEntity();
         m.filterId = f.getFilterId();
         m.name = "layer name contains";
-        m.subject = MatchSubject.LayerName;
-        m.type = MatchType.Contains;
+        m.subject = MatchSubject.LAYER_NAME;
+        m.type = MatchType.CONTAINS;
         m.value = "pass_1";
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -172,13 +172,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testApplyActionPauseJob() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.PauseJob;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.PAUSE_JOB;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.BooleanType;
+        a1.valueType = ActionValueType.BOOLEAN_TYPE;
         a1.booleanValue = true;
 
 
@@ -197,13 +197,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testApplyActionSetMemoryOptimizer() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetMemoryOptimizer;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_MEMORY_OPTIMIZER;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.BooleanType;
+        a1.valueType = ActionValueType.BOOLEAN_TYPE;
         a1.booleanValue = false;
 
 
@@ -213,28 +213,30 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
         assertTrue(
                 whiteboard.getLayers(job)
+                        .getLayersList()
                         .stream()
-                        .noneMatch(layer -> layer.data.memoryOptimzerEnabled));
+                        .noneMatch(Layer::getMemoryOptimizerEnabled));
 
         a1.booleanValue = true;
         filterManager.applyAction(a1, job);
         assertTrue(
                 whiteboard.getLayers(job)
+                        .getLayersList()
                         .stream()
-                        .allMatch(layer -> layer.data.memoryOptimzerEnabled));
+                        .allMatch(Layer::getMemoryOptimizerEnabled));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testApplyActionSetMinCores() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetJobMinCores;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_JOB_MIN_CORES;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.FloatType;
+        a1.valueType = ActionValueType.FLOAT_TYPE;
         a1.floatValue = 10f;
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -258,13 +260,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testApplyActionSetMaxCores() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetJobMaxCores;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_JOB_MAX_CORES;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.FloatType;
+        a1.valueType = ActionValueType.FLOAT_TYPE;
         a1.floatValue = 10f;
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -288,13 +290,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testApplyActionSetPriority() {
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetJobPriority;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_JOB_PRIORITY;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.IntegerType;
+        a1.valueType = ActionValueType.INTEGER_TYPE;
         a1.intValue = 100;
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
@@ -321,7 +323,7 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
         GroupDetail g = new GroupDetail();
@@ -331,10 +333,10 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
         groupManager.createGroup(g, groupManager.getRootGroupDetail(job));
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.MoveJobToGroup;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.MOVE_JOB_TO_GROUP;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.GroupType;
+        a1.valueType = ActionValueType.GROUP_TYPE;
         a1.groupValue = g.id;
 
 
@@ -355,13 +357,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetAllRenderLayerCores;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_ALL_RENDER_LAYER_CORES;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.FloatType;
+        a1.valueType = ActionValueType.FLOAT_TYPE;
         a1.floatValue = 40f;
 
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
@@ -385,13 +387,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetAllRenderLayerMemory;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_ALL_RENDER_LAYER_MEMORY;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.IntegerType;
+        a1.valueType = ActionValueType.INTEGER_TYPE;
         a1.intValue =  CueUtil.GB8;
 
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
@@ -409,13 +411,13 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
 
-        FilterDetail f = buildFilter();
+        FilterEntity f = buildFilter();
         filterDao.insertFilter(f);
 
-        ActionDetail a1 = new ActionDetail();
-        a1.type = ActionType.SetAllRenderLayerTags;
+        ActionEntity a1 = new ActionEntity();
+        a1.type = ActionType.SET_ALL_RENDER_LAYER_TAGS;
         a1.filterId = f.getFilterId();
-        a1.valueType = ActionValueType.StringType;
+        a1.valueType = ActionValueType.STRING_TYPE;
         a1.stringValue = "blah";
 
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");

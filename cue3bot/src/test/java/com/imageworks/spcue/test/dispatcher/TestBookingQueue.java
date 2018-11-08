@@ -19,9 +19,6 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -29,13 +26,12 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.transaction.BeforeTransaction;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;

@@ -20,103 +20,19 @@
 package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 
-import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.CueClientIce.AllocationInterfacePrx;
-import com.imageworks.spcue.CueClientIce.GroupInterfacePrx;
-import com.imageworks.spcue.CueClientIce.HostInterfacePrx;
-import com.imageworks.spcue.CueClientIce.JobInterfacePrx;
-import com.imageworks.spcue.CueClientIce.LayerInterfacePrx;
-import com.imageworks.spcue.CueClientIce.SubscriptionInterfacePrx;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerSeq;
 
 public class ServantUtil {
 
-    public static AllocationInterface convertAllocationProxy(final AllocationInterfacePrx prx) {
-        return new AllocationInterface() {
-            String _id = prx.ice_getIdentity().name;
-            public String getAllocationId() { return _id; }
-            public String getId() { return _id; }
-            public String getName() { throw new RuntimeException("not implemented"); }
-            public String getFacilityId() { throw new RuntimeException("not implemented"); }
-        };
-    }
-
-    public static List<AllocationInterface> convertAllocationProxyList(List<AllocationInterfacePrx> allocs)  {
-        final List<AllocationInterface> result = new ArrayList<AllocationInterface>();
-        for (final AllocationInterfacePrx proxy: allocs) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new AllocationInterface() {
-                String _id = id;
-                public String getAllocationId() { return _id; }
-                public String getId() { return _id; }
-                public String getName() { throw new RuntimeException("not implemented"); }
-                public String getFacilityId() { throw new RuntimeException("not implemented"); }
-            });
-        }
-        return result;
-    }
-
-    public static List<Subscription> convertSubscriptionProxyList(List<SubscriptionInterfacePrx> subs)  {
-        final List<Subscription> result = new ArrayList<Subscription>();
-        for (final SubscriptionInterfacePrx proxy: subs) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new Subscription() {
-                String _id = id;
-                public String getSubscriptionId() { return _id; }
-                public String getId() {  return _id; }
-                public String getShowId() { throw new RuntimeException("not implemented"); }
-                public String getName() { throw new RuntimeException("not implemented"); }
-                public String getAllocationId() { throw new RuntimeException("not implemented"); }
-                public String getFacilityId() { throw new RuntimeException("not implemented"); }
-
-            });
-        }
-        return result;
-    }
-
-    public static List<Job> convertJobProxyList(List<JobInterfacePrx> jobs) {
-        final List<Job> result = new ArrayList<Job>();
-        for (final JobInterfacePrx proxy: jobs) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new Job() {
-                String _id = id;
-                public String getJobId() { return _id; }
-                public String getShowId() {  throw new RuntimeException("not implemented"); }
-                public String getId() { return _id; }
-                public String getName() {  throw new RuntimeException("not implemented"); }
-                public String getFacilityId() { throw new RuntimeException("not implemented"); }
-            });
-        }
-        return result;
-    }
-
-    public static List<Group> convertGroupProxyList(List<GroupInterfacePrx> groups) {
-        final List<Group> result = new ArrayList<Group>();
-        for (final GroupInterfacePrx proxy: groups) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new Group() {
-                String _id = id;
-                public String getShowId() {  throw new RuntimeException("not implemented"); }
-                public String getId() { return _id; }
-                public String getName() {  throw new RuntimeException("not implemented"); }
-                public String getGroupId() { return _id; }
-            });
-        }
-        return result;
-    }
-
-    public static List<Layer> convertLayerProxyList(List<LayerInterfacePrx> layers) {
-        final List<Layer> result = new ArrayList<Layer>();
-        for (final LayerInterfacePrx proxy: layers) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new Layer() {
+    public static List<LayerInterface> convertLayerFilterList(LayerSeq layers) {
+        final List<LayerInterface> result = new ArrayList<LayerInterface>();
+        for (final Layer layer: layers.getLayersList()) {
+            final String id = layer.getId();
+            result.add(new LayerInterface() {
                 String _id = id;
                 public String getLayerId() { return _id; }
                 public String getJobId() {  throw new RuntimeException("not implemented"); }
@@ -128,44 +44,5 @@ public class ServantUtil {
         }
         return result;
     }
-
-    public static Group convertGroupProxy(GroupInterfacePrx proxy) {
-        final String id = proxy.ice_getIdentity().name;
-        return new Group() {
-            String _id = id;
-            public String getShowId() {  throw new RuntimeException("not implemented"); }
-            public String getId() { return _id; }
-            public String getName() {  throw new RuntimeException("not implemented"); }
-            public String getGroupId() { return _id; }
-        };
-    }
-
-    public static List<String> convertProxyListToUniqueList(Collection<?> proxies) {
-        List<String> result = new ArrayList<String>(proxies.size());
-        for (Object p: proxies) {
-            Ice.ObjectPrx proxy = (Ice.ObjectPrx) p;
-            result.add(proxy.ice_getIdentity().name);
-        }
-        return result;
-    }
-
-    public static List<Host> convertHostProxyList(List<HostInterfacePrx> hosts) {
-        final List<Host> result = new ArrayList<Host>(hosts.size());
-        for (final HostInterfacePrx proxy: hosts) {
-            final String id = proxy.ice_getIdentity().name;
-            result.add(new Host() {
-                String _id = id;
-                public String getHostId() { return _id; }
-                public String getId() { return _id; }
-                public String getName() {  throw new RuntimeException("not implemented"); }
-                public String getAllocationId() {  throw new RuntimeException("not implemented"); }
-                public String getFacilityId() { throw new RuntimeException("not implemented"); }
-            });
-        }
-        return result;
-
-    }
-
-
 }
 

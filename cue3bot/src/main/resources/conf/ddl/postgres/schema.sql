@@ -446,7 +446,7 @@ CREATE FUNCTION public.reorder_filters(character varying) RETURNS void
 DECLARE
     p_str_show_id ALIAS FOR $1;
 
-    f_new_order INT := 1.0;
+    f_new_order INT := 1;
     r_filter RECORD;
 BEGIN
     FOR r_filter IN
@@ -456,7 +456,7 @@ BEGIN
         ORDER BY f_order ASC
     LOOP
         UPDATE filter SET f_order=f_new_order WHERE pk_filter = r_filter.pk_filter;
-        f_new_order := f_new_order + 1.0;
+        f_new_order := f_new_order + 1;
     END LOOP;
 END;
 $_$;
@@ -684,7 +684,7 @@ CREATE FUNCTION public.trigger__after_job_finished() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 DECLARE
-    ts INT := epoch(current_timestamp);
+    ts INT := cast(epoch(current_timestamp) as integer);
     js JobStatType;
     ls LayerStatType;
     one_layer RECORD;
@@ -888,8 +888,8 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1,
-        int_ts_stopped = nvl(epoch(OLD.ts_stopped), epoch(current_timestamp))
+        b_archived = true,
+        int_ts_stopped = COALESCE(epoch(OLD.ts_stopped), epoch(current_timestamp))
     WHERE
         pk_job = OLD.pk_job;
 
@@ -955,7 +955,7 @@ BEGIN
         int_succeeded_count = js.int_succeeded_count,
         int_running_count = js.int_running_count,
         int_max_rss = js.int_max_rss,
-        b_archived = 1
+        b_archived = true
     WHERE
         pk_layer = OLD.pk_layer;
 
@@ -1015,7 +1015,7 @@ DECLARE
   int_checkpoint INT := 0;
 BEGIN
 
-    IF OLD.str_state = 'Running' THEN
+    IF OLD.str_state = 'RUNNING' THEN
 
         IF NEW.int_exit_status = 299 THEN
 
@@ -1023,7 +1023,7 @@ BEGIN
             NEW.pk_frame;
 
         ELSE
-          If NEW.str_state = 'Checkpoint' THEN
+          If NEW.str_state = 'CHECKPOINT' THEN
               int_checkpoint := 1;
           END IF;
 
@@ -1046,7 +1046,7 @@ BEGIN
         END IF;
     END IF;
 
-    IF NEW.str_state = 'Running' THEN
+    IF NEW.str_state = 'RUNNING' THEN
 
       SELECT pk_alloc INTO str_pk_alloc FROM host WHERE str_name=NEW.str_host;
 
@@ -1071,7 +1071,7 @@ BEGIN
             NEW.pk_layer,
             NEW.pk_job,
             NEW.str_name,
-            'Running',
+            'RUNNING',
             NEW.int_cores,
             NEW.int_mem_reserved,
             NEW.str_host,
@@ -1208,7 +1208,7 @@ CREATE FUNCTION public.trigger__update_frame_checkpoint_state() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.str_state := 'Checkpoint';
+    NEW.str_state := 'CHECKPOINT';
     RETURN NEW;
 END;
 $$;
@@ -1222,7 +1222,7 @@ CREATE FUNCTION public.trigger__update_frame_dep_to_wait() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.str_state := 'Waiting';
+    NEW.str_state := 'WAITING';
     NEW.ts_updated := current_timestamp;
     NEW.int_version := NEW.int_version + 1;
     RETURN NEW;
@@ -1238,7 +1238,7 @@ CREATE FUNCTION public.trigger__update_frame_eaten() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.str_state := 'Succeeded';
+    NEW.str_state := 'SUCCEEDED';
     RETURN NEW;
 END;
 $$;
@@ -1255,15 +1255,17 @@ DECLARE
     s_old_status_col VARCHAR(32);
     s_new_status_col VARCHAR(32);
 BEGIN
-    s_old_status_col := 'int_' || OLD.str_state || '_count';
-    s_new_status_col := 'int_' || NEW.str_state || '_count';
+    IF OLD.str_state != 'setup' AND OLD.str_state != NEW.str_state THEN
+        s_old_status_col := 'int_' || OLD.str_state || '_count';
+        s_new_status_col := 'int_' || NEW.str_state || '_count';
 
-    EXECUTE 'UPDATE layer_stat SET ' || s_old_status_col || '=' || s_old_status_col || ' -1, '
-        || s_new_status_col || ' = ' || s_new_status_col || '+1 WHERE pk_layer=$1' USING NEW.pk_layer;
+        EXECUTE 'UPDATE layer_stat SET ' || s_old_status_col || '=' || s_old_status_col || ' -1, '
+            || s_new_status_col || ' = ' || s_new_status_col || '+1 WHERE pk_layer=$1' USING NEW.pk_layer;
 
-    EXECUTE 'UPDATE job_stat SET ' || s_old_status_col || '=' || s_old_status_col || ' -1, '
-        || s_new_status_col || ' = ' || s_new_status_col || '+1 WHERE pk_job=$1' USING NEW.pk_job;
-    RETURN NULL;
+        EXECUTE 'UPDATE job_stat SET ' || s_old_status_col || '=' || s_old_status_col || ' -1, '
+            || s_new_status_col || ' = ' || s_new_status_col || '+1 WHERE pk_job=$1' USING NEW.pk_job;
+        RETURN NULL;
+    END IF;
 END;
 $_$;
 
@@ -1276,7 +1278,7 @@ CREATE FUNCTION public.trigger__update_frame_wait_to_dep() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
-    NEW.str_state := 'Depend';
+    NEW.str_state := 'DEPEND';
     NEW.ts_updated := current_timestamp;
     NEW.int_version := NEW.int_version + 1;
     RETURN NEW;
@@ -1704,7 +1706,7 @@ CREATE TABLE public.frame (
     ts_last_run timestamp(6) with time zone,
     ts_updated timestamp(6) with time zone,
     int_version integer DEFAULT 0,
-    str_checkpoint_state character varying(12) DEFAULT 'Disabled'::character varying NOT NULL,
+    str_checkpoint_state character varying(12) DEFAULT 'DISABLED'::character varying NOT NULL,
     int_checkpoint_count smallint DEFAULT 0 NOT NULL,
     int_gpu_reserved integer DEFAULT 0 NOT NULL,
     int_total_past_core_time integer DEFAULT 0 NOT NULL
@@ -2559,19 +2561,19 @@ CREATE VIEW public.vs_alloc_usage AS
     COALESCE(sum((host.int_cores - host.int_cores_idle)), (0)::numeric) AS int_running_cores,
     COALESCE(( SELECT sum(host_1.int_cores) AS sum
            FROM public.host host_1
-          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND (((host_1.str_lock_state)::text = 'NimbyLocked'::text) OR ((host_1.str_lock_state)::text = 'Locked'::text)))), (0)::numeric) AS int_locked_cores,
+          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND (((host_1.str_lock_state)::text = 'NIMBY_LOCKED'::text) OR ((host_1.str_lock_state)::text = 'LOCKED'::text)))), (0)::numeric) AS int_locked_cores,
     COALESCE(( SELECT sum(h.int_cores_idle) AS sum
            FROM public.host h,
             public.host_stat hs
-          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((h.str_lock_state)::text = 'Open'::text) AND ((hs.str_state)::text = 'Up'::text))), (0)::numeric) AS int_available_cores,
+          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((h.str_lock_state)::text = 'OPEN'::text) AND ((hs.str_state)::text = 'UP'::text))), (0)::numeric) AS int_available_cores,
     count(host.pk_host) AS int_hosts,
     ( SELECT count(*) AS count
            FROM public.host host_1
-          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((host_1.str_lock_state)::text = 'Locked'::text))) AS int_locked_hosts,
+          WHERE (((host_1.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((host_1.str_lock_state)::text = 'LOCKED'::text))) AS int_locked_hosts,
     ( SELECT count(*) AS count
            FROM public.host h,
             public.host_stat hs
-          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((hs.str_state)::text = 'Down'::text))) AS int_down_hosts
+          WHERE (((h.pk_host)::text = (hs.pk_host)::text) AND ((h.pk_alloc)::text = (alloc.pk_alloc)::text) AND ((hs.str_state)::text = 'DOWN'::text))) AS int_down_hosts
    FROM (public.alloc
      LEFT JOIN public.host ON (((alloc.pk_alloc)::text = (host.pk_alloc)::text)))
   GROUP BY alloc.pk_alloc;
@@ -2590,7 +2592,7 @@ CREATE VIEW public.vs_folder_counts AS
     COALESCE(sum(job_resource.int_cores), (0)::numeric) AS int_cores,
     COALESCE(count(job.pk_job), (0)::bigint) AS int_job_count
    FROM (((public.folder
-     LEFT JOIN public.job ON ((((folder.pk_folder)::text = (job.pk_folder)::text) AND ((job.str_state)::text = 'Pending'::text))))
+     LEFT JOIN public.job ON ((((folder.pk_folder)::text = (job.pk_folder)::text) AND ((job.str_state)::text = 'PENDING'::text))))
      LEFT JOIN public.job_stat ON (((job.pk_job)::text = (job_stat.pk_job)::text)))
      LEFT JOIN public.job_resource ON (((job.pk_job)::text = (job_resource.pk_job)::text)))
   GROUP BY folder.pk_folder;
@@ -2619,7 +2621,7 @@ CREATE VIEW public.vs_show_resource AS
     sum(job_resource.int_cores) AS int_cores
    FROM public.job,
     public.job_resource
-  WHERE (((job.pk_job)::text = (job_resource.pk_job)::text) AND ((job.str_state)::text = 'Pending'::text))
+  WHERE (((job.pk_job)::text = (job_resource.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text))
   GROUP BY job.pk_show;
 
 
@@ -2635,7 +2637,7 @@ CREATE VIEW public.vs_show_stat AS
     count(1) AS int_job_count
    FROM public.job_stat,
     public.job
-  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'Pending'::text))
+  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text))
   GROUP BY job.pk_show;
 
 
@@ -2648,7 +2650,7 @@ CREATE VIEW public.vs_waiting AS
    FROM public.job_resource jr,
     public.job_stat,
     public.job
-  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((jr.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'Pending'::text) AND (job.b_paused = false) AND ((jr.int_max_cores - jr.int_cores) >= 100) AND (job_stat.int_waiting_count <> 0))
+  WHERE (((job_stat.pk_job)::text = (job.pk_job)::text) AND ((jr.pk_job)::text = (job.pk_job)::text) AND ((job.str_state)::text = 'PENDING'::text) AND (job.b_paused = false) AND ((jr.int_max_cores - jr.int_cores) >= 100) AND (job_stat.int_waiting_count <> 0))
   GROUP BY job.pk_show;
 
 
@@ -4131,14 +4133,14 @@ CREATE TRIGGER after_insert_layer AFTER INSERT ON public.layer FOR EACH ROW EXEC
 -- Name: job after_job_dept_update; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER after_job_dept_update AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((new.pk_dept)::text <> (old.pk_dept)::text) AND ((new.str_state)::text = 'Pending'::text))) EXECUTE PROCEDURE public.trigger__after_job_dept_update();
+CREATE TRIGGER after_job_dept_update AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((new.pk_dept)::text <> (old.pk_dept)::text) AND ((new.str_state)::text = 'PENDING'::text))) EXECUTE PROCEDURE public.trigger__after_job_dept_update();
 
 
 --
 -- Name: job after_job_finished; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER after_job_finished AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((old.str_state)::text = 'Pending'::text) AND ((new.str_state)::text = 'Finished'::text))) EXECUTE PROCEDURE public.trigger__after_job_finished();
+CREATE TRIGGER after_job_finished AFTER UPDATE ON public.job FOR EACH ROW WHEN ((((old.str_state)::text = 'PENING'::text) AND ((new.str_state)::text = 'FINISHED'::text))) EXECUTE PROCEDURE public.trigger__after_job_finished();
 
 
 --
@@ -4257,35 +4259,35 @@ CREATE TRIGGER tier_subscription BEFORE UPDATE ON public.subscription FOR EACH R
 -- Name: frame update_frame_checkpoint_state; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_frame_checkpoint_state BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'Waiting'::text) AND ((old.str_state)::text = 'Running'::text) AND ((new.str_checkpoint_state)::text = ANY ((ARRAY['Enabled'::character varying, 'Copying'::character varying])::text[])))) EXECUTE PROCEDURE public.trigger__update_frame_checkpoint_state();
+CREATE TRIGGER update_frame_checkpoint_state BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'WAITING'::text) AND ((old.str_state)::text = 'RUNNING'::text) AND ((new.str_checkpoint_state)::text = ANY ((ARRAY['ENABLED'::character varying, 'COPYING'::character varying])::text[])))) EXECUTE PROCEDURE public.trigger__update_frame_checkpoint_state();
 
 
 --
 -- Name: frame update_frame_dep_to_wait; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_frame_dep_to_wait BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((old.int_depend_count > 0) AND (new.int_depend_count < 1) AND ((old.str_state)::text = 'Depend'::text))) EXECUTE PROCEDURE public.trigger__update_frame_dep_to_wait();
+CREATE TRIGGER update_frame_dep_to_wait BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((old.int_depend_count > 0) AND (new.int_depend_count < 1) AND ((old.str_state)::text = 'DEPEND'::text))) EXECUTE PROCEDURE public.trigger__update_frame_dep_to_wait();
 
 
 --
 -- Name: frame update_frame_eaten; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_frame_eaten BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'Eaten'::text) AND ((old.str_state)::text = 'Succeeded'::text))) EXECUTE PROCEDURE public.trigger__update_frame_eaten();
+CREATE TRIGGER update_frame_eaten BEFORE UPDATE ON public.frame FOR EACH ROW WHEN ((((new.str_state)::text = 'EATEN'::text) AND ((old.str_state)::text = 'SUCCEEDED'::text))) EXECUTE PROCEDURE public.trigger__update_frame_eaten();
 
 
 --
 -- Name: frame update_frame_status_counts; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_frame_status_counts AFTER UPDATE ON public.frame FOR EACH ROW WHEN ((((old.str_state)::text <> 'Setup'::text) AND ((old.str_state)::text <> (new.str_state)::text))) EXECUTE PROCEDURE public.trigger__update_frame_status_counts();
+CREATE TRIGGER update_frame_status_counts AFTER UPDATE ON public.frame FOR EACH ROW WHEN ((((old.str_state)::text <> 'SETUP'::text) AND ((old.str_state)::text <> (new.str_state)::text))) EXECUTE PROCEDURE public.trigger__update_frame_status_counts();
 
 
 --
 -- Name: frame update_frame_wait_to_dep; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER update_frame_wait_to_dep BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((new.int_depend_count > 0) AND ((new.str_state)::text = ANY ((ARRAY['Dead'::character varying, 'Succeeded'::character varying, 'Waiting'::character varying, 'Checkpoint'::character varying])::text[])))) EXECUTE PROCEDURE public.trigger__update_frame_wait_to_dep();
+CREATE TRIGGER update_frame_wait_to_dep BEFORE UPDATE ON public.frame FOR EACH ROW WHEN (((new.int_depend_count > 0) AND ((new.str_state)::text = ANY ((ARRAY['DEAD'::character varying, 'SUCCEEDED'::character varying, 'WAITING'::character varying, 'CHECKPOINT'::character varying])::text[])))) EXECUTE PROCEDURE public.trigger__update_frame_wait_to_dep();
 
 
 --

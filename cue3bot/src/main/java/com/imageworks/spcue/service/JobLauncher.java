@@ -20,7 +20,6 @@
 package com.imageworks.spcue.service;
 
 import java.io.File;
-
 import java.util.HashSet;
 import java.util.Set;
 
@@ -32,14 +31,13 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
-import com.imageworks.spcue.CueIce.RenderPartitionType;
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dispatcher.commands.DispatchLaunchJob;
-import com.imageworks.spcue.service.JmsMover;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
 /**
  * Job launching functions.
@@ -112,7 +110,7 @@ public class JobLauncher implements ApplicationContextAware {
                 lha.setMaxCoreUnits(d.localMaxCores * 100);
                 lha.setMaxMemory(d.localMaxMemory);
                 lha.setMaxGpu(d.localMaxGpu);
-                lha.setType(RenderPartitionType.JobPartition);
+                lha.setType(RenderPartitionType.JOB_PARTITION);
 
                 try {
                     localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
@@ -160,7 +158,7 @@ public class JobLauncher implements ApplicationContextAware {
         }
 
         try {
-            ShowDetail s = adminManager.findShowDetail(spec.getShow());
+            ShowEntity s = adminManager.findShowEntity(spec.getShow());
             if (!s.active) {
                 throw new EntityCreationError("The " + spec.getShow() +
                         " show has been deactivated.  Please contact " +

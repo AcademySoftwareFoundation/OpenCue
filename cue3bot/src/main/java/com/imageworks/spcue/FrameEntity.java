@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class FrameEntity extends LayerEntity implements Frame {
+public class FrameEntity extends LayerEntity implements FrameInterface {
 
     public String layerId;
     public int version;

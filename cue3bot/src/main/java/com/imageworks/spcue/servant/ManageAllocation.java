@@ -1,8 +1,17 @@
 package com.imageworks.spcue.servant;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.dao.AllocationDao;
+import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.dispatcher.commands.ManageReparentHosts;
 import com.imageworks.spcue.grpc.facility.AllocCreateRequest;
 import com.imageworks.spcue.grpc.facility.AllocCreateResponse;
 import com.imageworks.spcue.grpc.facility.AllocDeleteRequest;
@@ -27,13 +36,14 @@ import com.imageworks.spcue.grpc.facility.AllocSetNameRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetNameResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetTagRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetTagResponse;
+import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.AllocationInterfaceGrpc;
-import com.imageworks.spcue.grpc.facility.AllocationSeq;
+import com.imageworks.spcue.grpc.host.Host;
+import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
-import io.grpc.stub.StreamObserver;
 
 public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfaceImplBase {
     private AllocationDao allocationDao;
@@ -71,10 +81,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
             AllocGetAllRequest request, StreamObserver<AllocGetAllResponse> responseObserver) {
         responseObserver.onNext(
                 AllocGetAllResponse.newBuilder()
-                    .setAllocations(
-                        AllocationSeq.newBuilder()
-                                .addAllAllocations(whiteboard.getAllocations())
-                                .build())
+                    .setAllocations(whiteboard.getAllocations())
                     .build());
         responseObserver.onCompleted();
     }
@@ -112,31 +119,46 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     public void findHosts(
             AllocFindHostsRequest request,
             StreamObserver<AllocFindHostsResponse> responseObserver) {
-        // TODO(cipriano) Waiting for hosts to be migrated.
-        super.findHosts(request, responseObserver);
+        HostSearchCriteria searchCriteria = request.getR().toBuilder()
+                .addAllocs(request.getAllocation().getId())
+                .build();
+        responseObserver.onNext(AllocFindHostsResponse.newBuilder()
+                .setHosts(whiteboard.getHosts(new HostSearch(searchCriteria)))
+                .build());
+        responseObserver.onCompleted();
     }
 
     @Override
     public void getHosts(
             AllocGetHostsRequest request, StreamObserver<AllocGetHostsResponse> responseObserver) {
-        // TODO(cipriano) Waiting for hosts to be migrated.
-        super.getHosts(request, responseObserver);
+        AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
+        responseObserver.onNext(AllocGetHostsResponse.newBuilder()
+                .setHosts(whiteboard.getHosts(HostSearch.byAllocation(allocEntity)))
+                .build());
+        responseObserver.onCompleted();
     }
 
     @Override
     public void getSubscriptions(
             AllocGetSubscriptionsRequest request,
             StreamObserver<AllocGetSubscriptionsResponse> responseObserver) {
-        // TODO(cipriano) Waiting for subscriptions to be migrated.
-        super.getSubscriptions(request, responseObserver);
+        AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
+        responseObserver.onNext(AllocGetSubscriptionsResponse.newBuilder()
+                .setSubscriptions(whiteboard.getSubscriptions(allocEntity))
+                .build());
+        responseObserver.onCompleted();
     }
 
     @Override
     public void reparentHosts(
             AllocReparentHostsRequest request,
             StreamObserver<AllocReparentHostsResponse> responseObserver) {
-        // TODO(cipriano) Waiting for hosts to be migrated.
-        super.reparentHosts(request, responseObserver);
+        AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
+        List<Host> hosts = request.getHosts().getHostsList();
+        List<HostInterface> hostEntities = hosts.stream()
+                .map(HostEntity::new)
+                .collect(Collectors.toList());
+        manageQueue.execute(new ManageReparentHosts(allocEntity, hostEntities, hostManager));
     }
 
     @Override
@@ -208,5 +230,14 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
 
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
+    }
+
+    private AllocationEntity toAllocationEntity(Allocation allocGrpc) {
+        AllocationEntity allocEntity = new AllocationEntity();
+        allocEntity.id = allocGrpc.getId();
+        allocEntity.name = allocGrpc.getName();
+        allocEntity.tag = allocGrpc.getTag();
+        allocEntity.facilityId = allocGrpc.getFacility();
+        return allocEntity;
     }
 }

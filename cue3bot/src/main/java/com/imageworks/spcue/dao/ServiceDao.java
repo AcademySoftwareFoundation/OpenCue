@@ -19,28 +19,28 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 
 public interface ServiceDao {
 
-    void insert(Service service);
+    void insert(ServiceEntity service);
 
-    void insert(ServiceOverride service);
+    void insert(ServiceOverrideEntity service);
 
-    Service get(String identifier);
+    ServiceEntity get(String identifier);
 
-    void update(Service service);
+    void update(ServiceEntity service);
 
-    void update(ServiceOverride service);
+    void update(ServiceOverrideEntity service);
 
-    void delete(ServiceOverride service);
+    void delete(ServiceOverrideEntity service);
 
-    void delete(Service service);
+    void delete(ServiceEntity service);
 
-    ServiceOverride getOverride(String id);
+    ServiceOverrideEntity getOverride(String id);
 
-    ServiceOverride getOverride(String id, String show);
+    ServiceOverrideEntity getOverride(String id, String show);
 
     boolean isOverridden(String service, String show);
 }

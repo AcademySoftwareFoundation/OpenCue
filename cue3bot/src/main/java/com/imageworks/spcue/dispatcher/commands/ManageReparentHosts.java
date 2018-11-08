@@ -22,15 +22,15 @@ package com.imageworks.spcue.dispatcher.commands;
 import java.util.List;
 
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.service.HostManager;
 
 public class ManageReparentHosts implements Runnable {
     AllocationInterface alloc;
-    List<Host> hosts;
+    List<HostInterface> hosts;
     HostManager hostManager;
 
-    public ManageReparentHosts(AllocationInterface alloc, List<Host> hosts, HostManager hostManager) {
+    public ManageReparentHosts(AllocationInterface alloc, List<HostInterface> hosts, HostManager hostManager) {
         this.alloc = alloc;
         this.hosts = hosts;
         this.hostManager = hostManager;
@@ -39,7 +39,7 @@ public class ManageReparentHosts implements Runnable {
     public void run() {
         new DispatchCommandTemplate() {
             public void wrapDispatchCommand() {
-                for (Host host : hosts) {
+                for (HostInterface host : hosts) {
                     hostManager.setAllocation(host, alloc);
                 }
             }

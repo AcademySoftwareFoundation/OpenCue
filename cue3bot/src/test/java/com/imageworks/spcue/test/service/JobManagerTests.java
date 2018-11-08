@@ -33,17 +33,14 @@ import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.config.TestAppConfig;
@@ -54,6 +51,10 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -152,7 +153,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
             try {
-                Job job = jobDao.findJob(jobName);
+                JobInterface job = jobDao.findJob(jobName);
                 jobDao.updateJobFinished(job);
                 jobDao.deleteJob(job);
             } catch (EmptyResultDataAccessException e) {
@@ -174,7 +175,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @AfterTransaction
     public void destroy() {
         for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
-            Job job = jobDao.findJob(jobName);
+            JobInterface job = jobDao.findJob(jobName);
             jobDao.updateJobFinished(job);
             jobDao.deleteJob(job);
         }
@@ -220,7 +221,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobManager.shutdownJob(job1);
         jobManager.shutdownJob(job2);
 
-        assertEquals(JobState.Finished, jobDao.getJobDetail(job1.id).state);
+        assertEquals(JobState.FINISHED, jobDao.getJobDetail(job1.id).state);
 
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
 
@@ -237,7 +238,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         jobManager.shutdownJob(getJob1());
 
-        assertEquals(JobState.Finished, jobDao.getJobDetail(job.id).state);
+        assertEquals(JobState.FINISHED, jobDao.getJobDetail(job.id).state);
     }
 
     @Test
@@ -247,7 +248,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_autoname.xml"));
         jobLauncher.launch(spec);
 
-        assertEquals(JobState.Pending, jobDao.findJobDetail(spec.conformJobName("autoname")).state);
+        assertEquals(JobState.PENDING, jobDao.findJobDetail(spec.conformJobName("autoname")).state);
     }
 
 
@@ -287,10 +288,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         String jobId = spec.getJobs().get(0).detail.id;
         String postJobId = spec.getJobs().get(0).getPostJob().detail.id;
 
-        assertEquals(JobState.Pending, jobDao.getJobDetail(jobId).state);
+        assertEquals(JobState.PENDING, jobDao.getJobDetail(jobId).state);
         assertTrue(jobManager.shutdownJob(jobManager.getJob(jobId)));
-        assertEquals(JobState.Finished, jobDao.getJobDetail(jobId).state);
-        assertEquals(JobState.Pending, jobDao.getJobDetail(postJobId).state);
+        assertEquals(JobState.FINISHED, jobDao.getJobDetail(jobId).state);
+        assertEquals(JobState.PENDING, jobDao.getJobDetail(postJobId).state);
     }
 
 
@@ -300,9 +301,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerFirst() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_2");
+        LayerInterface layer = layerDao.findLayer(job, "pass_2");
 
-        jobManager.reorderLayer(layer, new FrameSet("5-10"), Order.First);
+        jobManager.reorderLayer(layer, new FrameSet("5-10"), Order.FIRST);
 
         assertEquals(-6, frameDao.findFrameDetail(job, "0005-pass_2").dispatchOrder);
         assertEquals(-5, frameDao.findFrameDetail(job, "0006-pass_2").dispatchOrder);
@@ -325,7 +326,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         for (String f: order) {
             DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
-            frameDao.updateFrameState(frame, FrameState.Succeeded);
+            frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
         }
     }
@@ -336,9 +337,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerLast() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Last);
+        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.LAST);
 
         assertEquals(11, frameDao.findFrameDetail(job, "0001-pass_1").dispatchOrder);
         assertEquals(12, frameDao.findFrameDetail(job, "0002-pass_1").dispatchOrder);
@@ -356,7 +357,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         for (String f: order) {
             DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job, host);
-            frameDao.updateFrameState(frame, FrameState.Succeeded);
+            frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
         }
     }
@@ -367,9 +368,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testReorderLayerReverse() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.Reverse);
+        jobManager.reorderLayer(layer, new FrameSet("1-5"), Order.REVERSE);
 
         assertEquals(0, frameDao.findFrameDetail(job, "0005-pass_1").dispatchOrder);
         assertEquals(1, frameDao.findFrameDetail(job, "0004-pass_1").dispatchOrder);
@@ -384,7 +385,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void testStaggerLayer() {
 
         JobDetail job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSet staggeredFrameSet = new FrameSet("1-10:2");
         jobManager.staggerLayer(layer,"1-10",2);
 
@@ -410,24 +411,27 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void eatLayer() {
-        Job job = getJob1();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob1();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         FrameSearch r = new FrameSearch(layer);
-        r.getCriteria().page = 1;
-        r.getCriteria().limit = 5;
+        FrameSearchCriteria criteria = r.getCriteria();
+        r.setCriteria(criteria.toBuilder()
+                .setPage(1)
+                .setLimit(5)
+                .build());
         jobManagerSupport.eatFrames(r, new Source());
 
         assertTrue(
                 frameDao.findFrameDetails(new FrameSearch(layer))
                         .stream()
-                        .allMatch(frame -> frame.state == FrameState.Eaten));
+                        .allMatch(frame -> frame.state == FrameState.EATEN));
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void optimizeLayer() {
-        Job job = getJob3();
+        JobInterface job = getJob3();
         LayerDetail layer = layerDao.findLayerDetail(job, "pass_1");
 
         assertEquals(Dispatcher.MEM_RESERVED_DEFAULT, layer.minimumMemory);
@@ -439,7 +443,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         frameDao.findFrames(new FrameSearch(layer))
                 .stream()
                 .limit(5)
-                .forEach(frame -> frameDao.updateFrameState(frame, FrameState.Succeeded));
+                .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
         layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5), 0);
 
         // Test to make sure our optimization
@@ -454,8 +458,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testIsLayerThreadable() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
         assertFalse(jobManager.isLayerThreadable(layer));
     }
@@ -464,8 +468,8 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testGetLayer() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
         assertEquals(layer, jobManager.getLayer(layer.getId()));
     }
 
@@ -474,10 +478,10 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testFindFrame() {
-        Job job = getJob3();
-        Layer layer = layerDao.findLayer(job, "pass_1");
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
 
-        Frame frame = jobManager.findFrame(layer, 1);
+        FrameInterface frame = jobManager.findFrame(layer, 1);
         assertEquals("0001-pass_1", frame.getName());
     }
 }

@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.grpc.depend.DependType;
 
 public class BuildableDependency {
 

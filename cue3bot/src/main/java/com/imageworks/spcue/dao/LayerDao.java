@@ -25,12 +25,12 @@ import java.util.Set;
 
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
-import com.imageworks.spcue.CueIce.LayerType;
+import com.imageworks.spcue.grpc.job.LayerType;
 
 public interface LayerDao {
 
@@ -39,7 +39,7 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    public ExecutionSummary getExecutionSummary(Layer layer);
+    public ExecutionSummary getExecutionSummary(LayerInterface layer);
 
     /**
      * return the frame state totals for the specified layer
@@ -47,7 +47,7 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    public FrameStateTotals getFrameStateTotals(Layer layer);
+    public FrameStateTotals getFrameStateTotals(LayerInterface layer);
 
     /**
      * returns a list of layers by job
@@ -55,7 +55,7 @@ public interface LayerDao {
      * @param job
      * @return
      */
-    public List<LayerDetail> getLayerDetails(Job job);
+    public List<LayerDetail> getLayerDetails(JobInterface job);
 
     /**
      * Returns true if supplied layer is compelte.
@@ -63,7 +63,7 @@ public interface LayerDao {
      * @param layer
      * @return boolean
      */
-    boolean isLayerComplete(Layer layer);
+    boolean isLayerComplete(LayerInterface layer);
 
     /**
      * Returns true if supplied layer is dispatchable.
@@ -71,7 +71,7 @@ public interface LayerDao {
      * @param l
      * @return boolean
      */
-    boolean isLayerDispatchable(Layer l);
+    boolean isLayerDispatchable(LayerInterface l);
 
     /**
      * Inserts a LayerDetail
@@ -86,7 +86,7 @@ public interface LayerDao {
      * @param layer
      * @return LayerDetail
      */
-    LayerDetail getLayerDetail(Layer layer);
+    LayerDetail getLayerDetail(LayerInterface layer);
 
     /**
      * get layer detail from the the unique id
@@ -103,7 +103,7 @@ public interface LayerDao {
      * @param name
      * @return
      */
-    LayerDetail findLayerDetail(Job job, String name);
+    LayerDetail findLayerDetail(JobInterface job, String name);
 
     /**
      * Get a minimal layer from the layer id
@@ -111,7 +111,7 @@ public interface LayerDao {
      * @param id
      * @return
      */
-    Layer getLayer(String id);
+    LayerInterface getLayer(String id);
 
     /**
      * Find a minimal layer from the job and layer name
@@ -120,7 +120,7 @@ public interface LayerDao {
      * @param name
      * @return
      */
-    Layer findLayer(Job job, String name);
+    LayerInterface findLayer(JobInterface job, String name);
 
     /**
      * update the number of cores the layer requires
@@ -128,7 +128,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMinCores(Layer layer, int val);
+    void updateLayerMinCores(LayerInterface layer, int val);
 
     /**
      * update the amount of memory required by all subsequent
@@ -137,7 +137,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMinMemory(Layer layer, long kb);
+    void updateLayerMinMemory(LayerInterface layer, long kb);
 
     /**
      * update the amount of gpu memory in kb required by all subsequent
@@ -146,7 +146,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMinGpu(Layer layer, long gpu);
+    void updateLayerMinGpu(LayerInterface layer, long gpu);
 
     /**
      * Update a layer with new host tags.
@@ -154,7 +154,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerTags(Layer layer, Set<String> tags);
+    void updateLayerTags(LayerInterface layer, Set<String> tags);
 
     /**
      * Insert a key/valye pair into the layer environment
@@ -163,7 +163,7 @@ public interface LayerDao {
      * @param key
      * @param value
      */
-    void insertLayerEnvironment(Layer layer, String key, String value);
+    void insertLayerEnvironment(LayerInterface layer, String key, String value);
 
     /**
      * Insert a map key/value pairs into the layer environement
@@ -171,7 +171,7 @@ public interface LayerDao {
      * @param layer
      * @param env
      */
-    void insertLayerEnvironment(Layer layer, Map<String,String> env);
+    void insertLayerEnvironment(LayerInterface layer, Map<String,String> env);
 
     /**
      * Get the layer environment map
@@ -179,7 +179,7 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    Map<String,String> getLayerEnvironment(Layer layer);
+    Map<String,String> getLayerEnvironment(LayerInterface layer);
 
     /**
      * Updated the layers MaxRSS value.  If force is true then the
@@ -190,7 +190,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMaxRSS(Layer layer, long val, boolean force);
+    void updateLayerMaxRSS(LayerInterface layer, long val, boolean force);
 
     /**
      * Increases the value of the minimum memory when the supplied
@@ -199,7 +199,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void increaseLayerMinMemory(Layer layer, long val);
+    void increaseLayerMinMemory(LayerInterface layer, long val);
 
     /**
      * Increases the value of the minimum gpu when the supplied
@@ -208,7 +208,7 @@ public interface LayerDao {
      * @param layer
      * @param gpu
      */
-    void increaseLayerMinGpu(Layer layer, long gpu);
+    void increaseLayerMinGpu(LayerInterface layer, long gpu);
 
     /**
      * Tries to find a max RSS value for layer in the specified job. The
@@ -220,7 +220,7 @@ public interface LayerDao {
      * @param name
      * @return
      */
-    long findPastMaxRSS(Job job, String name);
+    long findPastMaxRSS(JobInterface job, String name);
 
     /**
      * Returns a list of layers from the specified job.
@@ -228,7 +228,7 @@ public interface LayerDao {
      * @param job
      * @return
      */
-    public List<Layer> getLayers(Job job);
+    public List<LayerInterface> getLayers(JobInterface job);
 
     /**
      * Update all layers of the set type in specified job
@@ -238,7 +238,7 @@ public interface LayerDao {
      * @param tags
      * @param type
      */
-    void updateTags(Job job, String tags, LayerType type);
+    void updateTags(JobInterface job, String tags, LayerType type);
 
     /**
      * Update all layers of the set type in the specified
@@ -248,7 +248,7 @@ public interface LayerDao {
      * @param mem
      * @param type
      */
-    void updateMinMemory(Job job, long mem, LayerType type);
+    void updateMinMemory(JobInterface job, long mem, LayerType type);
 
     /**
      * Update all layers of the set type in the specified
@@ -258,7 +258,7 @@ public interface LayerDao {
      * @param gpu
      * @param type
      */
-    void updateMinGpu(Job job, long gpu, LayerType type);
+    void updateMinGpu(JobInterface job, long gpu, LayerType type);
 
     /**
      * Update all layers of the set type in the specified job
@@ -268,7 +268,7 @@ public interface LayerDao {
      * @param cores
      * @param type
      */
-    void updateMinCores(Job job, int cores, LayerType type);
+    void updateMinCores(JobInterface job, int cores, LayerType type);
 
     /**
      * Update a layer's max cores value, which limits how
@@ -278,7 +278,7 @@ public interface LayerDao {
      * @param cores
      * @param type
      */
-    void updateThreadable(Layer layer, boolean threadable);
+    void updateThreadable(LayerInterface layer, boolean threadable);
 
     /**
      * Lowers the minimum memory on a layer if the layer
@@ -289,7 +289,7 @@ public interface LayerDao {
      * @param val
      * @return
      */
-    boolean balanceLayerMinMemory(Layer layer, long val);
+    boolean balanceLayerMinMemory(LayerInterface layer, long val);
 
     /**
      * Appends a tag to the current set of tags.  If the tag
@@ -298,7 +298,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void appendLayerTags(Layer layer, String val);
+    void appendLayerTags(LayerInterface layer, String val);
 
     /**
      * Returns true if the layer can be optimized to use
@@ -309,7 +309,7 @@ public interface LayerDao {
      * @param avg
      * @return
      */
-    boolean isOptimizable(Layer l, int succeeded, float avg);
+    boolean isOptimizable(LayerInterface l, int succeeded, float avg);
 
     /**
      * Update layer usage with processor time usage.
@@ -318,7 +318,7 @@ public interface LayerDao {
      * @param proc
      * @param newState
      */
-    void updateUsage(Layer layer, ResourceUsage usage, int exitStatus);
+    void updateUsage(LayerInterface layer, ResourceUsage usage, int exitStatus);
 
     /**
      * Returns true of the layer is launching.
@@ -326,7 +326,7 @@ public interface LayerDao {
      * @param l
      * @return
      */
-    boolean isLaunching(Layer l);
+    boolean isLaunching(LayerInterface l);
 
     /**
      * Return true if the application running in the given layer
@@ -335,12 +335,12 @@ public interface LayerDao {
      * @param l
      * @return
      */
-    boolean isThreadable(Layer l);
+    boolean isThreadable(LayerInterface l);
 
     /**
      * Enable/disable memory optimizer.
      */
-    void enableMemoryOptimizer(Layer layer, boolean state);
+    void enableMemoryOptimizer(LayerInterface layer, boolean state);
 
     /**
      * Return a list of outputs mapped to the given layer.
@@ -348,7 +348,7 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    List<String> getLayerOutputs(Layer layer);
+    List<String> getLayerOutputs(LayerInterface layer);
 
     /**
      * Add a list of filespecs to the given layer's output table.
@@ -356,7 +356,7 @@ public interface LayerDao {
      * @param layer
      * @param specs
      */
-    void insertLayerOutput(Layer layer, String spec);
+    void insertLayerOutput(LayerInterface layer, String spec);
 
     /**
      * Return the thread stats for the given layer.
@@ -364,7 +364,7 @@ public interface LayerDao {
      * @param layer
      * @return
      */
-    List<ThreadStats> getThreadStats(Layer layer);
+    List<ThreadStats> getThreadStats(LayerInterface layer);
 
     /**
      * Set the layer's max cores value to the given int.  The
@@ -374,7 +374,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMaxCores(Layer layer, int val);
+    void updateLayerMaxCores(LayerInterface layer, int val);
 
 }
 

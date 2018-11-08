@@ -18,21 +18,20 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.Redirect;
-import com.imageworks.spcue.dao.RedirectDao;
+import javax.annotation.Resource;
 
 import org.apache.log4j.Logger;
-
 import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import javax.annotation.Resource;
+import com.imageworks.spcue.Redirect;
+import com.imageworks.spcue.dao.RedirectDao;
 
 @Transactional(isolation=Isolation.SERIALIZABLE, propagation=Propagation.REQUIRES_NEW)
 public class RedirectService   {

@@ -21,19 +21,19 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Action;
-import com.imageworks.spcue.ActionDetail;
-import com.imageworks.spcue.Filter;
+import com.imageworks.spcue.ActionEntity;
+import com.imageworks.spcue.ActionInterface;
+import com.imageworks.spcue.FilterInterface;
 
 public interface ActionDao {
 
-    void createAction(ActionDetail action);
-    void deleteAction(Action action);
+    void createAction(ActionEntity action);
+    void deleteAction(ActionInterface action);
 
-    ActionDetail getAction(String id);
-    ActionDetail getAction(Action action);
-    void updateAction(ActionDetail action);
+    ActionEntity getAction(String id);
+    ActionEntity getAction(ActionInterface action);
+    void updateAction(ActionEntity action);
 
-    List<ActionDetail> getActions(Filter filter);
+    List<ActionEntity> getActions(FilterInterface filter);
 }
 

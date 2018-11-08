@@ -19,25 +19,20 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-
-
 import javax.annotation.Resource;
 
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.JobDetail;
-
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;

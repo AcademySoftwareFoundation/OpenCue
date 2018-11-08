@@ -30,15 +30,18 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.depend.FrameByFrame;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.service.DependManager;
@@ -85,22 +88,22 @@ public class DependManagerChunkingTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_chunked_depend");
     }
 
-    private int getTotalDependSum(Layer l) {
+    private int getTotalDependSum(LayerInterface l) {
         return frameDao.findFrameDetails(new FrameSearch(l))
                 .stream()
                 .mapToInt(frame -> frame.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(Layer l) {
+    private boolean hasDependFrames(LayerInterface l) {
         FrameSearch search = new FrameSearch(l);
-        search.addFrameStates(ImmutableList.of(FrameState.Depend));
+        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
-    private int getDependRecordCount(Layer l) {
+    private int getDependRecordCount(LayerInterface l) {
         List<LightweightDependency> activeDeps = dependDao.getWhatThisDependsOn(
-                l, DependTarget.AnyTarget);
+                l, DependTarget.ANY_TARGET);
         int numChildDeps = activeDeps.stream().mapToInt(
                 dep -> dependDao.getChildDepends(dep).size()).sum();
         return numChildDeps + activeDeps.size();
@@ -120,8 +123,8 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public void testCreateAndSatisfyNonChunkOnLargeChunk() {
 
         JobDetail job = getJob();
-        Layer layer_a = layerDao.findLayer(job, "no_chunk");
-        Layer layer_b = layerDao.findLayer(job, "large_chunk");
+        LayerInterface layer_a = layerDao.findLayer(job, "no_chunk");
+        LayerInterface layer_b = layerDao.findLayer(job, "large_chunk");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -132,7 +135,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
         assertEquals(1, getDependRecordCount(layer_a));
 
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
-            assertEquals(DependType.LayerOnLayer, lwd.type);
+            assertEquals(DependType.LAYER_ON_LAYER, lwd.type);
             dependManager.satisfyDepend(lwd);
         }
 
@@ -154,8 +157,8 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public void testCreateAndSatisfyLargeChunkOnNonChunk() {
 
         JobDetail job = getJob();
-        Layer layer_a = layerDao.findLayer(job, "large_chunk");
-        Layer layer_b = layerDao.findLayer(job, "no_chunk");
+        LayerInterface layer_a = layerDao.findLayer(job, "large_chunk");
+        LayerInterface layer_b = layerDao.findLayer(job, "no_chunk");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -166,7 +169,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
         assertEquals(1, getDependRecordCount(layer_a));
 
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(layer_b)) {
-            assertEquals(DependType.LayerOnLayer, lwd.type);
+            assertEquals(DependType.LAYER_ON_LAYER, lwd.type);
             dependManager.satisfyDepend(lwd);
         }
 
@@ -190,8 +193,8 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public void testCreateAndSatisfySmallChunkOnNonChunk() {
 
         JobDetail job = getJob();
-        Layer layer_a = layerDao.findLayer(job, "small_chunk");
-        Layer layer_b = layerDao.findLayer(job, "no_chunk");
+        LayerInterface layer_a = layerDao.findLayer(job, "small_chunk");
+        LayerInterface layer_b = layerDao.findLayer(job, "no_chunk");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
@@ -226,8 +229,8 @@ public class DependManagerChunkingTests extends TransactionalTest {
     public void testCreateAndSatisfyNonChunkOnSmallChunk() {
 
         JobDetail job = getJob();
-        Layer layer_a = layerDao.findLayer(job, "no_chunk");
-        Layer layer_b = layerDao.findLayer(job, "small_chunk");
+        LayerInterface layer_a = layerDao.findLayer(job, "no_chunk");
+        LayerInterface layer_b = layerDao.findLayer(job, "small_chunk");
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);

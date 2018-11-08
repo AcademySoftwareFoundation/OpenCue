@@ -23,16 +23,16 @@ import java.util.List;
 
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.service.GroupManager;
 
 public class DispatchMoveJobs implements Runnable {
 
     private GroupDetail group;
-    private List<Job> jobs;
+    private List<JobInterface> jobs;
     private GroupManager groupManager;
 
-    public DispatchMoveJobs(GroupDetail group, List<Job> jobs, GroupManager groupManager) {
+    public DispatchMoveJobs(GroupDetail group, List<JobInterface> jobs, GroupManager groupManager) {
         this.group = group;
         this.jobs = jobs;
         this.groupManager = groupManager;
@@ -42,7 +42,7 @@ public class DispatchMoveJobs implements Runnable {
     public void run() {
         new DispatchCommandTemplate() {
             public void wrapDispatchCommand() {
-                for (Job job:  jobs) {
+                for (JobInterface job:  jobs) {
                     groupManager.reparentJob(job, group, new Inherit[] { Inherit.All });
                 }
             }

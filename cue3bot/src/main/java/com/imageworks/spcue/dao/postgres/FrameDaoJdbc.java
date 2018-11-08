@@ -29,28 +29,28 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.FrameEntity;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.DependType;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.FrameExitStatusSkipRetry;
-import com.imageworks.spcue.CueIce.JobState;
-import com.imageworks.spcue.CueIce.LayerType;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameReservationException;
+import com.imageworks.spcue.grpc.depend.DependType;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameExitStatus;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
-import com.imageworks.spcue.util.SqlUtil;
 import com.imageworks.spcue.util.FrameSet;
+import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
@@ -73,11 +73,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "frame.int_version = ? ";
 
     @Override
-    public boolean updateFrameStopped(Frame frame, FrameState state,
+    public boolean updateFrameStopped(FrameInterface frame, FrameState state,
             int exitStatus) {
        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED_NORSS,
                 state.toString(), exitStatus, frame.getFrameId(),
-                FrameState.Running.toString(), frame.getVersion()) == 1;
+                FrameState.RUNNING.toString(), frame.getVersion()) == 1;
     }
 
     private static final String UPDATE_FRAME_STOPPED =
@@ -100,13 +100,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "frame.int_version = ? ";
 
     @Override
-    public boolean updateFrameStopped(Frame frame, FrameState state,
+    public boolean updateFrameStopped(FrameInterface frame, FrameState state,
             int exitStatus, long maxRss) {
 
 
        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED,
                 state.toString(), exitStatus, maxRss,
-                frame.getFrameId(), FrameState.Running.toString(),
+                frame.getFrameId(), FrameState.RUNNING.toString(),
                 frame.getVersion()) == 1;
     }
 
@@ -127,11 +127,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     "proc WHERE proc.pk_frame=?)";
 
     @Override
-    public boolean updateFrameCleared(Frame frame) {
+    public boolean updateFrameCleared(FrameInterface frame) {
 
         int result =  getJdbcTemplate().update(
                UPDATE_FRAME_CLEARED,
-               FrameState.Waiting.toString(),
+               FrameState.WAITING.toString(),
                Dispatcher.EXIT_STATUS_FRAME_CLEARED,
                frame.getFrameId(),
                frame.getFrameId());
@@ -170,14 +170,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_exit_status NOT IN (?,?,?) ";
 
     @Override
-    public void updateFrameStarted(VirtualProc proc, Frame frame) {
+    public void updateFrameStarted(VirtualProc proc, FrameInterface frame) {
 
-        lockFrameForUpdate(frame, FrameState.Waiting);
+        lockFrameForUpdate(frame, FrameState.WAITING);
 
         int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
-                FrameState.Running.toString(), proc.hostName, proc.coresReserved,
+                FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
                 proc.memoryReserved, proc.gpuReserved, frame.getFrameId(),
-                FrameState.Waiting.toString(), frame.getVersion());
+                FrameState.WAITING.toString(), frame.getVersion());
 
         if (result == 0) {
             String error_msg = "the frame " +
@@ -190,7 +190,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
          * the software do not increment the retry counter.
          */
         getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
-                frame.getFrameId(), -1, FrameExitStatusSkipRetry.value,
+                frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
                 Dispatcher.EXIT_STATUS_FRAME_CLEARED);
     }
 
@@ -203,19 +203,19 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
             "int_gpu_reserved = ?, " +
-            "ts_updated = current_timestamp,"+
-            "ts_started = current_timestamp,"+
+            "ts_updated = current_timestamp, " +
+            "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
             "int_version = int_version + 1 " +
         "WHERE " +
             "pk_frame = ? " +
         "AND " +
-            "str_state = 'Running'";
+            "str_state = 'RUNNING'";
 
     @Override
-    public boolean updateFrameFixed(VirtualProc proc, Frame frame) {
+    public boolean updateFrameFixed(VirtualProc proc, FrameInterface frame) {
         return getJdbcTemplate().update(UPDATE_FRAME_FIXED,
-                FrameState.Running.toString(), proc.hostName, proc.coresReserved,
+                FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
                 proc.memoryReserved, proc.gpuReserved, frame.getFrameId()) == 1;
     }
 
@@ -340,8 +340,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "job.pk_show = show.pk_show ";
 
-    private static final RowMapper<Frame> FRAME_MAPPER =
-        new RowMapper<Frame>() {
+    private static final RowMapper<FrameInterface> FRAME_MAPPER =
+        new RowMapper<FrameInterface>() {
         public FrameEntity mapRow(ResultSet rs,
                 int rowNum) throws SQLException {
             FrameEntity frame = new FrameEntity();
@@ -402,16 +402,16 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "job.pk_job = frame.pk_job " +
         "AND " +
-            "frame.str_state = 'Running' " +
+            "frame.str_state = 'RUNNING' " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +
             "current_timestamp - frame.ts_updated > interval '300' second";
 
     @Override
-    public List<Frame> getOrphanedFrames() {
+    public List<FrameInterface> getOrphanedFrames() {
         return getJdbcTemplate().query(FIND_ORPHANED_FRAMES,
                 FRAME_MAPPER);
     }
@@ -424,14 +424,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
-            "frame.str_state = 'Running' " +
+            "frame.str_state = 'RUNNING' " +
         "AND " +
             "(SELECT COUNT(1) FROM proc WHERE proc.pk_frame = frame.pk_frame) = 0 " +
         "AND " +
             "current_timestamp - frame.ts_updated > interval '300' second";
 
     @Override
-    public boolean isOrphan(Frame frame) {
+    public boolean isOrphan(FrameInterface frame) {
         return getJdbcTemplate().queryForObject(IS_ORPHAN, Integer.class,
                 frame.getFrameId()) == 1;
     }
@@ -462,7 +462,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     layer.getLayerId(),
                     layer.getJobId(),
                     CueUtil.buildFrameName(layer, frame),
-                    FrameState.Setup.toString(),
+                    FrameState.SETUP.toString(),
                     frame,
                     count,
                     layer.dispatchOrder);
@@ -471,7 +471,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public List<Frame> getDependentFrames(LightweightDependency depend) {
+    public List<FrameInterface> getDependentFrames(LightweightDependency depend) {
 
         /*
          * Compound depends are handled in the DependManager.
@@ -483,28 +483,28 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         sb.append(" AND frame.int_depend_count > 0 ");
 
         if (EnumSet.of(
-                DependType.JobOnJob,
-                DependType.JobOnLayer,
-                DependType.JobOnFrame).contains(depend.type)) {
+                DependType.JOB_ON_JOB,
+                DependType.JOB_ON_LAYER,
+                DependType.JOB_ON_FRAME).contains(depend.type)) {
             sb.append("AND job.pk_job = ?");
             key = depend.dependErJobId;
         }
         else if (EnumSet.of(
-                DependType.LayerOnFrame,
-                DependType.LayerOnLayer,
-                DependType.LayerOnJob).contains(depend.type)) {
+                DependType.LAYER_ON_FRAME,
+                DependType.LAYER_ON_LAYER,
+                DependType.LAYER_ON_JOB).contains(depend.type)) {
             sb.append("AND layer.pk_layer = ?");
             key = depend.dependErLayerId;
         }
         else if (EnumSet.of(
-                DependType.FrameOnJob,
-                DependType.FrameOnLayer,
-                DependType.FrameOnFrame).contains(depend.type)) {
+                DependType.FRAME_ON_JOB,
+                DependType.FRAME_ON_LAYER,
+                DependType.FRAME_ON_FRAME).contains(depend.type)) {
             sb.append("AND frame.pk_frame = ?");
             key = depend.dependErFrameId;
         }
         else {
-            return new ArrayList<Frame>(1);
+            return new ArrayList<FrameInterface>(1);
         }
 
         return getJdbcTemplate().query(
@@ -513,14 +513,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public Frame findFrame(Layer layer, int number) {
+    public FrameInterface findFrame(LayerInterface layer, int number) {
         return getJdbcTemplate().queryForObject(
                 GET_MINIMAL_FRAME + " AND frame.pk_layer=? AND int_number=?",
                 FRAME_MAPPER, layer.getLayerId(), number);
     }
 
     @Override
-    public FrameDetail getFrameDetail(Frame frame) {
+    public FrameDetail getFrameDetail(FrameInterface frame) {
         return getJdbcTemplate().queryForObject(
                 GET_FRAME_DETAIL + " AND pk_frame=?",
                 FRAME_DETAIL_MAPPER, frame.getFrameId());
@@ -534,7 +534,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public FrameDetail findFrameDetail(Job job, String name) {
+    public FrameDetail findFrameDetail(JobInterface job, String name) {
         //Uses C_FRAME_STR_NAME_UNQ
         return getJdbcTemplate().queryForObject(
                 GET_FRAME_DETAIL + " AND frame.str_name=? AND frame.pk_job=?",
@@ -548,14 +548,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public List<Frame> findFrames(FrameSearch r) {
+    public List<FrameInterface> findFrames(FrameSearch r) {
         return getJdbcTemplate().query(r.getQuery(GET_MINIMAL_FRAME),
                 FRAME_MAPPER, r.getValuesArray());
     }
 
     private static final String FIND_LONGEST_FRAME =
         "SELECT " +
-            "pk_frame "+
+            "pk_frame " +
         "FROM " +
             "frame, " +
             "layer " +
@@ -568,14 +568,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "layer.str_type=? " +
         "ORDER BY "+
-            "ts_stopped - ts_started DESC "+
+            "ts_stopped - ts_started DESC " +
         "LIMIT 1";
 
     @Override
-    public FrameDetail findLongestFrame(Job job) {
+    public FrameDetail findLongestFrame(JobInterface job) {
         String pk_frame = getJdbcTemplate().queryForObject(
                 FIND_LONGEST_FRAME, String.class, job.getJobId(),
-                FrameState.Succeeded.toString(), LayerType.Render.toString());
+                FrameState.SUCCEEDED.toString(), LayerType.RENDER.toString());
         return getFrameDetail(pk_frame);
     }
 
@@ -598,22 +598,22 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "LIMIT 1";
 
     @Override
-    public FrameDetail findShortestFrame(Job job) {
+    public FrameDetail findShortestFrame(JobInterface job) {
         String pk_frame = getJdbcTemplate().queryForObject(
                 FIND_SHORTEST_FRAME, String.class, job.getJobId(),
-                FrameState.Succeeded.toString(),LayerType.Render.toString());
+                FrameState.SUCCEEDED.toString(),LayerType.RENDER.toString());
         return getFrameDetail(pk_frame);
     }
 
     @Override
-    public Frame getFrame(String id) {
+    public FrameInterface getFrame(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_MINIMAL_FRAME + " AND frame.pk_frame=?",
                 FRAME_MAPPER, id);
     }
 
     @Override
-    public Frame findFrame(Job job, String name) {
+    public FrameInterface findFrame(JobInterface job, String name) {
         //Uses C_FRAME_STR_NAME_UNQ
         return getJdbcTemplate().queryForObject(
                 GET_MINIMAL_FRAME + " AND frame.str_name=? AND frame.pk_job=?",
@@ -621,7 +621,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public void checkRetries(Frame frame) {
+    public void checkRetries(FrameInterface frame) {
         int max_retries = getJdbcTemplate().queryForObject(
                 "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class,
                 frame.getJobId());
@@ -631,7 +631,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 frame.getFrameId()) >= max_retries) {
             getJdbcTemplate().update(
                     "UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.Dead.toString(), frame.getFrameId());
+                    FrameState.DEAD.toString(), frame.getFrameId());
         }
     }
 
@@ -648,7 +648,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_version = ? ";
 
     @Override
-    public boolean updateFrameState(Frame frame, FrameState state) {
+    public boolean updateFrameState(FrameInterface frame, FrameState state) {
         if (getJdbcTemplate().update(UPDATE_FRAME_STATE,
                 state.toString(),
                 frame.getFrameId(),
@@ -678,13 +678,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_state = ? ";
 
     @Override
-    public void markFrameAsWaiting(Frame frame) {
+    public void markFrameAsWaiting(FrameInterface frame) {
         getJdbcTemplate().update(
                 MARK_AS_WAITING,
-                FrameState.Waiting.toString(),
+                FrameState.WAITING.toString(),
                 frame.getFrameId(),
                 frame.getVersion(),
-                FrameState.Depend.toString());
+                FrameState.DEPEND.toString());
     }
 
     private static final String MARK_AS_DEPEND =
@@ -709,7 +709,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "depend " +
         "WHERE " +
             "( " +
-               "(pk_job_depend_er = ? AND str_type LIKE 'JobOn%') " +
+               "(pk_job_depend_er = ? AND str_type LIKE 'JOB#_ON%' ESCAPE '#') " +
             "OR " +
                 "pk_layer_depend_er = ? " +
             "OR " +
@@ -720,7 +720,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "depend.b_composite = false ";
 
-    public void markFrameAsDepend(Frame frame) {
+    public void markFrameAsDepend(FrameInterface frame) {
         // We need to full depend count in this case to reset the
         // frames's depend count accurately.
         int depend_count = getJdbcTemplate().queryForObject(
@@ -730,11 +730,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         if (depend_count > 0) {
             getJdbcTemplate().update(
                     MARK_AS_DEPEND,
-                    FrameState.Depend.toString(),
+                    FrameState.DEPEND.toString(),
                     depend_count,
                     frame.getFrameId(),
                     frame.getVersion(),
-                    FrameState.Waiting.toString());
+                    FrameState.WAITING.toString());
         }
     }
 
@@ -752,10 +752,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "LIMIT 1";
 
     @Override
-    public FrameDetail findHighestMemoryFrame(Job job) {
+    public FrameDetail findHighestMemoryFrame(JobInterface job) {
         String pk_frame = getJdbcTemplate().queryForObject(
                 FIND_HIGHEST_MEM_FRAME, String.class, job.getJobId(),
-                FrameState.Succeeded.toString());
+                FrameState.SUCCEEDED.toString());
         return getFrameDetail(pk_frame);
     }
 
@@ -773,15 +773,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "LIMIT 1";
 
     @Override
-    public FrameDetail findLowestMemoryFrame(Job job) {
+    public FrameDetail findLowestMemoryFrame(JobInterface job) {
         String pk_frame = getJdbcTemplate().queryForObject(
                 FIND_LOWEST_MEM_FRAME, String.class, job.getJobId(),
-                FrameState.Succeeded.toString());
+                FrameState.SUCCEEDED.toString());
         return getFrameDetail(pk_frame);
     }
 
     @Override
-    public void reorderFramesFirst(Layer layer, FrameSet frameSet) {
+    public void reorderFramesFirst(LayerInterface layer, FrameSet frameSet) {
         int start;
         int size = frameSet.size();
         int min = getJdbcTemplate().queryForObject(
@@ -801,7 +801,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public void reorderFramesLast(Layer layer, FrameSet frameSet) {
+    public void reorderFramesLast(LayerInterface layer, FrameSet frameSet) {
         int start;
         int size = frameSet.size();
         List<Object[]> frames = new ArrayList<Object[]>(size);
@@ -821,7 +821,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public void reorderLayerReverse(Layer layer, FrameSet frameSet) {
+    public void reorderLayerReverse(LayerInterface layer, FrameSet frameSet) {
 
         int size = frameSet.size();
         List<Object[]> frames = new ArrayList<Object[]>(size);
@@ -852,7 +852,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public void staggerLayer(Layer layer, String frameRange, int stagger) {
+    public void staggerLayer(LayerInterface layer, String frameRange, int stagger) {
 
         /*
          * If the layer is only 1 frame we don't stagger it.
@@ -897,14 +897,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public boolean isFrameComplete(Frame f) {
+    public boolean isFrameComplete(FrameInterface f) {
 
         String state = getJdbcTemplate().queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?",
                 String.class, f.getFrameId());
 
-        if (state.equals(FrameState.Succeeded.toString()) ||
-                state.equals(FrameState.Eaten.toString())) {
+        if (state.equals(FrameState.SUCCEEDED.toString()) ||
+                state.equals(FrameState.EATEN.toString())) {
             return true;
         }
 
@@ -924,7 +924,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     };
 
     @Override
-    public ResourceUsage getResourceUsage(Frame f) {
+    public ResourceUsage getResourceUsage(FrameInterface f) {
         /*
          * Using current_timestamp = ts_started here because ts_stopped is not set.
          * Stopping the frame allows it to be dispatched again, which could
@@ -952,7 +952,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "pk_frame = ? ";
 
     @Override
-    public void updateFrameMemoryUsage(Frame f, long maxRss, long rss) {
+    public void updateFrameMemoryUsage(FrameInterface f, long maxRss, long rss) {
         getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE,
                 maxRss, rss, f.getFrameId());
     }
@@ -967,7 +967,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
      * @param state
      */
     @Override
-    public void lockFrameForUpdate(Frame frame, FrameState state) {
+    public void lockFrameForUpdate(FrameInterface frame, FrameState state) {
         try {
             getJdbcTemplate().queryForObject(
                     "SELECT pk_frame FROM frame WHERE pk_frame=? AND " +
@@ -982,13 +982,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public boolean updateFrameCheckpointState(Frame frame, CheckpointState state) {
+    public boolean updateFrameCheckpointState(FrameInterface frame, CheckpointState state) {
 
         logger.info("Setting checkpoint state to: " + state.toString());
 
         boolean result = false;
 
-        if (state.equals(CheckpointState.Complete)) {
+        if (state.equals(CheckpointState.COMPLETE)) {
             /*
              * Only update the checkpoint state to complete if the state
              * is either Copying or Enabled.
@@ -997,10 +997,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     "UPDATE frame SET str_checkpoint_state=?, " +
                     "int_checkpoint_count=int_checkpoint_count + 1 WHERE " +
                     "pk_frame=? AND str_checkpoint_state IN (?, ?)",
-                    CheckpointState.Complete.toString(),
+                    CheckpointState.COMPLETE.toString(),
                     frame.getFrameId(),
-                    CheckpointState.Copying.toString(),
-                    CheckpointState.Enabled.toString()) == 1;
+                    CheckpointState.COPYING.toString(),
+                    CheckpointState.ENABLED.toString()) == 1;
         }
         else {
             result = getJdbcTemplate().update(
@@ -1013,27 +1013,27 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
          * state back to waiting, if and only if the frame state is currently
          * in the checkpoint state.
          */
-        if ((state.equals(CheckpointState.Disabled)) ||
-            state.equals(CheckpointState.Complete) && result) {
+        if ((state.equals(CheckpointState.DISABLED)) ||
+            state.equals(CheckpointState.COMPLETE) && result) {
             getJdbcTemplate().update(
                     "UPDATE frame SET str_state=? WHERE pk_frame=? AND str_state=?",
-                    FrameState.Waiting.toString(), frame.getFrameId(),
-                    FrameState.Checkpoint.toString());
+                    FrameState.WAITING.toString(), frame.getFrameId(),
+                    FrameState.CHECKPOINT.toString());
         }
 
         return result;
     }
 
     @Override
-    public List<Frame> getStaleCheckpoints(int cutoffTimeSec) {
+    public List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec) {
         return getJdbcTemplate().query(
                 GET_MINIMAL_FRAME +
                 " AND job.str_state=? " +
                 " AND frame.str_state=? " +
                 " AND current_timestamp - frame.ts_stopped > interval '" + cutoffTimeSec + "' second",
                 FRAME_MAPPER,
-                JobState.Pending.toString(),
-                FrameState.Checkpoint.toString());
+                JobState.PENDING.toString(),
+                FrameState.CHECKPOINT.toString());
     }
 }
 

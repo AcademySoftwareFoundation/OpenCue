@@ -32,23 +32,25 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.CueIce.RedirectType;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.criteria.Criteria;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
+import com.imageworks.spcue.grpc.host.RedirectType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
@@ -59,9 +61,12 @@ import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isEmptyString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 
@@ -177,9 +182,10 @@ public class RedirectManagerTests
 
         /* Setup a proc search */
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        ProcSearchCriteria criteria = search.getCriteria();
+        search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
-        List<Job> jobs = new ArrayList<Job>(1);
+        List<JobInterface> jobs = new ArrayList<JobInterface>(1);
         jobs.add(jobManager.findJob(TARGET_JOB));
 
         /* Now redirect this proc to the other job */
@@ -193,11 +199,11 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
     }
 
     @Test
@@ -217,9 +223,10 @@ public class RedirectManagerTests
 
         /* Setup a proc search */
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        ProcSearchCriteria criteria = search.getCriteria();
+        search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
-        Group root  = groupManager.getRootGroupDetail(job);
+        GroupInterface root  = groupManager.getRootGroupDetail(job);
         GroupDetail group = new GroupDetail();
         group.name = "Foo";
         group.showId = root.getShowId();
@@ -237,11 +244,11 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
     }
 
     @Test
@@ -258,17 +265,18 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
+
     }
 
     @Test
@@ -294,18 +302,18 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
         assertTrue(redirectManager.addRedirect(proc, group, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
     }
 
     @Test
@@ -322,19 +330,19 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         assertTrue(redirectManager.redirect(proc));
 
         assertEquals(
                 Convert.coreUnitsToCores(100),
-                whiteboard.getJob(target.getJobId()).stats.reservedCores,
+                whiteboard.getJob(target.getJobId()).getJobStats().getReservedCores(),
                 0);
     }
 
@@ -361,7 +369,7 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
@@ -369,13 +377,13 @@ public class RedirectManagerTests
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), whiteboard.getProcs(search).get(0).data.redirectTarget);
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.redirect(proc);
 
         assertEquals(
                 Convert.coreUnitsToCores(100),
-                whiteboard.getGroup(group.getGroupId()).stats.reservedCores,
+                whiteboard.getGroup(group.getGroupId()).getGroupStats().getReservedCores(),
                 0);
     }
 
@@ -411,7 +419,7 @@ public class RedirectManagerTests
 
         final String redirect_key = "test";
 
-        Redirect redirect = new Redirect(RedirectType.JobRedirect, "foo", "bar");
+        Redirect redirect = new Redirect(RedirectType.JOB_REDIRECT, "foo", "bar");
 
         for (int i = 0; i < N; i++) {
             new Thread(new Runnable() {

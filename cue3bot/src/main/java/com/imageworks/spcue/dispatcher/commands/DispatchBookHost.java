@@ -19,16 +19,11 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.dispatcher.CoreUnitDispatcher;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
@@ -37,9 +32,9 @@ import com.imageworks.spcue.VirtualProc;
  */
 public class DispatchBookHost implements Runnable  {
 
-    private Show show = null;
-    private Group group = null;
-    private Job job = null;
+    private ShowInterface show = null;
+    private GroupInterface group = null;
+    private JobInterface job = null;
     private DispatchHost host;
     private Dispatcher dispatcher;
 
@@ -52,19 +47,19 @@ public class DispatchBookHost implements Runnable  {
         this.dispatcher = d;
     }
 
-    public DispatchBookHost(DispatchHost host, Job job, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
         this.host = host;
         this.job = job;
         this.dispatcher = d;
     }
 
-    public DispatchBookHost(DispatchHost host, Group group, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
         this.host = host;
         this.group = group;
         this.dispatcher = d;
     }
 
-    public DispatchBookHost(DispatchHost host, Show show, Dispatcher d) {
+    public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
         this.host = host;
         this.show = show;
         this.dispatcher = d;

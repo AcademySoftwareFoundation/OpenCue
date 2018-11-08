@@ -19,7 +19,6 @@
 
 package com.imageworks.spcue.dao.postgres;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -29,30 +28,31 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import com.imageworks.spcue.FacilityInterface;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.BuildableJob;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.ExecutionSummary;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.TaskDetail;
-import com.imageworks.spcue.CueIce.FrameState;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ResourceUsage;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.SqlUtil;
@@ -83,9 +83,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     /*
      * Maps a row to minimal job.
      */
-    public static final RowMapper<Job> JOB_MAPPER = new RowMapper<Job>() {
-        public Job mapRow(final ResultSet rs, int rowNum) throws SQLException {
-            return new Job() {
+    public static final RowMapper<JobInterface> JOB_MAPPER = new RowMapper<JobInterface>() {
+        public JobInterface mapRow(final ResultSet rs, int rowNum) throws SQLException {
+            return new JobInterface() {
                 final String jobid = rs.getString("pk_job");
                 final String showid = rs.getString("pk_show");
                 final String name = rs.getString("str_name");
@@ -171,7 +171,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
              "pk_job=?";
 
     @Override
-    public boolean isJobComplete(Job job) {
+    public boolean isJobComplete(JobInterface job) {
         if (isLaunching(job)) {
             return false;
         }
@@ -246,12 +246,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         name = matcher.replaceAll("%");
 
         return getJdbcTemplate().queryForObject(
-                GET_JOB_DETAIL + " AND job.str_state = 'Finished' AND job.str_name LIKE ? " +
+                GET_JOB_DETAIL + " AND job.str_state = 'FINISHED' AND job.str_name LIKE ? " +
                     "ORDER BY job.ts_stopped LIMIT 1", JOB_DETAIL_MAPPER, name);
     }
 
     @Override
-    public Job getJob(String id) {
+    public JobInterface getJob(String id) {
         return getJdbcTemplate().queryForObject(
                 GET_JOB + " WHERE pk_job=?", JOB_MAPPER, id);
     }
@@ -281,9 +281,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "ts_started ASC ";
 
     @Override
-    public List<Job> getJobs(TaskDetail t) {
+    public List<JobInterface> getJobs(TaskEntity t) {
         return getJdbcTemplate().query(GET_JOBS_BY_TASK,
-                JOB_MAPPER, JobState.Pending.toString(), t.deptId, t.shot);
+                JOB_MAPPER, JobState.PENDING.toString(), t.deptId, t.shot);
     }
 
     @Override
@@ -293,76 +293,76 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
-    public Job findJob(String name) {
+    public JobInterface findJob(String name) {
         return getJdbcTemplate().queryForObject(
                 GET_JOB + " WHERE job.str_visible_name=?", JOB_MAPPER, name);
     }
 
     @Override
-    public List<JobDetail> findJobs(Show show) {
+    public List<JobDetail> findJobs(ShowInterface show) {
         return getJdbcTemplate().query(
                 GET_JOB_DETAIL + " AND job.pk_show=?", JOB_DETAIL_MAPPER, show.getShowId());
     }
 
     @Override
-    public List<JobDetail> findJobs(Group group) {
+    public List<JobDetail> findJobs(GroupInterface group) {
         return getJdbcTemplate().query(
                 GET_JOB_DETAIL + " AND job.pk_folder=?", JOB_DETAIL_MAPPER, group.getId());
     }
 
     @Override
-    public void deleteJob(Job j) {
+    public void deleteJob(JobInterface j) {
         /* See trigger before_delete_job */
         getJdbcTemplate().update("DELETE FROM job WHERE pk_job=?", j.getId());
     }
 
     @Override
-    public void updatePriority(Job j, int v) {
+    public void updatePriority(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_priority=? WHERE pk_job=?",
                 v, j.getJobId());
     }
 
     @Override
-    public void updatePriority(Group g, int v) {
+    public void updatePriority(GroupInterface g, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_priority=? WHERE " +
                 "pk_job IN (SELECT pk_job FROM job WHERE job.pk_folder=?)",
                 v, g.getGroupId());
     }
 
     @Override
-    public void updateMinCores(Group g, int v) {
+    public void updateMinCores(GroupInterface g, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_min_cores=? WHERE " +
                 "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
                 v, g.getGroupId());
     }
 
     @Override
-    public void updateMaxCores(Group g, int v) {
+    public void updateMaxCores(GroupInterface g, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE " +
                 "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
                 v, g.getGroupId());
     }
 
     @Override
-    public void updateMinCores(Job j, int v) {
+    public void updateMinCores(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_min_cores=? WHERE pk_job=?",
                 v, j.getJobId());
     }
 
     @Override
-    public void updateMaxCores(Job j, int v) {
+    public void updateMaxCores(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE pk_job=?",
                 v, j.getJobId());
     }
 
     @Override
-    public void updatePaused(Job j, boolean b) {
+    public void updatePaused(JobInterface j, boolean b) {
         getJdbcTemplate().update("UPDATE job SET b_paused=? WHERE pk_job=?",
                 b, j.getJobId());
     }
 
     @Override
-    public void updateAutoEat(Job j, boolean b) {
+    public void updateAutoEat(JobInterface j, boolean b) {
         int maxRetries = 1;
         if (b) {
             maxRetries = 0;
@@ -372,19 +372,19 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
-    public void updateState(Job job, JobState state) {
+    public void updateState(JobInterface job, JobState state) {
         getJdbcTemplate().update("UPDATE job SET str_state=? WHERE pk_job=?",
                 state.toString(), job.getJobId());
     }
 
     @Override
-    public void updateLogPath(Job job, String path) {
+    public void updateLogPath(JobInterface job, String path) {
         getJdbcTemplate().update("UPDATE job SET str_log_dir=? WHERE pk_job=?",
                 path, job.getJobId());
     }
 
     @Override
-    public void updateMaxRSS(Job job, long value) {
+    public void updateMaxRSS(JobInterface job, long value) {
         getJdbcTemplate().update(
                 "UPDATE job_mem SET int_max_rss=? WHERE pk_job=? AND int_max_rss < ?",
                 value, job.getJobId(), value);
@@ -398,16 +398,16 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "str_visible_name = NULL, " +
             "ts_stopped = current_timestamp "+
         "WHERE " +
-            "str_state = 'Pending'" +
+            "str_state = 'PENDING'" +
         "AND " +
             "pk_job = ?";
 
     @Override
-    public boolean updateJobFinished(Job job) {
+    public boolean updateJobFinished(JobInterface job) {
         // Only return true if this thread was the one who actually
         // set the job state to finished.
         if(getJdbcTemplate().update(UPDATE_JOB_FINISHED,
-                JobState.Finished.toString(), job.getJobId()) == 1) {
+                JobState.FINISHED.toString(), job.getJobId()) == 1) {
             return true;
         }
         return false;
@@ -458,7 +458,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "WHERE " +
             "str_name = ? " +
         "AND " +
-            "str_state='Pending' " +
+            "str_state='PENDING' " +
         "LIMIT 1";
 
     @Override
@@ -480,14 +480,14 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "pk_job=?";
 
     @Override
-    public boolean isLaunching(Job j) {
+    public boolean isLaunching(JobInterface j) {
         return getJdbcTemplate().queryForObject(
                 IS_LAUNCHING, String.class, j.getJobId()).equals(
-                        JobState.Startup.toString());
+                    JobState.STARTUP.toString());
     }
 
     @Override
-    public void activateJob(Job job, JobState jobState) {
+    public void activateJob(JobInterface job, JobState jobState) {
 
         Long[] jobTotals = { 0L, 0L };  // Depend, Waiting
 
@@ -497,7 +497,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
          * update_frame_wait_to_dep trigger.
          */
         getJdbcTemplate().update("UPDATE frame SET str_state=? WHERE pk_job=? AND str_state=?",
-                FrameState.Waiting.toString(), job.getId(), FrameState.Setup.toString());
+                FrameState.WAITING.toString(), job.getId(), FrameState.SETUP.toString());
 
         List<Map<String,Object>> layers = getJdbcTemplate().queryForList(
                 "SELECT pk_layer, str_state, count(1) AS c FROM frame " +
@@ -511,13 +511,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             if (count == 0 || state == null) { continue; }
 
             switch (state) {
-                case Depend:
+                case DEPEND:
                     jobTotals[0] =  jobTotals[0] + count;
                     getJdbcTemplate().update(
                             "UPDATE layer_stat SET int_depend_count=?,int_total_count=int_total_count + ? WHERE pk_layer=?",
                             count, count, layer);
                     break;
-                case Waiting:
+                case WAITING:
                     jobTotals[1] =  jobTotals[1] + count;
                     getJdbcTemplate().update(
                             "UPDATE layer_stat SET int_waiting_count=?,int_total_count=int_total_count + ? WHERE pk_layer=?",
@@ -550,7 +550,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "WHERE " +
             "job.pk_job = job_stat.pk_job " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "job.b_paused = false " +
         "AND " +
@@ -559,7 +559,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job.pk_job = ?";
 
     @Override
-    public boolean hasPendingFrames(Job job) {
+    public boolean hasPendingFrames(JobInterface job) {
         try {
             return getJdbcTemplate().queryForObject(HAS_PENDING_FRAMES,
                     Integer.class, job.getJobId()) > 0;
@@ -579,7 +579,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job_resource.int_cores > job_resource.int_min_cores";
 
     @Override
-    public boolean isOverMinCores(Job job) {
+    public boolean isOverMinCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_JOB_OVER_MIN_CORES,
                 Integer.class, job.getJobId()) > 0;
     }
@@ -595,13 +595,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job_resource.int_cores + ? > job_resource.int_max_cores";
 
     @Override
-    public boolean isOverMaxCores(Job job) {
+    public boolean isOverMaxCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_CORES,
                 Integer.class, job.getJobId(), 0) > 0;
     }
 
     @Override
-    public boolean isOverMaxCores(Job job, int coreUnits) {
+    public boolean isOverMaxCores(JobInterface job, int coreUnits) {
         return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_CORES,
                 Integer.class, job.getJobId(), coreUnits) > 0;
     }
@@ -618,13 +618,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job_resource.int_cores >= job_resource.int_max_cores ";
 
     @Override
-    public boolean isAtMaxCores(Job job) {
+    public boolean isAtMaxCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_JOB_AT_MAX_CORES,
                 Integer.class, job.getJobId()) > 0;
     }
 
     @Override
-    public void updateMaxFrameRetries(Job j, int max_retries) {
+    public void updateMaxFrameRetries(JobInterface j, int max_retries) {
         if (max_retries < 0) {
             throw new IllegalArgumentException("max retries must be greater than 0");
         }
@@ -655,7 +655,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.pk_job=?";
 
-    public FrameStateTotals getFrameStateTotals(Job job) {
+    public FrameStateTotals getFrameStateTotals(JobInterface job) {
         return getJdbcTemplate().queryForObject(
                 GET_FRAME_STATE_TOTALS,
                 new RowMapper<FrameStateTotals>() {
@@ -689,7 +689,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.pk_job = ?";
 
-    public ExecutionSummary getExecutionSummary(Job job) {
+    public ExecutionSummary getExecutionSummary(JobInterface job) {
         return getJdbcTemplate().queryForObject(
                 GET_EXECUTION_SUMMARY,
                 new RowMapper<ExecutionSummary>() {
@@ -714,7 +714,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "VALUES (?,?,?,?)";
 
     @Override
-    public void insertEnvironment(Job job, Map<String,String> env) {
+    public void insertEnvironment(JobInterface job, Map<String,String> env) {
         for (Map.Entry<String,String> e: env.entrySet()) {
             String pk = SqlUtil.genKeyRandom();
             getJdbcTemplate().update(INSERT_JOB_ENV,
@@ -723,14 +723,14 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
-    public void insertEnvironment(Job job, String key, String value) {
+    public void insertEnvironment(JobInterface job, String key, String value) {
         String pk = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_JOB_ENV,
                 pk, job.getJobId(), key, value);
     }
 
     @Override
-    public Map<String,String> getEnvironment(Job job) {
+    public Map<String,String> getEnvironment(JobInterface job) {
         Map<String,String> result = new HashMap<String,String>();
 
         List<Map<String, Object>> _result = getJdbcTemplate().queryForList(
@@ -744,12 +744,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
-    public void updateParent(Job job, GroupDetail dest) {
+    public void updateParent(JobInterface job, GroupDetail dest) {
         updateParent(job, dest, new Inherit[] { Inherit.All });
     }
 
     @Override
-    public void updateParent(Job job, GroupDetail dest, Inherit[] inherits) {
+    public void updateParent(JobInterface job, GroupDetail dest, Inherit[] inherits) {
 
         if (!job.getShowId().equals(dest.getShowId())) {
             throw new EntityModificationError("error moving job, " +
@@ -833,7 +833,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "AND " +
             "job.pk_job = job_resource.pk_job " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "job.b_paused = false " +
         "AND " +
@@ -853,13 +853,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
-    public void enableAutoBooking(Job job, boolean value) {
+    public void enableAutoBooking(JobInterface job, boolean value) {
         getJdbcTemplate().update(
                 "UPDATE job SET b_auto_book=? WHERE pk_job=?", value, job.getJobId());
     }
 
     @Override
-    public void enableAutoUnBooking(Job job, boolean value) {
+    public void enableAutoUnBooking(JobInterface job, boolean value) {
         getJdbcTemplate().update(
                 "UPDATE job SET b_auto_unbook=? WHERE pk_job=?", value, job.getJobId());
     }
@@ -885,26 +885,26 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "pk_job IN (SELECT pk_post_job FROM job_post WHERE pk_job = ?)";
 
     @Override
-    public void activatePostJob(Job job) {
+    public void activatePostJob(JobInterface job) {
         getJdbcTemplate().update(ACTIVATE_POST_JOB,
-                JobState.Pending.toString(), job.getJobId());
+                JobState.PENDING.toString(), job.getJobId());
         getJdbcTemplate().update("DELETE FROM job_post WHERE pk_job=?",job.getJobId());
     }
 
     @Override
-    public void updateDepartment(Group group, Department dept) {
+    public void updateDepartment(GroupInterface group, DepartmentInterface dept) {
         getJdbcTemplate().update("UPDATE job SET pk_dept=? WHERE pk_folder=?",
                 dept.getDepartmentId(), group.getGroupId());
     }
 
     @Override
-    public void updateDepartment(Job job, Department dept) {
+    public void updateDepartment(JobInterface job, DepartmentInterface dept) {
         getJdbcTemplate().update("UPDATE job SET pk_dept=? WHERE pk_job=?",
                 dept.getDepartmentId(), job.getJobId());
     }
 
 
-    public void updateUsage(Job job, ResourceUsage usage, int exitStatus) {
+    public void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus) {
 
         if (exitStatus == 0) {
 
@@ -951,7 +951,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         }
     }
 
-    public void updateEmail(Job job, String email) {
+    public void updateEmail(JobInterface job, String email) {
         getJdbcTemplate().update(
                 "UPDATE job SET str_email=? WHERE pk_job=?",
                 email, job.getJobId());

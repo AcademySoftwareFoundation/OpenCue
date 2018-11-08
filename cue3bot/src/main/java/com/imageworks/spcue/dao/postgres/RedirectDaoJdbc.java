@@ -18,16 +18,16 @@
 
 package com.imageworks.spcue.dao.postgres;
 
-import com.imageworks.spcue.CueIce.RedirectType;
-import com.imageworks.spcue.Redirect;
-import com.imageworks.spcue.dao.RedirectDao;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.imageworks.spcue.Redirect;
+import com.imageworks.spcue.dao.RedirectDao;
+import com.imageworks.spcue.grpc.host.RedirectType;
 
 public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
     @Override
@@ -56,8 +56,6 @@ public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
 
     @Override
     public void put(String key, Redirect r) {
-        System.out.println(getJdbcTemplate().queryForObject("SELECT version();", String.class));
-
         getJdbcTemplate().update(
                 "INSERT INTO redirect (" +
                     "pk_proc, " +
@@ -69,20 +67,14 @@ public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
                 ") VALUES (?, ?, ?, ?, ?, ?) " +
                 "ON CONFLICT (pk_proc) " +
                     "DO UPDATE SET " +
-                        "str_group_id = ?, " +
-                        "int_type = ?, " +
-                        "str_destination_id = ?, " +
-                        "str_name = ?, " +
-                        "lng_creation_time = ?",
+                        "str_group_id = EXCLUDED.str_group_id, " +
+                        "int_type = EXCLUDED.int_type, " +
+                        "str_destination_id = EXCLUDED.str_destination_id, " +
+                        "str_name = EXCLUDED.str_name, " +
+                        "lng_creation_time = EXCLUDED.lng_creation_time",
                 key,
                 r.getGroupId(),
-                r.getType().value(),
-                r.getDestinationId(),
-                r.getDestinationName(),
-                r.getCreationTime(),
-
-                r.getGroupId(),
-                r.getType().value(),
+                r.getType().getNumber(),
                 r.getDestinationId(),
                 r.getDestinationName(),
                 r.getCreationTime());

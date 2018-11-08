@@ -28,10 +28,10 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Deed;
+import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -45,7 +45,6 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -101,9 +100,9 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Rollback(true)
     public void testCreateOwner() {
         ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+                adminManager.findShowEntity("pipe"));
 
-        Owner owner = ownerManager.findOwner("spongebob");
+        OwnerEntity owner = ownerManager.findOwner("spongebob");
         assertEquals(owner.name, "spongebob");
     }
 
@@ -112,7 +111,7 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Rollback(true)
     public void testDeleteOwner() {
         ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+                adminManager.findShowEntity("pipe"));
 
         assertTrue(ownerManager.deleteOwner(
                 ownerManager.findOwner("spongebob")));
@@ -122,10 +121,10 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testGetOwner() {
-        Owner o1 = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o1 = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
-        Owner o2 = ownerManager.getOwner(o1.id);
+        OwnerEntity o2 = ownerManager.getOwner(o1.id);
         assertEquals(o1, o2);
     }
 
@@ -133,10 +132,10 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testFindOwner() {
-        Owner o1 = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o1 = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
-        Owner o2 = ownerManager.findOwner(o1.name);
+        OwnerEntity o2 = ownerManager.findOwner(o1.name);
         assertEquals(o1, o2);
     }
 
@@ -144,21 +143,21 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testSetShow() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
-        ShowDetail newShow = adminManager.findShowDetail("edu");
+        ShowEntity newShow = adminManager.findShowEntity("edu");
         ownerManager.setShow(o, newShow);
 
-        assertEquals(newShow.name, whiteboard.getOwner(o.name).show);
+        assertEquals(newShow.name, whiteboard.getOwner(o.name).getShow());
     }
 
     @Test
     @Transactional
     @Rollback(true)
     public void testTakeOwnership() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
         DispatchHost host = createHost();
         ownerManager.takeOwnership(o, host);
@@ -169,11 +168,11 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testGetDeed() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
         DispatchHost host = createHost();
-        Deed d = ownerManager.takeOwnership(o, host);
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
         assertEquals(d, ownerManager.getDeed(d.id));
     }
@@ -182,11 +181,11 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testSetBlackoutTimes() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
         DispatchHost host = createHost();
-        Deed d = ownerManager.takeOwnership(o, host);
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
         ownerManager.setBlackoutTime(d, 0, 3600);
 
@@ -198,11 +197,11 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testEnableDisableBlackout() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
         DispatchHost host = createHost();
-        Deed d = ownerManager.takeOwnership(o, host);
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
         ownerManager.setBlackoutTimeEnabled(d, true);
 
@@ -217,11 +216,11 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void testRemoveDeed() {
-        Owner o = ownerManager.createOwner("spongebob",
-                adminManager.findShowDetail("pipe"));
+        OwnerEntity o = ownerManager.createOwner("spongebob",
+                adminManager.findShowEntity("pipe"));
 
         DispatchHost host = createHost();
-        Deed d = ownerManager.takeOwnership(o, host);
+        DeedEntity d = ownerManager.takeOwnership(o, host);
 
         ownerManager.removeDeed(d);
     }
