@@ -94,58 +94,58 @@ public class JobLauncher implements ApplicationContextAware {
 
         verifyJobSpec(spec);
 
-        //try {
-        jobManager.launchJobSpec(spec);
+        try {
+            jobManager.launchJobSpec(spec);
 
-        for (BuildableJob job: spec.getJobs()) {
-            /*
-             * If isLocal is set, need to create local host assignment.
-             */
-            JobDetail d = job.detail;
-            if (d.isLocal) {
-                logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " " + d.localHostName);
-                LocalHostAssignment lha = new LocalHostAssignment();
-                lha.setJobId(d.getJobId());
-                lha.setThreads(d.localThreadNumber);
-                lha.setMaxCoreUnits(d.localMaxCores * 100);
-                lha.setMaxMemory(d.localMaxMemory);
-                lha.setMaxGpu(d.localMaxGpu);
-                lha.setType(RenderPartitionType.JOB_PARTITION);
-
-                try {
-                    localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
-                }
-                catch (DataIntegrityViolationException e) {
-                    logger.info(d.name + " failed to create host local assignment.");
-                }
-            }
-        }
-
-        /*
-         * This has to happen outside of the job launching transaction
-         * or else it can lock up booking because it updates the
-         * job_resource table.  It can take quite some time to launch
-         * a job with dependencies, so the transaction should not
-         * touch any rows that are currently in the "live" data set.
-         */
-        if (!testMode) {
-            Set<String> depts = new HashSet<String>();
             for (BuildableJob job: spec.getJobs()) {
-                JobDetail d = jobManager.getJobDetail(job.detail.id);
-                jmsMover.send(d);
-                if (departmentManager.isManaged(d)) {
-                    if (!depts.contains(d.deptId)) {
-                        departmentManager.syncJobsWithTask(d);
-                        depts.add(d.deptId);
+                /*
+                 * If isLocal is set, need to create local host assignment.
+                 */
+                JobDetail d = job.detail;
+                if (d.isLocal) {
+                    logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " " + d.localHostName);
+                    LocalHostAssignment lha = new LocalHostAssignment();
+                    lha.setJobId(d.getJobId());
+                    lha.setThreads(d.localThreadNumber);
+                    lha.setMaxCoreUnits(d.localMaxCores * 100);
+                    lha.setMaxMemory(d.localMaxMemory);
+                    lha.setMaxGpu(d.localMaxGpu);
+                    lha.setType(RenderPartitionType.JOB_PARTITION);
+
+                    try {
+                        localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
+                    }
+                    catch (DataIntegrityViolationException e) {
+                        logger.info(d.name + " failed to create host local assignment.");
                     }
                 }
             }
-        }
-        /*} catch (Exception e) {
+
+            /*
+             * This has to happen outside of the job launching transaction
+             * or else it can lock up booking because it updates the
+             * job_resource table.  It can take quite some time to launch
+             * a job with dependencies, so the transaction should not
+             * touch any rows that are currently in the "live" data set.
+             */
+            if (!testMode) {
+                Set<String> depts = new HashSet<String>();
+                for (BuildableJob job: spec.getJobs()) {
+                    JobDetail d = jobManager.getJobDetail(job.detail.id);
+                    jmsMover.send(d);
+                    if (departmentManager.isManaged(d)) {
+                        if (!depts.contains(d.deptId)) {
+                            departmentManager.syncJobsWithTask(d);
+                            depts.add(d.deptId);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
             // Catch anything and email the user a report as to
             // why the job launch failed.
             emailSupport.reportLaunchError(spec, e);
-        }*/
+        }
     }
 
     public void verifyJobSpec(JobSpec spec) {

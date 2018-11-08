@@ -44,7 +44,6 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Criteria;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
@@ -65,7 +64,6 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isEmptyString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
@@ -203,7 +201,9 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -248,7 +248,9 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -275,8 +277,9 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
-
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -313,7 +316,9 @@ public class RedirectManagerTests
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertThat(whiteboard.getProcs(search).getProcs(0).getRedirectTarget(), is(isEmptyString()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -377,7 +382,8 @@ public class RedirectManagerTests
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
+        assertEquals(
+                group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.redirect(proc);
 

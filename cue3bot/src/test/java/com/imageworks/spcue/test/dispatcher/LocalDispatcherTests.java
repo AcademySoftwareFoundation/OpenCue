@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
@@ -35,15 +34,11 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.BookingDao;
-import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.BookingManager;
-import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -53,6 +48,7 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+
 
 @ContextConfiguration
 public class LocalDispatcherTests extends TransactionalTest {
@@ -70,22 +66,10 @@ public class LocalDispatcherTests extends TransactionalTest {
     AdminManager adminManager;
 
     @Resource
-    GroupManager groupManager;
-
-    @Resource
     Dispatcher localDispatcher;
 
     @Resource
-    DispatchSupport dispatchSupport;
-
-    @Resource
-    FrameDao frameDao;
-
-    @Resource
     BookingManager bookingManager;
-
-    @Resource
-    BookingDao bookingDao;
 
     private static final String HOSTNAME = "beta";
 
