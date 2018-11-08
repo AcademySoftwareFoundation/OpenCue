@@ -58,7 +58,7 @@ public class FrameSearch extends Criteria {
     }
 
     public FrameSearch(FrameInterface frame) {
-        this.criteria = criteriaFactory().toBuilder().addFrames(frame.getFrameId()).build();
+        this.criteria = criteriaFactory().toBuilder().addIds(frame.getFrameId()).build();
         this.job = frame;
     }
 
