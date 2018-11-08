@@ -417,7 +417,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "pk_job_depend_on = ? " +
+            "pk_job_depend_on=? " +
         "AND " +
             "b_active = 1 " +
         "AND " +
@@ -449,7 +449,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "pk_job_depend_on = ? " +
+            "pk_job_depend_on=? " +
         "AND " +
             "b_active = 1 " +
         "AND " +
@@ -488,9 +488,9 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "pk_job_depend_on = ? " +
+            "pk_job_depend_on=? " +
         "AND " +
-            "pk_layer_depend_on = ? " +
+            "pk_layer_depend_on=? " +
         "AND " +
             "str_type IN (?,?,?) " +
         "AND " +
@@ -564,9 +564,9 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "depend " +
         "SET " +
-            "b_active = 0,"+
-            "ts_satisfied = systimestamp,"+
-            "str_signature = pk_depend "+
+            "b_active=0,"+
+            "ts_satisfied=systimestamp,"+
+            "str_signature=pk_depend "+
         "WHERE " +
             "pk_depend = ? " +
         "AND " +
@@ -584,11 +584,11 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "depend " +
         "SET " +
-            "b_active = 1 "+
+            "b_active=1 "+
         "WHERE " +
-            "pk_depend = ? " +
+            "pk_depend=? " +
         "AND "+
-            "b_active = 0";
+            "b_active=0";
 
     @Override
     public boolean setActive(LightweightDependency depend) {
@@ -649,9 +649,9 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "depend.pk_job_depend_er = ? " +
+            "depend.pk_job_depend_er=? " +
         "AND " +
-            "depend.b_active = 1 " +
+            "depend.b_active=1 " +
         "AND " +
             "depend.pk_parent IS NULL ";
 
@@ -684,9 +684,9 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "depend.pk_layer_depend_er = ? " +
+            "depend.pk_layer_depend_er=? " +
         "AND " +
-            "depend.b_active = 1 " +
+            "depend.b_active=1 " +
         "AND " +
             "depend.pk_parent IS NULL " +
         "AND " +
@@ -726,9 +726,9 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "FROM " +
             "depend " +
         "WHERE " +
-            "depend.pk_frame_depend_er = ? " +
+            "depend.pk_frame_depend_er=? " +
         "AND " +
-            "depend.b_active = 1 " +
+            "depend.b_active=1 " +
         "AND " +
             "depend.str_type IN (?,?,?) ";
 
