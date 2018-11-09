@@ -1,0 +1,5 @@
+grpcio==1.16.0
+grpcio-tools==1.16.0
+pexpect==4.6.0
+PyYAML==3.12
+zeroc-ice==3.7.1
