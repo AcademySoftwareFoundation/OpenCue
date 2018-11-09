@@ -62,7 +62,7 @@ class FrameRange(object):
         self.frameList = self.parseFrameRange(frameRange)
 
     def __str__(self):
-        # TODO(cipriano) Make this smarter, group frame ranges and by step. (b/)
+        # TODO(cipriano) Make this smarter, group frame ranges and by step. (b/119317272)
         return ','.join([str(frame) for frame in self.frameList])
 
     def size(self):
@@ -147,13 +147,11 @@ class FrameRange(object):
 
     @staticmethod
     def validateStepSign(start, end, step):
-        if step > 1:
-            if end < start:
-                raise ValueError(
-                    'end frame may not be less than start frame when using a positive step')
+        if step > 1 and end < start:
+            raise ValueError(
+                'end frame may not be less than start frame when using a positive step')
         elif step == 0:
             raise ValueError('step cannot be zero')
-        elif step < 0:
-            if end >= start:
-                raise ValueError(
-                    'end frame may not be greater than start frame when using a negative step')
+        elif step < 0 and end >= start:
+            raise ValueError(
+                'end frame may not be greater than start frame when using a negative step')

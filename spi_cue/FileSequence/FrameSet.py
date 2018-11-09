@@ -16,7 +16,7 @@ from FrameRange import FrameRange
 
 
 class FrameSet(object):
-    """Represents an ordered sequence of FrameRanges."""
+    """Represents a sequence of FrameRanges."""
 
     def __init__(self, frameRange):
         """Construct a FrameSet object by parsing a spec.
@@ -27,7 +27,7 @@ class FrameSet(object):
         self.frameList = self.parseFrameRange(frameRange)
 
     def __str__(self):
-        # TODO(cipriano) Make this smarter, group frame ranges and by step. (b/)
+        # TODO(cipriano) Make this smarter, group frame ranges and by step. (b/119317272)
         return ','.join([str(frame) for frame in self.frameList])
 
     def size(self):
