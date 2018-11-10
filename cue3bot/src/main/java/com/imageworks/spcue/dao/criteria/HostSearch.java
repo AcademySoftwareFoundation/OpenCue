@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.dao.criteria;
 
 import java.util.HashSet;
@@ -27,7 +26,8 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HardwareStateSeq;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
-public class HostSearch extends Criteria {
+
+public class HostSearch extends Criteria implements CriteriaInterface {
 
     private HostSearchCriteria criteria;
 
@@ -43,13 +43,13 @@ public class HostSearch extends Criteria {
         return this.criteria;
     }
 
-    public static final HostSearch byAllocation(AllocationInterface a) {
+    public static HostSearch byAllocation(AllocationInterface a) {
         HostSearch r = new HostSearch();
         r.addPhrase("host.pk_alloc",a.getAllocationId());
         return r;
     }
 
-    public static final HostSearchCriteria criteriaFactory() {
+    public static HostSearchCriteria criteriaFactory() {
         return HostSearchCriteria.newBuilder().build();
     }
 
@@ -73,4 +73,3 @@ public class HostSearch extends Criteria {
         addHardwareStates(criteria.getStates());
     }
 }
-

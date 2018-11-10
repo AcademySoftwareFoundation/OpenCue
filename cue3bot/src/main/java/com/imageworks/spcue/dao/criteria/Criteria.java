@@ -38,7 +38,7 @@ import com.imageworks.common.SpiIce.IntegerSearchCriterion;
 import com.imageworks.common.SpiIce.LessThanFloatSearchCriterion;
 import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
 
-public abstract class Criteria {
+public abstract class Criteria implements CriteriaInterface {
 
     protected List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
     protected List<Object> values = new ArrayList<Object>(32);

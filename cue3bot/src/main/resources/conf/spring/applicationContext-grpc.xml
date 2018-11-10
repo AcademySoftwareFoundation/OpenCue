@@ -39,6 +39,7 @@
         <property name="hostManager" ref="hostManager" />
         <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
+        <property name="hostSearchFactory" ref="hostSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageComment" class="com.imageworks.spcue.servant.ManageComment">

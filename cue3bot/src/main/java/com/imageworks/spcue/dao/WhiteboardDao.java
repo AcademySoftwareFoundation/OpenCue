@@ -104,7 +104,7 @@ public interface WhiteboardDao {
      * @param r HostSearch
      * @return HostSeq
      */
-    HostSeq getHosts(HostSearch  r);
+    HostSeq getHosts(HostSearch r);
 
     /**
      * Returns a list of jobs
