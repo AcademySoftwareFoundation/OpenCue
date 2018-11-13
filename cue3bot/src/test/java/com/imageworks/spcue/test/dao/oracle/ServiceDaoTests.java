@@ -19,27 +19,27 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
+import com.google.common.collect.Sets;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.common.collect.Sets;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -57,8 +57,8 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testGetService() {
-        Service s1 = serviceDao.get("default");
-        Service s2 = serviceDao.get("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0");
+        ServiceEntity s1 = serviceDao.get("default");
+        ServiceEntity s2 = serviceDao.get("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0");
         assertEquals(s1, s2);
     }
 
@@ -66,7 +66,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testInsertService() {
-        Service s = new Service();
+        ServiceEntity s = new ServiceEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -82,7 +82,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testUpdateService() {
-        Service s = new Service();
+        ServiceEntity s = new ServiceEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -102,7 +102,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.tags.add("linux");
 
         serviceDao.update(s);
-        Service s1 =  serviceDao.get(s.getId());
+        ServiceEntity s1 =  serviceDao.get(s.getId());
 
         assertEquals(s.name, s1.name);
         assertEquals(s.minCores, s1.minCores);
@@ -115,7 +115,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testDeleteService() {
-        Service s = new Service();
+        ServiceEntity s = new ServiceEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -137,7 +137,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testInsertServiceOverride() {
-        ServiceOverride s = new ServiceOverride();
+        ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -154,7 +154,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testUpdateServiceOverride() {
-        ServiceOverride s = new ServiceOverride();
+        ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
@@ -176,7 +176,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.tags.add("linux");
 
         serviceDao.update(s);
-        Service s1 =  serviceDao.getOverride(s.getId());
+        ServiceEntity s1 =  serviceDao.getOverride(s.getId());
 
         assertEquals(s.name, s1.name);
         assertEquals(s.minCores, s1.minCores);
@@ -190,7 +190,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Transactional
     @Rollback(true)
     public void testDeleteServiceOverride() {
-        ServiceOverride s = new ServiceOverride();
+        ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;

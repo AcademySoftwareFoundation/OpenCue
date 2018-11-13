@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class JobEntity extends Entity implements Job {
+public class JobEntity extends Entity implements JobInterface {
 
     public String showId;
     public String facilityId;

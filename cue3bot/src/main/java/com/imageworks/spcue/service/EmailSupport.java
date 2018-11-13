@@ -19,18 +19,18 @@
 
 package com.imageworks.spcue.service;
 
+import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringWriter;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.HashMap;
-import java.util.Map;
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
 
 import org.apache.log4j.Logger;
 import org.apache.velocity.Template;
@@ -38,7 +38,6 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
-
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -46,14 +45,13 @@ import org.springframework.mail.SimpleMailMessage;
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.ExecutionSummary;
-
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerStats;
 import com.imageworks.spcue.SpcueRuntimeException;
-import com.imageworks.spcue.CueIce.LayerType;
+import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -202,7 +200,7 @@ public class EmailSupport {
         sendMessage(msg);
     }
 
-    public void reportJobComment(Job job, CommentDetail c, String[] emails) {
+    public void reportJobComment(JobInterface job, CommentDetail c, String[] emails) {
 
         SimpleMailMessage msg = new SimpleMailMessage();
         msg.setTo(emails);
@@ -247,7 +245,7 @@ public class EmailSupport {
         return props;
     }
 
-    public void sendShutdownEmail(Job job) {
+    public void sendShutdownEmail(JobInterface job) {
 
         JobDetail d = jobManager.getJobDetail(job.getJobId());
         if (d.email == null ) { return; }
@@ -280,7 +278,7 @@ public class EmailSupport {
             List<LayerStats> layerStats = new ArrayList<LayerStats>(layers.size());
 
             for (LayerDetail layer: layers)  {
-                if (layer.type.equals(LayerType.Render)) {
+                if (layer.type.equals(LayerType.RENDER)) {
                     LayerStats stats = new LayerStats();
                     stats.setDetail(layer);
                     stats.setExecutionSummary(jobManager.getExecutionSummary(layer));

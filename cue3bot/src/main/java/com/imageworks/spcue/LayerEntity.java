@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class LayerEntity extends Entity implements Layer {
+public class LayerEntity extends Entity implements LayerInterface {
 
     public String showId;
     public String facilityId;

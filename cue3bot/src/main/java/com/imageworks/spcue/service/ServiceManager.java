@@ -19,30 +19,30 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 
 public interface ServiceManager {
 
-    public Service getService(String id);
+    public ServiceEntity getService(String id);
 
-    public Service getDefaultService();
+    public ServiceEntity getDefaultService();
 
-    public void createService(Service s);
+    public void createService(ServiceEntity s);
 
-    void createService(ServiceOverride s);
+    void createService(ServiceOverrideEntity s);
 
-    void updateService(ServiceOverride s);
+    void updateService(ServiceOverrideEntity s);
 
-    void updateService(Service s);
+    void updateService(ServiceEntity s);
 
-    void deleteService(ServiceOverride s);
+    void deleteService(ServiceOverrideEntity s);
 
-    void deleteService(Service s);
+    void deleteService(ServiceEntity s);
 
-    ServiceOverride getServiceOverride(String id);
+    ServiceOverrideEntity getServiceOverride(String id);
 
-    Service getService(String id, String show);
+    ServiceEntity getService(String id, String show);
 
 }
 

@@ -19,7 +19,6 @@
 
 package com.imageworks.spcue.dao.postgres;
 
-import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -31,12 +30,12 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Proc;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
@@ -59,7 +58,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "WHERE " +
             "proc.pk_job = job.pk_job " +
         "AND " +
-            "job.str_state = 'Pending' " +
+            "job.str_state = 'PENDING' " +
         "AND " +
             "proc.pk_proc= ? ";
 
@@ -204,7 +203,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "WHERE " +
             "pk_proc = ?";
 
-    public boolean clearVirtualProcAssignment(Proc proc) {
+    public boolean clearVirtualProcAssignment(ProcInterface proc) {
         return getJdbcTemplate().update(CLEAR_VIRTUAL_PROC_ASSIGN,
                 proc.getId()) == 1;
     }
@@ -217,7 +216,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         "WHERE " +
             "pk_frame = ?";
 
-    public boolean clearVirtualProcAssignment(Frame frame) {
+    public boolean clearVirtualProcAssignment(FrameInterface frame) {
         return getJdbcTemplate().update(CLEAR_VIRTUAL_PROC_ASSIGN_BY_FRAME,
                 frame.getFrameId()) == 1;
     }
@@ -235,7 +234,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "pk_frame = ?";
 
     @Override
-    public void updateProcMemoryUsage(Frame f, long rss, long maxRss,
+    public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
             long vss, long maxVss) {
         /*
          * This method is going to repeat for a proc every 1 minute, so
@@ -329,7 +328,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   VIRTUAL_PROC_MAPPER, id);
       }
 
-      public VirtualProc findVirtualProc(Frame frame) {
+      public VirtualProc findVirtualProc(FrameInterface frame) {
           return getJdbcTemplate().queryForObject(
               GET_VIRTUAL_PROC + " AND proc.pk_frame=? ",
           VIRTUAL_PROC_MAPPER, frame.getFrameId());
@@ -385,17 +384,17 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
-      public List<VirtualProc> findVirtualProcs(Host host) {
+      public List<VirtualProc> findVirtualProcs(HostInterface host) {
           return getJdbcTemplate().query(GET_VIRTUAL_PROC_LIST + " AND proc.pk_host=?",
                   VIRTUAL_PROC_MAPPER, host.getHostId());
       }
 
-      public List<VirtualProc> findVirtualProcs(Layer layer) {
+      public List<VirtualProc> findVirtualProcs(LayerInterface layer) {
           return getJdbcTemplate().query(GET_VIRTUAL_PROC_LIST + " AND proc.pk_layer=?",
                   VIRTUAL_PROC_MAPPER, layer.getLayerId());
       }
 
-      public List<VirtualProc> findVirtualProcs(Job job) {
+      public List<VirtualProc> findVirtualProcs(JobInterface job) {
           return getJdbcTemplate().query(GET_VIRTUAL_PROC_LIST + " AND proc.pk_job=?",
                   VIRTUAL_PROC_MAPPER, job.getJobId());
       }
@@ -432,14 +431,14 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
       }
 
       @Override
-      public boolean setUnbookState(Proc proc, boolean unbooked) {
+      public boolean setUnbookState(ProcInterface proc, boolean unbooked) {
           return getJdbcTemplate().update(
                   "UPDATE proc SET b_unbooked=? WHERE pk_proc=?",
                   unbooked, proc.getProcId()) == 1;
       }
 
       @Override
-      public boolean setRedirectTarget(Proc p, Redirect r) {
+      public boolean setRedirectTarget(ProcInterface p, Redirect r) {
           String name = null;
           boolean unbooked = false;
           if (r != null) {
@@ -451,27 +450,27 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   name, unbooked, p.getProcId()) == 1;
       }
 
-      public void unbookProc(Proc proc) {
+      public void unbookProc(ProcInterface proc) {
           getJdbcTemplate().update("UPDATE proc SET b_unbooked=true WHERE pk_proc=?",
                   proc.getProcId());
       }
 
-      public String getCurrentShowId(Proc p) {
+      public String getCurrentShowId(ProcInterface p) {
           return getJdbcTemplate().queryForObject("SELECT pk_show FROM proc WHERE pk_proc=?",
                   String.class, p.getProcId());
       }
 
-      public String getCurrentJobId(Proc p) {
+      public String getCurrentJobId(ProcInterface p) {
           return getJdbcTemplate().queryForObject("SELECT pk_job FROM proc WHERE pk_proc=?",
                   String.class, p.getProcId());
       }
 
-      public String getCurrentLayerId(Proc p) {
+      public String getCurrentLayerId(ProcInterface p) {
           return getJdbcTemplate().queryForObject("SELECT pk_layer FROM proc WHERE pk_proc=?",
                   String.class, p.getProcId());
       }
 
-      public String getCurrentFrameId(Proc p) {
+      public String getCurrentFrameId(ProcInterface p) {
           return getJdbcTemplate().queryForObject("SELECT pk_frame FROM proc WHERE pk_proc=?",
                   String.class, p.getProcId());
       }
@@ -519,13 +518,13 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "current_timestamp - proc.ts_ping > " + ORPHANED_PROC_INTERVAL;
 
       @Override
-      public boolean isOrphan(Proc proc) {
+      public boolean isOrphan(ProcInterface proc) {
           return getJdbcTemplate().queryForObject(IS_ORPHAN,
                   Integer.class, proc.getProcId()) == 1;
       }
 
 
-      public boolean increaseReservedMemory(Proc p, long value) {
+      public boolean increaseReservedMemory(ProcInterface p, long value) {
         try {
             return getJdbcTemplate().update("UPDATE proc SET int_mem_reserved=? WHERE pk_proc=? AND int_mem_reserved < ?",
                     value, p.getProcId(), value) == 1;
@@ -568,18 +567,18 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           ") AS t1 LIMIT 1";
 
       @Override
-      public VirtualProc getWorstMemoryOffender(Host host) {
+      public VirtualProc getWorstMemoryOffender(HostInterface host) {
           return getJdbcTemplate().queryForObject(FIND_WORST_MEMORY_OFFENDER,
                   VIRTUAL_PROC_MAPPER, host.getHostId());
       }
 
-      public long getReservedMemory(Proc proc) {
+      public long getReservedMemory(ProcInterface proc) {
           return getJdbcTemplate().queryForObject(
                   "SELECT int_mem_reserved FROM proc WHERE pk_proc=?",
                   Long.class, proc.getProcId());
       }
 
-      public long getReservedGpu(Proc proc) {
+      public long getReservedGpu(ProcInterface proc) {
           return getJdbcTemplate().queryForObject(
                   "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
                   Long.class, proc.getProcId());
@@ -606,7 +605,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "AND " +
               "proc.int_mem_reserved - layer_mem.int_max_rss > 0";
 
-      public boolean balanceUnderUtilizedProcs(Proc targetProc, long targetMem) {
+      public boolean balanceUnderUtilizedProcs(ProcInterface targetProc, long targetMem) {
 
           List<Map<String,Object>> result = getJdbcTemplate().queryForList(FIND_UNDERUTILIZED_PROCS,
                   targetProc.getHostId(), targetProc.getProcId());
@@ -674,7 +673,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           return true;
       }
 
-      public void updateReservedMemory(Proc p, long value) {
+      public void updateReservedMemory(ProcInterface p, long value) {
           getJdbcTemplate().update("UPDATE proc SET int_mem_reserved=? WHERE pk_proc=?",
                   value, p.getProcId());
       }

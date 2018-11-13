@@ -20,17 +20,17 @@
 package com.imageworks.spcue.service;
 
 import org.apache.log4j.Logger;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.SpcueRuntimeException;
 
-import com.imageworks.spcue.CueIce.LockState;
+import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dispatcher.LocalDispatcher;
-import com.imageworks.spcue.servant.ManageJobI;
+import com.imageworks.spcue.grpc.host.LockState;
+
 
 /**
  * Non transactional class for handling local booking logic.
@@ -44,18 +44,18 @@ public class LocalBookingSupport {
     private OwnerManager ownerManager;
     private BookingManager bookingManager;
 
-    public boolean bookLocal(Job job, String hostname, String user,
-            LocalHostAssignment lha) {
+    public boolean bookLocal(JobInterface job, String hostname, String user,
+                             LocalHostAssignment lha) {
 
         logger.info("Setting up local booking for " + user + " on " + job);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException(
                     "The host "+ host + " is not NIMBY locked");
         }
 
-        Owner owner = ownerManager.findOwner(user);
+        OwnerEntity owner = ownerManager.findOwner(user);
         if (!ownerManager.isOwner(owner, host)) {
             throw new SpcueRuntimeException(user
                     + " is not the owner of the host " + host.getName());
@@ -80,18 +80,18 @@ public class LocalBookingSupport {
         return false;
     }
 
-    public boolean bookLocal(Layer layer, String hostname, String user,
-            LocalHostAssignment lha) {
+    public boolean bookLocal(LayerInterface layer, String hostname, String user,
+                             LocalHostAssignment lha) {
 
         logger.info("Setting up local booking for " + user + " on " + layer);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException("The host " + host
                     + " is not NIMBY locked");
         }
 
-        Owner owner = ownerManager.findOwner(user);
+        OwnerEntity owner = ownerManager.findOwner(user);
         if (!ownerManager.isOwner(owner, host)) {
             throw new SpcueRuntimeException(user
                     + " is not the owner of the host " + host.getName());
@@ -117,18 +117,18 @@ public class LocalBookingSupport {
 
     }
 
-    public boolean bookLocal(Frame frame, String hostname, String user,
-            LocalHostAssignment lha) {
+    public boolean bookLocal(FrameInterface frame, String hostname, String user,
+                             LocalHostAssignment lha) {
 
         logger.info("Setting up local booking for " + user + " on " + frame);
 
         DispatchHost host = hostManager.findDispatchHost(hostname);
-        if (host.lockState.equals(LockState.Open)) {
+        if (host.lockState.equals(LockState.OPEN)) {
             throw new SpcueRuntimeException("The host " + host
                     + " is not NIMBY locked");
         }
 
-        Owner owner = ownerManager.findOwner(user);
+        OwnerEntity owner = ownerManager.findOwner(user);
         if (!ownerManager.isOwner(owner, host)) {
             throw new SpcueRuntimeException(user
                     + " is not the owner of the host " + host.getName());

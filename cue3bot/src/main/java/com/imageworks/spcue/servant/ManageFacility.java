@@ -1,6 +1,7 @@
 package com.imageworks.spcue.servant;
 
-import com.imageworks.spcue.grpc.facility.Facility;
+import io.grpc.stub.StreamObserver;
+
 import com.imageworks.spcue.grpc.facility.FacilityCreateRequest;
 import com.imageworks.spcue.grpc.facility.FacilityCreateResponse;
 import com.imageworks.spcue.grpc.facility.FacilityDeleteRequest;
@@ -12,7 +13,6 @@ import com.imageworks.spcue.grpc.facility.FacilityRenameRequest;
 import com.imageworks.spcue.grpc.facility.FacilityRenameResponse;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.Whiteboard;
-import io.grpc.stub.StreamObserver;
 
 public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplBase {
     private AdminManager adminManager;

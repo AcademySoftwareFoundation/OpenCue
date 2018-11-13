@@ -19,41 +19,37 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.concurrent.CountDownLatch;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-
+import java.util.concurrent.CountDownLatch;
 import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.transaction.annotation.Propagation;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.RedirectType;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
+import com.imageworks.spcue.grpc.host.RedirectType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
@@ -61,6 +57,11 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.RedirectService;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
 
 
 /**
@@ -169,9 +170,10 @@ public class RedirectManagerTests
 
         /* Setup a proc search */
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        ProcSearchCriteria criteria = search.getCriteria();
+        search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
-        List<Job> jobs = new ArrayList<Job>(1);
+        List<JobInterface> jobs = new ArrayList<JobInterface>(1);
         jobs.add(jobManager.findJob(TARGET_JOB));
 
         /* Now redirect this proc to the other job */
@@ -215,9 +217,10 @@ public class RedirectManagerTests
 
         /* Setup a proc search */
         ProcSearch search = new ProcSearch();
-        search.getCriteria().jobs.add(job.getName());
+        ProcSearchCriteria criteria = search.getCriteria();
+        search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
-        Group root  = groupManager.getRootGroupDetail(job);
+        GroupInterface root  = groupManager.getRootGroupDetail(job);
         GroupDetail group = new GroupDetail();
         group.name = "Foo";
         group.showId = root.getShowId();
@@ -421,7 +424,7 @@ public class RedirectManagerTests
 
         final String redirect_key = "test";
 
-        Redirect redirect = new Redirect(RedirectType.JobRedirect, "foo", "bar");
+        Redirect redirect = new Redirect(RedirectType.JOB_REDIRECT, "foo", "bar");
 
         for (int i = 0; i < N; i++) {
             new Thread(new Runnable() {

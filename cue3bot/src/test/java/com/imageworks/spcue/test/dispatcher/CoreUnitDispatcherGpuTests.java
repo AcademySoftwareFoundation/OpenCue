@@ -20,10 +20,7 @@
 package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -35,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
@@ -50,7 +47,7 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 @ContextConfiguration
 public class CoreUnitDispatcherGpuTests extends TransactionalTest {
@@ -179,7 +176,7 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
     public void testDispatchGpuHostToShowNoPrefer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        ShowDetail show = adminManager.findShowDetail("edu");
+        ShowEntity show = adminManager.findShowEntity("edu");
 
         List<VirtualProc> procs =  dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
@@ -191,7 +188,7 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
     public void testDispatchRemovedGpuHostToShowPrefer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        ShowDetail show = adminManager.findShowDetail("edu");
+        ShowEntity show = adminManager.findShowEntity("edu");
 
         List<VirtualProc> procs =  dispatcher.dispatchHost(host, show);
         assertEquals(0, procs.size());

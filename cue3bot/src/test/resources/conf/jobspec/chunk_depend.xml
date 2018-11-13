@@ -29,7 +29,7 @@
     <job name="pipe-dev.cue-testuser_chunked_depend">
         <paused>false</paused>
         <layers>
-            <layer name="no_chunk" type="Render">
+            <layer name="no_chunk" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-100</range>
                 <chunk>1</chunk>
@@ -40,7 +40,7 @@
                 </services>
             </layer>
 
-             <layer name="large_chunk" type="Render">
+             <layer name="large_chunk" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-100</range>
                 <chunk>100000</chunk>
@@ -51,7 +51,7 @@
                 </services>
             </layer>
 
-            <layer name="small_chunk" type="Render">
+            <layer name="small_chunk" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-100</range>
                 <chunk>5</chunk>

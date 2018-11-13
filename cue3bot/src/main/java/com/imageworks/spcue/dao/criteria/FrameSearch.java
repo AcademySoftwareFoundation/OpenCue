@@ -19,21 +19,19 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueClientIce.FrameSearchCriteria;
-import com.imageworks.spcue.CueIce.FrameState;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 
@@ -45,38 +43,36 @@ public class FrameSearch extends Criteria {
     private int page = 1;
     private int limit = 1000;
 
-    private Job job;
-    private Layer layer;
+    private JobInterface job;
+    private LayerInterface layer;
     private String jobCol = "job.pk_job";
     private String sortedQuery;
 
     public FrameSearch(List<String> list) {
-        this.criteria = criteriaFactory();
-        this.criteria.ids.addAll(list);
+        this.criteria = criteriaFactory().toBuilder().addAllIds(list).build();
     }
 
-    public FrameSearch(Job job) {
+    public FrameSearch(JobInterface job) {
         this.criteria = criteriaFactory();
         this.job = job;
     }
 
-    public FrameSearch(Frame frame) {
-        this.criteria = criteriaFactory();
+    public FrameSearch(FrameInterface frame) {
+        this.criteria = criteriaFactory().toBuilder().addFrames(frame.getFrameId()).build();
         this.job = frame;
-        this.criteria.ids.add(frame.getFrameId());
     }
 
-    public FrameSearch(Job job, FrameSearchCriteria criteria) {
+    public FrameSearch(JobInterface job, FrameSearchCriteria criteria) {
         this.criteria = criteria;
         this.job = job;
     }
 
-    public FrameSearch(Layer layer) {
+    public FrameSearch(LayerInterface layer) {
         this.criteria = criteriaFactory();
         this.layer = layer;
     }
 
-    public FrameSearch(Layer layer, FrameSearchCriteria criteria) {
+    public FrameSearch(LayerInterface layer, FrameSearchCriteria criteria) {
         this.criteria = criteria;
         this.layer = layer;
     }
@@ -85,9 +81,13 @@ public class FrameSearch extends Criteria {
         return criteria;
     }
 
-    public Job getJob() {
+    public void setCriteria(FrameSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
+    public JobInterface getJob() {
         if (job == null) {
-            return (Job) layer;
+            return (JobInterface) layer;
         }
         return job;
     }
@@ -96,17 +96,12 @@ public class FrameSearch extends Criteria {
         this.jobCol = jobCol;
     }
 
-    public static final FrameSearchCriteria criteriaFactory() {
-        FrameSearchCriteria c = new FrameSearchCriteria(
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new ArrayList<FrameState>(),
-                null,
-                null,
-                null,
-                1, 1000, 0);
-        return c;
+    private static FrameSearchCriteria criteriaFactory() {
+        return FrameSearchCriteria.newBuilder()
+                .setPage(1)
+                .setLimit(1000)
+                .setChangeDate(0)
+                .build();
     }
 
     private static final int MAX_RESULTS = 1000;
@@ -119,7 +114,7 @@ public class FrameSearch extends Criteria {
 
         String q = getQuery(query);
         if (limit <=0 || limit >= MAX_RESULTS) {
-            criteria.limit = MAX_RESULTS;
+            criteria = criteria.toBuilder().setLimit(MAX_RESULTS).build();
         }
         if (page <= 0) {
             page = 1;
@@ -245,25 +240,25 @@ public class FrameSearch extends Criteria {
     @Override
     public void buildWhereClause() {
 
-        addPhrase("frame.pk_frame",criteria.ids);
+        addPhrase("frame.pk_frame", criteria.getIdsList());
 
         if (layer != null) {
-            addPhrase("layer.pk_layer",layer.getLayerId());
+            addPhrase("layer.pk_layer", layer.getLayerId());
         }
         if (job != null) {
-            addPhrase(jobCol,job.getJobId());
+            addPhrase(jobCol, job.getJobId());
         }
 
-        addPhrase("frame.str_name", criteria.frames);
-        addPhrase("layer.str_name",criteria.layers);
-        addFrameStates(criteria.states);
-        if (isValid(criteria.frameRange)) { addFrameSet(criteria.frameRange); }
-        if (isValid(criteria.memoryRange)) { addMemoryRange(criteria.memoryRange); }
-        if (isValid(criteria.durationRange)) { addDurationRange(criteria.durationRange); }
-        if (criteria.changeDate > 0) { addChangeDate(criteria.changeDate); }
+        addPhrase("frame.str_name", criteria.getFramesList());
+        addPhrase("layer.str_name", criteria.getLayersList());
+        addFrameStates(criteria.getStates().getFrameStatesList());
+        if (isValid(criteria.getFrameRange())) { addFrameSet(criteria.getFrameRange()); }
+        if (isValid(criteria.getMemoryRange())) { addMemoryRange(criteria.getMemoryRange()); }
+        if (isValid(criteria.getDurationRange())) { addDurationRange(criteria.getDurationRange()); }
+        if (criteria.getChangeDate() > 0) { addChangeDate(criteria.getChangeDate()); }
 
-        limit = criteria.limit;
-        page = criteria.page;
+        limit = criteria.getLimit();
+        page = criteria.getPage();
 
     }
 }

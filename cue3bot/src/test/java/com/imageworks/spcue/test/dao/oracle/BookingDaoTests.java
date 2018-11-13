@@ -19,38 +19,32 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import org.junit.Rule;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
-
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.CueClientIce.RenderPartition;
-import com.imageworks.spcue.CueIce.RenderPartitionType;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
+import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -59,6 +53,9 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 
 @Transactional
@@ -185,7 +182,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         DispatchHost h = createHost();
         JobDetail j = launchJob();
-        Layer layer = jobManager.getLayers(j).get(0);
+        LayerInterface layer = jobManager.getLayers(j).get(0);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -199,7 +196,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 "SELECT pk_layer FROM host_local WHERE pk_host_local=?",
                 String.class, lja.getId()));
 
-        assertEquals(RenderPartitionType.LayerPartition.toString(),
+        assertEquals(RenderPartitionType.LAYER_PARTITION.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_type FROM host_local WHERE pk_host_local=?",
                 String.class, lja.getId()));
@@ -236,8 +233,8 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         DispatchHost h = createHost();
         JobDetail j = launchJob();
-        Layer layer = jobManager.getLayers(j).get(0);
-        Frame frame = jobManager.findFrame(layer, 1);
+        LayerInterface layer = jobManager.getLayers(j).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 1);
 
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
@@ -251,7 +248,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 "SELECT pk_frame FROM host_local WHERE pk_host_local=?",
                 String.class, lja.getId()));
 
-        assertEquals(RenderPartitionType.FramePartition.toString(),
+        assertEquals(RenderPartitionType.FRAME_PARTITION.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_type FROM host_local WHERE pk_host_local=?",
                 String.class, lja.getId()));
@@ -333,15 +330,15 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
 
         RenderPartition rp = whiteboard.getRenderPartition(lja2);
 
-        assertEquals(lja2.getMaxCoreUnits(), rp.maxCores);
-        assertEquals(lja2.getMaxMemory(), rp.maxMemory);
-        assertEquals(lja2.getThreads(), rp.threads);
+        assertEquals(lja2.getMaxCoreUnits(), rp.getMaxCores());
+        assertEquals(lja2.getMaxMemory(), rp.getMaxMemory());
+        assertEquals(lja2.getThreads(), rp.getThreads());
         logger.info("--------------------");
         logger.info(lja2.getMaxGpu());
-        logger.info(rp.maxGpu);
-        assertEquals(lja2.getMaxGpu(), rp.maxGpu);
-        assertEquals(h.getName(), rp.host);
-        assertEquals(j.getName(), rp.job);
+        logger.info(rp.getMaxGpu());
+        assertEquals(lja2.getMaxGpu(), rp.getMaxGpu());
+        assertEquals(h.getName(), rp.getHost());
+        assertEquals(j.getName(), rp.getJob());
     }
 
     @Test

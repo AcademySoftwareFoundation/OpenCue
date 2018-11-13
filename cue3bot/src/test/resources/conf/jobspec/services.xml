@@ -33,7 +33,7 @@
 
         <layers>
 
-            <layer name="shell_layer" type="Render">
+            <layer name="shell_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -44,7 +44,7 @@
                 </services>
             </layer>
 
-            <layer name="prman_layer" type="Render">
+            <layer name="prman_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -55,7 +55,7 @@
                 </services>
             </layer>
 
-            <layer name="arnold_layer" type="Render">
+            <layer name="arnold_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -65,7 +65,7 @@
                 </services>
             </layer>
 
-            <layer name="cuda_layer" type="Render">
+            <layer name="cuda_layer" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>

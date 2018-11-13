@@ -23,9 +23,9 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.CommentDao;
 
 @Transactional
@@ -37,16 +37,16 @@ public class CommentManagerService implements CommentManager {
     CommentDao commentDao;
 
     @Transactional(propagation = Propagation.SUPPORTS)
-    public void addComment(Job job, CommentDetail comment) {
+    public void addComment(JobInterface job, CommentDetail comment) {
         commentDao.insertComment(job, comment);
-        ShowDetail show = adminManager.getShowDetail(job.getShowId());
+        ShowEntity show = adminManager.getShowEntity(job.getShowId());
         if (show.commentMail.length > 0) {
             emailSupport.reportJobComment(job, comment, show.commentMail);
         }
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
-    public void addComment(Host host, CommentDetail comment) {
+    public void addComment(HostInterface host, CommentDetail comment) {
         commentDao.insertComment(host, comment);
     }
 

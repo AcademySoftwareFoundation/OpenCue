@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.CueIce.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependTarget;
 
 /**
  * Base class for all dependency types.

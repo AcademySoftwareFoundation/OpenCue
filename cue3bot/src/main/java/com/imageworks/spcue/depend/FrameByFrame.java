@@ -19,17 +19,17 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameByFrame extends AbstractDepend implements Depend {
 
-    private final Layer dependErLayer;
-    private final Layer dependOnLayer;
+    private final LayerInterface dependErLayer;
+    private final LayerInterface dependOnLayer;
 
-    public FrameByFrame(Layer dependErLayer, Layer dependOnLayer) {
+    public FrameByFrame(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
 
         if (dependErLayer.getLayerId().equals(
                 dependOnLayer.getLayerId())) {
@@ -45,7 +45,7 @@ public class FrameByFrame extends AbstractDepend implements Depend {
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.FrameByFrame.toString());
+        key.append(DependType.FRAME_BY_FRAME.toString());
         key.append(dependErLayer.getJobId());
         key.append(dependOnLayer.getJobId());
         key.append(dependErLayer.getLayerId());
@@ -61,18 +61,18 @@ public class FrameByFrame extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Layer getDependOnLayer() {
+    public LayerInterface getDependOnLayer() {
         return dependOnLayer;
     }
 }

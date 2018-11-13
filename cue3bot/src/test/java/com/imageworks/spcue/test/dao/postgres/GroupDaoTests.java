@@ -19,12 +19,9 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -33,22 +30,26 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Group;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -79,7 +80,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         jobLauncher.testMode = true;
     }
 
-    public Show getShow() {
+    public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
@@ -113,7 +114,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testGetGroup() {
         GroupDetail group = createGroup();
-        Group g = groupDao.getGroup(group.id);
+        GroupInterface g = groupDao.getGroup(group.id);
         assertEquals(group.id,g.getGroupId());
         assertEquals(group.id,g.getId());
         assertEquals(group.name, g.getName());
@@ -128,7 +129,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         GroupDetail group = createGroup();
         List<String> l = new ArrayList<String>();
         l.add(group.id);
-        List<Group> g = groupDao.getGroups(l);
+        List<GroupInterface> g = groupDao.getGroups(l);
         assertEquals(1, g.size());
     }
 
@@ -328,7 +329,7 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
-        for ( Group g: groupDao.getChildrenRecursive(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"))) {
+        for ( GroupInterface g: groupDao.getChildrenRecursive(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"))) {
             if (g.getName().equals("Test1")) {
                 is_test2 = true;
             }
@@ -359,8 +360,8 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
-        List<Group> groups = groupDao.getChildren(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"));
-        for (Group g : groups) {
+        List<GroupInterface> groups = groupDao.getChildren(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"));
+        for (GroupInterface g : groups) {
             if (g.getName().equals("testuserA")) {
                 is_testuserA = true;
             }

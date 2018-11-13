@@ -30,7 +30,7 @@
         <paused>false</paused>
         <layers>
 
-            <layer name="pass_1" type="Render">
+            <layer name="pass_1" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -41,7 +41,7 @@
                 </services>
             </layer>
 
-             <layer name="pass_2" type="Render">
+             <layer name="pass_2" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -59,7 +59,7 @@
     <job name="pipe-dev.cue-testuser_depend_test_b">
         <paused>false</paused>
         <layers>
-            <layer name="pass_1" type="Render">
+            <layer name="pass_1" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>
@@ -70,7 +70,7 @@
                 </services>
             </layer>
 
-            <layer name="pass_2" type="Render">
+            <layer name="pass_2" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>

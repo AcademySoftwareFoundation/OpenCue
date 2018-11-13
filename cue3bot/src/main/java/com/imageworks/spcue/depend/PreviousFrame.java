@@ -19,18 +19,17 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.depend.Depend;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class PreviousFrame extends AbstractDepend implements Depend {
 
-    public final Layer dependErLayer;
-    public final Layer dependOnLayer;
+    public final LayerInterface dependErLayer;
+    public final LayerInterface dependOnLayer;
 
-    public PreviousFrame(Layer dependErLayer, Layer dependOnLayer) {
+    public PreviousFrame(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
         this.dependErLayer = dependErLayer;
         this.dependOnLayer = dependOnLayer;
         setComposite(true);
@@ -39,7 +38,7 @@ public class PreviousFrame extends AbstractDepend implements Depend {
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.PreviousFrame.toString());
+        key.append(DependType.PREVIOUS_FRAME.toString());
         key.append(dependErLayer.getJobId());
         key.append(dependOnLayer.getJobId());
         key.append(dependErLayer.getLayerId());
@@ -50,10 +49,10 @@ public class PreviousFrame extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 
@@ -62,11 +61,11 @@ public class PreviousFrame extends AbstractDepend implements Depend {
         dependVisitor.accept(this);
     }
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Layer getDependOnLayer() {
+    public LayerInterface getDependOnLayer() {
         return dependOnLayer;
     }
 }

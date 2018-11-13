@@ -21,12 +21,23 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.depend.DependException;
+import com.imageworks.spcue.depend.FrameByFrame;
+import com.imageworks.spcue.depend.FrameOnFrame;
+import com.imageworks.spcue.depend.FrameOnJob;
+import com.imageworks.spcue.depend.FrameOnLayer;
+import com.imageworks.spcue.depend.JobOnFrame;
+import com.imageworks.spcue.depend.JobOnJob;
+import com.imageworks.spcue.depend.JobOnLayer;
+import com.imageworks.spcue.depend.LayerOnFrame;
+import com.imageworks.spcue.depend.LayerOnJob;
+import com.imageworks.spcue.depend.LayerOnLayer;
+import com.imageworks.spcue.depend.PreviousFrame;
+import com.imageworks.spcue.grpc.depend.DependTarget;
 
 /**
  * DAO class for managing dependencies
@@ -58,7 +69,7 @@ public interface DependDao {
      * @param job
      * @return List<LightweightDependency>
      */
-    List<LightweightDependency> getWhatDependsOn(Job job);
+    List<LightweightDependency> getWhatDependsOn(JobInterface job);
 
     /**
      * Get a list of LightweightDependenies that depend on this job
@@ -69,7 +80,7 @@ public interface DependDao {
      * @param target
      * @return
      */
-    List<LightweightDependency> getWhatDependsOn(Job job, DependTarget target);
+    List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target);
 
     /**
      * Gets a list of LightweightDependencies that depend on
@@ -79,7 +90,7 @@ public interface DependDao {
      * @param layer
      * @return List<LightweightDependency>
      */
-    List<LightweightDependency> getWhatDependsOn(Layer layer);
+    List<LightweightDependency> getWhatDependsOn(LayerInterface layer);
 
     /**
      * Gets a list of LightweightDependencies that depend on
@@ -88,7 +99,7 @@ public interface DependDao {
      * @param frame
      * @return
      */
-    List<LightweightDependency> getWhatDependsOn(Frame frame);
+    List<LightweightDependency> getWhatDependsOn(FrameInterface frame);
 
     /**
      * Deletes a dependency
@@ -106,7 +117,7 @@ public interface DependDao {
      * @param DependTarget
      * @return  List<LightweightDependency>
      */
-    List<LightweightDependency> getWhatThisDependsOn(Job job, DependTarget target);
+    List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target);
 
     /**
      * Returns a list of depends the layer depends on.  Passing in a depend
@@ -116,7 +127,7 @@ public interface DependDao {
      * @param Layer
      * @return List<LightweightDependency>
      */
-    List<LightweightDependency> getWhatThisDependsOn(Layer layer, DependTarget target);
+    List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer, DependTarget target);
 
     /**
      * Returns a list of depends the frame depends on.  Passing in a depend
@@ -126,7 +137,7 @@ public interface DependDao {
      * @param Frame
      * @return List<LightweightDependency>
      */
-    List<LightweightDependency> getWhatThisDependsOn(Frame frame, DependTarget target);
+    List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame, DependTarget target);
 
     /**
      * Returns a list of dependencies where the supplied frame is the element
@@ -136,7 +147,7 @@ public interface DependDao {
      * @param active
      * @return
      */
-    List<LightweightDependency> getWhatDependsOn(Frame frame, boolean active);
+    List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active);
 
 
     /**
@@ -145,7 +156,7 @@ public interface DependDao {
      * @param active
      * @return
      */
-    List<LightweightDependency> getWhatDependsOn(Layer layer, boolean active);
+    List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active);
 
     /**
      * Returns a list of child FrameByFrame dependencies
@@ -177,7 +188,7 @@ public interface DependDao {
 
     void insertDepend(PreviousFrame d);
 
-    void updateFrameState(Frame f);
+    void updateFrameState(FrameInterface f);
 
     /**
      * Increment the depend count for the specified frame.
@@ -186,7 +197,7 @@ public interface DependDao {
      * @throws DependException if the depend count was not
      * incremented.
      */
-    void incrementDependCount(Frame f);
+    void incrementDependCount(FrameInterface f);
 
     /**
      * Decrement the depend count for the specified frame.
@@ -195,7 +206,7 @@ public interface DependDao {
      *
      * @param f
      */
-    boolean decrementDependCount(Frame f);
+    boolean decrementDependCount(FrameInterface f);
 
     /**
      * Returns true if this is the thread that set
