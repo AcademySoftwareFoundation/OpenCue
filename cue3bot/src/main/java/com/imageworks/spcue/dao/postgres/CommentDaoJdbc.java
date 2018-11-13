@@ -48,11 +48,11 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
         if (getJdbcTemplate().update(
                 "DELETE FROM comments WHERE pk_comment=?",id) > 0) {
             if (type.get("pk_job") != null) {
-                getJdbcTemplate().update("UPDATE job SET b_comment=0 WHERE job.pk_job = ? AND " +
+                getJdbcTemplate().update("UPDATE job SET b_comment=false WHERE job.pk_job = ? AND " +
                         "(SELECT COUNT(1) FROM comments c WHERE c.pk_job = job.pk_job) = 0",type.get("pk_job"));
             }
             else if (type.get("pk_host") != null) {
-                getJdbcTemplate().update("UPDATE host SET b_comment=0 WHERE host.pk_host = ? AND " +
+                getJdbcTemplate().update("UPDATE host SET b_comment=false WHERE host.pk_host = ? AND " +
                     "(SELECT COUNT(1) FROM comments c WHERE c.pk_host = host.pk_host) = 0",type.get("pk_host"));
             }
         }
@@ -108,7 +108,7 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
                 comment.id, job.getJobId(), comment.user,
                 comment.subject, comment.message);
         getJdbcTemplate().update(
-                "UPDATE job SET b_comment=1 WHERE pk_job=?",
+                "UPDATE job SET b_comment=true WHERE pk_job=?",
                 job.getJobId());
     }
 
@@ -126,7 +126,7 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
                 comment.id, host.getHostId(), comment.user,
                 comment.subject, comment.message);
         getJdbcTemplate().update(
-                "UPDATE host SET b_comment=1 WHERE pk_host=?",
+                "UPDATE host SET b_comment=true WHERE pk_host=?",
                 host.getHostId());
     }
 

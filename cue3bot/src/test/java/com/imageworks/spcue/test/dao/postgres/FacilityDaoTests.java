@@ -21,7 +21,9 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,13 +33,18 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FacilityDao;
+import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
-public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+public class FacilityDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    @Rule
+    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     FacilityDao facilityDao;
@@ -47,7 +54,7 @@ public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4Spring
     @Rollback(true)
     public void testGetDetaultFacility() {
         assertEquals(jdbcTemplate.queryForObject(
-                "SELECT pk_facility FROM facility WHERE b_default=1",
+                "SELECT pk_facility FROM facility WHERE b_default=true",
                 String.class),facilityDao.getDefaultFacility().getId());
     }
 

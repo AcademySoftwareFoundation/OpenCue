@@ -21,7 +21,9 @@ package com.imageworks.spcue.test.dao.oracle;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,6 +33,7 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FacilityDao;
+import com.imageworks.spcue.test.AssumingOracleEngine;
 
 import static org.junit.Assert.*;
 
@@ -38,6 +41,10 @@ import static org.junit.Assert.*;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class FacilityInterfaceDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Autowired
+    @Rule
+    public AssumingOracleEngine assumingOracleEngine;
 
     @Resource
     FacilityDao facilityDao;
