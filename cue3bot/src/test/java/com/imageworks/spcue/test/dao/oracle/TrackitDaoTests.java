@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
+import java.util.List;
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -28,6 +29,7 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
+import com.imageworks.spcue.TrackitTaskDetail;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;

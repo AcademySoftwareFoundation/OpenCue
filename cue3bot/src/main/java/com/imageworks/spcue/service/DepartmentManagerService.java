@@ -176,7 +176,7 @@ public class DepartmentManagerService implements DepartmentManager {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void updateManagedTasks(PointInterface pd) {
-        if (env.getRequiredProperty("trackit.enabled", Boolean.class)) {
+        if (env.getRequiredProperty("cue3.trackit.enabled", Boolean.class)) {
 
             ShowInterface show = showDao.getShowDetail(pd.getShowId());
             PointDetail p = pointDao.getPointConfDetail(pd.getPointId());

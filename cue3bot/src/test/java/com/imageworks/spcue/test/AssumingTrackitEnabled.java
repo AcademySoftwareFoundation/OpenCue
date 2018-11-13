@@ -38,7 +38,7 @@ public class AssumingTrackitEnabled implements TestRule {
         return new Statement() {
             @Override
             public void evaluate() throws Throwable {
-                if (env.getRequiredProperty("trackit.enabled", Boolean.class)) {
+                if (env.getRequiredProperty("cue3.trackit.enabled", Boolean.class)) {
                     base.evaluate();
                 } else {
                     throw new AssumptionViolatedException(
