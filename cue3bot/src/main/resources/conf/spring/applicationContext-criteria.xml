@@ -26,6 +26,7 @@
        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
 
     <bean id="hostSearchFactory" class="com.imageworks.spcue.dao.criteria.HostSearchFactory">
+        <property name="dbEngine" ref="dbEngine" />
     </bean>
 
 </beans>

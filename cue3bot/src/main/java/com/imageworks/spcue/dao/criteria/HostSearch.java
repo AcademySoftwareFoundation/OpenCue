@@ -18,24 +18,30 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.host.HardwareStateSeq;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
 
-public class HostSearch extends Criteria implements CriteriaInterface {
+public class HostSearch extends Criteria {
+
+    private final HostSearchGeneratorInterface hostSearchGenerator;
 
     private HostSearchCriteria criteria;
 
-    public HostSearch() {
+    public HostSearch(
+            CriteriaGeneratorInterface criteriaGenerator,
+            HostSearchGeneratorInterface hostSearchGenerator) {
+        this.criteriaGenerator = criteriaGenerator;
+        this.hostSearchGenerator = hostSearchGenerator;
         this.criteria = criteriaFactory();
     }
 
-    public HostSearch(HostSearchCriteria criteria) {
+    public HostSearch(
+            CriteriaGeneratorInterface criteriaGenerator,
+            HostSearchGeneratorInterface hostSearchGenerator,
+            HostSearchCriteria criteria) {
+        this.criteriaGenerator = criteriaGenerator;
+        this.hostSearchGenerator = hostSearchGenerator;
         this.criteria = criteria;
     }
 
@@ -43,33 +49,25 @@ public class HostSearch extends Criteria implements CriteriaInterface {
         return this.criteria;
     }
 
-    public static HostSearch byAllocation(AllocationInterface a) {
-        HostSearch r = new HostSearch();
-        r.addPhrase("host.pk_alloc",a.getAllocationId());
+    static HostSearch byAllocation(
+            CriteriaGeneratorInterface criteriaGenerator,
+            HostSearchGeneratorInterface hostSearchGenerator,
+            AllocationInterface a) {
+        HostSearch r = new HostSearch(criteriaGenerator, hostSearchGenerator);
+        r.addAlloc(a);
         return r;
+    }
+
+    public void addAlloc(AllocationInterface alloc) {
+        hostSearchGenerator.filterByAlloc(alloc);
     }
 
     public static HostSearchCriteria criteriaFactory() {
         return HostSearchCriteria.newBuilder().build();
     }
 
-    public void addHardwareStates(HardwareStateSeq s) {
-        // Convert into list of strings and call the
-        // super class addPhrase
-        Set<String> items = new HashSet<String>(s.getStateCount());
-        for (HardwareState w: s.getStateList()) {
-            items.add(w.toString());
-        }
-        addPhrase("host_stat.str_state",items);
-    }
-
     @Override
     public void buildWhereClause() {
-        addPhrase("host.pk_host", criteria.getIdsList());
-        addPhrase("host.str_name", criteria.getHostsList());
-        addLikePhrase("host.str_name", new HashSet<>(criteria.getSubstrList()));
-        addRegexPhrase("host.str_name", new HashSet<>(criteria.getRegexList()));
-        addPhrase("alloc.str_name", criteria.getAllocsList());
-        addHardwareStates(criteria.getStates());
+        hostSearchGenerator.buildWhereClause(criteria);
     }
 }

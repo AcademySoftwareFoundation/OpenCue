@@ -30,6 +30,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.criteria.HostSearch;
+import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
@@ -98,11 +99,12 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     private RedirectManager redirectManager;
     private JobManager jobManager;
     private Whiteboard whiteboard;
+    private HostSearchFactory hostSearchFactory;
 
     @Override
     public void getHosts(HostGetHostsRequest request, StreamObserver<HostGetHostsResponse> responseObserver) {
         responseObserver.onNext(HostGetHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(new HostSearch(request.getR())))
+                .setHosts(whiteboard.getHosts(hostSearchFactory.create(request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -366,6 +368,14 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     public void setJobManager(JobManager jobManager) {
         this.jobManager = jobManager;
+    }
+
+    public HostSearchFactory getHostSearchFactory() {
+        return hostSearchFactory;
+    }
+
+    public void setHostSearchFactory(HostSearchFactory hostSearchFactory) {
+        this.hostSearchFactory = hostSearchFactory;
     }
 
     private HostInterface getHostInterface(Host host) {
