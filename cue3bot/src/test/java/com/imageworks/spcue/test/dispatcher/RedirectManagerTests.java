@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.dispatcher;
 
 import java.io.File;
@@ -43,8 +42,9 @@ import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -57,10 +57,14 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.RedirectService;
+import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.util.Convert;
 
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.isEmptyString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 
 
@@ -94,10 +98,16 @@ public class RedirectManagerTests
     Dispatcher dispatcher;
 
     @Resource
-    DispatchSupport dispatchSupport;
+    GroupManager groupManager;
 
     @Resource
-    GroupManager groupManager;
+    ProcDao procDao;
+
+    @Resource
+    JobDao jobDao;
+
+    @Resource
+    Whiteboard whiteboard;
 
     private static final String HOSTNAME = "beta";
 
@@ -187,15 +197,13 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(TARGET_JOB, jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -211,9 +219,7 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         // Double check there is a proc.
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM proc WHERE pk_proc=?",
-                Integer.class, proc.getId()));
+        procDao.getVirtualProc(proc.getId());
 
         /* Setup a proc search */
         ProcSearch search = new ProcSearch();
@@ -238,15 +244,13 @@ public class RedirectManagerTests
         assertTrue(redirectManager.hasRedirect(procs.get(0)));
 
         /* Check to ensure the redirect target was set. */
-        assertEquals(group.getName(), jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -262,19 +266,20 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
+
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -299,23 +304,21 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        assertEquals(group.getGroupId(), jdbcTemplate.queryForObject(
-                "SELECT pk_folder FROM job WHERE pk_job=?", String.class,
-                target.getJobId()));
+        ProcSearch search = new ProcSearch();
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
-        assertTrue(redirectManager.addRedirect(proc, group,
-                false, new Source()));
+        assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
+
+        assertTrue(redirectManager.addRedirect(proc, group, false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.removeRedirect(proc);
         assertFalse(redirectManager.hasRedirect(proc));
-        assertNull(jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertThat(
+                whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
+                is(isEmptyString()));
     }
 
     @Test
@@ -331,24 +334,21 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
+        ProcSearch search = new ProcSearch();
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
+
         assertTrue(redirectManager.addRedirect(proc, target,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(TARGET_JOB, jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(TARGET_JOB, whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         assertTrue(redirectManager.redirect(proc));
 
-        logger.info(jdbcTemplate.queryForObject(
-                "SELECT pk_proc FROM proc WHERE pk_job=?",
-                String.class,
-                target.getJobId()));
-
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_cores FROM job_resource WHERE pk_job = ?",
-                Integer.class, target.getJobId()));
+        assertEquals(
+                Convert.coreUnitsToCores(100),
+                whiteboard.getJob(target.getJobId()).getJobStats().getReservedCores(),
+                0);
     }
 
     @Test
@@ -373,23 +373,24 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        assertEquals(group.getGroupId(), jdbcTemplate.queryForObject(
-                "SELECT pk_folder FROM job WHERE pk_job=?", String.class,
-                target.getJobId()));
+        ProcSearch search = new ProcSearch();
+        search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
+
+        assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
 
         assertTrue(redirectManager.addRedirect(proc, group,
                 false, new Source()));
 
         assertTrue(redirectManager.hasRedirect(proc));
-        assertEquals(group.getName(), jdbcTemplate.queryForObject(
-                "SELECT str_redirect FROM proc WHERE pk_proc=?",
-                String.class, proc.getId()));
+        assertEquals(
+                group.getName(), whiteboard.getProcs(search).getProcs(0).getRedirectTarget());
 
         redirectManager.redirect(proc);
 
-        assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
-                "SELECT int_cores FROM folder_resource WHERE pk_folder = ?",
-                Integer.class, group.getGroupId()));
+        assertEquals(
+                Convert.coreUnitsToCores(100),
+                whiteboard.getGroup(group.getGroupId()).getGroupStats().getReservedCores(),
+                0);
     }
 
     @Test

@@ -112,8 +112,7 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
         groupManager.setGroupDepartment(group, dept);
 
         // Now check if the job we launched was also updated to the lighting department
-        assertEquals(dept.getDepartmentId(), jdbcTemplate.queryForObject("SELECT pk_dept FROM job WHERE pk_job=?",
-                String.class, job.getJobId()));
+        assertEquals(dept.getDepartmentId(), jobDao.getJobDetail(job.getJobId()).deptId);
     }
 
 }

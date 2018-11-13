@@ -21,15 +21,6 @@ RUN yum install -y \
       which \
     && yum clean all
 
-# Install Oracle Instant Client
-# RPMs should be copied to ../oracle/instantclient/
-ENV ORA_INSTANTCLIENT_BASIC_RPM oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
-ENV ORA_INSTANTCLIENT_SQLPLUS_RPM oracle-instantclient12.1-sqlplus-12.1.0.2.0-1.x86_64.rpm
-COPY oracle/instantclient/$ORA_INSTANTCLIENT_BASIC_RPM project/$ORA_INSTANTCLIENT_BASIC_RPM
-COPY oracle/instantclient/$ORA_INSTANTCLIENT_SQLPLUS_RPM project/$ORA_INSTANTCLIENT_SQLPLUS_RPM
-RUN rpm -i project/$ORA_INSTANTCLIENT_BASIC_RPM
-RUN rpm -i project/$ORA_INSTANTCLIENT_SQLPLUS_RPM
-
 
 # -----------------
 # BUILD
@@ -52,8 +43,6 @@ ARG PROXY_HOSTNAME=localhost
 
 ENV proxy_hostname ${PROXY_HOSTNAME}
 
-COPY shots/ /shots/
-COPY tns/ /opt/tns/
 COPY bin/sbt* bin/
 
 # Copy just build.properties to specify the version of sbt desired.
@@ -90,12 +79,11 @@ RUN curl -#sL "https://github.com/grpc/grpc-java/archive/v$GRPC_JAVA_VERSION.tar
   && rm -rf /usr/local/grpc-java-$GRPC_JAVA_VERSION
 
 COPY src/main/resources/ src/main/resources/
-COPY tns/ /opt/tns/
-COPY lib/ lib/
 COPY src/main/slice/ src/main/slice/
 COPY src/main/proto/ src/main/proto/
 COPY src/main/java/ src/main/java/
 RUN bin/sbt compile
+
 
 # -----------------
 # TEST
@@ -103,11 +91,8 @@ RUN bin/sbt compile
 FROM build as test
 
 ARG build_env
-ARG cuebot_db_tns=oraxetest
-ARG cuebot_db_sys_pwd=foobar32
 
-ENV CUEBOT_DB_TNS=$cuebot_db_tns
-ENV CUEBOT_DB_SYS_PWD=$cuebot_db_sys_pwd
+ENV CUEBOT_DB_ENGINE=postgres
 
 COPY src/test/ src/test/
 
@@ -127,9 +112,7 @@ RUN bin/sbt pack
 # -----------------
 # RUN
 # -----------------
-# TODO(cipriano) Switch back to using base image as it does not contain source code.
-# This is only needed because we need to run unit tests to populate the cuebot db.
-FROM test
+FROM base
 
 WORKDIR /opt/cue3
 
@@ -140,14 +123,9 @@ RUN yum install -y \
       ice-all-devel \
     && yum clean all
 
-COPY tns/ /opt/tns/
-COPY shots/ /shots/
 COPY bin/check_ice.py check_ice.py
 
 COPY --from=package /src/target/pack/ /opt/cue3/
-
-# TODO(cipriano) Remove this, once prod db is populated some other way.
-COPY populate_db_and_start_cuebot.sh /opt/cue3/
 
 HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
@@ -164,3 +142,4 @@ EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
 ENTRYPOINT ["bin/cuebot"]
+
