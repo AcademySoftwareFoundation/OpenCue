@@ -27,18 +27,18 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.Entity;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
 
-    public static final RowMapper<Owner>
-        OWNER_MAPPER = new RowMapper<Owner>() {
-            public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Owner o = new Owner();
+    public static final RowMapper<OwnerEntity>
+        OWNER_MAPPER = new RowMapper<OwnerEntity>() {
+            public OwnerEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                OwnerEntity o = new OwnerEntity();
                 o.id = rs.getString("pk_owner");
                 o.name = rs.getString("str_username");
                 return o;
@@ -60,7 +60,7 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
             "owner ";
 
     @Override
-    public Owner findOwner(String name) {
+    public OwnerEntity findOwner(String name) {
         try {
             return getJdbcTemplate().queryForObject(
                     QUERY_FOR_OWNER + " WHERE str_username = ?",
@@ -72,14 +72,14 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
     }
 
     @Override
-    public Owner getOwner(String id) {
+    public OwnerEntity getOwner(String id) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_OWNER + " WHERE pk_owner = ?",
                 OWNER_MAPPER, id);
     }
 
     @Override
-    public Owner getOwner(Host host) {
+    public OwnerEntity getOwner(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_OWNER +
                 "WHERE " +
@@ -93,7 +93,7 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
                 OWNER_MAPPER, host.getHostId());
     }
 
-    public boolean isOwner(Owner owner, Host host) {
+    public boolean isOwner(OwnerEntity owner, HostInterface host) {
         return  getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host, deed" +
                 " WHERE host.pk_host = deed.pk_host AND deed.pk_owner=?",
@@ -111,14 +111,14 @@ public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
         "VALUES (?,?,?)";
 
     @Override
-    public void insertOwner(Owner owner, Show show) {
+    public void insertOwner(OwnerEntity owner, ShowInterface show) {
         owner.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_OWNER,
                 owner.id, show.getShowId(), owner.name);
     }
 
     @Override
-    public void updateShow(Entity owner, Show show) {
+    public void updateShow(Entity owner, ShowInterface show) {
         getJdbcTemplate().update(
                 "UPDATE owner SET pk_show = ? WHERE pk_owner = ?",
                 show.getShowId(), owner.getId());

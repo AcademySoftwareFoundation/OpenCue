@@ -19,33 +19,30 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
-import com.imageworks.spcue.AllocationEntity;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.FrameDao;
@@ -59,6 +56,10 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -138,7 +139,7 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     @Transactional
     @Rollback(true)
     public void setAllocation() {
-        Host h = createHost();
+        HostInterface h = createHost();
         hostManager.setAllocation(h,
                 allocationDao.findAllocationEntity("spi", "general"));
     }
@@ -167,10 +168,6 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         proc.frameId = frame.id;
         procDao.insertVirtualProc(proc);
 
-        jdbcTemplate.queryForObject(
-                "SELECT int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?",
-                Integer.class, job.getShowId(), ad.getAllocationId());
-
         AllocationEntity ad2 = allocationDao.findAllocationEntity("spi", "desktop");
         hostManager.setAllocation(h, ad2);
     }
@@ -181,12 +178,12 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
     public void testGetPrefferedShow() {
         DispatchHost h = createHost();
 
-        Show pshow = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("spongebob", pshow);
+        ShowInterface pshow = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("spongebob", pshow);
 
         ownerManager.takeOwnership(o, h);
 
-        Show show = hostManager.getPreferredShow(h);
+        ShowInterface show = hostManager.getPreferredShow(h);
         assertEquals(pshow, show);
     }
 
@@ -198,12 +195,12 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
 
         assertFalse(hostManager.isPreferShow(h));
 
-        Show pshow = adminManager.findShowDetail("pipe");
-        Owner o = ownerManager.createOwner("spongebob", pshow);
+        ShowInterface pshow = adminManager.findShowEntity("pipe");
+        OwnerEntity o = ownerManager.createOwner("spongebob", pshow);
 
         ownerManager.takeOwnership(o, h);
 
-        Show show = hostManager.getPreferredShow(h);
+        ShowInterface show = hostManager.getPreferredShow(h);
         assertEquals(pshow, show);
 
         assertTrue(hostManager.isPreferShow(h));

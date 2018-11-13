@@ -19,26 +19,26 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.service.JobManagerSupport;
 
 public class DispatchStaggerFrames implements Runnable {
 
-    private Job job = null;
-    private Layer layer = null;
+    private JobInterface job = null;
+    private LayerInterface layer = null;
     private String range;
     private int stagger;
     private JobManagerSupport jobManagerSupport;
 
-    public DispatchStaggerFrames(Job job, String range, int stagger, JobManagerSupport jobManagerSupport) {
+    public DispatchStaggerFrames(JobInterface job, String range, int stagger, JobManagerSupport jobManagerSupport) {
         this.job = job;
         this.range = range;
         this.stagger = stagger;
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchStaggerFrames(Layer layer, String range, int stagger, JobManagerSupport jobManagerSupport) {
+    public DispatchStaggerFrames(LayerInterface layer, String range, int stagger, JobManagerSupport jobManagerSupport) {
         this.layer = layer;
         this.range = range;
         this.stagger = stagger;

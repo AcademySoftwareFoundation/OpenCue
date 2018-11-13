@@ -25,15 +25,15 @@ import java.sql.SQLException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Department;
 import com.imageworks.spcue.DepartmentEntity;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class DepartmentDaoJdbc extends JdbcDaoSupport implements DepartmentDao {
 
-    public static final RowMapper<Department> DEPARTMENT_MAPPER = new RowMapper<Department>() {
-        public Department mapRow(ResultSet rs, int rowNum) throws SQLException {
+    public static final RowMapper<DepartmentInterface> DEPARTMENT_MAPPER = new RowMapper<DepartmentInterface>() {
+        public DepartmentInterface mapRow(ResultSet rs, int rowNum) throws SQLException {
             DepartmentEntity d = new DepartmentEntity();
             d.id = rs.getString("pk_dept");
             d.name = rs.getString("str_name");
@@ -49,28 +49,28 @@ public class DepartmentDaoJdbc extends JdbcDaoSupport implements DepartmentDao {
     }
 
     @Override
-    public Department findDepartment(String name) {
+    public DepartmentInterface findDepartment(String name) {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_dept, str_name FROM dept WHERE str_name=?",
                 DEPARTMENT_MAPPER, name);
     }
 
     @Override
-    public Department getDefaultDepartment() {
+    public DepartmentInterface getDefaultDepartment() {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_dept, str_name FROM dept WHERE b_default=true",
                 DEPARTMENT_MAPPER);
     }
 
     @Override
-    public Department getDepartment(String id) {
+    public DepartmentInterface getDepartment(String id) {
         return getJdbcTemplate().queryForObject(
                 "SELECT pk_dept, str_name FROM dept WHERE pk_dept=?",
                 DEPARTMENT_MAPPER, id);
     }
 
     @Override
-    public void deleteDepartment(Department d) {
+    public void deleteDepartment(DepartmentInterface d) {
         getJdbcTemplate().update("DELETE FROM dept WHERE pk_dept=?",
                 d.getDepartmentId());
     }

@@ -338,7 +338,7 @@ public abstract class Criteria {
     }
 
     public void setFirstResult(int firstResult) {
-        this.firstResult = firstResult;
+        this.firstResult = Math.max(firstResult, 1);
     }
 
     public void setMaxResults(int maxResults) {

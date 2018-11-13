@@ -19,10 +19,11 @@
 
 package com.imageworks.spcue.dao;
 
-import java.util.List;
 
-import com.imageworks.spcue.CueClientIce.NestedGroup;
-import com.imageworks.spcue.CueClientIce.NestedHost;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.host.NestedHostSeq;
+import com.imageworks.spcue.grpc.job.NestedGroup;
+
 
 /**
  * A DAO for nested data structures being returned to the client.
@@ -37,14 +38,14 @@ public interface NestedWhiteboardDao {
      * @param show
      * @return
      */
-    NestedGroup getJobWhiteboard(com.imageworks.spcue.Show show);
+    NestedGroup getJobWhiteboard(ShowInterface show);
 
     /**
      * get a list of hosts
      *
      * @return List<Host>
      */
-    List<NestedHost> getHostWhiteboard();
+    NestedHostSeq getHostWhiteboard();
 
 }
 

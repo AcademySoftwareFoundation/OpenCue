@@ -26,14 +26,25 @@ import java.util.List;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
 import com.imageworks.spcue.dao.DependDao;
-import com.imageworks.spcue.depend.*;
+import com.imageworks.spcue.depend.DependException;
+import com.imageworks.spcue.depend.FrameByFrame;
+import com.imageworks.spcue.depend.FrameOnFrame;
+import com.imageworks.spcue.depend.FrameOnJob;
+import com.imageworks.spcue.depend.FrameOnLayer;
+import com.imageworks.spcue.depend.JobOnFrame;
+import com.imageworks.spcue.depend.JobOnJob;
+import com.imageworks.spcue.depend.JobOnLayer;
+import com.imageworks.spcue.depend.LayerOnFrame;
+import com.imageworks.spcue.depend.LayerOnJob;
+import com.imageworks.spcue.depend.LayerOnLayer;
+import com.imageworks.spcue.depend.PreviousFrame;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
@@ -90,7 +101,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnJob().getJobId(),
                 null,
                 null,
-                DependType.JobOnJob.toString(),
+                DependType.JOB_ON_JOB.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -110,7 +121,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnLayer().getJobId(),
                 d.getDependOnLayer().getLayerId(),
                 null,
-                DependType.JobOnLayer.toString(),
+                DependType.JOB_ON_LAYER.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -130,7 +141,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnFrame().getJobId(),
                 d.getDependOnFrame().getLayerId(),
                 d.getDependOnFrame().getFrameId(),
-                DependType.JobOnFrame.toString(),
+                DependType.JOB_ON_FRAME.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -150,7 +161,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnJob().getJobId(),
                 null,
                 null,
-                DependType.LayerOnJob.toString(),
+                DependType.LAYER_ON_JOB.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -170,7 +181,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnLayer().getJobId(),
                 d.getDependOnLayer().getLayerId(),
                 null,
-                DependType.LayerOnLayer.toString(),
+                DependType.LAYER_ON_LAYER.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -190,7 +201,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnFrame().getJobId(),
                 d.getDependOnFrame().getLayerId(),
                 d.getDependOnFrame().getFrameId(),
-                DependType.LayerOnFrame.toString(),
+                DependType.LAYER_ON_FRAME.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -210,7 +221,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnJob().getJobId(),
                 null,
                 null,
-                DependType.FrameOnJob.toString(),
+                DependType.FRAME_ON_JOB.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -230,7 +241,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnLayer().getJobId(),
                 d.getDependOnLayer().getLayerId(),
                 null,
-                DependType.FrameOnLayer.toString(),
+                DependType.FRAME_ON_LAYER.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -250,7 +261,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnLayer().getJobId(),
                 d.getDependOnLayer().getLayerId(),
                 null,
-                DependType.PreviousFrame.toString(),
+                DependType.PREVIOUS_FRAME.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -275,7 +286,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnFrame().getJobId(),
                 d.getDependOnFrame().getLayerId(),
                 d.getDependOnFrame().getFrameId(),
-                DependType.FrameOnFrame.toString(),
+                DependType.FRAME_ON_FRAME.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -295,7 +306,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
                 d.getDependOnLayer().getJobId(),
                 d.getDependOnLayer().getLayerId(),
                 null,
-                DependType.FrameByFrame.toString(),
+                DependType.FRAME_BY_FRAME.toString(),
                 d.isAnyFrame(),
                 d.getTarget().toString(),
                 d.isActive(),
@@ -307,16 +318,16 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
         "UPDATE " +
             "frame " +
         "SET " +
-            "str_state='Depend' " +
+            "str_state='DEPEND' " +
         "WHERE " +
             "int_depend_count != 0 " +
         "AND " +
-             "frame.str_state NOT IN ('Succeeded','Eaten','Running','Depend') " +
+             "frame.str_state NOT IN ('SUCCEEDED','EATEN','RUNNING','DEPEND') " +
         "AND " +
             "frame.pk_frame = ?";
 
     @Override
-    public void updateFrameState(Frame f) {
+    public void updateFrameState(FrameInterface f) {
         getJdbcTemplate().update(UPDATE_FRAME_STATE,
                 f.getFrameId());
     }
@@ -330,7 +341,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "pk_frame = ?";
 
     @Override
-    public void incrementDependCount(Frame f) {
+    public void incrementDependCount(FrameInterface f) {
         int result = getJdbcTemplate().update(UPDATE_DEPEND_COUNT,
                 f.getFrameId());
         if (result == 0) {
@@ -351,7 +362,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "int_depend_count > 0";
 
     @Override
-    public boolean decrementDependCount(Frame f) {
+    public boolean decrementDependCount(FrameInterface f) {
         return getJdbcTemplate().update(DECREMENT_DEPEND_COUNT,
                 f.getFrameId()) == 1;
     }
@@ -363,7 +374,7 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
 
     @Override
     public void deleteDepend(LightweightDependency depend) {
-        if (depend.type.equals(DependType.FrameByFrame)) {
+        if (depend.type.equals(DependType.FRAME_BY_FRAME)) {
             getJdbcTemplate().update(DELETE_DEPEND[0], depend.getId());
         }
         getJdbcTemplate().update(DELETE_DEPEND[1], depend.getId());
@@ -413,12 +424,12 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "str_type IN (?,?,?)";
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Job job) {
+    public List<LightweightDependency> getWhatDependsOn(JobInterface job) {
         return getJdbcTemplate().query(GET_WHAT_DEPENDS_ON_JOB,
                 DEPEND_MAPPER, job.getJobId(),
-                DependType.JobOnJob.toString(),
-                DependType.LayerOnJob.toString(),
-                DependType.FrameOnJob.toString());
+                DependType.JOB_ON_JOB.toString(),
+                DependType.LAYER_ON_JOB.toString(),
+                DependType.FRAME_ON_JOB.toString());
     }
 
     private static final String GET_WHAT_DEPENDS_ON_JOB_WITH_TARGET =
@@ -447,16 +458,16 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "str_type IN (?,?,?)";
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Job job, DependTarget target) {
-        if (target.equals(DependTarget.AnyTarget)) {
+    public List<LightweightDependency> getWhatDependsOn(JobInterface job, DependTarget target) {
+        if (target.equals(DependTarget.ANY_TARGET)) {
             return getWhatDependsOn(job);
         }
         else {
             return getJdbcTemplate().query(GET_WHAT_DEPENDS_ON_JOB_WITH_TARGET,
                     DEPEND_MAPPER, job.getJobId(), target.toString(),
-                    DependType.JobOnJob.toString(),
-                    DependType.LayerOnJob.toString(),
-                    DependType.FrameOnJob.toString());
+                    DependType.JOB_ON_JOB.toString(),
+                    DependType.LAYER_ON_JOB.toString(),
+                    DependType.FRAME_ON_JOB.toString());
         }
     }
 
@@ -486,22 +497,22 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "b_active = ?";
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Layer layer) {
+    public List<LightweightDependency> getWhatDependsOn(LayerInterface layer) {
         return getJdbcTemplate().query(GET_WHAT_DEPENDS_ON_LAYER,
                 DEPEND_MAPPER, layer.getJobId(), layer.getLayerId(),
-                DependType.JobOnLayer.toString(),
-                DependType.LayerOnLayer.toString(),
-                DependType.FrameOnLayer.toString(),
+                DependType.JOB_ON_LAYER.toString(),
+                DependType.LAYER_ON_LAYER.toString(),
+                DependType.FRAME_ON_LAYER.toString(),
                 true);
     }
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Layer layer, boolean active) {
+    public List<LightweightDependency> getWhatDependsOn(LayerInterface layer, boolean active) {
         return getJdbcTemplate().query(GET_WHAT_DEPENDS_ON_LAYER,
                 DEPEND_MAPPER, layer.getJobId(), layer.getLayerId(),
-                DependType.JobOnLayer.toString(),
-                DependType.LayerOnLayer.toString(),
-                DependType.FrameOnLayer.toString(),
+                DependType.JOB_ON_LAYER.toString(),
+                DependType.LAYER_ON_LAYER.toString(),
+                DependType.FRAME_ON_LAYER.toString(),
                 active);
     }
 
@@ -534,19 +545,19 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "(pk_layer_depend_on = ? AND str_type = ? AND b_any = 1)";
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Frame frame) {
+    public List<LightweightDependency> getWhatDependsOn(FrameInterface frame) {
         return getWhatDependsOn(frame, true);
     }
 
     @Override
-    public List<LightweightDependency> getWhatDependsOn(Frame frame, boolean active) {
+    public List<LightweightDependency> getWhatDependsOn(FrameInterface frame, boolean active) {
         return getJdbcTemplate().query(GET_WHAT_DEPENDS_ON_FRAME,
                 DEPEND_MAPPER, active, frame.getJobId(), frame.getFrameId(),
-                DependType.FrameOnFrame.toString(),
-                DependType.LayerOnFrame.toString(),
-                DependType.JobOnFrame.toString(),
+                DependType.FRAME_ON_FRAME.toString(),
+                DependType.LAYER_ON_FRAME.toString(),
+                DependType.JOB_ON_FRAME.toString(),
                 frame.getLayerId(),
-                DependType.LayerOnLayer.toString());
+                DependType.LAYER_ON_LAYER.toString());
     }
 
     private static final String SET_INACTIVE =
@@ -581,8 +592,8 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
 
     @Override
     public boolean setActive(LightweightDependency depend) {
-        if (!depend.type.equals(DependType.FrameOnFrame)
-                && !depend.type.equals(DependType.LayerOnLayer)) {
+        if (!depend.type.equals(DependType.FRAME_ON_FRAME)
+                && !depend.type.equals(DependType.LAYER_ON_LAYER)) {
                return false;
         }
         depend.active = getJdbcTemplate().update(
@@ -645,10 +656,10 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "depend.pk_parent IS NULL ";
 
     @Override
-    public List<LightweightDependency> getWhatThisDependsOn(Job job, DependTarget target) {
+    public List<LightweightDependency> getWhatThisDependsOn(JobInterface job, DependTarget target) {
         String query = GET_WHAT_THIS_JOB_DEPENDS_ON;
         Object[] values = new Object[] { job.getJobId() };
-        if (!target.equals(DependTarget.AnyTarget)) {
+        if (!target.equals(DependTarget.ANY_TARGET)) {
             query = query + " AND depend.str_target = ?";
             values = new Object[] { job.getJobId(), target.toString() };
         }
@@ -682,19 +693,19 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "depend.str_type IN (?,?,?,?) ";
 
     @Override
-    public List<LightweightDependency> getWhatThisDependsOn(Layer layer, DependTarget target) {
-        if (!target.equals(DependTarget.AnyTarget)) {
+    public List<LightweightDependency> getWhatThisDependsOn(LayerInterface layer, DependTarget target) {
+        if (!target.equals(DependTarget.ANY_TARGET)) {
             String query = GET_WHAT_THIS_LAYER_DEPENDS_ON + " AND str_target = ?";
             return getJdbcTemplate().query(query, DEPEND_MAPPER,
-                    layer.getLayerId(), DependType.LayerOnJob.toString(),
-                    DependType.LayerOnLayer.toString(), DependType.LayerOnFrame.toString(),
-                    DependType.FrameByFrame.toString(), target.toString());
+                    layer.getLayerId(), DependType.LAYER_ON_JOB.toString(),
+                    DependType.LAYER_ON_LAYER.toString(), DependType.LAYER_ON_FRAME.toString(),
+                    DependType.FRAME_BY_FRAME.toString(), target.toString());
         }
         else {
             return getJdbcTemplate().query(GET_WHAT_THIS_LAYER_DEPENDS_ON, DEPEND_MAPPER,
-                    layer.getLayerId(), DependType.LayerOnJob.toString(),
-                    DependType.LayerOnLayer.toString(), DependType.LayerOnFrame.toString(),
-                    DependType.FrameByFrame.toString());
+                    layer.getLayerId(), DependType.LAYER_ON_JOB.toString(),
+                    DependType.LAYER_ON_LAYER.toString(), DependType.LAYER_ON_FRAME.toString(),
+                    DependType.FRAME_BY_FRAME.toString());
         }
     }
 
@@ -722,18 +733,18 @@ public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
             "depend.str_type IN (?,?,?) ";
 
     @Override
-    public List<LightweightDependency> getWhatThisDependsOn(Frame frame, DependTarget target) {
-        if (!target.equals(DependTarget.AnyTarget)) {
+    public List<LightweightDependency> getWhatThisDependsOn(FrameInterface frame, DependTarget target) {
+        if (!target.equals(DependTarget.ANY_TARGET)) {
             String query = GET_WHAT_THIS_FRAME_DEPENDS_ON + " AND depend.str_target = ?";
             return getJdbcTemplate().query(query, DEPEND_MAPPER,
-                    frame.getFrameId(), DependType.FrameOnJob.toString(),
-                    DependType.FrameOnLayer.toString(), DependType.FrameOnFrame.toString(),
+                    frame.getFrameId(), DependType.FRAME_ON_JOB.toString(),
+                    DependType.FRAME_ON_LAYER.toString(), DependType.FRAME_ON_FRAME.toString(),
                     target.toString());
         }
         else {
             return getJdbcTemplate().query(GET_WHAT_THIS_FRAME_DEPENDS_ON, DEPEND_MAPPER,
-                    frame.getFrameId(), DependType.FrameOnJob.toString(),
-                    DependType.FrameOnLayer.toString(), DependType.FrameOnFrame.toString());
+                    frame.getFrameId(), DependType.FRAME_ON_JOB.toString(),
+                    DependType.FRAME_ON_LAYER.toString(), DependType.FRAME_ON_FRAME.toString());
         }
     }
 }

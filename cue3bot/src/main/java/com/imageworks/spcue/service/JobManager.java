@@ -25,18 +25,18 @@ import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
-import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ThreadStats;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.CueIce.Order;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.util.FrameSet;
 
 /**
@@ -51,7 +51,7 @@ public interface JobManager {
      * @param job
      * @param paused
      */
-    void setJobPaused(Job job, boolean paused);
+    void setJobPaused(JobInterface job, boolean paused);
 
     /**
      *
@@ -82,7 +82,7 @@ public interface JobManager {
      *
      * @return
      */
-    boolean isJobComplete(Job job);
+    boolean isJobComplete(JobInterface job);
 
     /**
      * Returns true if the layer is complete.
@@ -90,7 +90,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    boolean isLayerComplete(Layer layer);
+    boolean isLayerComplete(LayerInterface layer);
 
     /**
      * Launches a job spec.
@@ -113,7 +113,7 @@ public interface JobManager {
      *
      * @param JobDetail job
      */
-    void removeJob(Job job);
+    void removeJob(JobInterface job);
 
     /**
      * Shutting down a job will signal RQD to kill all frames
@@ -124,7 +124,7 @@ public interface JobManager {
      *
      * @param JobDetail job
      */
-    boolean shutdownJob(Job job);
+    boolean shutdownJob(JobInterface job);
 
     /**
      * Finds and active job by name.
@@ -140,7 +140,7 @@ public interface JobManager {
      * @param String name
      * @return JobDetail
      */
-    Job findJob(String name);
+    JobInterface findJob(String name);
 
     /**
      * Gets an active job by ID.
@@ -156,7 +156,7 @@ public interface JobManager {
      * @param id
      * @return
      */
-    Job getJob(String id);
+    JobInterface getJob(String id);
 
     /**
      *
@@ -171,7 +171,7 @@ public interface JobManager {
     * @param id
     * @return LayerDetail
     */
-   Layer getLayer(String id);
+   LayerInterface getLayer(String id);
 
     /**
      *
@@ -186,7 +186,7 @@ public interface JobManager {
      * @param id
      * @return
      */
-    Frame getFrame(String id);
+    FrameInterface getFrame(String id);
 
     /**
      * Marks a specific frame as waiting, setting its dependency
@@ -195,7 +195,7 @@ public interface JobManager {
      *
      * @param frame
      */
-    public void markFrameAsWaiting(Frame frame);
+    public void markFrameAsWaiting(FrameInterface frame);
 
     /**
      * Marks a specific frame as Depend if the frame has
@@ -205,7 +205,7 @@ public interface JobManager {
      *
      * @param frame
      */
-    public void markFrameAsDepend(Frame frame);
+    public void markFrameAsDepend(FrameInterface frame);
 
     /**
      * Return the result of the given FrameSearch.
@@ -214,7 +214,7 @@ public interface JobManager {
      * @param r
      * @return
      */
-    public List<Frame> findFrames(FrameSearch r);
+    public List<FrameInterface> findFrames(FrameSearch r);
 
     /**
      * Updates specified frame to new state.
@@ -222,7 +222,7 @@ public interface JobManager {
      * @param frame
      * @param state
      */
-    public void updateFrameState(Frame frame, FrameState state);
+    public void updateFrameState(FrameInterface frame, FrameState state);
 
     /**
      * Reorders the specified layer.
@@ -230,14 +230,14 @@ public interface JobManager {
      * @param job
      * @param frameSet
      */
-    public void reorderLayer(Layer layer, FrameSet frameSet, Order order);
+    public void reorderLayer(LayerInterface layer, FrameSet frameSet, Order order);
 
     /**
      *
      * @param layer
      * @param frameSet
      */
-    public void staggerLayer(Layer layer, String range, int stagger);
+    public void staggerLayer(LayerInterface layer, String range, int stagger);
 
     /**
      * Returns all of the layers for the specified job
@@ -245,7 +245,7 @@ public interface JobManager {
      * @param job
      * @return
      */
-    public List<Layer> getLayers(Job job);
+    public List<LayerInterface> getLayers(JobInterface job);
 
     /**
      * Returns all of the layers for the specified job
@@ -253,7 +253,7 @@ public interface JobManager {
      * @param job
      * @return
      */
-    public List<LayerDetail> getLayerDetails(Job job);
+    public List<LayerDetail> getLayerDetails(JobInterface job);
 
     /**
      * Creates the job log directory.  The JobDetail object
@@ -271,7 +271,7 @@ public interface JobManager {
      * @param maxRss
      * @param runTime
      */
-    void optimizeLayer(Layer layer, int cores, long maxRss, int runTime);
+    void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime);
 
     /**
      * Return true if the given job is booked greater than min cores.
@@ -279,7 +279,7 @@ public interface JobManager {
      * @param job
      * @return
      */
-    boolean isOverMinCores(Job job);
+    boolean isOverMinCores(JobInterface job);
 
     /**
      * Increase the layer memory requirement to given KB value.
@@ -287,7 +287,7 @@ public interface JobManager {
      * @param layer
      * @param memKb
      */
-    void increaseLayerMemoryRequirement(Layer layer, long memKb);
+    void increaseLayerMemoryRequirement(LayerInterface layer, long memKb);
 
     /**
      * Appends a tag to a layer's existing tags.
@@ -295,7 +295,7 @@ public interface JobManager {
      * @param layer
      * @param tag
      */
-    void appendLayerTag(Layer layer, String tag);
+    void appendLayerTag(LayerInterface layer, String tag);
 
     /**
      * Replace all existing tags with the specified tag.
@@ -303,7 +303,7 @@ public interface JobManager {
      * @param layer
      * @param tag
      */
-    void setLayerTag(Layer layer, String tag);
+    void setLayerTag(LayerInterface layer, String tag);
 
     /**
      * Return true if the given layer is threadable.
@@ -311,12 +311,12 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    boolean isLayerThreadable(Layer layer);
+    boolean isLayerThreadable(LayerInterface layer);
 
     /**
      * Enable or disable the layer memory optimizer.
      */
-    void enableMemoryOptimizer(Layer layer, boolean state);
+    void enableMemoryOptimizer(LayerInterface layer, boolean state);
 
     /**
      * Return the frame for the given layer and frame number.
@@ -325,49 +325,49 @@ public interface JobManager {
      * @param number
      * @return
      */
-    Frame findFrame(Layer layer, int number);
+    FrameInterface findFrame(LayerInterface layer, int number);
 
     /**
      *
      * @param job
      * @return
      */
-    FrameDetail findLongestFrame(Job job);
+    FrameDetail findLongestFrame(JobInterface job);
 
     /**
      *
      * @param job
      * @return
      */
-    FrameDetail findShortestFrame(Job job);
+    FrameDetail findShortestFrame(JobInterface job);
 
     /**
      *
      * @param job
      * @return
      */
-    FrameStateTotals getFrameStateTotals(Job job);
+    FrameStateTotals getFrameStateTotals(JobInterface job);
 
     /**
      *
      * @param job
      * @return
      */
-    ExecutionSummary getExecutionSummary(Job job);
+    ExecutionSummary getExecutionSummary(JobInterface job);
 
     /**
      *
      * @param job
      * @return
      */
-    FrameDetail findHighestMemoryFrame(Job job);
+    FrameDetail findHighestMemoryFrame(JobInterface job);
 
     /**
      *
      * @param job
      * @return
      */
-    FrameDetail findLowestMemoryFrame(Job job);
+    FrameDetail findLowestMemoryFrame(JobInterface job);
 
     /**
      * Return the frame state totals by layer.
@@ -375,7 +375,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    FrameStateTotals getFrameStateTotals(Layer layer);
+    FrameStateTotals getFrameStateTotals(LayerInterface layer);
 
     /**
      * Return the execution summary by layer.
@@ -383,7 +383,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    ExecutionSummary getExecutionSummary(Layer layer);
+    ExecutionSummary getExecutionSummary(LayerInterface layer);
 
     /**
      * Update the checkpoint state for the given frame.
@@ -391,7 +391,7 @@ public interface JobManager {
      * @param frame
      * @param state
      */
-    void updateCheckpointState(Frame frame, CheckpointState state);
+    void updateCheckpointState(FrameInterface frame, CheckpointState state);
 
     /**
      * Return a list of frames that failed to checkpoint within
@@ -400,7 +400,7 @@ public interface JobManager {
      * @param cutoffTimeMs
      * @return
      */
-    List<Frame> getStaleCheckpoints(int cutoffTimeSec);
+    List<FrameInterface> getStaleCheckpoints(int cutoffTimeSec);
 
     /**
      * Return a list of registered layer outputs.
@@ -408,7 +408,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    List<String> getLayerOutputs(Layer layer);
+    List<String> getLayerOutputs(LayerInterface layer);
 
     /**
      * Register layer output.
@@ -416,7 +416,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    void registerLayerOutput(Layer layer, String filespec);
+    void registerLayerOutput(LayerInterface layer, String filespec);
 
     /**
      * Return thread stats for the given layer.
@@ -424,7 +424,7 @@ public interface JobManager {
      * @param layer
      * @return
      */
-    List<ThreadStats> getThreadStats(Layer layer);
+    List<ThreadStats> getThreadStats(LayerInterface layer);
 
     /**
      * Update the max core value for the given layer.
@@ -432,7 +432,7 @@ public interface JobManager {
      * @param layer
      * @param coreUnits
      */
-    void setLayerMaxCores(Layer layer, int coreUnits);
+    void setLayerMaxCores(LayerInterface layer, int coreUnits);
 
     /**
      * Update the min core value for the given layer.
@@ -440,6 +440,6 @@ public interface JobManager {
      * @param layer
      * @param coreUnits
      */
-    void setLayerMinCores(Layer layer, int coreUnits);
+    void setLayerMinCores(LayerInterface layer, int coreUnits);
 }
 

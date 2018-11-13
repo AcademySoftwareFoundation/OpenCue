@@ -16,16 +16,10 @@
  */
 
 
-
 package com.imageworks.spcue.test.dispatcher;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -35,25 +29,26 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.BookingDao;
-import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.BookingManager;
-import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+
 
 @ContextConfiguration
 public class LocalDispatcherTests extends TransactionalTest {
@@ -71,22 +66,10 @@ public class LocalDispatcherTests extends TransactionalTest {
     AdminManager adminManager;
 
     @Resource
-    GroupManager groupManager;
-
-    @Resource
     Dispatcher localDispatcher;
 
     @Resource
-    DispatchSupport dispatchSupport;
-
-    @Resource
-    FrameDao frameDao;
-
-    @Resource
     BookingManager bookingManager;
-
-    @Resource
-    BookingDao bookingDao;
 
     private static final String HOSTNAME = "beta";
 
@@ -168,24 +151,16 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check to ensure the procs are marked as local.
          */
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(0).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(1).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check to ensure the right job was booked.
          */
-        assertEquals(job.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
-
-        assertEquals(job.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM proc WHERE pk_proc=?",
-                String.class, procs.get(1).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.jobId.equals(job.getId())));
     }
 
     @Test
@@ -194,7 +169,7 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostAutoDetectLayer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, layer, lba);
@@ -208,32 +183,16 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(0).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(1).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(2).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check that they are all frame the same layer.
          */
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
-
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(1).getId()));
-
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(2).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.layerId.equals(layer.getId())));
 
     }
 
@@ -243,13 +202,13 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostAutoDetectFrame() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host);
 
         /*
          * Should always be 1 or 0, in this case it should be 1.
@@ -259,9 +218,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check the frame id.
          */
-        assertEquals(frame.getFrameId(), jdbcTemplate.queryForObject(
-                "SELECT pk_frame FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
+        assertEquals(frame.getFrameId(), procs.get(0).frameId);
     }
 
     @Test
@@ -274,31 +231,23 @@ public class LocalDispatcherTests extends TransactionalTest {
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, job, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host, job);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host, job);
 
         // Should have 2 procs.
         assertEquals(2, procs.size());
         assertTrue(bookingManager.hasActiveLocalFrames(host));
 
         // Check that they are local.
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(0).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(1).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check to ensure the right job was booked.
          */
-        assertEquals(job.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
-
-        assertEquals(job.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM proc WHERE pk_proc=?",
-                String.class, procs.get(1).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.jobId.equals(job.getId())));
     }
 
     @Test
@@ -307,12 +256,12 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalLayer() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
 
         LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, layer, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host, layer);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host, layer);
 
         // Should have 2 procs.
         assertEquals(3, procs.size());
@@ -321,32 +270,16 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check that they are all marked local.
          */
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(0).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(1).getId()));
-
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(2).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.isLocalDispatch));
 
         /*
          * Check that they are all frame the same layer.
          */
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
-
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(1).getId()));
-
-        assertEquals(layer.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_layer FROM proc WHERE pk_proc=?",
-                String.class, procs.get(2).getId()));
+        assertTrue(procs
+                .stream()
+                .allMatch(proc -> proc.layerId.equals(layer.getId())));
 
     }
 
@@ -356,13 +289,13 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalFrame() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
-        List<VirtualProc> procs =  localDispatcher.dispatchHost(host, frame);
+        List<VirtualProc> procs = localDispatcher.dispatchHost(host, frame);
 
         /*
          * Should always be 1 or 0 procs, in this case 1.
@@ -372,9 +305,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         /*
          * Check the frame id.
          */
-        assertEquals(frame.getFrameId(), jdbcTemplate.queryForObject(
-                "SELECT pk_frame FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
+        assertEquals(frame.getFrameId(), procs.get(0).frameId);
     }
 
     @Test
@@ -383,8 +314,8 @@ public class LocalDispatcherTests extends TransactionalTest {
     public void testDispatchHostToLocalFrameTwice() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
-        Layer layer = jobManager.getLayers(job).get(0);
-        Frame frame = jobManager.findFrame(layer, 5);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
+        FrameInterface frame = jobManager.findFrame(layer, 5);
 
         LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(host, frame, lba);
@@ -424,15 +355,11 @@ public class LocalDispatcherTests extends TransactionalTest {
         assertTrue(bookingManager.hasActiveLocalFrames(host));
 
         // Check that they are local.
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_local FROM proc WHERE pk_proc=?",
-                Boolean.class, procs.get(0).getId()));
+        assertTrue(procs.get(0).isLocalDispatch);
         /*
          * Check to ensure the right job was booked.
          */
-        assertEquals(job.getId(), jdbcTemplate.queryForObject(
-                "SELECT pk_job FROM proc WHERE pk_proc=?",
-                String.class, procs.get(0).getId()));
+        assertEquals(job.getJobId(), procs.get(0).jobId);
 
         /*
          * Now, lower our min cores to create a deficit.

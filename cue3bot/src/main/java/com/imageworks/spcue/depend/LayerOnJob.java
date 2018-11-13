@@ -19,18 +19,18 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class LayerOnJob extends AbstractDepend implements Depend {
 
-    private final Layer dependErLayer;
-    private final Job dependOnJob;
+    private final LayerInterface dependErLayer;
+    private final JobInterface dependOnJob;
 
-    public LayerOnJob(Layer dependErLayer, Job dependOnJob) {
+    public LayerOnJob(LayerInterface dependErLayer, JobInterface dependOnJob) {
 
         if (dependErLayer.getJobId().equals(dependOnJob.getJobId())) {
             throw new DependException("A layer cannot depend on its own job.");
@@ -40,18 +40,18 @@ public class LayerOnJob extends AbstractDepend implements Depend {
         this.dependOnJob = dependOnJob;
     }
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Job getDependOnJob() {
+    public JobInterface getDependOnJob() {
         return dependOnJob;
     }
 
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.FrameByFrame.toString());
+        key.append(DependType.FRAME_BY_FRAME.toString());
         key.append(dependErLayer.getLayerId());
         key.append(dependOnJob.getJobId());
         return SqlUtil.genKeyByName(key.toString());
@@ -64,7 +64,7 @@ public class LayerOnJob extends AbstractDepend implements Depend {
 
     @Override
     public DependTarget getTarget() {
-        return DependTarget.External;
+        return DependTarget.EXTERNAL;
     }
 }
 

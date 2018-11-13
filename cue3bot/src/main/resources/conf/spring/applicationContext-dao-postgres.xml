@@ -63,12 +63,10 @@
     </bean>
 
     <bean id="whiteboardDao" class="com.imageworks.spcue.dao.postgres.WhiteboardDaoJdbc">
-        <constructor-arg index="0" ref="manageIceServer" />
         <property name="dataSource" ref="cue3DataSource" />
     </bean>
 
     <bean id="nestedWhiteboardDao" class="com.imageworks.spcue.dao.postgres.NestedWhiteboardDaoJdbc">
-        <constructor-arg index="0" ref="manageIceServer" />
         <property name="dataSource" ref="cue3DataSource" />
     </bean>
 

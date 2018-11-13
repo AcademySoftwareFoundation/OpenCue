@@ -21,13 +21,13 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.PointDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Task;
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.TaskInterface;
 
 public interface DepartmentManager {
 
@@ -47,7 +47,7 @@ public interface DepartmentManager {
      *
      * @param renderPoint
      */
-    public Point createDepartmentConfig(Show show, Department dept);
+    public PointInterface createDepartmentConfig(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns true if a render point configuration already exists
@@ -57,7 +57,7 @@ public interface DepartmentManager {
      * @param dept
      * @return
      */
-    public boolean departmentConfigExists(Show show, Department dept);
+    public boolean departmentConfigExists(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Creates a new task.  A task is for setting minimum procs
@@ -65,14 +65,14 @@ public interface DepartmentManager {
      *
      * @param t
      */
-    public void createTask(TaskDetail t);
+    public void createTask(TaskEntity t);
 
     /**
      * Removes the specified task
      *
      * @param t
      */
-    public void removeTask(Task t);
+    public void removeTask(TaskInterface t);
 
     /**
      * Returns task details
@@ -80,7 +80,7 @@ public interface DepartmentManager {
      * @param id
      * @return
      */
-    public TaskDetail getTaskDetail(String id);
+    public TaskEntity getTaskDetail(String id);
 
     /**
      * Sets the minimum core value for the specified task.  If the task is managed
@@ -90,7 +90,7 @@ public interface DepartmentManager {
      * @param t
      * @param value
      */
-    public void setMinCores(Task t, int coreUnits);
+    public void setMinCores(TaskInterface t, int coreUnits);
 
     /**
      * Sets the minimum core value for the specified task.  If the task is managed
@@ -100,7 +100,7 @@ public interface DepartmentManager {
      * @param t
      * @param value
      */
-    public void clearTaskAdjustments(Point rp);
+    public void clearTaskAdjustments(PointInterface rp);
 
     /**
      * Enables TI integration
@@ -109,21 +109,21 @@ public interface DepartmentManager {
      * @param tiTask
      * @param cores
      */
-    public void enableTiManaged(Point rp, String tiTask, int coreUnits);
+    public void enableTiManaged(PointInterface rp, String tiTask, int coreUnits);
 
     /**
      * Disables Track-It management
      *
      * @param rp
      */
-    public void disableTiManaged(Point rp);
+    public void disableTiManaged(PointInterface rp);
 
     /**
      * Updates TI Managed tasks and recalculates all of the min core values
      *
      * @param rp
      */
-    public void updateManagedTasks(Point rp);
+    public void updateManagedTasks(PointInterface rp);
 
     /**
      * Set the number of cores to normalize the proc point shots with.
@@ -131,7 +131,7 @@ public interface DepartmentManager {
      * @param cdept
      * @param cores
      */
-    public void setManagedCores(Point cdept, int coreUnits);
+    public void setManagedCores(PointInterface cdept, int coreUnits);
 
     /**
      * Returns a department configuration detail object from its id.
@@ -148,7 +148,7 @@ public interface DepartmentManager {
      * @param dept
      * @return
      */
-    PointDetail getDepartmentConfigDetail(Show show, Department dept);
+    PointDetail getDepartmentConfigDetail(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns a list of all managed point configurations.  Managed point
@@ -163,14 +163,14 @@ public interface DepartmentManager {
      *
      * @param cdept
      */
-    public void clearTasks(Point cdept);
+    public void clearTasks(PointInterface cdept);
 
     /**
      *  Clears all existing tasks for specified show and department
      * @param show
      * @param dept
      */
-    public void clearTasks(Show show, Department dept);
+    public void clearTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Updates the min proc value of all jobs that fall within
@@ -178,7 +178,7 @@ public interface DepartmentManager {
      *
      * @param TaskDetail the task to sync with
      */
-    void syncJobsWithTask(TaskDetail t);
+    void syncJobsWithTask(TaskEntity t);
 
     /**
      * Updates the min proc value of all jobs that fall within
@@ -186,7 +186,7 @@ public interface DepartmentManager {
      *
      * @param TaskDetail the task to sync with
      */
-    void syncJobsWithTask(Department d, String shot);
+    void syncJobsWithTask(DepartmentInterface d, String shot);
 
     /**
      * Updates the min proc value of all jobs that fall within
@@ -194,20 +194,20 @@ public interface DepartmentManager {
      *
      * @param TaskDetail the task to sync with
      */
-    void syncJobsWithTask(Job job);
+    void syncJobsWithTask(JobInterface job);
 
     /**
      * Returns true of the job is managed by a department manager.
      *
      * @param j
      */
-    boolean isManaged(Job j);
+    boolean isManaged(JobInterface j);
 
     /**
      *
      * @param t
      */
-    void clearTaskAdjustment(Task t);
+    void clearTaskAdjustment(TaskInterface t);
 
 
 }

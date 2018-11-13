@@ -19,11 +19,11 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.CueIce.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.service.DependManager;
 
 /**
@@ -33,26 +33,26 @@ import com.imageworks.spcue.service.DependManager;
  */
 public class DispatchDropDepends implements Runnable {
 
-    Job job;
-    Layer layer;
-    Frame frame;
+    JobInterface job;
+    LayerInterface layer;
+    FrameInterface frame;
 
     DependTarget target;
     DependManager dependManager;
 
-    public DispatchDropDepends(Job job, DependTarget target, DependManager dependManager) {
+    public DispatchDropDepends(JobInterface job, DependTarget target, DependManager dependManager) {
         this.job = job;
         this.target = target;
         this.dependManager = dependManager;
     }
 
-    public DispatchDropDepends(Layer layer, DependTarget target, DependManager dependManager) {
+    public DispatchDropDepends(LayerInterface layer, DependTarget target, DependManager dependManager) {
         this.layer = layer;
         this.target = target;
         this.dependManager = dependManager;
     }
 
-    public DispatchDropDepends(Frame frame, DependTarget target, DependManager dependManager) {
+    public DispatchDropDepends(FrameInterface frame, DependTarget target, DependManager dependManager) {
         this.frame = frame;
         this.target = target;
         this.dependManager = dependManager;

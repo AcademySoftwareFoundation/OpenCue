@@ -21,11 +21,11 @@ package com.imageworks.spcue.service;
 
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Deed;
+import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.Entity;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -39,8 +39,8 @@ public class OwnerManagerService implements OwnerManager {
     private HostDao hostDao;
 
     @Override
-    public Owner createOwner(String user, Show show) {
-        Owner owner = new Owner(user);
+    public OwnerEntity createOwner(String user, ShowInterface show) {
+        OwnerEntity owner = new OwnerEntity(user);
         ownerDao.insertOwner(owner, show);
         return owner;
     }
@@ -51,37 +51,37 @@ public class OwnerManagerService implements OwnerManager {
     }
 
     @Override
-    public Owner findOwner(String name) {
+    public OwnerEntity findOwner(String name) {
         return ownerDao.findOwner(name);
     }
 
     @Override
-    public Owner getOwner(String id) {
+    public OwnerEntity getOwner(String id) {
         return ownerDao.getOwner(id);
     }
 
     @Override
-    public void setShow(Entity owner, Show show) {
+    public void setShow(Entity owner, ShowInterface show) {
         ownerDao.updateShow(owner, show);
     }
 
     @Override
-    public Deed getDeed(String id) {
+    public DeedEntity getDeed(String id) {
         return deedDao.getDeed(id);
     }
 
     @Override
-    public void setBlackoutTime(Deed deed, int startSeconds, int stopSeconds) {
+    public void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds) {
         deedDao.setBlackoutTime(deed, startSeconds, stopSeconds);
     }
 
     @Override
-    public void setBlackoutTimeEnabled(Deed deed, boolean value) {
+    public void setBlackoutTimeEnabled(DeedEntity deed, boolean value) {
         deedDao.updateBlackoutTimeEnabled(deed, value);
     }
 
     @Override
-    public Deed takeOwnership(Owner owner, Host host) {
+    public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
         if (!hostDao.isNimbyHost(host)) {
             throw new SpcueRuntimeException(
                     "Cannot setup deeeds on non-NIMBY hosts.");
@@ -92,17 +92,17 @@ public class OwnerManagerService implements OwnerManager {
     }
 
     @Override
-    public void removeDeed(Host host) {
+    public void removeDeed(HostInterface host) {
         deedDao.deleteDeed(host);
     }
 
     @Override
-    public void removeDeed(Deed deed) {
+    public void removeDeed(DeedEntity deed) {
         deedDao.deleteDeed(deed);
     }
 
     @Override
-    public boolean isOwner(Owner owner, Host host) {
+    public boolean isOwner(OwnerEntity owner, HostInterface host) {
         return ownerDao.isOwner(owner, host);
     }
 

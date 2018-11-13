@@ -19,18 +19,18 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class LayerOnSimFrame extends AbstractDepend implements Depend {
 
-    private final Layer dependErLayer;
-    private final Frame dependOnFrame;
+    private final LayerInterface dependErLayer;
+    private final FrameInterface dependOnFrame;
 
-    public LayerOnSimFrame(Layer dependErLayer, Frame dependOnFrame) {
+    public LayerOnSimFrame(LayerInterface dependErLayer, FrameInterface dependOnFrame) {
 
         if (dependErLayer.getLayerId().equals(
                 dependOnFrame.getLayerId())) {
@@ -44,18 +44,18 @@ public class LayerOnSimFrame extends AbstractDepend implements Depend {
     }
 
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Frame getDependOnFrame() {
+    public FrameInterface getDependOnFrame() {
         return dependOnFrame;
     }
 
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.LayerOnSimFrame.toString());
+        key.append(DependType.LAYER_ON_SIM_FRAME.toString());
         key.append(dependErLayer.getJobId());
         key.append(dependOnFrame.getJobId());
         key.append(dependErLayer.getLayerId());
@@ -66,10 +66,10 @@ public class LayerOnSimFrame extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErLayer.getJobId().equals(dependOnFrame.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 

@@ -19,18 +19,18 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class FrameOnJob extends AbstractDepend implements Depend {
 
-    private final Frame dependErFrame;
-    private final Job dependOnJob;
+    private final FrameInterface dependErFrame;
+    private final JobInterface dependOnJob;
 
-    public FrameOnJob(Frame dependErFrame, Job dependOnJob) {
+    public FrameOnJob(FrameInterface dependErFrame, JobInterface dependOnJob) {
 
         if (dependErFrame.getJobId().equals(dependOnJob.getJobId())) {
             throw new DependException("A frame cannot depend on its own job.");
@@ -40,18 +40,18 @@ public class FrameOnJob extends AbstractDepend implements Depend {
         this.dependOnJob = dependOnJob;
     }
 
-    public Frame getDependErFrame() {
+    public FrameInterface getDependErFrame() {
         return dependErFrame;
     }
 
-    public Job getDependOnJob() {
+    public JobInterface getDependOnJob() {
         return dependOnJob;
     }
 
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.FrameByFrame.toString());
+        key.append(DependType.FRAME_BY_FRAME.toString());
         key.append(dependErFrame.getFrameId());
         key.append(dependOnJob.getJobId());
         return SqlUtil.genKeyByName(key.toString());
@@ -64,7 +64,7 @@ public class FrameOnJob extends AbstractDepend implements Depend {
 
     @Override
     public DependTarget getTarget() {
-        return DependTarget.External;
+        return DependTarget.EXTERNAL;
     }
 }
 

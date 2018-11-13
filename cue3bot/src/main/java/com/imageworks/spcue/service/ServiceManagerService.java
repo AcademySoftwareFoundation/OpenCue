@@ -23,8 +23,8 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.dao.ServiceDao;
 
 /**
@@ -38,39 +38,39 @@ public class ServiceManagerService implements ServiceManager {
     private static final String DEFAULT_SERVICE = "default";
 
     @Override
-    public void createService(Service s) {
+    public void createService(ServiceEntity s) {
         serviceDao.insert(s);
     }
 
     @Override
-    public void createService(ServiceOverride s) {
+    public void createService(ServiceOverrideEntity s) {
         serviceDao.insert(s);
     }
 
     @Override
-    public void deleteService(Service s) {
+    public void deleteService(ServiceEntity s) {
         serviceDao.delete(s);
     }
 
     @Override
-    public void deleteService(ServiceOverride s) {
+    public void deleteService(ServiceOverrideEntity s) {
         serviceDao.delete(s);
     }
 
 
     @Override
-    public void updateService(Service s) {
+    public void updateService(ServiceEntity s) {
         serviceDao.update(s);
     }
 
     @Override
-    public void updateService(ServiceOverride s) {
+    public void updateService(ServiceOverrideEntity s) {
         serviceDao.update(s);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Service getService(String id, String show) {
+    public ServiceEntity getService(String id, String show) {
         try {
             return serviceDao.getOverride(id, show);
         } catch (EmptyResultDataAccessException e ) {
@@ -80,20 +80,20 @@ public class ServiceManagerService implements ServiceManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ServiceOverride getServiceOverride(String id) {
+    public ServiceOverrideEntity getServiceOverride(String id) {
         return serviceDao.getOverride(id);
     }
 
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Service getService(String id) {
+    public ServiceEntity getService(String id) {
         return serviceDao.get(id);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public Service getDefaultService() {
+    public ServiceEntity getDefaultService() {
         return serviceDao.get(DEFAULT_SERVICE);
     }
 

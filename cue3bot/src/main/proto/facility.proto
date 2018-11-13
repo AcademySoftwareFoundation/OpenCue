@@ -68,7 +68,8 @@ service AllocationInterface {
 // -------- Primary Message Types --------
 
 message Facility {
-    string name = 1;
+    string id = 1;
+    string name = 2;
 }
 
 message FacilitySeq {
@@ -76,11 +77,12 @@ message FacilitySeq {
 }
 
 message Allocation {
-    string name = 1;
-    string tag = 2;
-    string facility = 3;
-    bool billable = 4;
-    AllocationStats stats = 5;
+    string id = 1;
+    string name = 2;
+    string tag = 3;
+    string facility = 4;
+    bool billable = 5;
+    AllocationStats stats = 6;
 }
 
 message AllocationSeq {

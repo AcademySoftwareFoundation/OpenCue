@@ -21,7 +21,6 @@ package com.imageworks.spcue.test.util;
 
 
 import junit.framework.TestCase;
-
 import org.junit.Before;
 
 import com.imageworks.spcue.DispatchFrame;

@@ -21,11 +21,11 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Group;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
 
 /**
  * A DAO for Group DB operations.
@@ -40,21 +40,21 @@ public interface GroupDao {
      * @param id
      * @return
      */
-    Group getGroup(String id);
+    GroupInterface getGroup(String id);
 
     /**
      * returns a list of groups using their unique ids
      * @param id
      * @return
      */
-    List<Group> getGroups(List<String> id);
+    List<GroupInterface> getGroups(List<String> id);
 
     /**
      *
      * @param show
      * @return
      */
-    GroupDetail getRootGroupDetail(Show show);
+    GroupDetail getRootGroupDetail(ShowInterface show);
 
     /**
      * Returns the show's root group.
@@ -62,14 +62,14 @@ public interface GroupDao {
      * @param show
      * @return
      */
-    String getRootGroupId(Show show);
+    String getRootGroupId(ShowInterface show);
 
     /**
      * Insert group into specified parent
      *
      * @param group
      */
-    void insertGroup(GroupDetail group, Group parent);
+    void insertGroup(GroupDetail group, GroupInterface parent);
 
     /**
      *
@@ -83,7 +83,7 @@ public interface GroupDao {
      * @param group
      * @param dept
      */
-    void updateDepartment(Group group, Department dept);
+    void updateDepartment(GroupInterface group, DepartmentInterface dept);
 
     /**
      * Removes the specified group.  You cannot delete a group that contains
@@ -91,7 +91,7 @@ public interface GroupDao {
      *
      * @param group
      */
-    void deleteGroup(Group group);
+    void deleteGroup(GroupInterface group);
 
     /**
      * Sets the group's new parent.  Triggers will handle any recursive level
@@ -103,7 +103,7 @@ public interface GroupDao {
      * @throws EntityModificationError          throws this if the group is the top level group
      *                                          which cannot be parented to another group.
      */
-    void updateGroupParent(Group group, Group parent);
+    void updateGroupParent(GroupInterface group, GroupInterface parent);
 
     /**
      * Sets the maximum number of procs the group should be running.
@@ -111,7 +111,7 @@ public interface GroupDao {
      * @param group
      * @param value
      */
-    void updateDefaultJobMaxCores(Group group, int value);
+    void updateDefaultJobMaxCores(GroupInterface group, int value);
 
     /**
      * Sets the minimum number of procs the group should be running.
@@ -119,7 +119,7 @@ public interface GroupDao {
      * @param group
      * @param value
      */
-    void updateDefaultJobMinCores(Group group, int value);
+    void updateDefaultJobMinCores(GroupInterface group, int value);
 
     /**
      * Sets the maximum number of cores for this group
@@ -127,7 +127,7 @@ public interface GroupDao {
      * @param group
      * @param value
      */
-    public void updateMaxCores(Group group, int value);
+    public void updateMaxCores(GroupInterface group, int value);
 
     /**
      * Set the minimum number of cores for this group
@@ -136,14 +136,14 @@ public interface GroupDao {
      * @param value
      */
 
-    public void updateMinCores(Group group, int value);
+    public void updateMinCores(GroupInterface group, int value);
     /**
      * Renames the group
      *
      * @param group
      * @param value
      */
-    void updateName(Group group, String value);
+    void updateName(GroupInterface group, String value);
 
     /**
      * Updates a group's priority.
@@ -151,7 +151,7 @@ public interface GroupDao {
      * @param group
      * @param value
      */
-    void updateDefaultJobPriority(Group group, int value);
+    void updateDefaultJobPriority(GroupInterface group, int value);
 
     /**
      * Returns a full GroupDetail object from its unique id
@@ -167,7 +167,7 @@ public interface GroupDao {
      * @param group
      * @return
      */
-    List<Group> getChildrenRecursive(Group group);
+    List<GroupInterface> getChildrenRecursive(GroupInterface group);
 
     /**
      *
@@ -176,7 +176,7 @@ public interface GroupDao {
      * @param group
      * @return
      */
-    List<Group> getChildren(Group group);
+    List<GroupInterface> getChildren(GroupInterface group);
 
     /**
      * Returns true if the group of the specified job is at or over its min proc
@@ -184,7 +184,7 @@ public interface GroupDao {
      * @param job
      * @return
      */
-    boolean isOverMinCores(Job job);
+    boolean isOverMinCores(JobInterface job);
 
     /**
      * Returns true if the group is managed.
@@ -192,13 +192,13 @@ public interface GroupDao {
      * @param group
      * @return
      */
-	boolean isManaged(Group group);
+	boolean isManaged(GroupInterface group);
 
 	/**
 	 * Return a GroupDetail for the specified job.
 	 * @param job
 	 * @return
 	 */
-    GroupDetail getGroupDetail(Job job);
+    GroupDetail getGroupDetail(JobInterface job);
 }
 

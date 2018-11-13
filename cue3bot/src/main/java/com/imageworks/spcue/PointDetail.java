@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class PointDetail extends Entity implements Point {
+public class PointDetail extends Entity implements PointInterface {
 
     public String showId;
     public String deptId;

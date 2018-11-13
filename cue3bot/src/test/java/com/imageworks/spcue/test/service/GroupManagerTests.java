@@ -19,26 +19,23 @@
 
 package com.imageworks.spcue.test.service;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -47,6 +44,8 @@ import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
+
+import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -83,7 +82,7 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void createGroup() {
-        Show pipe = showDao.findShowDetail("pipe");
+        ShowInterface pipe = showDao.findShowDetail("pipe");
         GroupDetail group = new GroupDetail();
         group.name = "testGroup";
         group.showId = pipe.getId();
@@ -96,25 +95,24 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Transactional
     @Rollback(true)
     public void setGroupDepartment() {
-        Show pipe = showDao.findShowDetail("pipe");
+        ShowInterface pipe = showDao.findShowDetail("pipe");
         GroupDetail group = groupDao.getRootGroupDetail(pipe);
 
         // Launch a test job
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         jobLauncher.launch(spec);
-        Job job = jobManager.getJob(spec.getJobs().get(0).detail.id);
+        JobInterface job = jobManager.getJob(spec.getJobs().get(0).detail.id);
 
         // Set the group's department property to Lighting, it should
         // currently be Unknown
-        Department dept = departmentDao.findDepartment("Lighting");
+        DepartmentInterface dept = departmentDao.findDepartment("Lighting");
         jobDao.updateParent(job, group);
 
         // Update the group to the Lighting department
         groupManager.setGroupDepartment(group, dept);
 
         // Now check if the job we launched was also updated to the lighting department
-        assertEquals(dept.getDepartmentId(), jdbcTemplate.queryForObject("SELECT pk_dept FROM job WHERE pk_job=?",
-                String.class, job.getJobId()));
+        assertEquals(dept.getDepartmentId(), jobDao.getJobDetail(job.getJobId()).deptId);
     }
 
 }

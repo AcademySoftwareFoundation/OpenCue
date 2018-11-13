@@ -20,8 +20,8 @@
 package com.imageworks.spcue.service;
 
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
 
 public interface CommentManager {
 
@@ -31,7 +31,7 @@ public interface CommentManager {
      * @param job
      * @param comment
      */
-    public void addComment(Job job, CommentDetail comment);
+    public void addComment(JobInterface job, CommentDetail comment);
 
     /**
      * Add a comment to a host
@@ -39,7 +39,7 @@ public interface CommentManager {
      * @param host
      * @param comment
      */
-    public void addComment(Host host, CommentDetail comment);
+    public void addComment(HostInterface host, CommentDetail comment);
 
     /**
      *

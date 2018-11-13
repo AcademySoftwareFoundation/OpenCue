@@ -16,8 +16,7 @@
  */
 
 
-
- package com.imageworks.spcue.service;
+package com.imageworks.spcue.service;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -30,14 +29,14 @@ import org.springframework.core.env.Environment;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.PointDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Task;
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.TaskInterface;
 import com.imageworks.spcue.TrackitTaskDetail;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.PointDao;
@@ -45,6 +44,7 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.util.CueUtil;
+
 
 @Transactional
 public class DepartmentManagerService implements DepartmentManager {
@@ -64,18 +64,18 @@ public class DepartmentManagerService implements DepartmentManager {
     }
 
     @Override
-    public boolean departmentConfigExists(Show show, Department dept) {
+    public boolean departmentConfigExists(ShowInterface show, DepartmentInterface dept) {
         return pointDao.pointConfExists(show, dept);
     }
 
     @Override
-    public void createTask(TaskDetail t) {
+    public void createTask(TaskEntity t) {
         taskDao.insertTask(t);
     }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public TaskDetail getTaskDetail(String id) {
+    public TaskEntity getTaskDetail(String id) {
         return taskDao.getTaskDetail(id);
     }
 
@@ -87,18 +87,18 @@ public class DepartmentManagerService implements DepartmentManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public PointDetail getDepartmentConfigDetail(Show show, Department dept) {
+    public PointDetail getDepartmentConfigDetail(ShowInterface show, DepartmentInterface dept) {
         return pointDao.getPointConfigDetail(show, dept);
     }
 
     @Override
-    public void removeTask(Task t) {
+    public void removeTask(TaskInterface t) {
         taskDao.deleteTask(t);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void setMinCores(Task t, int coreUnits) {
+    public void setMinCores(TaskInterface t, int coreUnits) {
         if (taskDao.isManaged(t)) {
             taskDao.adjustTaskMinCores(t, coreUnits);
         } else {
@@ -108,43 +108,43 @@ public class DepartmentManagerService implements DepartmentManager {
     }
 
     @Override
-    public Point createDepartmentConfig(Show show, Department dept) {
+    public PointInterface createDepartmentConfig(ShowInterface show, DepartmentInterface dept) {
         return pointDao.insertPointConf(show, dept);
     }
 
     @Override
-    public void clearTasks(Point cdept) {
+    public void clearTasks(PointInterface cdept) {
         taskDao.deleteTasks(cdept);
     }
 
     @Override
-    public void clearTasks(Show show, Department dept) {
+    public void clearTasks(ShowInterface show, DepartmentInterface dept) {
         taskDao.deleteTasks(show, dept);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void clearTaskAdjustment(Task t) {
+    public void clearTaskAdjustment(TaskInterface t) {
         taskDao.clearTaskAdjustment(t);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void disableTiManaged(Point cdept) {
+    public void disableTiManaged(PointInterface cdept) {
         pointDao.updateDisableManaged(cdept);
         clearTasks(cdept);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void enableTiManaged(Point p, String tiTask, int cores) {
+    public void enableTiManaged(PointInterface p, String tiTask, int cores) {
         pointDao.updateEnableManaged(p, tiTask, cores);
         updateManagedTasks(p);
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void setManagedCores(Point p, int cores) {
+    public void setManagedCores(PointInterface p, int cores) {
         pointDao.updateManagedCores(p, cores);
         if (pointDao.isManaged(p, p)) {
             updateManagedTasks(p);
@@ -152,7 +152,7 @@ public class DepartmentManagerService implements DepartmentManager {
     }
 
     @Override
-    public void clearTaskAdjustments(Point cdept) {
+    public void clearTaskAdjustments(PointInterface cdept) {
         taskDao.clearTaskAdjustments(cdept);
     }
 
@@ -175,10 +175,10 @@ public class DepartmentManagerService implements DepartmentManager {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateManagedTasks(Point pd) {
+    public void updateManagedTasks(PointInterface pd) {
         if (env.getRequiredProperty("trackit.enabled", Boolean.class)) {
 
-            Show show = showDao.getShowDetail(pd.getShowId());
+            ShowInterface show = showDao.getShowDetail(pd.getShowId());
             PointDetail p = pointDao.getPointConfDetail(pd.getPointId());
             pointDao.updatePointConfUpdateTime(p);
 
@@ -209,7 +209,7 @@ public class DepartmentManagerService implements DepartmentManager {
             float normalizedRawPoints = p.cores / totalRawPoints;
             for (TrackitTaskDetail task : tasks) {
 
-                TaskDetail td = new TaskDetail();
+                TaskEntity td = new TaskEntity();
                 td.pointId = p.getPointId();
                 td.deptId = p.getDepartmentId();
                 td.showId = p.getShowId();
@@ -231,9 +231,9 @@ public class DepartmentManagerService implements DepartmentManager {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void syncJobsWithTask(TaskDetail t) {
+    public void syncJobsWithTask(TaskEntity t) {
 
-        List<Job> jobs = jobDao.getJobs(t);
+        List<JobInterface> jobs = jobDao.getJobs(t);
         if (jobs.size() == 0) {
             return;
         }
@@ -249,10 +249,10 @@ public class DepartmentManagerService implements DepartmentManager {
         /*
          * Calculate a base for each job
          */
-        Map<Job,Integer[]> minCores = new HashMap<Job,Integer[]>(jobs.size());
+        Map<JobInterface,Integer[]> minCores = new HashMap<JobInterface,Integer[]>(jobs.size());
         int core_units_unalloc = 0;
 
-        for (Job j: jobs) {
+        for (JobInterface j: jobs) {
             FrameStateTotals totals = jobDao.getFrameStateTotals(j);
             if (totals.waiting  < core_units_per_job) {
                 core_units_unalloc= core_units_unalloc
@@ -271,7 +271,7 @@ public class DepartmentManagerService implements DepartmentManager {
         core_units_left_over = core_units_left_over + core_units_unalloc;
         while (core_units_left_over > 0) {
             boolean applied = false;
-            for (Job j: jobs) {
+            for (JobInterface j: jobs) {
                 if (core_units_left_over < 1) {
                     break;
                 }
@@ -289,25 +289,25 @@ public class DepartmentManagerService implements DepartmentManager {
         /*
          * Update the DB
          */
-        for (Job j: jobs) {
+        for (JobInterface j: jobs) {
             jobDao.updateMinCores(j, minCores.get(j)[0] * 100);
         }
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void syncJobsWithTask(Department d, String shot) {
+    public void syncJobsWithTask(DepartmentInterface d, String shot) {
         syncJobsWithTask(taskDao.getTaskDetail(d, shot));
     }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void syncJobsWithTask(Job job) {
+    public void syncJobsWithTask(JobInterface job) {
         syncJobsWithTask(taskDao.getTaskDetail(job));
     }
 
     @Override
-    public boolean isManaged(Job j) {
+    public boolean isManaged(JobInterface j) {
         return taskDao.isManaged(j);
     }
 

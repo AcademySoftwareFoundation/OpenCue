@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import static org.junit.Assert.*;
-
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -28,20 +26,24 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.FilterEntity;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.FilterDetail;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.CueIce.FilterType;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -63,22 +65,22 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
     private static String FILTER_NAME = "test_filter";
 
-    public Show createShow() {
-        ShowDetail show = new ShowDetail();
+    public ShowInterface createShow() {
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
         return show;
     }
 
-    public Show getShow() {
+    public ShowInterface getShow() {
         return showDao.findShowDetail("testtest");
     }
 
-    public FilterDetail buildFilter(Show show) {
-        FilterDetail filter = new FilterDetail();
+    public FilterEntity buildFilter(ShowInterface show) {
+        FilterEntity filter = new FilterEntity();
         filter.name = FILTER_NAME;
         filter.showId = show.getId();
-        filter.type = FilterType.MatchAny;
+        filter.type = FilterType.MATCH_ANY;
         filter.enabled = true;
 
         return filter;
@@ -102,7 +104,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testUpdateSetFilterEnabled() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         filterDao.updateSetFilterEnabled(f, false);
         assertFalse(jdbcTemplate.queryForObject(
@@ -118,7 +120,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testUpdateSetFilterName() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         assertEquals(FILTER_NAME, jdbcTemplate.queryForObject(
                 "SELECT str_name FROM filter WHERE pk_filter=?",
@@ -135,14 +137,14 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testUpdateSetFilterType() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
-        assertEquals(FilterType.MatchAny.toString(), jdbcTemplate.queryForObject(
+        assertEquals(FilterType.MATCH_ANY.toString(), jdbcTemplate.queryForObject(
                 "SELECT str_type FROM filter WHERE pk_filter=?",
                 String.class,
                 f.getFilterId()));
-        filterDao.updateSetFilterType(f, FilterType.MatchAll);
-        assertEquals(FilterType.MatchAll.toString(), jdbcTemplate.queryForObject(
+        filterDao.updateSetFilterType(f, FilterType.MATCH_ALL);
+        assertEquals(FilterType.MATCH_ALL.toString(), jdbcTemplate.queryForObject(
                 "SELECT str_type FROM filter WHERE pk_filter=?",
                 String.class,
                 f.getFilterId()));
@@ -153,15 +155,15 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rollback(true)
     public void testUpdateSetFilterOrder() {
 
-        Show show = createShow();
+        ShowInterface show = createShow();
         int currentFilters = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM filter WHERE pk_show=?",
                 Integer.class, show.getShowId());
 
-        FilterDetail f1 = buildFilter(show);
+        FilterEntity f1 = buildFilter(show);
         filterDao.insertFilter(f1);
 
-        FilterDetail f2 = buildFilter(show);
+        FilterEntity f2 = buildFilter(show);
         f2.name = "TEST";
         filterDao.insertFilter(f2);
 
@@ -184,7 +186,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testDeleteFilter() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
         filterDao.deleteFilter(f);
     }
@@ -193,7 +195,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testInsertFilter() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
     }
 
@@ -210,12 +212,12 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rollback(true)
     public void testLowerFilterOrder() {
 
-        Show show = createShow();
+        ShowInterface show = createShow();
 
-        FilterDetail f1 = buildFilter(show);
+        FilterEntity f1 = buildFilter(show);
         filterDao.insertFilter(f1);
 
-        FilterDetail f2 = buildFilter(show);
+        FilterEntity f2 = buildFilter(show);
         f2.name = "TEST";
         filterDao.insertFilter(f2);
 
@@ -247,12 +249,12 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rollback(true)
     public void testRaiseFilterOrder() {
 
-        Show show = createShow();
+        ShowInterface show = createShow();
 
-        FilterDetail f1 = buildFilter(show);
+        FilterEntity f1 = buildFilter(show);
         filterDao.insertFilter(f1);
 
-        FilterDetail f2 = buildFilter(show);
+        FilterEntity f2 = buildFilter(show);
         f2.name = "TEST";
         filterDao.insertFilter(f2);
 
@@ -282,7 +284,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testGetFilter() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
 
         filterDao.getFilter(f);
@@ -293,7 +295,7 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Transactional
     @Rollback(true)
     public void testFindFilter() {
-        FilterDetail f = buildFilter(createShow());
+        FilterEntity f = buildFilter(createShow());
         filterDao.insertFilter(f);
 
         filterDao.findFilter(getShow(), FILTER_NAME);

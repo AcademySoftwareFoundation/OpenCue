@@ -25,14 +25,12 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.DispatchHost;
-
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Proc;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueClientIce.ProcSearchCriteria;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
@@ -40,6 +38,7 @@ import com.imageworks.spcue.dao.criteria.Direction;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.RedirectService;
@@ -87,7 +86,7 @@ public class RedirectManager   {
      *
      * @param proc
      */
-    public boolean removeRedirect(Proc proc) {
+    public boolean removeRedirect(ProcInterface proc) {
         procDao.setRedirectTarget(proc, null);
         return redirectService.remove(proc.getProcId()) != null;
     }
@@ -99,7 +98,7 @@ public class RedirectManager   {
      * @param proc
      * @return
      */
-    public boolean hasRedirect(Proc proc) {
+    public boolean hasRedirect(ProcInterface proc) {
         return redirectService.containsKey(proc.getProcId());
     }
 
@@ -114,9 +113,9 @@ public class RedirectManager   {
      * @return
      */
     public List<VirtualProc> addRedirect(ProcSearchCriteria criteria,
-            Group group, boolean kill, Source source) {
+                                         GroupInterface group, boolean kill, Source source) {
 
-        List<Group> groups = new ArrayList<Group>(1);
+        List<GroupInterface> groups = new ArrayList<GroupInterface>(1);
         groups.add(group);
 
         ProcSearch search = new ProcSearch(criteria,
@@ -158,7 +157,7 @@ public class RedirectManager   {
      * @return
      */
     public List<VirtualProc> addRedirect(ProcSearchCriteria criteria,
-            List<Job> jobs, boolean kill, Source source) {
+                                         List<JobInterface> jobs, boolean kill, Source source) {
         int index = 0;
 
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(
@@ -197,13 +196,12 @@ public class RedirectManager   {
      * ability to kill multiple frames and open up large
      * amounts of memory and cores.
      *
-     * @param proc
+     * @param procs
      * @param job
-     * @param kill
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(List<VirtualProc> procs, Job job,
+    public boolean addRedirect(List<VirtualProc> procs, JobInterface job,
             Source source) {
 
         String redirectGroupId = SqlUtil.genKeyRandom();
@@ -231,7 +229,7 @@ public class RedirectManager   {
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(VirtualProc proc, Job job,
+    public boolean addRedirect(VirtualProc proc, JobInterface job,
             boolean kill, Source source) {
 
         if (dispatchSupport.findNextDispatchFrames(
@@ -260,7 +258,7 @@ public class RedirectManager   {
      * @param source
      * @return true if the redirect succeeds.
      */
-    public boolean addRedirect(VirtualProc proc, Group group,
+    public boolean addRedirect(VirtualProc proc, GroupInterface group,
             boolean kill, Source source) {
 
         // Test a dispatch
@@ -326,10 +324,10 @@ public class RedirectManager   {
 
             switch (r.getType()) {
 
-                case JobRedirect:
+                case JOB_REDIRECT:
                     logger.info("attempting a job redirect to " +
                             r.getDestinationId());
-                    Job job = jobDao.getJob(r.getDestinationId());
+                    JobInterface job = jobDao.getJob(r.getDestinationId());
                     logger.info("redirecting proc " + proc
                             + " to job " + job.getName());
 
@@ -342,10 +340,10 @@ public class RedirectManager   {
                     }
                     return true;
 
-                case GroupRedirect:
+                case GROUP_REDIRECT:
                     logger.info("attempting a group redirect to " +
                             r.getDestinationId());
-                    Group group = groupDao.getGroup(r.getDestinationId());
+                    GroupInterface group = groupDao.getGroup(r.getDestinationId());
                     logger.info("redirecting group " + proc +
                             " to job " + group.getName());
 

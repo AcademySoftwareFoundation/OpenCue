@@ -20,14 +20,13 @@
 package com.imageworks.spcue.servlet;
 
 import java.io.IOException;
-
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.log4j.Logger;
-
 import org.springframework.web.servlet.FrameworkServlet;
+
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;

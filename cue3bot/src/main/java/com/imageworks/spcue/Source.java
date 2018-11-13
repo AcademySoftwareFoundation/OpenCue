@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.util.Convert;
-
 /**
  * A wrapper for a string that contains the source of external commands.
  */
@@ -32,10 +30,6 @@ public class Source {
 
     public Source(String source) {
         this.source = source;
-    }
-
-    public Source(Ice.Current current) {
-        this.source = Convert.currentToString(current);
     }
 
     public String toString() {

@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.FacilityInterface;
 
 /**

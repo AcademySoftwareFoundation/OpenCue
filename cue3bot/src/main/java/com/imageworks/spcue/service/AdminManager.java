@@ -19,14 +19,14 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.AllocationInterface;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.SubscriptionEntity;
+import com.imageworks.spcue.SubscriptionInterface;
 
 public interface AdminManager {
 
@@ -34,11 +34,11 @@ public interface AdminManager {
      * Shows
      */
     boolean showExists(String name);
-    void createShow(ShowDetail show);
-    ShowDetail findShowDetail(String name);
-    ShowDetail getShowDetail(String id);
-    void setShowActive(Show show, boolean value);
-    void updateShowCommentEmail(Show s, String[] emails);
+    void createShow(ShowEntity show);
+    ShowEntity findShowEntity(String name);
+    ShowEntity getShowEntity(String id);
+    void setShowActive(ShowInterface show, boolean value);
+    void updateShowCommentEmail(ShowInterface s, String[] emails);
 
     /*
      * Facilities
@@ -62,20 +62,20 @@ public interface AdminManager {
     /*
      * Subscriptions
      */
-    Subscription createSubscription(Show show, AllocationInterface alloc, int size, int burst);
-    Subscription createSubscription(SubscriptionDetail sub);
-    void deleteSubscription(Subscription sub);
-    void setSubscriptionBurst(Subscription sub, int burst);
-    void setSubscriptionSize(Subscription sub, int size);
-    SubscriptionDetail getSubscriptionDetail(String id);
+    SubscriptionInterface createSubscription(ShowInterface show, AllocationInterface alloc, int size, int burst);
+    SubscriptionInterface createSubscription(SubscriptionEntity sub);
+    void deleteSubscription(SubscriptionInterface sub);
+    void setSubscriptionBurst(SubscriptionInterface sub, int burst);
+    void setSubscriptionSize(SubscriptionInterface sub, int size);
+    SubscriptionEntity getSubscriptionDetail(String id);
 
     /*
      * Departments
      */
-    Department findDepartment(String name);
-    Department getDefaultDepartment();
-    Department getDepartment(Department d);
-    Department createDepartment(String name);
-    void removeDepartment(Department d);
+    DepartmentInterface findDepartment(String name);
+    DepartmentInterface getDefaultDepartment();
+    DepartmentInterface getDepartment(DepartmentInterface d);
+    DepartmentInterface createDepartment(String name);
+    void removeDepartment(DepartmentInterface d);
 }
 

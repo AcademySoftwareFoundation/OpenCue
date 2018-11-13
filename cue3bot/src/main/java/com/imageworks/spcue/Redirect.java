@@ -20,11 +20,9 @@
 package com.imageworks.spcue;
 
 import java.io.Serializable;
-
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 
-import com.imageworks.spcue.CueIce.RedirectType;
+import com.imageworks.spcue.grpc.host.RedirectType;
 import com.imageworks.spcue.util.SqlUtil;
 
 /**
@@ -62,25 +60,25 @@ public class Redirect implements Serializable {
         this.creationTime = System.currentTimeMillis();
     }
 
-    public Redirect(String groupId, Job job) {
+    public Redirect(String groupId, JobInterface job) {
         this.groupId = groupId;
-        this.type = RedirectType.JobRedirect;
+        this.type = RedirectType.JOB_REDIRECT;
         this.destinationId = job.getJobId();
         this.name = job.getName();
         this.creationTime = System.currentTimeMillis();
     }
 
-    public Redirect(Job job) {
+    public Redirect(JobInterface job) {
         this.groupId = SqlUtil.genKeyRandom();
-        this.type = RedirectType.JobRedirect;
+        this.type = RedirectType.JOB_REDIRECT;
         this.destinationId = job.getJobId();
         this.name = job.getName();
         this.creationTime = System.currentTimeMillis();
     }
 
-    public Redirect(Group group) {
+    public Redirect(GroupInterface group) {
         this.groupId = SqlUtil.genKeyRandom();
-        this.type = RedirectType.GroupRedirect;
+        this.type = RedirectType.GROUP_REDIRECT;
         this.destinationId = group.getGroupId();
         this.name = group.getName();
         this.creationTime = System.currentTimeMillis();

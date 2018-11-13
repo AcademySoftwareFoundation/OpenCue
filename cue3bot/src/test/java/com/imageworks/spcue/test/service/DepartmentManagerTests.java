@@ -16,10 +16,7 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
-
-import static org.junit.Assert.*;
 
 import javax.annotation.Resource;
 
@@ -27,22 +24,25 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.Show;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.test.AssumingTrackitEnabled;
+
+import static org.junit.Assert.assertTrue;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -74,13 +74,15 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void enableTiManaged() {
-        Show show = showDao.findShowDetail("pipe");
-        Department dept = departmentDao.getDefaultDepartment();
-        Point rp = pointDao.getPointConfigDetail(show, dept);
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept = departmentDao.getDefaultDepartment();
+        PointInterface rp = pointDao.getPointConfigDetail(show, dept);
 
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
+        // TODO(cipriano) Once this test is enabled this assert should be updated to use
+        // DAO objects instead of querying the db directly.
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
                 "point.pk_dept=? AND point.pk_show=?",
@@ -91,9 +93,9 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void updateTiManagedTasks() {
-        Show show = showDao.findShowDetail("pipe");
-        Department dept =  departmentDao.getDefaultDepartment();
-        Point rp;
+        ShowInterface show = showDao.findShowDetail("pipe");
+        DepartmentInterface dept =  departmentDao.getDefaultDepartment();
+        PointInterface rp;
 
         try {
             rp = pointDao.getPointConfigDetail(show, dept);
@@ -104,6 +106,9 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         }
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
+
+        // TODO(cipriano) Once this test is enabled these asserts should be updated to use
+        // DAO objects instead of querying the db directly.
 
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +

@@ -16,27 +16,34 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.DependDao;
+import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.JobDao;
+import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -48,6 +55,21 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
     @Resource
     EmailSupport emailSupport;
+
+    @Resource
+    JobDao jobDao;
+
+    @Resource
+    FrameDao frameDao;
+
+    @Resource
+    DependDao dependDao;
+
+    @Resource
+    LayerDao layerDao;
+
+    @Resource
+    DependManager dependManager;
 
     @Before
     public void setTestMode() {
@@ -63,12 +85,16 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
         JobDetail job = spec.getJobs().get(0).detail;
 
-        jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
-                System.getProperty("user.name"), job.getId());
+        jobDao.updateEmail(job, System.getProperty("user.name"));
 
-        jdbcTemplate.update("UPDATE job_stat SET int_succeeded_count = " +
-                "(SELECT count(1) FROM frame WHERE pk_job=?) " +
-                "WHERE pk_job=?", job.getId(), job.getId());
+        // Satisfy all dependencies, this will allow us to mark frames as complete.
+        layerDao.getLayers(job)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
+                        .forEach(dep -> dependManager.satisfyDepend(dep)));
+
+        frameDao.findFrames(new FrameSearch(job)).forEach(
+                frame -> frameDao.updateFrameState(
+                        frameDao.getFrame(frame.getFrameId()), FrameState.SUCCEEDED));
 
         emailSupport.sendShutdownEmail(job);
     }
@@ -82,11 +108,15 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
 
         JobDetail job = spec.getJobs().get(0).detail;
 
-        jdbcTemplate.update("UPDATE job SET str_email=? WHERE pk_job=?",
-                System.getProperty("user.name"), job.getId());
+        jobDao.updateEmail(job, System.getProperty("user.name"));
 
-        jdbcTemplate.update("UPDATE job_stat SET int_dead_count=1 " +
-        		"WHERE pk_job=?", job.getId());
+        layerDao.getLayers(job)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
+                        .forEach(dep -> dependManager.satisfyDepend(dep)));
+
+        frameDao.findFrames(new FrameSearch(job)).forEach(
+                frame -> frameDao.updateFrameState(
+                        frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
 
         emailSupport.sendShutdownEmail(job);
     }

@@ -20,8 +20,8 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
 
 public interface CommentDao {
 
@@ -46,7 +46,7 @@ public interface CommentDao {
      * @param job
      * @param comment
      */
-    public void insertComment(Job job, CommentDetail comment);
+    public void insertComment(JobInterface job, CommentDetail comment);
 
     /**
      * Inserts a comment on a host
@@ -54,7 +54,7 @@ public interface CommentDao {
      * @param host
      * @param comment
      */
-    public void insertComment(Host host, CommentDetail comment);
+    public void insertComment(HostInterface host, CommentDetail comment);
 
     /**
      * Update specified comment

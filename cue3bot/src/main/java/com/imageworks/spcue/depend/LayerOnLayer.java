@@ -19,17 +19,17 @@
 
 package com.imageworks.spcue.depend;
 
-import com.imageworks.spcue.Layer;
-import com.imageworks.spcue.CueIce.DependTarget;
-import com.imageworks.spcue.CueIce.DependType;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.depend.DependTarget;
+import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class LayerOnLayer extends AbstractDepend implements Depend {
 
-    public final Layer dependErLayer;
-    public final Layer dependOnLayer;
+    public final LayerInterface dependErLayer;
+    public final LayerInterface dependOnLayer;
 
-    public LayerOnLayer(Layer dependErLayer, Layer dependOnLayer) {
+    public LayerOnLayer(LayerInterface dependErLayer, LayerInterface dependOnLayer) {
 
         if (dependErLayer.getLayerId().equals(
                 dependOnLayer.getLayerId())) {
@@ -41,18 +41,18 @@ public class LayerOnLayer extends AbstractDepend implements Depend {
         this.dependOnLayer = dependOnLayer;
     }
 
-    public Layer getDependErLayer() {
+    public LayerInterface getDependErLayer() {
         return dependErLayer;
     }
 
-    public Layer getDependOnLayer() {
+    public LayerInterface getDependOnLayer() {
         return dependOnLayer;
     }
 
     @Override
     public String getSignature() {
         StringBuilder key = new StringBuilder(256);
-        key.append(DependType.LayerOnLayer.toString());
+        key.append(DependType.LAYER_ON_LAYER.toString());
         key.append(dependErLayer.getJobId());
         key.append(dependOnLayer.getJobId());
         key.append(dependErLayer.getLayerId());
@@ -68,10 +68,10 @@ public class LayerOnLayer extends AbstractDepend implements Depend {
     @Override
     public DependTarget getTarget() {
         if (dependErLayer.getJobId().equals(dependOnLayer.getJobId())) {
-            return DependTarget.Internal;
+            return DependTarget.INTERNAL;
         }
         else {
-            return DependTarget.External;
+            return DependTarget.EXTERNAL;
         }
     }
 }

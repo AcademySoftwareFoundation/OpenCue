@@ -19,14 +19,9 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
-import static org.junit.Assert.*;
-
 import java.io.File;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
-
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -35,20 +30,19 @@ import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Layer;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -59,6 +53,7 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
@@ -67,6 +62,10 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -269,7 +268,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindNextDispatchFramesByHostAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
@@ -303,7 +302,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindNextDispatchFramesByProcAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
-        Layer layer = jobManager.getLayers(job).get(0);
+        LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
@@ -327,7 +326,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         DispatchHost host = getHost();
 
         assertTrue(jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM job WHERE str_state='Pending'", Integer.class) > 0);
+                "SELECT COUNT(*) FROM job WHERE str_state='PENDING'", Integer.class) > 0);
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
         assertTrue(jobs.size() > 0);
@@ -357,7 +356,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertNotNull(job);
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host,
-                adminManager.findShowDetail("pipe"), 5);
+                adminManager.findShowEntity("pipe"), 5);
         assertTrue(jobs.size() > 0);
     }
 
@@ -397,12 +396,12 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
-        assertEquals(JobState.Pending.toString(),
+        assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, job1.id));
 
-        assertEquals(JobState.Pending.toString(),
+        assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?",
                 String.class, job2.id));
@@ -415,5 +414,3 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertTrue(under);
     }
 }
-
-

@@ -34,8 +34,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -78,12 +78,12 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
 
     private AllocationEntity alloc;
 
-    public Show getShow() {
+    public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }
 
-    public SubscriptionDetail buildSubscription(Show t, AllocationInterface a) {
-        SubscriptionDetail s = new SubscriptionDetail();
+    public SubscriptionEntity buildSubscription(ShowInterface t, AllocationInterface a) {
+        SubscriptionEntity s = new SubscriptionEntity();
         s.allocationId = a.getId();
         s.showId = t.getId();
         s.burst = 500;
@@ -112,7 +112,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Transactional
     @Rollback(true)
     public void testHasRunningProcs() {
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         assertFalse(subscriptionDao.hasRunningProcs(s));
     }
@@ -122,7 +122,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Rollback(true)
     public void testIsShowOverSize() {
 
-        SubscriptionDetail sub = buildSubscription(getShow(), alloc);
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(sub);
 
         assertFalse(this.subscriptionDao.isShowOverSize(getShow(), alloc));
@@ -145,7 +145,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Rollback(true)
     public void testIsShowAtOrOverSize() {
 
-        SubscriptionDetail sub = buildSubscription(getShow(), alloc);
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(sub);
         assertFalse(this.subscriptionDao.isShowAtOrOverSize(getShow(), alloc));
 
@@ -180,7 +180,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Rollback(true)
     public void testIsShowAtOrOverBurst() {
 
-        SubscriptionDetail sub = buildSubscription(getShow(), alloc);
+        SubscriptionEntity sub = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(sub);
         assertFalse(subscriptionDao.isShowAtOrOverBurst(getShow(), alloc));
 
@@ -204,12 +204,12 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
 
         FacilityInterface f = facilityDao.getDefaultFacility();
 
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         assertNotNull(s.id);
         assertNotNull(s.getId());
 
-        SubscriptionDetail s1 =  subscriptionDao.getSubscriptionDetail(
+        SubscriptionEntity s1 =  subscriptionDao.getSubscriptionDetail(
                 s.getSubscriptionId());
 
         assertEquals(alloc.getName() + ".pipe", s1.name);
@@ -223,7 +223,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Transactional
     @Rollback(true)
     public void testInsertSubscription() {
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
     }
 
@@ -231,7 +231,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Transactional
     @Rollback(true)
     public void testDeleteSubscription() {
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         subscriptionDao.deleteSubscription(s);
     }
@@ -240,7 +240,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Transactional
     @Rollback(true)
     public void testUpdateSubscriptionSize() {
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         subscriptionDao.updateSubscriptionSize(s, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
@@ -252,7 +252,7 @@ public class SubscriptionDaoTests extends AbstractTransactionalJUnit4SpringConte
     @Transactional
     @Rollback(true)
     public void testUpdateSubscriptionBurst() {
-        SubscriptionDetail s = buildSubscription(getShow(), alloc);
+        SubscriptionEntity s = buildSubscription(getShow(), alloc);
         subscriptionDao.insertSubscription(s);
         subscriptionDao.updateSubscriptionBurst(s, 100);
         assertEquals(Integer.valueOf(100), jdbcTemplate.queryForObject(
