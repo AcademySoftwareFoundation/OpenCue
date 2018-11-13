@@ -58,7 +58,7 @@ public class FrameSearch extends Criteria {
     }
 
     public FrameSearch(FrameInterface frame) {
-        this.criteria = criteriaFactory().toBuilder().addFrames(frame.getFrameId()).build();
+        this.criteria = criteriaFactory().toBuilder().addIds(frame.getFrameId()).build();
         this.job = frame;
     }
 
@@ -162,13 +162,13 @@ public class FrameSearch extends Criteria {
 
         if (matchSingle.matches()) {
             sb.append("frame.int_number=?");
-            values.add(matchSingle.group(1));
+            values.add(Integer.valueOf(matchSingle.group(1)));
         }
         else if (matchRange.matches()) {
             sb.append(" ( frame.int_number >= ? AND ");
             sb.append(" frame.int_number <= ? )");
-            values.add(matchRange.group(1));
-            values.add(matchRange.group(2));
+            values.add(Integer.valueOf(matchRange.group(1)));
+            values.add(Integer.valueOf(matchRange.group(2)));
         }
         else {
             FrameSet set = new FrameSet(frameSet);

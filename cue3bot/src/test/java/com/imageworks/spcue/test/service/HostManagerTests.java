@@ -168,10 +168,6 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         proc.frameId = frame.id;
         procDao.insertVirtualProc(proc);
 
-        jdbcTemplate.queryForObject(
-                "SELECT int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?",
-                Integer.class, job.getShowId(), ad.getAllocationId());
-
         AllocationEntity ad2 = allocationDao.findAllocationEntity("spi", "desktop");
         hostManager.setAllocation(h, ad2);
     }
