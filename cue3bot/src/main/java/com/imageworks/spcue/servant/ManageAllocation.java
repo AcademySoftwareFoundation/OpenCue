@@ -38,7 +38,6 @@ import com.imageworks.spcue.grpc.facility.AllocSetTagRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetTagResponse;
 import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.AllocationInterfaceGrpc;
-import com.imageworks.spcue.grpc.facility.AllocationSeq;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.service.AdminManager;

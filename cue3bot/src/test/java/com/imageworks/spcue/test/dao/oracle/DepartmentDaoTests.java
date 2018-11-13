@@ -34,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
-import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.test.AssumingOracleEngine;
 
 import static org.junit.Assert.assertEquals;
@@ -51,10 +50,6 @@ public class DepartmentDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     DepartmentDao departmentDao;
-
-    @Resource
-    AdminManager adminManager;
-
 
     @Test
     @Transactional

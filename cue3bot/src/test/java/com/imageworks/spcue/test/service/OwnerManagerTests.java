@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import javax.annotation.Resource;
@@ -34,20 +33,22 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
+import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
-
 public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Resource
@@ -58,6 +59,12 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
 
     @Resource
     HostManager hostManager;
+
+    @Resource
+    DeedDao deedDao;
+
+    @Resource
+    Whiteboard whiteboard;
 
     public DispatchHost createHost() {
 
@@ -142,11 +149,7 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
         ShowEntity newShow = adminManager.findShowEntity("edu");
         ownerManager.setShow(o, newShow);
 
-        String confirmShow = jdbcTemplate.queryForObject(
-                "SELECT pk_show FROM owner WHERE pk_owner=?",
-                String.class, o.id);
-
-        assertEquals(newShow.id, confirmShow);
+        assertEquals(newShow.name, whiteboard.getOwner(o.name).getShow());
     }
 
     @Test
@@ -186,13 +189,8 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
 
         ownerManager.setBlackoutTime(d, 0, 3600);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_start FROM deed WHERE pk_deed=?",
-                Integer.class, d.id));
-
-        assertEquals(Integer.valueOf(3600), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_stop FROM deed WHERE pk_deed=?",
-                Integer.class, d.id));
+        assertEquals(0, deedDao.getDeed(d.id).blackoutStart);
+        assertEquals(3600, deedDao.getDeed(d.id).blackoutStop);
     }
 
     @Test
@@ -207,15 +205,11 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
 
         ownerManager.setBlackoutTimeEnabled(d, true);
 
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Integer.class, d.id));
+        assertTrue(deedDao.getDeed(d.id).isBlackoutEnabled);
 
         ownerManager.setBlackoutTimeEnabled(d, false);
 
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Integer.class, d.id));
+        assertFalse(deedDao.getDeed(d.id).isBlackoutEnabled);
     }
 
     @Test
@@ -229,7 +223,6 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
         DeedEntity d = ownerManager.takeOwnership(o, host);
 
         ownerManager.removeDeed(d);
-
     }
 }
 
