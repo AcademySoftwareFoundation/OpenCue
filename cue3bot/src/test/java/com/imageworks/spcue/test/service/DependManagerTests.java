@@ -22,6 +22,7 @@ package com.imageworks.spcue.test.service;
 import java.io.File;
 import javax.annotation.Resource;
 
+import com.google.common.collect.ImmutableList;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -99,40 +100,43 @@ public class DependManagerTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_depend_test_b");
     }
 
-    public int getTotalDependCount(JobInterface j) {
-        return jdbcTemplate.queryForObject(
-                "SELECT SUM(int_depend_count) FROM frame WHERE pk_job=?",
-                Integer.class, j.getJobId());
+    private int getTotalDependCount(JobInterface j) {
+        return frameDao.findFrameDetails(new FrameSearch(j))
+                .stream()
+                .mapToInt(frame -> frame.dependCount)
+                .sum();
     }
 
-    public boolean hasDependFrames(JobInterface j) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM frame WHERE pk_job=? AND str_state=?",
-                Integer.class, j.getJobId(), FrameState.DEPEND.toString()) > 0;
+    private boolean hasDependFrames(JobInterface j) {
+        FrameSearch search = new FrameSearch(j);
+        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        return frameDao.findFrames(search).size() > 0;
     }
 
-    public int getTotalDependCount(LayerInterface l) {
-        return jdbcTemplate.queryForObject(
-                "SELECT SUM(int_depend_count) FROM frame WHERE pk_layer=?",
-                Integer.class, l.getLayerId());
+    private int getTotalDependCount(LayerInterface l) {
+        return frameDao.findFrameDetails(new FrameSearch(l))
+                .stream()
+                .mapToInt(frame -> frame.dependCount)
+                .sum();
     }
 
-    public boolean hasDependFrames(LayerInterface l) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM frame WHERE pk_layer=? AND str_state=?",
-                Integer.class, l.getLayerId(), FrameState.DEPEND.toString()) > 0;
+    private boolean hasDependFrames(LayerInterface l) {
+        FrameSearch search = new FrameSearch(l);
+        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        return frameDao.findFrames(search).size() > 0;
     }
 
-    public int getTotalDependCount(FrameInterface f) {
-        return jdbcTemplate.queryForObject(
-                "SELECT SUM(int_depend_count) FROM frame WHERE pk_frame=?",
-                Integer.class, f.getFrameId());
+    private int getTotalDependCount(FrameInterface f) {
+        return frameDao.findFrameDetails(new FrameSearch(f))
+                .stream()
+                .mapToInt(frame -> frame.dependCount)
+                .sum();
     }
 
-    public boolean hasDependFrames(FrameInterface f) {
-        return jdbcTemplate.queryForObject(
-                "SELECT COUNT(1) FROM frame WHERE pk_frame=? AND str_state=?",
-                Integer.class, f.getFrameId(), FrameState.DEPEND.toString()) > 0;
+    private boolean hasDependFrames(FrameInterface f) {
+        FrameSearch search = new FrameSearch(f);
+        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        return frameDao.findFrames(search).size() > 0;
     }
 
     @Test
@@ -541,31 +545,31 @@ public class DependManagerTests extends TransactionalTest {
         LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
         LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
-        jdbcTemplate.update(
-                "UPDATE frame SET str_state=? WHERE pk_layer=? AND " +
-                "int_number IN (1,2,3)",
-                FrameState.SUCCEEDED.toString(), layer_b.getLayerId());
+        FrameSearch search = new FrameSearch(layer_b);
+        search.addFrameSet("1-3");
+        frameDao.findFrames(search)
+                .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
 
         FrameByFrame depend = new FrameByFrame(layer_a, layer_b);
         dependManager.createDepend(depend);
 
-        /** Check the b_active state **/
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_active FROM depend WHERE pk_frame_depend_on=?",
-                Integer.class, frameDao.findFrame(layer_b, 1).getFrameId()));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_active FROM depend WHERE pk_frame_depend_on=?",
-                Integer.class, frameDao.findFrame(layer_b, 2).getFrameId()));
-
-        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
-                "SELECT b_active FROM depend WHERE pk_frame_depend_on=?",
-                Integer.class, frameDao.findFrame(layer_b, 3).getFrameId()));
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT b_active FROM depend WHERE pk_frame_depend_on=?",
-                Integer.class, frameDao.findFrame(layer_b, 4).getFrameId()));
+        /** Check the active state **/
+        assertTrue(
+                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 1))
+                        .stream()
+                        .noneMatch(dep -> dep.active));
+        assertTrue(
+                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 2))
+                        .stream()
+                        .noneMatch(dep -> dep.active));
+        assertTrue(
+                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 3))
+                        .stream()
+                        .noneMatch(dep -> dep.active));
+        assertTrue(
+                dependDao.getWhatDependsOn(frameDao.findFrame(layer_b, 4))
+                        .stream()
+                        .allMatch(dep -> dep.active));
 
         assertTrue(hasDependFrames(layer_a));
         assertEquals(7, getTotalDependCount(layer_a));

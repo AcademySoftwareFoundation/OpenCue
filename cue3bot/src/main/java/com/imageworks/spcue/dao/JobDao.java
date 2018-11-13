@@ -433,5 +433,7 @@ public interface JobDao {
      * @return
      */
     boolean isLaunching(JobInterface j);
+
+    void updateEmail(JobInterface job, String email);
 }
 
