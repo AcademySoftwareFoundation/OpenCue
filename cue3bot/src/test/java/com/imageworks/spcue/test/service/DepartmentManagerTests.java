@@ -94,7 +94,7 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Rollback(true)
     public void updateTiManagedTasks() {
         ShowInterface show = showDao.findShowDetail("pipe");
-        DepartmentInterface dept =  departmentDao.getDefaultDepartment();
+        DepartmentInterface dept = departmentDao.getDefaultDepartment();
         PointInterface rp;
 
         try {
