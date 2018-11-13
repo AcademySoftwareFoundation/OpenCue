@@ -13,19 +13,18 @@
 #  limitations under the License.
 
 
-
 """
-Client side implemenation of search criteria.
+Client side implementation of search criteria.
 The basic premise here is we provide some easy factory
 methods to do common things but expose
-lower level ICE functionality for procedural searches.
+lower level rpc functionality for procedural searches.
 
 Examples:
 
 Simple example using high level API
 jobs = getJobs(show=["pipe"])
 
-Procedural examples using ICE
+Procedural examples using gRPC
 
 Procedural Example 1:
 s = JobSearch()
@@ -45,131 +44,158 @@ for job in JobSearch.byUser(["chambers","jwelborn"]):
     job.proxy.kill()
 
 """
-from cuebot import Cuebot
-import cue.CueClientIce as CueIce
-import spi.SpiIce as SpiIce
-from util import *
+
 import logging
+
+from Cue3 import criterion_pb2
+from Cue3 import host_pb2
+from Cue3 import job_pb2
+from cuebot import Cuebot
 
 logger = logging.getLogger("cue3")
 
-__all__ = ["ProcSearch",
-         "FrameSearch",
-         "HostSearch",
-         "JobSearch"]
+__all__ = ["BaseSearch",
+           "ProcSearch",
+           "FrameSearch",
+           "HostSearch",
+           "JobSearch"]
 
-class ProcSearch(CueIce.ProcSearchCriteria):
+
+class BaseSearch(object):
+    def __init__(self, **options):
+        self.options = options
+
+    def search(self):
+        return self.byOptions(self.options)
+
+    @classmethod
+    def byOptions(cls, **options):
+        raise NotImplementedError
+
+
+class ProcSearch(BaseSearch):
     """See: help(Cue3.getProcs)"""
     def __init__(self, **options):
-        """See: help(Cue3.getProcs)"""
-        CueIce.ProcSearchCriteria.__init__(self, 1, [], [], [], [], [], [], [], [])
-        if options:
-            self.setOptions(**options)
-
-    def setOptions(self, **options):
-        """See: help(Cue3.getProcs)"""
-        _setOptions(self, options)
+        super(ProcSearch, self).__init__(**options)
 
     @staticmethod
-    def byOptions(**options):
-        """See: help(Cue3.getProcs)"""
-        return Cuebot.Proxy.getProcs(ProcSearch(**options))
+    def criteriaFromOptions(**options):
+        return _setOptions(host_pb2.ProcSearchCriteria(), options)
 
-class FrameSearch(CueIce.FrameSearchCriteria):
+    @classmethod
+    def byOptions(cls, **options):
+        criteria = cls.criteriaFromOptions(**options)
+        return Cuebot.getStub('proc').GetProcs(
+            host_pb2.ProcGetProcsRequest(r=criteria), timeout=Cuebot.Timeout)
+
+
+class FrameSearch(BaseSearch):
     def __init__(self, **options):
-        CueIce.FrameSearchCriteria.__init__(self, [], [], [], [], "","","", 1, 1000, 0)
-        if options:
-            self.setOptions(**options)
-
-    def setOptions(self, **options):
-        _setOptions(self, options)
+        super(FrameSearch, self).__init__(**options)
 
     @staticmethod
-    def byOptions(job, **options):
-        return proxy(job).getFrames(FrameSearch(**options))
+    def criteriaFromOptions(**options):
+        criteria = _setOptions(job_pb2.FrameSearchCriteria(), options)
+        criteria.page = options.get('page', 1)
+        criteria.limit = options.get('limit', 1000)
+        criteria.change_date = options.get('change_date', 0)
+        return criteria
 
-    @staticmethod
-    def byRange(job, val):
-        return proxy(job).getFrames(FrameSearch(range=val))
+    @classmethod
+    def byOptions(cls, job, **options):
+        criteria = cls.criteriaFromOptions(**options)
+        return Cuebot.getStub('frame').GetFrames(job_pb2.FrameGetFramesRequest(job=job, r=criteria),
+                                                 timeout=Cuebot.Timeout)
 
-class HostSearch(CueIce.HostSearchCriteria):
+    @classmethod
+    def byRange(cls, job, val):
+        cls.byOptions(job, frame_range=val)
+
+
+class HostSearch(BaseSearch):
     def __init__(self, **options):
-        CueIce.HostSearchCriteria.__init__(self,[],[],[],[],[],[])
-        self.setOptions(**options)
-
-    def setOptions(self, **options):
-        _setOptions(self, options)
+        super(HostSearch, self).__init__(**options)
 
     @staticmethod
-    def byOptions(**options):
-        return Cuebot.Proxy.getHosts(HostSearch(**options))
+    def criteriaFromOptions(**options):
+        return _setOptions(host_pb2.HostSearchCriteria(), options)
 
-    @staticmethod
-    def byName(val):
-        return Cuebot.Proxy.getHosts(HostSearch(host=val))
+    @classmethod
+    def byOptions(cls, **options):
+        criteria = cls.criteriaFromOptions(**options)
+        return Cuebot.getStub('host').GetHosts(
+            host_pb2.HostGetHostsRequest(r=criteria), timeout=Cuebot.Timeout)
 
-    @staticmethod
-    def byRegex(val):
-        return Cuebot.Proxy.getHosts(HostSearch(regex=val))
+    @classmethod
+    def byName(cls, val):
+        return cls.byOptions(name=val)
 
-    @staticmethod
-    def byId(val):
-        return Cuebot.Proxy.getHosts(HostSearch(id=val))
+    @classmethod
+    def byRegex(cls, val):
+        return cls.byOptions(regex=val)
 
-    @staticmethod
-    def byMatch(val):
-        return Cuebot.Proxy.getHosts(HostSearch(substr=val))
+    @classmethod
+    def byId(cls, val):
+        return cls.byOptions(id=val)
 
-    @staticmethod
-    def byAllocation(val):
-        return Cuebot.Proxy.getHosts(HostSearch(alloc=val))
+    @classmethod
+    def byMatch(cls, val):
+        return cls.byOptions(substr=val)
 
-class JobSearch(CueIce.JobSearchCriteria):
+    @classmethod
+    def byAllocation(cls, val):
+        return cls.byOptions(alloc=val)
+
+
+class JobSearch(BaseSearch):
     def __init__(self, **options):
-        CueIce.JobSearchCriteria.__init__(self,[],[],[],[],[],[],[],False)
-        self.setOptions(**options)
-        self.includeFinished = options.get("all", False)
-
-    def setOptions(self, **options):
-        _setOptions(self, options)
+        super(JobSearch, self).__init__(**options)
 
     @staticmethod
-    def byOptions(**options):
-        return Cuebot.Proxy.getJobs(JobSearch(**options))
+    def criteriaFromOptions(**options):
+        return _setOptions(job_pb2.JobSearchCriteria(), options)
 
-    @staticmethod
-    def byName(val):
-        return Cuebot.Proxy.getJobs(JobSearch(job=val))
+    @classmethod
+    def byOptions(cls, **options):
+        criteria = cls.criteriaFromOptions(**options)
+        return Cuebot.getStub('job').GetJobs(
+            job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout)
 
-    @staticmethod
-    def byId(val):
-        return Cuebot.Proxy.getJobs(JobSearch(id=val))
+    @classmethod
+    def byName(cls, val):
+        return cls.byOptions(job=val)
 
-    @staticmethod
-    def byRegex(val):
-        return Cuebot.Proxy.getJobs(JobSearch(regex=val))
+    @classmethod
+    def byId(cls, val):
+        return cls.byOptions(id=val)
 
-    @staticmethod
-    def byMatch(val):
-        return Cuebot.Proxy.getJobs(JobSearch(substr=val))
+    @classmethod
+    def byRegex(cls, val):
+        return cls.byOptions(regex=val)
 
-    @staticmethod
-    def byShow(val):
-        return Cuebot.Proxy.getJobs(JobSearch(show=val))
+    @classmethod
+    def byMatch(cls, val):
+        return cls.byOptions(substr=val)
 
-    @staticmethod
-    def byShot(val):
-        return Cuebot.Proxy.getJobs(JobSearch(shots=val))
+    @classmethod
+    def byShow(cls, val):
+        return cls.byOptions(show=val)
 
-    @staticmethod
-    def byUser(name):
-        return Cuebot.Proxy.getJobs(JobSearch(user=val))
+    @classmethod
+    def byShot(cls, val):
+        return cls.byOptions(shots=val)
+
+    @classmethod
+    def byUser(cls, val):
+        return cls.byOptions(user=val)
+
 
 def _append(stuff, item):
     if isinstance(item, (tuple, list, set)):
         stuff.extend(item)
     else:
         stuff.append(item)
+
 
 def _createCriterion(search, searchType, convert=None):
     """handleCriterion
@@ -196,9 +222,8 @@ def _createCriterion(search, searchType, convert=None):
             return searchType(val)
         return searchType(convert(searchType(val)))
 
-    # A value by itself should be a greater than search
     if isinstance(search, (int, float)) or \
-       isinstance(search, str) and search.isdigit():
+            isinstance(search, str) and search.isdigit():
         search = "gt%s" % search
 
     if searchType == float:
@@ -206,85 +231,85 @@ def _createCriterion(search, searchType, convert=None):
     elif searchType == int:
         searchTypeStr = "Integer"
     else:
-        raise "Unknown searchType, must be Int or Float"
+        raise ValueError("Unknown searchType, must be Int or Float")
 
     if search.startswith("gt"):
-        criterion = getattr(SpiIce,
+        criterion = getattr(criterion_pb2,
                             "GreaterThan%sSearchCriterion" % searchTypeStr)
         return criterion(_convert(search[2:]))
     elif search.startswith("lt"):
-        criterion = getattr(SpiIce,
+        criterion = getattr(criterion_pb2,
                             "LessThan%sSearchCriterion" % searchTypeStr)
         return criterion(_convert(search[2:]))
     elif search.find("-") > -1:
-        criterion = getattr(SpiIce,
+        criterion = getattr(criterion_pb2,
                             "InRange%sSearchCriterion" % searchTypeStr)
         min, max = search.split("-")
         return criterion(_convert(min), _convert(max))
 
-    raise "Unable to parse this format: %s" % search
+    raise ValueError("Unable to parse this format: %s" % search)
 
-def _setOptions(s, options):
-    """_setOptions(criteria, dict)
-        All the search options have relitively the same
-        critiera.
-    """
+
+def _setOptions(criteria, options):
+
     for k, v in options.iteritems():
-        if k == "job" or (k=="name" and isinstance(s, JobSearch)):
-            _append(s.jobs,v)
-        elif k == "host" or (k=="name" and isinstance(s, HostSearch)):
-            _append(s.hosts,v)
-        elif k == "frame" or (k=="name" and isinstance(s, FrameSearch)):
-            _append(s.frames, v)
-        elif k in("match","substr"):
-            _append(s.substr,v)
+        if k == "job" or (k == "name" and isinstance(criteria, job_pb2.JobSearchCriteria)):
+            criteria.jobs.extend(v)
+        elif k == "host" or (k == "name" and isinstance(criteria, host_pb2.HostSearchCriteria)):
+            criteria.hosts.extend(v)
+        elif k == "frame" or (k == "name" and isinstance(criteria, job_pb2.FrameSearchCriteria)):
+            criteria.frames.extend(v)
+        elif k in("match", "substr"):
+            criteria.substr.extend(v)
         elif k == "regex":
-            _append(s.regex,v)
+            criteria.regex.extend(v)
         elif k == "id":
-            _append(s.ids,id(v))
+            criteria.ids.extend(v)
         elif k == "show":
-            _append(s.shows,v)
+            criteria.shows.extend(v)
         elif k == "shot":
-            _append(s.shots,v)
+            criteria.shots.extend(v)
         elif k == "user":
-            _append(s.users,v)
+            criteria.users.extend(v)
         elif k == "state":
-            _append(s.states, v)
+            criteria.states.extend(v)
         elif k == "layer":
-            _append(s.layers, v)
+            criteria.layers.extend(v)
         elif k == "alloc":
-            _append(s.allocs, v)
+            criteria.allocs.extend(v)
         elif k in ("range", "frames"):
             if not v:
                 continue
-            if isinstance(s.frameRange, str):
+            if isinstance(criteria.frame_range, unicode):
                 # Once FrameSearch.frameRange is not a string
                 # this can go away
-                s.frameRange = v
+                criteria.frame_range = v
             else:
-                s.frameRange.append(_createCriterion(v, int))
+                criteria.frame_range.append(_createCriterion(v, int))
         elif k == "memory":
             if not v:
                 continue
-            if isinstance(s.memoryRange, str):
+            if isinstance(criteria.memory_range, unicode):
                 # Once FrameSearch.memoryRange is not a string
                 # this can go away
-                s.memoryRange = v
+                criteria.memory_range = v
             else:
-                s.memoryRange.append(_createCriterion(v, int,
-                                                      lambda mem:(1048576 * mem)))
+                criteria.memory_range.append(_createCriterion(v, int,
+                                                      lambda mem: (1048576 * mem)))
         elif k == "duration":
             if not v:
                 continue
-            if isinstance(s.durationRange, str):
+            if isinstance(criteria.duration_range, unicode):
                 # Once FrameSearch.durationRange is not a string
                 # this can go away
-                s.durationRange = v
+                criteria.duration_range = v
             else:
-                s.durationRange.append(_createCriterion(v, int,
+                criteria.duration_range.append(_createCriterion(v, int,
                                                         lambda duration:(60 * 60 * duration)))
         elif k == "limit":
-            s.maxResults = [int(v)]
+            criteria.max_results.extend([int(v)])
         elif k == "offset":
-            s.firstResult = int(v)
-
+            criteria.first_result = int(v)
+        elif k == "include_finished":
+            criteria.include_finished = v
+    return criteria

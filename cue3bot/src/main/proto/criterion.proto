@@ -1,0 +1,32 @@
+syntax = "proto3";
+package criterion;
+
+option java_package = "com.imageworks.spcue.grpc.criterion";
+option java_multiple_files = true;
+
+
+// -------- Primary Message Types --------]
+
+message GreaterThanFloatSearchCriterion {
+    float value = 1;
+}
+
+message GreaterThanIntegerSearchCriterion {
+    int32 value = 1;
+}
+
+message InRangeFloatSearchCriterion {
+    float value = 1;
+}
+
+message InRangeIntegerSearchCriterion {
+    int32 value = 1;
+}
+
+message LessThanFloatSearchCriterion {
+    float value = 1;
+}
+
+message LessThanIntegerSearchCriterion {
+    int32 value = 1;
+}

@@ -27,26 +27,19 @@ Contact: Middle-Tier Group
 
 SVN: $Id$
 """
-import os
 
-from Cue3 import allocation_pb2
-from Cue3 import allocation_pb2_grpc
-from Cue3 import facility_pb2
-from Cue3 import facility_pb2_grpc
+import search
 from cuebot import Cuebot
-from search import *
-from exception import *
-from util import *
+from Cue3 import cue_pb2
+from Cue3 import depend_pb2
+from Cue3 import facility_pb2
+from Cue3 import filter_pb2
+from Cue3 import host_pb2
+from Cue3 import job_pb2
+from Cue3 import service_pb2
+from Cue3 import show_pb2
+from Cue3 import subscription_pb2
 
-def takesproxy(f):
-    """takesproxy(func f)
-    A decoratory that converts arguments from
-    ice objects to a proxy allowing methods to take
-    an ice object, a proxy, or a string id!"""
-    def takesProxyFactory(uniq):
-        o = f(id(uniq))
-        return o
-    return takesProxyFactory
 
 #
 # These are convenience methods that get imported into
@@ -58,7 +51,10 @@ def getDefaultServices():
     define the default application features.
     @rtype list<Service>
     """
-    return Cuebot.Proxy.getDefaultServices()
+    response = Cuebot.getStub('service').GetDefaultServices(
+        service_pb2.ServiceGetDefaultServicesRequest(), timeout=Cuebot.Timeout)
+    return response.services
+
 
 def getService(id):
     """
@@ -66,7 +62,9 @@ def getService(id):
     define the default application features.
     @rtype list<Service>
     """
-    return Cuebot.Proxy.getService(id)
+    return Cuebot.getStub('service').GetService(
+        service_pb2.ServiceGetServiceRequest(id), timeout=Cuebot.Timeout).service
+
 
 def createService(data):
     """
@@ -74,10 +72,9 @@ def createService(data):
     define the default application features.
     @rtype list<Service>
     """
-    return Cuebot.Proxy.createService(data)
+    return Cuebot.getStub('service').CreateService(
+        service_pb2.ServiceCreateServiceRequest(data), timeout=Cuebot.Timeout).service
 
-# functions are in tree order, for example
-# shows, groups, jobs, layers, frames, etc
 
 def getSystemStats():
     """Returns the system stats for a random
@@ -86,15 +83,17 @@ def getSystemStats():
     problems.
     @rtype: SystemStats
     @return: a struct of Cue3 application information."""
-    return Cuebot.Proxy.getSystemStats()
+    return Cuebot.getStub('cue').GetSystemStats(
+        cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout).stats
+
 
 #
 # Facility
 #
-
 def createFacility(name):
-    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    return stub.Create(facility_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('facility').Create(
+        facility_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout).facility
+
 
 def getFacility(name):
     """Return a given facility by name or unique ID.
@@ -103,40 +102,59 @@ def getFacility(name):
     @rtype: Facility
     @return: A facility object.
     """
-    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    return stub.Get(facility_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('facility').Get(
+        facility_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout).facility
+
 
 def renameFacility(facility, new_name):
-    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    stub.Rename(facility_pb2.FacilityRenameRequest(facility=facility, new_name=new_name), timeout=Cuebot.Timeout)
+    Cuebot.getStub('facility').Rename(
+        facility_pb2.FacilityRenameRequest(facility=facility, new_name=new_name),
+        timeout=Cuebot.Timeout)
+
 
 def deleteFacility(name):
-    stub = facility_pb2_grpc.FacilityInterfaceStub(Cuebot.RpcChannel)
-    stub.Delete(facility_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
+    Cuebot.getStub('facility').Delete(
+        facility_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
+
 
 #
 # Shows
 #
-
 def createShow(show):
     """Creates a new show
-    @type  show: str
-    @param show: A new show name to create
-    @rtype:  Show
-    @return: The created show object"""
-    return Cuebot.Proxy.createShow(show)
+     @type  show: str
+     @param show: A new show name to create
+     @rtype:  Show
+     @return: The created show object"""
+    return Cuebot.getStub('show').CreateShow(
+        show_pb2.ShowCreateShowRequest(name=show), timeout=Cuebot.Timeout).show
+
+
+def deleteShow(show_id):
+    """Deletes a show
+     @type  show_id: str
+     @param show_id: A show id to delete"""
+    Cuebot.getStub('show').DeleteShow(
+        show_pb2.ShowDeleteRequest(show_id=show_id), timeout=Cuebot.Timeout)
+
 
 def getShows():
     """Returns a list of show objects
     @rtype:  list<Show>
     @return: List of show objects"""
-    return Cuebot.Proxy.getShows()
+    response = Cuebot.getStub('show').GetShows(
+        show_pb2.ShowGetShowsRequest(), timeout=Cuebot.Timeout)
+    return response.shows
+
 
 def getActiveShows():
     """Returns a list of all active shows.
     @rtype:  list<Show>
     @return: List of show objects"""
-    return Cuebot.Proxy.getActiveShows()
+    response = Cuebot.getStub('show').GetActiveShows(
+        show_pb2.ShowGetActiveShowsRequest(), timeout=Cuebot.Timeout)
+    return response.shows
+
 
 def findShow(name):
     """Returns a list of show objects
@@ -144,11 +162,13 @@ def findShow(name):
     @param name: A string that represents a show to return.
     @rtype:  Show
     @return: List of show objects"""
-    return Cuebot.Proxy.findShow(name)
+    return Cuebot.getStub('show').FindShow(
+        show_pb2.ShowFindShowRequest(name=name), timeout=Cuebot.Timeout).show
 
 #
 # Groups
 #
+
 
 def findGroup(show, group):
     """Returns a group object
@@ -158,15 +178,17 @@ def findGroup(show, group):
     @param group: The name of a group
     @rtype:  Group
     @return: The matching group object"""
-    return Cuebot.Proxy.findGroup(show, group)
+    return Cuebot.getStub('group').FindGroup(
+        job_pb2.GroupFindGroupRequest(show=show, name=group), timeout=Cuebot.Timeout).group
 
-@takesproxy
+
 def getGroup(uniq):
-    """Returns a Group object from its uniq
-    id or proxy.
+    """Returns a Group object from its uniq id.
     @rtype:  Group
     @return: The matching group object"""
-    return Cuebot.Proxy.getGroup(uniq)
+    return Cuebot.getStub('group').GetGroup(
+        job_pb2.GroupGetGroupRequest(id=uniq), timeout=Cuebot.Timeout).group
+
 
 #
 # Jobs
@@ -178,7 +200,9 @@ def isJobPending(name):
     @param name: A job name
     @rtype: bool
     @return: true if the job exists"""
-    return Cuebot.Proxy.isJobPending(name)
+    return Cuebot.getStub('job').IsJobPending(
+        job_pb2.JobIsJobPendingRequest(name=name), timeout=Cuebot.Timeout).value
+
 
 def findJob(name):
     """Returns a Job object for the given job name.
@@ -187,9 +211,10 @@ def findJob(name):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    return Cuebot.Proxy.findJob(name)
+    return Cuebot.getStub('job').FindJob(
+        job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
 
-@takesproxy
+
 def getJob(uniq):
     """Returns a Job object for the given job name.
     This will only return one or zero active job.
@@ -197,7 +222,9 @@ def getJob(uniq):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    return Cuebot.Proxy.getJob(uniq)
+    return Cuebot.getStub('job').GetJob(
+        job_pb2.JobGetJobRequest(id=uniq), timeout=Cuebot.Timeout).job
+
 
 def getJobs(**options):
     """
@@ -220,7 +247,10 @@ def getJobs(**options):
     @rtype:  List<Job>
     @return: a list of jobs
     """
-    return JobSearch.byOptions(**options)
+    criteria = search.JobSearch.criteriaFromOptions(**options)
+    return Cuebot.getStub('job').GetJobs(
+        job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs
+
 
 #
 # Job Names
@@ -232,9 +262,10 @@ def getJobNames(**options):
     @param options: a variable list of search criteria
     @rtype:  list<str>
     @return: List of matching job names"""
-    s = JobSearch()
-    s.setOptions(**options)
-    return Cuebot.Proxy.getJobNames(s)
+    criteria = search.JobSearch.criteriaFromOptions(**options)
+    return Cuebot.getStub('job').GetJobNames(
+        job_pb2.JobGetJobNamesRequest(r=criteria), timeout=Cuebot.Timeout).names
+
 
 #
 # Layers
@@ -247,16 +278,19 @@ def findLayer(job, layer):
     @param layer: the layer name
     @rtype: Layer
     @return: the layer matching the query"""
-    return Cuebot.Proxy.findLayer(job, layer)
+    return Cuebot.getStub('layer').FindLayer(
+        job_pb2.LayerFindLayerRequest(job=job, layer=layer), timeout=Cuebot.Timeout).layer
 
-@takesproxy
+
 def getLayer(uniq):
-    """Returns a Layer object for the given layer id or proxy.
+    """Returns a Layer object for the given layer id.
     @type  uniq: a unique identifier.
-    @param uniq: an object, proxy, or id
+    @param uniq: id
     @rtype:  Layer
     @return: A Layer object"""
-    return Cuebot.Proxy.getLayer(uniq)
+    return Cuebot.getStub('layer').GetLayer(
+        job_pb2.LayerGetLayerRequest(id=uniq), timeout=Cuebot.Timeout).layer
+
 
 #
 # Frames
@@ -271,41 +305,44 @@ def findFrame(job, layer, number):
     @param number: the frame number
     @rtype: Frame
     @return: the frame matching the query"""
-    return Cuebot.Proxy.findFrame(job, layer, number)
+    return Cuebot.getStub('frame').FindFrame(
+        job_pb2.FrameFindFrameRequest(job=job, layer=layer, frame=number),
+        timeout=Cuebot.Timeout).frame
 
-@takesproxy
+
 def getFrame(uniq):
-    """Returns a Frame object from a unique frame identifier such
-    as a Frame object, a proxy, or a unique id.
+    """Returns a Frame object from the unique id.
     @type  uniq: a unique identifier.
-    @param uniq: an object, proxy, or id
+    @param uniq: id
     @rtype:  Frame
     @return: A Frame object"""
-    return Cuebot.Proxy.getFrame(uniq)
+    return Cuebot.getStub('frame').GetFrame(
+        job_pb2.FrameGetFrameRequest(id=uniq), timeout=Cuebot.Timeout).frame
+
 
 def getFrames(job, **options):
     """Finds frames in a job that match the search critieria
-    @type job: A uniquie job identifier.
-    @param: An id, prx, object, or a job name.
+    @type job: A unique job identifier.
+    @param: An id
     @rtype: List<Frame>
     @return: a list of matching frames"""
-    try:
-        j = proxy(job, "Job")
-    except:
-        j = findJob(job).proxy
-    return j.getFrames(FrameSearch(**options))
+    criteria = search.FrameSearch.criteriaFromOptions(**options)
+    return Cuebot.getStub('frame').GetFrames(
+        job_pb2.FrameGetFramesRequest(job=job, r=criteria), timeout=Cuebot.Timeout).frames
+
 
 #
 # Depends
 #
-@takesproxy
 def getDepend(uniq):
     """Finds a dependency from its unique ID
     @type id: str
     @param id: the depends' unique id
     @rtype: Depend
     @return: a dependency"""
-    return Cuebot.Proxy.getDepend(uniq)
+    return Cuebot.getStub('depend').GetDepend(
+        depend_pb2.DependGetDependRequest(id=uniq), timeout=Cuebot.Timeout).depend
+
 
 #
 # Hosts
@@ -314,7 +351,9 @@ def getHostWhiteboard():
     """
     @rtype:  list<Host>
     @return: NestedHost """
-    return Cuebot.Proxy.getHostWhiteboard()
+    return Cuebot.getStub('host').GetHostWhiteboard(host_pb2.HostGetHostWhiteboardRequest(),
+                                                    timeout=Cuebot.Timeout).nested_hosts
+
 
 def getHosts(**options):
     """
@@ -335,7 +374,8 @@ def getHosts(**options):
     @rtype:  List<Host>
     @return: a list of hosts
     """
-    return HostSearch.byOptions(**options)
+    return search.HostSearch.byOptions(**options).hosts
+
 
 def findHost(name):
     """Returns the host for the matching hostname
@@ -343,23 +383,27 @@ def findHost(name):
     @param name: The unique name of a host
     @rtype:  Host
     @return: The matching host object"""
-    return Cuebot.Proxy.findHost(name)
+    return Cuebot.getStub('host').FindHost(
+        host_pb2.HostFindHostRequest(name=name), timeout=Cuebot.Timeout).host
 
-@takesproxy
+
 def getHost(uniq):
     """Returns a Host object from a unique identifier
     @type  uniq: a unique identifier.
-    @param uniq: an object, proxy, or id
+    @param uniq: an id
     @rtype:  Host
     @return: A Host object"""
-    return Cuebot.Proxy.getHost(uniq)
+    return Cuebot.getStub('host').GetHost(
+        host_pb2.HostGetHostsRequest(id=uniq), timeout=Cuebot.Timeout).host
+
 
 #
 # Owners
 #
 def getOwner(id):
     """Return an Owner object from the id or name."""
-    return Cuebot.Proxy.getOwner(id)
+    return Cuebot.getStub('owner').GetOwner(
+        host_pb2.OwnerGetOwnerRequest(name=id), timout=Cuebot.Timeout).owner
 
 #
 # Filters
@@ -372,7 +416,9 @@ def findFilter(show_name, filter_name):
     @param filter_name: a filter name
     @rtype:  Filter
     @return: The matching filter"""
-    return Cuebot.Proxy.findFilter(show_name,filter_name)
+    return Cuebot.getStub('filter').FindFilter(
+        filter_pb2.FilterFindFilterRequest(show=show_name, name=filter_name),
+        timeout=Cuebot.Timeout).filter
 
 #
 # Allocation
@@ -386,19 +432,17 @@ def createAllocation(name, tag, facility):
     @param tag: The tag for the allocation
     @rtype:  Allocation
     @return: The created allocation object"""
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.Create(allocation_pb2.AllocCreateRequest(
-        name=name,
-        tag=tag,
-        facility=facility), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').Create(
+        facility_pb2.AllocCreateRequest(name=name, tag=tag, facility=facility),
+        timeout=Cuebot.Timeout).allocation
 
 
 def getAllocations():
     """Returns a list of allocation objects
     @rtype:  list<Allocation>
     @return: List of allocation objects"""
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.GetAll(allocation_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').GetAll(
+        facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations
 
 
 def findAllocation(name):
@@ -407,49 +451,47 @@ def findAllocation(name):
     @param name: The name of the allocation
     @rtype:  Allocation
     @return: Allocation object"""
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.Find(allocation_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').Find(
+        facility_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout).allocation
 
 
 def getAllocation(allocId):
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.Get(allocation_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').Get(
+        facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocations
 
 
 def deleteAllocation(alloc):
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.Delete(allocation_pb2.AllocDeleteRequest(allocation=alloc), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').Delete(
+        facility_pb2.AllocDeleteRequest(allocation=alloc), timeout=Cuebot.Timeout)
 
 
 def allocSetBillable(alloc, is_billable):
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.SetBillable(
-        allocation_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').SetBillable(
+        facility_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable),
+        timeout=Cuebot.Timeout)
 
 
 def allocSetName(alloc, name):
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.SetName(
-        allocation_pb2.AllocSetNameRequest(allocation=alloc, name=name), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').SetName(
+        facility_pb2.AllocSetNameRequest(allocation=alloc, name=name), timeout=Cuebot.Timeout)
 
 
 def allocSetTag(alloc, tag):
-    stub = allocation_pb2_grpc.AllocationInterfaceStub(Cuebot.RpcChannel)
-    return stub.SetTag(
-        allocation_pb2.AllocSetTagRequest(allocation=alloc, tag=tag), timeout=Cuebot.Timeout)
+    return Cuebot.getStub('allocation').SetTag(
+        facility_pb2.AllocSetTagRequest(allocation=alloc, tag=tag), timeout=Cuebot.Timeout)
 
 
 #
 # Subscriptions
 #
-@takesproxy
 def getSubscription(uniq):
     """Returns a Subscription object from a unique identifier
     @type  uniq: a unique identifier.
-    @param uniq: an object, proxy, or id
+    @param uniq: an id
     @rtype:  Subscription
     @return: A Subscription object"""
-    return Cuebot.Proxy.getSubscription(uniq)
+    return Cuebot.getStub('subscription').Get(
+        subscription_pb2.SubscriptionGetRequest(id=uniq), timeout=Cuebot.Timeout).subscription
 
 def findSubscription(name):
     """Returns the subscription object that matches the name.
@@ -457,7 +499,8 @@ def findSubscription(name):
     @param name: The name of the subscription
     @rtype:  Subscription
     @return: Subscription object"""
-    return Cuebot.Proxy.findSubscription(name)
+    return Cuebot.getStub('subscription').Find(
+        subscription_pb2.SubscriptionFindRequest(name=name), timeout=Cuebot.Timeout).subscription
 
 #
 # Procs
@@ -487,6 +530,4 @@ def getProcs(**options):
 
     @rtype:  List<Proc>
     @return: a list of procs"""
-    return ProcSearch.byOptions(**options)
-
-
+    return search.ProcSearch.byOptions(**options).procs

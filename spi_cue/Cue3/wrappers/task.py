@@ -19,33 +19,30 @@ Project: Cue3 Library
 
 Module: task.py - Cue3 Library implementation of a task
 
-Created: Dec 15, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id
 """
 
-import cue.CueClientIce as CueClientIce
+from Cue3 import task_pb2
+from Cue3.cuebot import Cuebot
 
-class Task(CueClientIce.Task):
-    """This class contains the ice implementation related to a Task."""
-    def __init__(self):
-        """_Task class initialization"""
-        CueClientIce.Task.__init__(self)
+
+class Task(object):
+
+    def __init__(self, task=None):
+        self.data = task
+        self.stub = Cuebot.getStub('task')
 
     def id(self):
         """Returns the task's unique id"""
-        self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def setMinCores(self, minCores):
         """Sets the minimum amount of cores for the task
         @type  minCores: int
         @param minCores: the minimum number of cores the task needs"""
-        self.proxy.setMinCores(minCores)
+        self.stub.SetMinCores(
+            task_pb2.TaskSetMinCoresRequest(task=self.task, new_min_cores=minCores),
+            timeout=Cuebot.Timeout)
 
-    def delete():
+    def delete(self):
         """Deletes this task"""
-        self.proxy.delete()
-
-
+        self.stub.Delete(task_pb2.TaskDeleteRequest(task=self.task), timeout=Cuebot.Timeout)

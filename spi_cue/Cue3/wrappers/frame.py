@@ -19,49 +19,53 @@ Project: Cue3 Library
 
 Module: frame.py - Cue3 Library implementation of a frame
 
-Created: February 12, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import cue.CueClientIce as CueClientIce
-import cue.CueIce as CueIce
 import time
 
-class Frame(CueClientIce.Frame):
-    """This class contains the ice implementation related to a frame."""
-    def __init__(self):
+from Cue3 import Cuebot
+import depend
+from Cue3 import job_pb2
+
+
+class Frame(object):
+    def __init__(self, frame):
         """_Frame class initialization"""
-        CueClientIce.Frame.__init__(self)
+        self.data = frame
+        self.stub = Cuebot.getStub('frame')
 
     def eat(self):
         """Eat frame"""
-        if self.data.state != CueIce.FrameState.Eaten:
-            self.proxy.eat()
+        if self.data.state != job_pb2.FrameState.Value('EATEN'):
+            self.stub.Eat(job_pb2.FrameEatRequest(frame=self.data), timeout=Cuebot.Timeout)
 
     def kill(self):
         """Kill frame"""
-        if self.data.state == CueIce.FrameState.Running:
-            self.proxy.kill()
+        if self.data.state == job_pb2.FrameState.Value('RUNNING'):
+            self.stub.Kill(job_pb2.FrameKillRequest(frame=self.data), timeout=Cuebot.Timeout)
 
     def retry(self):
         """Retry frame"""
-        if self.data.state != CueIce.FrameState.Waiting:
-            self.proxy.retry()
+        if self.data.state != job_pb2.FrameState.Value('WAITING'):
+            self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this frame
         @rtype:  list<Depend>
         @return: List of dependencies that depend directly on this frame"""
-        return self.proxy.getWhatDependsOnThis()
+        response = self.stub.GetWhatDependsOnThis(
+            job_pb2.FrameGetWhatDependsOnThisRequest(frame=self.data),
+            timeout=Cuebot.Timeout)
+        return [depend.Depend(d) for d in response.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this frame depends on
         @rtype:  list<Depend>
         @return: List of dependencies that this frame depends on"""
-        return self.proxy.getWhatThisDependsOn()
+        response = self.stub.GetWhatThisDependsOn(
+            job_pb2.FrameGetWhatThisDependsOnRequest(frame=self.data),
+            timeout=Cuebot.Timeout)
+        return [depend.Depend(d) for d in response.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a frame on job dependency
@@ -69,7 +73,10 @@ class Frame(CueClientIce.Frame):
         @param job: the job you want this frame to depend on
         @rtype:  Depend
         @return: The new dependency"""
-        return self.proxy.createDependencyOnJob(job.proxy)
+        response = self.stub.CreateDependencyOnJob(
+            job_pb2.FrameCreateDependencyOnJobRequest(frame=self.data, job=job),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a frame on layer dependency
@@ -77,7 +84,10 @@ class Frame(CueClientIce.Frame):
         @param layer: the layer you want this frame to depend on
         @rtype:  Depend
         @return: The new dependency"""
-        return self.proxy.createDependencyOnLayer(layer.proxy)
+        response = self.stub.CreateDependencyOnLayer(
+            job_pb2.FrameCreateDependencyOnLayerRequest(frame=self.data, layer=layer),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a frame on frame dependency
@@ -85,30 +95,35 @@ class Frame(CueClientIce.Frame):
         @param frame: the frame you want this frame to depend on
         @rtype:  Depend
         @return: The new dependency"""
-        return self.proxy.createDependencyOnFrame(frame.proxy)
+        response = self.stub.CreateDependencyOnFrame(
+            job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data, depend_on_frame=frame),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
     def markAsWaiting(self):
         """Mark the frame as waiting, similar to drop depends. The frame will be
         able to run even if the job has an external dependency."""
-        self.proxy.markAsWaiting()
+        self.stub.MarkAsWaiting(
+            job_pb2.FrameMarkAsWaitingRequest(frame=self.data),
+            timeout=Cuebot.Timeout)
 
     def id(self):
         """Returns the id of the frame
         @rtype:  str
         @return: Frame uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def name(self):
         """Returns the name of the frame
         @rtype:  str
         @return: Frame name"""
-        return "%04d-%s" % (self.data.number, self.data.layerName)
+        return "%04d-%s" % (self.data.number, self.data.layer_name)
 
     def layer(self):
         """Returns the name of the layer name that the frame belongs to
         @rtype:  str
         @return: Layer name"""
-        return self.data.layerName
+        return self.data.layer_name
 
     def frame(self):
         """Returns the frames number as a padded string
@@ -126,56 +141,56 @@ class Frame(CueClientIce.Frame):
         """Returns the frames dispatch order
         @rtype:  int
         @return: Frame dispatch order"""
-        return self.data.dispatchOrder
+        return self.data.dispatch_order
 
     def startTime(self):
         """Returns the epoch timestamp of the frame's start time
         @rtype:  int
         @return: Job start time in epoch"""
-        return self.data.startTime
+        return self.data.start_time
 
     def stopTime(self):
         """Returns the epoch timestamp of the frame's stop time
         @rtype:  int
         @return: Frame stop time in epoch"""
-        return self.data.stopTime
+        return self.data.stop_time
 
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
         Ex: vrack999/1.0 = host/proc:cores
         @rtype:  str
         @return: Most recent running resource"""
-        return self.data.lastResource
+        return self.data.last_resource
 
     def retries(self):
         """Returns the number of retries
         @rtype:  int
         @return: Number of retries"""
-        return self.data.retryCount
+        return self.data.retry_count
 
     def exitStatus(self):
         """Returns the frame's exitStatus
         @rtype:  int
         @return: Frames last exit status"""
-        return self.data.exitStatus
+        return self.data.exit_status
 
     def maxRss(self):
         """Returns the frame's maxRss
         @rtype:  long
         @return: Max RSS in Kb"""
-        return self.data.maxRss
+        return self.data.max_rss
 
     def memUsed(self):
         """Returns the frame's currently used memory
         @rtype:  long
         @return: Current used memory in Kb"""
-        return self.data.usedMemory
+        return self.data.used_memory
 
     def memReserved(self):
         """Returns the frame's currently reserved memory
         @rtype:  long
         @return: Current used memory in Kb"""
-        return self.data.reservedMemory
+        return self.data.reserved_memory
 
     def state(self): # call it status?
         """Returns the state of the frame
@@ -187,10 +202,10 @@ class Frame(CueClientIce.Frame):
         """Returns the number of seconds that the frame has been (or was) running
         @rtype:  int
         @return: Job runtime in seconds"""
-        if self.data.startTime == 0:
+        if self.data.start_time == 0:
             return 0
-        if self.data.stopTime == 0:
-            return int(time.time() - self.data.startTime)
+        if self.data.stop_time == 0:
+            return int(time.time() - self.data.start_time)
         else:
-            return self.data.stopTime - self.data.startTime
+            return self.data.stop_time - self.data.start_time
 

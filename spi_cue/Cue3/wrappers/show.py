@@ -19,20 +19,20 @@ Project: Cue3 Library
 
 Module: show.py - Cue3 Library implementation of a show
 
-Created: March 3, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import cue.CueClientIce as CueClientIce
+import filter
+import group
+import subscription
+from Cue3 import show_pb2
+from Cue3.cuebot import Cuebot
 
-class Show(CueClientIce.Show):
-    """This class contains the ice implementation related to an Show."""
-    def __init__(self):
-        """_Show class initialization"""
-        CueClientIce.Show.__init__(self)
+
+class Show(object):
+
+    def __init__(self, show):
+        self.data = show
+        self.stub = Cuebot.getStub('show')
 
     def createSubscription(self, allocation, size, burst):
         """Creates a new subscription
@@ -44,59 +44,88 @@ class Show(CueClientIce.Show):
         @param burst: Allocation burst
         @rtype:  Subscription
         @return: The created subscription object"""
-        return self.proxy.createSubscription(allocation.proxy, size, burst)
+        response = self.stub.CreateSubscription(show_pb2.ShowCreateSubscriptionRequest(
+            show=self.data, allocation_id=allocation.id, size=size, burst=burst),
+            timeout=Cuebot.Timeout)
+        return subscription.Subscription(response.subscription)
 
     def getSubscriptions(self):
         """Returns a list of all subscriptions
         @rtype:  list<Subscription>
         @return: A list of subscription objects"""
-        return self.proxy.getSubscriptions()
+        response = self.stub.GetSubscriptions(show_pb2.ShowGetSubscriptionRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return [subscription.Subscription(subs) for subs in response.subscriptions]
 
     def findSubscription(self, name):
         """Returns the matching subscription
         @rtype:  Subscription
         @return: The matching subscription"""
-        return self.proxy.findSubscription(name)
+        subscriptions = subscription.Subscription()
+        return subscriptions.find(name)
 
     def getFilters(self):
         """Returns the job filters for this show
-        @rtype: list<Filter>
-        @return: a list of Filters"""
-        return self.proxy.getFilters()
+        @rtype: FilterSeq
+        @return: Seq object containing a list of Filters"""
+        response = self.stub.GetFilters(show_pb2.ShowGetFiltersRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return [filter.Filter(filter) for filter in response.filters]
 
-    def setDefaultMaxProcs(self, maxprocs):
-        """Sets the default maximum number of procs
+    def setDefaultMaxCores(self, maxcores):
+        """Sets the default maximum number of cores
            that new jobs are launched with."""
-        self.proxy.setDefaultMaxProcs(maxprocs)
+        response = self.stub.SetDefaultMaxProcs(show_pb2.ShowSetDefaultMaxCoresRequest(
+            show=self.data, max_cores=maxcores),
+            timeout=Cuebot.Timeout)
+        return response
 
-    def setDefaultMinProcs(self, minprocs):
-        """Sets the default minimum number of procs
+    def setDefaultMinCores(self, mincores):
+        """Sets the default minimum number of cores
            all new jobs are launched with."""
-        self.proxy.setDefaultMinProcs(minprocs)
+        response = self.stub.SetDefaultMinProcs(show_pb2.ShowSetDefaultMinCoresRequest(
+            show=self.data, max_cores=mincores),
+            timeout=Cuebot.Timeout)
+        return response
 
     def findFilter(self, name):
-        return self.proxy.findFilter(name)
+        response = self.stub.FindFilter(show_pb2.ShowFindShowRequest(
+            show=self.data, name=name), timeout=Cuebot.Timeout)
+        return filter.Filter(response.filter)
 
     def createFilter(self, name):
-        return self.proxy.createFilter(name)
+        response = self.stub.CreateFilter(show_pb2.ShowCreateFilterRequest(
+            show=self.data, name=name), timeout=Cuebot.Timeout)
+        return filter.Filter(response.filter)
 
     def getGroups(self):
         """
-        @rtype:  list<Cue3.group.Group>
+        @rtype:  GroupSeq
         @return: """
-        return self.proxy.getGroups()
+        response = self.stub.GetGroups(show_pb2.ShowGetGroupsRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return [group.Group(group) for group in response.groups]
 
     def getJobWhiteboard(self):
-        return self.proxy.getJobWhiteboard()
+        response = self.stub.GetJobWhiteboard(show_pb2.ShowGetJobWhiteboardRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return response.whiteboard
 
     def getRootGroup(self):
-        return self.proxy.getRootGroup()
+        response = self.stub.GetRootGroup(show_pb2.ShowGetRootGroupRequest(
+            show=self.data),
+            timeout=Cuebot.Timeout)
+        return group.Group(response.group)
 
     def id(self):
         """Returns the id of the show
         @rtype:  str
         @return: Frame uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def name(self):
         """Returns the name of the show
@@ -108,52 +137,52 @@ class Show(CueClientIce.Show):
         """Total number of pending jobs.
         @rtype: int
         @return: the total number of pending jobs"""
-        return self.stats.pendingJobs
+        return self.data.show_stats.pending_jobs
 
     def pendingFrames(self):
         """Total number of running frames currently in the queue
         @rtype:  int
         @return: """
-        return self.stats.pendingFrames
+        return self.data.show_stats.pending_frames
 
     def runningFrames(self):
         """Total number of running frames currently in the queue
         @rtype:  int
         @return: """
-        return self.stats.runningFrames
+        return self.data.show_stats.running_frames
 
     def deadFrames(self):
         """Total number of dead frames currently in the queue
         @rtype:  int
         @return: """
-        return self.stats.deadFrames
+        return self.data.show_stats.dead_frames
 
     def reservedCores(self):
         """Total number of reserved cores by all frames
         @rtype:  float
         @return: """
-        return self.stats.reservedCores
+        return self.data.show_stats.reserved_cores
 
     def defaultMinProcs(self):
         """Returns the default minProcs that new jobs are set to
         @rtype:  int
         @return: Default minProcs value for new jobs"""
-        return self.data.defaultMinProcs
+        return self.data.default_min_procs
 
     def defaultMaxProcs(self):
         """Returns the default maxProcs that new jobs are set to
         @rtype:  int
         @return: Default maxProcs value for new jobs"""
-        return self.data.defaultMaxProcs
+        return self.data.default_max_procs
     
     def totalJobsCreated(self):
         """A running counter of jobs launched.
         @rtype: int"""
-        return self.stats.createdJobCount
+        return self.data.show_stats.created_job_count
 
     def totalFramesCreated(self):
         """A running counter of frames launched.
         @rtype: int"""
-        return self.stats.createdFrameCount
+        return self.data.show_stats.created_frame_count
 
 

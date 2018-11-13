@@ -13,75 +13,85 @@
 #  limitations under the License.
 
 
-
 """
-Cue3 job module
+Cue3 group module
 """
 
-import cue.CueClientIce as CueClientIce
-from ..api import *
+import job
+from Cue3 import Cuebot
+from Cue3 import job_pb2
 
 
-class Group(CueClientIce.Group):
+class Group(object):
 
-    def __init__(self):
-        CueClientIce.Group.__init__(self)
+    def __init__(self, group):
+        self.data = group
+        self.stub = Cuebot.getStub('group')
 
-    def createSubGroup(self,name):
-        return self.proxy.createSubGroup(name)
+    def createSubGroup(self, name):
+        return Group(self.stub.CreateSubGroup(
+            job_pb2.GroupCreateSubGroupRequest(group=self.data, name=name),
+            timeout=Cuebot.Timeout))
 
     def delete(self):
-        self.proxy.delete()
+        self.stub.Delete(job_pb2.GroupDeleteRequest(group=self.data), timout=Cuebot.Timeout)
 
-    def setName(self,name):
-        self.proxy.setName(name)
-
-    def setParent(self, group):
-        self.proxy.setParent(group.proxy)
+    def setName(self, name):
+        self.stub.SetName(job_pb2.GroupSetNameRequest(group=self.data, name=name),
+                          timeout=Cuebot.Timeout)
 
     def setMaxCores(self, value):
-        self.proxy.setMaxCores(value)
+        self.stub.SetMaxCores(job_pb2.GroupSetMaxCoresRequest(group=self.data, max_cores=value),
+                              timeout=Cuebot.Timeout)
 
     def setMinCores(self, value):
-        self.proxy.setMinCores(value)
+        self.stub.SetMinCores(job_pb2.GroupSetMinCoresRequest(group=self.data, min_cores=value),
+                              timeout=Cuebot.Timeout)
 
-    def setDefaultJobPriority(self,value):
-        self.proxy.setDefaultJobPriority(value)
+    def setDefaultJobPriority(self, value):
+        self.stub.SetDefaultJobPriority(
+            job_pb2.GroupSetDefJobPriorityRequest(group=self.data, priority=value),
+            timeout=Cuebot.Timeout)
 
-    def setDefaultJobMinCores(self,value):
-        self.proxy.setDefaultJobMinCores(value)
+    def setDefaultJobMinCores(self, value):
+        self.stub.SetDefaultJobMinCores(
+            job_pb2.GroupSetDefJobMinCoresRequest(group=self.data, min_cores=value),
+            timeout=Cuebot.Timeout)
 
-    def setDefaultJobMaxCores(self,value):
-        self.proxy.setDefaultJobMaxCores(value)
+    def setDefaultJobMaxCores(self, value):
+        self.stub.SetDefaultJobMaxCores(
+            job_pb2.GroupSetDefJobMaxCoresRequest(group=self.data, max_cores=value),
+            timeout=Cuebot.Timeout)
 
     def getGroups(self):
-        return self.proxy.getGroups()
+        response = self.stub.GetGroups(job_pb2.GroupGetGroupsRequest(group=self.data),
+                                       timeout=Cuebot.Timeout)
+        return [Group(g) for g in response.groups]
 
     def getJobs(self):
         """Returns the jobs in this group
         @rtype:  list<Job>
         @return: List of jobs in this group"""
-        return self.proxy.getJobs()
+        response = self.stub.GetJobs(job_pb2.GroupGetJobsRequest(group=self.data),
+                                     timeout=Cuebot.Timeout)
+        return [job.Job(j) for j in response.jobs]
 
     def reparentJobs(self, jobs):
         """Moves the given jobs into this group
-        @type  jobs: list<JobInterfacePrx or Job or id or str jobname>
+        @type  jobs: list<Job>
         @param jobs: The jobs to add to this group"""
-        proxies = proxy(jobs, "Job")
-        if proxies:
-            self.proxy.reparentJobs(proxies)
+        jobSeq = job_pb2.JobSeq(jobs=jobs)
+        self.stub.ReparentJobs(job_pb2.GroupReparentJobsRequest(group=self.data, jobs=jobSeq),
+                               timeout=Cuebot.Timeout)
 
-    def reparentGroups(self, groups, show = None):
+    def reparentGroups(self, groups):
         """Moves the given groups into this group
-        @type  groups: list<GroupInterfacePrx or Group or id or str groupname>
-        @param groups: The groups to move into
-        @type  show: Show
-        @param show: Supply the show if you wish to give groups by name"""
-        if hasattr(show, "name"):
-            show = show.name()
-        proxies = api.proxy(groups,"Group")
-        if proxies:
-            self.proxy.reparentGroups(proxies)
+        @type  groups: list<Group>
+        @param groups: The groups to move into"""
+        groupSeq = job_pb2.GroupSeq(groups=groups)
+        self.stub.ReparentGroups(
+            job_pb2.GroupReparentGroupsRequest(group=self.data, groups=groupSeq),
+            timeout=Cuebot.Timeout)
 
     def setDepartment(self, name):
         """Sets the group's department to the specified name.  The department
@@ -91,14 +101,22 @@ class Group(CueClientIce.Group):
         middle-tier group.
         @type name: string
         @param name: a valid department name"""
-        self.proxy.setDepartment(name)
+        self.stub.SetDepartment(job_pb2.GroupSetDeptRequest(group=self.data, dept=name),
+                                timeout=Cuebot.Timeout)
         self.data.department = name
+
+    def setGroup(self, parentGroup):
+        """Sets this group's parent to parentGroup.
+        @type  parentGroup: Group
+        @param parentGroup: Group to parent under"""
+        self.stub.SetGroup(job_pb2.GroupSetGroupRequest(group=self.data, parent_group=parentGroup),
+                           timeout=Cuebot.Timeout)
 
     def id(self):
         """Returns the id of the group
         @rtype:  str
         @return: Group uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def name(self):
         return self.data.name
@@ -107,56 +125,56 @@ class Group(CueClientIce.Group):
         return self.data.department
 
     def defaultJobPriority(self):
-        return self.data.defaultJobPriority
+        return self.data.default_job_priority
 
     def defaultJobMinCores(self):
-        return self.data.defaultJobMinCores
+        return self.data.default_job_min_cores
 
     def defaultJobMaxCores(self):
-        return self.data.defaultJobMaxCores
+        return self.data.default_job_max_cores
 
     def maxCores(self):
-        return self.data.maxCores;
+        return self.data.max_cores
 
     def minCores(self):
-        return self.data.minCores;
+        return self.data.min_cores
 
     def reservedCores(self):
         """Returns the total number of reserved cores for the group
         @rtype: int
         @return: total numnber of frames"""
-        return self.stats.reservedCores
+        return self.data.group_stats.reserved_cores
 
     def totalRunning(self):
         """Returns the total number of running frames under this object
         @rtype:  int
         @return: Total number of running frames"""
-        return self.stats.runningFrames
+        return self.data.group_stats.running_frames
 
     def totalDead(self):
         """Returns the total number of deads frames under this object
         @rtype:  int
         @return: Total number of dead frames"""
-        return self.stats.deadFrames
+        return self.data.group_stats.dead_frames
 
     def totalPending(self):
         """Returns the total number of pending (dependent and waiting) frames
         under this object.
         @rtype:  int
         @return: Total number of pending (dependent and waiting) frames"""
-        return self.stats.pendingFrames
+        return self.data.group_stats.pending_frames
 
     def pendingJobs(self):
-       """Returns the total number of running jobs
-       @rtype: int
-       @return: total number of running jobs"""
-       return self.stats.pendingJobs
+        """Returns the total number of running jobs
+        @rtype: int
+        @return: total number of running jobs"""
+        return self.data.group_stats.pending_jobs
 
 
-class NestedGroup(CueClientIce.NestedGroup, Group):
+class NestedGroup(Group):
 
-    def __init__(self):
-        CueClientIce.NestedGroup.__init__(self)
+    def __init__(self, group):
+        super(NestedGroup, self).__init__(group)
         self.__children = []
         self.__children_init = False
 
@@ -165,6 +183,5 @@ class NestedGroup(CueClientIce.NestedGroup, Group):
         if not self.__children_init:
             self.__children.extend(self.groups)
             self.__children.extend(self.jobs)
-            self.__children_init = True;
+            self.__children_init = True
         return self.__children
-

@@ -19,10 +19,8 @@
 
 import os
 import re
-import time
-import unittest
-import commands
 
+from Cue3 import job_pb2
 from Manifest import Cue3
 
 USERNAME = os.getenv("USER")
@@ -39,7 +37,7 @@ class Job:
     percentCompleted = 0.0
     pendingFrames = 150
 
-    state = Cue3.JobState.Pending
+    state = job_pb2.PENDING
     name = "pipe-dev.cue-%s_jobtest" % USERNAME
     shot = "dev.cue"
     show = "pipe"

@@ -13,11 +13,9 @@
 #  limitations under the License.
 
 
-
 import os
-import unittest
-
 import sys
+import unittest
 
 # All tests modules support an optional <username> and <version> argument
 # This load a specific /net/soft_scratch/users/<username>/spimport/v<version>
@@ -46,4 +44,3 @@ if options:
     print "Setting test proxy: %s" % Cue3.Cuebot.Proxy
 else:
     import Cue3
-

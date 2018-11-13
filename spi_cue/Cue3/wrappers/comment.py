@@ -19,30 +19,25 @@ Project: Cue3
 
 Module: comment.py - comment object
 
-Created: July 9, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
-import cue.CueClientIce as CueClientIce
 
-class _Comment(CueClientIce.Comment):
-    """Ice Implementation of Comment Interface"""
-    def __init__(self):
-        CueClientIce.Comment.__init__(self)
+from Cue3 import comment_pb2
+from Cue3.cuebot import Cuebot
+
+
+class Comment(object):
+
+    def __init__(self, comment=None):
+        self.data = comment
+        self.stub = Cuebot.getStub('comment')
 
     def delete(self):
         """Delete this comment"""
-        self.proxy.delete()
+        self.stub.Delete(comment_pb2.CommentDeleteRequest(self.data), timeout=Cuebot.Timeout)
 
     def save(self):
         """Saves the current comment values"""
-        self.proxy.save(self.data)
-
-class Comment(_Comment):
-    def __init__(self):
-        _Comment.__init__(self)
+        self.stub.Save(comment_pb2.CommentSaveRequest(self.data), timeout=Cuebot.Timeout)
 
     def message(self):
         """Message of the comment

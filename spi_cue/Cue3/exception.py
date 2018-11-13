@@ -13,24 +13,17 @@
 #  limitations under the License.
 
 
-
 """
 Project: Cue3 Library
 
 Module: exception.py - Provides Cue3 access to exceptions
-
-Created: March 7, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
+
+
 class CueException(Exception):
     """A Base class for all client side cue exceptions"""
     pass
 
-class CuebotProxyCreationError(CueException):
-    """Error creating Ice proxy"""
+
+class EntityNotFoundException(Exception):
     pass
-
-

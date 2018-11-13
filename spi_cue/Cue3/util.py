@@ -13,18 +13,18 @@
 #  limitations under the License.
 
 
-
 """
 Project: Cue3 Library
 Module: util.py
 """
-import logging
 
-import Ice
-from cuebot import Cuebot
+import logging
 import os
 
+from Cue3 import Cuebot
+
 logger = logging.getLogger('cue3')
+
 
 def id(value):
     """extract(entity)
@@ -33,11 +33,7 @@ def id(value):
     """
     def _extract(item):
         try:
-            return item.ice_getIdentity().name
-        except:
-            pass
-        try:
-            return item.proxy.ice_getIdentity().name
+            return item.id
         except:
             pass
         return item
@@ -47,39 +43,35 @@ def id(value):
     else:
         return _extract(value)
 
+
 def proxy(item, cls=None):
-    """proxy(entity)
-    Extracts a proxy out of an Cue3 entity.  If you have
-    the unique ID, pass in the optional class name to create
-    a proxy.
-    """
+    """Lookup a rpc object from its id and cls"""
     def _proxy(entity, cls=None):
-        try:
-            return entity.proxy
-        except:
-            pass
-
-        if hasattr(entity, "ice_toString"):
-            return entity
-
-        if not cls:
-            raise ValueError("Unable to extract proxy from %s try passing in a class name." % entity)
-
-        cls = cls.title()
-        return Cuebot.buildProxy("%sInterface" % cls, "manage%s/%s" % (cls, entity))
+        if cls is None:
+            raise ValueError("cls must be specified")
+        stub = Cuebot.getStub(cls.lower())
+        getMethod = getattr(stub, "Get{}".format(cls))
+        proto = Cuebot.PROTO_MAP.get(cls.lower())
+        if proto:
+            requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
+            return getMethod(requestor(id=entity))
+        else:
+            raise AttributeError('Could not find a proto for {}'.format(cls))
 
     if isinstance(item, (tuple, list, set)):
         return [_proxy(i, cls) for i in item]
     else:
         return _proxy(item, cls)
 
+
 def rep(entity):
     """rep(entity)
     Extracts a string repesentation of a Cue3 entity"""
     try:
-        return entity.data.name
+        return entity.name
     except:
         return str(entity)
+
 
 def logPath(job, frame=None):
     """logPath(job, frame=None)
@@ -89,40 +81,3 @@ def logPath(job, frame=None):
         return os.path.join(job.data.logDir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
     else:
         return job.data.logDir
-
-def _loadWrappers():
-    import wrappers
-    try:
-        Cuebot.register(wrappers.job.Job, "::CueClientIce::Job")
-        Cuebot.register(wrappers.comment.Comment, "::CueClientIce::Comment")
-        Cuebot.register(wrappers.job.NestedJob, "::CueClientIce::NestedJob")
-        Cuebot.register(wrappers.group.Group, "::CueClientIce::Group")
-        Cuebot.register(wrappers.group.NestedGroup, "::CueClientIce::NestedGroup")
-        Cuebot.register(wrappers.layer.Layer, "::CueClientIce::Layer")
-        Cuebot.register(wrappers.frame.Frame, "::CueClientIce::Frame")
-        Cuebot.register(wrappers.host.Host, "::CueClientIce::Host")
-        Cuebot.register(wrappers.host.NestedHost, "::CueClientIce::NestedHost")
-        Cuebot.register(wrappers.proc.Proc, "::CueClientIce::Proc ")
-        Cuebot.register(wrappers.proc.NestedProc, "::CueClientIce::NestedProc")
-        Cuebot.register(wrappers.show.Show, "::CueClientIce::Show")
-        Cuebot.register(wrappers.task.Task, "::CueClientIce::Task")
-        Cuebot.register(wrappers.depend.Depend, "::CueClientIce::Depend")
-        Cuebot.register(wrappers.filter.Filter, "::CueClientIce::Filter")
-        Cuebot.register(wrappers.filter.Action, "::CueClientIce::Action")
-        Cuebot.register(wrappers.filter.Matcher, "::CueClientIce::Matcher")
-        Cuebot.register(wrappers.allocation.Allocation, "::CueClientIce::Allocation")
-        Cuebot.register(wrappers.subscription.Subscription, "::CueClientIce::Subscription")
-    except Ice.AlreadyRegisteredException:
-        msg = 'Cue3 wrappers has already been registered, skipping.'
-        print(msg)
-        logger.warn(msg)
-
-def loadWrappers():
-    """
-    loadWrappers
-    @deprecated
-    """
-    msg = 'Cue3.loadWrappers has been deprecated. Wrappers are loaded automatically and does not require manual load'
-    print(msg)
-    logger.warn(msg)
-
