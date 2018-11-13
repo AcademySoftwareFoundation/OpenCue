@@ -23,13 +23,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.LinkedHashSet;
 
+import com.google.common.collect.Sets;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.google.common.collect.Sets;
-import com.imageworks.spcue.Service;
-import com.imageworks.spcue.ServiceOverride;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.util.SqlUtil;
 
@@ -51,10 +51,10 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         return StringUtils.join(tags, JOINER);
     }
 
-    public static final RowMapper<Service> SERVICE_MAPPER =
-        new RowMapper<Service>() {
-        public Service mapRow(ResultSet rs, int rowNum) throws SQLException {
-            Service s = new Service();
+    public static final RowMapper<ServiceEntity> SERVICE_MAPPER =
+        new RowMapper<ServiceEntity>() {
+        public ServiceEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+            ServiceEntity s = new ServiceEntity();
             s.id = rs.getString("pk_service");
             s.name = rs.getString("str_name");
             s.minCores = rs.getInt("int_cores_min");
@@ -67,11 +67,11 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         }
     };
 
-    public static final RowMapper<ServiceOverride> SERVICE_OVERRIDE_MAPPER =
-        new RowMapper<ServiceOverride>() {
-        public ServiceOverride mapRow(ResultSet rs, int rowNum)
+    public static final RowMapper<ServiceOverrideEntity> SERVICE_OVERRIDE_MAPPER =
+        new RowMapper<ServiceOverrideEntity>() {
+        public ServiceOverrideEntity mapRow(ResultSet rs, int rowNum)
                 throws SQLException {
-            ServiceOverride s = new ServiceOverride();
+            ServiceOverrideEntity s = new ServiceOverrideEntity();
             s.id = rs.getString("pk_show_service");
             s.name = rs.getString("str_name");
             s.minCores = rs.getInt("int_cores_min");
@@ -99,7 +99,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "service ";
 
     @Override
-    public Service get(String id) {
+    public ServiceEntity get(String id) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_SERVICE + " WHERE (pk_service=? OR str_name=?)",
                 SERVICE_MAPPER, id, id);
@@ -123,7 +123,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
              "show_service.pk_show = show.pk_show ";
 
     @Override
-    public ServiceOverride getOverride(String id, String show) {
+    public ServiceOverrideEntity getOverride(String id, String show) {
         return getJdbcTemplate()
                 .queryForObject(
                         QUERY_FOR_SERVICE_OVER
@@ -133,7 +133,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     }
 
     @Override
-    public ServiceOverride getOverride(String id) {
+    public ServiceOverrideEntity getOverride(String id) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_SERVICE_OVER + " AND (show_service.pk_show_service=? " +
                         "OR show_service.str_name=?)",
@@ -164,7 +164,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
          ") VALUES (?,?,?,?,?,?,?,?)";
 
     @Override
-    public void insert(Service service) {
+    public void insert(ServiceEntity service) {
         service.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SERVICE, service.id,
                 service.name, service.threadable, service.minCores,
@@ -188,7 +188,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         ") VALUES (?,?,?,?,?,?,?,?,?)";
 
     @Override
-    public void insert(ServiceOverride service) {
+    public void insert(ServiceOverrideEntity service) {
         service.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id,
                 service.showId, service.name, service.threadable,
@@ -211,7 +211,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "pk_service = ?";
 
     @Override
-    public void update(Service service) {
+    public void update(ServiceEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE, service.name,
                 service.threadable, service.minCores, service.maxCores,
                 service.minMemory, service.minGpu, joinTags(service.tags),
@@ -233,7 +233,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "pk_show_service = ?";
 
     @Override
-    public void update(ServiceOverride service) {
+    public void update(ServiceOverrideEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name,
                 service.threadable, service.minCores, service.maxCores,
                 service.minMemory, service.minGpu, joinTags(service.tags),
@@ -241,13 +241,13 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     }
 
     @Override
-    public void delete(Service service) {
+    public void delete(ServiceEntity service) {
         getJdbcTemplate().update(
                 "DELETE FROM service WHERE pk_service=?", service.getId());
     }
 
     @Override
-    public void delete(ServiceOverride service) {
+    public void delete(ServiceOverrideEntity service) {
         getJdbcTemplate().update(
                 "DELETE FROM show_service WHERE pk_show_service=?",
                 service.getId());

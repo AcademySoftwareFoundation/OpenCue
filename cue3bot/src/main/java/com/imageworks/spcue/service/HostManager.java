@@ -22,28 +22,28 @@ package com.imageworks.spcue.service;
 import java.sql.Timestamp;
 import java.util.List;
 
-import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.HostDetail;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostEntity;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.Proc;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.ProcInterface;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.LockState;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 
 public interface HostManager {
 
-    void rebootWhenIdle(Host host);
-    void rebootNow(Host host);
+    void rebootWhenIdle(HostInterface host);
+    void rebootNow(HostInterface host);
 
     /**
      * Lock/unlock the specified host.
@@ -52,16 +52,15 @@ public interface HostManager {
      * @param state
      * @param source
      */
-    void setHostLock(Host host, LockState state, Source source);
+    void setHostLock(HostInterface host, LockState state, Source source);
 
     /**
      * Updates the state of a host.
      *
-     * @param host
-     * @param state
-     * @param source
+     * @param host HostInterface
+     * @param state HardwareState
      */
-    void setHostState(Host host, HardwareState state);
+    void setHostState(HostInterface host, HardwareState state);
 
     /**
      * Return true if the host is swapping hard enough
@@ -70,7 +69,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    boolean isSwapping(Host host);
+    boolean isSwapping(HostInterface host);
 
     DispatchHost createHost(HostReport report);
     DispatchHost createHost(RenderHost host);
@@ -85,15 +84,15 @@ public interface HostManager {
     DispatchHost createHost(RenderHost rhost, AllocationEntity alloc);
 
 
-    Host getHost(String id);
-    Host findHost(String name);
+    HostInterface getHost(String id);
+    HostInterface findHost(String name);
 
     DispatchHost getDispatchHost(String id);
     DispatchHost findDispatchHost(String name);
 
-    HostDetail getHostDetail(Host host);
-    HostDetail getHostDetail(String id);
-    HostDetail findHostDetail(String name);
+    HostEntity getHostDetail(HostInterface host);
+    HostEntity getHostDetail(String id);
+    HostEntity findHostDetail(String name);
 
     /**
      * Returns true of the LockState is not Open.
@@ -101,7 +100,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    boolean isLocked(Host host);
+    boolean isLocked(HostInterface host);
 
     /**
      * Set all host statistics.
@@ -119,7 +118,7 @@ public interface HostManager {
      * @param bootTime
      * @param os
      */
-    void setHostStatistics(Host host,
+    void setHostStatistics(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
@@ -127,15 +126,15 @@ public interface HostManager {
             int load, Timestamp bootTime, String os);
 
 
-    void deleteHost(Host host);
+    void deleteHost(HostInterface host);
 
     AllocationInterface getDefaultAllocationDetail();
 
-    void setAllocation(Host host, AllocationInterface alloc);
+    void setAllocation(HostInterface host, AllocationInterface alloc);
 
-    void addTags(Host host, String[] tags);
-    void removeTags(Host host, String[] tags);
-    void renameTag(Host host, String oldTag, String newTag);
+    void addTags(HostInterface host, String[] tags);
+    void removeTags(HostInterface host, String[] tags);
+    void renameTag(HostInterface host, String oldTag, String newTag);
 
     /**
      * Verify that the given proc and frame IDs are assigned
@@ -157,7 +156,7 @@ public interface HostManager {
     List<VirtualProc> findVirtualProcs(ProcSearch r);
 
     List<VirtualProc> findVirtualProcs(FrameSearch r);
-    VirtualProc findVirtualProc(Frame frame);
+    VirtualProc findVirtualProc(FrameInterface frame);
     List<VirtualProc> findVirtualProcs(HardwareState state);
 
     /**
@@ -172,14 +171,14 @@ public interface HostManager {
     List<VirtualProc> findBookedVirtualProcs(ProcSearch r);
 
     void unbookVirtualProcs(List<VirtualProc> procs);
-    void unbookProc(Proc proc);
+    void unbookProc(ProcInterface proc);
 
     /**
      * Returns the proc who is most deliquent on memory allocation
      * @param h
      * @return
      */
-    VirtualProc getWorstMemoryOffender(Host h);
+    VirtualProc getWorstMemoryOffender(HostInterface h);
 
     /**
      * Return the Virtual proc with the specified unique ID.
@@ -197,7 +196,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    boolean isHostUp(Host host);
+    boolean isHostUp(HostInterface host);
 
     /**
      * Return true if the proc is an orphan.  An orphan has not
@@ -206,12 +205,12 @@ public interface HostManager {
      * @param proc
      * @return
      */
-    boolean isOprhan(Proc proc);
+    boolean isOprhan(ProcInterface proc);
 
     /**
      * Return the number of stranded cores on the host.
      */
-    int getStrandedCoreUnits(Host h);
+    int getStrandedCoreUnits(HostInterface h);
 
     /**
      * Return true of the host prefers a particular show.
@@ -219,7 +218,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    boolean isPreferShow(Host host);
+    boolean isPreferShow(HostInterface host);
 
     /**
      * Return a host's preferred show.
@@ -227,7 +226,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    Show getPreferredShow(Host host);
+    ShowInterface getPreferredShow(HostInterface host);
 
     /**
      * Return all running procs for the given host.
@@ -235,7 +234,7 @@ public interface HostManager {
      * @param host
      * @return
      */
-    List<VirtualProc> findVirtualProcs(Host host);
+    List<VirtualProc> findVirtualProcs(HostInterface host);
 
     /**
      * Return all running procs for the given LocalHostAssignment.

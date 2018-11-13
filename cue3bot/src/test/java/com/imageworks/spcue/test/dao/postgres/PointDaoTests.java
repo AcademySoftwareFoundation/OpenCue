@@ -20,33 +20,33 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
-
 import javax.annotation.Resource;
-
-import static org.junit.Assert.*;
 
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.Department;
+import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.ShowDetail;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -82,11 +82,11 @@ public class PointDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void insertDepartmentConfig() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
-        Department dept = departmentDao.findDepartment("Lighting");
-        Point d = pointDao.insertPointConf(show, dept);
+        DepartmentInterface dept = departmentDao.findDepartment("Lighting");
+        PointInterface d = pointDao.insertPointConf(show, dept);
 
         assertEquals(show.id, jdbcTemplate.queryForObject(
                 "SELECT pk_show FROM point WHERE pk_point=?",
@@ -101,7 +101,7 @@ public class PointDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void departmentConfigExists() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
 
@@ -116,11 +116,11 @@ public class PointDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void updateEnableTiManaged() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
 
-        Point config = pointDao.getPointConfigDetail(show,
+        PointInterface config = pointDao.getPointConfigDetail(show,
                 departmentDao.getDefaultDepartment());
 
         //pointDao.updateEnableManaged(config, "Lighting", 10);
@@ -130,15 +130,15 @@ public class PointDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Transactional
     @Rollback(true)
     public void getDepartmentConfig() {
-        ShowDetail show = new ShowDetail();
+        ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
 
         /* Tests both overlodaed methods */
-        Point configA = pointDao.getPointConfigDetail(show,
+        PointInterface configA = pointDao.getPointConfigDetail(show,
                 departmentDao.getDefaultDepartment());
 
-        Point configB = pointDao.getPointConfDetail(
+        PointInterface configB = pointDao.getPointConfDetail(
                 configA.getPointId());
 
         assertEquals(configA.getPointId(), configB.getPointId());
@@ -154,7 +154,7 @@ public class PointDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
         JobDetail job = launchJob();
 
-        Point pointConfig = pointDao.getPointConfigDetail(job,
+        PointInterface pointConfig = pointDao.getPointConfigDetail(job,
                 departmentDao.getDepartment(job.getDepartmentId()));
 
         assertFalse(pointDao.isOverMinCores(job));

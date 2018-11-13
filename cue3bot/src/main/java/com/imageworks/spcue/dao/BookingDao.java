@@ -21,10 +21,10 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Frame;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 
 public interface BookingDao {
@@ -63,8 +63,8 @@ public interface BookingDao {
      * @param job
      * @param lha
      */
-    void insertLocalHostAssignment(Host host, Job job,
-            LocalHostAssignment lha);
+    void insertLocalHostAssignment(HostInterface host, JobInterface job,
+                                   LocalHostAssignment lha);
 
     /**
      * Create a new LocalHostAssignment attached to the given layer.
@@ -73,8 +73,8 @@ public interface BookingDao {
      * @param layer
      * @param lha
      */
-    void insertLocalHostAssignment(Host host, Layer layer,
-            LocalHostAssignment lha);
+    void insertLocalHostAssignment(HostInterface host, LayerInterface layer,
+                                   LocalHostAssignment lha);
 
     /**
      * Create a new LocalHostAssignment attached to the given frame.
@@ -83,8 +83,8 @@ public interface BookingDao {
      * @param frame
      * @param lha
      */
-    void insertLocalHostAssignment(Host host, Frame frame,
-            LocalHostAssignment lha);
+    void insertLocalHostAssignment(HostInterface host, FrameInterface frame,
+                                   LocalHostAssignment lha);
 
     /**
      * Return the host + jobs local booking assignment properties.
@@ -92,7 +92,7 @@ public interface BookingDao {
      * @param job
      * @return
      */
-    List<LocalHostAssignment> getLocalJobAssignment(Host host);
+    List<LocalHostAssignment> getLocalJobAssignment(HostInterface host);
 
     /**
      * Return the host + jobs local booking assignment properties.
@@ -116,7 +116,7 @@ public interface BookingDao {
      * @param host
      * @return
      */
-    boolean hasLocalJob(Host host);
+    boolean hasLocalJob(HostInterface host);
 
     /**
      * Returns true if the host has an active local booking.
@@ -124,7 +124,7 @@ public interface BookingDao {
      * @param host
      * @return
      */
-    boolean hasActiveLocalJob(Host host);
+    boolean hasActiveLocalJob(HostInterface host);
 
     /**
      * Return true if the host is in blackout time.
@@ -132,7 +132,7 @@ public interface BookingDao {
      * @param h
      * @return
      */
-    boolean isBlackoutTime(Host h);
+    boolean isBlackoutTime(HostInterface h);
 
     /**
      * Delete the given LocalHostAssignment.
@@ -165,7 +165,7 @@ public interface BookingDao {
      * @param cores
      * @return
      */
-    boolean allocateCoresFromHost(Host h, int cores);
+    boolean allocateCoresFromHost(HostInterface h, int cores);
 
     /**
      * Deallocate cores from the given host, returning them to its pool.
@@ -174,7 +174,7 @@ public interface BookingDao {
      * @param cores
      * @return
      */
-    boolean deallocateCoresFromHost(Host h, int cores);
+    boolean deallocateCoresFromHost(HostInterface h, int cores);
 
     /**
      * Return true if the Host has a resource deficit.  A
@@ -184,7 +184,7 @@ public interface BookingDao {
      * @param l
      * @return
      */
-    boolean hasResourceDeficit(Host host);
+    boolean hasResourceDeficit(HostInterface host);
 
 }
 

@@ -20,9 +20,9 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.Entity;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 
 public interface OwnerDao {
 
@@ -33,14 +33,14 @@ public interface OwnerDao {
      * @param host
      * @return
      */
-    boolean isOwner(Owner owner, Host host);
+    boolean isOwner(OwnerEntity owner, HostInterface host);
 
     /**
      * Get an owner record by ID.
      *
      * @param id
      */
-    Owner getOwner(String id);
+    OwnerEntity getOwner(String id);
 
     /**
      * Return the owner of the given host.
@@ -48,14 +48,14 @@ public interface OwnerDao {
      * @param host
      * @return
      */
-    Owner getOwner(Host host);
+    OwnerEntity getOwner(HostInterface host);
 
     /**
      * Return an owner record by name.
      *
      * @param name
      */
-    Owner findOwner(String name);
+    OwnerEntity findOwner(String name);
 
     /**
      * Delete the specified owner and all his/her deeds.
@@ -69,7 +69,7 @@ public interface OwnerDao {
      *
      * @param owner
      */
-    void insertOwner(Owner owner, Show show);
+    void insertOwner(OwnerEntity owner, ShowInterface show);
 
     /**
      * Set the owner's show. This can be null.
@@ -77,6 +77,6 @@ public interface OwnerDao {
      * @param owner
      * @param show
      */
-    void updateShow(Entity owner, Show show);
+    void updateShow(Entity owner, ShowInterface show);
 }
 

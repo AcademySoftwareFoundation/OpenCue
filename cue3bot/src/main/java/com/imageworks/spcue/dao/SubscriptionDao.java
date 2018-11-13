@@ -20,9 +20,9 @@
 package com.imageworks.spcue.dao;
 
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Subscription;
-import com.imageworks.spcue.SubscriptionDetail;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.SubscriptionEntity;
+import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.VirtualProc;
 
 public interface SubscriptionDao {
@@ -30,97 +30,97 @@ public interface SubscriptionDao {
     /**
      * returns true if the subscription has running procs
      *
-     * @param sub
-     * @return
+     * @param sub SubscriptionInterface
+     * @return boolean
      */
-    boolean hasRunningProcs(Subscription sub);
+    boolean hasRunningProcs(SubscriptionInterface sub);
 
     /**
      * Return true if the given show is at or over its size value for the given
      * allocation.
      *
-     * @param show
-     * @param alloc
-     * @return
+     * @param show  ShowInterface
+     * @param alloc AllocationInterface
+     * @return boolean
      */
-    boolean isShowAtOrOverSize(Show show, AllocationInterface alloc);
+    boolean isShowAtOrOverSize(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if the given show is over its size value for the given
      * allocation.
      *
-     * @param alloc
-     * @param show
-     * @return
+     * @param show  ShowInterface
+     * @param alloc AllocationInterface
+     * @return boolean
      */
-    boolean isShowOverSize(Show show, AllocationInterface alloc);
+    boolean isShowOverSize(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if adding the given coreUnits would put the show over its
      * burst value for the given allocation.
      *
-     * @param show
-     * @param alloc
-     * @param coreUnits
-     * @return
+     * @param show      ShowInterface
+     * @param alloc     AllocationInterface
+     * @param coreUnits int
+     * @return boolean
      */
-    boolean isShowOverBurst(Show show, AllocationInterface alloc, int coreUnits);
+    boolean isShowOverBurst(ShowInterface show, AllocationInterface alloc, int coreUnits);
 
     /**
      * Return true if the given show is at or over its burst value for the given
      * allocation.
      *
-     * @param show
-     * @param alloc
-     * @return
+     * @param show  ShowInterface
+     * @param alloc AllocationInterface
+     * @return boolean
      */
-    boolean isShowAtOrOverBurst(Show show, AllocationInterface alloc);
+    boolean isShowAtOrOverBurst(ShowInterface show, AllocationInterface alloc);
 
     /**
      * Return true if the show that is utilizing the given proc has exceeded its
      * burst.
      *
-     * @param proc
-     * @return
+     * @param proc VirtualProc
+     * @return boolean
      */
     boolean isShowOverSize(VirtualProc proc);
 
     /**
      * Return a SubscriptionDetail from its unique id
      *
-     * @param id
-     * @return
+     * @param id String
+     * @return SubscriptionEntity
      */
-    SubscriptionDetail getSubscriptionDetail(String id);
+    SubscriptionEntity getSubscriptionDetail(String id);
 
     /**
      * Insert a new subscription
      *
-     * @param detail
+     * @param detail SubscriptionEntity
      */
-    void insertSubscription(SubscriptionDetail detail);
+    void insertSubscription(SubscriptionEntity detail);
 
     /**
      * Delete specified subscription
      *
-     * @param sub
+     * @param sub SubscriptionInterface
      */
-    void deleteSubscription(Subscription sub);
+    void deleteSubscription(SubscriptionInterface sub);
 
     /**
      * update the size of a subscription
      *
-     * @param sub
-     * @param size
+     * @param sub  SubscriptionInterface
+     * @param size int
      */
-    void updateSubscriptionSize(Subscription sub, int size);
+    void updateSubscriptionSize(SubscriptionInterface sub, int size);
 
     /**
      * update the subscription burst
      *
-     * @param sub
-     * @param size
+     * @param sub  SubscriptionInterface
+     * @param size int
      */
-    void updateSubscriptionBurst(Subscription sub, int size);
+    void updateSubscriptionBurst(SubscriptionInterface sub, int size);
 }
 

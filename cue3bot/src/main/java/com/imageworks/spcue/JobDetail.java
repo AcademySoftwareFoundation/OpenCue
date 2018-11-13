@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue;
 
-import com.imageworks.spcue.CueIce.JobState;
+import com.imageworks.spcue.grpc.job.JobState;
 
-public class JobDetail extends JobEntity implements Job, Department {
+public class JobDetail extends JobEntity implements JobInterface, DepartmentInterface {
     public String groupId;
     public String deptId;
     public JobState state;

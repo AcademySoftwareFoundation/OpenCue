@@ -20,7 +20,7 @@ package com.imageworks.spcue.servant;
 
 import io.grpc.stub.StreamObserver;
 
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.grpc.task.Task;
 import com.imageworks.spcue.grpc.task.TaskClearAdjustmentsRequest;
 import com.imageworks.spcue.grpc.task.TaskClearAdjustmentsResponse;
@@ -36,10 +36,6 @@ import com.imageworks.spcue.util.Convert;
 public class ManageTask extends TaskInterfaceGrpc.TaskInterfaceImplBase {
 
     private DepartmentManager departmentManager;
-
-    private TaskDetail getTaskDetail(Task task) {
-        return departmentManager.getTaskDetail(task.getName());
-    }
 
     @Override
     public void delete(TaskDeleteRequest request, StreamObserver<TaskDeleteResponse> responseObserver) {
@@ -79,5 +75,9 @@ public class ManageTask extends TaskInterfaceGrpc.TaskInterfaceImplBase {
 
     public void setDepartmentManager(DepartmentManager departmentManager) {
         this.departmentManager = departmentManager;
+    }
+
+    private TaskEntity getTaskDetail(Task task) {
+        return departmentManager.getTaskDetail(task.getName());
     }
 }

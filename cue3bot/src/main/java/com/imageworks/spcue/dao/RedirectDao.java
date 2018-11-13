@@ -18,10 +18,10 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Redirect;
-
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+
+import com.imageworks.spcue.Redirect;
 
 @Transactional(propagation=Propagation.MANDATORY)
 public interface RedirectDao {

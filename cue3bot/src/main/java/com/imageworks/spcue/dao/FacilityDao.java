@@ -19,8 +19,8 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FacilityEntity;
+import com.imageworks.spcue.FacilityInterface;
 
 public interface FacilityDao {
 

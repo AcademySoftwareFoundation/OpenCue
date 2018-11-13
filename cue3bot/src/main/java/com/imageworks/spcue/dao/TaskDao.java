@@ -19,12 +19,12 @@
 
 package com.imageworks.spcue.dao;
 
-import com.imageworks.spcue.Department;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Point;
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.Task;
-import com.imageworks.spcue.TaskDetail;
+import com.imageworks.spcue.DepartmentInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.PointInterface;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.TaskEntity;
+import com.imageworks.spcue.TaskInterface;
 
 public interface TaskDao {
 
@@ -33,35 +33,35 @@ public interface TaskDao {
      *
      * @param d
      */
-    void deleteTasks(Point cdept);
+    void deleteTasks(PointInterface cdept);
 
     /**
      * Delete all tasks for the specified show and dept
      *
      * @param d
      */
-    void deleteTasks(Show show, Department dept);
+    void deleteTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Inserts a new task. A task is a shot based department priority.
      *
      * @param task
      */
-    void insertTask(TaskDetail task);
+    void insertTask(TaskEntity task);
 
     /**
      * Remove specified task.
      *
      * @param task
      */
-    void deleteTask(Task task);
+    void deleteTask(TaskInterface task);
 
     /**
      * Returns a task from its unique id
      *
      * @param id
      */
-    TaskDetail getTaskDetail(String id);
+    TaskEntity getTaskDetail(String id);
 
     /**
      * Returns a job's task representation
@@ -69,7 +69,7 @@ public interface TaskDao {
      * @param j
      * @return
      */
-    TaskDetail getTaskDetail(Job j);
+    TaskEntity getTaskDetail(JobInterface j);
 
     /**
      * Updates the specified tasks min procs
@@ -77,19 +77,19 @@ public interface TaskDao {
      * @param t
      * @param value
      */
-    void updateTaskMinCores(Task t, int value);
+    void updateTaskMinCores(TaskInterface t, int value);
 
     /**
      * Inserts a task if if does not exist, otherwise its updated.
      *
      * @param t
      */
-    void mergeTask(TaskDetail t);
+    void mergeTask(TaskEntity t);
 
     /**
      * Returns true if the task is ti-managed.
      */
-    boolean isManaged(Task t);
+    boolean isManaged(TaskInterface t);
 
     /**
      * Adjusts the specified task's min cores to value. Only use adjust when the
@@ -98,19 +98,19 @@ public interface TaskDao {
      * @param t
      * @param value
      */
-    void adjustTaskMinCores(Task t, int value);
+    void adjustTaskMinCores(TaskInterface t, int value);
 
     /**
      *
      * @param cdept
      */
-    void clearTaskAdjustments(Point cdept);
+    void clearTaskAdjustments(PointInterface cdept);
 
     /**
      *
      * @param t
      */
-    void clearTaskAdjustment(Task t);
+    void clearTaskAdjustment(TaskInterface t);
 
     /**
      * Returns a TaskDetail from a department id and shot name.
@@ -119,13 +119,13 @@ public interface TaskDao {
      * @param shot
      * @return
      */
-    TaskDetail getTaskDetail(Department d, String shot);
+    TaskEntity getTaskDetail(DepartmentInterface d, String shot);
 
     /**
      * Returns true if the specified job is being managed by a task.
      *
      * @param Job
      */
-    boolean isManaged(Job j);
+    boolean isManaged(JobInterface j);
 }
 

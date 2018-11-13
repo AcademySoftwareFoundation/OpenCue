@@ -26,9 +26,9 @@ import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
 import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
 import com.imageworks.common.SpiIce.IntegerSearchCriterion;
 import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
-import com.imageworks.spcue.Group;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.CueClientIce.ProcSearchCriteria;
+import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public class ProcSearch extends Criteria {
 
@@ -53,17 +53,12 @@ public class ProcSearch extends Criteria {
         return criteria;
     }
 
+    public void setCriteria(ProcSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
     public static final ProcSearchCriteria criteriaFactory() {
-        ProcSearchCriteria c = new ProcSearchCriteria(
-                1, new int[] {},
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new IntegerSearchCriterion[] { },
-                new IntegerSearchCriterion[] { });
-        return c;
+        return ProcSearchCriteria.newBuilder().build();
     }
 
     public void addDurationRange(IntegerSearchCriterion e) {
@@ -93,15 +88,15 @@ public class ProcSearch extends Criteria {
         chunks.add(sb);
     }
 
-    public ProcSearch notJobs(List<Job> jobs) {
-        for (Job job: jobs) {
+    public ProcSearch notJobs(List<JobInterface> jobs) {
+        for (JobInterface job: jobs) {
             notJobs.add(new Phrase("proc.pk_job","!=",job.getJobId()));
         }
         return this;
     }
 
-    public ProcSearch notGroups(List<Group> groups) {
-        for (Group group: groups) {
+    public ProcSearch notGroups(List<GroupInterface> groups) {
+        for (GroupInterface group: groups) {
             notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
         }
         return this;
@@ -113,23 +108,24 @@ public class ProcSearch extends Criteria {
         addPhrases(notJobs, "AND");
         addPhrases(notGroups, "AND");
 
-        addPhrase("host.str_name", criteria.hosts);
-        addPhrase("job.str_name",criteria.jobs);
-        addPhrase("layer.str_name",criteria.layers);
-        addPhrase("show.str_name",criteria.shows);
-        addPhrase("alloc.str_name",criteria.allocs);
+        addPhrase("host.str_name", criteria.getHostsList());
+        addPhrase("job.str_name", criteria.getJobsList());
+        addPhrase("layer.str_name", criteria.getLayersList());
+        addPhrase("show.str_name", criteria.getShowsList());
+        addPhrase("alloc.str_name", criteria.getAllocsList());
 
-        if (criteria.memoryRange.length > 0) {
-            addRangePhrase("proc.int_mem_reserved", criteria.memoryRange[0]);
-        }
+//        TODO: (gdenton) b/117847423 reimplement the Criterion objects in grpc
+//        if (criteria.getMemoryRangeCount() > 0) {
+//            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
+//        }
+//
+//        if (criteria.getDurationRangeCount() > 0) {
+//            addDurationRange(criteria.getDurationRange(0));
+//        }
 
-        if (criteria.durationRange.length > 0) {
-            addDurationRange(criteria.durationRange[0]);
-        }
-
-        setFirstResult(criteria.firstResult);
-        if (criteria.maxResults.length > 0) {
-            setMaxResults(criteria.maxResults[0]);
+        setFirstResult(criteria.getFirstResult());
+        if (criteria.getMaxResultsCount() > 0) {
+            setMaxResults(criteria.getMaxResults(0));
         }
     }
 }

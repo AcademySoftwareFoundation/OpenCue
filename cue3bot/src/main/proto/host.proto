@@ -101,7 +101,7 @@ service HostInterface {
     rpc SetThreadMode(HostSetThreadModeRequest) returns (HostSetThreadModeResponse);
 
     // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.
-    rpc Unloock(HostUnlockRequest) returns (HostUnlockResponse);
+    rpc Unlock(HostUnlockRequest) returns (HostUnlockResponse);
 }
 
 service OwnerInterface {
@@ -122,7 +122,7 @@ service OwnerInterface {
 
     // Set the hosts new owner settings.  Any host may have an owner, not just desktops.  This allows direct control of
     // the cores.  By default hosts have no owner settings.
-    rpc TaskOwnership(OwnerTakeOwnershipRequest) returns (OwnerTakeOwnershipResponse);
+    rpc TakeOwnership(OwnerTakeOwnershipRequest) returns (OwnerTakeOwnershipResponse);
 }
 
 service ProcInterface {
@@ -230,12 +230,13 @@ enum ThreadMode {
 // -------- Primary Message Types --------]
 
 message Deed {
-    string host = 1;
-    string owner = 2;
-    string show = 3;
-    bool blackout = 4;
-    repeated int32 blackout_start_time = 5;
-    repeated int32 blackout_stop_time = 6;
+    string id = 1;
+    string host = 2;
+    string owner = 3;
+    string show = 4;
+    bool blackout = 5;
+    int32 blackout_start_time = 6;
+    int32 blackout_stop_time = 7;
 }
 
 message DeedSeq {
@@ -247,32 +248,33 @@ message HardwareStateSeq {
 }
 
 message Host {
-    string name = 1;
-    string alloc_name = 2;
-    bool nimby_enabled = 3;
-    bool has_comment = 4;
-    float cores = 5;
-    float idle_cores = 6;
-    int64 memory = 7;
-    int64 idle_memory = 8;
-    int64 gpu = 9;
-    int64 idle_gpu = 10;
-    int64 total_swap = 11;
-    int64 total_memory = 12;
-    int64 total_gpu = 13;
-    int64 total_mcp = 14;
-    int64 free_swap = 15;
-    int64 free_memory = 16;
-    int64 free_mcp = 17;
-    int64 free_gpu = 18;
-    int32 load = 19;
-    int32 boot_time = 20;
-    int32 ping_time = 21;
-    string os = 22;
-    repeated string tags = 23;
-    HardwareState state = 24;
-    LockState lock_state = 25;
-    ThreadMode thread_mode = 26;
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu = 10;
+    int64 idle_gpu = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
 }
 
 message HostSearchCriteria {
@@ -289,33 +291,34 @@ message HostSeq {
 }
 
 message NestedHost {
-    string name = 1;
-    string alloc_name = 2;
-    bool nimby_enabled = 3;
-    bool has_comment = 4;
-    float cores = 5;
-    float idle_cores = 6;
-    int64 memory = 7;
-    int64 idle_memory = 8;
-    int64 gpu = 9;
-    int64 idle_gpu = 10;
-    int64 total_swap = 11;
-    int64 total_memory = 12;
-    int64 total_gpu = 13;
-    int64 total_mcp = 14;
-    int64 free_swap = 15;
-    int64 free_memory = 16;
-    int64 free_mcp = 17;
-    int64 free_gpu = 18;
-    int32 load = 19;
-    int32 boot_time = 20;
-    int32 ping_time = 21;
-    string os = 22;
-    repeated string tags = 23;
-    HardwareState state = 24;
-    LockState lock_state = 25;
-    ThreadMode thread_mode = 26;
-    NestedProcSeq procs = 27;
+    string id = 1;
+    string name = 2;
+    string alloc_name = 3;
+    bool nimby_enabled = 4;
+    bool has_comment = 5;
+    float cores = 6;
+    float idle_cores = 7;
+    int64 memory = 8;
+    int64 idle_memory = 9;
+    int64 gpu = 10;
+    int64 idle_gpu = 11;
+    int64 total_swap = 12;
+    int64 total_memory = 13;
+    int64 total_gpu = 14;
+    int64 total_mcp = 15;
+    int64 free_swap = 16;
+    int64 free_memory = 17;
+    int64 free_mcp = 18;
+    int64 free_gpu = 19;
+    int32 load = 20;
+    int32 boot_time = 21;
+    int32 ping_time = 22;
+    string os = 23;
+    repeated string tags = 24;
+    HardwareState state = 25;
+    LockState lock_state = 26;
+    ThreadMode thread_mode = 27;
+    NestedProcSeq procs = 28;
 }
 
 message NestedHostSeq {
@@ -323,11 +326,24 @@ message NestedHostSeq {
 }
 
 message NestedProc {
-    int32 timestamp = 1;
-    string user = 2;
-    string subject = 3;
-    string message = 4;
-    NestedHost parent = 5;
+    string id = 1;
+    string name = 2;
+    string show_name = 3;
+    string job_name = 4;
+    string frame_name = 5;
+    string group_name = 6;
+    int32 ping_time = 7;
+    int32 bookedTime = 8;
+    int32 dispatch_time = 9;
+    int64 reserved_memory = 10;
+    int64 reserverd_gpu = 11;
+    int64 used_memory = 12;
+    float reserved_cores = 13;
+    bool unbooked = 14;
+    string log_path = 15;
+    string redirect_target = 16;
+    repeated string services = 17;
+    NestedHost parent = 18;
 }
 
 message NestedProcSeq {
@@ -335,16 +351,30 @@ message NestedProcSeq {
 }
 
 message Owner {
-    string name = 1;
-    string show = 2;
-    int32 host_count = 3;
+    string id = 1;
+    string name = 2;
+    string show = 3;
+    int32 host_count = 4;
 }
 
 message Proc {
-    int32 timestamp = 1;
-    string user = 2;
-    string subject = 3;
-    string message = 4;
+    string id = 1;
+    string name = 2;
+    string show_name = 3;
+    string job_name = 4;
+    string frame_name = 5;
+    string group_name = 6;
+    int32 ping_time = 7;
+    int32 bookedTime = 8;
+    int32 dispatch_time = 9;
+    int64 reserved_memory = 10;
+    int64 reserved_gpu = 11;
+    int64 used_memory = 12;
+    float reserved_cores = 13;
+    bool unbooked = 14;
+    string log_path = 15;
+    string redirect_target = 16;
+    repeated string services = 17;
 }
 
 message ProcSearchCriteria {
@@ -368,6 +398,12 @@ message ProcSearchCriteria {
 
     // A duration range.  Ranges should be in the format "x-y". Values are in seconds.
     repeated string duration_range = 7;
+
+    //The maximum number of results.
+    repeated int32 max_results = 8;
+
+    //The offset of the first result.
+    int32 first_result = 9;
 }
 
 message ProcSeq {
@@ -459,7 +495,7 @@ message HostGetCommentsRequest {
 }
 
 message HostGetCommentsResponse {
-    repeated comment.Comment comments = 1;
+    comment.CommentSeq comments = 1;
 }
 
 // GetDeed
@@ -511,7 +547,7 @@ message HostGetProcsRequest {
 }
 
 message HostGetProcsResponse {
-    repeated Proc procs = 1;
+    ProcSeq procs = 1;
 }
 
 // GetRenderPartitions
@@ -750,6 +786,7 @@ message ProcRedirectToJobResponse {
 // Unbook
 message ProcUnbookRequest {
     Proc proc = 1;
+    bool kill = 2;
 }
 
 message ProcUnbookResponse {} // Empty

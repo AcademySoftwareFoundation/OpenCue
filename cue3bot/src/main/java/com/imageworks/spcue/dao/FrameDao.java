@@ -22,17 +22,17 @@ package com.imageworks.spcue.dao;
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.Frame;
 import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.Job;
-import com.imageworks.spcue.Layer;
+import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.CueIce.CheckpointState;
-import com.imageworks.spcue.CueIce.FrameState;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.ResourceUsage;
+import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.ResourceUsage;
+import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.grpc.job.CheckpointState;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.util.FrameSet;
 
 public interface FrameDao {
@@ -44,7 +44,7 @@ public interface FrameDao {
      * @param job
      * @return
      */
-    public FrameDetail findLowestMemoryFrame(Job job);
+    public FrameDetail findLowestMemoryFrame(JobInterface job);
 
     /**
      * finds the frame in the job that used the highest
@@ -53,7 +53,7 @@ public interface FrameDao {
      * @param job
      * @return
      */
-    public FrameDetail findHighestMemoryFrame(Job job);
+    public FrameDetail findHighestMemoryFrame(JobInterface job);
 
     /**
      * Returns the data for the shortest succeeded frame.
@@ -61,7 +61,7 @@ public interface FrameDao {
      * @param job
      * @return
      */
-    public FrameDetail findShortestFrame(Job job);
+    public FrameDetail findShortestFrame(JobInterface job);
 
     /**
      * Returns the data for the longest succeeded frame.
@@ -69,7 +69,7 @@ public interface FrameDao {
      * @param job
      * @return
      */
-    public FrameDetail findLongestFrame(Job job);
+    public FrameDetail findLongestFrame(JobInterface job);
 
     /**
      * Checks to see how many retries a frame has.  If that number
@@ -78,7 +78,7 @@ public interface FrameDao {
      *
      * @param frame
      */
-    void checkRetries(Frame frame);
+    void checkRetries(FrameInterface frame);
 
     /**
      * Batch inserts a frameSet of frames.
@@ -93,7 +93,7 @@ public interface FrameDao {
      * @param frame
      * @return FrameDetail
      */
-    FrameDetail getFrameDetail(Frame frame);
+    FrameDetail getFrameDetail(FrameInterface frame);
 
     /**
      * Retrieve a FrameDetail from its unique ID.
@@ -109,7 +109,7 @@ public interface FrameDao {
      * @param name
      * @return
      */
-    FrameDetail findFrameDetail(Job job, String name);
+    FrameDetail findFrameDetail(JobInterface job, String name);
 
     /**
      * Returns a minimal Frame from its ID
@@ -117,7 +117,7 @@ public interface FrameDao {
      * @param id
      * @return Frame
      */
-    Frame getFrame(String id);
+    FrameInterface getFrame(String id);
 
     /**
      * Finds a minimal frame from its job and frame name
@@ -126,7 +126,7 @@ public interface FrameDao {
      * @param name
      * @return Frame
      */
-    Frame findFrame(Job job, String name);
+    FrameInterface findFrame(JobInterface job, String name);
 
     /**
      * Finds a minimal frame from its layer and number.
@@ -135,7 +135,7 @@ public interface FrameDao {
      * @param name
      * @return Frame
      */
-    Frame findFrame(Layer layer, int number);
+    FrameInterface findFrame(LayerInterface layer, int number);
 
     /**
      * Find a list of minimal frames from a job and FrameLookupRequest.
@@ -144,7 +144,7 @@ public interface FrameDao {
      * @param r
      * @return List<Frame>
      */
-    List<Frame> findFrames(FrameSearch r);
+    List<FrameInterface> findFrames(FrameSearch r);
 
     /**
      * Find a list of FrameDetail objects from a job and FrameLookupRequest.
@@ -161,7 +161,7 @@ public interface FrameDao {
      * @param frame
      * @param state
      */
-    boolean updateFrameState(Frame frame, FrameState state);
+    boolean updateFrameState(FrameInterface frame, FrameState state);
 
     /**
      * Updates a frame to indicate its now running.
@@ -170,7 +170,7 @@ public interface FrameDao {
      * @param frame
      * @return
      */
-    void updateFrameStarted(VirtualProc proc, Frame frame);
+    void updateFrameStarted(VirtualProc proc, FrameInterface frame);
 
     /**
      * Updates a frame to the stopped state.  The frame MUST be
@@ -180,7 +180,7 @@ public interface FrameDao {
      * @param frame
      * @param report
      */
-    boolean updateFrameStopped(Frame frame, FrameState state, int exitStatus);
+    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus);
 
     /**
      * Updates a frame to the stopped state.  The frame MUST be
@@ -192,8 +192,8 @@ public interface FrameDao {
      * @param maxRss
      * @return
      */
-    boolean updateFrameStopped(Frame frame, FrameState state, int exitStatus,
-            long maxRss);
+    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus,
+                               long maxRss);
 
     /**
      * Sets a frame to an unreserved waiting state.
@@ -201,7 +201,7 @@ public interface FrameDao {
      * @param frame
      * @return
      */
-    boolean updateFrameCleared(Frame frame);
+    boolean updateFrameCleared(FrameInterface frame);
 
     /**
      * Returns a DispatchFrame object from the frame's uinique ID.
@@ -217,7 +217,7 @@ public interface FrameDao {
      *
      * @param frame
      */
-    void markFrameAsWaiting(Frame frame);
+    void markFrameAsWaiting(FrameInterface frame);
 
     /**
      * If the specified frame has active dependencies, reset
@@ -225,7 +225,7 @@ public interface FrameDao {
      *
      * @param frame
      */
-    void markFrameAsDepend(Frame frame);
+    void markFrameAsDepend(FrameInterface frame);
 
     /**
      * Reverses the specified frame range. The revese layer implementation is
@@ -235,7 +235,7 @@ public interface FrameDao {
      * @param layer
      * @param frameSet
      */
-    public void reorderLayerReverse(Layer layer, FrameSet frameSet);
+    public void reorderLayerReverse(LayerInterface layer, FrameSet frameSet);
 
     /**
      *
@@ -247,7 +247,7 @@ public interface FrameDao {
      * @param layer
      * @param frameSet
      */
-    public void reorderFramesLast(Layer layer, FrameSet frameSet);
+    public void reorderFramesLast(LayerInterface layer, FrameSet frameSet);
 
     /**
      * Reorders specified frames to the top of the dispatch order.
@@ -258,7 +258,7 @@ public interface FrameDao {
      * @param layer
      * @param frameSet
      */
-    public void reorderFramesFirst(Layer layer, FrameSet frameSet);
+    public void reorderFramesFirst(LayerInterface layer, FrameSet frameSet);
 
     /**
      * This would reorder frames so that it would render the specified
@@ -268,7 +268,7 @@ public interface FrameDao {
      * @param layer
      * @param frameSet
      */
-    public void staggerLayer(Layer layer, String range, int stagger);
+    public void staggerLayer(LayerInterface layer, String range, int stagger);
 
     /**
      * Returns a list of Running frames that have not had a proc
@@ -277,7 +277,7 @@ public interface FrameDao {
      *
      * @return
      */
-    List<Frame> getOrphanedFrames();
+    List<FrameInterface> getOrphanedFrames();
 
     /**
      * Return a list of all frames that have positive dependency
@@ -286,7 +286,7 @@ public interface FrameDao {
      * @param depend
      * @return
      */
-    List<Frame> getDependentFrames(LightweightDependency depend);
+    List<FrameInterface> getDependentFrames(LightweightDependency depend);
 
     /**
      * Returns true if the frame is succeeded.
@@ -294,7 +294,7 @@ public interface FrameDao {
      * @param f
      * @return
      */
-    public boolean isFrameComplete(Frame f);
+    public boolean isFrameComplete(FrameInterface f);
 
     /**
      * Attempts to fix the case where a proc is assigned to a frame
@@ -304,7 +304,7 @@ public interface FrameDao {
      * @param frame
      * @return
      */
-    boolean updateFrameFixed(VirtualProc proc, Frame frame);
+    boolean updateFrameFixed(VirtualProc proc, FrameInterface frame);
 
     /**
      * Return a ResourceUsage object which repesents the amount
@@ -313,7 +313,7 @@ public interface FrameDao {
      * @param f
      * @return
      */
-    ResourceUsage getResourceUsage(Frame f);
+    ResourceUsage getResourceUsage(FrameInterface f);
 
     /**
      * Update memory usage values for the given frame.  The
@@ -327,7 +327,7 @@ public interface FrameDao {
      * @throws FrameReservationException if the frame is locked
      *         by another thread.
      */
-    void updateFrameMemoryUsage(Frame f, long maxRss, long rss);
+    void updateFrameMemoryUsage(FrameInterface f, long maxRss, long rss);
 
     /**
      * Attempt to put a exclusive row lock on the given
@@ -338,7 +338,7 @@ public interface FrameDao {
      * @throws FrameReservationException if the frame changes state before
      *         the lock can be applied.
      */
-    void lockFrameForUpdate(Frame frame, FrameState state);
+    void lockFrameForUpdate(FrameInterface frame, FrameState state);
 
     /**
      * Return true if the specified frame is an orphan.
@@ -346,7 +346,7 @@ public interface FrameDao {
      * @param frame
      * @return
      */
-    boolean isOrphan(Frame frame);
+    boolean isOrphan(FrameInterface frame);
 
     /**
      * Update a frame's checkpoint state status.
@@ -355,7 +355,7 @@ public interface FrameDao {
      * @param state
      * @return
      */
-    boolean updateFrameCheckpointState(Frame frame, CheckpointState state);
+    boolean updateFrameCheckpointState(FrameInterface frame, CheckpointState state);
 
     /**
      * Return a list of checkpoints that have failed to report back in
@@ -364,6 +364,6 @@ public interface FrameDao {
      * @param cutoffTime
      * @return
      */
-    List<Frame> getStaleCheckpoints(int cutoffTimeMs);
+    List<FrameInterface> getStaleCheckpoints(int cutoffTimeMs);
 }
 

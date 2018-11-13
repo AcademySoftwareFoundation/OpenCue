@@ -54,35 +54,38 @@ enum DependTarget {
 
 // The Depend object repesents a unique dependency on the Cue3 server.
 message Depend {
+    // Id for the depend
+    string id = 1;
+
     // The type of depend.
-    DependType type = 1;
+    DependType type = 2;
 
     // The target of depend, either internal or external.
-    DependTarget target = 2;
+    DependTarget target = 3;
 
     // True if the depend is an any frame depend.
-    bool any_frame = 3;
+    bool any_frame = 4;
 
     // True if the depend is active.
-    bool active = 4;
+    bool active = 5;
 
     // Name of the job that is depending.
-    string depend_er_job = 5;
+    string depend_er_job = 6;
 
     // Name of the layer that is depending.
-    string depend_er_layer = 6;
+    string depend_er_layer = 7;
 
     // Name of the frame that is depending
-    string depend_er_frame = 7;
+    string depend_er_frame = 8;
 
     // Name of the job to depend on
-    string depend_on_job = 8;
+    string depend_on_job = 9;
 
     // Name of the layer to depend on.
-    string depend_on_layer = 9;
+    string depend_on_layer = 10;
 
     // Name of the name to depend on.
-    string depend_on_frame = 10;
+    string depend_on_frame = 11;
 }
 
 // An array of Depend objects

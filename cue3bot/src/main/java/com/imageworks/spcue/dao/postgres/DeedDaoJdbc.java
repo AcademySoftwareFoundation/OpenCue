@@ -26,18 +26,18 @@ import java.util.List;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.Deed;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Host;
+import com.imageworks.spcue.DeedEntity;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
 
-    public static final RowMapper<Deed>
-        DEED_MAPPER = new RowMapper<Deed>() {
-            public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
-                Deed o = new Deed();
+    public static final RowMapper<DeedEntity>
+        DEED_MAPPER = new RowMapper<DeedEntity>() {
+            public DeedEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                DeedEntity o = new DeedEntity();
                 o.id = rs.getString("pk_deed");
                 o.owner = rs.getString("str_username");
                 o.host = rs.getString("str_hostname");
@@ -49,21 +49,21 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
     };
 
     @Override
-    public boolean deleteDeed(Deed deed) {
+    public boolean deleteDeed(DeedEntity deed) {
         return getJdbcTemplate().update(
                 "DELETE FROM deed WHERE pk_deed = ?",
                 deed.getId()) > 0;
     }
 
     @Override
-    public boolean deleteDeed(Host host) {
+    public boolean deleteDeed(HostInterface host) {
         return getJdbcTemplate().update(
                 "DELETE FROM deed WHERE pk_host = ?",
                 host.getHostId()) > 0;
     }
 
     @Override
-    public void deleteDeeds(Owner owner) {
+    public void deleteDeeds(OwnerEntity owner) {
         getJdbcTemplate().update(
                 "DELETE FROM deed WHERE pk_owner = ?",
                 owner.getId());
@@ -79,8 +79,8 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
         ") "+
         "VALUES (?,?,?)";
 
-    public Deed insertDeed(Owner owner, Host host) {
-        Deed deed = new Deed();
+    public DeedEntity insertDeed(OwnerEntity owner, HostInterface host) {
+        DeedEntity deed = new DeedEntity();
         deed.id = SqlUtil.genKeyRandom();
         deed.host = host.getName();
         deed.owner = owner.name;
@@ -109,21 +109,21 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
             "deed.pk_host = host.pk_host ";
 
     @Override
-    public Deed getDeed(String id) {
+    public DeedEntity getDeed(String id) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_DEED + " AND pk_deed = ?",
                 DEED_MAPPER, id);
     }
 
     @Override
-    public List<Deed> getDeeds(Owner owner) {
+    public List<DeedEntity> getDeeds(OwnerEntity owner) {
         return getJdbcTemplate().query(
                 QUERY_FOR_DEED + " AND owner.pk_owner = ?",
                 DEED_MAPPER, owner.getId());
     }
 
     @Override
-    public void setBlackoutTime(Deed deed, int startSeconds, int stopSeconds) {
+    public void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds) {
         getJdbcTemplate().update(
                 "UPDATE deed SET int_blackout_start = ?, " +
                 "int_blackout_stop = ? WHERE deed.pk_deed = ?",
@@ -131,7 +131,7 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
     }
 
     @Override
-    public void updateBlackoutTimeEnabled(Deed deed, boolean bool) {
+    public void updateBlackoutTimeEnabled(DeedEntity deed, boolean bool) {
         getJdbcTemplate().update(
                 "UPDATE deed SET b_blackout = ? WHERE deed.pk_deed = ?",
                 bool, deed.getId());

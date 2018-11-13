@@ -29,7 +29,7 @@
     <job name="chunk_join_depend_v1">
         <paused>false</paused>
         <layers>
-            <layer name="depend_er" type="Render">
+            <layer name="depend_er" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-100</range>
                 <chunk>20</chunk>
@@ -40,7 +40,7 @@
                 </services>
             </layer>
 
-             <layer name="depend_on" type="Render">
+             <layer name="depend_on" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-100</range>
                 <chunk>1</chunk>
@@ -54,7 +54,7 @@
     </job>
 
     <depends>
-        <depend type="FrameByFrame">
+        <depend type="FRAME_BY_FRAME">
             <depjob>chunk_join_depend_v1</depjob>
             <deplayer>depend_er</deplayer>
             <onjob>chunk_join_depend_v1</onjob>

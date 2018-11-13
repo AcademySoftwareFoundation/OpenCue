@@ -21,16 +21,16 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.Deed;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Owner;
+import com.imageworks.spcue.DeedEntity;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
 
 public interface DeedDao {
 
     /**
      * Create a new deed to the host.
      */
-    Deed insertDeed(Owner owner, Host host);
+    DeedEntity insertDeed(OwnerEntity owner, HostInterface host);
 
     /**
      * Delete the given deed. Return true if a row was
@@ -39,7 +39,7 @@ public interface DeedDao {
      * @param deed
      * @return
      */
-    boolean deleteDeed(Deed deed);
+    boolean deleteDeed(DeedEntity deed);
 
     /**
      * Delete the given deed. Return true if a row was
@@ -48,7 +48,7 @@ public interface DeedDao {
      * @param deed
      * @return
      */
-    boolean deleteDeed(Host host);
+    boolean deleteDeed(HostInterface host);
 
     /**
      * Return the deed by its given id.
@@ -56,7 +56,7 @@ public interface DeedDao {
      * @param id
      * @return
      */
-    Deed getDeed(String id);
+    DeedEntity getDeed(String id);
 
     /**
      * Return all deed's from the given owner.
@@ -64,14 +64,14 @@ public interface DeedDao {
      * @param owner
      * @return
      */
-    List<Deed> getDeeds(Owner owner);
+    List<DeedEntity> getDeeds(OwnerEntity owner);
 
     /**
      * Enable/Disable the blackout time.
      *
      * @param value
      */
-    void updateBlackoutTimeEnabled(Deed deed, boolean value);
+    void updateBlackoutTimeEnabled(DeedEntity deed, boolean value);
 
     /**
      * Set blackout times.  During blackout times, machines
@@ -80,13 +80,13 @@ public interface DeedDao {
      * @param start
      * @param stop
      */
-    void setBlackoutTime(Deed deed, int startSeconds, int stopSeconds);
+    void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds);
 
     /**
      *
      *
      * @param owner
      */
-    void deleteDeeds(Owner owner);
+    void deleteDeeds(OwnerEntity owner);
 }
 

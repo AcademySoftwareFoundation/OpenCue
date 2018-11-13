@@ -18,16 +18,16 @@
 
 package com.imageworks.spcue.dao.oracle;
 
-import com.imageworks.spcue.CueIce.RedirectType;
-import com.imageworks.spcue.Redirect;
-import com.imageworks.spcue.dao.RedirectDao;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import com.imageworks.spcue.Redirect;
+import com.imageworks.spcue.dao.RedirectDao;
+import com.imageworks.spcue.grpc.host.RedirectType;
 
 public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
     @Override
@@ -71,14 +71,14 @@ public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
           key,
 
           r.getGroupId(),
-          r.getType().value(),
+          r.getType().getNumber(),
           r.getDestinationId(),
           r.getDestinationName(),
           r.getCreationTime(),
 
           key,
           r.getGroupId(),
-          r.getType().value(),
+          r.getType().getNumber(),
           r.getDestinationId(),
           r.getDestinationName(),
           r.getCreationTime());

@@ -34,7 +34,7 @@
 
         <layers>
 
-            <layer name="auto_eat_me" type="Render">
+            <layer name="auto_eat_me" type="RENDER">
                 <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
                 <range>1-10</range>
                 <chunk>1</chunk>

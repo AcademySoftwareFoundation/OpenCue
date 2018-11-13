@@ -19,11 +19,11 @@
 
 package com.imageworks.spcue.service;
 
-import com.imageworks.spcue.Deed;
+import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.Entity;
-import com.imageworks.spcue.Host;
-import com.imageworks.spcue.Owner;
-import com.imageworks.spcue.Show;
+import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.OwnerEntity;
+import com.imageworks.spcue.ShowInterface;
 
 public interface OwnerManager {
 
@@ -34,7 +34,7 @@ public interface OwnerManager {
      * @param host
      * @return
      */
-    boolean isOwner(Owner owner, Host host);
+    boolean isOwner(OwnerEntity owner, HostInterface host);
 
     /**
      * Create a new owner.
@@ -42,21 +42,21 @@ public interface OwnerManager {
      * @param user
      * @param email
      */
-    Owner createOwner(String user, Show show);
+    OwnerEntity createOwner(String user, ShowInterface show);
 
     /**
      * Get an owner record by ID.
      *
      * @param id
      */
-    Owner getOwner(String id);
+    OwnerEntity getOwner(String id);
 
     /**
      * Return an owner record by name.
      *
      * @param name
      */
-    Owner findOwner(String name);
+    OwnerEntity findOwner(String name);
 
     /**
      * Delete the specified owner and all his/her deeds.
@@ -71,7 +71,7 @@ public interface OwnerManager {
      * @param owner
      * @param show
      */
-    void setShow(Entity owner, Show show);
+    void setShow(Entity owner, ShowInterface show);
 
     /**
      * Assigns the given host to the owner.
@@ -79,21 +79,21 @@ public interface OwnerManager {
      * @param owner
      * @param host
      */
-    Deed takeOwnership(Owner owner, Host host);
+    DeedEntity takeOwnership(OwnerEntity owner, HostInterface host);
 
     /**
      *
      * @param deed
      * @param value
      */
-    void setBlackoutTimeEnabled(Deed deed, boolean value);
+    void setBlackoutTimeEnabled(DeedEntity deed, boolean value);
 
     /**
      *
      * @param id
      * @return
      */
-    Deed getDeed(String id);
+    DeedEntity getDeed(String id);
 
     /**
      *
@@ -101,20 +101,20 @@ public interface OwnerManager {
      * @param startSeconds
      * @param stopSeconds
      */
-    void setBlackoutTime(Deed deed, int startSeconds, int stopSeconds);
+    void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds);
 
     /**
      * Deletes a deed for the specified host.
      *
      * @param host
      */
-    void removeDeed(Host host);
+    void removeDeed(HostInterface host);
 
     /**
      * Remove the given deed.
      *
      * @param deed
      */
-    void removeDeed(Deed deed);
+    void removeDeed(DeedEntity deed);
 }
 

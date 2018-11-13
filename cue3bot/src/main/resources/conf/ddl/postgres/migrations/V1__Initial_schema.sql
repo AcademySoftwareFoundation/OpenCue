@@ -480,7 +480,7 @@ CREATE TABLE host_stat (
     int_load BIGINT DEFAULT 0 NOT NULL,
     ts_ping TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     ts_booted TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
-    str_state VARCHAR(32) DEFAULT 'Up' NOT NULL,
+    str_state VARCHAR(32) DEFAULT 'UP' NOT NULL,
     str_os VARCHAR(12) DEFAULT 'rhel40' NOT NULL,
     int_gpu_total INT DEFAULT 0 NOT NULL,
     int_gpu_free INT DEFAULT 0 NOT NULL
@@ -532,7 +532,7 @@ CREATE TABLE frame (
     ts_last_run TIMESTAMP (6) WITH TIME ZONE,
     ts_updated TIMESTAMP (6) WITH TIME ZONE,
     int_version INT DEFAULT 0,
-    str_checkpoint_state VARCHAR(12) DEFAULT 'Disabled' NOT NULL,
+    str_checkpoint_state VARCHAR(12) DEFAULT 'DISABLED' NOT NULL,
     int_checkpoint_count SMALLINT DEFAULT 0 NOT NULL,
     int_gpu_reserved INT DEFAULT 0 NOT NULL,
     int_total_past_core_time INT DEFAULT 0 NOT NULL
@@ -1596,7 +1596,7 @@ CREATE VIEW vs_show_resource (pk_show, int_cores) AS
     WHERE
        job.pk_job = job_resource.pk_job
     AND
-       job.str_state='Pending'
+       job.str_state='PENDING'
     GROUP BY
        job.pk_show;
 
@@ -1614,7 +1614,7 @@ CREATE VIEW vs_show_stat (pk_show, int_pending_count, int_running_count, int_dea
     WHERE
         job_stat.pk_job = job.pk_job
     AND
-        job.str_state = 'Pending'
+        job.str_state = 'PENDING'
     GROUP BY job.pk_show;
 
 
@@ -1636,11 +1636,11 @@ CREATE VIEW vs_alloc_usage (pk_alloc, int_cores, int_idle_cores, int_running_cor
         COALESCE(SUM(host.int_cores),0) AS int_cores,
         COALESCE(SUM(host.int_cores_idle),0) AS int_idle_cores,
         COALESCE(SUM(host.int_cores - host.int_cores_idle),0) as int_running_cores,
-        COALESCE((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NimbyLocked' OR str_lock_state='Locked')),0) AS int_locked_cores,
-        COALESCE((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='Open' AND hs.str_state ='Up'),0) AS int_available_cores,
+        COALESCE((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NIMBY_LOCKED' OR str_lock_state='LOCKED')),0) AS int_locked_cores,
+        COALESCE((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='OPEN' AND hs.str_state ='UP'),0) AS int_available_cores,
         COUNT(host.pk_host) AS int_hosts,
-        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='Locked') AS int_locked_hosts,
-        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='Down') AS int_down_hosts
+        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='LOCKED') AS int_locked_hosts,
+        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='DOWN') AS int_down_hosts
     FROM
         alloc LEFT JOIN host ON (alloc.pk_alloc = host.pk_alloc)
     GROUP BY
@@ -1659,7 +1659,7 @@ CREATE VIEW vs_folder_counts (pk_folder, int_depend_count, int_waiting_count, in
 FROM
     folder
       LEFT JOIN
-        job ON (folder.pk_folder = job.pk_folder AND job.str_state='Pending')
+        job ON (folder.pk_folder = job.pk_folder AND job.str_state='PENDING')
       LEFT JOIN
         job_stat ON (job.pk_job = job_stat.pk_job)
       LEFT JOIN
@@ -1680,7 +1680,7 @@ CREATE VIEW vs_waiting (pk_show) AS
     AND
         jr.pk_job = job.pk_job
     AND
-        job.str_state = 'Pending'
+        job.str_state = 'PENDING'
     AND
         job.b_paused = false
     AND
@@ -2288,7 +2288,7 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER after_job_finished AFTER UPDATE ON job
 FOR EACH ROW
-WHEN (OLD.str_state = 'Pending' AND NEW.str_state = 'Finished')
+WHEN (OLD.str_state = 'PENDING' AND NEW.str_state = 'FINISHED')
 EXECUTE PROCEDURE trigger__after_job_finished();
 
 
@@ -2342,7 +2342,7 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER after_job_dept_update AFTER UPDATE ON job
 FOR EACH ROW
-  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='Pending')
+  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='PENDING')
   EXECUTE PROCEDURE trigger__after_job_dept_update();
 
 
@@ -2737,7 +2737,7 @@ FOR EACH ROW
 CREATE FUNCTION trigger__update_frame_wait_to_dep()
 RETURNS TRIGGER AS $body$
 BEGIN
-    NEW.str_state := 'Depend';
+    NEW.str_state := 'DEPEND';
     NEW.ts_updated := current_timestamp;
     NEW.int_version := NEW.int_version + 1;
     RETURN NEW;
@@ -2747,14 +2747,14 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER update_frame_wait_to_dep BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('Dead','Succeeded','Waiting','Checkpoint'))
+  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('DEAD','SUCCEEDED','WAITING','CHECKPOINT'))
   EXECUTE PROCEDURE trigger__update_frame_wait_to_dep();
 
 
 CREATE FUNCTION trigger__update_frame_eaten()
 RETURNS TRIGGER AS $body$
 BEGIN
-    NEW.str_state := 'Succeeded';
+    NEW.str_state := 'SUCCEEDED';
     RETURN NEW;
 END;
 $body$
@@ -2762,14 +2762,14 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER update_frame_eaten BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state = 'Eaten' AND OLD.str_state = 'Succeeded')
+  WHEN (NEW.str_state = 'EATEN' AND OLD.str_state = 'SUCCEEDED')
   EXECUTE PROCEDURE trigger__update_frame_eaten();
 
 
 CREATE FUNCTION trigger__update_frame_dep_to_wait()
 RETURNS TRIGGER AS $body$
 BEGIN
-    NEW.str_state := 'Waiting';
+    NEW.str_state := 'WAITING';
     NEW.ts_updated := current_timestamp;
     NEW.int_version := NEW.int_version + 1;
     RETURN NEW;
@@ -2779,7 +2779,7 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER update_frame_dep_to_wait BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='Depend')
+  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='DEPEND')
   EXECUTE PROCEDURE trigger__update_frame_dep_to_wait();
 
 
@@ -2790,7 +2790,7 @@ DECLARE
   int_checkpoint INT := 0;
 BEGIN
 
-    IF OLD.str_state = 'Running' THEN
+    IF OLD.str_state = 'RUNNING' THEN
 
         IF NEW.int_exit_status = 299 THEN
 
@@ -2798,7 +2798,7 @@ BEGIN
             NEW.pk_frame;
 
         ELSE
-          If NEW.str_state = 'Checkpoint' THEN
+          If NEW.str_state = 'CHECKPOINT' THEN
               int_checkpoint := 1;
           END IF;
 
@@ -2821,7 +2821,7 @@ BEGIN
         END IF;
     END IF;
 
-    IF NEW.str_state = 'Running' THEN
+    IF NEW.str_state = 'RUNNING' THEN
 
       SELECT pk_alloc INTO str_pk_alloc FROM host WHERE str_name=NEW.str_host;
 
@@ -2846,7 +2846,7 @@ BEGIN
             NEW.pk_layer,
             NEW.pk_job,
             NEW.str_name,
-            'Running',
+            'RUNNING',
             NEW.int_cores,
             NEW.int_mem_reserved,
             NEW.str_host,
@@ -2868,7 +2868,7 @@ FOR EACH ROW
 CREATE FUNCTION trigger__update_frame_checkpoint_state()
 RETURNS TRIGGER AS $body$
 BEGIN
-    NEW.str_state := 'Checkpoint';
+    NEW.str_state := 'CHECKPOINT';
     RETURN NEW;
 END;
 $body$
@@ -2876,7 +2876,7 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER update_frame_checkpoint_state BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state = 'Waiting' AND OLD.str_state = 'Running' AND NEW.str_checkpoint_state IN ('Enabled', 'Copying'))
+  WHEN (NEW.str_state = 'WAITING' AND OLD.str_state = 'RUNNING' AND NEW.str_checkpoint_state IN ('ENABLED', 'COPYING'))
   EXECUTE PROCEDURE trigger__update_frame_checkpoint_state();
 
 
@@ -2888,7 +2888,6 @@ DECLARE
 BEGIN
     s_old_status_col := 'int_' || OLD.str_state || '_count';
     s_new_status_col := 'int_' || NEW.str_state || '_count';
-
     EXECUTE 'UPDATE layer_stat SET ' || s_old_status_col || '=' || s_old_status_col || ' -1, '
         || s_new_status_col || ' = ' || s_new_status_col || '+1 WHERE pk_layer=$1' USING NEW.pk_layer;
 
@@ -2901,7 +2900,7 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER update_frame_status_counts AFTER UPDATE ON frame
 FOR EACH ROW
-  WHEN (old.str_state != 'Setup' AND old.str_state != new.str_state)
+  WHEN (old.str_state != 'SETUP' AND old.str_state != new.str_state)
   EXECUTE PROCEDURE trigger__update_frame_status_counts();
 
 

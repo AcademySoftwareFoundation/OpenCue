@@ -21,8 +21,8 @@ package com.imageworks.spcue.dao.criteria;
 
 import java.util.HashSet;
 
-import com.imageworks.spcue.Show;
-import com.imageworks.spcue.CueClientIce.JobSearchCriteria;
+import com.imageworks.spcue.ShowInterface;
+import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
 public final class JobSearch extends Criteria {
 
@@ -31,10 +31,10 @@ public final class JobSearch extends Criteria {
     /**
      * Easy factory method for grabbing jobs by show;
      *
-     * @param show
+     * @param s
      * @return
      */
-    public static final JobSearch byShow(Show s) {
+    public static final JobSearch byShow(ShowInterface s) {
         JobSearch c = new JobSearch();
         c.addPhrase("job.pk_show", s.getShowId());
         return c;
@@ -53,27 +53,20 @@ public final class JobSearch extends Criteria {
     }
 
     public static final JobSearchCriteria criteriaFactory() {
-        JobSearchCriteria c = new JobSearchCriteria(
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                new HashSet<String>(),
-                false);
-        return c;
+        return JobSearchCriteria.newBuilder()
+                .setIncludeFinished(false)
+                .build();
     }
 
     public void buildWhereClause() {
-        addPhrase("job.pk_job", criteria.ids);
-        addPhrase("job.str_name", criteria.jobs);
-        addLikePhrase("job.str_name", criteria.substr);
-        addRegexPhrase("job.str_name", criteria.regex);
-        addPhrase("job.str_shot", criteria.shots);
-        addPhrase("show.str_name", criteria.shows);
-        addPhrase("job.str_user", criteria.users);
-        if (criteria.includeFinished) {
+        addPhrase("job.pk_job", criteria.getIdsList());
+        addPhrase("job.str_name", criteria.getJobsList());
+        addLikePhrase("job.str_name", new HashSet<String>(criteria.getSubstrList()));
+        addRegexPhrase("job.str_name", new HashSet<String>(criteria.getRegexList()));
+        addPhrase("job.str_shot", criteria.getShotsList());
+        addPhrase("show.str_name", criteria.getShowsList());
+        addPhrase("job.str_user", criteria.getUsersList());
+        if (criteria.getIncludeFinished()) {
             chunks.add(new StringBuilder(" ROWNUM < 200"));
         } else {
             addPhrase("job.str_state", "Pending");
