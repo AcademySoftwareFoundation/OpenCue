@@ -26,8 +26,8 @@ import time
 
 import depend
 from Cue3 import Cuebot
-from Cue3 import comment_pb2
-from Cue3 import job_pb2
+from Cue3.compiled_proto import comment_pb2
+from Cue3.compiled_proto import job_pb2
 from ..search import FrameSearch
 
 

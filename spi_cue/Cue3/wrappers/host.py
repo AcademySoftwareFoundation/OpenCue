@@ -27,8 +27,8 @@ import time
 import comment
 import proc
 from Cue3 import Cuebot
-from Cue3 import comment_pb2
-from Cue3 import host_pb2
+from Cue3.compiled_proto import comment_pb2
+from Cue3.compiled_proto import host_pb2
 
 
 class Host(object):

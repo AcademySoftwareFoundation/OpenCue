@@ -20,10 +20,10 @@ Cue3 layer module
 implementation of a layer in cue3
 """
 
-from ..wrappers import depend
-from Cue3 import job_pb2
+import depend
+from Cue3.compiled_proto import job_pb2
 from Cue3.cuebot import Cuebot
-from ..search import *
+from ..search import FrameSearch
 
 
 class Layer(object):

@@ -30,15 +30,15 @@ SVN: $Id$
 
 import search
 from cuebot import Cuebot
-from Cue3 import cue_pb2
-from Cue3 import depend_pb2
-from Cue3 import facility_pb2
-from Cue3 import filter_pb2
-from Cue3 import host_pb2
-from Cue3 import job_pb2
-from Cue3 import service_pb2
-from Cue3 import show_pb2
-from Cue3 import subscription_pb2
+from Cue3.compiled_proto import cue_pb2
+from Cue3.compiled_proto import depend_pb2
+from Cue3.compiled_proto import facility_pb2
+from Cue3.compiled_proto import filter_pb2
+from Cue3.compiled_proto import host_pb2
+from Cue3.compiled_proto import job_pb2
+from Cue3.compiled_proto import service_pb2
+from Cue3.compiled_proto import show_pb2
+from Cue3.compiled_proto import subscription_pb2
 
 
 #

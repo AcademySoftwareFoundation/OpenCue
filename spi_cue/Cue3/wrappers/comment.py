@@ -21,7 +21,7 @@ Module: comment.py - comment object
 
 """
 
-from Cue3 import comment_pb2
+from Cue3.compiled_proto import comment_pb2
 from Cue3.cuebot import Cuebot
 
 

@@ -18,8 +18,8 @@
 allocation module
 """
 
-from Cue3 import facility_pb2
-from Cue3 import host_pb2
+from Cue3.compiled_proto import facility_pb2
+from Cue3.compiled_proto import host_pb2
 from Cue3.cuebot import Cuebot
 
 

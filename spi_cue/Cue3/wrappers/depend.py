@@ -21,7 +21,7 @@ Module: depend.py - Cue3 Library implementation of a allocation
 """
 
 
-from Cue3 import depend_pb2
+from Cue3.compiled_proto import depend_pb2
 from Cue3.cuebot import Cuebot
 
 

@@ -19,7 +19,7 @@ Cue3 group module
 
 import job
 from Cue3 import Cuebot
-from Cue3 import job_pb2
+from Cue3.compiled_proto import job_pb2
 
 
 class Group(object):

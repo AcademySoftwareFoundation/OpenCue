@@ -21,7 +21,7 @@ Module: subscription.py - Cue3 Library implementation of a subscription
 
 """
 
-from Cue3 import subscription_pb2
+from Cue3.compiled_proto import subscription_pb2
 from Cue3.cuebot import Cuebot
 
 

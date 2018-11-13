@@ -21,7 +21,7 @@ Module: task.py - Cue3 Library implementation of a task
 
 """
 
-from Cue3 import task_pb2
+from Cue3.compiled_proto import task_pb2
 from Cue3.cuebot import Cuebot
 
 

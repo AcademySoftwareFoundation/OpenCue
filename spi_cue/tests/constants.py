@@ -20,7 +20,7 @@
 import os
 import re
 
-from Cue3 import job_pb2
+from Cue3.compiled_proto import job_pb2
 from Manifest import Cue3
 
 USERNAME = os.getenv("USER")

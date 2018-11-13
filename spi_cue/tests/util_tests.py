@@ -51,7 +51,7 @@ class ProxyTests(unittest.TestCase):
         proxiesA = [job.proxy for job in cue3.getJobs()]
         proxiesB = cue3.proxy(proxiesA)
         self.assertEquals(len(proxiesA), len(proxiesB))
-        for i in range(0,len(proxiesA)):
+        for i in range(0, len(proxiesA)):
             self.assertEqual(proxiesA[i], proxiesB[i])
 
 

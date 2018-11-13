@@ -21,11 +21,11 @@ Module: proc.py - Cue3 Library implementation of a proc
 
 """
 
-from ..wrappers import frame
+import frame
 import host
-from Cue3 import host_pb2
-from ..wrappers import job
-from ..wrappers import layer
+import job
+import layer
+from Cue3.compiled_proto import host_pb2
 from Cue3.cuebot import Cuebot
 
 

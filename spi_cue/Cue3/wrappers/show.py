@@ -24,7 +24,7 @@ Module: show.py - Cue3 Library implementation of a show
 import filter
 import group
 import subscription
-from Cue3 import show_pb2
+from Cue3.compiled_proto import show_pb2
 from Cue3.cuebot import Cuebot
 
 

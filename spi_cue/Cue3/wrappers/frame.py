@@ -23,9 +23,9 @@ Module: frame.py - Cue3 Library implementation of a frame
 
 import time
 
-from Cue3 import Cuebot
 import depend
-from Cue3 import job_pb2
+from Cue3 import Cuebot
+from Cue3.compiled_proto import job_pb2
 
 
 class Frame(object):

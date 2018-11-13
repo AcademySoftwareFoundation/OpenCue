@@ -22,16 +22,16 @@ Module: filter.py - Cue3 Library implementation of spank filter
 """
 
 from Cue3 import Cuebot
-from Cue3 import filter_pb2
-from Cue3 import job_pb2
-from Cue3.filter_pb2 import Action as ActionData
-from Cue3.filter_pb2 import ActionType
-from Cue3.filter_pb2 import ActionValueType
-from Cue3.filter_pb2 import Filter as FilterData
-from Cue3.filter_pb2 import FilterType
-from Cue3.filter_pb2 import MatchSubject
-from Cue3.filter_pb2 import MatchType
-from Cue3.filter_pb2 import Matcher as MatcherData
+from Cue3.compiled_proto import filter_pb2
+from Cue3.compiled_proto import job_pb2
+from Cue3.compiled_proto.filter_pb2 import Action as ActionData
+from Cue3.compiled_proto.filter_pb2 import ActionType
+from Cue3.compiled_proto.filter_pb2 import ActionValueType
+from Cue3.compiled_proto.filter_pb2 import Filter as FilterData
+from Cue3.compiled_proto.filter_pb2 import FilterType
+from Cue3.compiled_proto.filter_pb2 import MatchSubject
+from Cue3.compiled_proto.filter_pb2 import MatchType
+from Cue3.compiled_proto.filter_pb2 import Matcher as MatcherData
 
 __all__ = ["Filter", "Action", "Matcher",
            "FilterData", "ActionData", "MatcherData",
