@@ -53,14 +53,14 @@ def getDefaultServices():
     """
     response = Cuebot.getStub('service').GetDefaultServices(
         service_pb2.ServiceGetDefaultServicesRequest(), timeout=Cuebot.Timeout)
-    return response.services
+    return response.services.services
 
 
 def getService(id):
     """
     Return the default service list.  Services
     define the default application features.
-    @rtype list<Service>
+    @rtype Service
     """
     return Cuebot.getStub('service').GetService(
         service_pb2.ServiceGetServiceRequest(id), timeout=Cuebot.Timeout).service
@@ -134,8 +134,9 @@ def deleteShow(show_id):
     """Deletes a show
      @type  show_id: str
      @param show_id: A show id to delete"""
-    Cuebot.getStub('show').DeleteShow(
-        show_pb2.ShowDeleteRequest(show_id=show_id), timeout=Cuebot.Timeout)
+    show = findShow(show_id)
+    Cuebot.getStub('show').Delete(
+        show_pb2.ShowDeleteRequest(show=show), timeout=Cuebot.Timeout)
 
 
 def getShows():
@@ -144,7 +145,7 @@ def getShows():
     @return: List of show objects"""
     response = Cuebot.getStub('show').GetShows(
         show_pb2.ShowGetShowsRequest(), timeout=Cuebot.Timeout)
-    return response.shows
+    return response.shows.shows
 
 
 def getActiveShows():
@@ -153,7 +154,7 @@ def getActiveShows():
     @return: List of show objects"""
     response = Cuebot.getStub('show').GetActiveShows(
         show_pb2.ShowGetActiveShowsRequest(), timeout=Cuebot.Timeout)
-    return response.shows
+    return response.shows.shows
 
 
 def findShow(name):
@@ -249,7 +250,7 @@ def getJobs(**options):
     """
     criteria = search.JobSearch.criteriaFromOptions(**options)
     return Cuebot.getStub('job').GetJobs(
-        job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs
+        job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs.jobs
 
 
 #
@@ -328,7 +329,7 @@ def getFrames(job, **options):
     @return: a list of matching frames"""
     criteria = search.FrameSearch.criteriaFromOptions(**options)
     return Cuebot.getStub('frame').GetFrames(
-        job_pb2.FrameGetFramesRequest(job=job, r=criteria), timeout=Cuebot.Timeout).frames
+        job_pb2.FrameGetFramesRequest(job=job, r=criteria), timeout=Cuebot.Timeout).frames.frames
 
 
 #
@@ -374,7 +375,7 @@ def getHosts(**options):
     @rtype:  List<Host>
     @return: a list of hosts
     """
-    return search.HostSearch.byOptions(**options).hosts
+    return search.HostSearch.byOptions(**options).hosts.hosts
 
 
 def findHost(name):
@@ -442,7 +443,7 @@ def getAllocations():
     @rtype:  list<Allocation>
     @return: List of allocation objects"""
     return Cuebot.getStub('allocation').GetAll(
-        facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations
+        facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations.allocations
 
 
 def findAllocation(name):
@@ -457,7 +458,7 @@ def findAllocation(name):
 
 def getAllocation(allocId):
     return Cuebot.getStub('allocation').Get(
-        facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocations
+        facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocation
 
 
 def deleteAllocation(alloc):
@@ -530,4 +531,4 @@ def getProcs(**options):
 
     @rtype:  List<Proc>
     @return: a list of procs"""
-    return search.ProcSearch.byOptions(**options).procs
+    return search.ProcSearch.byOptions(**options).procs.procs
