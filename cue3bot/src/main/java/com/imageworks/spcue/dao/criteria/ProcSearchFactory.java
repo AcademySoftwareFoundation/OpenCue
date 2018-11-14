@@ -19,34 +19,35 @@
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.ProcSearchGenerator;
+import com.imageworks.spcue.dao.criteria.postgres.ProcSearch;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 
 public class ProcSearchFactory extends CriteriaFactory {
     private DatabaseEngine dbEngine;
 
-    public ProcSearch create() {
-        return new ProcSearch(getProcSearchGenerator());
-    }
-
-    public ProcSearch create(ProcSearchCriteria criteria) {
-        return new ProcSearch(getProcSearchGenerator(), criteria);
-    }
-
-    public ProcSearch create(ProcSearchCriteria criteria, Sort sort) {
-        return new ProcSearch(getProcSearchGenerator(), criteria, sort);
-    }
-
-    private ProcSearchGeneratorInterface getProcSearchGenerator() {
+    public ProcSearchInterface create() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new ProcSearchGenerator();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.ProcSearchGenerator();
+            return new ProcSearch();
+            // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+            //    return new com.imageworks.spcue.dao.criteria.oracle.ProcSearchGenerator();
         } else {
             throw new RuntimeException(
                     "current database engine is not supported by ProcSearchFactory");
         }
+    }
+
+    public ProcSearchInterface create(ProcSearchCriteria criteria) {
+        ProcSearchInterface procSearch = create();
+        procSearch.setCriteria(criteria);
+        return procSearch;
+    }
+
+    public ProcSearchInterface create(ProcSearchCriteria criteria, Sort sort) {
+        ProcSearchInterface procSearch = create();
+        procSearch.setCriteria(criteria);
+        procSearch.addSort(sort);
+        return procSearch;
     }
 
     public DatabaseEngine getDbEngine() {

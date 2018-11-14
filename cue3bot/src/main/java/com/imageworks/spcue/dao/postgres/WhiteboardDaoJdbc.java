@@ -627,7 +627,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         }
     }
 
-
     @Override
     public DeedSeq getDeeds(OwnerEntity owner) {
         List<Deed> deeds = getJdbcTemplate().query(

@@ -1,23 +1,7 @@
-
-/*
- * Copyright (c) 2018 Sony Pictures Imageworks Inc.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *   http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-
 package com.imageworks.spcue.dao.criteria.postgres;
 
+import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
@@ -29,12 +13,44 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.criteria.CriteriaException;
 import com.imageworks.spcue.dao.criteria.Phrase;
-import com.imageworks.spcue.dao.criteria.ProcSearchGeneratorInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
+public class ProcSearch extends Criteria implements ProcSearchInterface {
 
-public class ProcSearchGenerator extends CriteriaGenerator implements ProcSearchGeneratorInterface {
+    private ProcSearchCriteria criteria;
+    private Set<Phrase> notJobs = new HashSet<Phrase>();
+    private Set<Phrase> notGroups = new HashSet<Phrase>();
+
+    public ProcSearch() {
+        criteria = criteriaFactory();
+    }
+
+    public static ProcSearchCriteria criteriaFactory() {
+        return ProcSearchCriteria.newBuilder().build();
+    }
+
+    public ProcSearchCriteria getCriteria() {
+        return criteria;
+    }
+
+    public void setCriteria(ProcSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
+    public void notJobs(List<JobInterface> jobs) {
+        for (JobInterface job: jobs) {
+            notJobs.add(new Phrase("proc.pk_job","!=", job.getJobId()));
+        }
+    }
+
+    public void notGroups(List<GroupInterface> groups) {
+        for (GroupInterface group: groups) {
+            notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
+        }
+    }
+
     public void addDurationRange(IntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
         final Class<? extends IntegerSearchCriterion> c = criterion.getClass();
@@ -62,14 +78,6 @@ public class ProcSearchGenerator extends CriteriaGenerator implements ProcSearch
         chunks.add(sb);
     }
 
-    public Phrase notJob(JobInterface job) {
-        return new Phrase("proc.pk_job","!=", job.getJobId());
-    }
-
-    public Phrase notGroup(GroupInterface group) {
-        return new Phrase("folder.pk_folder","!=", group.getGroupId());
-    }
-
     public void filterByHost(HostInterface host) {
         addPhrase("host.pk_host", host.getHostId());
     }
@@ -86,7 +94,8 @@ public class ProcSearchGenerator extends CriteriaGenerator implements ProcSearch
         addSort(Sort.asc("proc.ts_booked"));
     }
 
-    public void buildWhereClause(ProcSearchCriteria criteria, Set<Phrase> notJobs, Set<Phrase> notGroups) {
+    @Override
+    void buildWhereClause() {
         addPhrases(notJobs, "AND");
         addPhrases(notGroups, "AND");
 
@@ -104,5 +113,10 @@ public class ProcSearchGenerator extends CriteriaGenerator implements ProcSearch
         // if (criteria.getDurationRangeCount() > 0) {
         //     addDurationRange(criteria.getDurationRange(0));
         // }
+
+        setFirstResult(criteria.getFirstResult());
+        if (criteria.getMaxResultsCount() > 0) {
+            setMaxResults(criteria.getMaxResults(0));
+        }
     }
 }
