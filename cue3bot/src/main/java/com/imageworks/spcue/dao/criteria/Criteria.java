@@ -24,7 +24,7 @@ import java.util.List;
 
 public abstract class Criteria {
 
-    CriteriaGeneratorInterface criteriaGenerator;
+    private final CriteriaGeneratorInterface criteriaGenerator;
 
     boolean built = false;
 
@@ -45,6 +45,10 @@ public abstract class Criteria {
      */
     private ArrayList<Sort> order = new ArrayList<Sort>();
 
+    Criteria(CriteriaGeneratorInterface criteriaGenerator) {
+        this.criteriaGenerator = criteriaGenerator;
+    }
+
     abstract public void buildWhereClause();
 
     public String toString() { return this.getWhereClause(); }
@@ -53,22 +57,9 @@ public abstract class Criteria {
         return criteriaGenerator;
     }
 
-    public List<Object> getValues() {
-        return values;
-    }
-
-    boolean isValid(String v) {
-        return v != null && !v.isEmpty();
-    }
-
-    public void clear() {
-        built = false;
-        chunks.clear();
-    }
-
     private String getWhereClause() {
         build();
-        return criteriaGenerator.generateWhereClause(chunks);
+        return criteriaGenerator.generateWhereClause();
     }
 
     public String getQuery(String query) {

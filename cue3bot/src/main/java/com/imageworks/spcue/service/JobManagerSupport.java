@@ -34,6 +34,7 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
@@ -64,6 +65,7 @@ public class JobManagerSupport {
     private DispatchQueue manageQueue;
     private RedirectManager redirectManager;
     private EmailSupport emailSupport;
+    private FrameSearchFactory frameSearchFactory;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
@@ -99,7 +101,7 @@ public class JobManagerSupport {
                             " shutdown thread was interrupted.");
                 }
 
-                FrameSearch search = new FrameSearch(job);
+                FrameSearch search = frameSearchFactory.create(job);
                 FrameSearchCriteria newCriteria = search.getCriteria();
                 FrameStateSeq states = newCriteria.getStates().toBuilder()
                         .addFrameStates(FrameState.RUNNING)
@@ -358,7 +360,7 @@ public class JobManagerSupport {
      * @param unbook
      */
     public void killProcs(JobInterface job, Source source, boolean unbook) {
-        List<VirtualProc> procs = hostManager.findVirtualProcs(new FrameSearch(job));
+        List<VirtualProc> procs = hostManager.findVirtualProcs(frameSearchFactory.create(job));
         if (unbook) {
             hostManager.unbookVirtualProcs(procs);
         }
@@ -586,6 +588,14 @@ public class JobManagerSupport {
 
     public void setEmailSupport(EmailSupport emailSupport) {
         this.emailSupport = emailSupport;
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

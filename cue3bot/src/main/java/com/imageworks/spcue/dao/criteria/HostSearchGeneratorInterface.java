@@ -3,7 +3,7 @@ package com.imageworks.spcue.dao.criteria;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
-public interface HostSearchGeneratorInterface {
+public interface HostSearchGeneratorInterface extends CriteriaGeneratorInterface {
     void filterByAlloc(AllocationInterface alloc);
     void buildWhereClause(HostSearchCriteria criteria);
 }

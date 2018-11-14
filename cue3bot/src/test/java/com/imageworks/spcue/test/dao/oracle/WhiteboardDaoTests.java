@@ -76,9 +76,13 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.HostSearch;
+import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.JobSearchFactory;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.department.Department;
@@ -162,9 +166,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     LayerDao layerDao;
 
     @Resource
-    JobDao jobDao;
-
-    @Resource
     DepartmentDao departmentDao;
 
     @Resource
@@ -199,6 +200,18 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     ServiceManager serviceManager;
+
+    @Resource
+    FrameSearchFactory frameSearchFactory;
+
+    @Resource
+    HostSearchFactory hostSearchFactory;
+
+    @Resource
+    JobSearchFactory jobSearchFactory;
+    
+    @Resource
+    ProcSearchFactory procSearchFactory;
 
     private static final String HOST = "testest";
     private static final String SHOW = "pipe";
@@ -470,7 +483,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetFramesByFrameSearch() {
         JobInterface job = launchJob();
-        FrameSearch r = new FrameSearch(job);
+        FrameSearch r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .setPage(1)
@@ -615,7 +628,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         launchJob();
         JobSearchCriteria r = JobSearch.criteriaFactory();
         r = r.toBuilder().addShows("pipe").build();
-        whiteboardDao.getJobs(new JobSearch(r));
+        whiteboardDao.getJobs(jobSearchFactory.create(r));
     }
 
     @Test
@@ -625,7 +638,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         launchJob();
         JobSearchCriteria r = JobSearch.criteriaFactory();
         r = r.toBuilder().addShows("pipe").build();
-        whiteboardDao.getJobNames(new JobSearch(r));
+        whiteboardDao.getJobNames(jobSearchFactory.create(r));
     }
 
     @Test
@@ -767,7 +780,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         HostSearchCriteria h = HostSearch.criteriaFactory();
         h = h.toBuilder().addHosts(HOST).build();
-        assertEquals(1, whiteboardDao.getHosts(new HostSearch(h)).getHostsCount());
+        assertEquals(1, whiteboardDao.getHosts(hostSearchFactory.create(h)).getHostsCount());
     }
 
     @Test
@@ -780,7 +793,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         HostSearchCriteria h = HostSearch.criteriaFactory();
         h = h.toBuilder().addAllocs(alloc.getName()).build();
-        assertEquals(1, whiteboardDao.getHosts(new HostSearch(h)).getHostsCount());
+        assertEquals(1, whiteboardDao.getHosts(hostSearchFactory.create(h)).getHostsCount());
     }
 
     @Test
@@ -1008,7 +1021,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         /*
          * Search for all 5 running procs
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder().addShows("pipe").build());
         assertEquals(5, whiteboardDao.getProcs(r).getProcsCount());
@@ -1016,7 +1029,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         /*
          * Limit the result to 1 result.
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaA = r.getCriteria();
         r.setCriteria(criteriaA.toBuilder()
                 .addShows("pipe")
@@ -1028,7 +1041,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
          * Change the first result to 1, which should limit
          * the result to 4.
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaB = r.getCriteria();
         r.setCriteria(criteriaB.toBuilder()
                 .addShows("pipe")
@@ -1039,7 +1052,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         /*
          * Now try to do the equivalent of a limit/offset
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaC = r.getCriteria();
         r.setCriteria(criteriaC.toBuilder()
                 .addShows("pipe")

@@ -84,6 +84,7 @@
         <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
         <property name="localBookingSupport" ref="localBookingSupport" />
+        <property name="frameSearchFactory" ref="frameSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageGroup" class="com.imageworks.spcue.servant.ManageGroup">
@@ -117,6 +118,8 @@
         <property name="localDispatcher" ref="localDispatcher" />
         <property name="localBookingSupport" ref="localBookingSupport" />
         <property name="filterManager" ref="filterManager" />
+        <property name="frameSearchFactory" ref="frameSearchFactory" />
+        <property name="jobSearchFactory" ref="jobSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageLayer" class="com.imageworks.spcue.servant.ManageLayer">
@@ -125,6 +128,7 @@
         <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
         <property name="localBookingSupport" ref="localBookingSupport" />
+        <property name="frameSearchFactory" ref="frameSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageMatcher" class="com.imageworks.spcue.servant.ManageMatcher">
@@ -146,6 +150,7 @@
         <property name="jobManager" ref="jobManager" />
         <property name="groupManager" ref="groupManager" />
         <property name="redirectManager" ref="redirectManager" />
+        <property name="procSearchFactory" ref="procSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageRenderPartition" class="com.imageworks.spcue.servant.ManageRenderPartition">

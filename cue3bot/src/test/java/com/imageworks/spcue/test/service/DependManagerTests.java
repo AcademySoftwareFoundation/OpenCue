@@ -39,6 +39,7 @@ import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.depend.FrameOnJob;
@@ -81,10 +82,10 @@ public class DependManagerTests extends TransactionalTest {
     JobManager jobManager;
 
     @Resource
-    JobManagerSupport jobManagerSupport;
+    JobLauncher jobLauncher;
 
     @Resource
-    JobLauncher jobLauncher;
+    FrameSearchFactory frameSearchFactory;
 
     @Before
     public void launchTestJobs() {
@@ -100,41 +101,41 @@ public class DependManagerTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_depend_test_b");
     }
 
-    private int getTotalDependCount(JobInterface j) {
-        return frameDao.findFrameDetails(new FrameSearch(j))
+    private int getTotalDependCount(JobInterface job) {
+        return frameDao.findFrameDetails(frameSearchFactory.create(job))
                 .stream()
                 .mapToInt(frame -> frame.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(JobInterface j) {
-        FrameSearch search = new FrameSearch(j);
+    private boolean hasDependFrames(JobInterface job) {
+        FrameSearch search = frameSearchFactory.create(job);
         search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
-    private int getTotalDependCount(LayerInterface l) {
-        return frameDao.findFrameDetails(new FrameSearch(l))
+    private int getTotalDependCount(LayerInterface layer) {
+        return frameDao.findFrameDetails(frameSearchFactory.create(layer))
                 .stream()
                 .mapToInt(frame -> frame.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(LayerInterface l) {
-        FrameSearch search = new FrameSearch(l);
+    private boolean hasDependFrames(LayerInterface layer) {
+        FrameSearch search = frameSearchFactory.create(layer);
         search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
-    private int getTotalDependCount(FrameInterface f) {
-        return frameDao.findFrameDetails(new FrameSearch(f))
+    private int getTotalDependCount(FrameInterface frame) {
+        return frameDao.findFrameDetails(frameSearchFactory.create(frame))
                 .stream()
-                .mapToInt(frame -> frame.dependCount)
+                .mapToInt(frameDetail -> frameDetail.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(FrameInterface f) {
-        FrameSearch search = new FrameSearch(f);
+    private boolean hasDependFrames(FrameInterface frame) {
+        FrameSearch search = frameSearchFactory.create(frame);
         search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
@@ -519,7 +520,7 @@ public class DependManagerTests extends TransactionalTest {
         for (LightweightDependency lwd: dependDao.getWhatDependsOn(frame_b)) {
             dependManager.satisfyDepend(lwd);
             for (FrameDetail f: frameDao.findFrameDetails(
-                    new FrameSearch(layer_a))) {
+                    frameSearchFactory.create(layer_a))) {
                 logger.info(f.getName() + " " + f.state.toString());
             }
         }
@@ -545,7 +546,7 @@ public class DependManagerTests extends TransactionalTest {
         LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
         LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
-        FrameSearch search = new FrameSearch(layer_b);
+        FrameSearch search = frameSearchFactory.create(layer_b);
         search.addFrameSet("1-3");
         frameDao.findFrames(search)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));

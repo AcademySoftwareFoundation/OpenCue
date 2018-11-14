@@ -120,6 +120,7 @@
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="frameDao" ref="frameDao" />
+    <property name="frameSearchFactory" ref="frameSearchFactory" />
   </bean>
 
   <bean id="dispatchSupport" class="com.imageworks.spcue.dispatcher.DispatchSupportService">
@@ -184,6 +185,7 @@
     <property name="departmentManager" ref="departmentManager"/>
     <property name="redirectManager" ref="redirectManager" />
     <property name="emailSupport" ref="emailSupport"/>
+    <property name="frameSearchFactory" ref="frameSearchFactory" />
   </bean>
 
   <bean id="jobLauncher" class="com.imageworks.spcue.service.JobLauncher">
@@ -289,6 +291,7 @@
     <property name="dispatcher" ref="dispatcher" />
     <property name="jobManagerSupport" ref="jobManagerSupport" />
     <property name="dispatchSupport" ref="dispatchSupport" />
+    <property name="procSearchFactory" ref="procSearchFactory" />
   </bean>
 
   <bean id="frameCompleteHandler" class="com.imageworks.spcue.dispatcher.FrameCompleteHandler" destroy-method="shutdown">

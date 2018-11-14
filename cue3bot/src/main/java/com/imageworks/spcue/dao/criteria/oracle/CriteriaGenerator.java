@@ -32,10 +32,10 @@ import com.imageworks.spcue.dao.criteria.Sort;
 
 
 public class CriteriaGenerator implements CriteriaGeneratorInterface {
-    protected List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
-    protected List<Object> values = new ArrayList<Object>(32);
+    List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
+    List<Object> values = new ArrayList<Object>(32);
 
-    public String generateWhereClause(List<StringBuilder> chunks) {
+    public String generateWhereClause() {
         return chunks.stream()
                 .map(StringBuilder::toString)
                 .collect(Collectors.joining(" AND "));
@@ -96,6 +96,14 @@ public class CriteriaGenerator implements CriteriaGeneratorInterface {
         return sb.toString();
     }
 
+    public List<Object> getValues() {
+        return values;
+    }
+
+    boolean isValid(String v) {
+        return v != null && !v.isEmpty();
+    }
+
     private String getOrder(List<Sort> order) {
         if (order.size() < 1) {
             return "";
@@ -105,7 +113,7 @@ public class CriteriaGenerator implements CriteriaGeneratorInterface {
                 .collect(Collectors.joining(", "));
     }
 
-    public void addPhrase(String col, Collection<String> s) {
+    void addPhrase(String col, Collection<String> s) {
         if (s == null || s.size() == 0) { return; }
 
         StringBuilder sb = new StringBuilder(1024);
@@ -121,7 +129,7 @@ public class CriteriaGenerator implements CriteriaGeneratorInterface {
         chunks.add(sb);
     }
 
-    void addPhrases(Collection<Phrase> phrases, String inclusion) {
+    public void addPhrases(Collection<Phrase> phrases, String inclusion) {
         if (phrases.size() == 0) { return; }
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
@@ -139,7 +147,7 @@ public class CriteriaGenerator implements CriteriaGeneratorInterface {
         chunks.add(sb);
     }
 
-    public void addPhrase(String col, String v) {
+    void addPhrase(String col, String v) {
         if (v == null) { return; }
         addPhrase(col, ImmutableList.of(v));
     }
@@ -175,7 +183,7 @@ public class CriteriaGenerator implements CriteriaGeneratorInterface {
         chunks.add(sb);
     }
 
-    public void addGreaterThanTimestamp(String col, int t) {
+    void addGreaterThanTimestamp(String col, int t) {
         StringBuilder sb = new StringBuilder(128);
         sb.append("(epoch(");
         sb.append(col);

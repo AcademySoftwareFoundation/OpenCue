@@ -30,6 +30,7 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.LayerOnFrame;
 import com.imageworks.spcue.depend.LayerOnJob;
@@ -110,9 +111,6 @@ import com.imageworks.spcue.util.FrameSet;
 
 public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
-    /**
-     *
-     */
     private LayerDetail layer;
     private FrameSearch frameSearch;
     private JobManager jobManager;
@@ -122,6 +120,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
     private LocalBookingSupport localBookingSupport;
+    private FrameSearchFactory frameSearchFactory;
 
     @Override
     public void findLayer(LayerFindLayerRequest request, StreamObserver<LayerFindLayerResponse> responseObserver) {
@@ -155,7 +154,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         Descriptors.FieldDescriptor layerDescriptor = searchCriteria.getDescriptorForType().findFieldByName("layer");
         searchCriteria = searchCriteria.toBuilder()
                 .clearField(layerDescriptor).build();
-        FrameSeq frames = whiteboard.getFrames(new FrameSearch(layer, searchCriteria));
+        FrameSeq frames = whiteboard.getFrames(frameSearchFactory.create(layer, searchCriteria));
         responseObserver.onNext(LayerGetFramesResponse.newBuilder()
                 .setFrames(frames)
                 .build());
@@ -450,11 +449,19 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         this.localBookingSupport = localBookingSupport;
     }
 
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
+
     private void updateLayer(Layer layerData) {
         setJobManager(jobManagerSupport.getJobManager());
         setDependManager(jobManagerSupport.getDependManager());
         layer = layerDao.getLayerDetail(layerData.getId());
-        frameSearch = new FrameSearch(layer);
+        frameSearch = frameSearchFactory.create(layer);
     }
 }
 

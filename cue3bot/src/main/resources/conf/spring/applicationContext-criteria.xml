@@ -25,7 +25,19 @@
        http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
        http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
 
+    <bean id="frameSearchFactory" class="com.imageworks.spcue.dao.criteria.FrameSearchFactory">
+        <property name="dbEngine" ref="dbEngine" />
+    </bean>
+
     <bean id="hostSearchFactory" class="com.imageworks.spcue.dao.criteria.HostSearchFactory">
+        <property name="dbEngine" ref="dbEngine" />
+    </bean>
+
+    <bean id="jobSearchFactory" class="com.imageworks.spcue.dao.criteria.JobSearchFactory">
+        <property name="dbEngine" ref="dbEngine" />
+    </bean>
+
+    <bean id="procSearchFactory" class="com.imageworks.spcue.dao.criteria.ProcSearchFactory">
         <property name="dbEngine" ref="dbEngine" />
     </bean>
 

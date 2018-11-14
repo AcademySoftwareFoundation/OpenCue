@@ -18,35 +18,34 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.CriteriaGenerator;
-import com.imageworks.spcue.dao.criteria.postgres.HostSearchGenerator;
-import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.dao.criteria.postgres.ProcSearchGenerator;
+import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 
-public class HostSearchFactory extends CriteriaFactory {
-
+public class ProcSearchFactory extends CriteriaFactory {
     private DatabaseEngine dbEngine;
 
-    public HostSearch create(HostSearchCriteria criteria) {
-        return new HostSearch(getHostSearchGenerator(), criteria);
+    public ProcSearch create() {
+        return new ProcSearch(getProcSearchGenerator());
     }
 
-    public HostSearch create(AllocationEntity allocEntity) {
-        // TODO HostSearch probably doesn't need this as a static method since we have this
-        // factory now.
-        return HostSearch.byAllocation(getHostSearchGenerator(), allocEntity);
+    public ProcSearch create(ProcSearchCriteria criteria) {
+        return new ProcSearch(getProcSearchGenerator(), criteria);
     }
 
-    private HostSearchGeneratorInterface getHostSearchGenerator() {
+    public ProcSearch create(ProcSearchCriteria criteria, Sort sort) {
+        return new ProcSearch(getProcSearchGenerator(), criteria, sort);
+    }
+
+    private ProcSearchGeneratorInterface getProcSearchGenerator() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new HostSearchGenerator();
+            return new ProcSearchGenerator();
         } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.HostSearchGenerator();
+            return new com.imageworks.spcue.dao.criteria.oracle.ProcSearchGenerator();
         } else {
             throw new RuntimeException(
-                    "current database engine is not supported by HostSearchFactory");
+                    "current database engine is not supported by ProcSearchFactory");
         }
     }
 

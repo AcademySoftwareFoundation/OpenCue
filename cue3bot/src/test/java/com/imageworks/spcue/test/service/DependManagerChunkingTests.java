@@ -38,6 +38,7 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
@@ -76,7 +77,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
     JobLauncher jobLauncher;
 
     @Resource
-    JobManagerSupport jobManagerSupport;
+    FrameSearchFactory frameSearchFactory;
 
     @Before
     public void launchTestJobs() {
@@ -88,15 +89,15 @@ public class DependManagerChunkingTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_chunked_depend");
     }
 
-    private int getTotalDependSum(LayerInterface l) {
-        return frameDao.findFrameDetails(new FrameSearch(l))
+    private int getTotalDependSum(LayerInterface layer) {
+        return frameDao.findFrameDetails(frameSearchFactory.create(layer))
                 .stream()
                 .mapToInt(frame -> frame.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(LayerInterface l) {
-        FrameSearch search = new FrameSearch(l);
+    private boolean hasDependFrames(LayerInterface layer) {
+        FrameSearch search = frameSearchFactory.create(layer);
         search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }

@@ -18,35 +18,35 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.CriteriaGenerator;
-import com.imageworks.spcue.dao.criteria.postgres.HostSearchGenerator;
-import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.dao.criteria.postgres.JobSearchGenerator;
+import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
 
-public class HostSearchFactory extends CriteriaFactory {
-
+public class JobSearchFactory extends CriteriaFactory {
     private DatabaseEngine dbEngine;
 
-    public HostSearch create(HostSearchCriteria criteria) {
-        return new HostSearch(getHostSearchGenerator(), criteria);
+    public JobSearch create() {
+        return new JobSearch(getJobSearchGenerator());
     }
 
-    public HostSearch create(AllocationEntity allocEntity) {
-        // TODO HostSearch probably doesn't need this as a static method since we have this
-        // factory now.
-        return HostSearch.byAllocation(getHostSearchGenerator(), allocEntity);
+    public JobSearch create(JobSearchCriteria criteria) {
+        return new JobSearch(getJobSearchGenerator(), criteria);
     }
 
-    private HostSearchGeneratorInterface getHostSearchGenerator() {
+    public JobSearch create(ShowInterface show) {
+        return new JobSearch(getJobSearchGenerator(), show);
+    }
+
+    private JobSearchGeneratorInterface getJobSearchGenerator() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new HostSearchGenerator();
+            return new JobSearchGenerator();
         } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.HostSearchGenerator();
+            return new com.imageworks.spcue.dao.criteria.oracle.JobSearchGenerator();
         } else {
             throw new RuntimeException(
-                    "current database engine is not supported by HostSearchFactory");
+                    "current database engine is not supported by JobSearchFactory");
         }
     }
 

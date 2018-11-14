@@ -51,7 +51,9 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.Direction;
 import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
 import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -98,25 +100,22 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     LayerDao layerDao;
 
     @Resource
-    AllocationDao allocationDao;
-
-    @Resource
-    FacilityDao facilityDao;
-
-    @Resource
     DispatcherDao dispatcherDao;
 
     @Resource
     HostManager hostManager;
 
     @Resource
-    DispatchSupport dispatchSupport;
-
-    @Resource
     AdminManager adminManager;
 
     @Resource
     Dispatcher dispatcher;
+
+    @Resource
+    FrameSearchFactory frameSearchFactory;
+    
+    @Resource
+    ProcSearchFactory procSearchFactory;
 
     private static String PK_ALLOC = "00000000-0000-0000-0000-000000000000";
 
@@ -429,8 +428,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(1, procDao.findVirtualProcs(host).size());
         assertEquals(1, procDao.findVirtualProcs(job).size());
         assertEquals(1, procDao.findVirtualProcs(frame).size());
-        assertEquals(1, procDao.findVirtualProcs(new FrameSearch(job)).size());
-        assertEquals(1, procDao.findVirtualProcs(new FrameSearch((LayerInterface) frame)).size());
+        assertEquals(1, procDao.findVirtualProcs(frameSearchFactory.create(job)).size());
+        assertEquals(1, procDao.findVirtualProcs(frameSearchFactory.create((LayerInterface) frame)).size());
     }
 
     @Test
@@ -812,7 +811,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         /*
          * Search for all 5 running procs
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         r.addSort(new Sort("proc.ts_booked",Direction.ASC));
         ProcSearchCriteria criteriaA = r.getCriteria();
         r.setCriteria(criteriaA.toBuilder().addShows("pipe").build());
@@ -821,7 +820,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         /*
          * Limit the result to 1 result.
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaB = r.getCriteria();
         r.setCriteria(criteriaB.toBuilder().addShows("pipe").addMaxResults(1).build());
         assertEquals(1, procDao.findVirtualProcs(r).size());
@@ -830,7 +829,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
          * Change the first result to 1, which should limt
          * the result to 4.
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaC = r.getCriteria();
         r.setCriteria(criteriaC.toBuilder().addShows("pipe").setFirstResult(2).build());
         r.addSort(new Sort("proc.ts_booked",Direction.ASC));
@@ -839,7 +838,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         /*
          * Now try to do the eqivalent of a limit/offset
          */
-        r = new ProcSearch();
+        r = procSearchFactory.create();
         ProcSearchCriteria criteriaD = r.getCriteria();
         r.setCriteria(criteriaD.toBuilder()
                 .addShows("pipe")

@@ -28,19 +28,17 @@ public class HostSearch extends Criteria {
 
     private HostSearchCriteria criteria;
 
-    public HostSearch(
-            CriteriaGeneratorInterface criteriaGenerator,
+    HostSearch(
             HostSearchGeneratorInterface hostSearchGenerator) {
-        this.criteriaGenerator = criteriaGenerator;
+        super(hostSearchGenerator);
         this.hostSearchGenerator = hostSearchGenerator;
         this.criteria = criteriaFactory();
     }
 
-    public HostSearch(
-            CriteriaGeneratorInterface criteriaGenerator,
+    HostSearch(
             HostSearchGeneratorInterface hostSearchGenerator,
             HostSearchCriteria criteria) {
-        this.criteriaGenerator = criteriaGenerator;
+        super(hostSearchGenerator);
         this.hostSearchGenerator = hostSearchGenerator;
         this.criteria = criteria;
     }
@@ -50,10 +48,9 @@ public class HostSearch extends Criteria {
     }
 
     static HostSearch byAllocation(
-            CriteriaGeneratorInterface criteriaGenerator,
             HostSearchGeneratorInterface hostSearchGenerator,
             AllocationInterface a) {
-        HostSearch r = new HostSearch(criteriaGenerator, hostSearchGenerator);
+        HostSearch r = new HostSearch(hostSearchGenerator);
         r.addAlloc(a);
         return r;
     }

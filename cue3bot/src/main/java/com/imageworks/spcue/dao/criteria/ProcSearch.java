@@ -16,37 +16,44 @@
  */
 
 
-
 package com.imageworks.spcue.dao.criteria;
+
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
 import com.imageworks.common.SpiIce.IntegerSearchCriterion;
-import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
+
 public class ProcSearch extends Criteria {
+
+    private final ProcSearchGeneratorInterface procSearchGenerator;
 
     private ProcSearchCriteria criteria;
     private Set<Phrase> notJobs = new HashSet<Phrase>();
     private Set<Phrase> notGroups = new HashSet<Phrase>();
 
-    public ProcSearch() {
+    ProcSearch(ProcSearchGeneratorInterface procSearchGenerator) {
+        super(procSearchGenerator);
+        this.procSearchGenerator = procSearchGenerator;
         criteria = ProcSearch.criteriaFactory();
     }
 
-    public ProcSearch(ProcSearchCriteria criteria) {
+    ProcSearch(ProcSearchGeneratorInterface procSearchGenerator, ProcSearchCriteria criteria) {
+        super(procSearchGenerator);
+        this.procSearchGenerator = procSearchGenerator;
         this.criteria = criteria;
     }
 
-    public ProcSearch(ProcSearchCriteria criteria, Sort o) {
+    ProcSearch(ProcSearchGeneratorInterface procSearchGenerator, ProcSearchCriteria criteria, Sort sort) {
+        super(procSearchGenerator);
+        this.procSearchGenerator = procSearchGenerator;
         this.criteria = criteria;
-        this.addSort(o);
+        addSort(sort);
     }
 
     public ProcSearchCriteria getCriteria() {
@@ -57,71 +64,48 @@ public class ProcSearch extends Criteria {
         this.criteria = criteria;
     }
 
-    public static final ProcSearchCriteria criteriaFactory() {
+    public static ProcSearchCriteria criteriaFactory() {
         return ProcSearchCriteria.newBuilder().build();
     }
 
-    public void addDurationRange(IntegerSearchCriterion e) {
-        StringBuilder sb = new StringBuilder(128);
-        final Class<? extends IntegerSearchCriterion> c = e.getClass();
-
-        if (c == LessThanIntegerSearchCriterion.class) {
-            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" (find_duration(proc.ts_dispatched, null) <= ?) ");
-        }
-        else if (c == GreaterThanIntegerSearchCriterion.class) {
-            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" (find_duration(proc.ts_dispatched, null) >= ?) ");
-        }
-        else if (c == InRangeIntegerSearchCriterion.class) {
-            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) e;
-            values.add(r.min);
-            values.add(r.max);
-            sb.append(" (find_duration(proc.ts_dispatched, null) BETWEEN ? AND ? )");
-        }
-        else {
-            throw new CriteriaException("Invalid criteria class used for duration range search: "
-                    + e.getClass().getCanonicalName());
-        }
-        chunks.add(sb);
+    public void addDurationRange(IntegerSearchCriterion criterion) {
+        procSearchGenerator.addDurationRange(criterion);
     }
 
     public ProcSearch notJobs(List<JobInterface> jobs) {
         for (JobInterface job: jobs) {
-            notJobs.add(new Phrase("proc.pk_job","!=",job.getJobId()));
+            notJobs.add(procSearchGenerator.notJob(job));
         }
         return this;
     }
 
     public ProcSearch notGroups(List<GroupInterface> groups) {
         for (GroupInterface group: groups) {
-            notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
+            notGroups.add(procSearchGenerator.notGroup(group));
         }
         return this;
+    }
+
+    public void filterByHost(HostInterface host) {
+        procSearchGenerator.filterByHost(host);
+    }
+
+    public void sortByHostName() {
+        procSearchGenerator.sortByHostName();
+    }
+
+    public void sortByDispatchedTime() {
+        procSearchGenerator.sortByDispatchedTime();
+    }
+
+    public void sortByBookedTime() {
+        procSearchGenerator.sortByBookedTime();
     }
 
     @Override
     public void buildWhereClause() {
 
-        addPhrases(notJobs, "AND");
-        addPhrases(notGroups, "AND");
-
-        addPhrase("host.str_name", criteria.getHostsList());
-        addPhrase("job.str_name", criteria.getJobsList());
-        addPhrase("layer.str_name", criteria.getLayersList());
-        addPhrase("show.str_name", criteria.getShowsList());
-        addPhrase("alloc.str_name", criteria.getAllocsList());
-
-//        TODO: (gdenton) b/117847423 reimplement the Criterion objects in grpc
-//        if (criteria.getMemoryRangeCount() > 0) {
-//            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
-//        }
-//
-//        if (criteria.getDurationRangeCount() > 0) {
-//            addDurationRange(criteria.getDurationRange(0));
-//        }
+        procSearchGenerator.buildWhereClause(criteria, notJobs, notGroups);
 
         setFirstResult(criteria.getFirstResult());
         if (criteria.getMaxResultsCount() > 0) {
