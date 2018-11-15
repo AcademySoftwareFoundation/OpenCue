@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.ShowInterface;
@@ -23,8 +22,7 @@ import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
 
-
-public class JobSearchFactory extends CriteriaFactory {
+public class JobSearchFactory {
     private DatabaseEngine dbEngine;
 
     public JobSearchInterface create() {

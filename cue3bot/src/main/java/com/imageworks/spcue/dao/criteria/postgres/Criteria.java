@@ -108,7 +108,7 @@ public abstract class Criteria implements CriteriaInterface {
                     query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
                 }
             } else {
-                query = query.replaceFirst("SELECT ", "SELECT row_number() OVER (" + getOrder(order) + ") AS RN, ");
+                query = query.replaceFirst("SELECT ", "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
             }
         }
 
@@ -152,7 +152,7 @@ public abstract class Criteria implements CriteriaInterface {
         return sb.toString();
     }
 
-    private String getOrder(List<Sort> order) {
+    private String getOrder() {
         if (order.size() < 1) {
             return "";
         }
@@ -242,7 +242,7 @@ public abstract class Criteria implements CriteriaInterface {
         chunks.add(sb);
     }
 
-    public void addLessThanTimestamp(String col, Timestamp timestamp) {
+    void addLessThanTimestamp(String col, Timestamp timestamp) {
         if (timestamp == null) { return; }
         StringBuilder sb = new StringBuilder(128);
         sb.append("(");
@@ -253,7 +253,7 @@ public abstract class Criteria implements CriteriaInterface {
         chunks.add(sb);
     }
 
-    public void addRangePhrase(String col, IntegerSearchCriterion e) {
+    void addRangePhrase(String col, IntegerSearchCriterion e) {
         StringBuilder sb = new StringBuilder(128);
         final Class<? extends IntegerSearchCriterion> c = e.getClass();
         if (c == EqualsIntegerSearchCriterion.class) {
@@ -284,7 +284,7 @@ public abstract class Criteria implements CriteriaInterface {
         chunks.add(sb);
     }
 
-    public void addRangePhrase(String col, FloatSearchCriterion e) {
+    void addRangePhrase(String col, FloatSearchCriterion e) {
         StringBuilder sb = new StringBuilder(128);
         final Class<? extends FloatSearchCriterion> c = e.getClass();
         if (c == EqualsFloatSearchCriterion.class) {

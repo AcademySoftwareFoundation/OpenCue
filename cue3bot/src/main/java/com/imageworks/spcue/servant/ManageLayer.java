@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.servant;
 
 import java.util.HashSet;

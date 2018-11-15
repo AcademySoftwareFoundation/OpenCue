@@ -15,15 +15,13 @@
  * limitations under the License.
  */
 
-
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.dao.criteria.postgres.ProcSearch;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
-
-public class ProcSearchFactory extends CriteriaFactory {
+public class ProcSearchFactory {
     private DatabaseEngine dbEngine;
 
     public ProcSearchInterface create() {

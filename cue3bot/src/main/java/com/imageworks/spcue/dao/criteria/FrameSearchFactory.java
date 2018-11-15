@@ -26,7 +26,7 @@ import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 
-public class FrameSearchFactory extends CriteriaFactory {
+public class FrameSearchFactory {
     private DatabaseEngine dbEngine;
 
     public FrameSearchInterface create() {

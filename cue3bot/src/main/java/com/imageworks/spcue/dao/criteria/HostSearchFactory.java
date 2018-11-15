@@ -22,7 +22,7 @@ import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.dao.criteria.postgres.HostSearch;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 
-public class HostSearchFactory extends CriteriaFactory {
+public class HostSearchFactory {
 
     private DatabaseEngine dbEngine;
 
