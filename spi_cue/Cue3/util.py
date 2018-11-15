@@ -21,6 +21,7 @@ Module: util.py
 import logging
 import os
 
+from google.protobuf.pyext._message import RepeatedCompositeContainer
 from Cue3 import Cuebot
 
 logger = logging.getLogger('cue3')
@@ -58,7 +59,7 @@ def proxy(item, cls=None):
         else:
             raise AttributeError('Could not find a proto for {}'.format(cls))
 
-    if isinstance(item, (tuple, list, set)):
+    if isinstance(item, (tuple, list, set, RepeatedCompositeContainer)):
         return [_proxy(i, cls) for i in item]
     else:
         return _proxy(item, cls)

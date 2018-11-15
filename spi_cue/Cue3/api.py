@@ -28,6 +28,8 @@ Contact: Middle-Tier Group
 SVN: $Id$
 """
 
+import exception
+import grpc
 import search
 from cuebot import Cuebot
 from Cue3.compiled_proto import cue_pb2
@@ -212,8 +214,12 @@ def findJob(name):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    return Cuebot.getStub('job').FindJob(
-        job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
+    try:
+        Cuebot.getStub('job').FindJob(
+            job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
+    except grpc.RpcError as e:
+        print e
+        raise exception.EntityNotFoundException("Could not find job {}".format(name))
 
 
 def getJob(uniq):
