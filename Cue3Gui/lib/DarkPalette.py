@@ -13,19 +13,21 @@
 #  limitations under the License.
 
 
-"""The dark widget color scheme used by image viewing applications
-at Imageworks.
+"""The dark widget color scheme used by image viewing applications.
 """
+import Constants
 from Manifest import QtCore, QtGui
+
 
 def init():
     """Convenience function that takes the QApplication object for the
-    application and configures the palette and style for the DarkMojo
+    application and configures the palette and style for the Plastique
     color scheme"""
-    QtGui.qApp.setPalette(DarkMojoPalette())
-    QtGui.qApp.setStyle('DarkMojo')
+    QtGui.qApp.setPalette(DarkPalette())
+    QtGui.qApp.setStyle(QtGui.QStyleFactory.create(Constants.COLOR_THEME))
 
-def DarkMojoPalette():
+
+def DarkPalette():
     """The dark widget color scheme used by image viewing applications
     at Imageworks.
     """
@@ -79,25 +81,28 @@ def DarkMojoPalette():
 
     return p
 
+
 def GreyF(value):
     c = QtGui.QColor()
     c.setRgbF(value, value, value)
     return c
+
 
 def ColorF(r, g, b):
     c = QtGui.QColor()
     c.setRgbF(r, g, b)
     return c
 
-COLOR_JOB_PAUSED_BACKGROUND  = QtGui.QColor(49,75,87)
-COLOR_JOB_DYING_BACKGROUND =   QtGui.QColor(94,33,33)
-COLOR_JOB_FINISHED_BACKGROUND =  QtGui.QColor(55,125,55,100)
-COLOR_JOB_WITHOUT_PROCS = QtGui.QColor(68,172,65,100)
-COLOR_JOB_DEPENDED = QtGui.QColor(238,130,238,100)
-COLOR_JOB_HIGH_MEMORY = QtGui.QColor(132,132,26)
+
+COLOR_JOB_PAUSED_BACKGROUND = QtGui.QColor(49, 75, 87)
+COLOR_JOB_DYING_BACKGROUND = QtGui.QColor(94, 33, 33)
+COLOR_JOB_FINISHED_BACKGROUND = QtGui.QColor(55, 125, 55, 100)
+COLOR_JOB_WITHOUT_PROCS = QtGui.QColor(68, 172, 65, 100)
+COLOR_JOB_DEPENDED = QtGui.QColor(238, 130, 238, 100)
+COLOR_JOB_HIGH_MEMORY = QtGui.QColor(132, 132, 26)
 
 COLOR_GROUP_BACKGROUND = GreyF(0.18)
 COLOR_GROUP_FOREGROUND = GreyF(0.79)
-COLOR_SHOW_BACKGROUND =  GreyF(0.13)
-COLOR_SHOW_FOREGROUND =  GreyF(0.79)
+COLOR_SHOW_BACKGROUND = GreyF(0.13)
+COLOR_SHOW_FOREGROUND = GreyF(0.79)
 COLOR_JOB_FOREGROUND = GreyF(0.79)

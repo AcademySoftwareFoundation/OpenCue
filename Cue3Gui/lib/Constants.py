@@ -16,27 +16,27 @@
 """
 Application constants.
 """
-from Manifest import QtCore, QtGui, Cue3
-
 import os
+
+from Manifest import QtCore, QtGui, Cue3
 
 VERSION = "1.3.0"
 
 STARTUP_NOTICE_DATE = 0
 STARTUP_NOTICE_MSG = ""
 
-JOB_UPDATE_DELAY = 10000 # msec
-LAYER_UPDATE_DELAY = 10000 # msec
-FRAME_UPDATE_DELAY = 10000 # msec
-HOST_UPDATE_DELAY = 20000 # msec
-AFTER_ACTION_UPDATE_DELAY = 1000 # msec
+JOB_UPDATE_DELAY = 10000  # msec
+LAYER_UPDATE_DELAY = 10000  # msec
+FRAME_UPDATE_DELAY = 10000  # msec
+HOST_UPDATE_DELAY = 20000  # msec
+AFTER_ACTION_UPDATE_DELAY = 1000  # msec
 
 MAX_LOG_POPUPS = 5
-MINIMUM_UPDATE_INTERVAL = 5 # sec
+MINIMUM_UPDATE_INTERVAL = 5  # sec
 
-FONT_SIZE = 10#8
+FONT_SIZE = 10  # 8
 STANDARD_FONT = QtGui.QFont("Luxi Sans", FONT_SIZE)
-STANDARD_ROW_HEIGHT = 16#14
+STANDARD_ROW_HEIGHT = 16  # 14
 
 MEMORY_WARNING_LEVEL = 5242880
 
@@ -69,17 +69,19 @@ QVARIANT_NULL = QtCore.QVariant()
 QVARIANT_BLACK = QtCore.QVariant(QtGui.QColor(QtCore.Qt.black))
 QVARIANT_GREY = QtCore.QVariant(QtGui.QColor(QtCore.Qt.gray))
 
-ALLOWED_TAGS = ("general", "desktop", "playblast", "util", "preprocess", "wan", "cuda", "splathw", 'naiad', 'massive')
+ALLOWED_TAGS = ("general", "desktop", "playblast", "util", "preprocess", "wan", "cuda", "splathw",
+                'naiad', 'massive')
 
-RGB_FRAME_STATE = {Cue3.FrameState.Dead: QtGui.QColor(255,0,0),
-                   Cue3.FrameState.Depend: QtGui.QColor(160,32,240),
-                   Cue3.FrameState.Eaten: QtGui.QColor(150,0,0),
-                   Cue3.FrameState.Running:  QtGui.QColor(200,200,55),
-                   Cue3.FrameState.Setup: QtGui.QColor(160,32,240),
-                   Cue3.FrameState.Succeeded: QtGui.QColor(55,200,55),
-                   Cue3.FrameState.Waiting: QtGui.QColor(135,207,235),
-                   Cue3.FrameState.Checkpoint: QtGui.QColor(61,98,247)}
-QVARIANT_FRAME_STATE = dict((key, QtCore.QVariant(RGB_FRAME_STATE[key])) for key in RGB_FRAME_STATE.keys())
+RGB_FRAME_STATE = {Cue3.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
+                   Cue3.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
+                   Cue3.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
+                   Cue3.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
+                   Cue3.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
+                   Cue3.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
+                   Cue3.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
+                   Cue3.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
+QVARIANT_FRAME_STATE = \
+    dict((key, QtCore.QVariant(RGB_FRAME_STATE[key])) for key in RGB_FRAME_STATE.keys())
 
 TYPE_JOB = QtGui.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtGui.QTreeWidgetItem.UserType + 2
@@ -99,7 +101,8 @@ TYPE_TASK = QtGui.QTreeWidgetItem.UserType + 15
 
 COLUMN_INFO_DISPLAY = 2
 
-COLOR_USER_1 = QtGui.QColor(50,50,100)
-COLOR_USER_2 = QtGui.QColor(100,100,50)
-COLOR_USER_3 = QtGui.QColor(0,50,0)
-COLOR_USER_4 = QtGui.QColor(50,30,0)
+COLOR_THEME = "plastique"
+COLOR_USER_1 = QtGui.QColor(50, 50, 100)
+COLOR_USER_2 = QtGui.QColor(100, 100, 50)
+COLOR_USER_3 = QtGui.QColor(0, 50, 0)
+COLOR_USER_4 = QtGui.QColor(50, 30, 0)

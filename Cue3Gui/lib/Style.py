@@ -19,14 +19,14 @@ import sys
 from Manifest import QtGui,QtCore
 import Utils
 
-DEFAULT_COLOR = QtCore.QVariant("DarkMojoPalette")
+DEFAULT_COLOR = QtCore.QVariant("DarkPalette")
 DEFAULT_ICON  = QtCore.QVariant("crystal")
 DEFAULT_FONT = QtCore.QVariant("Luxi Sans")
 DEFAULT_FONT_SIZE = QtCore.QVariant(10.0)
 
-ColorTheme = None
-IconTheme = None
-Font = None
+ColorTheme = __import__("DarkPalette", globals(), locals())
+IconTheme = __import__("images.crystal.icons_rcc", globals(), locals())
+Font = "Luxi Sans"
 
 def loadColorTheme(name):
     """changes the running color scheme of the app"""
@@ -48,10 +48,10 @@ def setFont(font):
 def init():
     """initialize the global style settings"""
     settings = QtGui.qApp.settings
-    loadColorTheme(Utils.qvarToString(settings.value("Style/colorTheme",DEFAULT_COLOR)))
+    loadColorTheme(Utils.qvarToString(settings.value("Style/colorTheme", DEFAULT_COLOR)))
     setIconTheme(Utils.qvarToString(settings.value("Style/iconTheme", DEFAULT_ICON)))
 
-    font = QtGui.QFont(Utils.qvarToString(settings.value("Style/font",DEFAULT_FONT)))
+    font = QtGui.QFont(Utils.qvarToString(settings.value("Style/font", DEFAULT_FONT)))
     fontSize = Utils.qvarToFloat(settings.value("Style/fontSize", DEFAULT_FONT_SIZE))
     font.setPointSizeF(fontSize)
     setFont(font)
