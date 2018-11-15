@@ -31,6 +31,7 @@ SVN: $Id$
 import exception
 import grpc
 import search
+import util
 from cuebot import Cuebot
 from Cue3.compiled_proto import cue_pb2
 from Cue3.compiled_proto import depend_pb2
@@ -47,6 +48,7 @@ from Cue3.compiled_proto import subscription_pb2
 # These are convenience methods that get imported into
 # package namespace.
 #
+@util.grpcExceptionParser
 def getDefaultServices():
     """
     Return the default service list.  Services
@@ -58,6 +60,7 @@ def getDefaultServices():
     return response.services.services
 
 
+@util.grpcExceptionParser
 def getService(id):
     """
     Return the default service list.  Services
@@ -68,6 +71,7 @@ def getService(id):
         service_pb2.ServiceGetServiceRequest(id), timeout=Cuebot.Timeout).service
 
 
+@util.grpcExceptionParser
 def createService(data):
     """
     Return the default service list.  Services
@@ -78,6 +82,7 @@ def createService(data):
         service_pb2.ServiceCreateServiceRequest(data), timeout=Cuebot.Timeout).service
 
 
+@util.grpcExceptionParser
 def getSystemStats():
     """Returns the system stats for a random
     Cue3 server in the cluster.  This is used
@@ -92,11 +97,13 @@ def getSystemStats():
 #
 # Facility
 #
+@util.grpcExceptionParser
 def createFacility(name):
     return Cuebot.getStub('facility').Create(
         facility_pb2.FacilityCreateRequest(name=name), timeout=Cuebot.Timeout).facility
 
 
+@util.grpcExceptionParser
 def getFacility(name):
     """Return a given facility by name or unique ID.
     @type name: str
@@ -108,12 +115,14 @@ def getFacility(name):
         facility_pb2.FacilityGetRequest(name=name), timeout=Cuebot.Timeout).facility
 
 
+@util.grpcExceptionParser
 def renameFacility(facility, new_name):
     Cuebot.getStub('facility').Rename(
         facility_pb2.FacilityRenameRequest(facility=facility, new_name=new_name),
         timeout=Cuebot.Timeout)
 
 
+@util.grpcExceptionParser
 def deleteFacility(name):
     Cuebot.getStub('facility').Delete(
         facility_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
@@ -122,6 +131,7 @@ def deleteFacility(name):
 #
 # Shows
 #
+@util.grpcExceptionParser
 def createShow(show):
     """Creates a new show
      @type  show: str
@@ -132,6 +142,7 @@ def createShow(show):
         show_pb2.ShowCreateShowRequest(name=show), timeout=Cuebot.Timeout).show
 
 
+@util.grpcExceptionParser
 def deleteShow(show_id):
     """Deletes a show
      @type  show_id: str
@@ -141,6 +152,7 @@ def deleteShow(show_id):
         show_pb2.ShowDeleteRequest(show=show), timeout=Cuebot.Timeout)
 
 
+@util.grpcExceptionParser
 def getShows():
     """Returns a list of show objects
     @rtype:  list<Show>
@@ -150,6 +162,7 @@ def getShows():
     return response.shows.shows
 
 
+@util.grpcExceptionParser
 def getActiveShows():
     """Returns a list of all active shows.
     @rtype:  list<Show>
@@ -159,6 +172,7 @@ def getActiveShows():
     return response.shows.shows
 
 
+@util.grpcExceptionParser
 def findShow(name):
     """Returns a list of show objects
     @type  name: str
@@ -168,11 +182,11 @@ def findShow(name):
     return Cuebot.getStub('show').FindShow(
         show_pb2.ShowFindShowRequest(name=name), timeout=Cuebot.Timeout).show
 
+
 #
 # Groups
 #
-
-
+@util.grpcExceptionParser
 def findGroup(show, group):
     """Returns a group object
     @type  show: str
@@ -185,6 +199,7 @@ def findGroup(show, group):
         job_pb2.GroupFindGroupRequest(show=show, name=group), timeout=Cuebot.Timeout).group
 
 
+@util.grpcExceptionParser
 def getGroup(uniq):
     """Returns a Group object from its uniq id.
     @rtype:  Group
@@ -196,6 +211,7 @@ def getGroup(uniq):
 #
 # Jobs
 #
+@util.grpcExceptionParser
 def isJobPending(name):
     """Returns true if there is an active job in the cue
     in the pendint state.
@@ -207,6 +223,7 @@ def isJobPending(name):
         job_pb2.JobIsJobPendingRequest(name=name), timeout=Cuebot.Timeout).value
 
 
+@util.grpcExceptionParser
 def findJob(name):
     """Returns a Job object for the given job name.
     This will only return one or zero active job.
@@ -214,14 +231,11 @@ def findJob(name):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    try:
-        Cuebot.getStub('job').FindJob(
-            job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
-    except grpc.RpcError as e:
-        print e
-        raise exception.EntityNotFoundException("Could not find job {}".format(name))
+    return Cuebot.getStub('job').FindJob(
+        job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
 
 
+@util.grpcExceptionParser
 def getJob(uniq):
     """Returns a Job object for the given job name.
     This will only return one or zero active job.
@@ -233,6 +247,7 @@ def getJob(uniq):
         job_pb2.JobGetJobRequest(id=uniq), timeout=Cuebot.Timeout).job
 
 
+@util.grpcExceptionParser
 def getJobs(**options):
     """
     Returns an array of Job objects using
@@ -262,6 +277,7 @@ def getJobs(**options):
 #
 # Job Names
 #
+@util.grpcExceptionParser
 def getJobNames(**options):
     """Returns a list of job names that match the search parameters.
     See getJobs for the job query options.
@@ -277,6 +293,7 @@ def getJobNames(**options):
 #
 # Layers
 #
+@util.grpcExceptionParser
 def findLayer(job, layer):
     """Finds and returns a layer from the specified pending job
     @type job: str
@@ -289,6 +306,7 @@ def findLayer(job, layer):
         job_pb2.LayerFindLayerRequest(job=job, layer=layer), timeout=Cuebot.Timeout).layer
 
 
+@util.grpcExceptionParser
 def getLayer(uniq):
     """Returns a Layer object for the given layer id.
     @type  uniq: a unique identifier.
@@ -302,6 +320,7 @@ def getLayer(uniq):
 #
 # Frames
 #
+@util.grpcExceptionParser
 def findFrame(job, layer, number):
     """Finds and returns a layer from the specified pending job
     @type job: str
@@ -317,6 +336,7 @@ def findFrame(job, layer, number):
         timeout=Cuebot.Timeout).frame
 
 
+@util.grpcExceptionParser
 def getFrame(uniq):
     """Returns a Frame object from the unique id.
     @type  uniq: a unique identifier.
@@ -327,6 +347,7 @@ def getFrame(uniq):
         job_pb2.FrameGetFrameRequest(id=uniq), timeout=Cuebot.Timeout).frame
 
 
+@util.grpcExceptionParser
 def getFrames(job, **options):
     """Finds frames in a job that match the search critieria
     @type job: A unique job identifier.
@@ -341,6 +362,7 @@ def getFrames(job, **options):
 #
 # Depends
 #
+@util.grpcExceptionParser
 def getDepend(uniq):
     """Finds a dependency from its unique ID
     @type id: str
@@ -354,6 +376,7 @@ def getDepend(uniq):
 #
 # Hosts
 #
+@util.grpcExceptionParser
 def getHostWhiteboard():
     """
     @rtype:  list<Host>
@@ -362,6 +385,7 @@ def getHostWhiteboard():
                                                     timeout=Cuebot.Timeout).nested_hosts
 
 
+@util.grpcExceptionParser
 def getHosts(**options):
     """
     Returns an array of Hroc objects using
@@ -384,6 +408,7 @@ def getHosts(**options):
     return search.HostSearch.byOptions(**options).hosts.hosts
 
 
+@util.grpcExceptionParser
 def findHost(name):
     """Returns the host for the matching hostname
     @type  name: str
@@ -394,6 +419,7 @@ def findHost(name):
         host_pb2.HostFindHostRequest(name=name), timeout=Cuebot.Timeout).host
 
 
+@util.grpcExceptionParser
 def getHost(uniq):
     """Returns a Host object from a unique identifier
     @type  uniq: a unique identifier.
@@ -407,6 +433,7 @@ def getHost(uniq):
 #
 # Owners
 #
+@util.grpcExceptionParser
 def getOwner(id):
     """Return an Owner object from the id or name."""
     return Cuebot.getStub('owner').GetOwner(
@@ -415,6 +442,7 @@ def getOwner(id):
 #
 # Filters
 #
+@util.grpcExceptionParser
 def findFilter(show_name, filter_name):
     """Returns the matching filter(for testing)
     @type  show_name: str
@@ -430,6 +458,7 @@ def findFilter(show_name, filter_name):
 #
 # Allocation
 #
+@util.grpcExceptionParser
 def createAllocation(name, tag, facility):
     """Creates and returns an allocation.
     The host tag will be the lowercase of the allocation name.
@@ -444,6 +473,7 @@ def createAllocation(name, tag, facility):
         timeout=Cuebot.Timeout).allocation
 
 
+@util.grpcExceptionParser
 def getAllocations():
     """Returns a list of allocation objects
     @rtype:  list<Allocation>
@@ -452,6 +482,7 @@ def getAllocations():
         facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations.allocations
 
 
+@util.grpcExceptionParser
 def findAllocation(name):
     """Returns the Allocation object that matches the name.
     @type  name: str
@@ -462,27 +493,32 @@ def findAllocation(name):
         facility_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout).allocation
 
 
+@util.grpcExceptionParser
 def getAllocation(allocId):
     return Cuebot.getStub('allocation').Get(
         facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocation
 
 
+@util.grpcExceptionParser
 def deleteAllocation(alloc):
     return Cuebot.getStub('allocation').Delete(
         facility_pb2.AllocDeleteRequest(allocation=alloc), timeout=Cuebot.Timeout)
 
 
+@util.grpcExceptionParser
 def allocSetBillable(alloc, is_billable):
     return Cuebot.getStub('allocation').SetBillable(
         facility_pb2.AllocSetBillableRequest(allocation=alloc, value=is_billable),
         timeout=Cuebot.Timeout)
 
 
+@util.grpcExceptionParser
 def allocSetName(alloc, name):
     return Cuebot.getStub('allocation').SetName(
         facility_pb2.AllocSetNameRequest(allocation=alloc, name=name), timeout=Cuebot.Timeout)
 
 
+@util.grpcExceptionParser
 def allocSetTag(alloc, tag):
     return Cuebot.getStub('allocation').SetTag(
         facility_pb2.AllocSetTagRequest(allocation=alloc, tag=tag), timeout=Cuebot.Timeout)
@@ -491,6 +527,7 @@ def allocSetTag(alloc, tag):
 #
 # Subscriptions
 #
+@util.grpcExceptionParser
 def getSubscription(uniq):
     """Returns a Subscription object from a unique identifier
     @type  uniq: a unique identifier.
@@ -500,6 +537,7 @@ def getSubscription(uniq):
     return Cuebot.getStub('subscription').Get(
         subscription_pb2.SubscriptionGetRequest(id=uniq), timeout=Cuebot.Timeout).subscription
 
+@util.grpcExceptionParser
 def findSubscription(name):
     """Returns the subscription object that matches the name.
     @type  name: str
@@ -512,6 +550,7 @@ def findSubscription(name):
 #
 # Procs
 #
+@util.grpcExceptionParser
 def getProcs(**options):
     """Returns an array of Proc objects using
     optional search criteria. Search criteria is

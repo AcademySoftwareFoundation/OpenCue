@@ -25,5 +25,21 @@ class CueException(Exception):
     pass
 
 
-class EntityNotFoundException(Exception):
+class DeadlineExceededException(CueException):
+    """Raised when the deadline for response has been exceeded."""
+    pass
+
+
+class EntityAlreadyExistsException(CueException):
+    """Raised when the entity was not created because it already exists on the server"""
+    pass
+
+
+class EntityNotFoundException(CueException):
+    """Raised when the entity was not found on the server."""
+    pass
+
+
+class CueInternalErrorException(CueException):
+    """Raised when the server encountered a catchable error"""
     pass

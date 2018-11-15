@@ -20,9 +20,12 @@ Module: util.py
 
 import logging
 import os
+from functools import wraps
 
-from google.protobuf.pyext._message import RepeatedCompositeContainer
+import exception
+import grpc
 from Cue3 import Cuebot
+from google.protobuf.pyext._message import RepeatedCompositeContainer
 
 logger = logging.getLogger('cue3')
 
@@ -82,3 +85,29 @@ def logPath(job, frame=None):
         return os.path.join(job.data.logDir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
     else:
         return job.data.logDir
+
+
+def grpcExceptionParser(grpcFunc):
+    """"""
+    def _decorator(*args, **kwargs):
+        try:
+            return grpcFunc(*args, **kwargs)
+        except grpc.RpcError as e:
+            code = e.code()
+            details = e.details() or "No details found. Check server logs."
+            if code == grpc.StatusCode.NOT_FOUND:
+                raise exception.EntityNotFoundException("Object does not exist. {}".format(details))
+            elif code == grpc.StatusCode.ALREADY_EXISTS:
+                raise exception.EntityAlreadyExistsException("Object already exists.{}"
+                                                             .format(details))
+            elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
+                raise exception.DeadlineExceededException("Request deadline exceeded.{}"
+                                                          .format(details))
+            elif code == grpc.StatusCode.INTERNAL:
+                raise exception.CueInternalErrorException("Server caught an internal exception.{}"
+                                                          .format(details))
+            else:
+                raise exception.CueException("Encountered a server error. {code} : {details}"
+                    .format(code=code, details=details))
+    return wraps(grpcFunc)(_decorator)
+
