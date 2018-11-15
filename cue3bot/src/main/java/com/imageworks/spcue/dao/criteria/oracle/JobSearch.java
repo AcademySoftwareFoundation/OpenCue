@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.imageworks.spcue.dao.criteria.postgres;
+package com.imageworks.spcue.dao.criteria.oracle;
 
 import java.util.HashSet;
 
@@ -55,7 +55,7 @@ public final class JobSearch extends Criteria implements JobSearchInterface {
         addPhrase("show.str_name", criteria.getShowsList());
         addPhrase("job.str_user", criteria.getUsersList());
         if (criteria.getIncludeFinished()) {
-            chunks.add(new StringBuilder(" LIMIT 200"));
+            chunks.add(new StringBuilder(" ROWNUM < 200"));
         } else {
             addPhrase("job.str_state", "Pending");
         }

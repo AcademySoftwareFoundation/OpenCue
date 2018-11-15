@@ -29,8 +29,8 @@ public class HostSearchFactory {
     public HostSearchInterface create(HostSearchCriteria criteria) {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
             return new HostSearch(criteria);
-        // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-        //    return new com.imageworks.spcue.dao.criteria.oracle.HostSearchGenerator();
+        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+            return new com.imageworks.spcue.dao.criteria.oracle.HostSearch(criteria);
         } else {
             throw new RuntimeException(
                     "current database engine is not supported by HostSearchFactory");

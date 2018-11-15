@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.imageworks.spcue.dao.criteria.postgres;
+package com.imageworks.spcue.dao.criteria.oracle;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -87,7 +87,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
         StringBuilder sb = new StringBuilder(query.length() + 256);
         sb.append("SELECT * FROM (");
         sb.append(getQueryWithPaging(query));
-        sb.append(" ) AS getSortedQueryT WHERE row_number > ?");
+        sb.append(" ) WHERE row_number > ?");
         sb.append(" AND row_number <= ?");
         values.add((page - 1) * limit);
         values.add(page * limit);

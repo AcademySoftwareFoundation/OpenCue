@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.imageworks.spcue.dao.criteria.postgres;
+package com.imageworks.spcue.dao.criteria.oracle;
 
 import java.util.HashSet;
 import java.util.Set;

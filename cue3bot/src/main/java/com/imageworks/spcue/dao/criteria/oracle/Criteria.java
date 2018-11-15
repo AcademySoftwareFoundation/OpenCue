@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.imageworks.spcue.dao.criteria.postgres;
+package com.imageworks.spcue.dao.criteria.oracle;
 
 import java.security.Timestamp;
 import java.util.ArrayList;
@@ -101,7 +101,7 @@ public abstract class Criteria implements CriteriaInterface {
     private String queryWithPaging(String query) {
         if (firstResult > 1 || maxResults > 0) {
             if (order.size() == 0) {
-                query = query.replaceFirst("SELECT ", "SELECT row_number() OVER () AS RN,");
+                query = query.replaceFirst("SELECT ", "SELECT ROWNUM AS RN,");
             } else {
                 query = query.replaceFirst("SELECT ", "SELECT row_number() OVER (" + getOrder() + ") AS RN, ");
             }
@@ -123,7 +123,7 @@ public abstract class Criteria implements CriteriaInterface {
         }
 
         if (firstResult > 1 || maxResults > 0) {
-            sb.append(") AS getQueryT WHERE ");
+            sb.append(") WHERE ");
         }
 
         if (firstResult > 1) {

@@ -27,8 +27,8 @@ public class ProcSearchFactory {
     public ProcSearchInterface create() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
             return new ProcSearch();
-            // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            //    return new com.imageworks.spcue.dao.criteria.oracle.ProcSearchGenerator();
+        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+            return new com.imageworks.spcue.dao.criteria.oracle.ProcSearch();
         } else {
             throw new RuntimeException(
                     "current database engine is not supported by ProcSearchFactory");
