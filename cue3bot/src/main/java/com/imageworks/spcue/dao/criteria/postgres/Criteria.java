@@ -1,3 +1,20 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.imageworks.spcue.dao.criteria.postgres;
 
 import java.util.ArrayList;
@@ -8,7 +25,6 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 
-import com.imageworks.spcue.dao.criteria.CriteriaGeneratorInterface;
 import com.imageworks.spcue.dao.criteria.CriteriaInterface;
 import com.imageworks.spcue.dao.criteria.Phrase;
 import com.imageworks.spcue.dao.criteria.Sort;
@@ -18,7 +34,7 @@ public abstract class Criteria implements CriteriaInterface {
     List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
     List<Object> values = new ArrayList<Object>(32);
 
-    private boolean built = false;
+    boolean built = false;
     private int firstResult = 1;
     private int maxResults = 0;
     private ArrayList<Sort> order = new ArrayList<Sort>();

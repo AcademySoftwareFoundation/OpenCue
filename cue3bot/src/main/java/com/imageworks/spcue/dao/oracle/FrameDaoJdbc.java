@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.dao.oracle;
 
 import java.sql.ResultSet;
@@ -39,7 +37,7 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameReservationException;
 import com.imageworks.spcue.grpc.depend.DependType;
@@ -542,15 +540,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public List<FrameDetail> findFrameDetails(FrameSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_FRAME_DETAIL),
-                FRAME_DETAIL_MAPPER, r.getValuesArray());
+    public List<FrameDetail> findFrameDetails(FrameSearchInterface r) {
+        return getJdbcTemplate().query(r.getQueryWithPaging(GET_FRAME_DETAIL),
+                FRAME_DETAIL_MAPPER, r.getValues());
     }
 
     @Override
-    public List<FrameInterface> findFrames(FrameSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_MINIMAL_FRAME),
-                FRAME_MAPPER, r.getValuesArray());
+    public List<FrameInterface> findFrames(FrameSearchInterface r) {
+        return getJdbcTemplate().query(r.getQueryWithPaging(GET_MINIMAL_FRAME),
+                FRAME_MAPPER, r.getValues());
     }
 
     private static final String FIND_LONGEST_FRAME =

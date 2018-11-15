@@ -11,7 +11,7 @@ import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 public class HostSearch extends Criteria implements HostSearchInterface {
     private HostSearchCriteria criteria;
 
-    HostSearch(HostSearchCriteria criteria) {
+    public HostSearch(HostSearchCriteria criteria) {
         this.criteria = criteria;
     }
 
@@ -21,10 +21,6 @@ public class HostSearch extends Criteria implements HostSearchInterface {
 
     public void filterByAlloc(AllocationInterface alloc) {
         addPhrase("host.pk_alloc", alloc.getAllocationId());
-    }
-
-    public static HostSearchCriteria criteriaFactory() {
-        return HostSearchCriteria.newBuilder().build();
     }
 
     @Override

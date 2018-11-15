@@ -1,30 +1,79 @@
-package com.imageworks.spcue.dao.criteria.oracle;
+package com.imageworks.spcue.dao.criteria.postgres;
 
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.apache.log4j.Logger;
 
+import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.dao.criteria.FrameSearchGeneratorInterface;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 
-public class FrameSearchGenerator extends CriteriaGenerator implements FrameSearchGeneratorInterface {
-    private static final Logger logger = Logger.getLogger(FrameSearchGenerator.class);
+public class FrameSearch extends Criteria implements FrameSearchInterface {
+    private static final int MAX_RESULTS = 1000;
+    private static final Logger logger = Logger.getLogger(FrameSearch.class);
     private static final Pattern PATTERN_SINGLE_FRAME = Pattern.compile("^([0-9]+)$");
     private static final Pattern PATTERN_RANGE = Pattern.compile("^([0-9]+)\\-([0-9]+)$");
     private static final Pattern PATTERN_FLOAT_RANGE = Pattern.compile("^([0-9\\.]+)\\-([0-9\\.]+)$");
     private static final int RANGE_MAX_SIZE = 1000;
 
-    public String getSortedQuery(String query, int page, int limit) {
+    private FrameSearchCriteria criteria;
+    private int page = 1;
+    private int limit = 1000;
+    private JobInterface job;
+    private LayerInterface layer;
+    private String sortedQuery;
+
+    public FrameSearch() {
+        criteria = criteriaFactory();
+    }
+
+    private static FrameSearchCriteria criteriaFactory() {
+        return FrameSearchCriteria.newBuilder()
+                .setPage(1)
+                .setLimit(1000)
+                .setChangeDate(0)
+                .build();
+    }
+
+    @Override
+    public FrameSearchCriteria getCriteria() {
+        return criteria;
+    }
+
+    @Override
+    public void setCriteria(FrameSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
+    @Override
+    public JobInterface getJob() {
+        if (job == null) {
+            return layer;
+        }
+        return job;
+    }
+
+    @Override
+    public String getSortedQuery(String query) {
+        if (built) {
+            return sortedQuery;
+        }
+
+        if (limit <= 0 || limit >= MAX_RESULTS) {
+            criteria = criteria.toBuilder().setLimit(MAX_RESULTS).build();
+        }
+        if (page <= 0) {
+            page = 1;
+        }
+
         StringBuilder sb = new StringBuilder(query.length() + 256);
         sb.append("SELECT * FROM (");
         sb.append(query);
@@ -35,22 +84,48 @@ public class FrameSearchGenerator extends CriteriaGenerator implements FrameSear
             sb.append(" ) WHERE row_number > ?");
         }
         sb.append(" AND row_number <= ?");
-        values.add((page-1) * limit);
+        values.add((page - 1) * limit);
         values.add(page * limit);
-        return sb.toString();
+        sortedQuery = sb.toString();
+        return sortedQuery;
     }
 
-    public void addFrameStates(List<FrameState> s) {
-        // Convert into list of strings and call the
-        // super class addPhrase
-        Set<String> items = new HashSet<String>(s.size());
-        for (FrameState w: s) {
-            items.add(w.toString());
-        }
-        addPhrase("frame.str_state", items);
+    @Override
+    public void filterByFrameIds(List<String> frameIds) {
+        criteria = criteria.toBuilder().addAllIds(frameIds).build();
     }
 
-    public void addFrameSet(String frameSet) {
+    @Override
+    public void filterByJob(JobInterface job) {
+        this.job = job;
+    }
+
+    @Override
+    public void filterByFrame(FrameInterface frame) {
+        job = frame;
+    }
+
+    @Override
+    public void filterByLayer(LayerInterface layer) {
+        this.layer = layer;
+    }
+
+    @Override
+    public void filterByLayers(List<LayerInterface> layers) {
+        addPhrase(
+                "layer.pk_layer",
+                layers.stream().map(LayerInterface::getLayerId).collect(Collectors.toList()));
+    }
+
+    @Override
+    public void filterByFrameStates(List<FrameState> frameStates) {
+        addPhrase(
+                "frame.str_state",
+                frameStates.stream().map(FrameState::toString).collect(Collectors.toSet()));
+    }
+
+    @Override
+    public void filterByFrameSet(String frameSet) {
         StringBuilder sb = new StringBuilder(8096);
         Matcher matchRange = PATTERN_RANGE.matcher(frameSet);
         Matcher matchSingle = PATTERN_SINGLE_FRAME.matcher(frameSet);
@@ -79,7 +154,8 @@ public class FrameSearchGenerator extends CriteriaGenerator implements FrameSear
         chunks.add(sb);
     }
 
-    public void addMemoryRange(String range) {
+    @Override
+    public void filterByMemoryRange(String range) {
         StringBuilder sb = new StringBuilder(128);
         Matcher matchRange = PATTERN_FLOAT_RANGE.matcher(range);
         try {
@@ -98,7 +174,8 @@ public class FrameSearchGenerator extends CriteriaGenerator implements FrameSear
         chunks.add(sb);
     }
 
-    public void addDurationRange(String range) {
+    @Override
+    public void filterByDurationRange(String range) {
         StringBuilder sb = new StringBuilder(128);
         Matcher matchRange = PATTERN_FLOAT_RANGE.matcher(range);
         try {
@@ -121,21 +198,16 @@ public class FrameSearchGenerator extends CriteriaGenerator implements FrameSear
         chunks.add(sb);
     }
 
-    public void addChangeDate(int changeDate) {
+    @Override
+    public void filterByChangeDate(int changeDate) {
         StringBuilder sb = new StringBuilder();
         sb.append("frame.ts_updated > ?");
         chunks.add(sb);
         values.add(new java.sql.Timestamp( changeDate * 1000l));
     }
 
-    public void addLayers(List<LayerInterface> layers) {
-        addPhrase(
-                "layer.pk_layer",
-                layers.stream().map(LayerInterface::getLayerId).collect(Collectors.toList()));
-    }
-
-    public void buildWhereClause(
-            FrameSearchCriteria criteria, JobInterface job, LayerInterface layer) {
+    @Override
+    void buildWhereClause() {
         addPhrase("frame.pk_frame", criteria.getIdsList());
 
         if (layer != null) {
@@ -147,10 +219,10 @@ public class FrameSearchGenerator extends CriteriaGenerator implements FrameSear
 
         addPhrase("frame.str_name", criteria.getFramesList());
         addPhrase("layer.str_name", criteria.getLayersList());
-        addFrameStates(criteria.getStates().getFrameStatesList());
-        if (isValid(criteria.getFrameRange())) { addFrameSet(criteria.getFrameRange()); }
-        if (isValid(criteria.getMemoryRange())) { addMemoryRange(criteria.getMemoryRange()); }
-        if (isValid(criteria.getDurationRange())) { addDurationRange(criteria.getDurationRange()); }
-        if (criteria.getChangeDate() > 0) { addChangeDate(criteria.getChangeDate()); }
+        filterByFrameStates(criteria.getStates().getFrameStatesList());
+        if (isValid(criteria.getFrameRange())) { filterByFrameSet(criteria.getFrameRange()); }
+        if (isValid(criteria.getMemoryRange())) { filterByMemoryRange(criteria.getMemoryRange()); }
+        if (isValid(criteria.getDurationRange())) { filterByDurationRange(criteria.getDurationRange()); }
+        if (criteria.getChangeDate() > 0) { filterByChangeDate(criteria.getChangeDate()); }
     }
 }

@@ -20,34 +20,34 @@ package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.JobSearchGenerator;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
 
 
 public class JobSearchFactory extends CriteriaFactory {
     private DatabaseEngine dbEngine;
 
-    public JobSearch create() {
-        return new JobSearch(getJobSearchGenerator());
-    }
-
-    public JobSearch create(JobSearchCriteria criteria) {
-        return new JobSearch(getJobSearchGenerator(), criteria);
-    }
-
-    public JobSearch create(ShowInterface show) {
-        return new JobSearch(getJobSearchGenerator(), show);
-    }
-
-    private JobSearchGeneratorInterface getJobSearchGenerator() {
+    public JobSearchInterface create() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new JobSearchGenerator();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.JobSearchGenerator();
+            return new JobSearch();
+        // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+        //    return new com.imageworks.spcue.dao.criteria.oracle.JobSearch();
         } else {
             throw new RuntimeException(
                     "current database engine is not supported by JobSearchFactory");
         }
+    }
+
+    public JobSearchInterface create(JobSearchCriteria criteria) {
+        JobSearchInterface jobSearch = create();
+        jobSearch.setCriteria(criteria);
+        return jobSearch;
+    }
+
+    public JobSearchInterface create(ShowInterface show) {
+        JobSearchInterface jobSearch = create();
+        jobSearch.filterByShow(show);
+        return jobSearch;
     }
 
     public DatabaseEngine getDbEngine() {

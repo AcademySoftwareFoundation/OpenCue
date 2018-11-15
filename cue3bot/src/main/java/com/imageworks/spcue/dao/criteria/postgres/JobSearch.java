@@ -15,22 +15,38 @@
  * limitations under the License.
  */
 
-
 package com.imageworks.spcue.dao.criteria.postgres;
 
 import java.util.HashSet;
 
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.dao.criteria.JobSearchGeneratorInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
+public final class JobSearch extends Criteria implements JobSearchInterface {
+    private JobSearchCriteria criteria;
 
-public class JobSearchGenerator extends CriteriaGenerator implements JobSearchGeneratorInterface {
+    public JobSearch() {
+        criteria = criteriaFactory();
+    }
+
+    @Override
+    public JobSearchCriteria getCriteria() {
+        return criteria;
+    }
+
+    @Override
+    public void setCriteria(JobSearchCriteria criteria) {
+        this.criteria = criteria;
+    }
+
+    @Override
     public void filterByShow(ShowInterface show) {
         addPhrase("job.pk_show", show.getShowId());
     }
 
-    public void buildWhereClause(JobSearchCriteria criteria) {
+    @Override
+    void buildWhereClause() {
         addPhrase("job.pk_job", criteria.getIdsList());
         addPhrase("job.str_name", criteria.getJobsList());
         addLikePhrase("job.str_name", new HashSet<>(criteria.getSubstrList()));
@@ -48,5 +64,11 @@ public class JobSearchGenerator extends CriteriaGenerator implements JobSearchGe
         } else {
             addPhrase("job.str_state", "Pending");
         }
+    }
+
+    private static JobSearchCriteria criteriaFactory() {
+        return JobSearchCriteria.newBuilder()
+                .setIncludeFinished(false)
+                .build();
     }
 }

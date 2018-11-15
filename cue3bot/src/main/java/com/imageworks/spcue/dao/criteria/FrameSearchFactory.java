@@ -1,3 +1,20 @@
+
+/*
+ * Copyright (c) 2018 Sony Pictures Imageworks Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.imageworks.spcue.dao.criteria;
 
 import java.util.List;
@@ -6,45 +23,59 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.FrameSearchGenerator;
+import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 
 public class FrameSearchFactory extends CriteriaFactory {
     private DatabaseEngine dbEngine;
 
-    public FrameSearch create(List<String> list) {
-        return new FrameSearch(getFrameSearchGenerator(), list);
-    }
-
-    public FrameSearch create(JobInterface job) {
-        return new FrameSearch(getFrameSearchGenerator(), job);
-    }
-
-    public FrameSearch create(FrameInterface frame) {
-        return new FrameSearch(getFrameSearchGenerator(), frame);
-    }
-
-    public FrameSearch create(JobInterface job, FrameSearchCriteria criteria) {
-        return new FrameSearch(getFrameSearchGenerator(), job, criteria);
-    }
-
-    public FrameSearch create(LayerInterface layer) {
-        return new FrameSearch(getFrameSearchGenerator(), layer);
-    }
-
-    public FrameSearch create(LayerInterface layer, FrameSearchCriteria criteria) {
-        return new FrameSearch(getFrameSearchGenerator(), layer, criteria);
-    }
-
-    private FrameSearchGeneratorInterface getFrameSearchGenerator() {
+    public FrameSearchInterface create() {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new FrameSearchGenerator();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.FrameSearchGenerator();
+            return new FrameSearch();
+        // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+        //    return new com.imageworks.spcue.dao.criteria.oracle.FrameSearch();
         } else {
             throw new RuntimeException(
-                    "current database engine is not supported by HostSearchFactory");
+                    "current database engine is not supported by FrameSearchFactory");
         }
+    }
+
+    public FrameSearchInterface create(List<String> frameIds) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByFrameIds(frameIds);
+        return frameSearch;
+    }
+
+    public FrameSearchInterface create(JobInterface job) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByJob(job);
+        return frameSearch;
+    }
+
+    public FrameSearchInterface create(FrameInterface frame) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByFrame(frame);
+        return frameSearch;
+    }
+
+    public FrameSearchInterface create(JobInterface job, FrameSearchCriteria criteria) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.setCriteria(criteria);
+        frameSearch.filterByJob(job);
+        return frameSearch;
+    }
+
+    public FrameSearchInterface create(LayerInterface layer) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.filterByLayer(layer);
+        return frameSearch;
+    }
+
+    public FrameSearchInterface create(LayerInterface layer, FrameSearchCriteria criteria) {
+        FrameSearchInterface frameSearch = create();
+        frameSearch.setCriteria(criteria);
+        frameSearch.filterByLayer(layer);
+        return frameSearch;
     }
 
     public DatabaseEngine getDbEngine() {

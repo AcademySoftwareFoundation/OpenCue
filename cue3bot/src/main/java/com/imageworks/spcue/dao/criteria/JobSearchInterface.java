@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
-
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
-
-public interface JobSearchGeneratorInterface extends CriteriaGeneratorInterface {
+public interface JobSearchInterface extends CriteriaInterface {
+    JobSearchCriteria getCriteria();
+    void setCriteria(JobSearchCriteria criteria);
     void filterByShow(ShowInterface show);
-    void buildWhereClause(JobSearchCriteria criteria);
 }

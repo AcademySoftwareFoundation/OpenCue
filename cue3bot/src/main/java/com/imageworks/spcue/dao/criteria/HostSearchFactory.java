@@ -15,39 +15,33 @@
  * limitations under the License.
  */
 
-
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.dao.criteria.postgres.CriteriaGenerator;
-import com.imageworks.spcue.dao.criteria.postgres.HostSearchGenerator;
+import com.imageworks.spcue.dao.criteria.postgres.HostSearch;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
-
 
 public class HostSearchFactory extends CriteriaFactory {
 
     private DatabaseEngine dbEngine;
 
-    public HostSearch create(HostSearchCriteria criteria) {
-        return new HostSearch(getHostSearchGenerator(), criteria);
-    }
-
-    public HostSearch create(AllocationEntity allocEntity) {
-        // TODO HostSearch probably doesn't need this as a static method since we have this
-        // factory now.
-        return HostSearch.byAllocation(getHostSearchGenerator(), allocEntity);
-    }
-
-    private HostSearchGeneratorInterface getHostSearchGenerator() {
+    public HostSearchInterface create(HostSearchCriteria criteria) {
         if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new HostSearchGenerator();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.HostSearchGenerator();
+            return new HostSearch(criteria);
+        // } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
+        //    return new com.imageworks.spcue.dao.criteria.oracle.HostSearchGenerator();
         } else {
             throw new RuntimeException(
                     "current database engine is not supported by HostSearchFactory");
         }
+
+    }
+
+    public HostSearchInterface create(AllocationEntity allocEntity) {
+        HostSearchInterface hostSearch = create(HostSearchCriteria.newBuilder().build());
+        hostSearch.filterByAlloc(allocEntity);
+        return hostSearch;
     }
 
     public DatabaseEngine getDbEngine() {
