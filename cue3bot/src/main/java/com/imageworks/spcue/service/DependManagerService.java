@@ -40,8 +40,8 @@ import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.DependException;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.FrameOnFrame;
@@ -497,7 +497,7 @@ public class DependManagerService implements DependManager {
 
     @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(LayerInterface layer) {
-        FrameSearch r = frameSearchFactory.create(layer);
+        FrameSearchInterface r = frameSearchFactory.create(layer);
         for (FrameInterface f: frameDao.findFrames(r)) {
             updateDependCounts(f);
         }
@@ -505,7 +505,7 @@ public class DependManagerService implements DependManager {
 
     @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(JobInterface job) {
-        FrameSearch r = frameSearchFactory.create(job);
+        FrameSearchInterface r = frameSearchFactory.create(job);
         for (FrameInterface f: frameDao.findFrames(r)) {
             updateDependCounts(f);
         }

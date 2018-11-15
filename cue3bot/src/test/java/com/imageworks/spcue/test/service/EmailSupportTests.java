@@ -36,7 +36,6 @@ import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.job.FrameState;

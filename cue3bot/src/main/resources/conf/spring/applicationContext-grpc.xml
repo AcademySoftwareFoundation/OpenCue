@@ -173,6 +173,7 @@
         <property name="ownerManager" ref="ownerManager" />
         <property name="serviceManager" ref="serviceManager" />
         <property name="whiteboard" ref="whiteboard" />
+        <property name="jobSearchFactory" ref="jobSearchFactory" />
     </bean>
 
     <bean scope="prototype" id="manageSubscription" class="com.imageworks.spcue.servant.ManageSubscription">

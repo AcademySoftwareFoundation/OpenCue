@@ -26,7 +26,6 @@ import com.imageworks.spcue.FrameEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.depend.FrameOnJob;

@@ -32,9 +32,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.JobDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.dao.criteria.JobSearchFactory;
 import com.imageworks.spcue.depend.JobOnFrame;
 import com.imageworks.spcue.depend.JobOnJob;
@@ -239,7 +238,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                   StreamObserver<JobLaunchSpecAndWaitResponse> responseObserver) {
         JobSpec spec = jobLauncher.parse(request.getSpec());
         jobLauncher.launch(spec);
-        JobSearchCriteria r = JobSearch.criteriaFactory();
+        JobSearchCriteria r = JobSearchInterface.criteriaFactory();
         JobSearchCriteria.Builder builder = r.toBuilder();
         for (BuildableJob job: spec.getJobs()) {
             builder.addIds((job.detail.id)).build();

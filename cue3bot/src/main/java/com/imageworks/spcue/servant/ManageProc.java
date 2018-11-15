@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
@@ -30,10 +28,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.Proc;
 import com.imageworks.spcue.grpc.host.ProcClearRedirectRequest;
@@ -90,7 +86,7 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     @Override
     public void unbookProcs(ProcUnbookProcsRequest request, StreamObserver<ProcUnbookProcsResponse> responseObserver) {
-        ProcSearch procSearch = procSearchFactory.create(request.getR());
+        ProcSearchInterface procSearch = procSearchFactory.create(request.getR());
         procSearch.sortByBookedTime();
         responseObserver.onNext(ProcUnbookProcsResponse.newBuilder()
                 .setNumProcs(

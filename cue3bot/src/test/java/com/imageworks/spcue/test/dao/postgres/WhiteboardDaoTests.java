@@ -75,14 +75,14 @@ import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.HostSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.HostSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dao.criteria.JobSearchFactory;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.department.Department;
@@ -483,7 +483,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetFramesByFrameSearch() {
         JobEntity job = launchJob();
-        FrameSearch r = frameSearchFactory.create(job);
+        FrameSearchInterface r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .setPage(1)
@@ -626,7 +626,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetJobs() {
         launchJob();
-        JobSearchCriteria r = JobSearch.criteriaFactory();
+        JobSearchCriteria r = JobSearchInterface.criteriaFactory();
         r = r.toBuilder().addShows("pipe").build();
         whiteboardDao.getJobs(jobSearchFactory.create(r));
     }
@@ -636,7 +636,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetJobNames() {
         launchJob();
-        JobSearchCriteria r = JobSearch.criteriaFactory();
+        JobSearchCriteria r = JobSearchInterface.criteriaFactory();
         r = r.toBuilder().addShows("pipe").build();
         whiteboardDao.getJobNames(jobSearchFactory.create(r));
     }
@@ -778,7 +778,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         RenderHost host = getRenderHost();
         DispatchHost hd = hostManager.createHost(host);
 
-        HostSearchCriteria h = HostSearch.criteriaFactory();
+        HostSearchCriteria h = HostSearchInterface.criteriaFactory();
         h = h.toBuilder().addHosts(HOST).build();
         assertEquals(1, whiteboardDao.getHosts(hostSearchFactory.create(h)).getHostsCount());
     }
@@ -791,7 +791,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         AllocationEntity alloc = allocationDao.getAllocationEntity("00000000-0000-0000-0000-000000000006");
         DispatchHost hd = hostManager.createHost(host, alloc);
 
-        HostSearchCriteria h = HostSearch.criteriaFactory();
+        HostSearchCriteria h = HostSearchInterface.criteriaFactory();
         h = h.toBuilder().addAllocs(alloc.getName()).build();
         assertEquals(1, whiteboardDao.getHosts(hostSearchFactory.create(h)).getHostsCount());
     }
@@ -1016,7 +1016,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
             procDao.insertVirtualProc(proc);
         }
 
-        ProcSearch r;
+        ProcSearchInterface r;
 
         /*
          * Search for all 5 running procs

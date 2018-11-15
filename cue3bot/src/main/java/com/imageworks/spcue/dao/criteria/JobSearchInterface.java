@@ -24,4 +24,10 @@ public interface JobSearchInterface extends CriteriaInterface {
     JobSearchCriteria getCriteria();
     void setCriteria(JobSearchCriteria criteria);
     void filterByShow(ShowInterface show);
+
+    static JobSearchCriteria criteriaFactory() {
+        return JobSearchCriteria.newBuilder()
+                .setIncludeFinished(false)
+                .build();
+    }
 }

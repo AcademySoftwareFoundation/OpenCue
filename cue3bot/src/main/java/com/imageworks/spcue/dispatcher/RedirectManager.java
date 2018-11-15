@@ -33,10 +33,8 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.service.HostManager;
@@ -111,7 +109,7 @@ public class RedirectManager {
         List<GroupInterface> groups = new ArrayList<GroupInterface>(1);
         groups.add(group);
 
-        ProcSearch search = procSearchFactory.create(criteria);
+        ProcSearchInterface search = procSearchFactory.create(criteria);
         search.sortByBookedTime();
         search.notGroups(groups);
 
@@ -154,8 +152,9 @@ public class RedirectManager {
                                          List<JobInterface> jobs, boolean kill, Source source) {
         int index = 0;
 
-        List<VirtualProc> procs = hostManager.findBookedVirtualProcs(
-                procSearchFactory.create(criteria).notJobs(jobs));
+        ProcSearchInterface procSearch = procSearchFactory.create(criteria);
+        procSearch.notJobs(jobs);
+        List<VirtualProc> procs = hostManager.findBookedVirtualProcs(procSearch);
         if (procs.size() == 0) {
             return procs;
         }

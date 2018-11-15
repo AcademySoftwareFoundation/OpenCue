@@ -27,7 +27,7 @@ public final class JobSearch extends Criteria implements JobSearchInterface {
     private JobSearchCriteria criteria;
 
     public JobSearch() {
-        criteria = criteriaFactory();
+        criteria = JobSearchInterface.criteriaFactory();
     }
 
     @Override
@@ -64,11 +64,5 @@ public final class JobSearch extends Criteria implements JobSearchInterface {
         } else {
             addPhrase("job.str_state", "Pending");
         }
-    }
-
-    private static JobSearchCriteria criteriaFactory() {
-        return JobSearchCriteria.newBuilder()
-                .setIncludeFinished(false)
-                .build();
     }
 }

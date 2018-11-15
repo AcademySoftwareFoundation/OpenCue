@@ -42,20 +42,16 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DispatcherDao;
-import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dao.criteria.Sort;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -806,7 +802,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
             procDao.insertVirtualProc(proc);
         }
 
-        ProcSearch r;
+        ProcSearchInterface r;
 
         /*
          * Search for all 5 running procs

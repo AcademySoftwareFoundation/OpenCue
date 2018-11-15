@@ -24,11 +24,7 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
     private Set<Phrase> notGroups = new HashSet<Phrase>();
 
     public ProcSearch() {
-        criteria = criteriaFactory();
-    }
-
-    public static ProcSearchCriteria criteriaFactory() {
-        return ProcSearchCriteria.newBuilder().build();
+        criteria = ProcSearchInterface.criteriaFactory();
     }
 
     public ProcSearchCriteria getCriteria() {

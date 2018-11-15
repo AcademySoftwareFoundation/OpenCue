@@ -39,7 +39,7 @@ public class HostSearchFactory extends CriteriaFactory {
     }
 
     public HostSearchInterface create(AllocationEntity allocEntity) {
-        HostSearchInterface hostSearch = create(HostSearchCriteria.newBuilder().build());
+        HostSearchInterface hostSearch = create(HostSearchInterface.criteriaFactory());
         hostSearch.filterByAlloc(allocEntity);
         return hostSearch;
     }

@@ -29,8 +29,8 @@ import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.LayerOnFrame;
 import com.imageworks.spcue.depend.LayerOnJob;
@@ -112,7 +112,7 @@ import com.imageworks.spcue.util.FrameSet;
 public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
     private LayerDetail layer;
-    private FrameSearch frameSearch;
+    private FrameSearchInterface frameSearch;
     private JobManager jobManager;
     private DependManager dependManager;
     private JobManagerSupport jobManagerSupport;

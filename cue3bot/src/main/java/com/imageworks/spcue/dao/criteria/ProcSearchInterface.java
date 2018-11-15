@@ -18,4 +18,8 @@ public interface ProcSearchInterface extends CriteriaInterface {
     void sortByHostName();
     void sortByDispatchedTime();
     void sortByBookedTime();
+
+    static ProcSearchCriteria criteriaFactory() {
+        return ProcSearchCriteria.newBuilder().build();
+    }
 }

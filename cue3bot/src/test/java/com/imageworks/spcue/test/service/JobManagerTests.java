@@ -48,8 +48,8 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
@@ -417,7 +417,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void eatLayer() {
         JobInterface job = getJob1();
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
-        FrameSearch r = frameSearchFactory.create(layer);
+        FrameSearchInterface r = frameSearchFactory.create(layer);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .setPage(1)

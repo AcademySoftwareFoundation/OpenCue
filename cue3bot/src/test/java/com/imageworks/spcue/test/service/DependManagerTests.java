@@ -38,8 +38,8 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.depend.FrameOnJob;
@@ -56,7 +56,6 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.test.TransactionalTest;
 
 import static org.junit.Assert.assertEquals;
@@ -109,8 +108,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private boolean hasDependFrames(JobInterface job) {
-        FrameSearch search = frameSearchFactory.create(job);
-        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        FrameSearchInterface search = frameSearchFactory.create(job);
+        search.filterByFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
@@ -122,8 +121,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private boolean hasDependFrames(LayerInterface layer) {
-        FrameSearch search = frameSearchFactory.create(layer);
-        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        FrameSearchInterface search = frameSearchFactory.create(layer);
+        search.filterByFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
@@ -135,8 +134,8 @@ public class DependManagerTests extends TransactionalTest {
     }
 
     private boolean hasDependFrames(FrameInterface frame) {
-        FrameSearch search = frameSearchFactory.create(frame);
-        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+        FrameSearchInterface search = frameSearchFactory.create(frame);
+        search.filterByFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 
@@ -546,8 +545,8 @@ public class DependManagerTests extends TransactionalTest {
         LayerInterface layer_a = layerDao.findLayer(job_a, "pass_1");
         LayerInterface layer_b = layerDao.findLayer(job_b, "pass_1");
 
-        FrameSearch search = frameSearchFactory.create(layer_b);
-        search.addFrameSet("1-3");
+        FrameSearchInterface search = frameSearchFactory.create(layer_b);
+        search.filterByFrameSet("1-3");
         frameDao.findFrames(search)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
 

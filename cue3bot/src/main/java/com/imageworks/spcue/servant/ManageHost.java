@@ -29,7 +29,6 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.criteria.HostSearch;
 import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.comment.Comment;

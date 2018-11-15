@@ -17,6 +17,7 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
+import java.security.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -25,6 +26,17 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 
+import com.imageworks.common.SpiIce.EqualsFloatSearchCriterion;
+import com.imageworks.common.SpiIce.EqualsIntegerSearchCriterion;
+import com.imageworks.common.SpiIce.FloatSearchCriterion;
+import com.imageworks.common.SpiIce.GreaterThanFloatSearchCriterion;
+import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
+import com.imageworks.common.SpiIce.InRangeFloatSearchCriterion;
+import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
+import com.imageworks.common.SpiIce.IntegerSearchCriterion;
+import com.imageworks.common.SpiIce.LessThanFloatSearchCriterion;
+import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
+import com.imageworks.spcue.dao.criteria.CriteriaException;
 import com.imageworks.spcue.dao.criteria.CriteriaInterface;
 import com.imageworks.spcue.dao.criteria.Phrase;
 import com.imageworks.spcue.dao.criteria.Sort;
@@ -215,13 +227,87 @@ public abstract class Criteria implements CriteriaInterface {
         chunks.add(sb);
     }
 
-    void addGreaterThanTimestamp(String col, int t) {
+    void addGreaterThanTimestamp(String col, Timestamp timestamp) {
+        if (timestamp == null) { return; }
         StringBuilder sb = new StringBuilder(128);
-        sb.append("(epoch(");
+        sb.append("(");
         sb.append(col);
-        sb.append(") > ?");
+        sb.append(" > ?");
         sb.append(") ");
-        values.add(t);
+        values.add(timestamp);
+        chunks.add(sb);
+    }
+
+    public void addLessThanTimestamp(String col, Timestamp timestamp) {
+        if (timestamp == null) { return; }
+        StringBuilder sb = new StringBuilder(128);
+        sb.append("(");
+        sb.append(col);
+        sb.append(" < ?");
+        sb.append(") ");
+        values.add(timestamp);
+        chunks.add(sb);
+    }
+
+    public void addRangePhrase(String col, IntegerSearchCriterion e) {
+        StringBuilder sb = new StringBuilder(128);
+        final Class<? extends IntegerSearchCriterion> c = e.getClass();
+        if (c == EqualsIntegerSearchCriterion.class) {
+            EqualsIntegerSearchCriterion r = (EqualsIntegerSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + " = ?");
+        }
+        else if (c == LessThanIntegerSearchCriterion.class) {
+            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + "<=? ");
+        }
+        else if (c == GreaterThanIntegerSearchCriterion.class) {
+            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + " >= ? ");
+        }
+        else if (c == InRangeIntegerSearchCriterion.class) {
+            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) e;
+            values.add(r.min);
+            values.add(r.max);
+            sb.append(" (" + col +" >= ? AND " + col + " <= ?) ");
+        }
+        else {
+            throw new CriteriaException("Invalid criteria class used for memory range search: "
+                    + e.getClass().getCanonicalName());
+        }
+        chunks.add(sb);
+    }
+
+    public void addRangePhrase(String col, FloatSearchCriterion e) {
+        StringBuilder sb = new StringBuilder(128);
+        final Class<? extends FloatSearchCriterion> c = e.getClass();
+        if (c == EqualsFloatSearchCriterion.class) {
+            EqualsFloatSearchCriterion r = (EqualsFloatSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + " = ?");
+        }
+        else if (c == LessThanFloatSearchCriterion.class) {
+            LessThanFloatSearchCriterion r = (LessThanFloatSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + "<=? ");
+        }
+        else if (c == GreaterThanFloatSearchCriterion.class) {
+            GreaterThanFloatSearchCriterion r = (GreaterThanFloatSearchCriterion) e;
+            values.add(r.value);
+            sb.append(" " + col + " >= ? ");
+        }
+        else if (c == InRangeFloatSearchCriterion.class) {
+            InRangeFloatSearchCriterion r = (InRangeFloatSearchCriterion) e;
+            values.add(r.min);
+            values.add(r.max);
+            sb.append(" (" + col +" >= ? AND " + col + " <= ?) ");
+        }
+        else {
+            throw new CriteriaException("Invalid criteria class used for memory range search: "
+                    + e.getClass().getCanonicalName());
+        }
         chunks.add(sb);
     }
 

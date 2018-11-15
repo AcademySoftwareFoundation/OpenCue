@@ -33,8 +33,8 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
@@ -153,9 +153,9 @@ public interface HostManager {
      * @param r
      * @return a list of VirtualProcs that match the criteria
      */
-    List<VirtualProc> findVirtualProcs(ProcSearch r);
+    List<VirtualProc> findVirtualProcs(ProcSearchInterface r);
 
-    List<VirtualProc> findVirtualProcs(FrameSearch r);
+    List<VirtualProc> findVirtualProcs(FrameSearchInterface r);
     VirtualProc findVirtualProc(FrameInterface frame);
     List<VirtualProc> findVirtualProcs(HardwareState state);
 
@@ -168,7 +168,7 @@ public interface HostManager {
      * @param r
      * @return
      */
-    List<VirtualProc> findBookedVirtualProcs(ProcSearch r);
+    List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r);
 
     void unbookVirtualProcs(List<VirtualProc> procs);
     void unbookProc(ProcInterface proc);
