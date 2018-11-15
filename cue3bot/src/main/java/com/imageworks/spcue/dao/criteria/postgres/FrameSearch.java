@@ -42,8 +42,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final int RANGE_MAX_SIZE = 1000;
 
     private FrameSearchCriteria criteria;
-    private int page = 1;
-    private int limit = 1000;
     private JobInterface job;
     private LayerInterface layer;
     private String sortedQuery;
@@ -76,6 +74,9 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
             return sortedQuery;
         }
 
+        int limit = criteria.getLimit();
+        int page = criteria.getPage();
+
         if (limit <= 0 || limit >= MAX_RESULTS) {
             criteria = criteria.toBuilder().setLimit(MAX_RESULTS).build();
         }
@@ -85,7 +86,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
 
         StringBuilder sb = new StringBuilder(query.length() + 256);
         sb.append("SELECT * FROM (");
-        sb.append(query);
+        sb.append(getQueryWithPaging(query));
         // TODO(cipriano) Remove this check. (b/117847423)
         if ("postgres".equals(getDatabaseEngine())) {
             sb.append(" ) AS getSortedQueryT WHERE row_number > ?");

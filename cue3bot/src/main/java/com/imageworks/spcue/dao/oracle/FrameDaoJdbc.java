@@ -542,13 +542,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     @Override
     public List<FrameDetail> findFrameDetails(FrameSearchInterface r) {
         return getJdbcTemplate().query(r.getQueryWithPaging(GET_FRAME_DETAIL),
-                FRAME_DETAIL_MAPPER, r.getValues());
+                FRAME_DETAIL_MAPPER, r.getValuesArray());
     }
 
     @Override
     public List<FrameInterface> findFrames(FrameSearchInterface r) {
         return getJdbcTemplate().query(r.getQueryWithPaging(GET_MINIMAL_FRAME),
-                FRAME_MAPPER, r.getValues());
+                FRAME_MAPPER, r.getValuesArray());
     }
 
     private static final String FIND_LONGEST_FRAME =

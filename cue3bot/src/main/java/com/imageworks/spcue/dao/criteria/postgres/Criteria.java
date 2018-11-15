@@ -71,6 +71,10 @@ public abstract class Criteria implements CriteriaInterface {
         return values;
     }
 
+    public Object[] getValuesArray() {
+        return values.toArray();
+    }
+
     public String getWhereClause() {
         build();
         return generateWhereClause();

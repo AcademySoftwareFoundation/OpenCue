@@ -370,18 +370,18 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
       public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
           return getJdbcTemplate().query(r.getQueryWithPaging(GET_VIRTUAL_PROC_LIST),
-                  VIRTUAL_PROC_MAPPER, r.getValues());
+                  VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
       @Override
       public List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r) {
           return getJdbcTemplate().query(r.getQueryWithPaging(GET_VIRTUAL_PROC_LIST +
-                  "AND proc.b_unbooked = false"), VIRTUAL_PROC_MAPPER, r.getValues());
+                  "AND proc.b_unbooked = false"), VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
       public List<VirtualProc> findVirtualProcs(FrameSearchInterface r) {
           return getJdbcTemplate().query(r.getQueryWithPaging(GET_VIRTUAL_PROC_LIST),
-                  VIRTUAL_PROC_MAPPER, r.getValues());
+                  VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
       public List<VirtualProc> findVirtualProcs(HostInterface host) {

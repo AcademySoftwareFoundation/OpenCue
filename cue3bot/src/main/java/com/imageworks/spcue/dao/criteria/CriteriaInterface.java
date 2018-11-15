@@ -10,4 +10,5 @@ public interface CriteriaInterface {
     String getWhereClause();
     String getQueryWithPaging(String query);
     List<Object> getValues();
+    Object[] getValuesArray();
 }
