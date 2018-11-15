@@ -16,11 +16,13 @@ message GreaterThanIntegerSearchCriterion {
 }
 
 message InRangeFloatSearchCriterion {
-    float value = 1;
+    float min = 1;
+    float max = 2;
 }
 
 message InRangeIntegerSearchCriterion {
-    int32 value = 1;
+    int32 min = 1;
+    int32 max = 2;
 }
 
 message LessThanFloatSearchCriterion {
