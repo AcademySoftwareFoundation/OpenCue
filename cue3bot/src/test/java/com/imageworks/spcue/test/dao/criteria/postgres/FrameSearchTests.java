@@ -21,7 +21,6 @@ import java.io.File;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
-
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -38,10 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -245,53 +242,5 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         assertTrue(frames.stream().allMatch(frame -> frame.maxRss == CueUtil.GB * 5));
     }
 
-    // filterByDurationRange
-    @Test
-    @Transactional
-    @Rollback
-    public void filterByDurationRange() {
-        JobInterface job = jobDao.findJob("pipe-dev.cue-testuser_depend_test_a");
-        LayerInterface layer = layerDao.getLayers(job).get(0);
-        IntStream.range(4, 6).forEach(
-                i -> {
-                    frameDao.updateFrameStarted(new VirtualProc(), frameDao.findFrame(layer, i));
-                    frameDao.updateFrameState(frameDao.findFrame(layer, i), FrameState.RUNNING);
-                    try {
-                        Thread.sleep(1000);
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException("interrupted while letting frame run");
-                    }
-                    // frameDao.updateFrameCleared(frameDao.findFrame(layer, i));
-                    // frameDao.updateFrameStopped(frameDao.findFrame(layer, i), FrameState.SUCCEEDED, 0);
-                });
-
-        /*try {
-            Thread.sleep(2000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException("interrupted while letting frame run");
-        }*/
-
-        FrameSearchInterface frameSearch = frameSearchFactory.create();
-        frameSearch.filterByDurationRange("0");
-
-        List<FrameDetail> frames = frameDao.findFrameDetails(frameSearch);
-
-        frames.forEach(frameDetail -> {
-            System.out.println(frameDetail.state);
-            System.out.println(frameDetail.dateStarted);
-            System.out.println(frameDetail.dateStopped);
-            System.out.println(
-                    jdbcTemplate.queryForObject(
-                            "SELECT find_duration(?, ?)",
-                            String.class,
-                            frameDetail.dateStarted,
-                            frameDetail.dateStopped));
-            System.out.println("--------");
-        });
-
-        // assertEquals(10, frames.size());
-        // assertTrue(frames.stream().allMatch(frame -> frame.maxRss == CueUtil.GB * 5));
-    }
-
-    // filterByChangeDate
+    // TODO(cipriano) Add filterByDurationRange and filterByChangeDate tests.
 }

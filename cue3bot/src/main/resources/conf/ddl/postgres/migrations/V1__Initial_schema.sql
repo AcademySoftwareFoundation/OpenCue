@@ -754,11 +754,6 @@ BEGIN
 
     t_interval := t_stopped - ts_started;
 
-    RETURN (EXTRACT(DAY FROM t_interval) * 86400
-        + EXTRACT(HOUR FROM t_interval) * 3600
-        + EXTRACT(MINUTE FROM t_interval) * 60
-        + EXTRACT(SECOND FROM t_interval));
-
     RETURN ROUND((EXTRACT(DAY FROM t_interval) * 86400
         + EXTRACT(HOUR FROM t_interval) * 3600
         + EXTRACT(MINUTE FROM t_interval) * 60
