@@ -22,6 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.FrameInterface;
@@ -42,8 +43,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final int RANGE_MAX_SIZE = 1000;
 
     private FrameSearchCriteria criteria;
-    private JobInterface job;
-    private LayerInterface layer;
     private String sortedQuery;
 
     public FrameSearch() {
@@ -58,14 +57,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     @Override
     public void setCriteria(FrameSearchCriteria criteria) {
         this.criteria = criteria;
-    }
-
-    @Override
-    public JobInterface getJob() {
-        if (job == null) {
-            return layer;
-        }
-        return job;
     }
 
     @Override
@@ -102,17 +93,17 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
 
     @Override
     public void filterByJob(JobInterface job) {
-        this.job = job;
+        addPhrase("job.pk_job", job.getJobId());
     }
 
     @Override
     public void filterByFrame(FrameInterface frame) {
-        job = frame;
+        filterByFrameIds(ImmutableList.of(frame.getFrameId()));
     }
 
     @Override
     public void filterByLayer(LayerInterface layer) {
-        this.layer = layer;
+        addPhrase("layer.pk_layer", layer.getLayerId());
     }
 
     @Override
@@ -187,19 +178,21 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
             if (matchRange.matches()) {
                 values.add((int) (3600 * Float.valueOf(matchRange.group(1))));
                 values.add((int) (3600 * Float.valueOf(matchRange.group(2))));
-                sb.append(" (frame.str_state != 'Waiting' ");
+                sb.append(" (frame.str_state != 'WAITING' ");
                 sb.append(" AND find_duration(frame.ts_started, frame.ts_stopped) ");
                 sb.append(" BETWEEN ? AND ? )");
             }
             else {
                 values.add((int) (3600 * Float.valueOf(range)));
-                sb.append(" (frame.str_state != 'Waiting' AND ");
+                sb.append(" (frame.str_state != 'WAITING' AND ");
                 sb.append("find_duration(frame.ts_started, frame.ts_stopped) >= ?) ");
             }
         } catch (RuntimeException e) {
             logger.warn("Failed to convert float range: " + range + "," + e);
             // a cast failed, ignore for now.
         }
+        System.out.println(sb.toString());
+        System.out.println(values);
         chunks.add(sb);
     }
 
@@ -214,13 +207,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     @Override
     void buildWhereClause() {
         addPhrase("frame.pk_frame", criteria.getIdsList());
-
-        if (layer != null) {
-            addPhrase("layer.pk_layer", layer.getLayerId());
-        }
-        if (job != null) {
-            addPhrase("job.pk_job", job.getJobId());
-        }
 
         addPhrase("frame.str_name", criteria.getFramesList());
         addPhrase("layer.str_name", criteria.getLayersList());

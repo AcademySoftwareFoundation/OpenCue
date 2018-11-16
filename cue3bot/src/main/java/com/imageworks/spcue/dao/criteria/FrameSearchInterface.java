@@ -28,7 +28,6 @@ import com.imageworks.spcue.grpc.job.FrameState;
 public interface FrameSearchInterface extends CriteriaInterface {
     FrameSearchCriteria getCriteria();
     void setCriteria(FrameSearchCriteria criteria);
-    JobInterface getJob();
     String getSortedQuery(String query);
     void filterByFrameIds(List<String> frameIds);
     void filterByJob(JobInterface job);

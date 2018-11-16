@@ -22,6 +22,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import com.google.common.collect.ImmutableList;
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.FrameInterface;
@@ -42,8 +43,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final int RANGE_MAX_SIZE = 1000;
 
     private FrameSearchCriteria criteria;
-    private JobInterface job;
-    private LayerInterface layer;
     private String sortedQuery;
 
     public FrameSearch() {
@@ -58,14 +57,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     @Override
     public void setCriteria(FrameSearchCriteria criteria) {
         this.criteria = criteria;
-    }
-
-    @Override
-    public JobInterface getJob() {
-        if (job == null) {
-            return layer;
-        }
-        return job;
     }
 
     @Override
@@ -102,17 +93,17 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
 
     @Override
     public void filterByJob(JobInterface job) {
-        this.job = job;
+        addPhrase("job.pk_job", job.getJobId());
     }
 
     @Override
     public void filterByFrame(FrameInterface frame) {
-        job = frame;
+        filterByFrameIds(ImmutableList.of(frame.getFrameId()));
     }
 
     @Override
     public void filterByLayer(LayerInterface layer) {
-        this.layer = layer;
+        addPhrase("layer.pk_layer", layer.getLayerId());
     }
 
     @Override
@@ -214,13 +205,6 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
     @Override
     void buildWhereClause() {
         addPhrase("frame.pk_frame", criteria.getIdsList());
-
-        if (layer != null) {
-            addPhrase("layer.pk_layer", layer.getLayerId());
-        }
-        if (job != null) {
-            addPhrase("job.pk_job", job.getJobId());
-        }
 
         addPhrase("frame.str_name", criteria.getFramesList());
         addPhrase("layer.str_name", criteria.getLayersList());
