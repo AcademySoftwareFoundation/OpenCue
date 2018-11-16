@@ -35,20 +35,20 @@ class ProxyTests(unittest.TestCase):
 
     def testProxyEntity(self):
         """convert an entity to a proxy"""
-        job = cue3.getJobs()[0]
+        job = cue3.api.getJobs()[0]
         self.assertEquals(job, cue3.proxy(job))
 
     def testProxyEntityList(self):
         """convert a list of entities to a list of proxies"""
-        jobs = cue3.getJobs()
-        self.assertEquals(len(jobs), len(cue3.proxy(jobs)))
+        jobs = cue3.api.getJobs()
+        self.assertEquals(len(jobs), len(cue3.proxy(jobs, 'Job')))
         proxies = cue3.proxy(jobs)
         for i in range(0, len(proxies)):
             self.assertEqual(proxies[i], jobs[i])
 
     def testProxyProxyList(self):
         """convert a list of proxies to a list of proxies"""
-        proxiesA = [job.proxy for job in cue3.getJobs()]
+        proxiesA = [job.proxy for job in cue3.api.getJobs()]
         proxiesB = cue3.proxy(proxiesA)
         self.assertEquals(len(proxiesA), len(proxiesB))
         for i in range(0, len(proxiesA)):
@@ -59,11 +59,11 @@ class IdTests(unittest.TestCase):
     """id() takes an entity and returns the unique id"""
 
     def testIdOnEntity(self):
-        job = cue3.getJobs()[0]
+        job = cue3.api.getJobs()[0]
         self.assertEquals(job.name, cue3.id(job))
 
     def testIdOnEntityList(self):
-        jobs = cue3.getJobs()
+        jobs = cue3.api.getJobs()
         ids = cue3.id(jobs)
         self.assertEquals(len(jobs), len(ids))
         for i in range(0,len(jobs)):

@@ -15,7 +15,7 @@
 #  limitations under the License.
 
 
-import os.path
+import os
 import sys
 import unittest
 
@@ -37,104 +37,104 @@ TEST_SUB_NAME = "pipe.General"
 class ShowTests(unittest.TestCase):
 
     def testGetShows(self):
-        cue3.getShows()
+        cue3.api.getShows()
 
     def testFindShow(self):
-        cue3.findShow(TEST_SHOW_NAME)
+        cue3.api.findShow(TEST_SHOW_NAME)
 
     def testCreateShow(self):
         try:
-            s = cue3.findShow("cue3")
-            cue3.deleteShow(s.id)
+            s = cue3.api.findShow("cue3")
+            cue3.api.deleteShow(s.id)
         except cue3.EntityNotFoundException:
             pass
         finally:
-            s = cue3.createShow("cue3")
-            cue3.deleteShow(s.id)
+            s = cue3.api.createShow("cue3")
+            cue3.api.deleteShow(s.id)
 
 
 class GroupTests(unittest.TestCase):
 
     def testFindGroup(self):
-        cue3.findGroup(TEST_SHOW_NAME, TEST_GROUP_NAME)
+        cue3.api.findGroup(TEST_SHOW_NAME, TEST_GROUP_NAME)
 
     def testGetGroup(self):
-        cue3.getGroup(TEST_GROUP_ID)
+        cue3.api.getGroup(TEST_GROUP_ID)
 
 
 class JobTests(unittest.TestCase):
 
     def testIsJobPending(self):
-        self.assertFalse(cue3.isJobPending("notpending"))
+        self.assertFalse(cue3.api.isJobPending("notpending"))
 
     def testFindJob(self):
-        self.assertRaises(cue3.EntityNotFoundException, cue3.findJob, "notfound")
-        cue3.findJob(TEST_JOB_NAME)
+        self.assertRaises(cue3.EntityNotFoundException, cue3.api.findJob, "notfound")
+        cue3.api.findJob(TEST_JOB_NAME)
 
     def testGetJobs(self):
-        self.assertTrue(len(cue3.getJobs(show=[TEST_SHOW_NAME], all=True)) > 0)
-        self.assertTrue(len(cue3.getJobs(name=[TEST_JOB_NAME], show=[TEST_SHOW_NAME])) == 1)
+        self.assertTrue(len(cue3.api.getJobs(show=[TEST_SHOW_NAME], all=True)) > 0)
+        self.assertTrue(len(cue3.api.getJobs(name=[TEST_JOB_NAME], show=[TEST_SHOW_NAME])) == 1)
 
     def testGetJob(self):
-        job1 = cue3.findJob(TEST_JOB_NAME)
-        job2 = cue3.getJob(cue3.id(job1))
+        job1 = cue3.api.findJob(TEST_JOB_NAME)
+        job2 = cue3.api.getJob(cue3.id(job1))
 
     def testGetJobNames(self):
-        self.assertTrue(len(cue3.getJobNames(show=[TEST_SHOW_NAME])) > 0)
+        self.assertTrue(len(cue3.api.getJobNames(show=[TEST_SHOW_NAME])) > 0)
 
 
 class LayerTests(unittest.TestCase):
 
     def testFindLayer(self):
-        cue3.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
+        cue3.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
 
     def testGetLayer(self):
-        layer1 = cue3.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
-        layer2 = cue3.getLayer(cue3.id(layer1))
+        layer1 = cue3.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
+        layer2 = cue3.api.getLayer(cue3.id(layer1))
 
 
 class FrameTests(unittest.TestCase):
 
     def testFindFrame(self):
-        cue3.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
+        cue3.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
 
     def testGetFrame(self):
-        frame1 = cue3.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
-        frame2 = cue3.getFrame(cue3.id(frame1))
+        frame1 = cue3.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
+        frame2 = cue3.api.getFrame(cue3.id(frame1))
         self.assertEqual(frame1.number, frame2.number)
 
     def testGetFrames(self):
-        self.assertTrue(cue3.getFrames(TEST_JOB_NAME, range="1-5") > 0)
+        self.assertTrue(cue3.api.getFrames(TEST_JOB_NAME, range="1-5") > 0)
 
 
 class SubscriptionTests(unittest.TestCase):
 
     def testFindSubscription(self):
-        cue3.findSubscription(TEST_SUB_NAME)
+        cue3.api.findSubscription(TEST_SUB_NAME)
 
     def testGetSubscription(self):
-        sub1 = cue3.findSubscription(TEST_SUB_NAME)
-        sub2 = cue3.getSubscription(cue3.id(sub1))
+        sub1 = cue3.api.findSubscription(TEST_SUB_NAME)
+        sub2 = cue3.api.getSubscription(cue3.id(sub1))
         self.assertEqual(cue3.id(sub1), cue3.id(sub2))
 
 
 class HostTests(unittest.TestCase):
 
     def testGetHosts(self):
-        self.assertTrue(len(cue3.getHosts(name=[TEST_HOST_NAME])) == 1)
+        self.assertTrue(len(cue3.api.getHosts(name=[TEST_HOST_NAME])) == 1)
 
     # this is failing all the time
     # def testGetHostWhiteboard(self):
     #     cue3.get_host_whiteboard()
 
     def testFindHost(self):
-        h = cue3.findHost(TEST_HOST_NAME)
+        h = cue3.api.findHost(TEST_HOST_NAME)
         self.assertEquals(h.name, TEST_HOST_NAME)
 
     def testGetHost(self):
-        h = cue3.findHost(TEST_HOST_NAME)
+        h = cue3.api.findHost(TEST_HOST_NAME)
         self.assertEquals(h.name, TEST_HOST_NAME)
-        h2 = cue3.getHost(cue3.id(h))
+        h2 = cue3.api.getHost(cue3.id(h))
         self.assertEquals(h.name, h2.name)
 
 
