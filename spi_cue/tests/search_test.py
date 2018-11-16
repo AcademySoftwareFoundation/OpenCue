@@ -15,32 +15,24 @@
 #  limitations under the License.
 
 
-
-
-
 from Manifest import os, unittest, Cue3
-
-import utils
-import constants
-import job_test
 
 
 TEST_SHOW_NAME = "pipe"
 TEST_GROUP_NAME = "pipe"
 TEST_GROUP_ID = "A0000000-0000-0000-0000-000000000000"
-TEST_JOB_NAME = "pipe-dev.cue-chambers_shell_v6";
+TEST_JOB_NAME = "pipe-dev.cue-chambers_shell_v6"
 TEST_LAYER_NAME = "depend_er"
 TEST_HOST_NAME = "genosis"
+
 
 class JobSearchTests(unittest.TestCase):
 
     def testByOptions(self):
-        job1 = Cue3.JobSearch(show=["pipe"],match=["v6"]).find()
-        job1 = Cue3.JobSearch.byOptions()
-        job2 =  Cue3.JobSearch.byOptions(ids=[job1])
-        self.assertTrue(job1[0].data.name,job2[0].data.name)
+        job1 = Cue3.search.JobSearch.byOptions(show=["pipe"], match=["v6"]).jobs.jobs[0]
+        job2 = Cue3.search.JobSearch.byOptions(ids=[job1.id]).jobs.jobs[0]
+        self.assertTrue(job1.name, job2.name)
+
 
 if __name__ == '__main__':
     unittest.main()
-
-

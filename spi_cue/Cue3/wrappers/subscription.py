@@ -19,38 +19,44 @@ Project: Cue3 Library
 
 Module: subscription.py - Cue3 Library implementation of a subscription
 
-Created: March 3, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import cue.CueClientIce as CueClientIce
+from Cue3.compiled_proto import subscription_pb2
+from Cue3.cuebot import Cuebot
 
-class Subscription(CueClientIce.Subscription):
-    """This class contains the ice implementation related to a subscription."""
-    def __init__(self):
-        """_Subscription class initialization"""
-        CueClientIce.Subscription.__init__(self)
 
-    def setName(self, name):
-        self.proxy.setName(name)
+class Subscription(object):
+
+    def __init__(self, subscription=None):
+        self.data = subscription
+        self.stub = Cuebot.getStub('subscription')
+
+    def find(self, name):
+        response = self.stub.Find(subscription_pb2.SubscriptionFindRequest(
+            name=name),
+            timeout=Cuebot.Timeout)
+        return Subscription(response.subscription)
 
     def setSize(self, size):
-        self.proxy.setSize(float(size))
+        self.stub.SetSize(subscription_pb2.SubscriptionSetSizeRequest(
+            subscription=self.data, new_size=size),
+            timeout=Cuebot.Timeout)
 
     def setBurst(self, burst):
-        self.proxy.setBurst(float(burst))
+        self.stub.SetBurst(subscription_pb2.SubscriptionSetBurstRequest(
+            subscription=self.data, burst=burst),
+            timeout=Cuebot.Timeout)
 
     def delete(self):
-        self.proxy.delete()
+        self.stub.Delete(subscription_pb2.SubscriptionDeleteRequest(
+            subscription=self.data),
+            timeout=Cuebot.Timeout)
 
     def id(self):
         """Returns the id of the subscription
         @rtype:  str
         @return: Frame uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def name(self):
         """Returns the name of the subscription
@@ -74,17 +80,17 @@ class Subscription(CueClientIce.Subscription):
         """Returns the current number reserved in this subscription
         @rtype:  float
         @return: Total running cores"""
-        return self.data.reservedCores
+        return self.data.reserved_cores
 
     def show(self):
         """Returns the show that this subscription is for
         @rtype:  str
         @return: The show that this subscription is for"""
-        return self.data.showName
+        return self.data.show_name
 
     def allocation(self):
         """Returns the allocation that this subscription is subscribed to
         @rtype:  str
         @return: The allocation subscribed to"""
-        return self.data.allocationName
+        return self.data.allocation_name
 
