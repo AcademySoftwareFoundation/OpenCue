@@ -27,6 +27,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -44,6 +45,7 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -156,6 +158,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public HostEntity findHostDetail(String name) {
         return getJdbcTemplate().queryForObject(GET_HOST_DETAIL + " AND host.str_name=?",
                 HOST_DETAIL_MAPPER, name);
+    }
+
+    @Override
+    public List<HostEntity> findHosts(HostSearchInterface hostSearch) {
+        return getJdbcTemplate().query(hostSearch.getQueryWithPaging(GET_HOST_DETAIL),
+                HOST_DETAIL_MAPPER, hostSearch.getValuesArray());
     }
 
     private static final String GET_HOST=

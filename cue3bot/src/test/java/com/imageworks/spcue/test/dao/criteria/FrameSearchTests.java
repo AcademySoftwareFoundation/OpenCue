@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.imageworks.spcue.test.dao.criteria.postgres;
+package com.imageworks.spcue.test.dao.criteria;
 
 import java.io.File;
 import java.util.List;
@@ -25,9 +25,7 @@ import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -48,7 +46,6 @@ import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -60,10 +57,6 @@ import static org.junit.Assert.assertTrue;
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
-
-    @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
 
     @Resource
     private JobLauncher jobLauncher;
