@@ -19,19 +19,10 @@ Project: Cue3 Library
 
 Module: util.py - Cue3 Library utility
 
-Created: March 5, 2007
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import sys
-import re
-import time
 import time
 
-from cuebot import Cuebot
 
 def format_time(epoch, format="%m/%d %H:%M", default="--/-- --:--"):
     """Formats time using time formatting standards
@@ -96,35 +87,3 @@ def convert_mem(kmem, unit = None):
         return "%dM" % (kmem / k)
     if unit == "G" or not unit and kmem < pow(k,3):
         return "%.01fG" % (float(kmem) / pow(k,2))
-
-def getProxies(items, name, findCallable):
-    """Returns the proxies from a list that may contain objects with proxies,
-    proxies, names of items (if there is a function that will take those
-    names and return the object) as well as an object id
-    @type  items: list<*InterfacePrx or name or id or object>
-    @param items: A list of items that can be converted into a proxy
-    @type  name: str
-    @param name: The name of the object as used in the ice interface name
-    @type  findCallable: callable
-    @param findCallable: A function that can take the name of the item and
-                         return the item from the cuebot.
-    @rtype:  list<?InterfacePrx>
-    @return: A list of proxies based on the supplied items"""
-    proxies = []
-    for item in items:
-        if isinstance(item, str):
-            if re.search("[a-f0-9\-]{36}",item):
-                # if id
-                proxies.append(Cuebot.buildProxy("%sInterface" % name, "manage%s/%s" % (name, item)))
-            else:
-                # if name of object
-                proxies.append(findCallable(item).proxy)
-        elif hasattr(item, "proxy"):
-            # if an object with a proxy
-            proxies.append(item.proxy)
-        elif hasattr(item, "ice_toString"):
-            # if is a proxy
-            proxies.append(item)
-    return proxies
-
-

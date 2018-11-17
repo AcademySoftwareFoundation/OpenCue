@@ -19,63 +19,72 @@ Project: Cue3 Library
 
 Module: proc.py - Cue3 Library implementation of a proc
 
-Created: April, 15th, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import time
-import cue.CueClientIce as CueClientIce
+import frame
+import host
+import job
+import layer
+from Cue3.compiled_proto import host_pb2
+from Cue3.cuebot import Cuebot
 
-class Proc(CueClientIce.Proc):
-    """This class contains the ice implementation related to a proc."""
-    def __init__(self):
-        """_Proc class initialization"""
-        CueClientIce.Proc.__init__(self)
-   
+
+class Proc(object):
+
+    def __init__(self, proc):
+        self.data = proc
+        self.stub = Cuebot.getStub('proc')
+
     def kill(self):
         """Kill the frame running on this proc"""
-        self.proxy.kill()
+        response = self.stub.Kill(host_pb2.ProcKillRequest(proc=self.data), timeout=Cuebot.Timeout)
+        return response
 
     def unbook(self, kill=False):
         """Unbook the current frame.  If the value of kill is true, 
            the frame will be immediately killed.
         """
-        self.proxy.unbook(kill)
+        response = self.stub.Unbook(host_pb2.ProcUnbookRequest(proc=self.data, kill=kill),
+                                    timeout=Cuebot.Timeout)
+        return response
 
     def getHost(self):
         """Return the host this proc is allocated from.
         @rtype:  Host
         @return: The host this proc is allocated from."""
-        return self.proxy.getHost()
+        response = self.stub.GetHost(host_pb2.ProcGetHostRequest(proc=self.data),
+                                     timeout=Cuebot.Timeout)
+        return host.Host(response.host)
 
     def getFrame(self):
         """Return the frame this proc is running.
         @rtype:  Frame
         @return: The fame this proc is running."""
-        return self.proxy.getFrame()
+        response = self.stub.GetFrame(host_pb2.ProcGetFrameRequest(proc=self.data),
+                                      timeout=Cuebot.Timeout)
+        return frame.Frame(response.frame)
 
     def getLayer(self):
         """Return the layer this proc is running.
         @rtype:  Layer
         @return: The layer this proc is running."""
-        return self.proxy.getLayer()
+        response = self.stub.GetLayer(host_pb2.ProcGetLayerRequest(proc=self.data),
+                                      timeout=Cuebot.Timeout)
+        return layer.Layer(response.layer)
 
     def getJob(self):
         """Return the job this proc is running.
         @rtype:  Job
         @return: The job this proc is running."""
-        return self.proxy.getJob()
+        response = self.stub.GetJob(host_pb2.ProcGetJobRequest(proc=self.data),
+                                    timeout=Cuebot.Timeout)
+        return job.Job(response.job)
 
     def id(self):
         """Returns the id of the proc
         @rtype:  str
         @return: Proc uuid"""
-        if not hasattr(self, "__id"):
-            self.__id = self.proxy.ice_getIdentity().name
-        return self.__id
+        return self.data.id
 
     def name(self):
         """Returns the name of the proc
@@ -87,63 +96,61 @@ class Proc(CueClientIce.Proc):
         """Returns the job name of the frame running on the proc
         @rtype:  str
         @return: Job name"""
-        return self.data.jobName
+        return self.data.job_name
 
     def frameName(self):
         """Returns the name of the frame on the proc
         @rtype:  str
         @return: Frame name"""
-        return self.data.frameName
+        return self.data.frame_name
 
     def showName(self):
         """Returns the name of the show whos frame is running on the proc
         @rtype:  str
         @return: Frames show name"""
-        return self.data.showName
+        return self.data.show_name
 
     def coresReserved(self):
         """The number of cores reserved for this frame
         @rtype:  float
         @return: Cores reserved for the running frame"""
-        return self.data.reservedCores
+        return self.data.reserved_cores
 
     def memReserved(self):
         """The amount of memory reserved for the running frame
         @rtype:  int
         @return: Kb memory reserved for the running frame"""
-        return self.data.reservedMemory
+        return self.data.reserved_memory
 
     def memUsed(self):
         """The amount of memory used by the running frame
         @rtype:  int
         @return: Kb memory used by the running frame"""
-        return self.data.usedMemory
+        return self.data.used_memory
      
     def bookedTime(self):
         """The last time this proc was assigned to a job in epoch seconds.
         @rtype: int"""
-        return self.data.bookedTime
+        return self.data.booked_time
 
     def dispatchTime(self):
         """The last time this proc was assigned to a job in epoch seconds.
         @rtype: int"""
-        return self.data.dispatchTime
+        return self.data.dispatch_time
     
     def isUnbooked(self):
         """Returns true if this proc is unbooked
         @rtype: boolean"""
         return self.data.unbooked
 
-class NestedProc(CueClientIce.NestedProc, Proc):
+
+class NestedProc(Proc):
     """This class contains information and actions related to a nested job."""
-    def __init__(self):
-        CueClientIce.NestedProc.__init__(self)
-        Proc.__init__(self)
+    def __init__(self, nestedProc):
+        super(NestedProc, self).__init__(nestedProc)
         ## job children are most likely empty but its possible to
-        ## populate this with NesterLayer objects.
+        ## populate this with NestedLayer objects.
         self.__children = []
 
     def children(self):
         return self.__children
-
-

@@ -13,24 +13,33 @@
 #  limitations under the License.
 
 
-
 """
 Project: Cue3 Library
 
 Module: exception.py - Provides Cue3 access to exceptions
-
-Created: March 7, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
+
+
 class CueException(Exception):
     """A Base class for all client side cue exceptions"""
     pass
 
-class CuebotProxyCreationError(CueException):
-    """Error creating Ice proxy"""
+
+class DeadlineExceededException(CueException):
+    """Raised when the deadline for response has been exceeded."""
     pass
 
 
+class EntityAlreadyExistsException(CueException):
+    """Raised when the entity was not created because it already exists on the server"""
+    pass
+
+
+class EntityNotFoundException(CueException):
+    """Raised when the entity was not found on the server."""
+    pass
+
+
+class CueInternalErrorException(CueException):
+    """Raised when the server encountered a catchable error"""
+    pass

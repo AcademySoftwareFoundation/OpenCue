@@ -15,28 +15,34 @@
 #  limitations under the License.
 
 
-
-
-
 import unittest
 
-import Manifest
+from api_test import FrameTests
+from api_test import GroupTests
+from api_test import HostTests
+from api_test import JobTests
+from api_test import LayerTests
+from api_test import ShowTests
+from api_test import SubscriptionTests
+from search_test import JobSearchTests
+from util_tests import IdTests
+from util_tests import ProxyTests
 
-from api_test import APITestCase
-from job_test import JobTestCase
-from layer_test import LayerTestCase
-from frame_test import FrameTestCase
-from framelog_test import FrameLogTestCase
-from host_test import HostTestCase
-from depend_test import DependTestCase
-from show_test import ShowTestCase
-
-TESTCASES = [APITestCase, JobTestCase, LayerTestCase, FrameTestCase, FrameLogTestCase, HostTestCase, DependTestCase, ShowTestCase]
+TESTCASES = [
+    ShowTests,
+    GroupTests,
+    JobTests,
+    LayerTests,
+    FrameTests,
+    SubscriptionTests,
+    HostTests,
+    JobSearchTests,
+    ProxyTests,
+    IdTests
+]
 
 if __name__ == '__main__':
     prefix = 'test'
-
     suite = unittest.TestSuite([unittest.makeSuite(testCase, prefix) for testCase in TESTCASES])
     runner = unittest.TextTestRunner()
     runner.run(suite)
-

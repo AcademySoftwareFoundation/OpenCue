@@ -18,23 +18,26 @@
 Project: Cue3 Library
 
 Module: depend.py - Cue3 Library implementation of a allocation
-
-Created: June 2, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
-import cue.CueClientIce as CueClientIce
 
-class Depend(CueClientIce.Depend):
-    """This class contains the ice implementation related to a Dependency"""
-    def __init__(self):
-        """_Depend class initialization"""
-        CueClientIce.Depend.__init__(self)
+
+from Cue3.compiled_proto import depend_pb2
+from Cue3.cuebot import Cuebot
+
+
+class Depend(object):
+
+    def __init__(self, depend=None):
+        self.data = depend
+        self.stub = Cuebot.getStub('depend')
 
     def satisfy(self):
-        self.proxy.satisfy()
+        self.stub.Satisfy(
+            depend_pb2.DependSatisfyRequest(depend=self.data), timeout=Cuebot.Timeout)
+
+    def unsatisfy(self):
+        self.stub.Unsatisfy(
+            depend_pb2.DependUnsatisfyRequest(depend=self.data), timeout=Cuebot.Timeout)
 
     def id(self):
         """Returns the depdendency's unique id.  Dependencies are one of the only
@@ -42,13 +45,13 @@ class Depend(CueClientIce.Depend):
         as the name.  This is mainly to make command line tools easier to use.
         @rtype: str
         @return: the dependencies unique id"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def isInternal(self):
         """Returns true if the dependency is internal to the depender job, false if not.
         @rtype: bool
         @returns: true"""
-        if self.data.dependErJob == self.data.dependOnJob:
+        if self.data.depend_er_job == self.data.depend_on_job:
             return True
         return False
 
@@ -59,29 +62,28 @@ class Depend(CueClientIce.Depend):
         return self.data.target
 
     def chunkSize(self):
-        return self.data.chunkSize
+        return self.data.chunk_size
 
     def anyFrame(self):
-        return self.data.anyFrame
+        return self.data.any_frame
 
     def isActive(self):
         return self.data.active
 
     def dependErJob(self):
-        return self.data.dependErJob
+        return self.data.depend_er_job
 
     def dependErLayer(self):
-        return self.data.dependErLayer
+        return self.data.depend_er_layer
 
     def dependErFrame(self):
-        return self.data.dependErFrame
+        return self.data.depend_er_frame
 
     def dependOnJob(self):
-        return self.data.dependOnJob
+        return self.data.depend_on_job
 
     def dependOnLayer(self):
-        return self.data.dependOnLayer
+        return self.data.depend_on_layer
 
     def dependOnFrame(self):
-        return self.data.dependOnFrame
-
+        return self.data.depend_on_frame
