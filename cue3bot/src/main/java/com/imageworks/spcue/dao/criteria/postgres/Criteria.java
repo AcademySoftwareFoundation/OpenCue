@@ -45,6 +45,7 @@ public abstract class Criteria implements CriteriaInterface {
 
     List<StringBuilder> chunks = new ArrayList<StringBuilder>(12);
     List<Object> values = new ArrayList<Object>(32);
+    Integer limit;
 
     boolean built = false;
     private int firstResult = 1;
@@ -137,6 +138,12 @@ public abstract class Criteria implements CriteriaInterface {
             }
             sb.append(" RN < ? ");
             values.add(firstResult + maxResults);
+        }
+
+        if (limit != null) {
+            sb.append(" LIMIT ");
+            sb.append(limit);
+            sb.append(" ");
         }
 
         return sb.toString();

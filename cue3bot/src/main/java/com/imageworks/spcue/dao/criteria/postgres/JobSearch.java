@@ -54,9 +54,7 @@ public final class JobSearch extends Criteria implements JobSearchInterface {
         addPhrase("job.str_shot", criteria.getShotsList());
         addPhrase("show.str_name", criteria.getShowsList());
         addPhrase("job.str_user", criteria.getUsersList());
-        if (criteria.getIncludeFinished()) {
-            chunks.add(new StringBuilder(" LIMIT 200"));
-        } else {
+        if (!criteria.getIncludeFinished()) {
             addPhrase("job.str_state", "Pending");
         }
     }
