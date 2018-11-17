@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.test.dao.oracle;
 
+import java.util.List;
 import javax.annotation.Resource;
 
 import org.junit.Rule;
@@ -28,9 +29,11 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
+import com.imageworks.spcue.TrackitTaskDetail;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.test.AssumingOracleEngine;
+import com.imageworks.spcue.test.AssumingTrackitEnabled;
 
 import static org.junit.Assert.assertTrue;
 
@@ -41,17 +44,17 @@ public class TrackitDaoTests extends AbstractTransactionalJUnit4SpringContextTes
     @Rule
     public AssumingOracleEngine assumingOracleEngine;
 
+    @Autowired
+    @Rule
+    public AssumingTrackitEnabled assumingTrackitEnabled;
+
     @Resource
     TrackitDao trackitDao;
 
     @Test
-    public void testDummyTest() { assertTrue(0 == 0); }
-
-    // TODO: Make TrackIt Dependency optional
-    // @Test
-    // public void testGetTasks() {
-    //     List<TrackitTaskDetail> result = trackitDao.getTasks("clo","Lighting");
-    //     assertTrue(result.size() > 0);
-    // }
+    public void testGetTasks() {
+        List<TrackitTaskDetail> result = trackitDao.getTasks("clo","Lighting");
+        assertTrue(result.size() > 0);
+    }
 }
 

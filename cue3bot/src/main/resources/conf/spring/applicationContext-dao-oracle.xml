@@ -134,11 +134,6 @@
     <property name="dataSource" ref="cue3DataSource" />
   </bean>
 
-  <!-- Prod SPI DAOs -->
-  <bean id="trackitDao" class="com.imageworks.spcue.dao.oracle.TrackitDaoJdbc">
-    <property name="dataSource" ref="trackitDataSource"/>
-  </bean>
-
   <bean id="redirectDao" class="com.imageworks.spcue.dao.oracle.RedirectDaoJdbc">
     <property name="dataSource" ref="cue3DataSource" />
   </bean>
