@@ -23,22 +23,6 @@ import api
 import wrappers
 import search
 
-from compiled_proto import comment_pb2
-from compiled_proto import criterion_pb2
-from compiled_proto import cue_pb2
-from compiled_proto import department_pb2
-from compiled_proto import depend_pb2
-from compiled_proto import facility_pb2
-from compiled_proto import filter_pb2
-from compiled_proto import host_pb2
-from compiled_proto import job_pb2
-from compiled_proto import renderPartition_pb2
-from compiled_proto import report_pb2
-from compiled_proto import rqd_pb2
-from compiled_proto import service_pb2
-from compiled_proto import show_pb2
-from compiled_proto import subscription_pb2
-from compiled_proto import task_pb2
 from exception import CueException
 from exception import EntityNotFoundException
 from util import id
