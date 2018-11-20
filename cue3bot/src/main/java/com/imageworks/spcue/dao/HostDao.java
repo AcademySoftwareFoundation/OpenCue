@@ -20,19 +20,14 @@
 package com.imageworks.spcue.dao;
 
 import java.sql.Timestamp;
-import java.util.List;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
-import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.ThreadMode;
@@ -101,14 +96,6 @@ public interface HostDao {
      * @return HostEntity
      */
     HostEntity findHostDetail(String name);
-
-    /**
-     * Find a list of hosts with full detail
-     *
-     * @param hostSearch HostSearchInterface
-     * @return List<HostEntity>
-     */
-    List<HostEntity> findHosts(HostSearchInterface hostSearch);
 
     /**
      * Return a DispatchHost object from its unique host name

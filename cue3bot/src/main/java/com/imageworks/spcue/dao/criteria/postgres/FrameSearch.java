@@ -77,7 +77,7 @@ public class FrameSearch extends Criteria implements FrameSearchInterface {
 
         StringBuilder sb = new StringBuilder(query.length() + 256);
         sb.append("SELECT * FROM (");
-        sb.append(getQueryWithPaging(query));
+        sb.append(getFilteredQuery(query));
         sb.append(" ) AS getSortedQueryT WHERE row_number > ?");
         sb.append(" AND row_number <= ?");
         values.add((page - 1) * limit);

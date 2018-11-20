@@ -541,13 +541,13 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
     @Override
     public List<FrameDetail> findFrameDetails(FrameSearchInterface r) {
-        return getJdbcTemplate().query(r.getQueryWithPaging(GET_FRAME_DETAIL),
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_FRAME_DETAIL),
                 FRAME_DETAIL_MAPPER, r.getValuesArray());
     }
 
     @Override
     public List<FrameInterface> findFrames(FrameSearchInterface r) {
-        return getJdbcTemplate().query(r.getQueryWithPaging(GET_MINIMAL_FRAME),
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_MINIMAL_FRAME),
                 FRAME_MAPPER, r.getValuesArray());
     }
 

@@ -81,7 +81,7 @@ public abstract class Criteria implements CriteriaInterface {
         return generateWhereClause();
     }
 
-    public String getQueryWithPaging(String query) {
+    public String getFilteredQuery(String query) {
         build();
         return queryWithPaging(query);
     }

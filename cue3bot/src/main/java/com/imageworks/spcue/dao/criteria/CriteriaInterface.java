@@ -25,7 +25,7 @@ public interface CriteriaInterface {
     void setMaxResults(int maxResults);
     void addSort(Sort o);
     String getWhereClause();
-    String getQueryWithPaging(String query);
+    String getFilteredQuery(String query);
     List<Object> getValues();
     Object[] getValuesArray();
 }
