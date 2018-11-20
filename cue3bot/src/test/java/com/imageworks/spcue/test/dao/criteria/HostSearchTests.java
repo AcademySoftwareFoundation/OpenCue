@@ -32,11 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dao.criteria.HostSearchInterface;
+import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
@@ -60,7 +60,7 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     HostManager hostManager;
 
     @Resource
-    HostDao hostDao;
+    WhiteboardDao whiteboardDao;
 
     private AllocationEntity createAlloc(FacilityInterface facility, String allocName) {
         AllocationEntity alloc = new AllocationEntity();
@@ -104,10 +104,10 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
                 HostSearchInterface.criteriaFactory());
         hostSearch.filterByAlloc(alloc1);
 
-        List<HostEntity> hosts = hostDao.findHosts(hostSearch);
+        List<Host> hosts = whiteboardDao.getHosts(hostSearch).getHostsList();
 
         assertThat(
-                hosts.stream().map(HostEntity::getHostId).collect(Collectors.toList()))
+                hosts.stream().map(Host::getId).collect(Collectors.toList()))
                 .containsOnly(expectedHost.getHostId());
     }
 }

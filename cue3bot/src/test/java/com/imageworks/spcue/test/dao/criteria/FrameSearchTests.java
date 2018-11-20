@@ -41,11 +41,13 @@ import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.JobLauncher;
+import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,19 +61,25 @@ import static org.junit.Assert.assertTrue;
 public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
-    private JobLauncher jobLauncher;
+    JobLauncher jobLauncher;
 
     @Resource
-    private JobDao jobDao;
+    JobDao jobDao;
 
     @Resource
-    private FrameSearchFactory frameSearchFactory;
+    FrameSearchFactory frameSearchFactory;
 
     @Resource
-    private FrameDao frameDao;
+    FrameDao frameDao;
 
     @Resource
-    private LayerDao layerDao;
+    LayerDao layerDao;
+
+    @Resource
+    WhiteboardDao whiteboardDao;
+
+    @Resource
+    JobManager jobManager;
 
     @Before
     public void launchTestJobs() {
@@ -124,7 +132,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameInterface frame2 = frameDao.findFrame(layer, 2);
         frameSearch.filterByFrameIds(ImmutableList.of(frame1.getFrameId(), frame2.getFrameId()));
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertThat(frames).containsExactlyInAnyOrder(frame1, frame2);
     }
@@ -139,7 +148,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameInterface frame1 = frameDao.findFrame(layer, 1);
         frameSearch.filterByFrame(frame1);
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertThat(frames).containsExactly(frame1);
     }
@@ -153,7 +163,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByJob(job);
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertEquals(20, frames.size());
         assertTrue(frames.stream().allMatch(frame -> frame.getJobId().equals(jobId)));
@@ -168,7 +179,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByLayer(layer);
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertTrue(
                 frames.stream().allMatch(frame -> frame.getLayerId().equals(layer.getLayerId())));
@@ -185,7 +197,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByFrameStates(ImmutableList.of(FrameState.SUCCEEDED));
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertEquals(10, frames.size());
         assertTrue(
@@ -203,7 +216,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByFrameSet("5-6");
 
-        List<FrameInterface> frames = frameDao.findFrames(frameSearch);
+        List<FrameInterface> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrame(frame.getId())).collect(Collectors.toList());
 
         assertEquals(8, frames.size());
         assertThat(
@@ -229,7 +243,8 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         FrameSearchInterface frameSearch = frameSearchFactory.create();
         frameSearch.filterByMemoryRange("4.2-7.1");
 
-        List<FrameDetail> frames = frameDao.findFrameDetails(frameSearch);
+        List<FrameDetail> frames = whiteboardDao.getFrames(frameSearch).getFramesList().stream()
+                .map(frame -> jobManager.getFrameDetail(frame.getId())).collect(Collectors.toList());
 
         assertEquals(10, frames.size());
         assertTrue(frames.stream().allMatch(frame -> frame.maxRss == CueUtil.GB * 5));

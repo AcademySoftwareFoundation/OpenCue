@@ -1488,7 +1488,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "JOIN job ON proc.pk_job = job.pk_job " +
         "JOIN folder ON job.pk_folder = folder.pk_folder " +
         "JOIN show ON proc.pk_show = show.pk_show " +
-        "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc";
+        "LEFT JOIN redirect ON proc.pk_proc = redirect.pk_proc " +
+        "WHERE true ";
 
     private static final String GET_JOB_COMMENTS =
         "SELECT " +
