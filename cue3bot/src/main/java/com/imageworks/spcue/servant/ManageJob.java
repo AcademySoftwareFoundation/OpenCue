@@ -24,6 +24,7 @@ import java.util.List;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.CommentDetail;
@@ -166,10 +167,17 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
-        responseObserver.onNext(JobFindJobResponse.newBuilder()
-                .setJob(whiteboard.findJob(request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(JobFindJobResponse.newBuilder()
+                    .setJob(whiteboard.findJob(request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

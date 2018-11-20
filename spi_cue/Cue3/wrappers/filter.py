@@ -19,17 +19,19 @@ Project: Cue3 Library
 
 Module: filter.py - Cue3 Library implementation of spank filter
 
-Created: May 15, 2008
-
-Contact: Middle-Tier Group 
-
 """
-from cue.CueIce import FilterType, MatchSubject, MatchType, ActionValueType, ActionType
-from cue.CueClientIce import ActionData, MatcherData, FilterData
-import cue.CueClientIce as CueClientIce
 
-from ..api import *
-
+from Cue3 import Cuebot
+from Cue3.compiled_proto import filter_pb2
+from Cue3.compiled_proto import job_pb2
+from Cue3.compiled_proto.filter_pb2 import Action as ActionData
+from Cue3.compiled_proto.filter_pb2 import ActionType
+from Cue3.compiled_proto.filter_pb2 import ActionValueType
+from Cue3.compiled_proto.filter_pb2 import Filter as FilterData
+from Cue3.compiled_proto.filter_pb2 import FilterType
+from Cue3.compiled_proto.filter_pb2 import MatchSubject
+from Cue3.compiled_proto.filter_pb2 import MatchType
+from Cue3.compiled_proto.filter_pb2 import Matcher as MatcherData
 
 __all__ = ["Filter", "Action", "Matcher",
            "FilterData", "ActionData", "MatcherData",
@@ -37,15 +39,16 @@ __all__ = ["Filter", "Action", "Matcher",
            "ActionValueType", "MatchSubject"]
 
 
-class Filter(CueClientIce.Filter):
+class Filter(object):
     """This class contains the ice implementation related to a spank Filter."""
-    def __init__(self):
+    def __init__(self, filter):
         """_Filter class initialization"""
-        CueClientIce.Filter.__init__(self)
+        self.data = filter
+        self.stub = Cuebot.getStub('filter')
 
     def delete(self):
         """Deletes the filter"""
-        self.proxy.delete()
+        self.stub.Delete(filter_pb2.FilterDeleteRequest(filter=self.data), timeout=Cuebot.Timeout)
 
     def createMatcher(self, subject, matchType, query):
         """Creates a matcher for this filter
@@ -57,11 +60,14 @@ class Filter(CueClientIce.Filter):
         @param query: The value to match
         @rtype:  Matcher
         @return: The new matcher object"""
-        m = MatcherData()
-        m.subject = subject
-        m.type = matchType
-        m.input = query.replace(" ", "")
-        return self.proxy.createMatcher(m)
+        matcher = MatcherData(
+            subject=subject,
+            type=matchType,
+            input=query.replace(' ', '')
+        )
+        return Matcher(self.stub.CreateMatcher(
+            filter_pb2.FilterCreateMatcherRequest(filter=self.data, data=matcher),
+            timeout=Cuebot.Timeout))
 
     def createAction(self, actionType, value):
         """Creates an action for this filter.
@@ -71,92 +77,111 @@ class Filter(CueClientIce.Filter):
         @param value: Value relevant to the type selected
         @rtype:  Action
         @return: The new Action object"""
-        a = ActionData()
-        a.type = actionType
-        a.groupValue = None
-        a.stringValue = None
-        a.integerValue = 0
-        a.floatValue = 0.0;
-        a.booleanValue = False
+        action = ActionData(
+            type=actionType,
+            groupValue=None,
+            stringValue=None,
+            integerValue=0,
+            floatValue=0.0,
+            booleanValue=False
+        )
 
-        if isinstance(value, CueClientIce.Group):
-            a.valueType = ActionValueType.GroupType
-            a.groupValue = value.proxy
+        if isinstance(value, job_pb2.Group):
+            action.valueType = filter_pb2.GROUP_TYPE
+            action.groupValue = value.id
         elif isinstance(value, str):
-            a.valueType = ActionValueType.StringType
-            a.stringValue = value
+            action.valueType = filter_pb2.STRING_TYPE
+            action.stringValue = value
         elif isinstance(value, bool):
-            a.valueType = ActionValueType.BooleanType
-            a.booleanValue = value
+            action.valueType = filter_pb2.BOOLEAN_TYPE
+            action.booleanValue = value
         elif isinstance(value, int):
-            a.valueType = ActionValueType.IntegerType
-            a.integerValue = value
+            action.valueType = filter_pb2.INTEGER_TYPE
+            action.integerValue = value
         elif isinstance(value, float):
-            a.valueType = ActionValueType.FloatType
-            a.floatValue = value
+            action.valueType = filter_pb2.FLOAT_TYPE
+            action.floatValue = value
         else:
-            a.valueType = ActionValueType.NoneType
+            action.valueType = filter_pb2.NONE_TYPE
 
-        return self.proxy.createAction(a)
+        return Action(self.stub.CreateAction(
+            filter_pb2.FilterCreateActionRequest(filter=self.data, data=action),
+            timeout=Cuebot.Timeout))
 
     def getActions(self):
         """Returns the actions in this filter
         @rtype: list<Action>
         @return: A list of the actions in this filter"""
-        return self.proxy.getActions()
+        response = self.stub.GetActions(filter_pb2.FilterGetActionsRequest(filter=self.data),
+                                        timeout=Cuebot.Timeout)
+        return [Matcher(m) for m in response.actions]
 
     def getMatchers(self):
         """Returns the matchers in this filter
         @rtype:  list<Matcher>
         @return: A list of the matchers in this filter"""
-        return self.proxy.getMatchers()
+        response = self.stub.GetMatchers(filter_pb2.FilterGetMatchersRequest(filter=self.data),
+                                         timeout=Cuebot.Timeout)
+        return [Matcher(m) for m in response.matchers]
 
     def lowerOrder(self):
         """Lowers the order of this filter relative to the other filters"""
-        self.proxy.lowerOrder()
+        self.stub.LowerOrder(filter_pb2.FilterLowerOrderRequest(filter=self.data),
+                             timeout=Cuebot.Timeout)
 
     def raiseOrder(self):
         """Raises the order of this filter relative to the other filters"""
-        self.proxy.raiseOrder()
+        self.stub.RaiseOrder(filter_pb2.FilterRaiseOrderRequest(filter=self.data),
+                             timeout=Cuebot.Timeout)
 
     def orderFirst(self):
         """Orders this filter above all the other filters"""
-        self.proxy.orderFirst()
+        self.stub.OrderFirst(filter_pb2.FilterOrderFirstRequest(filter=self.data),
+                             timeout=Cuebot.Timeout)
 
     def orderLast(self):
         """Orders this filter below all the other filters"""
-        self.proxy.orderLast()
+        self.stub.OrderLast(filter_pb2.FilterOrderLastRequest(filter=self.data),
+                            timeout=Cuebot.Timeout)
 
     def runFilterOnGroup(self, group):
-        self.proxy.runFilterOnGroup(group.proxy)
+        self.stub.RunFilterOnGroup(
+            filter_pb2.FilterRunFilterOnGroupRequest(filter=self.data, group=group),
+            timeout=Cuebot.Timeout)
 
     def runFilterOnJobs(self, jobs):
         """Runs the filter on the list of jobs provided
         @type  jobs: list<JobInterfacePrx or Job or id or str jobname>
         @param jobs: The jobs to add to this group"""
-        proxies = proxy(jobs, "Job")
-        self.proxy.runFilterOnJobs(proxies)
+        jobSeq = job_pb2.JobSeq(jobs=jobs)
+        self.stub.RunFilterOnJobs(
+            filter_pb2.FilterRunFilterOnJobsRequest(filter=self.data, jobs=jobSeq),
+            timeout=Cuebot.Timeout)
 
     def setEnabled(self, value):
         """Enables or disables the filter
         @type  value: bool
         @param value: True to enable the filter and false to disable it"""
-        self.proxy.setEnabled(value)
+        self.stub.SetEnabled(filter_pb2.FilterSetEnabledRequest(filter=self.data, enabled=value),
+                             timeout=Cuebot.Timeout)
 
     def setName(self, name):
         """Sets the name of this filter
         @type  name: str
         @param name: The new name for this filter"""
-        self.proxy.setName(name)
+        self.stub.SetName(filter_pb2.FilterSetNameRequest(filter=self.data, name=name),
+                          timeout=Cuebot.Timeout)
 
     def setType(self, filterType):
         """Changes the filter type
         @type  filterType: FilterType
         @param filterType: The new filter type"""
-        self.proxy.setType(filterType)
+        self.stub.SetType(filter_pb2.FilterSetTypeRequest(filter=self.data, type=filterType),
+                          timeout=Cuebot.Timeout)
 
     def setOrder(self, order):
-        self.proxy.setOrder(order);
+        self.stub.SetOrder(filter_pb2.FilterSetOrderRequest(filter=self.data, order=order),
+                           timeout=Cuebot.Timeout)
 
     def name(self):
         return self.data.name
@@ -174,25 +199,32 @@ class Filter(CueClientIce.Filter):
         """Returns the id of the filter
         @rtype:  str
         @return: Filter uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
-class Action(CueClientIce.Action):
-    def __init__(self):
-        CueClientIce.Action.__init__(self)
 
-    def getParentFilter():
-        return self.proxy.getParentFilter()
+class Action(object):
+    def __init__(self, action=None):
+        self.data = action
+        self.stub = Cuebot.getStub('action')
+
+    def getParentFilter(self):
+        response = self.stub.GetParentFilter(
+            filter_pb2.ActionGetParentFilterRequest(action=self.data),
+            timeout=Cuebot.Timeout
+        )
+        return Filter(response.filter)
 
     def delete(self):
-        self.proxy.delete()
+        self.stub.Delete(filter_pb2.ActionDeleteRequest(action=self.data), timeout=Cuebot.Timeout)
 
     def commit(self):
         if self.isNew():
-            raise Exception("unable to commit action that has not been created, proxy does not exist")
-        self.proxy.commit(self.data)
+            raise Exception(
+                "unable to commit action that has not been created, proxy does not exist")
+        self.stub.Commit(filter_pb2.ActionCommitRequest(action=self.data), timeout=Cuebot.Timeout)
 
     def isNew(self):
-        return self.proxy is None
+        return self.data is None
 
     def name(self):
         if self.value() is None:
@@ -201,16 +233,16 @@ class Action(CueClientIce.Action):
             return "%s %s" % (self.type(), self.value())
 
     def value(self):
-        valueType = str(self.data.valueType)
-        if valueType == "GroupType":
+        valueType = filter_pb2.ActionValueType.Name(self.data.value_type)
+        if valueType == "GROUP_TYPE":
             return self.data.groupValue.ice_getIdentity().name
-        elif valueType == "StringType":
+        elif valueType == "STRING_TYPE":
             return self.data.stringValue
-        elif valueType == "IntegerType":
+        elif valueType == "INTEGER_TYPE":
             return self.data.integerValue
-        elif valueType == "FloatType":
+        elif valueType == "FLOAT_TYPE":
             return self.data.floatValue
-        elif valueType == "BooleanType":
+        elif valueType == "BOOLEAN_TYPE":
             return self.data.booleanValue
         else:
             return None
@@ -220,40 +252,39 @@ class Action(CueClientIce.Action):
 
     def setTypeAndValue(self, actionType, value):
         self.data.type = actionType
-        if actionType in (ActionType.MoveJobToGroup,):
-            if not isinstance(value, CueClientIce.Group):
+        if actionType == filter_pb2.MOVE_JOB_TO_GROUP:
+            if not isinstance(value, job_pb2.Group):
                 raise TypeError("invalid group argument, not a group")
-            if not value.proxy:
-                raise ValueError("group did not have a valid proxy")
-            self.data.groupValue = value.proxy
-            self.data.valueType =  ActionValueType.GroupType
+            if not value.id:
+                raise ValueError("group is not a valid rpc object")
+            self.data.groupValue = value.id
+            self.data.valueType = filter_pb2.GROUP_TYPE
 
-        elif actionType in (ActionType.PauseJob,):
+        elif actionType == filter_pb2.PAUSE_JOB:
             self.data.booleanValue = value
-            self.data.valueType =  ActionValueType.BooleanType
+            self.data.valueType = filter_pb2.BOOLEAN_TYPE
 
-        elif actionType in (ActionType.SetJobPriority,
-                            ActionType.SetAllRenderLayerMemory):
+        elif actionType in (filter_pb2.SET_JOB_PRIORITY,
+                            filter_pb2.SET_ALL_RENDER_LAYER_MEMORY):
             self.data.integerValue = int(value)
-            self.data.valueType =  ActionValueType.IntegerType
+            self.data.valueType = filter_pb2.INTEGER_TYPE
 
-        elif actionType in (ActionType.SetJobMinCores,
-                            ActionType.SetJobMaxCores,
-                            ActionType.SetAllRenderLayerCores):
+        elif actionType in (filter_pb2.SET_JOB_MIN_CORES,
+                            filter_pb2.SET_JOB_MAX_CORES,
+                            filter_pb2.SET_ALL_RENDER_LAYER_CORES):
             self.data.floatValue = float(value)
-            self.data.valueType = ActionValueType.FloatType
+            self.data.valueType = filter_pb2.FLOAT_TYPE
 
-        elif actionType in (ActionType.SetAllRenderLayerTags,):
+        elif actionType == filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
             self.data.stringValue = value
-            self.data.valueType =  ActionValueType.StringType
+            self.data.valueType = filter_pb2.STRING_TYPE
 
-        elif actionType in (ActionType.StopProcessing,):
-            self.data.valueType =  ActionValueType.NoneType
+        elif actionType == filter_pb2.STOP_PROCESSING:
+            self.data.valueType = filter_pb2.NONE_TYPE
 
-        elif actionType in (ActionType.SetMemoryOptimizer,):
+        elif actionType == filter_pb2.SET_MEMORY_OPTIMIZER:
             self.data.booleanValue = value
-            self.data.valueType = ActionValueType.BooleanType
-
+            self.data.valueType = filter_pb2.BOOLEAN_TYPE
         else:
            raise Exception("invalid action type: %s" % actionType)
 
@@ -263,26 +294,33 @@ class Action(CueClientIce.Action):
         """Returns the id of the action
         @rtype:  str
         @return: Action uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
-class Matcher(CueClientIce.Matcher):
-    def __init__(self):
-        CueClientIce.Matcher.__init__(self)
 
-    def getParentFilter():
-        return self.proxy.getParentFilter()
+class Matcher(object):
+    def __init__(self, matcher=None):
+        self.data = matcher
+        self.stub = Cuebot.getStub('matcher')
+
+    def getParentFilter(self):
+        response = self.stub.GetParentFilter(
+            filter_pb2.MatcherGetParentFilterRequest(matcher=self.data),
+            timeout=Cuebot.Timeout
+        )
+        return Filter(response.filter)
 
     def delete(self):
-        self.proxy.delete()
+        self.stub.Delete(filter_pb2.MatcherDeleteRequest(matcher=self.data), timeout=Cuebot.Timeout)
 
     def commit(self):
         if self.isNew():
-            raise Exception("unable to commit matcher that has not been created, proxy does not exist")
+            raise Exception(
+                "unable to commit matcher that has not been created, proxy does not exist")
         self.data.input = self.data.input.replace(" ", "")
-        self.proxy.commit(self.data)
+        self.stub.Commit(filter_pb2.MatcherCommitRequest(matcher=self.data), timeout=Cuebot.Timeout)
 
     def isNew(self):
-        return self.proxy is None
+        return self.data is None
 
     def name(self):
         return "%s %s %s" % (self.data.subject, self.data.type, self.data.input)
@@ -300,18 +338,17 @@ class Matcher(CueClientIce.Matcher):
         """Returns the id of the matcher
         @rtype:  str
         @return: Matcher uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def setSubject(self, value):
         self.data.subject = value
-        self.proxy.commit(self.data)
+        self.commit()
 
     def setType(self, value):
         self.data.type = value
-        self.proxy.commit(self.data)
+        self.commit()
 
     def setInput(self, value):
         value = value.replace(" ", "")
         self.data.input = str(value)
-        self.proxy.commit(self.data)
-
+        self.commit()

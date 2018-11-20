@@ -17,44 +17,58 @@
 """
 allocation module
 """
-import cue.CueClientIce as CueClientIce
-from ..api import *
 
-class Allocation(CueClientIce.Allocation):
-    """This class contains the ice implementation related to an Allocation."""
-    def __init__(self):
-        """_Allocation class initialization"""
-        CueClientIce.Allocation.__init__(self)
+from Cue3.compiled_proto import facility_pb2
+from Cue3.compiled_proto import host_pb2
+from Cue3.cuebot import Cuebot
+
+
+class Allocation(object):
+
+    def __init__(self, allocation=None):
+        self.data = allocation
+        self.stub = Cuebot.getStub('allocation')
 
     def setName(self, name):
         """Sets a new name for the allocation.
         @type name: str
         @param name: the new name"""
-        self.proxy.setName(name)
+        self.stub.SetName(
+            facility_pb2.AllocSetNameRequest(allocation=self.data, name=name),
+            timeout=Cuebot.Timeout)
 
     def setTag(self, tag):
         """Sets a new tag for the allocation.
         @type name: str
         @param name: the new tag"""
-        self.proxy.setTag(tag)
+        self.stub.SetTag(
+            facility_pb2.AllocSetTagRequest(allocation=self.data, tag=tag),
+            timeout=Cuebot.Timeout
+        )
 
     def delete(self):
         """Delete the record of the allocation from the cuebot"""
-        self.proxy.delete()
+        self.stub.Delete(
+            facility_pb2.AllocDeleteRequest(allocation=self.data),
+            timeout=Cuebot.Timeout
+        )
 
     def reparentHosts(self, hosts):
         """Moves the given hosts to the allocation
         @type  hosts: list<HostInterfacePrx or Host or id or str hostname>
         @param hosts: The hosts to move to this allocation"""
-        proxies = proxy(hosts, "Host")
-        if proxies:
-            self.proxy.reparentHosts(proxies)
+        hostSeq = host_pb2.HostSeq()
+        hostSeq.hosts.extend(hosts)
+        self.stub.ReparentHosts(
+            facility_pb2.AllocReparentHostsRequest(allocation=self.data, hosts=hostSeq),
+            timeout=Cuebot.Timeout
+        )
 
     def id(self):
         """Returns the id of the allocation
         @rtype:  str
-        @return: Frame uuid"""
-        return self.proxy.ice_getIdentity().name
+        @return: Allocation uuid"""
+        return self.data.id
 
     def name(self):
         """Returns the name of the allocation
@@ -72,20 +86,20 @@ class Allocation(CueClientIce.Allocation):
         """Returns the total number of cores in the allocation.
         @rtype:  float
         @return: Total number of cores in the allocation"""
-        return self.stats.cores
+        return self.data.stats.cores
 
     def totalAvailableCores(self):
         """Returns the total number of cores available for
         booking in the allocation.
         @rtype:  float
         @return: Total number of cores in the allocation"""
-        return self.stats.availableCores
+        return self.data.stats.available_cores
 
     def totalIdleCores(self):
         """Returns the total number of idle cores in the allocation.
         @rtype:  float
         @return: Total number of idle cores in the allocation"""
-        return self.stats.idleCores
+        return self.data.stats.idle_cores
 
     def totalRunningCores(self):
         """Returns the total number of running cores in the allocation.
@@ -93,30 +107,29 @@ class Allocation(CueClientIce.Allocation):
         @rtype:  float
         @return: Total number of running cores in the allocation"""
         # All core reserved
-        return self.stats.runningCores
+        return self.data.stats.running_cores
 
     def totalLockedCores(self):
         """Returns the total number of locked cores in the allocation.
         Each 100 returned is the same as 1 physical core.
         @rtype:  float
         @return: Total number of locked cores in the allocation"""
-        return self.stats.lockedCores
+        return self.data.stats.locked_cores
 
     def totalHosts(self):
         """Returns the total number of hosts in the allocation
         @rtype:  int
         @return: Total number of hosts in the allocation"""
-        return self.stats.hosts
+        return self.data.stats.hosts
 
     def totalLockedHosts(self):
         """Returns the total number of locked hosts in the allocation
         @rtype:  int
         @return: Total number of locked hosts in the allocation"""
-        return self.stats.lockedHosts
+        return self.data.stats.locked_hosts
 
     def totalDownHosts(self):
         """Returns the total number of down hosts in the allocation
         @rtype:  int
         @return: Total number of down hosts in the allocation"""
-        return self.stats.downHosts
-
+        return self.data.stats.down_hosts

@@ -19,100 +19,116 @@ Project: Cue3 Library
 
 Module: job.py - Cue3 Library implementation of a job
 
-Created: February 12, 2008
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
+
 import os
 import time
-import datetime
 
-import cue.CueClientIce as CueClientIce
-import cue.CueIce as CueIce
+import depend
+from Cue3 import Cuebot
+from Cue3.compiled_proto import comment_pb2
+from Cue3.compiled_proto import job_pb2
+from ..search import FrameSearch
 
-from ..search import *
 
-
-class Job(CueClientIce.Job):
+class Job(object):
     """This class contains the ice implementation related to a job."""
-    def __init__(self):
+    def __init__(self, job=None):
         """_Job class initialization"""
-        CueClientIce.Job.__init__(self)
+        self.data = job
+        self.stub = Cuebot.getStub('job')
 
     def kill(self):
         """Kills the job"""
-        self.proxy.kill()
+        self.stub.Kill(job_pb2.JobKillRequest(job=self.data), timeout=Cuebot.Timeout)
 
     def pause(self):
         """Pauses the job"""
-        self.proxy.pause()
+        self.stub.Pause(job_pb2.JobPauseRequest(job=self.data), timout=Cuebot.Timeout)
 
     def resume(self):
         """Resumes the job"""
-        self.proxy.resume()
+        self.stub.Resume(job_pb2.JobResumeRequest(job=self.data), timeout=Cuebot.Timeout)
 
     def killFrames(self, **request):
         """Kills all frames that match the FrameSearch
-        @type  request: FrameSearch
-        @param request: A FrameSearch object"""
-        return self.proxy.killFrames(FrameSearch(**request))
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        criteria = FrameSearch.criteriaFromOptions(**request)
+        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data, req=criteria),
+                             timeout=Cuebot.Timeout)
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch
-        @type  request: FrameSearch
-        @param request: A FrameSearch object"""
-        return self.proxy.eatFrames(FrameSearch(**request))
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        criteria = FrameSearch.criteriaFromOptions(**request)
+        return self.stub.EatFrames(job_pb2.JobEatFramesRequest(job=self.data, req=criteria),
+                                   timeout=Cuebot.Timeout)
 
     def retryFrames(self, **request):
         """Retries all frames that match the FrameSearch
-        @type  request: FrameSearch
-        @param request: A FrameSearch object"""
-        return self.proxy.retryFrames(FrameSearch(**request))
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        criteria = FrameSearch.criteriaFromOptions(**request)
+        return self.stub.RetryFrames(job_pb2.JobRetryFramesRequest(job=self.data, req=criteria),
+                                     timeout=Cuebot.Timeout)
 
     def markdoneFrames(self, **request):
         """Drops any dependency that requires any frame that matches the
         FrameSearch
-        @type  request: FrameSearch
-        @param request: A FrameSearch object"""
-        return self.proxy.markdoneFrames(FrameSearch(**request))
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        criteria = FrameSearch.criteriaFromOptions(**request)
+        return self.stub.MarkDoneFrames(
+            job_pb2.JobMarkDoneFramesRequest(job=self.data, req=criteria),
+            timeout=Cuebot.Timeout)
 
     def markAsWaiting(self, **request):
         """Changes the matching frames from the depend state to the waiting state
-        @type  request: FrameSearch
-        @param request: A FrameSearch object"""
-        return self.proxy.markAsWaiting(FrameSearch(**request))
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        criteria = FrameSearch.criteriaFromOptions(**request)
+        return self.stub.MarkAsWaiting(
+            job_pb2.JobMarkAsWaitingRequest(job=self.data, req=criteria),
+            timeout=Cuebot.Timeout)
 
     def setMinCores(self, minCores):
         """Sets the minimum procs value
         @type  minCores: int
         @param minCores: New minimum cores value"""
-        self.proxy.setMinCores(minCores)
+        self.stub.SetMinCores(job_pb2.JobSetMinCoresRequest(job=self.data, val=minCores),
+                              timeout=Cuebot.Timeout)
 
     def setMaxCores(self, maxCores):
         """Sets the maximum procs value
         @type  maxCores: int
         @param maxCores: New maximum cores value"""
-        self.proxy.setMaxCores(maxCores)
+        self.stub.SetMaxCores(job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
+                              timeout=Cuebot.Timeout)
 
     def setPriority(self, priority):
         """Sets the priority number
         @type  priority: int
         @param priority: New priority number"""
-        self.proxy.setPriority(priority)
+        self.stub.SetPriority(job_pb2.JobSetPriorityRequest(job=self.data, val=priority),
+                              timeout=Cuebot.Timeout)
 
     def setMaxRetries(self, maxRetries):
         """Sets the number of retries before a frame goes dead
         @type  maxRetries: int
         @param maxRetries: New max retries"""
-        self.proxy.setMaxRetries(maxRetries)
+        self.stub.SetMaxRetries(
+            job_pb2.JobSetMaxRetriesRequest(job=self.data, max_retries=maxRetries),
+            timeout=Cuebot.Timeout)
 
     def getLayers(self):
         """Returns the list of layers
         @rtype:  list<Layer>
         @return: List of layers"""
-        return self.proxy.getLayers()
+        response = self.stub.GetLayers(job_pb2.JobGetLayersRequest(job=self.data),
+                                       timeout=Cuebot.Timeout)
+        return [layer.Layer(layer) for layer in response.layers]
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
@@ -121,9 +137,12 @@ class Job(CueClientIce.Job):
         Allowed: offset, limit, states+, layers+. frameset, changedate
         @rtype:  list<Frame>
         @return: List of frames"""
-        return self.proxy.getFrames(FrameSearch(**options))
+        criteria = FrameSearch.criteriaFromOptions(**options)
+        response = self.stub.GetFrames(job_pb2.JobGetFramesRequest(job=self.data, req=criteria),
+                                       timeout=Cuebot.Timeout)
+        return [frame.Frame(frame) for frame in response.frames]
 
-    def getUpdatedFrames(self, lastCheck, layers = []):
+    def getUpdatedFrames(self, lastCheck, layers=None):
         """Returns a list of updated state information for frames that have
         changed since the last update time as well as the current state of the
         job. If layer proxies are provided in the layers list, only frames from
@@ -138,31 +157,49 @@ class Job(CueClientIce.Job):
         @param layers: List of layers to check, empty list checks all
         @rtype:  UpdatedFrameCheckResult
         @return: Job state and a list of updatedFrames"""
-        return self.proxy.getUpdatedFrames(lastCheck, layers)
+        if layers is not None:
+            layerSeq = job_pb2.LayerSeq()
+            layerSeq.layers.extend(layers)
+        else:
+            layerSeq = None
+        return self.stub.GetUpdatedFrames(
+            job_pb2.JobGetUpdatedFramesRequest(job=self.data, last_check=lastCheck,
+                                               layer_filter=layerSeq),
+            timeout=Cuebot.Timeout)
 
     def setAutoEating(self, value):
         """If set to true, any frames that would become dead, will become eaten
         @type  value: bool
         @param value: State of autoeat"""
-        self.proxy.setAutoEat(value)
+        self.stub.SetAutoEat(job_pb2.JobSetAutoEatRequest(job=self.data, value=value),
+                             timeout=Cuebot.Timeout)
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this job
         @rtype:  list<Depend>
         @return: List of dependencies that depend directly on this job"""
-        return self.proxy.getWhatDependsOnThis()
+        response = self.stub.GetWhatDependsOnThis(
+            job_pb2.JobGetWhatDependsOnThisRequest(job=self.data),
+            timeout=Cuebot.Timeout)
+        return [depend.Depend(depend) for depend in response.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this job depends on
         @rtype:  list<Depend>
         @return: dependencies that this job depends on"""
-        return self.proxy.getWhatThisDependsOn()
+        response = self.stub.GetWhatThisDependsOn(
+            job_pb2.JobGetWhatThisDependsOnRequest(job=self.data),
+            timeout=Cuebot.Timeout)
+        return [depend.Depend(depend) for depend in response.depends]
 
     def getDepends(self):
         """Returns a list of all depends this job is involved with
         @rtype:  list<Depend>
         @return: all depends involved with this job"""
-        return self.proxy.getDepends()
+        response = self.stub.GetDepends(
+            job_pb2.JobGetDependsRequest(job=self.data),
+            timeout=Cuebot.Timeout)
+        return [depend.Depend(depend) for depend in response.depends]
 
     def dropDepends(self, target):
         """Drops the desired dependency target:
@@ -171,7 +208,8 @@ class Job(CueClientIce.Job):
         Cue3.DependTarget.Internal
         @type  target: DependTarget
         @param target: The desired dependency target to drop"""
-        return self.proxy.dropDepends(target)
+        return self.stub.DropDepends(job_pb2.JobDropDependsRequest(job=self.data, target=target),
+                                     timeout=Cuebot.Timeout)
 
     def createDependencyOnJob(self, job):
         """Create and return a job on job dependency
@@ -179,7 +217,10 @@ class Job(CueClientIce.Job):
         @param job: the job you want this job to depend on
         @rtype:  Depend
         @return: The new dependency"""
-        return self.proxy.createDependencyOnJob(job.proxy)
+        response = self.stub.CreateDependencyOnJob(
+            job_pb2.JobCreateDependencyOnJobRequest(job=self.data, on_job=job),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a job on layer dependency
@@ -187,7 +228,10 @@ class Job(CueClientIce.Job):
         @param layer: the layer you want this job to depend on
         @rtype:  Depend
         @return: the new dependency"""
-        return self.proxy.createDependencyOnLayer(layer.proxy)
+        response = self.stub.CreateDependencyOnLayer(
+            job_pb2.JobCreateDependencyOnLayerRequest(job=self.data, layer=layer),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a job on frame dependency
@@ -195,17 +239,21 @@ class Job(CueClientIce.Job):
         @param frame: the frame you want this job to depend on
         @rtype:  Depend
         @return: the new dependency"""
-        return self.proxy.createDependencyOnFrame(frame.proxy)
+        response = self.stub.CreateDependencyOnFrame(
+            job_pb2.JobCreateDependencyOnFrameRequest(job=self.data, frame=frame),
+            timeout=Cuebot.Timeout)
+        return depend.Depend(response.depend)
 
-    def unbookProcs(self, subs, number, kill=False):
-        """Unbook procs off job from specified allocations
-        @type  subs: list<Subscription>
-        @param subs: The subscriptions to unbook from
-        @type  number: int
-        @param number: the number of virtual procs to unbook
-        @type  kill: bool
-        @param kill: wheather or not to kill the frames as well"""
-        self.proxy.unbookProcs([a.proxy for a in subs],number,kill)
+    # TODO: (gdenton - b/119207889) is this needed?
+    # def unbookProcs(self, subs, number, kill=False):
+    #     """Unbook procs off job from specified allocations
+    #     @type  subs: list<Subscription>
+    #     @param subs: The subscriptions to unbook from
+    #     @type  number: int
+    #     @param number: the number of virtual procs to unbook
+    #     @type  kill: bool
+    #     @param kill: wheather or not to kill the frames as well"""
+    #     self.proxy.unbookProcs([a.proxy for a in subs],number,kill)
 
     def addComment(self, subject, message):
         """Appends a comment to the job's comment list
@@ -213,30 +261,36 @@ class Job(CueClientIce.Job):
         @param subject: Subject data
         @type  message: str
         @param message: Message data"""
-        c = CueClientIce.CommentData()
-        c.user = os.getenv("USER","unknown")
-        c.subject = subject
-        c.message = message or " "
-        c.timestamp = 0
-        self.proxy.addComment(c)
+        comment = comment_pb2.Comment(
+            user=os.getenv("USER", "unknown"),
+            subject=subject,
+            message=message or " ",
+            timestamp=0)
+        self.stub.AddComment(job_pb2.JobAddCommentRequest(job=self.data, new_comment=comment),
+                             timeout=Cuebot.Timeout)
 
     def getComments(self):
         """returns the jobs comments"""
-        return self.proxy.getComments()
+        response = self.stub.GetComments(job_pb2.JobGetCommentsRequest(job=self.data),
+                                         timeout=Cuebot.Timeout)
+        return [comment.Comment(comment) for comment in response.comments]
 
     def setGroup(self, group):
         """Sets the job to a new group
         @type  group: Group
         @param group: the group you want the job to be in."""
-        self.proxy.setGroup(group.proxy)
+        self.stub.SetGroup(job_pb2.JobSetGroupRequest(job=self.data, group_id=group.id),
+                           timeout=Cuebot.Timeout)
 
     def reorderFrames(self, range, order):
         """Reorders the specified frame range on this job.
         @type  range: string
         @param range: The frame range to reorder
-        @type  order: Cue3.Order
+        @type  order: job_pb2.Order
         @param order: First, Last or Reverse"""
-        self.proxy.reorderFrames(range, order)
+        self.stub.ReorderFrames(
+            job_pb2.JobReorderFramesRequest(job=self.data, range=range, order=order),
+            timeout=Cuebot.Timeout)
 
     def staggerFrames(self, range, stagger):
         """Staggers the specified frame range on this job.
@@ -244,7 +298,9 @@ class Job(CueClientIce.Job):
         @param range: The frame range to stagger
         @type  stagger: int
         @param stagger: The amount to stagger by"""
-        self.proxy.staggerFrames(range, stagger)
+        self.stub.StaggerFrames(
+            job_pb2.JobStaggerFramesRequest(job=self.data, range=range, stagger=stagger),
+            timeout=Cuebot.Timeout)
 
     def facility(self):
         """Returns the facility that the job must run in"""
@@ -254,7 +310,7 @@ class Job(CueClientIce.Job):
         """Returns the uuid of the job
         @rtype:  str
         @return: Job uuid"""
-        return self.proxy.ice_getIdentity().name
+        return self.data.id
 
     def name(self):
         """Returns the name of the job
@@ -278,7 +334,7 @@ class Job(CueClientIce.Job):
         """Returns the path to the log files
         @rtype:  str
         @return: Path of log files"""
-        return self.data.logDir
+        return self.data.log_dir
 
     def uid(self):
         """Returns the uid of the person who owns the job
@@ -308,15 +364,15 @@ class Job(CueClientIce.Job):
         """Returns the job's minProcs
         @rtype:  int
         @return: Job's minCores"""
-        return self.data.minCores
+        return self.data.min_cores
 
     def maxCores(self):
         """Returns the job's maxProcs
         @rtype:  int
         @return: Job's maxProcs"""
-        return self.data.maxCores
+        return self.data.max_cores
 
-    def startTime(self, format = None):
+    def startTime(self, format=None):
         """Returns the job start time in the desired format
         None                    => 1203634027
         "%m/%d %H:%M"           => 02/21 14:47
@@ -328,10 +384,10 @@ class Job(CueClientIce.Job):
         @rtype:  int
         @return: Job start time in epoch"""
         if not format:
-            return self.data.startTime
-        return time.strftime(format, time.localtime(self.data.startTime))
+            return self.data.start_time
+        return time.strftime(format, time.localtime(self.data.start_time))
 
-    def stopTime(self, format = None):
+    def stopTime(self, format=None):
         """Returns the job stop time in the desired format
         None                    => 1203634027
         "%m/%d %H:%M"           => 02/21 14:47
@@ -343,116 +399,116 @@ class Job(CueClientIce.Job):
         @rtype:  int
         @return: Job stop time in epoch"""
         if not format:
-            return self.data.stopTime
-        return time.strftime(format, time.localtime(self.data.stopTime))
+            return self.data.stop_time
+        return time.strftime(format, time.localtime(self.data.stop_time))
 
     def runTime(self):
         """Returns the number of seconds that the job has been (or was) running
         @rtype:  int
         @return: Job runtime in seconds"""
-        if self.data.stopTime == 0:
-            return int(time.time() - self.data.startTime)
+        if self.data.stop_time == 0:
+            return int(time.time() - self.data.start_time)
         else:
-            return self.data.stopTime - self.data.startTime
+            return self.data.stop_time - self.data.start_time
 
     def coreSecondsRemaining(self):
         """Returns the estimated number of core seconds reeded to finish all
         waiting frames.  Does note take into account running frames.
         @rtype:  long
         @return: core seconds remaining"""
-        return self.stats.coreTimeRemain
+        return self.data.job_stats.remaining_core_sec
 
     def age(self):
         """Returns the number of seconds since the job was launched
         @rtype:  int
         @return: Seconds since the job was launched"""
-        return int(time.time() - self.data.startTime)
+        return int(time.time() - self.data.start_time)
 
     def isPaused(self):
         """Returns true if the job is paused
         @rtype:  bool
         @return: Paused or not paused"""
-        return self.data.isPaused;
+        return self.data.is_paused
 
     def isAutoEating(self):
         """Returns true if the job is eating all frames that become dead
         @rtype:  bool
         @return: If the job eating all frames that become dead"""
-        return self.data.autoEat
+        return self.data.auto_eat
 
     def isCommented(self):
         """Returns true if the job has a comment
         @rtype:  bool
         @return: If the job has a comment"""
-        return self.data.hasComment
+        return self.data.has_comment
 
     def setAutoEat(self, value):
         """Changes the state of autoeating. When frames become eaten instead of dead.
         @type  value: bool
         @param value: The new state for autoEat"""
-        self.proxy.setAutoEat(value)
-        self.data.autoEat = value
+        self.setAutoEating(value)
+        self.data.auto_eat = value
 
     def coresReserved(self):
         """Returns the number of reserved cores
         @rtype: float
         @return: total number of reserved cores"""
-        return self.stats.reservedCores
+        return self.data.job_stats.reserved_cores
 
     def totalFrames(self):
         """Returns the total number of frames under this object
         @rtype:  int
         @return: Total number of frames"""
-        return self.stats.totalFrames
+        return self.data.job_stats.total_frames
 
     def totalLayers(self):
         """Returns the total number of frames under this object
         @rtype:  int
         @return: Total number of frames"""
-        return self.stats.totalLayers
+        return self.data.job_stats.total_layers
 
     def dependFrames(self):
         """Returns the total number of dependent frames under this object
         @rtype:  int
         @return: Total number of dependent frames"""
-        return self.stats.dependFrames
+        return self.data.job_stats.depend_frames
 
     def succeededFrames(self):
         """Returns the total number of succeeded frames under this object
         @rtype:  int
         @return: Total number of succeeded frames"""
-        return self.stats.succeededFrames
+        return self.data.job_stats.succeeded_frames
 
     def runningFrames(self):
         """Returns the total number of running frames under this object
         @rtype:  int
         @return: Total number of running frames"""
-        return self.stats.runningFrames
+        return self.data.job_stats.running_frames
 
     def deadFrames(self):
         """Returns the total number of deads frames under this object
         @rtype:  int
         @return: Total number of dead frames"""
-        return self.stats.deadFrames
+        return self.data.job_stats.dead_frames
 
     def waitingFrames(self):
         """Returns the total number of waiting frames under this object
         @rtype:  int
         @return: Total number of waiting frames"""
-        return self.stats.waitingFrames
+        return self.data.job_stats.waiting_frames
 
     def eatenFrames(self):
         """Returns the total number of eaten frames under this object
         @rtype:  int
         @return: Total number of eaten frames"""
-        return self.stats.eatenFrames
+        return self.data.job_stats.eaten_frames
 
     def pendingFrames(self):
         """Returns the total number of pending (dependent and waiting) frames
         under this object.
         @rtype:  int
         @return: Total number of pending (dependent and waiting) frames"""
-        return self.stats.pendingFrames
+        return self.data.job_stats.pending_frames
 
     def frameStateTotals(self):
         """Returns a dictionary of frame states and the number of frames in each
@@ -460,9 +516,9 @@ class Job(CueClientIce.Job):
         @rtype: dict
         @return: total number of frames in each state"""
         if not hasattr(self, "__frameStateTotals"):
-            self.__frameStateTotals = dict((getattr(CueIce.FrameState,a),
-                                            getattr(self.stats,"%sFrames" % a.lower(),0))
-                                            for a in dir(CueIce.FrameState) if a[0] != "_")
+            self.__frameStateTotals = {
+                (a, getattr(self.data.job_stats, "%s_frames" % a.lower(), 0))
+                for a in job_pb2.FrameState.keys()}
         return self.__frameStateTotals
 
     def percentCompleted(self):
@@ -470,7 +526,8 @@ class Job(CueClientIce.Job):
         @rtype:  float
         @return: Percentage of frame completion"""
         try:
-            return self.stats.succeededFrames / float(self.stats.totalFrames) * 100.0
+            return self.data.job_stats.succeeded_frames /\
+                   float(self.data.job_stats.total_frames) * 100.0
         except:
             return 0
 
@@ -484,25 +541,25 @@ class Job(CueClientIce.Job):
         """Returns the average completed frame time in seconds
         @rtype:  int
         @return: Average completed frame time in seconds"""
-        return self.stats.avgFrameSec
+        return self.data.job_stats.avg_frame_sec
 
     def averageCoreTime(self):
         """Returns the average frame time
         @rtype:  int
         @return: Average frame time for entire job"""
-        self.stats.avgCoreSec;
+        return self.data.job_stats.avg_core_sec
 
     def maxRss(self):
         """Returns the highest amount of memory that any frame in this job used
         in kB. Value is within 5% of the actual highest frame.
         @rtype:  long
         @return: Most memory used by any frame in kB"""
-        return self.stats.maxRss
+        return self.data.job_stats.max_rss
 
-class NestedJob(CueClientIce.NestedJob, Job):
+class NestedJob(Job):
     """This class contains information and actions related to a nested job."""
-    def __init__(self):
-        CueClientIce.NestedJob.__init__(self)
+    def __init__(self, nestedJob=None):
+        super(NestedJob, self).__init__(nestedJob)
         ## job children are most likely empty but its possible to
         ## populate this with NesterLayer objects.
         self.__children = []

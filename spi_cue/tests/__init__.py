@@ -17,5 +17,3 @@
 """
 Cue3 api test
 """
-print 'test'
-

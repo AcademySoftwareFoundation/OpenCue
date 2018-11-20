@@ -16,8 +16,7 @@
  */
 
 
-
- package com.imageworks.spcue.service;
+package com.imageworks.spcue.service;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -25,6 +24,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,8 +45,12 @@ import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.dao.TrackitDao;
 import com.imageworks.spcue.util.CueUtil;
 
+
 @Transactional
 public class DepartmentManagerService implements DepartmentManager {
+
+    @Autowired
+    private Environment env;
 
     private PointDao pointDao;
     private TaskDao taskDao;
@@ -170,56 +175,57 @@ public class DepartmentManagerService implements DepartmentManager {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateManagedTasks(PointInterface pd ) {
+    public void updateManagedTasks(PointInterface pd) {
+        if (env.getRequiredProperty("cue3.trackit.enabled", Boolean.class)) {
 
-        ShowInterface show = showDao.getShowDetail(pd.getShowId());
-        PointDetail p = pointDao.getPointConfDetail(pd.getPointId());
-        pointDao.updatePointConfUpdateTime(p);
+            ShowInterface show = showDao.getShowDetail(pd.getShowId());
+            PointDetail p = pointDao.getPointConfDetail(pd.getPointId());
+            pointDao.updatePointConfUpdateTime(p);
 
-        /*
-         * First calculate raw point ratios, which will be used to calculate
-         * the normalized proc point values
-         */
-        float totalRawPoints = 0f;
-        float rawPoints = 0f;
+            /*
+             * First calculate raw point ratios, which will be used to calculate
+             * the normalized proc point values
+             */
+            float totalRawPoints = 0f;
+            float rawPoints = 0f;
 
-        List<TrackitTaskDetail> tasks = trackitDao.getTasks(show.getName(), p.tiTask);
-        HashMap<String,Float> rawCache = new HashMap<String,Float>(tasks.size());
+            List<TrackitTaskDetail> tasks = trackitDao.getTasks(show.getName(), p.tiTask);
+            HashMap<String, Float> rawCache = new HashMap<String, Float>(tasks.size());
 
-        for (TrackitTaskDetail task: tasks) {
-            if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
-                continue;
-            }
-            rawPoints = ((task.frameCount / 10f) / task.weeks);
-            rawCache.put(task.shot, rawPoints);
-            totalRawPoints = totalRawPoints + rawPoints;
-        }
-
-        /*
-         * Now create TaskDetail objects which will be merged into
-         * the current data set.  Tasks with a 0 minCores value will
-         * be deleted.
-         */
-        float normalizedRawPoints = p.cores / totalRawPoints;
-        for (TrackitTaskDetail task: tasks) {
-
-            TaskEntity td = new TaskEntity();
-            td.pointId = p.getPointId();
-            td.deptId = p.getDepartmentId();
-            td.showId = p.getShowId();
-            td.shot = task.shot;
-
-            if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
-                td.minCoreUnits = 0;
-            }
-            else {
-                td.minCoreUnits = (int) ((rawCache.get(task.shot) * normalizedRawPoints) + 0.5f);
-                if (td.minCoreUnits < CueUtil.ONE_CORE) {
-                    td.minCoreUnits = CueUtil.ONE_CORE;
+            for (TrackitTaskDetail task : tasks) {
+                if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
+                    continue;
                 }
+                rawPoints = ((task.frameCount / 10f) / task.weeks);
+                rawCache.put(task.shot, rawPoints);
+                totalRawPoints = totalRawPoints + rawPoints;
             }
-            taskDao.mergeTask(td);
-            syncJobsWithTask(td);
+
+            /*
+             * Now create TaskDetail objects which will be merged into
+             * the current data set.  Tasks with a 0 minCores value will
+             * be deleted.
+             */
+            float normalizedRawPoints = p.cores / totalRawPoints;
+            for (TrackitTaskDetail task : tasks) {
+
+                TaskEntity td = new TaskEntity();
+                td.pointId = p.getPointId();
+                td.deptId = p.getDepartmentId();
+                td.showId = p.getShowId();
+                td.shot = task.shot;
+
+                if (!IN_PROGRESS_TASK_STATUS.contains(task.status)) {
+                    td.minCoreUnits = 0;
+                } else {
+                    td.minCoreUnits = (int) ((rawCache.get(task.shot) * normalizedRawPoints) + 0.5f);
+                    if (td.minCoreUnits < CueUtil.ONE_CORE) {
+                        td.minCoreUnits = CueUtil.ONE_CORE;
+                    }
+                }
+                taskDao.mergeTask(td);
+                syncJobsWithTask(td);
+            }
         }
     }
 

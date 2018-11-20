@@ -18,26 +18,34 @@
 Project: Cue3 Library
 
 Module: Cuebot.py - Cue3 Library API.
-
-Created: February 16, 2008
-
-Contact: Middle-Tier Group
-
-SVN: $Id$
 """
-import grpc
-import os
-import sys
-import pwd
-import socket
-import logging
-import yaml
 import atexit
+import grpc
+import logging
+import os
+import yaml
 
-import Ice
-import cue.CueClientIce as CueClientIce
-
-from exception import CuebotProxyCreationError
+from Cue3.compiled_proto import comment_pb2_grpc
+from Cue3.compiled_proto import cue_pb2
+from Cue3.compiled_proto import cue_pb2_grpc
+from Cue3.compiled_proto import depend_pb2
+from Cue3.compiled_proto import depend_pb2_grpc
+from Cue3.compiled_proto import facility_pb2
+from Cue3.compiled_proto import facility_pb2_grpc
+from Cue3.compiled_proto import filter_pb2
+from Cue3.compiled_proto import filter_pb2_grpc
+from Cue3.compiled_proto import host_pb2
+from Cue3.compiled_proto import host_pb2_grpc
+from Cue3.compiled_proto import job_pb2
+from Cue3.compiled_proto import job_pb2_grpc
+from Cue3.compiled_proto import service_pb2
+from Cue3.compiled_proto import service_pb2_grpc
+from Cue3.compiled_proto import show_pb2
+from Cue3.compiled_proto import show_pb2_grpc
+from Cue3.compiled_proto import subscription_pb2
+from Cue3.compiled_proto import subscription_pb2_grpc
+from Cue3.compiled_proto import task_pb2
+from Cue3.compiled_proto import task_pb2_grpc
 
 __all__ = ["Cuebot"]
 
@@ -53,42 +61,7 @@ else:
     default_config = os.path.join(os.path.dirname(_this_dir), 'etc/default.yaml')
     config = yaml.load(open(default_config).read())
 
-def _buildProxyString(hosts, interface, timeout=0):
-    """Returns a proxy to an interface on the supplied hosts
-    @type  hosts: list<str>
-    @param hosts: A list of hosts, port may be specified by appending ":PORT"
-    @type  interface: str
-    @param interface: The name of the interface
-    @rtype:  str
-    @return: The resulting proxy string"""
-    result = []
-    logger.debug("attempting to create proxy string to %s on %s" % (interface, hosts))
-    result.append(interface)
-    for host in hosts:
-        try:
-            host, port = host.split(":")
-        except:
-            port = "9019"
-        result.append(":")
-        result.append("tcp")
-        result.append(" -h ")
-        result.append(host)
-        result.append(" -p ")
-        result.append(port)
-        if timeout:
-            result.append(" -t %d" % timeout)
-    proxyString = "".join(result)
-    logger.debug("created proxy string: " + proxyString)
-    return proxyString
 
-class ObjectFactory(Ice.ObjectFactory):
-    def __init__(self,class_type):
-        self.__type = class_type
-    def create(self, type):
-        return self.__type()
-    def destroy(self):
-        # Nothing to do
-        pass
 
 class Cuebot:
     """Used to manage the conncection to the cuebot.  Normally the connection
@@ -99,77 +72,80 @@ class Cuebot:
        you have a couple options.  You can set it programmatically with
        Cuebot.setHosts or set the CUEBOT_HOSTS environement varaible
        to a comma delimited list of host names."""
-
-    Hosts = []
-    Proxy = None
-    Communicator = None
-    CueClientIce = None
     RpcChannel = None
-
-    # The default connection timeout in milliseconds
+    Hosts = []
+    Stubs = {}
     Timeout = config.get('cuebot.timeout', 10000)
+
+    PROTO_MAP = {
+        'action': filter_pb2,
+        'allocation': facility_pb2,
+        'cue': cue_pb2,
+        'depend': depend_pb2,
+        'facility': facility_pb2,
+        'filter': filter_pb2,
+        'frame': job_pb2,
+        'group': job_pb2,
+        'host': host_pb2,
+        'job': job_pb2,
+        'layer': job_pb2,
+        'matcher': filter_pb2,
+        'owner': host_pb2,
+        'proc': host_pb2,
+        'service': service_pb2,
+        'show': show_pb2,
+        'subscription': subscription_pb2,
+        'task': task_pb2
+    }
+
+    SERVICE_MAP = {
+        'action': filter_pb2_grpc.ActionInterfaceStub,
+        'allocation': facility_pb2_grpc.AllocationInterfaceStub,
+        'comment': comment_pb2_grpc.CommentInterfaceStub,
+        'cue': cue_pb2_grpc.CueInterfaceStub,
+        'depend': depend_pb2_grpc.DependInterfaceStub,
+        'facility': facility_pb2_grpc.FacilityInterfaceStub,
+        'filter': filter_pb2_grpc.FilterInterfaceStub,
+        'frame': job_pb2_grpc.FrameInterfaceStub,
+        'group': job_pb2_grpc.GroupInterfaceStub,
+        'host': host_pb2_grpc.HostInterfaceStub,
+        'job': job_pb2_grpc.JobInterfaceStub,
+        'layer': job_pb2_grpc.LayerInterfaceStub,
+        'matcher': filter_pb2_grpc.MatcherInterfaceStub,
+        'owner': host_pb2_grpc.OwnerInterfaceStub,
+        'proc': host_pb2_grpc.ProcInterfaceStub,
+        'service': service_pb2_grpc.ServiceInterfaceStub,
+        'show': show_pb2_grpc.ShowInterfaceStub,
+        'subscription': subscription_pb2_grpc.SubscriptionInterfaceStub,
+        'task': task_pb2_grpc.TaskInterfaceStub
+    }
 
     @staticmethod
     def init():
-        """Initialize the communicator."""
-        init_data = Ice.InitializationData()
-        props = init_data.properties = Ice.createProperties()
-        ice_init = config.get('ice.init')
-        if ice_init:
-            for k,v in config.get("ice.init").iteritems():
-                if k == 'Ice.ACM.Client' and Ice.intVersion() >= 30600:
-                    k = 'Ice.ACM.Client.Timeout'
-                logger.debug("setting ice property %s %s" % (k,v))
-                props.setProperty(k,str(v))
-
-        # Allows use of implicit_context
-        props.setProperty('Ice.ImplicitContext', 'Shared')
-
-        # Allow Ice 3.5 clients, remove when server is also Ice 3.5
-        if Ice.intVersion() >= 30500:
-            props.setProperty('Ice.Default.EncodingVersion', '1.0')
-
-        Cuebot.Communicator = Ice.initialize(init_data)
-
-        def destroy():
-            Cuebot.Communicator.destroy()
-        atexit.register(destroy)
-
-        # Register in the implicit context the key/value pairs for this client
-        implicit_context = Cuebot.Communicator.getImplicitContext()
-        implicit_context.put('argv', sys.argv[0])
-        implicit_context.put('hostname', str(socket.gethostname()))
-        implicit_context.put('pid', str(os.getpid()))
-        implicit_context.put('username', os.getenv("USER"))
-
-        ## Gets populated by the the enviorment, if that fails we go to config
+        """Main init method for setting up the Cuebot object.
+        Sets the communication channel and hosts."""
         if os.getenv("CUEBOT_HOSTS"):
             Cuebot.setHosts(os.getenv("CUEBOT_HOSTS").split(","))
         else:
             facility_default = config.get("cuebot.facility_default")
             Cuebot.setFacility(facility_default)
+        Cuebot.setChannel()
 
     @staticmethod
-    def setHosts(hosts):
-        """Sets the cuebot host names to connect to.
-        @param hosts: a list of hosts or a host
-        @type hosts: list<str> or str"""
-        if isinstance(hosts, str):
-            hosts = [hosts]
-        logger.debug("setting new server hosts to: %s" % hosts)
-        Cuebot.Hosts = hosts
-        Cuebot.Proxy = Cuebot.buildProxy("CueStatic")
-        Cuebot.RpcChannel = Cuebot.buildRpcChannel()
-
-    @staticmethod
-    def setTimeout(timeout):
-        """Sets the default network timeout.
-        @param timeout: The network connection timeout in millis.
-        @type timeout: int
-        """
-        logger.debug("setting new server timeout to: %d" % timeout)
-        Cuebot.Timeout =  timeout
-        Cuebot.Proxy = Cuebot.buildProxy("CueStatic")
+    def setChannel():
+        """Sets the gRPC channel connection"""
+        # gRPC must specify a single host.
+        for host in Cuebot.Hosts:
+            hostname = host.split(':')[0]
+            connect_str = '%s:%s' % (hostname, config.get('cuebot.grpc_port', 8443))
+            logger.debug('connecting to gRPC at %s', connect_str)
+            # TODO(cipriano) Configure gRPC TLS.
+            try:
+                Cuebot.RpcChannel = grpc.insecure_channel(connect_str)
+            except Exception:
+                continue
+            atexit.register(Cuebot.RpcChannel.close)
+            return None
 
     @staticmethod
     def setFacility(facility):
@@ -180,66 +156,42 @@ class Cuebot:
         if facility not in config.get("cuebot.facility").keys():
             default = config.get("cuebot.facility_default")
             logger.warning("The facility '%s' does not exist, defaulting to %s"%
-                         (facility, default))
+                           (facility, default))
             facility = default
         logger.debug("setting facility to: %s" % facility)
         hosts = config.get("cuebot.facility")[facility]
         Cuebot.setHosts(hosts)
 
     @staticmethod
-    def buildProxy(interface_name, proxy_name=None, timeout=0):
-        """Creates and returns a cuebot whiteboard proxy. The proxy is unchecked
-        To build a job proxy you would use:
-        buildProxy("JobInterface", "manageJob/%s" % id)
-        @type  interface_name: str
-        @param interface_name: The name of the interface
-        @type  proxy_name: str
-        @param proxy_name: (optional) The proxy name
+    def setHosts(hosts):
+        """Sets the cuebot host names to connect to.
+        @param hosts: a list of hosts or a host
+        @type hosts: list<str> or str"""
+        if isinstance(hosts, str):
+            hosts = [hosts]
+        logger.debug("setting new server hosts to: %s" % hosts)
+        Cuebot.Hosts = hosts
+
+    @staticmethod
+    def setTimeout(timeout):
+        """Sets the default network timeout.
+        @param timeout: The network connection timeout in millis.
         @type timeout: int
-        @param timeout: the time out in milliseconds. If no timeout is set then
-                        the defualt timeout stored in Cuebot.Timeout is used.
-        @rtype:  Ice.Proxy
-        @return: The created proxy"""
-        prx_str = "Error, Not Created"
-        try:
-            prx_str = _buildProxyString(Cuebot.Hosts, proxy_name or interface_name,
-                                        timeout or Cuebot.Timeout)
-            prx_obj = Cuebot.Communicator.stringToProxy(prx_str)
-            return getattr(CueClientIce,"%sPrx" % interface_name).uncheckedCast(prx_obj)
-        except Exception,e:
-            ## catch this and send it up with the interface and proxy
-            ## string we were using.
-            raise CuebotProxyCreationError("failed to connect to cuebot interface "  +
-                                           interface_name + " on proxy: " + prx_str, e)
+        """
+        logger.debug("setting new server timeout to: %d" % timeout)
+        Cuebot.Timeout =  timeout
 
-    @staticmethod
-    def buildRpcChannel():
-        # gRPC must specify a single host.
-        hostname = Cuebot.Hosts[0].split(':')[0]
-        connect_str = '%s:%s' % (hostname, config.get('cuebot.grpc_port', 8443))
-        logger.debug('connecting to gRPC at %s', connect_str)
-        # TODO(cipriano) Configure gRPC TLS.
-        return grpc.insecure_channel(connect_str)
+    @classmethod
+    def getStub(cls, name):
+        """Get the matching stub from the SERVICE_MAP.
+        Reuse an existing one if possible.
+        @param name: name of stub key for SERVICE_MAP
+        @type name: str"""
+        if Cuebot.RpcChannel is None:
+            raise AttributeError("Cuebot has not been initialized.")
 
-    @staticmethod
-    def register(class_obj, parent_name):
-        """Register a class with an ice object factory
-        @type  class_obj: The class to register
-        @param class_obj: paramA_description
-        @type  parent_name: str
-        @param parent_name: The name of the parent
-        @rtype:  return_type
-        @return: return_description"""
-        of = ObjectFactory(class_obj)
-        Cuebot.Communicator.addObjectFactory(of, parent_name)
+        stubObject = cls.SERVICE_MAP.get(name)
+        if stubObject is None:
+            raise ValueError("Could not find stub interface for {}".format(name))
 
-
-class ObjectFactory(Ice.ObjectFactory):
-    def __init__(self,class_type):
-        self.__type = class_type
-    def create(self, type):
-        return self.__type()
-    def destroy(self):
-        # Nothing to do
-        pass
-
+        return stubObject(Cuebot.RpcChannel)
