@@ -90,15 +90,20 @@ class ProcSearch(BaseSearch):
 
 
 class FrameSearch(BaseSearch):
+
+    page = 1
+    limit = 1000
+    change_date = 0
+
     def __init__(self, **options):
         super(FrameSearch, self).__init__(**options)
 
-    @staticmethod
-    def criteriaFromOptions(**options):
+    @classmethod
+    def criteriaFromOptions(cls, **options):
         criteria = _setOptions(job_pb2.FrameSearchCriteria(), options)
-        criteria.page = options.get('page', 1)
-        criteria.limit = options.get('limit', 1000)
-        criteria.change_date = options.get('change_date', 0)
+        criteria.page = options.get('page', cls.page)
+        criteria.limit = options.get('limit', cls.limit)
+        criteria.change_date = options.get('change_date', cls.change_date)
         return criteria
 
     @classmethod
