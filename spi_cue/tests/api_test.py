@@ -45,12 +45,12 @@ class ShowTests(unittest.TestCase):
     def testCreateShow(self):
         try:
             s = cue3.api.findShow("cue3")
-            cue3.api.deleteShow(s.id)
+            cue3.api.deleteShow(s.id())
         except cue3.EntityNotFoundException:
             pass
         finally:
             s = cue3.api.createShow("cue3")
-            cue3.api.deleteShow(s.id)
+            cue3.api.deleteShow(s.id())
 
 
 class GroupTests(unittest.TestCase):
@@ -101,7 +101,7 @@ class FrameTests(unittest.TestCase):
     def testGetFrame(self):
         frame1 = cue3.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
         frame2 = cue3.api.getFrame(cue3.id(frame1))
-        self.assertEqual(frame1.number, frame2.number)
+        self.assertEqual(frame1.number(), frame2.number())
 
     def testGetFrames(self):
         self.assertTrue(cue3.api.getFrames(TEST_JOB_NAME, range="1-5") > 0)
@@ -129,13 +129,13 @@ class HostTests(unittest.TestCase):
 
     def testFindHost(self):
         h = cue3.api.findHost(TEST_HOST_NAME)
-        self.assertEquals(h.name, TEST_HOST_NAME)
+        self.assertEquals(h.name(), TEST_HOST_NAME)
 
     def testGetHost(self):
         h = cue3.api.findHost(TEST_HOST_NAME)
-        self.assertEquals(h.name, TEST_HOST_NAME)
+        self.assertEquals(h.name(), TEST_HOST_NAME)
         h2 = cue3.api.getHost(cue3.id(h))
-        self.assertEquals(h.name, h2.name)
+        self.assertEquals(h.name(), h2.name())
 
 
 if __name__ == '__main__':

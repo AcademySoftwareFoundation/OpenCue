@@ -18,30 +18,47 @@
 The Cue3 Static API.  This is exported into the package namespace.
 
 Project: Cue3 Library
-
-Module: API.py - Cue3 Library API.
-
-Created: October 17, 2007
-
-Contact: Middle-Tier Group 
-
-SVN: $Id$
 """
 
-import exception
-import grpc
 import search
 import util
-from cuebot import Cuebot
+from Cue3.compiled_proto import comment_pb2
+from Cue3.compiled_proto import criterion_pb2
 from Cue3.compiled_proto import cue_pb2
+from Cue3.compiled_proto import department_pb2
 from Cue3.compiled_proto import depend_pb2
 from Cue3.compiled_proto import facility_pb2
 from Cue3.compiled_proto import filter_pb2
 from Cue3.compiled_proto import host_pb2
 from Cue3.compiled_proto import job_pb2
+from Cue3.compiled_proto import renderPartition_pb2
+from Cue3.compiled_proto import report_pb2
 from Cue3.compiled_proto import service_pb2
 from Cue3.compiled_proto import show_pb2
 from Cue3.compiled_proto import subscription_pb2
+from Cue3.compiled_proto import task_pb2
+from cuebot import Cuebot
+from wrappers.allocation import Allocation
+from wrappers.comment import Comment
+from wrappers.depend import Depend
+from wrappers.filter import Filter
+from wrappers.frame import Frame
+from wrappers.group import Group
+from wrappers.host import Host, NestedHost
+from wrappers.job import Job
+from wrappers.layer import Layer
+from wrappers.proc import Proc
+from wrappers.show import Show
+from wrappers.subscription import Subscription
+from wrappers.task import Task
+
+
+__protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, facility_pb2,
+               filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2, show_pb2,
+               subscription_pb2, task_pb2]
+
+__wrappers = [Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, NestedHost, Proc,
+              Show, Subscription, Task]
 
 
 #
@@ -138,8 +155,8 @@ def createShow(show):
      @param show: A new show name to create
      @rtype:  Show
      @return: The created show object"""
-    return Cuebot.getStub('show').CreateShow(
-        show_pb2.ShowCreateShowRequest(name=show), timeout=Cuebot.Timeout).show
+    return Show(Cuebot.getStub('show').CreateShow(
+        show_pb2.ShowCreateShowRequest(name=show), timeout=Cuebot.Timeout).show)
 
 
 @util.grpcExceptionParser
@@ -157,9 +174,9 @@ def getShows():
     """Returns a list of show objects
     @rtype:  list<Show>
     @return: List of show objects"""
-    response = Cuebot.getStub('show').GetShows(
-        show_pb2.ShowGetShowsRequest(), timeout=Cuebot.Timeout)
-    return response.shows.shows
+    showSeq = Cuebot.getStub('show').GetShows(
+        show_pb2.ShowGetShowsRequest(), timeout=Cuebot.Timeout).shows
+    return [Show(s) for s in showSeq.shows]
 
 
 @util.grpcExceptionParser
@@ -167,9 +184,9 @@ def getActiveShows():
     """Returns a list of all active shows.
     @rtype:  list<Show>
     @return: List of show objects"""
-    response = Cuebot.getStub('show').GetActiveShows(
-        show_pb2.ShowGetActiveShowsRequest(), timeout=Cuebot.Timeout)
-    return response.shows.shows
+    showSeq = Cuebot.getStub('show').GetActiveShows(
+        show_pb2.ShowGetActiveShowsRequest(), timeout=Cuebot.Timeout).shows
+    return [Show(s) for s in showSeq.shows]
 
 
 @util.grpcExceptionParser
@@ -179,8 +196,8 @@ def findShow(name):
     @param name: A string that represents a show to return.
     @rtype:  Show
     @return: List of show objects"""
-    return Cuebot.getStub('show').FindShow(
-        show_pb2.ShowFindShowRequest(name=name), timeout=Cuebot.Timeout).show
+    return Show(Cuebot.getStub('show').FindShow(
+        show_pb2.ShowFindShowRequest(name=name), timeout=Cuebot.Timeout).show)
 
 
 #
@@ -195,8 +212,8 @@ def findGroup(show, group):
     @param group: The name of a group
     @rtype:  Group
     @return: The matching group object"""
-    return Cuebot.getStub('group').FindGroup(
-        job_pb2.GroupFindGroupRequest(show=show, name=group), timeout=Cuebot.Timeout).group
+    return Group(Cuebot.getStub('group').FindGroup(
+        job_pb2.GroupFindGroupRequest(show=show, name=group), timeout=Cuebot.Timeout).group)
 
 
 @util.grpcExceptionParser
@@ -204,8 +221,8 @@ def getGroup(uniq):
     """Returns a Group object from its uniq id.
     @rtype:  Group
     @return: The matching group object"""
-    return Cuebot.getStub('group').GetGroup(
-        job_pb2.GroupGetGroupRequest(id=uniq), timeout=Cuebot.Timeout).group
+    return Group(Cuebot.getStub('group').GetGroup(
+        job_pb2.GroupGetGroupRequest(id=uniq), timeout=Cuebot.Timeout).group)
 
 
 #
@@ -231,8 +248,8 @@ def findJob(name):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    return Cuebot.getStub('job').FindJob(
-        job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job
+    return Job(Cuebot.getStub('job').FindJob(
+        job_pb2.JobFindJobRequest(name=name), timeout=Cuebot.Timeout).job)
 
 
 @util.grpcExceptionParser
@@ -243,8 +260,8 @@ def getJob(uniq):
     @param name: A job name
     @rtype:  Job
     @return: Job object"""
-    return Cuebot.getStub('job').GetJob(
-        job_pb2.JobGetJobRequest(id=uniq), timeout=Cuebot.Timeout).job
+    return Job(Cuebot.getStub('job').GetJob(
+        job_pb2.JobGetJobRequest(id=uniq), timeout=Cuebot.Timeout).job)
 
 
 @util.grpcExceptionParser
@@ -270,8 +287,9 @@ def getJobs(**options):
     @return: a list of jobs
     """
     criteria = search.JobSearch.criteriaFromOptions(**options)
-    return Cuebot.getStub('job').GetJobs(
-        job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs.jobs
+    jobSeq = Cuebot.getStub('job').GetJobs(
+        job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs
+    return [Job(j) for j in jobSeq.jobs]
 
 
 #
@@ -302,8 +320,8 @@ def findLayer(job, layer):
     @param layer: the layer name
     @rtype: Layer
     @return: the layer matching the query"""
-    return Cuebot.getStub('layer').FindLayer(
-        job_pb2.LayerFindLayerRequest(job=job, layer=layer), timeout=Cuebot.Timeout).layer
+    return Layer(Cuebot.getStub('layer').FindLayer(
+        job_pb2.LayerFindLayerRequest(job=job, layer=layer), timeout=Cuebot.Timeout).layer)
 
 
 @util.grpcExceptionParser
@@ -313,8 +331,8 @@ def getLayer(uniq):
     @param uniq: id
     @rtype:  Layer
     @return: A Layer object"""
-    return Cuebot.getStub('layer').GetLayer(
-        job_pb2.LayerGetLayerRequest(id=uniq), timeout=Cuebot.Timeout).layer
+    return Layer(Cuebot.getStub('layer').GetLayer(
+        job_pb2.LayerGetLayerRequest(id=uniq), timeout=Cuebot.Timeout).layer)
 
 
 #
@@ -331,9 +349,9 @@ def findFrame(job, layer, number):
     @param number: the frame number
     @rtype: Frame
     @return: the frame matching the query"""
-    return Cuebot.getStub('frame').FindFrame(
+    return Frame(Cuebot.getStub('frame').FindFrame(
         job_pb2.FrameFindFrameRequest(job=job, layer=layer, frame=number),
-        timeout=Cuebot.Timeout).frame
+        timeout=Cuebot.Timeout).frame)
 
 
 @util.grpcExceptionParser
@@ -343,8 +361,8 @@ def getFrame(uniq):
     @param uniq: id
     @rtype:  Frame
     @return: A Frame object"""
-    return Cuebot.getStub('frame').GetFrame(
-        job_pb2.FrameGetFrameRequest(id=uniq), timeout=Cuebot.Timeout).frame
+    return Frame(Cuebot.getStub('frame').GetFrame(
+        job_pb2.FrameGetFrameRequest(id=uniq), timeout=Cuebot.Timeout).frame)
 
 
 @util.grpcExceptionParser
@@ -355,8 +373,9 @@ def getFrames(job, **options):
     @rtype: List<Frame>
     @return: a list of matching frames"""
     criteria = search.FrameSearch.criteriaFromOptions(**options)
-    return Cuebot.getStub('frame').GetFrames(
-        job_pb2.FrameGetFramesRequest(job=job, r=criteria), timeout=Cuebot.Timeout).frames.frames
+    framesSeq = Cuebot.getStub('frame').GetFrames(
+        job_pb2.FrameGetFramesRequest(job=job, r=criteria), timeout=Cuebot.Timeout).frames
+    return [Frame(f) for f in framesSeq.frames]
 
 
 #
@@ -369,8 +388,8 @@ def getDepend(uniq):
     @param id: the depends' unique id
     @rtype: Depend
     @return: a dependency"""
-    return Cuebot.getStub('depend').GetDepend(
-        depend_pb2.DependGetDependRequest(id=uniq), timeout=Cuebot.Timeout).depend
+    return Depend(Cuebot.getStub('depend').GetDepend(
+        depend_pb2.DependGetDependRequest(id=uniq), timeout=Cuebot.Timeout).depend)
 
 
 #
@@ -381,8 +400,10 @@ def getHostWhiteboard():
     """
     @rtype:  list<Host>
     @return: NestedHost """
-    return Cuebot.getStub('host').GetHostWhiteboard(host_pb2.HostGetHostWhiteboardRequest(),
-                                                    timeout=Cuebot.Timeout).nested_hosts
+    nestedHostSeq = Cuebot.getStub('host').GetHostWhiteboard(
+        host_pb2.HostGetHostWhiteboardRequest(),
+        timeout=Cuebot.Timeout).nested_hosts
+    return [NestedHost(nh) for nh in nestedHostSeq.nested_hosts]
 
 
 @util.grpcExceptionParser
@@ -405,7 +426,8 @@ def getHosts(**options):
     @rtype:  List<Host>
     @return: a list of hosts
     """
-    return search.HostSearch.byOptions(**options).hosts.hosts
+    hostSeq = search.HostSearch.byOptions(**options).hosts
+    return [Host(h) for h in hostSeq.hosts]
 
 
 @util.grpcExceptionParser
@@ -415,8 +437,8 @@ def findHost(name):
     @param name: The unique name of a host
     @rtype:  Host
     @return: The matching host object"""
-    return Cuebot.getStub('host').FindHost(
-        host_pb2.HostFindHostRequest(name=name), timeout=Cuebot.Timeout).host
+    return Host(Cuebot.getStub('host').FindHost(
+        host_pb2.HostFindHostRequest(name=name), timeout=Cuebot.Timeout).host)
 
 
 @util.grpcExceptionParser
@@ -426,8 +448,8 @@ def getHost(uniq):
     @param uniq: an id
     @rtype:  Host
     @return: A Host object"""
-    return Cuebot.getStub('host').GetHost(
-        host_pb2.HostGetHostsRequest(id=uniq), timeout=Cuebot.Timeout).host
+    return Host(Cuebot.getStub('host').GetHost(
+        host_pb2.HostGetHostsRequest(id=uniq), timeout=Cuebot.Timeout).host)
 
 
 #
@@ -451,9 +473,9 @@ def findFilter(show_name, filter_name):
     @param filter_name: a filter name
     @rtype:  Filter
     @return: The matching filter"""
-    return Cuebot.getStub('filter').FindFilter(
+    return Filter(Cuebot.getStub('filter').FindFilter(
         filter_pb2.FilterFindFilterRequest(show=show_name, name=filter_name),
-        timeout=Cuebot.Timeout).filter
+        timeout=Cuebot.Timeout).filter)
 
 #
 # Allocation
@@ -468,9 +490,9 @@ def createAllocation(name, tag, facility):
     @param tag: The tag for the allocation
     @rtype:  Allocation
     @return: The created allocation object"""
-    return Cuebot.getStub('allocation').Create(
+    return Allocation(Cuebot.getStub('allocation').Create(
         facility_pb2.AllocCreateRequest(name=name, tag=tag, facility=facility),
-        timeout=Cuebot.Timeout).allocation
+        timeout=Cuebot.Timeout).allocation)
 
 
 @util.grpcExceptionParser
@@ -478,8 +500,9 @@ def getAllocations():
     """Returns a list of allocation objects
     @rtype:  list<Allocation>
     @return: List of allocation objects"""
-    return Cuebot.getStub('allocation').GetAll(
-        facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations.allocations
+    allocationSeq = Cuebot.getStub('allocation').GetAll(
+        facility_pb2.AllocGetAllRequest(), timeout=Cuebot.Timeout).allocations
+    return [Allocation(a) for a in allocationSeq.allocations]
 
 
 @util.grpcExceptionParser
@@ -489,14 +512,14 @@ def findAllocation(name):
     @param name: The name of the allocation
     @rtype:  Allocation
     @return: Allocation object"""
-    return Cuebot.getStub('allocation').Find(
-        facility_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout).allocation
+    return Allocation(Cuebot.getStub('allocation').Find(
+        facility_pb2.AllocFindRequest(name=name), timeout=Cuebot.Timeout).allocation)
 
 
 @util.grpcExceptionParser
 def getAllocation(allocId):
-    return Cuebot.getStub('allocation').Get(
-        facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocation
+    return Allocation(Cuebot.getStub('allocation').Get(
+        facility_pb2.AllocGetRequest(id=allocId), timeout=Cuebot.Timeout).allocation)
 
 
 @util.grpcExceptionParser
@@ -534,8 +557,8 @@ def getSubscription(uniq):
     @param uniq: an id
     @rtype:  Subscription
     @return: A Subscription object"""
-    return Cuebot.getStub('subscription').Get(
-        subscription_pb2.SubscriptionGetRequest(id=uniq), timeout=Cuebot.Timeout).subscription
+    return Subscription(Cuebot.getStub('subscription').Get(
+        subscription_pb2.SubscriptionGetRequest(id=uniq), timeout=Cuebot.Timeout).subscription)
 
 @util.grpcExceptionParser
 def findSubscription(name):
@@ -544,8 +567,8 @@ def findSubscription(name):
     @param name: The name of the subscription
     @rtype:  Subscription
     @return: Subscription object"""
-    return Cuebot.getStub('subscription').Find(
-        subscription_pb2.SubscriptionFindRequest(name=name), timeout=Cuebot.Timeout).subscription
+    return Subscription(Cuebot.getStub('subscription').Find(
+        subscription_pb2.SubscriptionFindRequest(name=name), timeout=Cuebot.Timeout).subscription)
 
 #
 # Procs
@@ -576,4 +599,5 @@ def getProcs(**options):
 
     @rtype:  List<Proc>
     @return: a list of procs"""
-    return search.ProcSearch.byOptions(**options).procs.procs
+    procSeq = search.ProcSearch.byOptions(**options).procs
+    return [Proc(p) for p in procSeq.procs]
