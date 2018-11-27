@@ -20,6 +20,7 @@
 package com.imageworks.spcue.test;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -136,20 +137,9 @@ public final class TestDatabaseSetup {
         try {
             stmt = conn.createStatement();
 
-            // http://stackoverflow.com/a/18897411
-            String dbCreateScript = new Scanner(new File("src/test/resources/conf/ddl/unittest-db-setup.sql"), "UTF-8").useDelimiter("\\A").next();
-            String[] dbCreateScriptPieces = dbCreateScript.split("-- SPLIT HERE!");
-
-            for (String dbCreateScriptPiece : dbCreateScriptPieces) {
-                System.out.print(".");
-                try {
-                    stmt.execute(dbCreateScriptPiece);
-                } catch (Exception e) {
-                    System.out.println(dbCreateScriptPiece);
-                    throw e;
-                }
-            }
-            System.out.println();
+            ClassLoader classLoader = getClass().getClassLoader();
+            applySqlFile(new File(classLoader.getResource("conf/ddl/oracle/schema.sql").getFile()), stmt);
+            applySqlFile(new File(classLoader.getResource("conf/ddl/oracle/test_data.sql").getFile()), stmt);
         } finally {
             if (stmt != null) {
                 stmt.close();
@@ -205,6 +195,23 @@ public final class TestDatabaseSetup {
         try (Statement rmstmt = conn.createStatement()) {
             rmstmt.execute("DROP USER " + username + " CASCADE");
         }
+    }
+
+    private void applySqlFile(File sqlFile, Statement stmt) throws FileNotFoundException, SQLException {
+        // http://stackoverflow.com/a/18897411
+        String dbCreateScript = new Scanner(sqlFile, "UTF-8").useDelimiter("\\A").next();
+        String[] dbCreateScriptPieces = dbCreateScript.split("-- SPLIT HERE!");
+
+        for (String dbCreateScriptPiece : dbCreateScriptPieces) {
+            System.out.print(".");
+            try {
+                stmt.execute(dbCreateScriptPiece);
+            } catch (Exception e) {
+                System.out.println(dbCreateScriptPiece);
+                throw e;
+            }
+        }
+        System.out.println();
     }
 }
 

@@ -1724,10 +1724,7 @@ and (
     jh.int_ts_stopped = 0
 )
 -- SPLIT HERE!
-
-
-
-CREATE VIEW "V_HISTORY_LAYER" ("PK_LAYER", "PK_JOB", "STR_NAME", "STR_TYPE", "INT_CORES_MIN", "INT_MEM_MIN", "INT_CORE_TIME_SUCCESS", "INT_CORE_TIME_FAIL", "INT_FRAME_COUNT", "INT_LAYER_COUNT", "INT_WAITING_COUNT", "INT_DEAD_COUNT", "INT_DEPEND_COUNT", "INT_EATEN_COUNT", "INT_SUCCEEDED_COUNT", "INT_RUNNING_COUNT", "INT_MAX_RSS", "B_ARCHIVED", "STR_SHOW_NAME", "DT_LAST_MODIFIED") AS
+CREATE VIEW "V_HISTORY_LAYER" ("PK_LAYER", "PK_JOB", "STR_NAME", "STR_TYPE", "INT_CORES_MIN", "INT_MEM_MIN", "INT_CORE_TIME_SUCCESS", "INT_CORE_TIME_FAIL", "INT_FRAME_COUNT", "INT_LAYER_COUNT", "INT_WAITING_COUNT", "INT_DEAD_COUNT", "INT_DEPEND_COUNT", "INT_EATEN_COUNT", "INT_SUCCEEDED_COUNT", "INT_RUNNING_COUNT", "INT_MAX_RSS", "B_ARCHIVED", "STR_SERVICES", "STR_SHOW_NAME", "DT_LAST_MODIFIED") AS
   select
 lh.PK_LAYER,
 lh.PK_JOB,
@@ -2310,6 +2307,7 @@ END;
 CREATE TRIGGER "AFTER_INSERT_LAYER" AFTER INSERT ON layer
 FOR EACH ROW
 BEGIN
+
     INSERT INTO layer_stat (pk_layer_stat, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
     INSERT INTO layer_resource (pk_layer_resource, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
     INSERT INTO layer_usage (pk_layer_usage, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
@@ -2320,7 +2318,6 @@ BEGIN
     VALUES
         (:new.pk_layer, :new.pk_job, :new.str_name, :new.str_type, :new.int_cores_min, :new.int_mem_min, 0, :new.str_services);
 END;
-
 -- SPLIT HERE!
 
 CREATE TRIGGER "BEFORE_DELETE_LAYER" BEFORE DELETE ON layer

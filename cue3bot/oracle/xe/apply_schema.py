@@ -18,12 +18,13 @@ def get_statements(sql_file):
 
 
 def main(user, pwd, sql_file, sql_data_file=None):
-    print "CONNECTING: {}  {}  {}".format(user, pwd, sql_file, sql_data_file)
+    print "CONNECTING: {}  {}  {}".format(user, pwd, sql_file)
     connection = cx_Oracle.connect(user, pwd)
     cursor = connection.cursor()
     for statement in get_statements(sql_file):
         cursor.execute(statement)
     if sql_data_file:
+      print 'APPLYING DATA FILE: {}'.format(sql_data_file)
       for statement in get_statements(sql_data_file):
           cursor.execute(statement)
     cursor.close()

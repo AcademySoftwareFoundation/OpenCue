@@ -4,7 +4,7 @@ set -e
 
 cd $(dirname $0)
 
-DEP_BUCKET="GCS BUCKET NAME" # Where the oracle rpm was copied.
+DEP_BUCKET="gs://queue-manager-third-party" # Where the oracle rpm was copied.
 
 XE_DIRECTORY=`pwd`
 CUEBOT_ROOT_DIRECTORY=$(dirname $(dirname $XE_DIRECTORY))
@@ -57,5 +57,5 @@ if [ "$3" = "--build-prod" ]; then
   docker cp ${CUEBOT_ROOT_DIRECTORY}/src/test/resources/conf/ddl/oracle/demo_data.sql oracle-xe:$ORACLE_SQL_DATA_FILE
   docker cp ${CUEBOT_ROOT_DIRECTORY}/oracle/xe/apply_schema.sh oracle-xe:/tmp/
   docker cp ${CUEBOT_ROOT_DIRECTORY}/oracle/xe/apply_schema.py oracle-xe:/tmp/
-  docker exec oracle-xe /bin/bash -c "/tmp/apply_schema.sh $2 $CUE_DB_USER $ORACLE_SQL_FILE"
+  docker exec oracle-xe /bin/bash -c "/tmp/apply_schema.sh $2 $CUE_DB_USER $ORACLE_SQL_FILE $ORACLE_SQL_DATA_FILE"
 fi
