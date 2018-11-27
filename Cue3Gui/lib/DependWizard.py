@@ -16,16 +16,12 @@
 """
 Wizard interface to setting up dependencies.
 """
-import os
-import sys
 import re
 
-from Manifest import QtCore, QtGui, Cue3, FileSequence
-
 import Cuedepend
-
-import Utils
 import Logger
+import Utils
+from Manifest import QtCore, QtGui, Cue3, FileSequence
 from ProgressDialog import ProgressDialog
 
 logger = Logger.getLogger(__file__)
@@ -33,17 +29,17 @@ logger = Logger.getLogger(__file__)
 __all__ = ["DependWizard"]
 
 # These are the available types of dependencies
-JOJ = str(Cue3.DependType.JobOnJob)
-JOL = str(Cue3.DependType.JobOnLayer)
-JOF = str(Cue3.DependType.JobOnFrame)
-LOJ = str(Cue3.DependType.LayerOnJob)
-LOL = str(Cue3.DependType.LayerOnLayer)
-LOF = str(Cue3.DependType.LayerOnFrame)
-FOJ = str(Cue3.DependType.FrameOnJob)
-FOL = str(Cue3.DependType.FrameOnLayer)
-FOF = str(Cue3.DependType.FrameOnFrame)
-FBF = str(Cue3.DependType.FrameByFrame)
-LOS = str(Cue3.DependType.LayerOnSimFrame)
+JOJ = str(Cue3.api.depend_pb2.JOB_ON_JOB)
+JOL = str(Cue3.api.depend_pb2.JOB_ON_LAYER)
+JOF = str(Cue3.api.depend_pb2.JOB_ON_FRAME)
+LOJ = str(Cue3.api.depend_pb2.LAYER_ON_JOB)
+LOL = str(Cue3.api.depend_pb2.LAYER_ON_LAYER)
+LOF = str(Cue3.api.depend_pb2.LAYER_ON_FRAME)
+FOJ = str(Cue3.api.depend_pb2.FRAME_ON_JOB)
+FOL = str(Cue3.api.depend_pb2.FRAME_ON_LAYER)
+FOF = str(Cue3.api.depend_pb2.FRAME_ON_FRAME)
+FBF = str(Cue3.api.depend_pb2.FRAME_BY_FRAME)
+LOS = str(Cue3.api.depend_pb2.LAYER_ON_SIM_FRAME)
 JFBF = "JobFrameByFrame"
 
 # This determines what order each page is displayed in

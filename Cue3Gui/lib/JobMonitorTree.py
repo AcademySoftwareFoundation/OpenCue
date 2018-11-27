@@ -346,7 +346,7 @@ class JobMonitorTree(AbstractTreeWidget):
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
             for item in self._items.values():
-                if item.iceObject.data.state == Cue3.JobState.Finished:
+                if item.iceObject.data.state == Cue3.api.job_pb2.FINISHED:
                     # Reuse the old object if job is finished
                     jobs[item.iceObject.proxy] = item.iceObject
                 else:
@@ -355,7 +355,7 @@ class JobMonitorTree(AbstractTreeWidget):
 
             if self.__loadMine:
                 # This auto-loads all the users jobs
-                for job in Cue3.getJobs(user=[Utils.getUsername()]):
+                for job in Cue3.api.getJobs(user=[Utils.getUsername()]):
                     jobs[job.proxy] = job
 
                 # Prune the users jobs from the remaining proxies to update
@@ -364,7 +364,7 @@ class JobMonitorTree(AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in Cue3.getJobs(id=monitored_proxies, all=True):
+                for job in Cue3.api.getJobs(id=monitored_proxies, all=True):
                     jobs[job.proxy] = job
 
         except Exception, e:

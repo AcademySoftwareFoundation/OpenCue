@@ -131,28 +131,28 @@ class CueJobMonitorTree(AbstractTreeWidget):
         for itemType in [Constants.TYPE_GROUP, Constants.TYPE_ROOTGROUP]:
             self.startColumnsForType(itemType)
             self.addColumn("", 0, id=1,
-                           data=lambda group:(group.data.name))
+                           data=lambda group: group.name)
             self.addColumn("", 0, id=2)
             self.addColumn("", 0, id=3)
             self.addColumn("", 0, id=4,
-                           data=lambda group:(group.stats.runningFrames))
+                           data=lambda group: group.stats.running_frames)
             self.addColumn("", 0, id=5,
-                           data=lambda group:("%.2f" %  group.stats.reservedCores))
+                           data=lambda group: "%.2f" % group.stats.reserved_cores)
             self.addColumn("", 0, id=6,
-                           data=lambda group:(group.stats.waitingFrames))
+                           data=lambda group: group.stats.waiting_frames)
             self.addColumn("", 0, id=7)
             self.addColumn("", 0, id=8)
             self.addColumn("", 0, id=9,
-                           data=lambda group:(group.data.minCores or ""))
+                           data=lambda group: (group.min_cores or ""))
             self.addColumn("", 0, id=10,
-                           data=lambda group:(group.data.maxCores > 0 and group.data.maxCores or ""))
+                           data=lambda group: (group.max_cores > 0 and group.max_cores or ""))
             self.addColumn("", 0, id=11)
             self.addColumn("", 0, id=12)
             self.addColumn("", 0, id=13)
             self.addColumn("", 0, id=14)
             self.addColumn("", 0, id=15)
             self.addColumn("", 0, id=16,
-                           data=lambda group:(group.data.department != "Unknown" and group.data.department or ""))
+                           data=lambda group: (group.department != "Unknown" and group.department or ""))
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -199,7 +199,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        job = item.iceObject
+        job = item.rpcObject
         if col == COLUMN_COMMENT and Utils.isJob(job) and job.data.hasComment:
             self.__menuActions.jobs().viewComments([job])
 
@@ -250,24 +250,26 @@ class CueJobMonitorTree(AbstractTreeWidget):
                     body += "Jobs:\n" + "\n".join(Utils.dropEvent(event, "application/x-job-names"))
 
                 result = QtGui.QMessageBox.question(self,
-                                   "Move groups/jobs?",
-                                   "Move the following into the group: \"%s\"?\n\n%s" % (item.iceObject.data.name, body),
-                                   QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
+                                                    "Move groups/jobs?",
+                                                    "Move the following into the group: " +
+                                                    "\"%s\"?\n\n%s" % (
+                                                        item.rpcObject.data.name, body),
+                                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
 
                 if result == QtGui.QMessageBox.Yes:
                     if job_ids:
-                        item.iceObject.reparentJobs(job_ids)
+                        item.rpcObject.reparentJobs(job_ids)
                         # If no exception, then move was allowed, so do it locally:
-                        for id in job_ids:
-                            proxy = Cue3.proxy(id, "Job")
-                            self._items[proxy].update(self._items[proxy].iceObject, item)
+                        for id_ in job_ids:
+                            proxy = Cue3.util.proxy(id_, "Job")
+                            self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     if group_ids:
-                        item.iceObject.reparentGroups(group_ids)
+                        item.rpcObject.reparentGroups(group_ids)
                         # If no exception, then move was allowed, so do it locally:
-                        for id in group_ids:
-                            proxy = Cue3.proxy(id, "Group")
-                            self._items[proxy].update(self._items[proxy].iceObject, item)
+                        for id_ in group_ids:
+                            proxy = Cue3.util.proxy(id_, "Group")
+                            self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     self.updateSoon()
 
@@ -280,7 +282,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         show = str(show)
         if not self.__shows.has_key(show):
             try:
-                self.__shows[show] = Cue3.findShow(show)
+                self.__shows[show] = Cue3.api.findShow(show)
             except:
                 logger.warning("This show does not exist: %s" % show)
             if update:
@@ -319,7 +321,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         return self.__shows.keys()
 
     def __getCollapsed(self):
-        return [item.iceObject.proxy for item in self._items.values() if not item.isExpanded()]
+        return [item.rpcObject for item in self._items.values() if not item.isExpanded()]
 
     def __setCollapsed(self, collapsed):
         self.expandAll()
@@ -333,7 +335,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
         try:
-            nestedShows = [show.getJobWhiteboard() for show in self.getShows()]
+            nestedShows = [Cue3.wrappers.show.Show(show.data).getJobWhiteboard() for show in self.getShows()]
             allIds = set(self.__getNestedIds(nestedShows))
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -363,7 +365,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
             if list(current - results[1]) or list(results[1] - current):
                 # (Something removed) or (Something added)
-                selected = [item.iceObject.proxy for item in self.selectedItems()]
+                selected_ids = [item.rpcObject.id for item in self.selectedItems()]
                 collapsed = self.__getCollapsed()
                 scrolled = self.verticalScrollBar().value()
 
@@ -374,7 +376,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
                 self.__setCollapsed(collapsed)
                 self.verticalScrollBar().setValue(scrolled)
-                [self._items[id].setSelected(True) for id in selected if self._items.has_key(id)]
+                [self._items[id_].setSelected(True) for id_ in selected_ids if id_ in self._items]
             else:
                 # Only updates
                 self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
@@ -389,16 +391,21 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @rtype:  list
         @return: The list of all child ids"""
         updated = []
+        if hasattr(groups, 'nested_groups'):
+            groups = groups.nested_groups
         for group in groups:
-            updated.append(group.proxy)
+            updated.append(group.id)
 
             # If group has groups, recursively call this function
             if group.groups:
                 updated.extend(self.__getNestedIds(group.groups))
 
             # If group has jobs, update them
-            for job in group.jobs:
-                updated.append(job.proxy)
+            jobs = group.jobs
+            if hasattr(jobs, 'nested_jobs'):
+                jobs = jobs.nested_jobs
+            for job in jobs:
+                updated.append(job.id)
 
         return updated
 
@@ -408,28 +415,33 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param parent: The parent item for this level of items
         @type  groups: list<NestedGroup>
         @param groups: paramB_description"""
+        if hasattr(groups, 'nested_groups'):
+            groups = groups.nested_groups
         for group in groups:
             # If id already exists, update it
-            if self._items.has_key(group.proxy):
-                groupItem = self._items[group.proxy]
+            if self._items.has_key(group.id):
+                groupItem = self._items[group.id]
                 groupItem.update(group, parent)
 
             # If id does not exist, create it
             elif Utils.isGroup(group):
-                self._items[group.proxy] = groupItem = GroupWidgetItem(group, parent)
+                self._items[group.id] = groupItem = GroupWidgetItem(group, parent)
             else:
-                self._items[group.proxy] = groupItem = RootGroupWidgetItem(group, parent)
+                self._items[group.id] = groupItem = RootGroupWidgetItem(group, parent)
 
             # If group has groups, recursively call this function
             if group.groups:
                 self.__processUpdateHandleNested(groupItem, group.groups)
 
             # If group has jobs, update them
-            for job in group.jobs:
-                if self._items.has_key(job.proxy):
-                    self._items[job.proxy].update(job, groupItem)
+            jobs = group.jobs
+            if hasattr(jobs, 'nested_jobs'):
+                jobs = jobs.nested_jobs
+            for job in jobs:
+                if self._items.has_key(job.id):
+                    self._items[job.id].update(job, groupItem)
                 else:
-                    self._items[job.proxy] = JobWidgetItem(job, groupItem)
+                    self._items[job.id] = JobWidgetItem(job, groupItem)
 
     def mouseDoubleClickEvent(self,event):
         objects = self.selectedObjects()
@@ -487,7 +499,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "sendToGroup")
 
-            depend_menu = QtGui.QMenu("Dependencies",self)
+            depend_menu = QtGui.QMenu("Dependencies", self)
             self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
             self.__menuActions.jobs().addAction(depend_menu, "dependWizard")
             depend_menu.addSeparator()
@@ -567,7 +579,7 @@ class RootGroupWidgetItem(AbstractWidgetItem):
         @rtype:  QtCore.QVariant
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -590,11 +602,11 @@ class RootGroupWidgetItem(AbstractWidgetItem):
     def __lt__(self, other):
         """The shows are always ascending alphabetical"""
         if self.treeWidget().header().sortIndicatorOrder():
-            return other.iceObject.data.name < self.iceObject.data.name
-        return other.iceObject.data.name > self.iceObject.data.name
+            return other.rpcObject.data.name < self.rpcObject.data.name
+        return other.rpcObject.data.name > self.rpcObject.data.name
 
     def __ne__(self, other):
-        return other.iceObject.proxy != self.iceObject.proxy
+        return other.rpcObject != self.rpcObject
 
 class GroupWidgetItem(AbstractWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
@@ -620,7 +632,7 @@ class GroupWidgetItem(AbstractWidgetItem):
         @rtype:  QtCore.QVariant
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -642,11 +654,11 @@ class GroupWidgetItem(AbstractWidgetItem):
     def __lt__(self, other):
         """Groups are always ascending alphabetical"""
         if self.treeWidget().header().sortIndicatorOrder():
-            return other.iceObject.data.name < self.iceObject.data.name
-        return other.iceObject.data.name > self.iceObject.data.name
+            return other.rpcObject.name < self.rpcObject.name
+        return other.rpcObject.name > self.rpcObject.name
 
     def __ne__(self, other):
-        return other.iceObject.proxy != self.iceObject.proxy
+        return other.rpcObject != self.rpcObject
 
 class JobWidgetItem(AbstractWidgetItem):
     """Represents a job entry in the MonitorCue widget."""
@@ -689,7 +701,7 @@ class JobWidgetItem(AbstractWidgetItem):
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
             if not self._cache.has_key(col):
-                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
             return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
@@ -697,25 +709,25 @@ class JobWidgetItem(AbstractWidgetItem):
 
         elif role == QtCore.Qt.BackgroundRole:
             if col == COLUMN_MAXRSS and \
-               self.iceObject.stats.maxRss > Constants.MEMORY_WARNING_LEVEL:
+               self.rpcObject.job_stats.max_rss > Constants.MEMORY_WARNING_LEVEL:
                     return self.__highMemoryColor
-            if self.iceObject.data.isPaused:
+            if self.rpcObject.data.is_paused:
                 return self.__pausedColor
-            if self.iceObject.stats.deadFrames:
+            if self.rpcObject.stats.dead_frames:
                 return self.__dyingColor
-            if not self.iceObject.stats.runningFrames:
-                if not self.iceObject.stats.waitingFrames and \
-                   self.iceObject.stats.dependFrames:
+            if not self.rpcObject.job_stats.running_frames:
+                if not self.rpcObject.job_stats.waiting_frames and \
+                   self.rpcObject.job_stats.depend_frames:
                     return self.__dependedColor
-                if self.iceObject.stats.waitingFrames and \
-                   time.time() - self.iceObject.data.startTime > 30:
+                if self.rpcObject.job_stats.waiting_frames and \
+                   time.time() - self.rpcObject.data.start_time > 30:
                     return self.__noRunningColor
             return self.__backgroundColor
 
         elif role == QtCore.Qt.DecorationRole:
-            if col == COLUMN_COMMENT and self.iceObject.data.hasComment:
+            if col == COLUMN_COMMENT and self.rpcObject.data.has_comment:
                 return self.__commentIcon
-            elif col == COLUMN_EAT and self.iceObject.data.autoEat:
+            elif col == COLUMN_EAT and self.rpcObject.data.auto_eat:
                 return self.__eatIcon
 
         elif role == QtCore.Qt.UserRole:
@@ -723,13 +735,15 @@ class JobWidgetItem(AbstractWidgetItem):
 
         elif role == QtCore.Qt.UserRole + 1:
             if not self._cache.has_key("FST"):
-                self._cache["FST"] = QtCore.QVariant({Cue3.FrameState.Dead: self.iceObject.stats.deadFrames,
-                                                      Cue3.FrameState.Depend: self.iceObject.stats.dependFrames,
-                                                      Cue3.FrameState.Eaten: self.iceObject.stats.eatenFrames,
-                                                      Cue3.FrameState.Running: self.iceObject.stats.runningFrames,
-                                                      Cue3.FrameState.Setup: 0,
-                                                      Cue3.FrameState.Succeeded: self.iceObject.stats.succeededFrames,
-                                                      Cue3.FrameState.Waiting: self.iceObject.stats.waitingFrames})
+                self._cache["FST"] = QtCore.QVariant({
+                    Cue3.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
+                    Cue3.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
+                    Cue3.job_pb2.FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
+                    Cue3.job_pb2.FrameState.Running: self.rpcObject.job_stats.running_frames,
+                    Cue3.job_pb2.FrameState.Setup: 0,
+                    Cue3.job_pb2.FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
+                    Cue3.job_pb2.FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
+                })
             return self._cache.get("FST", Constants.QVARIANT_NULL)
 
         return Constants.QVARIANT_NULL

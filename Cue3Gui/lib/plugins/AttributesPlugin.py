@@ -194,12 +194,12 @@ class LayerAttributes(AbstractAttributes):
     NAME = "LayerAttributes"
 
     @staticmethod
-    def preload(iceObject):
-        return {"depends": iceObject.proxy.getWhatThisDependsOn()}
+    def preload(rpcObject):
+        return {"depends": Cue3.wrappers.layer.Layer(rpcObject).getWhatThisDependsOn()}
 
     def dataSource(self, layer, preload):
         d = {
-                "id": Cue3.id(layer.proxy),
+                "id": Cue3.util.id(layer.proxy),
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
@@ -261,13 +261,13 @@ class JobAttributes(AbstractAttributes):
     NAME = "JobAttributes"
 
     @staticmethod
-    def preload(iceObject):
-        return {"depends": iceObject.proxy.getWhatThisDependsOn()}
+    def preload(rpcObject):
+        return {"depends": Cue3.wrappers.job.Job(rpcObject).getWhatThisDependsOn()}
 
     def dataSource(self, job, preload):
         d = {
             "job": job.data.name,
-            "id": Cue3.id(job),
+            "id": Cue3.util.id(job),
             "facility": job.data.facility,
             "os": job.data.os,
             "show": job.data.show,
@@ -341,7 +341,7 @@ class HostAttributes(AbstractAttributes):
 
     def dataSource(self, host, preload):
         return {"hostname": host.data.name,
-                "id": Cue3.id(host),
+                "id": Cue3.util.id(host),
                 "alloc": host.data.allocName,
                 "os": host.data.os,
                 "nimby": str(host.data.nimbyEnabled),

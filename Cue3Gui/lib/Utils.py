@@ -200,11 +200,11 @@ def findJob(job):
     if not isinstance(job, str):
         return None
     if isStringId(job):
-        return Cue3.getJob(job)
+        return Cue3.api.getJob(job)
     if not re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", job, re.IGNORECASE):
         return None
     try:
-        return Cue3.findJob(job)
+        return Cue3.api.findJob(job)
     except Exception, e:
         logger.warning("Error loading job: %s" % job)
         logger.debug("Error loading job: %s\n%s" % (job, e))

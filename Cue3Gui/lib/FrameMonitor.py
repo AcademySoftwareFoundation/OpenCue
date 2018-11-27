@@ -469,13 +469,13 @@ class FrameMonitor(QtGui.QWidget):
             for item in self._filterStatusButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __state = getattr(Cue3.FrameState, str(item.text()))
+                        __state = getattr(Cue3.job_pb2.FrameState, str(item.text()))
                         __frameSearch.states.remove(__state)
                     item.setChecked(False)
         else:
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
-            __state = getattr(Cue3.FrameState, str(action.text()))
+            __state = getattr(Cue3.job_pb2.FrameState, str(action.text()))
             if action.isChecked():
                 __frameSearch.states.append(__state)
             else:

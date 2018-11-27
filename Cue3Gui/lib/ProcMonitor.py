@@ -189,9 +189,9 @@ class ProcMonitor(QtGui.QWidget):
                                QtCore.SIGNAL('view_object(PyQt_PyObject)'),
                                self.__hostDoubleClickedHandle)
 
-    def __hostDoubleClickedHandle(self, iceObject):
-        if Utils.isHost(iceObject):
-            self.procMonitorTree.procSearch.hosts = [iceObject.data.name]
+    def __hostDoubleClickedHandle(self, rpcObject):
+        if Utils.isHost(rpcObject):
+            self.procMonitorTree.procSearch.hosts = [rpcObject.data.name]
             self.procMonitorTree.updateRequest()
 
 # ==============================================================================

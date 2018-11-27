@@ -109,7 +109,7 @@ class HostMonitor(QtGui.QWidget):
 # Menu to filter by allocation
 # ==============================================================================
     def __filterAllocationSetup(self, layout):
-        self.__filterAllocationList = sorted([alloc.data.name for alloc in Cue3.getAllocations()])
+        self.__filterAllocationList = sorted([alloc.name() for alloc in Cue3.api.getAllocations()])
 
         btn = QtGui.QPushButton("Filter Allocation")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -157,10 +157,13 @@ class HostMonitor(QtGui.QWidget):
                         __hostSearch.allocs.remove(str(item.text()))
                     item.setChecked(False)
         else:
+            allocs = __hostSearch.options.get('allocs', [])
             if action.isChecked():
-                __hostSearch.allocs.append(str(action.text()))
+                __hostSearch.options['allocs'] = allocs.append(str(action.text()))
+            elif allocs is not None:
+                __hostSearch.options['allocs'] = allocs.remove(str(action.text()))
             else:
-                __hostSearch.allocs.remove(str(action.text()))
+                __hostSearch.options['allocs'] = []
 
         self.hostMonitorTree.updateRequest()
 
@@ -168,7 +171,8 @@ class HostMonitor(QtGui.QWidget):
 # Menu to filter by hardware state
 # ==============================================================================
     def __filterHardwareStateSetup(self, layout):
-        self.__filterHardwareStateList = sorted([state for state in dir(Cue3.HardwareState) if not state.startswith("_")])
+        self.__filterHardwareStateList = sorted(
+            [state for state in dir(Cue3.api.host_pb2.HardwareState) if not state.startswith("_")])
 
         btn = QtGui.QPushButton("Filter HardwareState")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -213,16 +217,21 @@ class HostMonitor(QtGui.QWidget):
             for item in self.__filterHardwareStateButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __hostSearch.states.remove(getattr(Cue3.HardwareState,
+                        __hostSearch.states.remove(getattr(Cue3.api.host_pb2.HardwareState,
                                                            str(item.text())))
                     item.setChecked(False)
         else:
+            states = __hostSearch.options.get('states', [])
+            print states
             if action.isChecked():
-                __hostSearch.states.append(getattr(Cue3.HardwareState,
-                                                   str(action.text())))
+                __hostSearch.options['states'] = states.append(
+                    getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
+            elif states is not None:
+                __hostSearch.options['states'] = states.remove(
+                    getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
             else:
-                __hostSearch.states.remove(getattr(Cue3.HardwareState,
-                                                   str(action.text())))
+                __hostSearch.options['states'] = []
+            print states
 
         self.hostMonitorTree.updateRequest()
 

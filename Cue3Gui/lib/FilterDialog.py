@@ -27,18 +27,27 @@ from MenuActions import MenuActions
 from AbstractTreeWidget import *
 from AbstractWidgetItem import *
 from TextEditDialog import TextEditDialog
+from Cue3.compiled_proto.filter_pb2 import ActionType
+from Cue3.compiled_proto.filter_pb2 import FilterType
+from Cue3.compiled_proto.filter_pb2 import MatchSubject
+from Cue3.compiled_proto.filter_pb2 import MatchType
 
-MATCHSUBJECT = [match for match in dir(Cue3.MatchSubject) if type(getattr(Cue3.MatchSubject, match)) == Cue3.MatchSubject]
+
+MATCHSUBJECT = [match for match in dir(MatchSubject)
+                if type(getattr(MatchSubject, match)) == MatchSubject]
 DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index("Shot")
-MATCHTYPE = [match for match in dir(Cue3.MatchType) if type(getattr(Cue3.MatchType, match)) == Cue3.MatchType]
+MATCHTYPE = [match for match in dir(MatchType) if type(getattr(MatchType, match)) == MatchType]
 DEFAULT_MATCHTYPE = MATCHTYPE.index("Is")
-ACTIONTYPE = [action for action in dir(Cue3.ActionType) if type(getattr(Cue3.ActionType, action)) == Cue3.ActionType]
-FILTERTYPE = [filter for filter in dir(Cue3.FilterType) if type(getattr(Cue3.FilterType, filter)) == Cue3.FilterType]
+ACTIONTYPE = [action for action in dir(ActionType)
+              if type(getattr(ActionType, action)) == ActionType]
+FILTERTYPE = [filter_ for filter_ in dir(FilterType)
+              if type(getattr(FilterType, filter_)) == FilterType]
 PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
 
+
 class FilterDialog(QtGui.QDialog):
-    def __init__(self, show, parent = None):
+    def __init__(self, show, parent=None):
         QtGui.QDialog.__init__(self, parent)
 
         self.__show = show
@@ -89,17 +98,24 @@ class FilterDialog(QtGui.QDialog):
                                self.__itemSingleClicked)
         QtCore.QObject.connect(self.__btnRefresh, QtCore.SIGNAL("clicked()"), self.__refresh)
         QtCore.QObject.connect(self.__btnAddFilter, QtCore.SIGNAL("clicked()"), self.__createFilter)
-        QtCore.QObject.connect(self.__btnAddMultipleMatchers, QtCore.SIGNAL("clicked()"), self.__matchers.addMultipleMatchers)
-        QtCore.QObject.connect(self.__btnReplaceAllMatchers, QtCore.SIGNAL("clicked()"), self.__matchers.replaceAllMatchers)
-        QtCore.QObject.connect(self.__btnDeleteAllMatchers, QtCore.SIGNAL("clicked()"), self.__matchers.deleteAllMatchers)
-        QtCore.QObject.connect(self.__btnAddMatcher, QtCore.SIGNAL("clicked()"), self.__matchers.createMatcher)
-        QtCore.QObject.connect(self.__btnDeleteAllActions, QtCore.SIGNAL("clicked()"), self.__actions.deleteAllActions)
-        QtCore.QObject.connect(self.__btnAddAction, QtCore.SIGNAL("clicked()"), self.__actions.createAction)
+        QtCore.QObject.connect(self.__btnAddMultipleMatchers, QtCore.SIGNAL("clicked()"),
+                               self.__matchers.addMultipleMatchers)
+        QtCore.QObject.connect(self.__btnReplaceAllMatchers, QtCore.SIGNAL("clicked()"),
+                               self.__matchers.replaceAllMatchers)
+        QtCore.QObject.connect(self.__btnDeleteAllMatchers, QtCore.SIGNAL("clicked()"),
+                               self.__matchers.deleteAllMatchers)
+        QtCore.QObject.connect(self.__btnAddMatcher, QtCore.SIGNAL("clicked()"),
+                               self.__matchers.createMatcher)
+        QtCore.QObject.connect(self.__btnDeleteAllActions, QtCore.SIGNAL("clicked()"),
+                               self.__actions.deleteAllActions)
+        QtCore.QObject.connect(self.__btnAddAction, QtCore.SIGNAL("clicked()"),
+                               self.__actions.createAction)
         QtCore.QObject.connect(self.__btnDone, QtCore.SIGNAL("clicked()"), self.accept)
 
     def __createFilter(self):
         """Prompts the user to create a new filter"""
-        (value, choice) = QtGui.QInputDialog.getText(self, "Add filter", "Filter name?", QtGui.QLineEdit.Normal, "")
+        (value, choice) = QtGui.QInputDialog.getText(self, "Add filter", "Filter name?",
+                                                     QtGui.QLineEdit.Normal, "")
         if choice:
             self.__filters.addObject(self.__show.createFilter(str(value)))
 
@@ -110,7 +126,7 @@ class FilterDialog(QtGui.QDialog):
         self.__actions._update()
 
     def __itemSingleClicked(self, item, col):
-        filter = item.iceObject
+        filter = item.rpcObject
         self.__matchers.setObject(filter)
         self.__actions.setObject(filter)
 
@@ -297,10 +313,12 @@ class MatcherMonitorTree(AbstractTreeWidget):
                                   shots):
             if deleteExisting:
                 oldMatchers = self.__filter.getMatchers()
+            else:
+                oldMatchers = []
 
             for shot in shots:
-                self.__filter.createMatcher(getattr(Cue3.MatchSubject, str(matchSubject)),
-                                            getattr(Cue3.MatchType, str(matchType)),
+                self.__filter.createMatcher(getattr(MatchSubject, str(matchSubject)),
+                                            getattr(MatchType, str(matchType)),
                                             shot)
             if deleteExisting:
                 for matcher in oldMatchers:
@@ -328,7 +346,7 @@ class ActionMonitorTree(AbstractTreeWidget):
         self.groupIds = {}
         for group in show.getGroups():
             self.groupNames[group.data.name] = group
-            self.groupIds[Cue3.id(group)] = group
+            self.groupIds[Cue3.util.id(group)] = group
 
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)

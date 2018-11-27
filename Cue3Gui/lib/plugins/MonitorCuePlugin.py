@@ -22,6 +22,7 @@ import Cue3
 
 from PyQt4 import QtGui, QtCore
 
+
 logger = Cue3Gui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Monitor Cue"
@@ -189,7 +190,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         self.__showMenuActions = {}
 
         try:
-            shows = sorted([show.name() for show in Cue3.getActiveShows()])
+            shows = sorted([show.name() for show in Cue3.api.getActiveShows()])
         except Exception, e:
             logger.critical(e)
             shows = []

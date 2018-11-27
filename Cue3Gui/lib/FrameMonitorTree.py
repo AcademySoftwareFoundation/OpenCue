@@ -43,7 +43,8 @@ RUNTIME_COLUMN = 9
 MEMORY_COLUMN = 11
 LASTLINE_COLUMN = 15
 
-LOCALRESOURCE = "%s/" % os.getenv("HOST","unknown").split(".")[0]
+LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
+
 
 class FrameMonitorTree(AbstractTreeWidget):
     def __init__(self, parent):
@@ -52,18 +53,19 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         self.startColumnsForType(Constants.TYPE_FRAME)
         self.addColumn("Order", 60, id=1,
-                       data=lambda job,frame:(frame.data.dispatchOrder),
-                       sort=lambda job,frame:(frame.data.dispatchOrder),
-                       tip="The order the frame will be rendered in for it's layer if resources are available.")
+                       data=lambda job, frame: frame.data.dispatchOrder,
+                       sort=lambda job, frame: frame.data.dispatchOrder,
+                       tip="The order the frame will be rendered in for it's layer if resources "
+                           "are available.")
         self.addColumn("Frame", 70, id=2,
-                       data=lambda job,frame:(frame.data.number),
-                       sort=lambda job,frame:(frame.data.number),
+                       data=lambda job, frame: frame.data.number,
+                       sort=lambda job, frame: frame.data.number,
                        tip="The number of the frame.")
         self.addColumn("Layer", 250, id=3,
-                       data=lambda job,frame:(frame.data.layerName),
+                       data=lambda job, frame: frame.data.layerName,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
-                       data=lambda job,frame:(str(frame.data.state)),
+                       data=lambda job, frame: str(frame.data.state),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -72,62 +74,91 @@ class FrameMonitorTree(AbstractTreeWidget):
                            "Depend: \t The frame depends on another frame or job.\n"
                            "Dead: \t The frame failed with an error.")
         self.addColumn("Cores", 55, id=5,
-                       data=lambda job,frame:(self.getCores(frame, True) or ""),
-                       sort=lambda job,frame:(self.getCores(frame)),
+                       data=lambda job, frame: (self.getCores(frame, True) or ""),
+                       sort=lambda job, frame: (self.getCores(frame)),
                        tip="The number of cores a frame is using")
         self.addColumn("Host", 120, id=6,
-                       data=lambda job,frame:(frame.data.lastResource),
+                       data=lambda job, frame: frame.data.lastResource,
                        tip="The last or current resource that the frame used or is using.")
         self.addColumn("Retries", 55, id=7,
-                       data=lambda job,frame:(frame.data.retryCount),
-                       sort=lambda job,frame:(frame.data.retryCount),
+                       data=lambda job, frame: frame.data.retryCount,
+                       sort=lambda job, frame: frame.data.retryCount,
                        tip="The number of times that each frame has had to retry.")
         self.addColumn("_CheckpointEnabled", 20, id=8,
-                       data=lambda job,frame:(""),
-                       sort=lambda job,frame:(frame.data.checkpointState == Cue3.CheckpointState.Enabled),
-                       tip="A green check mark here indicates the frame has written out at least 1 checkpoint segment.")
+                       data=lambda job, frame: "",
+                       sort=lambda job, frame: (
+                               frame.data.checkpointState == Cue3.api.job_pb2.ENABLED),
+                       tip="A green check mark here indicates the frame has written out at least "
+                           "1 checkpoint segment.")
         self.addColumn("CheckP", 55, id=9,
-                       data=lambda job,frame:(frame.data.checkpointCount),
-                       sort=lambda job,frame:(frame.data.checkpointCount),
+                       data=lambda job, frame: frame.data.checkpointCount,
+                       sort=lambda job, frame: frame.data.checkpointCount,
                        tip="The number of times a frame has been checkpointed.")
         self.addColumn("Runtime", 70, id=10,
-                       data=lambda job,frame:(Utils.secondsToHMMSS(frame.data.startTime and frame.data.stopTime and frame.data.stopTime - frame.data.startTime or frame.data.startTime and frame.data.stopTime != frame.data.startTime and time.time() - frame.data.startTime or 0)),
-                       sort=lambda job,frame:(frame.data.startTime and frame.data.stopTime and frame.data.stopTime - frame.data.startTime or frame.data.startTime and frame.data.stopTime != frame.data.startTime and time.time() - frame.data.startTime or 0),
+                       data=lambda job, frame: (Utils.secondsToHMMSS(
+                           frame.data.startTime and
+                           frame.data.stopTime and
+                           frame.data.stopTime - frame.data.startTime or
+                           frame.data.startTime and
+                           frame.data.stopTime != frame.data.startTime and
+                           time.time() - frame.data.startTime or
+                           0)),
+                       sort=lambda job, frame: (
+                               frame.data.startTime and
+                               frame.data.stopTime and
+                               frame.data.stopTime - frame.data.startTime or
+                               frame.data.startTime and
+                               frame.data.stopTime != frame.data.startTime and
+                               time.time() - frame.data.startTime or
+                               0),
                        tip="The amount of HOURS:MINUTES:SECONDS that the frame\n"
                            "has run for or last ran for.\n")
+
         self.addColumn("LLU", 70, id=11,
-                       data=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and self.frameLogDataBuffer.getLastLineData(job, frame)[FrameLogDataBuffer.LLU] or ""),
-                       sort=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and self.frameLogDataBuffer.getLastLineData(job, frame)[FrameLogDataBuffer.LLU] or ""),
+                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                self.frameLogDataBuffer.getLastLineData(
+                                                    job, frame)[FrameLogDataBuffer.LLU] or ""),
+                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                self.frameLogDataBuffer.getLastLineData(
+                                                    job, frame)[FrameLogDataBuffer.LLU] or ""),
                        tip="The amount of HOURS:MINUTES:SECONDS since the last\n"
                            "time the log file was written to. A long period of\n"
                            "time without an update is an indication of a stuck\n"
                            "frame for most types of jobs")
+
         self.addColumn("Memory", 60, id=12,
-                       data=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and Utils.memoryToString(frame.data.usedMemory) or Utils.memoryToString(frame.data.maxRss)),
-                       sort=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and frame.data.usedMemory or frame.data.maxRss),
+                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                Utils.memoryToString(frame.data.usedMemory) or
+                                                Utils.memoryToString(frame.data.maxRss)),
+                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                frame.data.usedMemory or frame.data.maxRss),
                        tip="If a frame is running:\n"
                            "\t The amount of memory currently used by the frame.\n"
                            "If a frame is not running:\n"
                            "\t The most memory this frame has used at one time.")
 
-        import eta
         self.addColumn("Remain", 70, id=13,
-                       data=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and self.frameEtaDataBuffer.getEtaFormatted(job, frame) or ""),
-                       sort=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and self.frameEtaDataBuffer.getEta(job, frame) or -1),
+                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                self.frameEtaDataBuffer.getEtaFormatted(job, frame)
+                                                or ""),
+                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                self.frameEtaDataBuffer.getEta(job, frame) or -1),
                        tip="Hours:Minutes:Seconds remaining.")
 
         self.addColumn("Start Time", 100, id=14,
-                       data=lambda job,frame:(self.getTimeString(frame.data.startTime) or ""),
+                       data=lambda job, frame: (self.getTimeString(frame.data.startTime) or ""),
                        tip="The time the frame was started or retried.")
         self.addColumn("Stop Time", 100, id=15,
-                       data=lambda job,frame:(self.getTimeString(frame.data.stopTime) or ""),
+                       data=lambda job, frame: (self.getTimeString(frame.data.stopTime) or ""),
                        tip="The time that the frame finished or died.")
 
         self.addColumn("Last Line", 0, id=16,
-                       data=lambda job,frame:(frame.data.state == Cue3.FrameState.Running and self.frameLogDataBuffer.getLastLineData(job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
+                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                                                self.frameLogDataBuffer.getLastLineData(
+                                                    job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
                        tip="The last line of a running frame's log file.")
 
-        self.frameSearch = Cue3.FrameSearch()
+        self.frameSearch = Cue3.search.FrameSearch()
 
         self.__job = None
         self.__jobState = None
@@ -379,7 +410,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @return: The results from the cuebot"""
         logger.info("_getUpdateChanged")
         if not self.__job or \
-           (self.__jobState and self.__jobState == Cue3.JobState.Finished):
+           (self.__jobState and self.__jobState == Cue3.api.job_pb2.FINISHED):
             log.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
