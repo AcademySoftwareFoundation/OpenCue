@@ -16,20 +16,21 @@
 """
 Utility functions.
 """
-from Manifest import QtCore, QtGui, Cue3
-
-import re
+import commands
 import os
+import re
 import sys
 import time
-import commands
 import traceback
+
 import yaml
 from yaml.scanner import ScannerError
 
-from ConfirmationDialog import ConfirmationDialog
-
 import Logger
+from ConfirmationDialog import ConfirmationDialog
+from Constants import DEFAULT_INI_PATH
+from Manifest import QtCore, QtGui, Cue3
+
 logger = Logger.getLogger(__file__)
 
 __USERNAME = None
@@ -302,7 +303,7 @@ def getResourceConfig(path=None):
 
     config = {}
     if not path:
-        path = '%/cue_resources.yaml'.format(DEFAULT_INI_PATH)
+        path = '{}/cue_resources.yaml'.format(DEFAULT_INI_PATH)
     try:
         with open(path, 'r') as f:
             config = yaml.load(f)

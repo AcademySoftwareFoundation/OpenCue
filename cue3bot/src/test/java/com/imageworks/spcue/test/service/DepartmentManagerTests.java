@@ -16,12 +16,13 @@
  */
 
 
-
 package com.imageworks.spcue.test.service;
 
 import javax.annotation.Resource;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -38,13 +39,19 @@ import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
+import com.imageworks.spcue.test.AssumingTrackitEnabled;
 
 import static org.junit.Assert.assertTrue;
+
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 @TransactionConfiguration(transactionManager="transactionManager")
 public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
+
+    @Autowired
+    @Rule
+    public AssumingTrackitEnabled assumingTrackitEnabled;
 
     @Resource
     DepartmentManager departmentManager;
@@ -67,10 +74,6 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void enableTiManaged() {
-
-        // TODO(cipriano) Fix to allow department tests to run with TrackIt optional. (b/77489145)
-        if (true) { return; }
-
         ShowInterface show = showDao.findShowDetail("pipe");
         DepartmentInterface dept = departmentDao.getDefaultDepartment();
         PointInterface rp = pointDao.getPointConfigDetail(show, dept);
@@ -90,10 +93,6 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void updateTiManagedTasks() {
-
-        // TODO(cipriano) Fix to allow department tests to run with TrackIt optional. (b/77489145)
-        if (true) { return; }
-
         ShowInterface show = showDao.findShowDetail("pipe");
         DepartmentInterface dept = departmentDao.getDefaultDepartment();
         PointInterface rp;
