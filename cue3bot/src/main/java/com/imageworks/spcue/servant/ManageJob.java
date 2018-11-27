@@ -672,16 +672,16 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         return frameSearchFactory;
     }
 
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
+
     public JobSearchFactory getJobSearchFactory() {
         return jobSearchFactory;
     }
 
     public void setJobSearchFactory(JobSearchFactory jobSearchFactory) {
         this.jobSearchFactory = jobSearchFactory;
-    }
-
-    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

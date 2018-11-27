@@ -26,6 +26,9 @@ import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 
 public interface FrameSearchInterface extends CriteriaInterface {
+    int DEFAULT_PAGE = 1;
+    int DEFAULT_LIMIT = 1000;
+
     FrameSearchCriteria getCriteria();
     void setCriteria(FrameSearchCriteria criteria);
     String getSortedQuery(String query);
@@ -42,8 +45,8 @@ public interface FrameSearchInterface extends CriteriaInterface {
 
     static FrameSearchCriteria criteriaFactory() {
         return FrameSearchCriteria.newBuilder()
-                .setPage(1)
-                .setLimit(1000)
+                .setPage(DEFAULT_PAGE)
+                .setLimit(DEFAULT_LIMIT)
                 .setChangeDate(0)
                 .build();
     }

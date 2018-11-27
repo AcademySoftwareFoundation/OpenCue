@@ -465,9 +465,8 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         return jobSearchFactory;
     }
 
-    public ManageShow setJobSearchFactory(JobSearchFactory jobSearchFactory) {
+    public void setJobSearchFactory(JobSearchFactory jobSearchFactory) {
         this.jobSearchFactory = jobSearchFactory;
-        return this;
     }
 }
 
