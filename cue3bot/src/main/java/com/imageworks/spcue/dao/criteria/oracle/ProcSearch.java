@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
+package com.imageworks.spcue.dao.criteria.oracle;
 
-
-package com.imageworks.spcue.dao.criteria;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -27,26 +26,22 @@ import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
 import com.imageworks.common.SpiIce.IntegerSearchCriterion;
 import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.dao.criteria.CriteriaException;
+import com.imageworks.spcue.dao.criteria.Phrase;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
+import com.imageworks.spcue.dao.criteria.Sort;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
-public class ProcSearch extends Criteria {
+public class ProcSearch extends Criteria implements ProcSearchInterface {
 
     private ProcSearchCriteria criteria;
-    private Set<Phrase> notJobs = new HashSet<Phrase>();
-    private Set<Phrase> notGroups = new HashSet<Phrase>();
+    private Set<Phrase> notJobs = new HashSet<>();
+    private Set<Phrase> notGroups = new HashSet<>();
 
     public ProcSearch() {
-        criteria = ProcSearch.criteriaFactory();
-    }
-
-    public ProcSearch(ProcSearchCriteria criteria) {
-        this.criteria = criteria;
-    }
-
-    public ProcSearch(ProcSearchCriteria criteria, Sort o) {
-        this.criteria = criteria;
-        this.addSort(o);
+        criteria = ProcSearchInterface.criteriaFactory();
     }
 
     public ProcSearchCriteria getCriteria() {
@@ -57,54 +52,63 @@ public class ProcSearch extends Criteria {
         this.criteria = criteria;
     }
 
-    public static final ProcSearchCriteria criteriaFactory() {
-        return ProcSearchCriteria.newBuilder().build();
+    public void notJobs(List<JobInterface> jobs) {
+        for (JobInterface job: jobs) {
+            notJobs.add(new Phrase("proc.pk_job","!=", job.getJobId()));
+        }
     }
 
-    public void addDurationRange(IntegerSearchCriterion e) {
+    public void notGroups(List<GroupInterface> groups) {
+        for (GroupInterface group: groups) {
+            notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
+        }
+    }
+
+    public void filterByDurationRange(IntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
-        final Class<? extends IntegerSearchCriterion> c = e.getClass();
+        final Class<? extends IntegerSearchCriterion> c = criterion.getClass();
 
         if (c == LessThanIntegerSearchCriterion.class) {
-            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) e;
+            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) criterion;
             values.add(r.value);
             sb.append(" (find_duration(proc.ts_dispatched, null) <= ?) ");
         }
         else if (c == GreaterThanIntegerSearchCriterion.class) {
-            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) e;
+            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) criterion;
             values.add(r.value);
             sb.append(" (find_duration(proc.ts_dispatched, null) >= ?) ");
         }
         else if (c == InRangeIntegerSearchCriterion.class) {
-            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) e;
+            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) criterion;
             values.add(r.min);
             values.add(r.max);
             sb.append(" (find_duration(proc.ts_dispatched, null) BETWEEN ? AND ? )");
         }
         else {
             throw new CriteriaException("Invalid criteria class used for duration range search: "
-                    + e.getClass().getCanonicalName());
+                    + criterion.getClass().getCanonicalName());
         }
         chunks.add(sb);
     }
 
-    public ProcSearch notJobs(List<JobInterface> jobs) {
-        for (JobInterface job: jobs) {
-            notJobs.add(new Phrase("proc.pk_job","!=",job.getJobId()));
-        }
-        return this;
+    public void filterByHost(HostInterface host) {
+        addPhrase("host.pk_host", host.getHostId());
     }
 
-    public ProcSearch notGroups(List<GroupInterface> groups) {
-        for (GroupInterface group: groups) {
-            notGroups.add(new Phrase("folder.pk_folder","!=", group.getGroupId()));
-        }
-        return this;
+    public void sortByHostName() {
+        addSort(Sort.asc("host.str_name"));
+    }
+
+    public void sortByDispatchedTime() {
+        addSort(Sort.asc("proc.ts_dispatched"));
+    }
+
+    public void sortByBookedTime() {
+        addSort(Sort.asc("proc.ts_booked"));
     }
 
     @Override
-    public void buildWhereClause() {
-
+    void buildWhereClause() {
         addPhrases(notJobs, "AND");
         addPhrases(notGroups, "AND");
 
@@ -114,14 +118,14 @@ public class ProcSearch extends Criteria {
         addPhrase("show.str_name", criteria.getShowsList());
         addPhrase("alloc.str_name", criteria.getAllocsList());
 
-//        TODO: (gdenton) b/117847423 reimplement the Criterion objects in grpc
-//        if (criteria.getMemoryRangeCount() > 0) {
-//            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
-//        }
-//
-//        if (criteria.getDurationRangeCount() > 0) {
-//            addDurationRange(criteria.getDurationRange(0));
-//        }
+        // TODO(gdenton) Reimplement the Criterion objects in grpc (b/119788753)
+        // if (criteria.getMemoryRangeCount() > 0) {
+        //     addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
+        // }
+        //
+        // if (criteria.getDurationRangeCount() > 0) {
+        //     addDurationRange(criteria.getDurationRange(0));
+        // }
 
         setFirstResult(criteria.getFirstResult());
         if (criteria.getMaxResultsCount() > 0) {
@@ -129,4 +133,3 @@ public class ProcSearch extends Criteria {
         }
     }
 }
-

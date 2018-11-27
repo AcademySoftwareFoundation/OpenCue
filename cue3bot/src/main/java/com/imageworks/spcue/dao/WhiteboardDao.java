@@ -37,10 +37,10 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.HostSearch;
-import com.imageworks.spcue.dao.criteria.JobSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.depend.AbstractDepend;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
@@ -101,27 +101,27 @@ public interface WhiteboardDao {
     /**
      * Returns a list of hosts
      *
-     * @param r HostSearch
+     * @param r HostSearchInterface
      * @return HostSeq
      */
-    HostSeq getHosts(HostSearch  r);
+    HostSeq getHosts(HostSearchInterface r);
 
     /**
      * Returns a list of jobs
      *
-     * @param r JobSearch
+     * @param r JobSearchInterface
      * @return JobSeq
      */
-    JobSeq getJobs(JobSearch  r);
+    JobSeq getJobs(JobSearchInterface  r);
 
     /**
      * Returns a list of job names
      *
-     * @param r JobSearch
+     * @param r JobSearchInterface
      * @return List of Strings
      */
 
-    List<String> getJobNames(JobSearch  r);
+    List<String> getJobNames(JobSearchInterface  r);
 
     /**
      * Returns the comments for the specified job
@@ -261,10 +261,10 @@ public interface WhiteboardDao {
     /**
      * Frame search
      *
-     * @param r FrameSearch
+     * @param r FrameSearchInterface
      * @return FrameSeq
      */
-    FrameSeq getFrames(FrameSearch r);
+    FrameSeq getFrames(FrameSearchInterface r);
 
     /**
      * Returns a list of layers for the specified job.
@@ -503,12 +503,12 @@ public interface WhiteboardDao {
     TaskSeq getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
-     * Returns procs from a ProcSearch criteria.
+     * Returns procs from a ProcSearchInterface criteria.
      *
-     * @param p ProcSearch
+     * @param p ProcSearchInterface
      * @return ProcSeq
      */
-    ProcSeq getProcs(ProcSearch p);
+    ProcSeq getProcs(ProcSearchInterface p);
 
     /**
      * Return the grpc representation of the given AbstractDepend.

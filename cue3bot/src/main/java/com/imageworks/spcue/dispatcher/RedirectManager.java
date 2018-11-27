@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.dispatcher;
 
 import java.util.ArrayList;
@@ -34,9 +33,8 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.service.HostManager;
@@ -45,28 +43,21 @@ import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
-public class RedirectManager   {
 
-    private static final Logger logger =
-        Logger.getLogger(RedirectManager.class);
+public class RedirectManager {
+
+    private static final Logger logger = Logger.getLogger(RedirectManager.class);
 
     private JobDao jobDao;
-
     private ProcDao procDao;
-
     private GroupDao groupDao;
-
     private Dispatcher dispatcher;
-
     private BookingQueue bookingQueue;
-
     private HostManager hostManager;
-
     private JobManagerSupport jobManagerSupport;
-
     private DispatchSupport dispatchSupport;
-
     private RedirectService redirectService;
+    private ProcSearchFactory procSearchFactory;
 
     public RedirectManager(RedirectService redirectService) {
         this.redirectService = redirectService;
@@ -118,8 +109,9 @@ public class RedirectManager   {
         List<GroupInterface> groups = new ArrayList<GroupInterface>(1);
         groups.add(group);
 
-        ProcSearch search = new ProcSearch(criteria,
-                new Sort("proc.ts_booked",Direction.ASC)).notGroups(groups);
+        ProcSearchInterface search = procSearchFactory.create(criteria);
+        search.sortByBookedTime();
+        search.notGroups(groups);
 
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(search);
         if (procs.size() == 0) {
@@ -160,8 +152,9 @@ public class RedirectManager   {
                                          List<JobInterface> jobs, boolean kill, Source source) {
         int index = 0;
 
-        List<VirtualProc> procs = hostManager.findBookedVirtualProcs(
-                new ProcSearch(criteria) .notJobs(jobs));
+        ProcSearchInterface procSearch = procSearchFactory.create(criteria);
+        procSearch.notJobs(jobs);
+        List<VirtualProc> procs = hostManager.findBookedVirtualProcs(procSearch);
         if (procs.size() == 0) {
             return procs;
         }
@@ -435,6 +428,14 @@ public class RedirectManager   {
 
     public void setProcDao(ProcDao procDao) {
         this.procDao = procDao;
+    }
+
+    public ProcSearchFactory getProcSearchFactory() {
+        return procSearchFactory;
+    }
+
+    public void setProcSearchFactory(ProcSearchFactory procSearchFactory) {
+        this.procSearchFactory = procSearchFactory;
     }
 }
 

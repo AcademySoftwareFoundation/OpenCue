@@ -26,7 +26,7 @@ import com.imageworks.spcue.FrameEntity;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.depend.FrameOnJob;
 import com.imageworks.spcue.depend.FrameOnLayer;
@@ -87,6 +87,7 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
     private LocalBookingSupport localBookingSupport;
+    private FrameSearchFactory frameSearchFactory;
 
     @Override
     public void findFrame(FrameFindFrameRequest request, StreamObserver<FrameFindFrameResponse> responseObserver) {
@@ -107,8 +108,11 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void getFrames(FrameGetFramesRequest request, StreamObserver<FrameGetFramesResponse> responseObserver) {
         responseObserver.onNext(FrameGetFramesResponse.newBuilder()
-                .setFrames(whiteboard.getFrames(new FrameSearch(jobManagerSupport.getJobManager()
-                        .findJob(request.getJob()) , request.getR())))
+                .setFrames(
+                        whiteboard.getFrames(
+                                frameSearchFactory.create(
+                                        jobManagerSupport.getJobManager().findJob(request.getJob()),
+                                        request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -116,8 +120,11 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void eat(FrameEatRequest request, StreamObserver<FrameEatResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(new DispatchEatFrames(new FrameSearch(frame), new Source(request.toString()),
-                jobManagerSupport));
+        manageQueue.execute(
+                new DispatchEatFrames(
+                        frameSearchFactory.create(frame),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(FrameEatResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -125,8 +132,11 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void kill(FrameKillRequest request, StreamObserver<FrameKillResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(new DispatchKillFrames(new FrameSearch(frame), new Source(request.toString()),
-                jobManagerSupport));
+        manageQueue.execute(
+                new DispatchKillFrames(
+                        frameSearchFactory.create(frame),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(FrameKillResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -134,8 +144,11 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void retry(FrameRetryRequest request, StreamObserver<FrameRetryResponse> responseObserver) {
         FrameEntity frame = getFrameEntity(request.getFrame());
-        manageQueue.execute(new DispatchRetryFrames(new FrameSearch(frame),
-                new Source(request.toString()), jobManagerSupport));
+        manageQueue.execute(
+                new DispatchRetryFrames(
+                        frameSearchFactory.create(frame),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(FrameRetryResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -331,6 +344,14 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     private void updateManagers() {
         setDependManager(jobManagerSupport.getDependManager());
         setJobManager(jobManagerSupport.getJobManager());
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

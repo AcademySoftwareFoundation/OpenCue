@@ -40,7 +40,8 @@ import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.DependException;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.depend.FrameOnFrame;
@@ -68,6 +69,7 @@ public class DependManagerService implements DependManager {
     private JobDao jobDao;
     private LayerDao layerDao;
     private FrameDao frameDao;
+    private FrameSearchFactory frameSearchFactory;
 
     /** Job Depends **/
     @Override
@@ -494,16 +496,16 @@ public class DependManagerService implements DependManager {
     }
 
     @Transactional(propagation=Propagation.SUPPORTS)
-    private void updateDependCount(LayerInterface l) {
-        FrameSearch r = new FrameSearch(l);
+    private void updateDependCount(LayerInterface layer) {
+        FrameSearchInterface r = frameSearchFactory.create(layer);
         for (FrameInterface f: frameDao.findFrames(r)) {
             updateDependCounts(f);
         }
     }
 
     @Transactional(propagation=Propagation.SUPPORTS)
-    private void updateDependCount(JobInterface j) {
-        FrameSearch r = new FrameSearch(j);
+    private void updateDependCount(JobInterface job) {
+        FrameSearchInterface r = frameSearchFactory.create(job);
         for (FrameInterface f: frameDao.findFrames(r)) {
             updateDependCounts(f);
         }
@@ -660,6 +662,14 @@ public class DependManagerService implements DependManager {
 
     public void setDependDao(DependDao workDao) {
         this.dependDao = workDao;
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

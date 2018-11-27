@@ -64,6 +64,8 @@
 
   <bean id="whiteboardDao" class="com.imageworks.spcue.dao.oracle.WhiteboardDaoJdbc">
     <property name="dataSource" ref="cue3DataSource" />
+    <property name="frameSearchFactory" ref="frameSearchFactory" />
+    <property name="procSearchFactory" ref="procSearchFactory" />
   </bean>
 
   <bean id="nestedWhiteboardDao" class="com.imageworks.spcue.dao.oracle.NestedWhiteboardDaoJdbc">
