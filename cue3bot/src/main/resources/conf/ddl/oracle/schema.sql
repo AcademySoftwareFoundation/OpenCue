@@ -254,7 +254,8 @@ CREATE TABLE "LAYER_HISTORY"
 	"INT_RUNNING_COUNT" NUMBER(38,0) DEFAULT 0 NOT NULL,
 	"INT_MAX_RSS" NUMBER(38,0) DEFAULT 0 NOT NULL,
 	"B_ARCHIVED" NUMBER(1,0) DEFAULT 0 NOT NULL,
-	"DT_LAST_MODIFIED" DATE NOT NULL
+	"DT_LAST_MODIFIED" DATE NOT NULL,
+	"STR_SERVICES" VARCHAR2(128)
    )
 -- SPLIT HERE!
 CREATE TABLE "JOB_HISTORY"
@@ -587,7 +588,7 @@ CREATE TABLE "FRAME"
 	"TS_LAST_RUN" TIMESTAMP (6) WITH TIME ZONE,
 	"TS_UPDATED" TIMESTAMP (6) WITH TIME ZONE,
 	"INT_VERSION" NUMBER(16,0) DEFAULT 0,
-	"STR_CHECKPOINT_STATE" VARCHAR2(12 BYTE) DEFAULT 'DISABLED' NOT NULL,
+	"STR_CHECKPOINT_STATE" VARCHAR2(12 BYTE) DEFAULT 'Disabled' NOT NULL,
 	"INT_CHECKPOINT_COUNT" NUMBER(6,0) DEFAULT 0 NOT NULL,
 	"INT_GPU_RESERVED" NUMBER(10,0) DEFAULT 0 NOT NULL,
 	"INT_TOTAL_PAST_CORE_TIME" NUMBER(16,0) DEFAULT 0 NOT NULL
@@ -686,6 +687,15 @@ CREATE TABLE "ACTION"
 	"TS_CREATED" TIMESTAMP (6) DEFAULT systimestamp NOT NULL,
 	"FLOAT_VALUE" NUMBER(6,2),
 	"B_STOP" NUMBER(1,0) DEFAULT 0 NOT NULL
+   )
+-- SPLIT HERE!
+CREATE TABLE "REDIRECT"
+   (	"PK_PROC" VARCHAR2(36 BYTE) NOT NULL,
+    "STR_GROUP_ID" VARCHAR(36 BYTE) NOT NULL,
+    "INT_TYPE" NUMBER(38,0) NOT NULL,
+    "STR_DESTINATION_ID" VARCHAR2(512 BYTE) NOT NULL,
+    "STR_NAME" VARCHAR2(512 BYTE) NOT NULL,
+    "LNG_CREATION_TIME" NUMBER(38,0) NOT NULL
    )
 
 
@@ -1332,6 +1342,12 @@ CREATE INDEX "I_FRAME_HISTORY_PK_LAYER" ON "FRAME_HISTORY" ("PK_LAYER")
 -- SPLIT HERE!
 CREATE INDEX "I_FRAME_HISTORY_STR_STATE" ON "FRAME_HISTORY" ("STR_STATE")
 -- SPLIT HERE!
+CREATE UNIQUE INDEX "C_REDIRECT_PK" ON "REDIRECT" ("PK_PROC")
+-- SPLIT HERE!
+CREATE INDEX "I_REDIRECT_GROUP" ON "REDIRECT" ("STR_GROUP_ID")
+-- SPLIT HERE!
+CREATE INDEX "I_REDIRECT_CREATE" ON "REDIRECT" ("LNG_CREATION_TIME")
+-- SPLIT HERE!
 
 ALTER TABLE "ACTION" ADD CONSTRAINT "C_ACTION_PK" PRIMARY KEY ("PK_ACTION")
   USING INDEX "C_ACTION_PK"
@@ -1528,6 +1544,9 @@ ALTER TABLE "HISTORY_PERIOD" ADD CONSTRAINT "C_HISTORY_PERIOD_PK" PRIMARY KEY ("
 ALTER TABLE "FRAME_HISTORY" ADD CONSTRAINT "C_FRAME_HISTORY_PK" PRIMARY KEY ("PK_FRAME_HISTORY")
   USING INDEX (CREATE UNIQUE INDEX "C_FRAME_HISTORY_PK" ON "FRAME_HISTORY" ("PK_FRAME_HISTORY"))
 -- SPLIT HERE!
+ALTER TABLE "REDIRECT" ADD CONSTRAINT "C_REDIRECT_PK" PRIMARY KEY ("PK_PROC")
+  USING INDEX "C_REDIRECT_PK"
+-- SPLIT HERE!
 
 CREATE VIEW "VS_SHOW_RESOURCE" ("PK_SHOW", "INT_CORES") AS
   SELECT
@@ -1539,7 +1558,7 @@ CREATE VIEW "VS_SHOW_RESOURCE" ("PK_SHOW", "INT_CORES") AS
     WHERE
        job.pk_job = job_resource.pk_job
     AND
-       job.str_state='PENDING'
+       job.str_state='Pending'
     GROUP BY
        job.pk_show
 
@@ -1557,7 +1576,7 @@ CREATE VIEW "VS_SHOW_STAT" ("PK_SHOW", "INT_PENDING_COUNT", "INT_RUNNING_COUNT",
     WHERE
         job_stat.pk_job = job.pk_job
     AND
-        job.str_state = 'PENDING'
+        job.str_state = 'Pending'
     GROUP BY job.pk_show
 
 -- SPLIT HERE!
@@ -1579,11 +1598,11 @@ CREATE VIEW "VS_ALLOC_USAGE" ("PK_ALLOC", "INT_CORES", "INT_IDLE_CORES", "INT_RU
         NVL(SUM(host.int_cores),0) AS int_cores,
         NVL(SUM(host.int_cores_idle),0) AS int_idle_cores,
         NVL(SUM(host.int_cores - host.int_cores_idle),0) as int_running_cores,
-        NVL((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NIMBY_LOCKED' OR str_lock_state='LOCKED')),0) AS int_locked_cores,
-        NVL((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='OPEN' AND hs.str_state ='UP'),0) AS int_available_cores,
+        NVL((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NimbyLocked' OR str_lock_state='Locked')),0) AS int_locked_cores,
+        NVL((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='Open' AND hs.str_state ='Up'),0) AS int_available_cores,
         COUNT(host.pk_host) AS int_hosts,
-        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='LOCKED') AS int_locked_hosts,
-        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='DOWN') AS int_down_hosts
+        (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='Locked') AS int_locked_hosts,
+        (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='Down') AS int_down_hosts
     FROM
         alloc LEFT JOIN host ON (alloc.pk_alloc = host.pk_alloc)
     GROUP BY
@@ -1602,7 +1621,7 @@ CREATE VIEW "VS_FOLDER_COUNTS" ("PK_FOLDER", "INT_DEPEND_COUNT", "INT_WAITING_CO
 FROM
     folder
       LEFT JOIN
-        job ON (folder.pk_folder = job.pk_folder AND job.str_state='PENDING')
+        job ON (folder.pk_folder = job.pk_folder AND job.str_state='Pending')
       LEFT JOIN
         job_stat ON (job.pk_job = job_stat.pk_job)
       LEFT JOIN
@@ -1623,7 +1642,7 @@ CREATE VIEW "VS_WAITING" ("PK_SHOW") AS
     AND
         jr.pk_job = job.pk_job
     AND
-        job.str_state = 'PENDING'
+        job.str_state = 'Pending'
     AND
         job.b_paused = 0
     AND
@@ -1705,6 +1724,9 @@ and (
     jh.int_ts_stopped = 0
 )
 -- SPLIT HERE!
+
+
+
 CREATE VIEW "V_HISTORY_LAYER" ("PK_LAYER", "PK_JOB", "STR_NAME", "STR_TYPE", "INT_CORES_MIN", "INT_MEM_MIN", "INT_CORE_TIME_SUCCESS", "INT_CORE_TIME_FAIL", "INT_FRAME_COUNT", "INT_LAYER_COUNT", "INT_WAITING_COUNT", "INT_DEAD_COUNT", "INT_DEPEND_COUNT", "INT_EATEN_COUNT", "INT_SUCCEEDED_COUNT", "INT_RUNNING_COUNT", "INT_MAX_RSS", "B_ARCHIVED", "STR_SHOW_NAME", "DT_LAST_MODIFIED") AS
   select
 lh.PK_LAYER,
@@ -1725,6 +1747,7 @@ lh.INT_SUCCEEDED_COUNT,
 lh.INT_RUNNING_COUNT,
 lh.INT_MAX_RSS,
 lh.B_ARCHIVED,
+lh.STR_SERVICES,
 s.str_name str_show_name,
 lh.dt_last_modified
 from layer_history lh, job_history jh, show s
@@ -1737,83 +1760,6 @@ and jh.dt_last_modified >= (
 and jh.dt_last_modified < (
     select dt_end
     from history_period
-)
--- SPLIT HERE!
-CREATE VIEW "V_TEMP" ("PK_JOB", "STR_NAME", "STR_SHOT", "STR_USER", "INT_CORE_TIME_SUCCESS", "INT_CORE_TIME_FAIL", "INT_FRAME_COUNT", "INT_LAYER_COUNT", "INT_WAITING_COUNT", "INT_DEAD_COUNT", "INT_DEPEND_COUNT", "INT_EATEN_COUNT", "INT_SUCCEEDED_COUNT", "INT_RUNNING_COUNT", "INT_MAX_RSS", "B_ARCHIVED", "STR_FACILITY_NAME", "STR_DEPT_NAME", "INT_TS_STARTED", "INT_TS_STOPPED", "STR_SHOW_NAME", "DT_LAST_MODIFIED") AS
-  SELECT jh.PK_JOB,
-    jh.STR_NAME,
-    jh.STR_SHOT,
-    jh.STR_USER,
-    jh.INT_CORE_TIME_SUCCESS,
-    jh.INT_CORE_TIME_FAIL,
-    jh.INT_FRAME_COUNT,
-    jh.INT_LAYER_COUNT,
-    jh.INT_WAITING_COUNT,
-    jh.INT_DEAD_COUNT,
-    jh.INT_DEPEND_COUNT,
-    jh.INT_EATEN_COUNT,
-    jh.INT_SUCCEEDED_COUNT,
-    jh.INT_RUNNING_COUNT,
-    jh.INT_MAX_RSS,
-    jh.B_ARCHIVED,
-    f.str_name STR_FACILITY_NAME,
-    d.str_name str_dept_name,
-    jh.INT_TS_STARTED,
-    jh.INT_TS_STOPPED,
-    s.str_name str_show_name,
-    jh.dt_last_modified
-  FROM job_history jh,
-    show s,
-    facility f,
-    dept d
-  WHERE jh.pk_show           = s.pk_show
-  AND jh.pk_facility         = f.pk_facility
-  AND jh.pk_dept             = d.pk_dept
-  AND pk_job IN (
-'1514bafd-7d59-4974-b05c-d1a370366493',
-'eac9b6b6-d57b-472a-9a22-a6f4d0ec1a58',
-'ccb9740c-530f-4bce-94f0-493a78810d9d',
-'7abd769f-289f-4ace-bc86-071a4c63f476',
-'2170b154-104c-4e89-9ecc-05caf9112bbe',
-'6f406088-0574-4d01-a774-61cff2ec0cf7',
-'1f25d5a9-2637-4ecf-a0cf-3813fe3b9bcb',
-'086d0d26-7553-408a-82b5-672fec1aa85f',
-'d00714d0-8c69-4ba5-a57b-f013638349ef',
-'80d3de06-7b30-4cba-9033-e76be3fa3c98',
-'9ef2c406-8cbb-4ff7-920d-2aa824bf368e',
-'fc6d2448-68b1-4035-bf65-3153a85ec5a1',
-'d431833c-6217-4955-a3fb-f7b7c41dca78',
-'6c5c12cc-b878-4598-943e-72ac3eded01b',
-'61f5b4a8-e688-40ef-824e-2659b3cfeae9',
-'9c12b501-6180-4658-a849-92a8e2ac69c9',
-'2599b44e-7257-478d-b75e-fd7a414d7c46',
-'58cc47c5-e416-440e-bf61-11568d05741c',
-'dd214ab9-ba34-414c-b647-b739e08dde8a',
-'607c35f0-9ac7-4375-8239-81cad9da9a99',
-'73875446-a379-4128-8784-b74ba5ccd51f',
-'4f29cbd5-bd82-4e94-bb67-f0f6a571884f',
-'2a150e75-b446-4a17-88bf-9527b6d9a023',
-'7742663f-8931-4b0a-a560-a95b40764017',
-'bec6160f-aed5-455c-88c1-b2d1b0225569',
-'205c5a4c-b82e-4230-972c-671f70752bfa',
-'8374b4e0-a6ff-4a33-ba17-33e508c396fb',
-'5f866188-f8cc-4caa-8264-5b22e631bb25',
-'e7b99fb5-a45f-4ca7-beb6-cfc8a05d9ebe',
-'5cf2eea4-52d8-4561-8f82-bd125a1089e9',
-'b9f0409c-0bac-4d80-91d5-4eca54ca8a29',
-'a0a1bfc1-c72e-4dae-ad83-16584c1fe37e',
-'8c0c58f2-6384-4e87-ae4f-415cd23ccb5a',
-'abe2bd4f-a43e-4b32-88bf-3a73f5d503d5',
-'97cc3df1-bfbe-4615-bdcd-b3ae65c8b2aa',
-'de2f00f6-8b5f-420d-835a-64e443828bc7',
-'c6158557-1370-4693-aa41-9de93788727a',
-'c81cc112-392e-4e92-95f4-d370993b0b4d',
-'e3f35fee-611d-4d47-bb96-789b3653382b',
-'76a6df78-72d4-4ef8-9c2f-5237b005a8bd',
-'db1f7e0f-6ff2-4ebf-84d3-79d9bb898b4e',
-'f3bee9c0-8b6f-4ce1-b8c7-d7e8f07156e8',
-'17c55582-ba72-4c8a-a089-5a5b8d099881',
-'368ec111-b124-4206-b2f3-4698c99d2450'
 )
 -- SPLIT HERE!
 CREATE PACKAGE BODY HISTORY AS
@@ -2174,7 +2120,7 @@ END;
 
 CREATE TRIGGER "AFTER_JOB_FINISHED" AFTER UPDATE ON job
 FOR EACH ROW
-      WHEN (old.str_state = 'PENDING' AND new.str_state = 'FINISHED') DECLARE
+      WHEN (old.str_state = 'Pending' AND new.str_state = 'Finished') DECLARE
     ts NUMERIC(12,0) := epoch(systimestamp);
     TYPE StatType IS RECORD (
         int_core_time_success NUMERIC(38),
@@ -2313,7 +2259,7 @@ END;
 
 CREATE TRIGGER "AFTER_JOB_DEPT_UPDATE" AFTER UPDATE ON job
 FOR EACH ROW
-  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='PENDING') DECLARE
+  WHEN (NEW.pk_dept != OLD.pk_dept AND new.str_state='Pending') DECLARE
     int_running_cores NUMERIC(16,0);
 BEGIN
   /**
@@ -2364,17 +2310,17 @@ END;
 CREATE TRIGGER "AFTER_INSERT_LAYER" AFTER INSERT ON layer
 FOR EACH ROW
 BEGIN
-
     INSERT INTO layer_stat (pk_layer_stat, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
     INSERT INTO layer_resource (pk_layer_resource, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
     INSERT INTO layer_usage (pk_layer_usage, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
     INSERT INTO layer_mem (pk_layer_mem, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
 
     INSERT INTO layer_history
-        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived)
+        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived,str_services)
     VALUES
-        (:new.pk_layer, :new.pk_job, :new.str_name, :new.str_type, :new.int_cores_min, :new.int_mem_min, 0);
+        (:new.pk_layer, :new.pk_job, :new.str_name, :new.str_type, :new.int_cores_min, :new.int_mem_min, 0, :new.str_services);
 END;
+
 -- SPLIT HERE!
 
 CREATE TRIGGER "BEFORE_DELETE_LAYER" BEFORE DELETE ON layer
@@ -2611,8 +2557,8 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_WAIT_TO_DEP" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('DEAD','SUCCEEDED','WAITING','CHECKPOINT')) BEGIN
-    :NEW.str_state := 'DEPEND';
+  WHEN (NEW.int_depend_count > 0 AND NEW.str_state IN ('Dead','Succeeded','Waiting','Checkpoint')) BEGIN
+    :NEW.str_state := 'Depend';
     :NEW.ts_updated := systimestamp;
     :NEW.int_version := :NEW.int_version + 1;
 END;
@@ -2620,15 +2566,15 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_EATEN" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state='EATEN' AND OLD.str_state='SUCCEEDED') BEGIN
-    :NEW.str_state :='SUCCEEDED';
+  WHEN (NEW.str_state='Eaten' AND OLD.str_state='Succeeded') BEGIN
+    :NEW.str_state :='Succeeded';
 END;
 -- SPLIT HERE!
 
 CREATE TRIGGER "UPDATE_FRAME_DEP_TO_WAIT" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='DEPEND') BEGIN
-    :NEW.str_state := 'WAITING';
+  WHEN (OLD.int_depend_count > 0 AND NEW.int_depend_count < 1 AND OLD.str_state='Depend') BEGIN
+    :NEW.str_state := 'Waiting';
     :NEW.ts_updated := systimestamp;
     :NEW.int_version := :NEW.int_version + 1;
 END;
@@ -2641,7 +2587,7 @@ FOR EACH ROW
   int_checkpoint integer := 0;
 BEGIN
 
-    IF :old.str_state = 'RUNNING' THEN
+    IF :old.str_state = 'Running' THEN
 
         IF :new.int_exit_status = 299 THEN
 
@@ -2654,7 +2600,7 @@ BEGIN
             :new.pk_frame;
 
         ELSE
-          If :new.str_state = 'CHECKPOINT' THEN
+          If :new.str_state = 'Checkpoint' THEN
               int_checkpoint := 1;
           END IF;
 
@@ -2677,7 +2623,7 @@ BEGIN
         END IF;
     END IF;
 
-    IF :new.str_state = 'RUNNING' THEN
+    IF :new.str_state = 'Running' THEN
 
       SELECT pk_alloc INTO str_pk_alloc FROM host WHERE str_name=:new.str_host;
 
@@ -2702,7 +2648,7 @@ BEGIN
             :new.pk_layer,
             :new.pk_job,
             :new.str_name,
-            'RUNNING',
+            'Running',
             :new.int_cores,
             :new.int_mem_reserved,
             :new.str_host,
@@ -2724,14 +2670,14 @@ END;
 
 CREATE TRIGGER "UPDATE_FRAME_CHECKPOINT_STATE" BEFORE UPDATE ON frame
 FOR EACH ROW
-  WHEN (NEW.str_state='WAITING' AND OLD.str_state='RUNNING' AND NEW.str_checkpoint_state IN ('ENABLED', 'COPYING')) BEGIN
-    :NEW.str_state :='CHECKPOINT';
+  WHEN (NEW.str_state='Waiting' AND OLD.str_state='Running' AND NEW.str_checkpoint_state IN ('Enabled', 'Copying')) BEGIN
+    :NEW.str_state :='Checkpoint';
 END;
 -- SPLIT HERE!
 
 CREATE TRIGGER "UPDATE_FRAME_STATUS_COUNTS" AFTER UPDATE ON frame
 FOR EACH ROW
-  WHEN (old.str_state != 'SETUP' AND old.str_state != new.str_state) DECLARE
+  WHEN (old.str_state != 'Setup' AND old.str_state != new.str_state) DECLARE
     s_old_status_col VARCHAR2(32);
     s_new_status_col VARCHAR2(32);
 BEGIN
@@ -2787,232 +2733,8 @@ BEGIN
 END;
 -- SPLIT HERE!
 
-CALL ctx_ddl.create_index_set ('tag_set')
+CALL ctx_ddl.create_index_set('tag_set')
 -- SPLIT HERE!
 CALL ctx_ddl.add_index('tag_set','str_name')
 -- SPLIT HERE!
 create index i_host_str_tags ON host (str_tags) INDEXTYPE IS ctxsys.ctxcat parameters ('INDEX SET tag_set')
--- SPLIT HERE!
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Insert into SHOW (PK_SHOW,STR_NAME,INT_DEFAULT_MAX_CORES,INT_DEFAULT_MIN_CORES,INT_FRAME_INSERT_COUNT,INT_JOB_INSERT_COUNT,INT_FRAME_SUCCESS_COUNT,INT_FRAME_FAIL_COUNT,B_BOOKING_ENABLED,B_DISPATCH_ENABLED,B_ACTIVE) values ('00000000-0000-0000-0000-000000000000','pipe',20000,100,0,0,0,0,1,1,1)
--- SPLIT HERE!
-Insert into SHOW (PK_SHOW,STR_NAME,INT_DEFAULT_MAX_CORES,INT_DEFAULT_MIN_CORES,INT_FRAME_INSERT_COUNT,INT_JOB_INSERT_COUNT,INT_FRAME_SUCCESS_COUNT,INT_FRAME_FAIL_COUNT,B_BOOKING_ENABLED,B_DISPATCH_ENABLED,B_ACTIVE) values ('00000000-0000-0000-0000-000000000001','edu',20000,100,0,0,0,0,1,1,1)
--- SPLIT HERE!
-
-Insert into SHOW_ALIAS (PK_SHOW_ALIAS,PK_SHOW,STR_NAME) values ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','fx')
--- SPLIT HERE!
-
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0','Lighting',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1','Animation',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2','Hair',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA3','Cloth',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA4','Layout',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA5','FX',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA6','Pipeline',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA7','S3D',0)
--- SPLIT HERE!
-Insert into DEPT (PK_DEPT,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8','Unknown',1)
--- SPLIT HERE!
-
-Insert into FACILITY (PK_FACILITY,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1','lax',1)
--- SPLIT HERE!
-Insert into FACILITY (PK_FACILITY,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0','spi',0)
--- SPLIT HERE!
-Insert into FACILITY (PK_FACILITY,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2','maa',0)
--- SPLIT HERE!
-Insert into FACILITY (PK_FACILITY,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA3','abq',0)
--- SPLIT HERE!
-Insert into FACILITY (PK_FACILITY,STR_NAME,B_DEFAULT) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA4','brs',0)
--- SPLIT HERE!
-
-Insert into FOLDER (PK_FOLDER,PK_PARENT_FOLDER,PK_SHOW,STR_NAME,B_DEFAULT,PK_DEPT,INT_JOB_MIN_CORES,INT_JOB_MAX_CORES,INT_JOB_PRIORITY,F_ORDER,B_EXCLUDE_MANAGED) values ('A0000000-0000-0000-0000-000000000000',null,'00000000-0000-0000-0000-000000000000','pipe',1,'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8',-1,-1,-1,1,0)
--- SPLIT HERE!
-Insert into FOLDER (PK_FOLDER,PK_PARENT_FOLDER,PK_SHOW,STR_NAME,B_DEFAULT,PK_DEPT,INT_JOB_MIN_CORES,INT_JOB_MAX_CORES,INT_JOB_PRIORITY,F_ORDER,B_EXCLUDE_MANAGED) values ('B0000000-0000-0000-0000-000000000000',null,'00000000-0000-0000-0000-000000000001','edu',1,'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8',-1,-1,-1,1,0)
--- SPLIT HERE!
-
-Insert into POINT (PK_POINT,PK_DEPT,PK_SHOW,STR_TI_TASK,INT_CORES,B_MANAGED,INT_MIN_CORES,FLOAT_TIER) values ('FFEEDDCC-AAAA-AAAA-AAAA-AAAAAAAAAAA0','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8','00000000-0000-0000-0000-000000000000',null,0,0,0,0)
--- SPLIT HERE!
-Insert into POINT (PK_POINT,PK_DEPT,PK_SHOW,STR_TI_TASK,INT_CORES,B_MANAGED,INT_MIN_CORES,FLOAT_TIER) values ('FFEEDDCC-AAAA-AAAA-AAAA-AAAAAAAAAAA1','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8','00000000-0000-0000-0000-000000000001',null,0,0,0,0)
--- SPLIT HERE!
-
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000000','lax.general',0,0,'general','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000001','lax.desktop',0,0,'desktop','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000002','lax.unassigned',0,1,'unassigned','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000003','maa.general',0,0,'general','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000004','maa.desktop',0,0,'desktop','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000005','maa.unassigned',0,0,'unassigned','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000006','spi.general',1,0,'general','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0',0,1)
--- SPLIT HERE!
-Insert into ALLOC (PK_ALLOC,STR_NAME,B_ALLOW_EDIT,B_DEFAULT,STR_TAG,PK_FACILITY,B_BILLABLE,B_ENABLED) values ('00000000-0000-0000-0000-000000000007','spi.desktop',1,0,'desktop','AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0',0,1)
--- SPLIT HERE!
-
-Insert into SUBSCRIPTION (PK_SUBSCRIPTION,PK_ALLOC,PK_SHOW,INT_SIZE,INT_BURST,INT_CORES,FLOAT_TIER) values ('00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','00000000-0000-0000-0000-000000000000',1000,1000,0,0)
--- SPLIT HERE!
-Insert into SUBSCRIPTION (PK_SUBSCRIPTION,PK_ALLOC,PK_SHOW,INT_SIZE,INT_BURST,INT_CORES,FLOAT_TIER) values ('00000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000',1000,1000,0,0)
--- SPLIT HERE!
-Insert into SUBSCRIPTION (PK_SUBSCRIPTION,PK_ALLOC,PK_SHOW,INT_SIZE,INT_BURST,INT_CORES,FLOAT_TIER) values ('00000000-0000-0000-0000-000000000003','00000000-0000-0000-0000-000000000007','00000000-0000-0000-0000-000000000000',1000,1000,0,0)
--- SPLIT HERE!
-Insert into SUBSCRIPTION (PK_SUBSCRIPTION,PK_ALLOC,PK_SHOW,INT_SIZE,INT_BURST,INT_CORES,FLOAT_TIER) values ('00000000-0000-0000-0000-000000000004','00000000-0000-0000-0000-000000000006','00000000-0000-0000-0000-000000000000',1000,1000,0,0)
--- SPLIT HERE!
-
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0','default',0,100,3355443,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1','prman',0,100,3355443,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA2','arnold',1,100,3355443,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA3','shell',0,100,3355443,'general | util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA4','maya',0,100,2097152,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA5','houdini',0,100,3355443,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA6','svea',1,100,3355443,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA7','katana',1,100,2097152,'general | desktop | util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA8','shake',0,100,2097152,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA9','nuke',0,100,2097152,'general | desktop')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA10','ginsu',0,50,524288,'general | desktop | util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA11','preprocess',0,10,393216,'util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA12','postprocess',0,10,524288,'util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA14','refcollect',0,50,1048576,'general | util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS) values ('AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAA15','makemovie',0,50,1048576,'util')
--- SPLIT HERE!
-Insert into SERVICE (PK_SERVICE,STR_NAME,B_THREADABLE,INT_CORES_MIN,INT_MEM_MIN,STR_TAGS,INT_CORES_MAX,INT_GPU_MIN) values ('488c75f0-eae4-4dd0-83e0-29b982adbbff','cuda',1,100,3354624,'cuda',0,262144)
--- SPLIT HERE!
-
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000000','MAX_PING_TIME',300,0,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000001','MIN_CORES_REQUIRED',10,0,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000002','MIN_MEM_REQUIRED',0,500000,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000003','MAX_PPS',0,20,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000004','DAYS_CLEAR_JOBS',2,0,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000005','MAX_FRAME_RETRIES',16,0,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000006','MAX_LAYER_COUNT_PER_JOB',250,0,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000007','MAX_FRAME_COUNT_PER_JOB',0,250000,null,0)
--- SPLIT HERE!
-Insert into CONFIG (PK_CONFIG,STR_KEY,INT_VALUE,LONG_VALUE,STR_VALUE,B_VALUE) values ('00000000-0000-0000-0000-000000000008','DEFAULT_FRAME_RETRIES',2,0,null,0)
--- SPLIT HERE!
-
-Insert into TASK_LOCK (PK_TASK_LOCK,STR_NAME,INT_LOCK,INT_TIMEOUT) values ('00000000-0000-0000-0000-000000000004','LOCK_SHOW_ALERTS',0,300)
--- SPLIT HERE!
-Insert into TASK_LOCK (PK_TASK_LOCK,STR_NAME,INT_LOCK,INT_TIMEOUT) values ('00000000-0000-0000-0000-000000000002','LOCK_HARDWARE_STATE_CHECK',0,30)
--- SPLIT HERE!
-Insert into TASK_LOCK (PK_TASK_LOCK,STR_NAME,INT_LOCK,INT_TIMEOUT) values ('00000000-0000-0000-0000-000000000001','LOCK_HISTORICAL_TRANSFER',0,3600)
--- SPLIT HERE!
-Insert into TASK_LOCK (PK_TASK_LOCK,STR_NAME,INT_LOCK,INT_TIMEOUT) values ('00000000-0000-0000-0000-000000000003','LOCK_ORPHANED_PROC_CHECK',0,30)
--- SPLIT HERE!
-Insert into TASK_LOCK (PK_TASK_LOCK,STR_NAME,INT_LOCK,INT_TIMEOUT) values ('00000000-0000-0000-0000-000000000005','LOCK_TASK_UPDATE',1240618998852,3600)
-
-
--- SPLIT HERE!
-alter table "LAYER_HISTORY" add ("STR_SERVICES" VARCHAR2(128))
--- SPLIT HERE!
-Create or replace TRIGGER "AFTER_INSERT_LAYER" AFTER INSERT ON "LAYER"
-FOR EACH ROW
-BEGIN
-
-    INSERT INTO layer_stat (pk_layer_stat, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
-    INSERT INTO layer_resource (pk_layer_resource, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
-    INSERT INTO layer_usage (pk_layer_usage, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
-    INSERT INTO layer_mem (pk_layer_mem, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
-
-    INSERT INTO layer_history
-        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived,str_services)
-    VALUES
-        (:new.pk_layer, :new.pk_job, :new.str_name, :new.str_type, :new.int_cores_min, :new.int_mem_min, 0, :new.str_services);
-END;
--- SPLIT HERE!
-CREATE OR REPLACE FORCE VIEW "V_HISTORY_LAYER" ("PK_LAYER", "PK_JOB", "STR_NAME", "STR_TYPE", "INT_CORES_MIN", "INT_MEM_MIN", "INT_CORE_TIME_SUCCESS", "INT_CORE_TIME_FAIL", "INT_FRAME_COUNT", "INT_LAYER_COUNT", "INT_WAITING_COUNT", "INT_DEAD_COUNT", "INT_DEPEND_COUNT", "INT_EATEN_COUNT", "INT_SUCCEEDED_COUNT", "INT_RUNNING_COUNT", "INT_MAX_RSS", "B_ARCHIVED", "STR_SERVICES","STR_SHOW_NAME", "DT_LAST_MODIFIED") AS
-  select
-lh.PK_LAYER,
-lh.PK_JOB,
-lh.STR_NAME,
-lh.STR_TYPE,
-lh.INT_CORES_MIN,
-lh.INT_MEM_MIN,
-lh.INT_CORE_TIME_SUCCESS,
-lh.INT_CORE_TIME_FAIL,
-lh.INT_FRAME_COUNT,
-lh.INT_LAYER_COUNT,
-lh.INT_WAITING_COUNT,
-lh.INT_DEAD_COUNT,
-lh.INT_DEPEND_COUNT,
-lh.INT_EATEN_COUNT,
-lh.INT_SUCCEEDED_COUNT,
-lh.INT_RUNNING_COUNT,
-lh.INT_MAX_RSS,
-lh.B_ARCHIVED,
-lh.STR_SERVICES,
-s.str_name str_show_name,
-lh.dt_last_modified
-from layer_history lh, job_history jh, show s
-where lh.pk_job = jh.pk_job
-and jh.pk_show  = s.pk_show
-and jh.dt_last_modified >= (
-    select dt_begin
-    from history_period
-)
-and jh.dt_last_modified < (
-    select dt_end
-    from history_period
-)
--- SPLIT HERE!
-CREATE TABLE "REDIRECT"
-   (	"PK_PROC" VARCHAR2(36 BYTE) NOT NULL,
-	"STR_GROUP_ID" VARCHAR(36 BYTE) NOT NULL,
-	"INT_TYPE" NUMBER(38,0) NOT NULL,
-	"STR_DESTINATION_ID" VARCHAR2(512 BYTE) NOT NULL,
-	"STR_NAME" VARCHAR2(512 BYTE) NOT NULL,
-	"LNG_CREATION_TIME" NUMBER(38,0) NOT NULL
-   )
--- SPLIT HERE!
-CREATE UNIQUE INDEX "C_REDIRECT_PK" ON "REDIRECT" ("PK_PROC")
--- SPLIT HERE!
-ALTER TABLE "REDIRECT" ADD CONSTRAINT "C_REDIRECT_PK" PRIMARY KEY ("PK_PROC")
-  USING INDEX "C_REDIRECT_PK"
--- SPLIT HERE!
-CREATE INDEX "I_REDIRECT_GROUP" ON "REDIRECT" ("STR_GROUP_ID")
--- SPLIT HERE!
-CREATE INDEX "I_REDIRECT_CREATE" ON "REDIRECT" ("LNG_CREATION_TIME")

@@ -17,12 +17,15 @@ def get_statements(sql_file):
                 statement += line
 
 
-def main(user, pwd, sql_file):
-    print "CONNECTING: {}  {}  {}".format(user, pwd, sql_file)
+def main(user, pwd, sql_file, sql_data_file=None):
+    print "CONNECTING: {}  {}  {}".format(user, pwd, sql_file, sql_data_file)
     connection = cx_Oracle.connect(user, pwd)
     cursor = connection.cursor()
     for statement in get_statements(sql_file):
         cursor.execute(statement)
+    if sql_data_file:
+      for statement in get_statements(sql_data_file):
+          cursor.execute(statement)
     cursor.close()
 
 
@@ -31,5 +34,6 @@ if __name__ == '__main__':
     parser.add_argument('-u', '--user', help='db user', default='cue3')
     parser.add_argument('-p', '--pwd', help='db password to connect to cue3 user')
     parser.add_argument('-s', '--sql', help='path to SQL schema file')
+    parser.add_argument('-d', '--sql-data', help='path to SQL file with inital data to populate')
     args = parser.parse_args()
-    main(args.user, args.pwd, args.sql)
+    main(args.user, args.pwd, args.sql, args.sql_data)
