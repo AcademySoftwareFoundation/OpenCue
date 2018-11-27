@@ -2314,7 +2314,7 @@ BEGIN
     INSERT INTO layer_mem (pk_layer_mem, pk_layer, pk_job) VALUES (:new.pk_layer, :new.pk_layer, :new.pk_job);
 
     INSERT INTO layer_history
-        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived,str_services)
+        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived, str_services)
     VALUES
         (:new.pk_layer, :new.pk_job, :new.str_name, :new.str_type, :new.int_cores_min, :new.int_mem_min, 0, :new.str_services);
 END;
