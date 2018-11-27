@@ -112,7 +112,8 @@ class AbstractDelegate(QtGui.QItemDelegate):
 
             # Draw the text
             painter.setPen(QtGui.QColor(index.data(QtCore.Qt.ForegroundRole)))
-            #painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
+            # TODO: Disable to fix OSX styling - b/120096941
+            # painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
             painter.drawText(option.rect.adjusted(3, -1, -3, 0),
                              index.data(QtCore.Qt.TextAlignmentRole).toInt()[0] | QtCore.Qt.AlignVCenter,
                              index.data(QtCore.Qt.DisplayRole).toString())
@@ -123,7 +124,8 @@ class AbstractDelegate(QtGui.QItemDelegate):
     def _drawBackground(self, painter, option, index):
         # Draw the background color
         painter.setPen(NO_PEN)
-        #painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
+        # TODO: Disable to fix OSX styling - b/120096941
+        # painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
         painter.drawRect(option.rect)
 
     def _drawSelectionOverlay(self, painter, option):
