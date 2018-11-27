@@ -222,7 +222,6 @@ class HostMonitor(QtGui.QWidget):
                     item.setChecked(False)
         else:
             states = __hostSearch.options.get('states', [])
-            print states
             if action.isChecked():
                 __hostSearch.options['states'] = states.append(
                     getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
@@ -231,7 +230,6 @@ class HostMonitor(QtGui.QWidget):
                     getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
             else:
                 __hostSearch.options['states'] = []
-            print states
 
         self.hostMonitorTree.updateRequest()
 
