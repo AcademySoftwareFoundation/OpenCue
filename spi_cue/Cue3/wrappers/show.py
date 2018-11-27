@@ -77,7 +77,7 @@ class Show(object):
     def setDefaultMaxCores(self, maxcores):
         """Sets the default maximum number of cores
            that new jobs are launched with."""
-        response = self.stub.SetDefaultMaxProcs(show_pb2.ShowSetDefaultMaxCoresRequest(
+        response = self.stub.SetDefaultMaxCores(show_pb2.ShowSetDefaultMaxCoresRequest(
             show=self.data, max_cores=maxcores),
             timeout=Cuebot.Timeout)
         return response
@@ -85,7 +85,7 @@ class Show(object):
     def setDefaultMinCores(self, mincores):
         """Sets the default minimum number of cores
            all new jobs are launched with."""
-        response = self.stub.SetDefaultMinProcs(show_pb2.ShowSetDefaultMinCoresRequest(
+        response = self.stub.SetDefaultMinCores(show_pb2.ShowSetDefaultMinCoresRequest(
             show=self.data, max_cores=mincores),
             timeout=Cuebot.Timeout)
         return response
@@ -120,6 +120,20 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         return group.Group(response.group)
+
+    def enableBooking(self, value):
+        response = self.stub.EnableBooking(show_pb2.ShowEnableBookingRequest(
+            show=self.data,
+            enabled=value),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def enableDispatching(self, value):
+        response = self.stub.EnableDispatching(show_pb2.ShowEnableDispatchingRequest(
+            show=self.data,
+            enabled=value),
+            timeout=Cuebot.Timeout)
+        return response
 
     def id(self):
         """Returns the id of the show
