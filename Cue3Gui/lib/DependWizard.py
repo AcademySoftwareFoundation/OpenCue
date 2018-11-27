@@ -118,7 +118,7 @@ class DependWizard(QtGui.QWizard):
         self.onJobOptions = []
         try:
             show = self.jobs[0].data.name.split('-')[0]
-            self.onJobOptions = [name for name in sorted(Cue3.getJobNames()) if name.startswith(show)]
+            self.onJobOptions = [name for name in sorted(Cue3.api.getJobNames()) if name.startswith(show)]
         except Exception, e:
             logger.critical("Failed getting list of jobs")
             map(logger.critical, Utils.exceptionOutput(e))
@@ -553,7 +553,7 @@ class PageSelectOnLayer(AbstractWizardPage):
     def initializePage(self):
         QtGui.QWizardPage.initializePage(self)
 
-        self.wizard().onLayerOptions = Cue3.findJob(self.wizard().onJob[0]).proxy.getLayers()
+        self.wizard().onLayerOptions = Cue3.api.findJob(self.wizard().onJob[0]).getLayers()
 
         if self.wizard().dependType in (LOS,):
             self.wizard().onLayerOptions = [layer for layer in self.wizard().onLayerOptions if 'simulation' in layer.data.services or 'simulationhi' in layer.data.services or 'houdini' in layer.data.services]
@@ -678,10 +678,10 @@ class PageConfirmation(AbstractWizardPage):
 
         if self.wizard().dependType == JFBF:
             for onJob in onJobs:
-                onLayers = Cue3.findJob(onJob).proxy.getLayers()
+                onLayers = Cue3.api.findJob(onJob).getLayers()
 
                 for job in jobs:
-                    for layer in Cue3.findJob(job).proxy.getLayers():
+                    for layer in Cue3.api.findJob(job).getLayers():
                         for onLayer in onLayers:
                             if layer.data.type == onLayer.data.type:
                                 self.__addDependWork(layer, onLayer)

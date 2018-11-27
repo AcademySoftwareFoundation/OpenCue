@@ -346,7 +346,7 @@ class JobActions(AbstractActions):
                                       "Drop all external dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.DependTarget.External)
+                    job.proxy.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
                 self._update()
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
@@ -357,7 +357,7 @@ class JobActions(AbstractActions):
                                       "Drop all internal dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.DependTarget.Internal)
+                    job.proxy.dropDepends(Cue3.api.depend_pb2.INTERNAL)
                 self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
@@ -620,7 +620,8 @@ class LayerActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry all DEAD frames in selected layers?",
                                       [layer.data.name for layer in layers]):
-                frameSearch = Cue3.FrameSearch(layer=[layer.data.name for layer in layers], state=[Cue3.FrameState.Dead])
+                frameSearch = Cue3.search.FrameSearch(layer=[layer.data.name for layer in layers],
+                                                      state=[Cue3.api.job_pb2.DEAD])
                 layer.parent.retryFrames(frameSearch)
                 self._update()
 
@@ -805,7 +806,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry selected frames?",
                                       names):
-                frameSearch = Cue3.FrameSearch(name=names)
+                frameSearch = Cue3.search.FrameSearch(name=names)
                 job.proxy.retryFrames(frameSearch)
                 self._update()
 
@@ -839,7 +840,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Eat selected frames?",
                                       names):
-                frameSearch = Cue3.FrameSearch(name=names)
+                frameSearch = Cue3.search.FrameSearch(name=names)
                 self._getSource().proxy.eatFrames(frameSearch)
                 self._update()
 
@@ -850,7 +851,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Kill selected frames?",
                                       names):
-                frameSearch = Cue3.FrameSearch(name=names)
+                frameSearch = Cue3.search.FrameSearch(name=names)
                 self._getSource().proxy.killFrames(frameSearch)
                 self._update()
 
@@ -862,7 +863,7 @@ class FrameActions(AbstractActions):
                                       "Mark selected frames as waiting?\n"
                                       "(Ignores all of the frames's dependencies once)",
                                       names):
-                frameSearch = Cue3.FrameSearch(name=names)
+                frameSearch = Cue3.search.FrameSearch(name=names)
                 self._getSource().proxy.markAsWaiting(frameSearch)
                 self._update()
 
@@ -876,7 +877,7 @@ class FrameActions(AbstractActions):
                                       "(Drops all of the frame's dependencies)",
                                       names):
                 for frame in frames:
-                    frame.proxy.dropDepends(Cue3.DependTarget.AnyTarget)
+                    frame.proxy.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -894,7 +895,7 @@ class FrameActions(AbstractActions):
                                       "Mark done all selected frames?\n"
                                       "(Drops any dependencies that are waiting on these frames)",
                                       frameNames):
-                frameSearch = Cue3.FrameSearch(name=frameNames)
+                frameSearch = Cue3.search.FrameSearch(name=frameNames)
                 self._getSource().proxy.markDoneFrames(frameSearch)
                 self._update()
 
@@ -962,16 +963,16 @@ class FrameActions(AbstractActions):
                 if len(frames) == 1:
                     # Since only a single frame selected, check if layer is only one frame
                     layer = Cue3.api.findLayer(self._getSource().data.name, frames[0].data.layerName)
-                    if layer.stats.totalFrames == 1:
+                    if layer.data.layer_stats.totalFrames == 1:
                         # Single frame selected of single frame layer, mark done and eat it all
                         print 'single frame layer found'
-                        layer.proxy.eatFrames()
-                        layer.proxy.markdoneFrames()
+                        layer.eatFrames()
+                        layer.markdoneFrames()
 
                         self._update()
                         return
 
-                frameSearch = Cue3.FrameSearch(name=frameNames)
+                frameSearch = Cue3.search.FrameSearch(name=frameNames)
                 self._getSource().proxy.eatFrames(frameSearch)
                 self._getSource().proxy.markDoneFrames(frameSearch)
 
@@ -1330,7 +1331,7 @@ class HostActions(AbstractActions):
     setRepair_info = ["Set Repair State", None, "configure"]
     def setRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
-        repair = Cue3.HardwareState.Repair
+        repair = Cue3.api.host_pb2.REPAIR
         for host in hosts:
             if host.data.state != repair:
                 host.proxy.setHardwareState(repair)
@@ -1339,8 +1340,8 @@ class HostActions(AbstractActions):
     clearRepair_info = ["Clear Repair State", None, "configure"]
     def clearRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
-        repair = Cue3.HardwareState.Repair
-        down = Cue3.HardwareState.Down
+        repair = Cue3.api.host_pb2.REPAIR
+        down = Cue3.api.host_pb2.DOWN
         for host in hosts:
             if host.data.state == repair:
                 host.proxy.setHardwareState(down)

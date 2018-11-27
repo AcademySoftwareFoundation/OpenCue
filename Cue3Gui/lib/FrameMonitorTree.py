@@ -296,7 +296,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: Column number double clicked on"""
         frame = item.iceObject
-        if frame.data.state == Cue3.FrameState.Running:
+        if frame.data.state == Cue3.api.job_pb2.RUNNING:
             Utils.popupFrameTail(self.__job, frame)
         else:
             Utils.popupFrameView(self.__job, frame)
@@ -312,7 +312,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         """Sets the current job
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None"""
-        self.frameSearch = Cue3.FrameSearch()
+        self.frameSearch = Cue3.search.FrameSearch()
         self.__job = job
         self.__jobState = None
         self.removeAllItems()
@@ -328,7 +328,7 @@ class FrameMonitorTree(AbstractTreeWidget):
 
     def clearFilters(self):
         self.clearSelection()
-        self.frameSearch = Cue3.FrameSearch()
+        self.frameSearch = Cue3.search.FrameSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.updateRequest()
 
@@ -426,7 +426,7 @@ class FrameMonitorTree(AbstractTreeWidget):
 
             updatedFrames = updated_data.updatedFrames
 
-        except Cue3.ObjectNotExistException, e:
+        except Cue3.EntityNotFoundException, e:
             self.setJobObj(None)
         except Exception, e:
             if hasattr(e, "message") and e.message.find("timestamp cannot be over a minute off") != -1:
@@ -597,7 +597,7 @@ class FrameWidgetItem(AbstractWidgetItem):
             return self.__rgbFrameState[self.iceObject.data.state]
 
         elif role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
-            if self.iceObject.data.checkpointState == Cue3.CheckpointState.Enabled:
+            if self.iceObject.data.checkpointState == Cue3.api.job_pb2.ENABLED:
                 return QtCore.QVariant(QtGui.QIcon(":markdone.png"))
         elif role == QtCore.Qt.TextAlignmentRole:
             if col == STATUS_COLUMN:

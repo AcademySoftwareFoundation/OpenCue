@@ -42,7 +42,7 @@ def displayState(job):
     @param job: The job to check the status of
     @rtype:  string
     @return: The status of the job for display"""
-    if job.data.state == Cue3.JobState.Finished:
+    if job.data.state == Cue3.api.job_pb2.FINISHED:
         return "Finished"
     if job.data.isPaused:
         return "Paused"
@@ -468,7 +468,7 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
-            if self.iceObject.data.state == Cue3.JobState.Finished:
+            if self.iceObject.data.state == Cue3.api.job_pb2.FINISHED:
                 return self.__finishedColor
             elif self.iceObject.data.isPaused:
                 return self.__pausedColor

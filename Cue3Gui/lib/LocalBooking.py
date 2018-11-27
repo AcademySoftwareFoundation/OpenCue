@@ -41,9 +41,9 @@ class LocalBookingWidget(QtGui.QWidget):
         self.__lba_group = QtGui.QGroupBox("Settings", self)
 
         try:
-            owner = Cue3.getOwner(os.environ["USER"])
+            owner = Cue3.api.getOwner(os.environ["USER"])
             for host in owner.proxy.getHosts():
-                if host.data.lockState != Cue3.LockState.Open:
+                if host.data.lockState != Cue3.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
         except Exception, e:
             pass
@@ -208,9 +208,9 @@ class LocalBookingWidget(QtGui.QWidget):
         hostname = str(hostname)
         if not hostname:
             return
-        host = Cue3.findHost(str(hostname))
+        host = Cue3.api.findHost(str(hostname))
         try:
-            rp = [r for r in host.proxy.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
             
             if rp:
                 rp = rp[0]
@@ -235,7 +235,7 @@ class LocalBookingWidget(QtGui.QWidget):
 
         show_name = os.environ.get("SHOW", "pipe")
         try:
-            _show = Cue3.findShow(show_name)
+            _show = Cue3.api.findShow(show_name)
         except Exception, e:
             msg = QtGui.QMessageBox(self)
             msg.setText("Error %s, please setshot and rerun cuetopia3", e)
@@ -244,14 +244,14 @@ class LocalBookingWidget(QtGui.QWidget):
 
         user = os.environ["USER"]
         try:
-            owner = Cue3.getOwner(user)
-        except Cue3.CueIceException, e:
+            owner = Cue3.api.getOwner(user)
+        except Cue3.EntityNotFoundException, e:
             # Owner does not exist
-            owner = _show.proxy.createOwner(user)
+            owner = _show.createOwner(user)
  
         hostname = gethostname()
         try:
-            host = Cue3.findHost(hostname.rsplit(".",2)[0])
+            host = Cue3.api.findHost(hostname.rsplit(".",2)[0])
             owner.proxy.takeOwnership(host.data.name)
             self.__select_host.addItem(host.data.name)
             self.__lba_group.setDisabled(False)
@@ -305,9 +305,9 @@ class LocalBookingWidget(QtGui.QWidget):
         try:
             self.__btn_clear.setText("Clearing....")
             self.__btn_clear.setDisabled(True)
-            host = Cue3.findHost(str(hostname))
+            host = Cue3.api.findHost(str(hostname))
 
-            rp = [r for r in host.proxy.getRenderPartitions() if r.job == self.jobName]
+            rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
             if rp:
                 rp = rp[0]
         
@@ -317,7 +317,7 @@ class LocalBookingWidget(QtGui.QWidget):
                 ## back to the booking widget
                 for i in range(0, 10):
                     try:
-                        rp = [r for r in host.proxy.getRenderPartitions() if r.job == self.jobName][0]
+                        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName][0]
                         time.sleep(1)
                     except:
                         break
@@ -330,8 +330,8 @@ class LocalBookingWidget(QtGui.QWidget):
         if self.__hasError():
             return
 
-        host = Cue3.findHost(str(self.__select_host.currentText()))
-        rp = [r for r in host.proxy.getRenderPartitions() if r.job == self.jobName]
+        host = Cue3.api.findHost(str(self.__select_host.currentText()))
+        rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
         if rp:
             # A render partition already exists on this hosts and user is modifying
             rp[0].proxy.setMaxResources(int(self.__run_cores.value() * 100),
