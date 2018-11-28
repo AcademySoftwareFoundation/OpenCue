@@ -26,20 +26,17 @@ import java.util.stream.Collectors;
 
 import com.google.common.collect.ImmutableList;
 
-import com.imageworks.common.SpiIce.EqualsFloatSearchCriterion;
-import com.imageworks.common.SpiIce.EqualsIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.FloatSearchCriterion;
-import com.imageworks.common.SpiIce.GreaterThanFloatSearchCriterion;
-import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.InRangeFloatSearchCriterion;
-import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.IntegerSearchCriterion;
-import com.imageworks.common.SpiIce.LessThanFloatSearchCriterion;
-import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
-import com.imageworks.spcue.dao.criteria.CriteriaException;
 import com.imageworks.spcue.dao.criteria.CriteriaInterface;
 import com.imageworks.spcue.dao.criteria.Phrase;
 import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.grpc.criterion.EqualsFloatSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.EqualsIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.GreaterThanFloatSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.GreaterThanIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.InRangeFloatSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.InRangeIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.LessThanFloatSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 
 public abstract class Criteria implements CriteriaInterface {
 
@@ -243,66 +240,62 @@ public abstract class Criteria implements CriteriaInterface {
         chunks.add(sb);
     }
 
-    void addRangePhrase(String col, IntegerSearchCriterion e) {
+    void addRangePhrase(String col, EqualsIntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
-        final Class<? extends IntegerSearchCriterion> c = e.getClass();
-        if (c == EqualsIntegerSearchCriterion.class) {
-            EqualsIntegerSearchCriterion r = (EqualsIntegerSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + " = ?");
-        }
-        else if (c == LessThanIntegerSearchCriterion.class) {
-            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + "<=? ");
-        }
-        else if (c == GreaterThanIntegerSearchCriterion.class) {
-            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + " >= ? ");
-        }
-        else if (c == InRangeIntegerSearchCriterion.class) {
-            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) e;
-            values.add(r.min);
-            values.add(r.max);
-            sb.append(" (" + col +" >= ? AND " + col + " <= ?) ");
-        }
-        else {
-            throw new CriteriaException("Invalid criteria class used for memory range search: "
-                    + e.getClass().getCanonicalName());
-        }
+        sb.append(" " + col + " = ?");
         chunks.add(sb);
+        values.add(criterion.getValue());
     }
 
-    void addRangePhrase(String col, FloatSearchCriterion e) {
+    void addRangePhrase(String col, LessThanIntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
-        final Class<? extends FloatSearchCriterion> c = e.getClass();
-        if (c == EqualsFloatSearchCriterion.class) {
-            EqualsFloatSearchCriterion r = (EqualsFloatSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + " = ?");
-        }
-        else if (c == LessThanFloatSearchCriterion.class) {
-            LessThanFloatSearchCriterion r = (LessThanFloatSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + "<=? ");
-        }
-        else if (c == GreaterThanFloatSearchCriterion.class) {
-            GreaterThanFloatSearchCriterion r = (GreaterThanFloatSearchCriterion) e;
-            values.add(r.value);
-            sb.append(" " + col + " >= ? ");
-        }
-        else if (c == InRangeFloatSearchCriterion.class) {
-            InRangeFloatSearchCriterion r = (InRangeFloatSearchCriterion) e;
-            values.add(r.min);
-            values.add(r.max);
-            sb.append(" (" + col +" >= ? AND " + col + " <= ?) ");
-        }
-        else {
-            throw new CriteriaException("Invalid criteria class used for memory range search: "
-                    + e.getClass().getCanonicalName());
-        }
+        sb.append(" " + col + "<=? ");
         chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    void addRangePhrase(String col, GreaterThanIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    void addRangePhrase(String col, InRangeIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getMin());
+        values.add(criterion.getMax());
+    }
+
+    void addRangePhrase(String col, EqualsFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " = ?");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    void addRangePhrase(String col, LessThanFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " <= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    void addRangePhrase(String col, GreaterThanFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    void addRangePhrase(String col, InRangeFloatSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" " + col + " >= ? ");
+        chunks.add(sb);
+        values.add(criterion.getMin());
+        values.add(criterion.getMax());
     }
 
     boolean isValid(String v) {

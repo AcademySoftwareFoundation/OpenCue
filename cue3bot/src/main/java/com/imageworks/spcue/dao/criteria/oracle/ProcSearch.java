@@ -21,17 +21,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import com.imageworks.common.SpiIce.GreaterThanIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.InRangeIntegerSearchCriterion;
-import com.imageworks.common.SpiIce.IntegerSearchCriterion;
-import com.imageworks.common.SpiIce.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.dao.criteria.CriteriaException;
 import com.imageworks.spcue.dao.criteria.Phrase;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.grpc.criterion.GreaterThanIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.InRangeIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public class ProcSearch extends Criteria implements ProcSearchInterface {
@@ -64,31 +62,26 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
         }
     }
 
-    public void filterByDurationRange(IntegerSearchCriterion criterion) {
+    public void filterByDurationRange(LessThanIntegerSearchCriterion criterion) {
         StringBuilder sb = new StringBuilder(128);
-        final Class<? extends IntegerSearchCriterion> c = criterion.getClass();
-
-        if (c == LessThanIntegerSearchCriterion.class) {
-            LessThanIntegerSearchCriterion r = (LessThanIntegerSearchCriterion) criterion;
-            values.add(r.value);
-            sb.append(" (find_duration(proc.ts_dispatched, null) <= ?) ");
-        }
-        else if (c == GreaterThanIntegerSearchCriterion.class) {
-            GreaterThanIntegerSearchCriterion r = (GreaterThanIntegerSearchCriterion) criterion;
-            values.add(r.value);
-            sb.append(" (find_duration(proc.ts_dispatched, null) >= ?) ");
-        }
-        else if (c == InRangeIntegerSearchCriterion.class) {
-            InRangeIntegerSearchCriterion r = (InRangeIntegerSearchCriterion) criterion;
-            values.add(r.min);
-            values.add(r.max);
-            sb.append(" (find_duration(proc.ts_dispatched, null) BETWEEN ? AND ? )");
-        }
-        else {
-            throw new CriteriaException("Invalid criteria class used for duration range search: "
-                    + criterion.getClass().getCanonicalName());
-        }
+        sb.append(" (find_duration(proc.ts_dispatched, null) <= ?) ");
         chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    public void filterByDurationRange(GreaterThanIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" (find_duration(proc.ts_dispatched, null) >= ?) ");
+        chunks.add(sb);
+        values.add(criterion.getValue());
+    }
+
+    public void filterByDurationRange(InRangeIntegerSearchCriterion criterion) {
+        StringBuilder sb = new StringBuilder(128);
+        sb.append(" (find_duration(proc.ts_dispatched, null) BETWEEN ? AND ? )");
+        chunks.add(sb);
+        values.add(criterion.getMin());
+        values.add(criterion.getMax());
     }
 
     public void filterByHost(HostInterface host) {
@@ -118,14 +111,13 @@ public class ProcSearch extends Criteria implements ProcSearchInterface {
         addPhrase("show.str_name", criteria.getShowsList());
         addPhrase("alloc.str_name", criteria.getAllocsList());
 
-        // TODO(gdenton) Reimplement the Criterion objects in grpc (b/119788753)
-        // if (criteria.getMemoryRangeCount() > 0) {
-        //     addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
-        // }
-        //
-        // if (criteria.getDurationRangeCount() > 0) {
-        //     addDurationRange(criteria.getDurationRange(0));
-        // }
+        if (criteria.getMemoryRangeCount() > 0) {
+            addRangePhrase("proc.int_mem_reserved", criteria.getMemoryRange(0));
+        }
+
+        if (criteria.getDurationRangeCount() > 0) {
+            filterByDurationRange(criteria.getDurationRange(0));
+        }
 
         setFirstResult(criteria.getFirstResult());
         if (criteria.getMaxResultsCount() > 0) {

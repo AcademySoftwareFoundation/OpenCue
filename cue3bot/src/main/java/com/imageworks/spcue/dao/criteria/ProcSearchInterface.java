@@ -19,10 +19,12 @@ package com.imageworks.spcue.dao.criteria;
 
 import java.util.List;
 
-import com.imageworks.common.SpiIce.IntegerSearchCriterion;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.grpc.criterion.GreaterThanIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.InRangeIntegerSearchCriterion;
+import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public interface ProcSearchInterface extends CriteriaInterface {
@@ -30,7 +32,9 @@ public interface ProcSearchInterface extends CriteriaInterface {
     void setCriteria(ProcSearchCriteria criteria);
     void notJobs(List<JobInterface> jobs);
     void notGroups(List<GroupInterface> groups);
-    void filterByDurationRange(IntegerSearchCriterion criterion);
+    void filterByDurationRange(LessThanIntegerSearchCriterion criterion);
+    void filterByDurationRange(GreaterThanIntegerSearchCriterion criterion);
+    void filterByDurationRange(InRangeIntegerSearchCriterion criterion);
     void filterByHost(HostInterface host);
     void sortByHostName();
     void sortByDispatchedTime();
