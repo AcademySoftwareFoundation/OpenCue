@@ -35,7 +35,8 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@ImportResource({"classpath:conf/spring/applicationContext-ice.xml",
+@ImportResource({"classpath:conf/spring/applicationContext-dbEngine.xml",
+                 "classpath:conf/spring/applicationContext-ice.xml",
                  "classpath:conf/spring/applicationContext-iceServer.xml",
                  "classpath:conf/spring/applicationContext-grpc.xml",
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
