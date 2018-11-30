@@ -164,7 +164,7 @@ class GrpcServer(object):
     def addServicers(self):
         for servicer in self.servicers:
             addFunc = getattr(rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
-            servicerClass = getattr(rqdservicers, servicer + 'Impl')
+            servicerClass = getattr(rqdservicers, servicer)
             addFunc(servicerClass(self.rqCore), self.server)
 
     def serve(self):
@@ -197,24 +197,6 @@ class Network(object):
     def start_grpc(self):
         self.grpcServer = GrpcServer(self.rqCore)
         self.grpcServer.serveForever()
-
-    # def add(self, runningFrame):
-    #    """Adds a frame servant to the ice object adapter
-    #    @type  runningFrame: RunningFrame
-    #    @param runningFrame: RunningFrame object"""
-    #    # self.__iceObjectAdapter.add(runningFrame, runningFrame.getIceId())
-    #    pass
-
-    # def remove(self, iceId):
-    #    """Remove a servant from ice object adapter
-    #    @type  frameId: string
-    #    @param frameId: A frame's unique Id"""
-    #    # self.__iceObjectAdapter.remove(iceId)
-    #    pass
-
-    # def signalHandler(self, sig, frame):
-    #    """Catches any signals and calls shutdown"""
-    #    self.rqCore.shutdownRqdNow()
 
     def __getReportStub(self):
         # TODO(cipriano) Add support for the facility nameserver or drop this concept? (b/)

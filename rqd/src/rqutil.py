@@ -81,8 +81,8 @@ def permissionsLow():
         return
     if os.getegid() != rqconstants.RQD_GID or os.getegid() != rqconstants.RQD_GID:
         __becomeRoot()
-        #os.setegid(rqconstants.RQD_GID)
-        #os.seteuid(rqconstants.RQD_UID)
+        os.setegid(rqconstants.RQD_GID)
+        os.seteuid(rqconstants.RQD_UID)
     # This will be skipped on first start
     if PERMISSIONS.locked():
         PERMISSIONS.release()

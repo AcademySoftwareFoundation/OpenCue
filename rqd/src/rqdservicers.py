@@ -5,7 +5,7 @@ from compiled_proto import rqd_pb2
 from compiled_proto import rqd_pb2_grpc
 
 
-class RqdInterfaceServicerImpl(rqd_pb2_grpc.RqdInterfaceServicer):
+class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
     """Service interface for RqdStatic gRPC definition"""
 
     def __init__(self, rqCore):

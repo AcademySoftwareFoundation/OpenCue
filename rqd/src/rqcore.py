@@ -360,7 +360,7 @@ class FrameAttendantThread(threading.Thread):
         try:
             tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
                            self._createCommandFile(frameInfo.runFrame.command) + '"']
-            logFile = os.path.join(frameInfo.runFrame.logDir)
+
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
@@ -606,10 +606,6 @@ class RqCore:
         except Exception as e:
             log.critical('Unable to send status report due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
-    # def wait(self):
-    #    """Waits on network.waitForShutdown()"""
-    #    self.network.waitForShutdown()
-
     def updateRss(self):
         """Triggers and schedules the updating of rss information"""
         if self.__cache:
@@ -647,9 +643,6 @@ class RqCore:
         finally:
             self.__threadLock.release()
 
-        # Add servant to Ice Object Adapter
-        # self.network.add(runningFrame)
-
     def deleteFrame(self, frameId):
         """Deletes a frame from the cache
         @type  frameId: string
@@ -657,9 +650,6 @@ class RqCore:
         self.__threadLock.acquire()
         try:
             if self.__cache.has_key(frameId):
-                # Remove servant from Ice Object Adapter
-                iceId = self.__cache[frameId].getIceId()
-                # self.network.remove(iceId)
                 del self.__cache[frameId]
         finally:
             self.__threadLock.release()
