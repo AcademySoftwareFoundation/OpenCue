@@ -108,7 +108,7 @@ public class HostReportHandler {
     public void queueBootReport(BootReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host repport. Cuebot not " +
+                    "Error processing host report. Cuebot not " +
                     "accepting packets.");
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));
@@ -122,7 +122,7 @@ public class HostReportHandler {
     public void queueHostReport(HostReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host repport. Cuebot not " +
+                    "Error processing host report. Cuebot not " +
                     "accepting packets.");
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));

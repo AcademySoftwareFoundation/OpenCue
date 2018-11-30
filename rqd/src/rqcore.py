@@ -37,26 +37,18 @@ import traceback
 import platform
 import tempfile
 
-if platform.system() == 'Linux':
-    from grp import getgrnam
-
+from compiled_proto import report_pb2
+from compiled_proto import host_pb2
 import rqconstants
-import rqutil
-
+from rqexceptions import RqdException
+from rqexceptions import CoreReservationFailureException
+from rqexceptions import DuplicateFrameViolationException
+from rqexceptions import InvalidUserException
+from rqmachine import Machine
 from rqnetwork import Network
 from rqnetwork import RunningFrame
-from rqnetwork import RqdIceException
-from rqmachine import Machine
 from rqnimby import Nimby
-
-import report_pb2
-
-import Ice
-Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
-              "rqd_ice.ice".replace("{PATH}", os.path.dirname(__file__)))
-import cue.RqdIce as RqdIce
-import spi.SpiIce as SpiIce
-from cue.CueIce import HardwareState
+import rqutil
 
 
 class FrameAttendantThread(threading.Thread):
@@ -179,27 +171,22 @@ class FrameAttendantThread(threading.Thread):
         rqlog = self.runFrame.rqlog
 
         self.frameInfo.endTime = time.time()
-        self.frameInfo.runTime = int(self.frameInfo.endTime -
-                                     self.frameInfo.startTime)
+        self.frameInfo.runTime = int(self.runFrame.end_time - self.runFrame.start_time)
         try:
             print >> rqlog, "\n", "="*59
             print >> rqlog, "RenderQ Job Complete\n"
-            print >> rqlog, "%-20s%s" % ("exitStatus",
-                                         self.frameInfo.exitStatus)
-            print >> rqlog, "%-20s%s" % ("exitSignal",
-                                         self.frameInfo.exitSignal)
+            print >> rqlog, "%-20s%s" % ("exitStatus", self.frameInfo.exitStatus)
+            print >> rqlog, "%-20s%s" % ("exitSignal", self.frameInfo.exitSignal)
             if self.frameInfo.killMessage:
-                print >> rqlog, "%-20s%s" % ("killMessage",
-                                             self.frameInfo.killMessage)
+                print >> rqlog, "%-20s%s" % ("killMessage", self.frameInfo.killMessage)
             print >> rqlog, "%-20s%s" % ("startTime",
-                                         time.ctime(self.frameInfo.startTime))
+                                         time.ctime(self.runFrame.startTime))
             print >> rqlog, "%-20s%s" % ("endTime",
-                                         time.ctime(self.frameInfo.endTime))
+                                         time.ctime(self.runFrame.endTime))
             print >> rqlog, "%-20s%s" % ("maxrss", self.frameInfo.maxRss)
             print >> rqlog, "%-20s%s" % ("utime", self.frameInfo.utime)
             print >> rqlog, "%-20s%s" % ("stime", self.frameInfo.stime)
-            print >> rqlog, "%-20s%s" % ("renderhost",
-                                         self.rqCore.machine.getHostname())
+            print >> rqlog, "%-20s%s" % ("renderhost", self.rqCore.machine.getHostname())
             print >> rqlog, "="*59
         except Exception, e:
             log.critical("Unable to write footer: %s due to %s at %s" % \
@@ -371,15 +358,15 @@ class FrameAttendantThread(threading.Thread):
 
         rqutil.permissionsHigh()
         try:
-            tempCommand = ["/usr/bin/su", frameInfo.userName, "-c", '"' +
-                           self._createCommandFile(frameInfo.command) + '"']
-
+            tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
+                           self._createCommandFile(frameInfo.runFrame.command) + '"']
+            logFile = os.path.join(frameInfo.runFrame.logDir)
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
                                                        stdin=subprocess.PIPE,
-                                                       stdout=frameInfo.rqlog,
-                                                       stderr=frameInfo.rqlog,
+                                                       stdout=self.runFrame.rqlog,
+                                                       stderr=self.runFrame.rqlog,
                                                        preexec_fn = os.setsid)
         finally:
             rqutil.permissionsLow()
@@ -395,7 +382,7 @@ class FrameAttendantThread(threading.Thread):
 
         # Find exitStatus and exitSignal
         returncode = frameInfo.forkedCommand.returncode
-        if (os.WIFEXITED(returncode)):
+        if os.WIFEXITED(returncode):
             frameInfo.exitStatus = os.WEXITSTATUS(returncode)
         else:
             frameInfo.exitStatus = 1
@@ -569,19 +556,17 @@ class RqCore:
     def start(self):
         """Called by main to start the rqd service"""
         # If nimby should be on, start it
-        if rqconstants.OVERRIDE_NIMBY == True:
+        if rqconstants.OVERRIDE_NIMBY:
             log.warning("Nimby startup has been triggered by OVERRIDE_NIMBY")
             self.nimbyOn()
         elif self.machine.isDesktop():
             if self.__optNimbyoff:
                 log.warning("Nimby startup has been disabled via --nimbyoff")
-            elif rqconstants.OVERRIDE_NIMBY == False:
+            elif not rqconstants.OVERRIDE_NIMBY:
                 log.warning("Nimby startup has been disabled via OVERRIDE_NIMBY")
             else:
                 self.nimbyOn()
         self.network.start_grpc()
-        # Start ice connection
-        self.network.start()
 
     def grpcConnected(self):
         """After gRPC connects to the cuebot, this function is called"""
@@ -594,10 +579,7 @@ class RqCore:
                                                 self.onInterval)
         self.onIntervalThread.start()
 
-    def iceConnected(self):
-        """After ICE connects to the cuebot, this function is called"""
-        # TODO: remove this once ice is removed
-        self.grpcConnected()
+        log.warning('RQD Started')
 
     def onInterval(self):
         """This is called by self.grpcConnected as a timer thread to execute
@@ -624,15 +606,15 @@ class RqCore:
         except Exception as e:
             log.critical('Unable to send status report due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
-    def wait(self):
-        """Waits on network.waitForShutdown()"""
-        self.network.waitForShutdown()
+    # def wait(self):
+    #    """Waits on network.waitForShutdown()"""
+    #    self.network.waitForShutdown()
 
     def updateRss(self):
         """Triggers and schedules the updating of rss information"""
         if self.__cache:
             try:
-                self.machine.rss_update(self.__cache)
+                self.machine.rssUpdate(self.__cache)
             finally:
                 self.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
                 self.updateRssThread.start()
@@ -660,14 +642,13 @@ class RqCore:
         self.__threadLock.acquire()
         try:
             if self.__cache.has_key(frameId):
-                raise RqdIce.RqdIceException("frameId " + frameId +
-                                          " is already running on this machine")
+                raise RqdException("frameId " + frameId + " is already running on this machine")
             self.__cache[frameId] = runningFrame
         finally:
             self.__threadLock.release()
 
         # Add servant to Ice Object Adapter
-        self.network.add(runningFrame)
+        # self.network.add(runningFrame)
 
     def deleteFrame(self, frameId):
         """Deletes a frame from the cache
@@ -678,7 +659,7 @@ class RqCore:
             if self.__cache.has_key(frameId):
                 # Remove servant from Ice Object Adapter
                 iceId = self.__cache[frameId].getIceId()
-                self.network.remove(iceId)
+                # self.network.remove(iceId)
                 del self.__cache[frameId]
         finally:
             self.__threadLock.release()
@@ -731,9 +712,10 @@ class RqCore:
             self.__threadLock.release()
 
         if self.cores.idleCores > self.cores.totalCores:
-            log.critical("idleCores have become greater than totalCores: "
-                         "%d: %s at %s" % (sys.exc_info()[0],
-                                       traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                "idleCores (%d) have become greater than totalCores (%d): %s at %s" % (
+                    self.cores.idleCores, self.cores.totalCores, sys.exc_info()[0],
+                    traceback.extract_tb(sys.exc_info()[2])))
 
     def respawn_rqd(self):
         """Restarts RQD"""
@@ -747,8 +729,6 @@ class RqCore:
             self.onIntervalThread.cancel()
         if self.updateRssThread is not None:
             self.updateRssThread.cancel()
-        self.network.shutdown()
-        self.network.waitForShutdown()
         if self.__respawn:
             log.warning("Respawning RQD by request")
             self.respawn_rqd()
@@ -774,36 +754,36 @@ class RqCore:
         # Check for reasions to abort launch
         #
 
-        if self.machine.state != HardwareState.Up:
+        if self.machine.state != host_pb2.UP:
             err = "Not launching, rqd HardwareState is not Up"
             log.info(err)
-            raise RqdIce.CoreReservationFailureException(err)
+            raise CoreReservationFailureException(err)
 
         if self.__whenIdle:
             err = "Not launching, rqd is waiting for idle to shutdown"
             log.info(err)
-            raise RqdIce.CoreReservationFailureException(err)
+            raise CoreReservationFailureException(err)
 
         if self.nimby.locked and not runFrame.ignoreNimby:
             err = "Not launching, rqd is lockNimby"
             log.info(err)
-            raise RqdIce.CoreReservationFailureException(err)
+            raise CoreReservationFailureException(err)
 
         if self.__cache.has_key(runFrame.frameId):
             err = "Not launching, frame is already running on this proc %s" % \
                                                                 runFrame.frameId
             log.critical(err)
-            raise RqdIce.DuplicateFrameViolationException(err)
+            raise DuplicateFrameViolationException(err)
 
         if runFrame.uid <= 0:
             err = "Not launching, will not run frame as uid=%d" % runFrame.uid
             log.warning(err)
-            raise RqdIce.InvalidUserException(err)
+            raise InvalidUserException(err)
 
         if runFrame.numCores <= 0:
             err = "Not launching, numCores must be > 0"
             log.warning(err)
-            raise RqdIce.CoreReservationFailureException(err)
+            raise CoreReservationFailureException(err)
 
         # See if all requested cores are available
         self.__threadLock.acquire()
@@ -811,7 +791,7 @@ class RqCore:
             if self.cores.idleCores < runFrame.numCores:
                 err = "Not launching, insufficient idle cores"
                 log.critical(err)
-                raise RqdIce.CoreReservationFailureException(err)
+                raise CoreReservationFailureException(err)
 
             if runFrame.environment.get('CUE_THREADABLE') == '1':
                 reserveHT = self.machine.reserveHT(runFrame.numCores)
@@ -824,13 +804,9 @@ class RqCore:
         finally:
             self.__threadLock.release()
 
-        frameInfo = RunningFrame(self, runFrame)
-
-        frameInfo.frameAttendantThread = FrameAttendantThread(self, runFrame,
-                                                              frameInfo)
-
-        #frameInfo.frameAttendantThread.run()   # Monitor inline
-        frameInfo.frameAttendantThread.start()
+        runningFrame = RunningFrame(self, runFrame)
+        runningFrame.frameAttendantThread = FrameAttendantThread(self, runFrame, runningFrame)
+        runningFrame.frameAttendantThread.start()
 
     def getRunningFrame(self, frameId):
         try:
@@ -845,7 +821,7 @@ class RqCore:
 
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
-        self.machine.state = HardwareState.Down
+        self.machine.state = host_pb2.DOWN
         self.lockAll()
         self.killAllFrame("shutdownRqdNow Command")
         if not self.__cache and self.shutdownThread is None:
@@ -881,7 +857,7 @@ class RqCore:
         if self.machine.isUserLoggedIn():
             err = "Rebooting via RQD is not support for a desktop machine when a user is logged in"
             log.warning(err)
-            raise RqdIce.RqdIceException(err)
+            raise RqdException(err)
         self.__reboot = True
         self.shutdownRqdNow()
 
@@ -909,7 +885,7 @@ class RqCore:
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
                 log.warning(err)
-                raise RqdIce.RqdIceException(err)
+                raise RqdException(err)
 
     def nimbyOff(self):
         """Deactivates nimby and unlocks any nimby lock"""
@@ -921,7 +897,6 @@ class RqCore:
         """This is called by nimby when it locks the machine.
            All running frames are killed.
            A new report is sent to the cuebot."""
-        self.__reportNimbyChange(True)
         self.killAllFrame("NIMBY Triggered")
         self.sendStatusReport()
 
@@ -929,7 +904,6 @@ class RqCore:
         """This is called by nimby when it unlocks the machine due to sufficent
            idle. A new report is sent to the cuebot.
         @param asOf: Time when idle state began, if known."""
-        self.__reportNimbyChange(False, asOf=asOf)
         self.sendStatusReport()
 
     def lock(self, reqLock):
@@ -982,13 +956,13 @@ class RqCore:
         sendUpdate = False
 
         if self.__whenIdle or self.__reboot or self.__respawn or \
-           self.machine.state != HardwareState.Up:
+           self.machine.state != host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
         self.__respawn = False
-        self.machine.state = HardwareState.Up
+        self.machine.state = host_pb2.UP
 
         self.__threadLock.acquire()
         try:
@@ -1013,13 +987,13 @@ class RqCore:
         sendUpdate = False
 
         if self.__whenIdle or self.__reboot or self.__respawn or \
-           self.machine.state != HardwareState.Up:
+           self.machine.state != host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
         self.__respawn = False
-        self.machine.state = HardwareState.Up
+        self.machine.state = host_pb2.UP
 
         self.__threadLock.acquire()
         try:
@@ -1038,40 +1012,3 @@ class RqCore:
 
     def sendStatusReport(self):
         self.network.reportStatus(self.machine.getHostReport())
-
-    def __reportNimbyChange(self, locked, asOf=None):
-        try:
-            from cassandra.cluster import Cluster
-            from cassandra.util import datetime_from_timestamp
-            from cassandra.util import uuid_from_time
-
-            if self.__cluster is None:
-                self.__cluster = Cluster(['eat-cassa01', 'eat-cassa03', 'eat-cassa05'])
-                self.__session = self.__cluster.connect('cue3')
-
-                # Expire entries after 6 months.
-                ttl = 86400 * 364 // 2
-
-                self.__stmt = self.__session.prepare(
-                    """INSERT INTO nimby (day, hostname, ts, locked, active)
-                       VALUES (?, ?, ?, ?, ?)
-                       USING TTL {0}""".format(ttl))
-
-            if asOf is None:
-                asOf = time.time()
-
-            day = datetime_from_timestamp(asOf)
-            day = day.replace(hour=0, minute=0, second=0, microsecond=0)
-
-            # Fire and forget!
-            self.__session.execute_async(
-                self.__stmt.bind((
-                    day,
-                    self.machine.getHostname(),
-                    uuid_from_time(asOf),
-                    locked,
-                    self.nimby.active)))
-
-        except Exception as e:
-            log.warning("Failed to report nimby change: {0}".format(str(e)))
-
