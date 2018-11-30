@@ -39,8 +39,10 @@
   <!-- Non-Transactional Service Domain -->
   <!-- ##################################################################################### -->
 
-  <bean id="rqdClient" class="com.imageworks.spcue.iceclient.RqdClientIce">
-    <constructor-arg index="0" ref="rqdCommunicator" />
+  <bean id="rqdClient" class="com.imageworks.spcue.rqd.RqdClientGrpc">
+    <constructor-arg index="0" type="int">
+      <value>${grpc.rqd_server_port}</value>
+    </constructor-arg>
   </bean>
 
   <bean id="launchQueue" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">

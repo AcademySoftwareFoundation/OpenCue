@@ -51,8 +51,8 @@ import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.iceclient.RqdClient;
-import com.imageworks.spcue.iceclient.RqdClientException;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientException;
 
 @Transactional
 public class HostManagerService implements HostManager {

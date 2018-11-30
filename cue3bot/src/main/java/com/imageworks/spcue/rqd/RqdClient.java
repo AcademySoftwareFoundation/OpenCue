@@ -15,14 +15,12 @@
  * limitations under the License.
  */
 
+package com.imageworks.spcue.rqd;
 
-
-package com.imageworks.spcue.iceclient;
-
-import com.imageworks.spcue.RqdIce.RunFrame;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.RqdIce.RunningFrameInfo;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
+import com.imageworks.spcue.grpc.rqd.RunFrame;
 
 public interface RqdClient {
 
