@@ -44,7 +44,8 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -108,6 +109,9 @@ public class RedirectManagerTests
 
     @Resource
     Whiteboard whiteboard;
+    
+    @Resource
+    ProcSearchFactory procSearchFactory;
 
     private static final String HOSTNAME = "beta";
 
@@ -179,7 +183,7 @@ public class RedirectManagerTests
         VirtualProc proc = procs.get(0);
 
         /* Setup a proc search */
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         ProcSearchCriteria criteria = search.getCriteria();
         search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
@@ -222,7 +226,7 @@ public class RedirectManagerTests
         procDao.getVirtualProc(proc.getId());
 
         /* Setup a proc search */
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         ProcSearchCriteria criteria = search.getCriteria();
         search.setCriteria(criteria.toBuilder().addJobs(job.getName()).build());
 
@@ -266,7 +270,7 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertTrue(redirectManager.addRedirect(proc, target,
@@ -304,7 +308,7 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);
@@ -334,7 +338,7 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertTrue(redirectManager.addRedirect(proc, target,
@@ -373,7 +377,7 @@ public class RedirectManagerTests
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
 
-        ProcSearch search = new ProcSearch();
+        ProcSearchInterface search = procSearchFactory.create();
         search.setCriteria(ProcSearchCriteria.newBuilder().addJobs(job.getName()).build());
 
         assertEquals(group.getGroupId(), jobDao.getJobDetail(target.getJobId()).groupId);

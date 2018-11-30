@@ -23,8 +23,8 @@ import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.iceclient.RqdClient;
-import com.imageworks.spcue.iceclient.RqdClientException;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.util.CueUtil;
 
 /**

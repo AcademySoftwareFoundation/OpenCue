@@ -36,7 +36,7 @@ import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
@@ -71,6 +71,9 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
     @Resource
     DependManager dependManager;
 
+    @Resource
+    FrameSearchFactory frameSearchFactory;
+
     @Before
     public void setTestMode() {
         jobLauncher.testMode = true;
@@ -92,7 +95,7 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
                 .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
                         .forEach(dep -> dependManager.satisfyDepend(dep)));
 
-        frameDao.findFrames(new FrameSearch(job)).forEach(
+        frameDao.findFrames(frameSearchFactory.create(job)).forEach(
                 frame -> frameDao.updateFrameState(
                         frameDao.getFrame(frame.getFrameId()), FrameState.SUCCEEDED));
 
@@ -114,7 +117,7 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
                 .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
                         .forEach(dep -> dependManager.satisfyDepend(dep)));
 
-        frameDao.findFrames(new FrameSearch(job)).forEach(
+        frameDao.findFrames(frameSearchFactory.create(job)).forEach(
                 frame -> frameDao.updateFrameState(
                         frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
 

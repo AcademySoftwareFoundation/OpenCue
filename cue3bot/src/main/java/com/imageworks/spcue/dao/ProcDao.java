@@ -29,8 +29,8 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 
 /**
@@ -175,7 +175,7 @@ public interface ProcDao {
      * @param req
      * @return
      */
-    List<VirtualProc> findVirtualProcs(FrameSearch s);
+    List<VirtualProc> findVirtualProcs(FrameSearchInterface s);
 
     /**
      * get the list of procs from the host.
@@ -222,12 +222,12 @@ public interface ProcDao {
     public List<VirtualProc> findVirtualProcs(HardwareState state);
 
     /**
-     * Returns a list if procs using a ProcSearch object.
+     * Returns a list if procs using a ProcSearchInterface object.
      *
-     * @param r - A ProcSearch object
+     * @param r - A ProcSearchInterface object
      * @return a list of virtual procs
      */
-    List<VirtualProc> findVirtualProcs(ProcSearch r);
+    List<VirtualProc> findVirtualProcs(ProcSearchInterface r);
 
     /**
      * Unbooks a list of virtual procs using a batch query
@@ -299,7 +299,7 @@ public interface ProcDao {
      * @param r
      * @return
      */
-    List<VirtualProc> findBookedVirtualProcs(ProcSearch r);
+    List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r);
 
     /**
      * Return true if the proc is an orphan.

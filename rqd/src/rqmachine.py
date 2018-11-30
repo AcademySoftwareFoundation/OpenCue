@@ -28,7 +28,6 @@ SVN: $Id$
 """
 
 import commands
-import copy
 import errno
 import logging as log
 import math
@@ -36,7 +35,6 @@ import os
 import platform
 import psutil
 import re
-import socket
 import statvfs
 import subprocess
 import sys
@@ -49,6 +47,7 @@ if platform.system() == 'Linux':
     import yaml
 
 import rqconstants
+from rqexceptions import CoreReservationFailureException
 import rqutil
 import rqswap
 
@@ -56,11 +55,8 @@ if platform.system() == "win32":
     import win32process
     import win32api
 
-import Ice
-Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
-              "rqd_ice.ice".replace("{PATH}", os.path.dirname(__file__)))
-import cue.RqdIce as RqdIce
-from cue.CueIce import HardwareState
+from compiled_proto import host_pb2
+from compiled_proto import report_pb2
 
 KILOBYTE = 1024
 
@@ -79,21 +75,17 @@ class Machine:
         if platform.system() == 'Linux':
             self.__vmstat = rqswap.VmStat()
 
-        self.state = HardwareState.Up
+        self.state = host_pb2.UP
 
-        # renderHost
-        self.__renderHost = RqdIce.RenderHost()
-        self.__renderHost.attributes =  {}
+        self.__renderHost = report_pb2.RenderHost()
         self.__initMachineTags()
         self.__initMachineStats()
 
-        # bootReport
-        self.__bootReport = RqdIce.BootReport()
-        self.__bootReport.coreInfo = self.__coreInfo
+        self.__bootReport = report_pb2.BootReport()
+        self.__bootReport.core_info.CopyFrom(self.__coreInfo)
 
-        # hostReport
-        self.__hostReport = RqdIce.HostReport()
-        self.__hostReport.coreInfo = self.__coreInfo
+        self.__hostReport = report_pb2.HostReport()
+        self.__hostReport.core_info.CopyFrom(self.__coreInfo)
 
         self.__pidHistory = {}
 
@@ -103,9 +95,9 @@ class Machine:
         """Returns False if nimby should be triggered due to resource limits"""
         if platform.system() == "Linux":
             self.updateMachineStats()
-            if self.__renderHost.freeMem < rqconstants.MINIMUM_MEM:
+            if self.__renderHost.free_mem < rqconstants.MINIMUM_MEM:
                 return False
-            if self.__renderHost.freeSwap < rqconstants.MINIMUM_SWAP:
+            if self.__renderHost.free_swap < rqconstants.MINIMUM_SWAP:
                 return False
         return True
 
@@ -175,7 +167,7 @@ class Machine:
             return False
 
         # These process names imply a user is logged in.
-        names = set(['kdesktop', 'gnome-session', 'startkde'])
+        names = {'kdesktop', 'gnome-session', 'startkde'}
 
         for proc in psutil.process_iter():
             procName = proc.name()
@@ -389,7 +381,7 @@ class Machine:
 
     def __initMachineTags(self):
         """Sets the hosts tags"""
-        self.__renderHost.tags = ["rqdv-%s" % rqconstants.VERSION]
+        self.__renderHost.tags.append("rqdv-%s" % rqconstants.VERSION)
 
         # Tag with desktop if it is a desktop
         if self.isDesktop():
@@ -412,7 +404,7 @@ class Machine:
     def __initMachineStats(self, pathCpuInfo=None):
         """Updates static machine information during initialization"""
         self.__renderHost.name = self.getHostname()
-        self.__renderHost.bootTime = self.getBootTime()
+        self.__renderHost.boot_time = self.getBootTime()
         self.__renderHost.facility = rqconstants.FACILITY
         self.__renderHost.attributes['SP_OS'] = rqconstants.SP_OS
 
@@ -422,7 +414,7 @@ class Machine:
         if platform.system() == "Linux" or pathCpuInfo is not None:
             # Reads static information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.totalMcp = (mcpStat[statvfs.F_BLOCKS]
+            self.__renderHost.total_mcp = (mcpStat[statvfs.F_BLOCKS]
                                           * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
 
             # Reads static information from /proc/cpuinfo
@@ -455,16 +447,16 @@ class Machine:
 
             # Running unittests on osx
             if platform.system() == 'Darwin' and pathCpuInfo is not None:
-                self.__renderHost.totalMem = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
-                self.__renderHost.totalSwap = 0
+                self.__renderHost.total_mem = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
+                self.__renderHost.total_swap = 0
             else:
                 # Reads static information from /proc/meminfo
                 with  open(rqconstants.PATH_MEMINFO, "r") as meminfoFile:
                     for line in meminfoFile:
                         if line.startswith("MemTotal"):
-                            self.__renderHost.totalMem = int(line.split()[1])
+                            self.__renderHost.total_mem = int(line.split()[1])
                         elif line.startswith("SwapTotal"):
-                            self.__renderHost.totalSwap = int(line.split()[1])
+                            self.__renderHost.total_swap = int(line.split()[1])
 
             self.__renderHost.attributes['totalGpu'] = str(self.getGpuMemoryTotal())
         else:
@@ -474,9 +466,9 @@ class Machine:
             # Windows memory information
             stat = self.getWindowsMemory()
             TEMP_DEFAULT = 1048576
-            self.__renderHost.totalMcp = TEMP_DEFAULT
-            self.__renderHost.totalMem = int(stat.ullTotalPhys / 1024)
-            self.__renderHost.totalSwap = int(stat.ullTotalPageFile / 1024)
+            self.__renderHost.total_mcp = TEMP_DEFAULT
+            self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
+            self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
 
             # Windows CPU information
             import multiprocessing
@@ -492,7 +484,7 @@ class Machine:
 
         if not rqconstants.OVERRIDE_MEMORY is None:
             log.warning("Manually overriding the total memory")
-            self.__renderHost.totalMem = rqconstants.OVERRIDE_MEMORY
+            self.__renderHost.total_mem = rqconstants.OVERRIDE_MEMORY
 
         if not rqconstants.OVERRIDE_CORES is None:
             log.warning("Manually overriding the number of reported cores")
@@ -507,8 +499,8 @@ class Machine:
 
         self.__coreInfo.idle_cores = __totalCores
         self.__coreInfo.total_cores = __totalCores
-        self.__renderHost.numProcs = __numProcs
-        self.__renderHost.coresPerProc = __totalCores / __numProcs
+        self.__renderHost.num_procs = __numProcs
+        self.__renderHost.cores_per_proc = __totalCores / __numProcs
 
         if hyperthreadingMultipler > 1:
            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultipler)
@@ -531,18 +523,47 @@ class Machine:
                 def __init__(self):
                     # have to initialize this to the size of MEMORYSTATUSEX
                     self.dwLength = 2*4 + 7*8     # size = 2 ints, 7 longs
-                    return super(MEMORYSTATUSEX, self).__init__()
+                    super(MEMORYSTATUSEX, self).__init__()
 
             self.__windowsStat = MEMORYSTATUSEX()
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(self.__windowsStat))
         return self.__windowsStat
+
+    def updateMacMemory(self):
+        memsizeOutput = commands.getoutput('sysctl hw.memsize').strip()
+        memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
+        memsizeMatch = memsizeRegex.match(memsizeOutput)
+        if memsizeMatch:
+            self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) / 1024
+        else:
+            self.__renderHost.total_mem = 0
+
+        vmStatLines = commands.getoutput('vm_stat').split('\n')
+        lineRegex = re.compile(r'^(?P<field>.+):[\s]+(?P<pages>[\d]+).$')
+        vmStats = {}
+        for line in vmStatLines[1:-2]:
+            match = lineRegex.match(line)
+            if match:
+                vmStats[match.group('field')] = int(match.group('pages')) * 4096
+
+        freeMemory = vmStats.get("Pages free", 0) / 1024
+        inactiveMemory = vmStats.get("Pages inactive", 0) / 1024
+        self.__renderHost.free_mem = freeMemory + inactiveMemory
+
+        swapStats = commands.getoutput('sysctl vm.swapusage').strip()
+        swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
+        swapMatch = swapRegex.match(swapStats)
+        if swapMatch:
+            self.__renderHost.free_swap = int(float(swapMatch.group('freeMb')) * 1024)
+        else:
+            self.__renderHost.free_swap = 0
 
     def updateMachineStats(self):
         """Updates dynamic machine information during runtime"""
         if platform.system() == "Linux":
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.freeMcp = (mcpStat[statvfs.F_BAVAIL]
+            self.__renderHost.free_mcp = (mcpStat[statvfs.F_BAVAIL]
                                          * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
@@ -555,22 +576,25 @@ class Machine:
                 elif line.startswith("Cached"):
                     cachedMem = int(line.split()[1])
             meminfoFile.close()
-            self.__renderHost.freeSwap = freeSwapMem
-            self.__renderHost.freeMem = freeMem + cachedMem
+            self.__renderHost.free_swap = freeSwapMem
+            self.__renderHost.free_mem = freeMem + cachedMem
             self.__renderHost.attributes['freeGpu'] = str(self.getGpuMemory())
             self.__renderHost.attributes['swapout'] = self.__getSwapout()
+
+        elif platform.system() == 'Darwin':
+            self.updateMacMemory()
 
         elif platform.system() == 'Windows':
             TEMP_DEFAULT = 1048576
             stats = self.getWindowsMemory()
-            self.__renderHost.freeMcp = TEMP_DEFAULT
-            self.__renderHost.freeSwap = int(stats.ullAvailPageFile / 1024)
-            self.__renderHost.freeMem = int(stats.ullAvailPhys /1024)
+            self.__renderHost.free_mcp = TEMP_DEFAULT
+            self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
+            self.__renderHost.free_mem = int(stats.ullAvailPhys /1024)
 
-        # Updates dyanimic information
+        # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
-        self.__renderHost.nimbyEnabled = self.__rqCore.nimby.active
-        self.__renderHost.nimbyLocked = self.__rqCore.nimby.locked
+        self.__renderHost.nimby_enabled = self.__rqCore.nimby.active
+        self.__renderHost.nimby_locked = self.__rqCore.nimby.locked
         self.__renderHost.state = self.state
 
     def getHostInfo(self):
@@ -580,11 +604,8 @@ class Machine:
 
     def getHostReport(self):
         """Updates and returns the hostReport struct"""
-        # .hostInfo
-        self.__hostReport.host = self.getHostInfo()
+        self.__hostReport.host.CopyFrom(self.getHostInfo())
 
-        # .frames
-        self.__hostReport.frames = []
         for frameKey in self.__rqCore.getFrameKeys():
             try:
                 info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
@@ -597,12 +618,12 @@ class Machine:
     def getBootReport(self):
         """Updates and returns the bootReport struct"""
         # .hostInfo
-        self.__bootReport.host = self.getHostInfo()
+        self.__bootReport.host.CopyFrom(self.getHostInfo())
 
         return self.__bootReport
 
     def __enabledHT(self):
-        return self.__renderHost.attributes.has_key('hyperthreadingMultiplier')
+        return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
     def setupHT(self):
         """ Setup rqd for hyper-threading """
@@ -632,7 +653,7 @@ class Machine:
         if len(self.__coreInfo.tasksets) < reservedCores / 100:
             err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
             log.critical(err)
-            raise RqdIce.CoreReservationFailureException(err)
+            raise CoreReservationFailureException(err)
 
         tasksets = []
         for x in range(reservedCores / 100):
