@@ -185,4 +185,9 @@
         <property name="departmentManager" ref="departmentManager" />
     </bean>
 
+    <bean scope="prototype" id="rqdReportStatic" class="com.imageworks.spcue.servant.RqdReportStatic">
+        <property name="frameCompleteHandler" ref="frameCompleteHandler" />
+        <property name="hostReportHandler" ref="hostReportHandler" />
+    </bean>
+
 </beans>

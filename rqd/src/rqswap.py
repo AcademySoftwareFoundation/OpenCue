@@ -16,11 +16,11 @@
 #  limitations under the License.
 
 
-
-
 """
 Utility classes and functions to get virtual memory page out number.
 """
+
+
 from __future__ import with_statement
 import logging as log
 import re
