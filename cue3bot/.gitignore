@@ -2,6 +2,7 @@
 /classes-slice
 /classes-test
 /dist
+/.gradle
 /logs
 /src-slice
 /target
