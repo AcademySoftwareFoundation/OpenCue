@@ -1,4 +1,3 @@
-import sbtzerocice.{ZeroCIcePlugin=>Ice}
 import scalariform.formatter.preferences._
 import sbtprotobuf.{ProtobufPlugin=>PB}
 Seq(PB.protobufSettings: _*)
@@ -49,8 +48,6 @@ packJvmOpts := Map("cuebot" -> Seq(
 ))
 
 net.virtualvoid.sbt.graph.Plugin.graphSettings
-
-genSliceSettings
 
 scalariformSettings
 
