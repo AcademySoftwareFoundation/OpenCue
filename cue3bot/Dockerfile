@@ -29,6 +29,7 @@ COPY src/main/resources/ src/main/resources/
 COPY src/main/proto/ src/main/proto/
 COPY src/main/java/ src/main/java/
 
+# Run as builduser in case tests get run later.
 RUN chmod -R 777 .
 RUN adduser builduser
 RUN su -c "./gradlew build --stacktrace" builduser
@@ -45,6 +46,8 @@ ENV CUEBOT_DB_ENGINE=postgres
 
 COPY src/test/ src/test/
 
+# Tests must be run as a non-root user as the embedded Postgres server will not
+# work otherwise.
 RUN if [ "$build_env" == "test" ]; then \
     su -c "./gradlew build --stacktrace" builduser; \
     fi
@@ -70,6 +73,7 @@ WORKDIR /opt/cue3
 
 COPY --from=package /src/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
 
+# TODO(cipriano) Implement a new GRPC-based health check.
 # HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
 VOLUME ["/opt/cue3/logs"]
@@ -84,4 +88,6 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
+# TODO(cipriano) Consider creating a wrapper script like bin/cuebot from the SBT setup.
+# We may want to at least import some of the JVM options from that script.
 ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot.jar"]
