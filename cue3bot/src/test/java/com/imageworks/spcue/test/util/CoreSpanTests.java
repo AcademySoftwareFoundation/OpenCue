@@ -24,11 +24,11 @@ import junit.framework.TestCase;
 
 import org.junit.Before;
 
-import com.imageworks.spcue.CueIce.ThreadMode;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
 public class CoreSpanTests extends TestCase {
@@ -129,7 +129,7 @@ public class CoreSpanTests extends TestCase {
         VirtualProc proc;
 
         DispatchHost host = new DispatchHost();
-        host.threadMode = ThreadMode.All.value();
+        host.threadMode = ThreadMode.ALL_VALUE;
         /* 8 gigs and 7 cores idle, request 7g */
         host.memory = CueUtil.GB8;
         host.idleMemory = CueUtil.GB8;
@@ -144,7 +144,7 @@ public class CoreSpanTests extends TestCase {
         proc = VirtualProc.build(host, frame);
         assertEquals(800, proc.coresReserved);
 
-        host.threadMode = ThreadMode.Auto.value();
+        host.threadMode = ThreadMode.AUTO_VALUE;
         proc = VirtualProc.build(host, frame);
         assertEquals(300, proc.coresReserved);
     }
