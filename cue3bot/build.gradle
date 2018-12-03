@@ -1,5 +1,5 @@
 apply plugin: 'java'
-apply plugin: "com.github.johnrengelman.shadow"
+apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'com.google.protobuf'
 
 sourceCompatibility = 1.8
@@ -43,8 +43,6 @@ dependencies {
     compile group: 'org.jdom', name: 'jdom', version: '1.1.3'
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-jdbc', version: springBootVersion
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-log4j', version: springBootVersion
-    // TODO(cipriano) This line below is "provided"
-    compile group: 'org.springframework.boot', name: 'spring-boot-starter-tomcat', version: springBootVersion
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: springBootVersion
     compile group: 'org.springframework', name: 'spring-context-support', version: springVersion
     compile group: 'org.springframework', name: 'spring-jms', version: springVersion
@@ -55,12 +53,13 @@ dependencies {
     // protobuf fileTree("src/main/proto/")
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
-    // https://github.com/sbt/junit-interface
     testCompile group: 'com.novocode', name: 'junit-interface', version: '0.11'
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: springBootVersion
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.8.0'
     testCompile group: 'com.opentable.components', name: 'otj-pg-embedded', version: '0.12.1'
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
+
+    compileOnly group: 'org.springframework.boot', name: 'spring-boot-starter-tomcat', version: springBootVersion
 }
 
 protobuf {

@@ -73,7 +73,7 @@ WORKDIR /opt/cue3
 
 COPY --from=package /src/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
 
-# TODO(cipriano) Implement a new GRPC-based health check.
+# TODO(cipriano) Implement a new GRPC-based health check. (b/120441749)
 # HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
 VOLUME ["/opt/cue3/logs"]
@@ -89,5 +89,5 @@ EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
 # TODO(cipriano) Consider creating a wrapper script like bin/cuebot from the SBT setup.
-# We may want to at least import some of the JVM options from that script.
+# We may want to at least import some of the JVM options from that script. (b/120442342)
 ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot.jar"]
