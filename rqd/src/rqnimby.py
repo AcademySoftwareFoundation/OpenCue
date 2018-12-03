@@ -16,8 +16,6 @@
 #  limitations under the License.
 
 
-
-
 """
 Nimby allows a desktop to be used as a render host when not used.
 

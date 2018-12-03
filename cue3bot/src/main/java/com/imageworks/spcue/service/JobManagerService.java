@@ -52,7 +52,7 @@ import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ShowDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -312,7 +312,7 @@ public class JobManagerService implements JobManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<FrameInterface> findFrames(FrameSearch r) {
+    public List<FrameInterface> findFrames(FrameSearchInterface r) {
         return frameDao.findFrames(r);
     }
 

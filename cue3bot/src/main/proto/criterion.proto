@@ -7,6 +7,14 @@ option java_multiple_files = true;
 
 // -------- Primary Message Types --------]
 
+message EqualsFloatSearchCriterion {
+    float value = 1;
+}
+
+message EqualsIntegerSearchCriterion {
+    int32 value = 1;
+}
+
 message GreaterThanFloatSearchCriterion {
     float value = 1;
 }

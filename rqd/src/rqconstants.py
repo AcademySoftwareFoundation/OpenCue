@@ -14,7 +14,6 @@
 #  limitations under the License.
 
 
-
 """
 Constants.
 
@@ -26,9 +25,10 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
+
+
 import os
 import sys
-import platform
 import logging
 import traceback
 import commands
@@ -37,12 +37,6 @@ import re
 
 if platform.system() == 'Linux':
     import pwd
-
-import Ice
-
-Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
-              "rqd_ice.ice".replace("{PATH}", os.path.dirname(__file__)))
-import cue.CueIce
 
 import rqutil
 
@@ -68,7 +62,7 @@ else:
 
 RQD_PORT = "10021"
 RQD_HOST = "localhost"
-RQD_TIMEOUT = "10000"
+RQD_TIMEOUT = 10000
 
 FACILITY_ICE_NAMESERVER = "FacilityStatic" \
                           ":tcp -h ice-ns1 -p 30000 -t 2000" \
@@ -79,7 +73,7 @@ FACILITY_ICE_NAMESERVER = "FacilityStatic" \
 RQD_GRPC_MAX_WORKERS = 10
 RQD_GRPC_PORT = 50051
 RQD_GRPC_SLEEP = 60 * 60 *24
-
+CUEBOT_GRPC_PORT = 8444
 
 # RQD behavior:
 RSS_UPDATE_INTERVAL = 10
@@ -109,8 +103,8 @@ MINIMUM_SWAP = 1048576
 MAXIMUM_LOAD = 75           # If (machine load * 100 / cores) goes over this amount, don't unlock nimby
                             # 1.5 would mean a max load of 1.5 per core
 
-EXITSTATUS_FOR_FAILED_LAUNCH = cue.CueIce.FrameExitStatusNoRetry
-EXITSTATUS_FOR_NIMBY_KILL = cue.CueIce.FrameExitStatusSkipRetry
+EXITSTATUS_FOR_FAILED_LAUNCH = 256
+EXITSTATUS_FOR_NIMBY_KILL = 286
 
 PATH_CPUINFO = "/proc/cpuinfo"
 PATH_INITTAB = "/etc/inittab" # spinux1
