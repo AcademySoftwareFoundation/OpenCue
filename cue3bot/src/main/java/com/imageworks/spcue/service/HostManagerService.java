@@ -44,15 +44,15 @@ import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.iceclient.RqdClient;
-import com.imageworks.spcue.iceclient.RqdClientException;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientException;
 
 @Transactional
 public class HostManagerService implements HostManager {
@@ -246,7 +246,7 @@ public class HostManagerService implements HostManager {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<VirtualProc> findVirtualProcs(FrameSearch request) {
+    public List<VirtualProc> findVirtualProcs(FrameSearchInterface request) {
         return procDao.findVirtualProcs(request);
     }
 
@@ -268,7 +268,7 @@ public class HostManagerService implements HostManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<VirtualProc> findVirtualProcs(ProcSearch r) {
+    public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
         return procDao.findVirtualProcs(r);
     }
 
@@ -280,7 +280,7 @@ public class HostManagerService implements HostManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<VirtualProc> findBookedVirtualProcs(ProcSearch r) {
+    public List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r) {
         return procDao.findBookedVirtualProcs(r);
     }
 

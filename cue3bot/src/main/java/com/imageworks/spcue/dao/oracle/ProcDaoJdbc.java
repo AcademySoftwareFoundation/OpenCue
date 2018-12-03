@@ -40,8 +40,8 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
@@ -370,19 +370,19 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
           "AND " +
               "job.pk_folder = folder.pk_folder ";
 
-      public List<VirtualProc> findVirtualProcs(ProcSearch r) {
-          return getJdbcTemplate().query(r.getQuery(GET_VIRTUAL_PROC_LIST),
+      public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
+          return getJdbcTemplate().query(r.getFilteredQuery(GET_VIRTUAL_PROC_LIST),
                   VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
       @Override
-      public List<VirtualProc> findBookedVirtualProcs(ProcSearch r) {
-          return getJdbcTemplate().query(r.getQuery(GET_VIRTUAL_PROC_LIST +
+      public List<VirtualProc> findBookedVirtualProcs(ProcSearchInterface r) {
+          return getJdbcTemplate().query(r.getFilteredQuery(GET_VIRTUAL_PROC_LIST +
                   "AND proc.b_unbooked = 0"), VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 
-      public List<VirtualProc> findVirtualProcs(FrameSearch r) {
-          return getJdbcTemplate().query(r.getQuery(GET_VIRTUAL_PROC_LIST),
+      public List<VirtualProc> findVirtualProcs(FrameSearchInterface r) {
+          return getJdbcTemplate().query(r.getFilteredQuery(GET_VIRTUAL_PROC_LIST),
                   VIRTUAL_PROC_MAPPER, r.getValuesArray());
       }
 

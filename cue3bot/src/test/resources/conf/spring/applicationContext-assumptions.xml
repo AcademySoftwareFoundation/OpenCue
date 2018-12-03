@@ -29,4 +29,6 @@
         <property name="dbEngine" ref="dbEngine" />
     </bean>
 
+    <bean id="assumingTrackitEnabled" class="com.imageworks.spcue.test.AssumingTrackitEnabled"/>
+
 </beans>

@@ -22,7 +22,6 @@ package com.imageworks.spcue.dao.oracle;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -48,11 +47,12 @@ import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.WhiteboardDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.HostSearch;
-import com.imageworks.spcue.dao.criteria.JobSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
@@ -127,6 +127,9 @@ import com.imageworks.spcue.util.SqlUtil;
 public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
+
+    private FrameSearchFactory frameSearchFactory;
+    private ProcSearchFactory procSearchFactory;
 
     @Override
     public Service getService(String id) {
@@ -314,8 +317,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public List<String> getJobNames(JobSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_JOB_NAMES),
+    public List<String> getJobNames(JobSearchInterface r) {
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_JOB_NAMES),
                 new RowMapper<String>() {
             public String mapRow(ResultSet rs, int rowNum) throws SQLException {
                 return SqlUtil.getString(rs, 1);
@@ -324,9 +327,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public JobSeq getJobs(JobSearch r) {
+    public JobSeq getJobs(JobSearchInterface r) {
         List<Job> jobs = getJdbcTemplate().query(
-                r.getQuery(GET_JOB) + "ORDER BY job.str_name ASC", JOB_MAPPER, r.getValuesArray());
+                r.getFilteredQuery(GET_JOB) + "ORDER BY job.str_name ASC",
+                JOB_MAPPER,
+                r.getValuesArray());
         return JobSeq.newBuilder().addAllJobs(jobs).build();
     }
 
@@ -408,9 +413,9 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public FrameSeq getFrames(FrameSearch r) {
-        List<Frame> frames = getJdbcTemplate().query(r.getSortedQuery(GET_FRAMES_CRITERIA),FRAME_MAPPER,
-                r.getValuesArray());
+    public FrameSeq getFrames(FrameSearchInterface r) {
+        List<Frame> frames = getJdbcTemplate().query(
+                r.getSortedQuery(GET_FRAMES_CRITERIA), FRAME_MAPPER, r.getValuesArray());
         return FrameSeq.newBuilder().addAllFrames(frames).build();
     }
 
@@ -509,8 +514,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public HostSeq getHosts(HostSearch r) {
-        List<Host> hosts = getJdbcTemplate().query(r.getQuery(GET_HOST), HOST_MAPPER,
+    public HostSeq getHosts(HostSearchInterface r) {
+        List<Host> hosts = getJdbcTemplate().query(r.getFilteredQuery(GET_HOST), HOST_MAPPER,
                 r.getValuesArray());
         return HostSeq.newBuilder().addAllHosts(hosts).build();
     }
@@ -522,19 +527,19 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public ProcSeq getProcs(HostInterface h) {
-        ProcSearch r = new ProcSearch();
-        r.addPhrase("host.pk_host", h.getHostId());
-        r.addSort(Sort.asc("host.str_name"));
-        r.addSort(Sort.asc("proc.ts_dispatched"));
+    public ProcSeq getProcs(HostInterface host) {
+        ProcSearchInterface r = procSearchFactory.create();
+        r.filterByHost(host);
+        r.sortByHostName();
+        r.sortByDispatchedTime();
         return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
     }
 
     @Override
-    public ProcSeq getProcs(ProcSearch p) {
-        p.addSort(Sort.asc("host.str_name"));
-        p.addSort(Sort.asc("proc.ts_dispatched"));
-        List<Proc> procs = getJdbcTemplate().query(p.getQuery(GET_PROC),
+    public ProcSeq getProcs(ProcSearchInterface p) {
+        p.sortByHostName();
+        p.sortByDispatchedTime();
+        List<Proc> procs = getJdbcTemplate().query(p.getFilteredQuery(GET_PROC),
                 PROC_MAPPER, p.getValuesArray());
         return ProcSeq.newBuilder().addAllProcs(procs).build();
     }
@@ -567,17 +572,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         resultBuilder.setState(JobState.valueOf(getJdbcTemplate().queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId())));
 
-        FrameSearch r = new FrameSearch(job);
-        List<String> lids = new ArrayList<String>(layers.size());
-        for (LayerInterface l: layers) {
-            lids.add(l.getLayerId());
-        }
-        r.addPhrase("layer.pk_layer",lids);
-        r.addGreaterThanTimestamp("frame.ts_updated", epochSeconds);
+        FrameSearchInterface r = frameSearchFactory.create(job);
+        r.filterByLayers(layers);
+        r.filterByChangeDate(epochSeconds);
         r.setMaxResults(100);
 
         List<UpdatedFrame> updatedFrameList = getJdbcTemplate().query(
-                r.getQuery(GET_UPDATED_FRAME), UPDATED_FRAME_MAPPER, r.getValuesArray());
+                r.getFilteredQuery(GET_UPDATED_FRAME), UPDATED_FRAME_MAPPER, r.getValuesArray());
         resultBuilder.setUpdatedFrames(UpdatedFrameSeq.newBuilder().addAllUpdatedFrames(updatedFrameList).build());
         resultBuilder.setServerTime((int) (System.currentTimeMillis() / 1000) - 1);
 
@@ -2013,5 +2014,21 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "deed.pk_owner = owner.pk_owner " +
         "AND " +
             "owner.pk_show = show.pk_show ";
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
+
+    public ProcSearchFactory getProcSearchFactory() {
+        return procSearchFactory;
+    }
+
+    public void setProcSearchFactory(ProcSearchFactory procSearchFactory) {
+        this.procSearchFactory = procSearchFactory;
+    }
 }
 

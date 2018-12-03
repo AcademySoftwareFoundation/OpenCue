@@ -64,6 +64,8 @@
 
     <bean id="whiteboardDao" class="com.imageworks.spcue.dao.postgres.WhiteboardDaoJdbc">
         <property name="dataSource" ref="cue3DataSource" />
+        <property name="frameSearchFactory" ref="frameSearchFactory" />
+        <property name="procSearchFactory" ref="procSearchFactory" />
     </bean>
 
     <bean id="nestedWhiteboardDao" class="com.imageworks.spcue.dao.postgres.NestedWhiteboardDaoJdbc">
@@ -132,11 +134,6 @@
 
     <bean id="bookingDao" class="com.imageworks.spcue.dao.postgres.BookingDaoJdbc">
         <property name="dataSource" ref="cue3DataSource" />
-    </bean>
-
-    <!-- Prod SPI DAOs -->
-    <bean id="trackitDao" class="com.imageworks.spcue.dao.postgres.TrackitDaoJdbc">
-        <property name="dataSource" ref="trackitDataSource"/>
     </bean>
 
     <bean id="redirectDao" class="com.imageworks.spcue.dao.postgres.RedirectDaoJdbc">

@@ -30,24 +30,21 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.depend.FrameByFrame;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.test.TransactionalTest;
 
 import static org.junit.Assert.assertEquals;
@@ -76,7 +73,7 @@ public class DependManagerChunkingTests extends TransactionalTest {
     JobLauncher jobLauncher;
 
     @Resource
-    JobManagerSupport jobManagerSupport;
+    FrameSearchFactory frameSearchFactory;
 
     @Before
     public void launchTestJobs() {
@@ -88,16 +85,16 @@ public class DependManagerChunkingTests extends TransactionalTest {
         return jobManager.findJobDetail("pipe-dev.cue-testuser_chunked_depend");
     }
 
-    private int getTotalDependSum(LayerInterface l) {
-        return frameDao.findFrameDetails(new FrameSearch(l))
+    private int getTotalDependSum(LayerInterface layer) {
+        return frameDao.findFrameDetails(frameSearchFactory.create(layer))
                 .stream()
                 .mapToInt(frame -> frame.dependCount)
                 .sum();
     }
 
-    private boolean hasDependFrames(LayerInterface l) {
-        FrameSearch search = new FrameSearch(l);
-        search.addFrameStates(ImmutableList.of(FrameState.DEPEND));
+    private boolean hasDependFrames(LayerInterface layer) {
+        FrameSearchInterface search = frameSearchFactory.create(layer);
+        search.filterByFrameStates(ImmutableList.of(FrameState.DEPEND));
         return frameDao.findFrames(search).size() > 0;
     }
 

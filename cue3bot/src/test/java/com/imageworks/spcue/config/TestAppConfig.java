@@ -38,7 +38,9 @@ import org.springframework.context.annotation.PropertySource;
                  "classpath:conf/spring/applicationContext-grpc.xml",
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
                  "classpath:conf/spring/applicationContext-service.xml",
-                 "classpath:conf/spring/applicationContext-jms.xml"})
+                 "classpath:conf/spring/applicationContext-jms.xml",
+                 "classpath:conf/spring/applicationContext-trackit.xml",
+                 "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:cue3.properties"})
 public class TestAppConfig {

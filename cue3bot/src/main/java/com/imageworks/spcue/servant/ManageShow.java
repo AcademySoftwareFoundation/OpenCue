@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.servant;
 
 import com.google.common.collect.Sets;
@@ -29,7 +27,8 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.ShowDao;
-import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.JobSearchFactory;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.job.Group;
@@ -37,7 +36,6 @@ import com.imageworks.spcue.grpc.job.GroupSeq;
 import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
-import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
 import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowCreateFilterRequest;
 import com.imageworks.spcue.grpc.show.ShowCreateFilterResponse;
@@ -113,6 +111,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     private FilterManager filterManager;
     private OwnerManager ownerManager;
     private ServiceManager serviceManager;
+    private JobSearchFactory jobSearchFactory;
 
     @Override
     public void createShow(ShowCreateShowRequest request, StreamObserver<ShowCreateShowResponse> responseObserver) {
@@ -226,7 +225,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     @Override
     public void getJobs(ShowGetJobsRequest request, StreamObserver<ShowGetJobsResponse> responseObserver) {
         ShowEntity show = getShowEntity(request.getShow());
-        JobSeq jobSeq = whiteboard.getJobs(JobSearch.byShow(show));
+        JobSeq jobSeq = whiteboard.getJobs(jobSearchFactory.create(show));
         ShowGetJobsResponse response = ShowGetJobsResponse.newBuilder().setJobs(jobSeq).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -460,6 +459,14 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
     private ShowEntity getShowEntity(Show show) {
         return adminManager.getShowEntity(show.getId());
+    }
+
+    public JobSearchFactory getJobSearchFactory() {
+        return jobSearchFactory;
+    }
+
+    public void setJobSearchFactory(JobSearchFactory jobSearchFactory) {
+        this.jobSearchFactory = jobSearchFactory;
     }
 }
 

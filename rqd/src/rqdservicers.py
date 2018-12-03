@@ -1,128 +1,111 @@
 
 import logging as log
 
-import rqd_pb2
-import rqd_pb2_grpc
+from compiled_proto import rqd_pb2
+from compiled_proto import rqd_pb2_grpc
 
 
-def responseManager(responseType):
-    """
-    Decorator that tries to run the wrapped function. If any exception is thrown, use the error status code.
-    :param responseType: Response object type to return.
-    :return: Response object instance.
-    """
-    def decorator(func):
-        def attemptor(*args, **kwargs):
-            try:
-                func(*args, **kwargs)
-            except Exception, e:
-                return responseType(1, 'Failed to run request: {}'.format(e))
-            return responseType(0, 'Success')
-        return attemptor
-    return decorator
-
-
-class RqdStaticServicer(rqd_pb2_grpc.RqdInterfaceServicer):
+class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
     """Service interface for RqdStatic gRPC definition"""
 
     def __init__(self, rqCore):
         self.rqCore = rqCore
 
-    @responseManager(rqd_pb2.RqdStaticLaunchFrameResponse)
-    def launchFrame(self, request, context):
+    def LaunchFrame(self, request, context):
         """RPC call that launches the given frame"""
         log.info("Request received: launchFrame")
         self.rqCore.launchFrame(request)
+        return rqd_pb2.RqdStaticLaunchFrameResponse()
 
-    def reportStatus(self, request, context):
+    def ReportStatus(self, request, context):
         """RPC call that returns reportStatus"""
         log.info("Request received: reportStatus")
-        return rqd_pb2.RqdStaticReportStatusResponse(self.rqCore.reportStatus())
+        return rqd_pb2.RqdStaticReportStatusResponse(host_report=self.rqCore.reportStatus())
 
-    def getRunningFrameStatus(self, request, context):
+    def GetRunningFrameStatus(self, request, context):
         """RPC call to return the frame info for the given frame id"""
         log.info("Request received: getRunningFrameStatus")
         frame = self.rqCore.getRunningFrame(request.frameId)
-        return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(frame.runningFrameInfo())
+        return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(running_frame_info=frame.runningFrameInfo())
 
-    @responseManager(rqd_pb2.RqdStaticKillRunningFrameResponse)
-    def killRunningFrame(self, request, context):
+    def KillRunningFrame(self, request, context):
         """RPC call that kills the running frame with the given id"""
         log.info("Request received: killRunningFrame")
         frame = self.rqCore.getRunningFrame(request.frameId)
         frame.kill()
+        return rqd_pb2.RqdStaticKillRunningFrameResponse()
 
-    @responseManager(rqd_pb2.RqdStaticShutdownNowResponse)
-    def shutdownRqdNow(self, request, context):
+    def ShutdownRqdNow(self, request, context):
         """RPC call that kills all running frames and shuts down rqd"""
         log.info("Request recieved: shutdownRqdNow")
         self.rqCore.shutdownRqdNow()
+        return rqd_pb2.RqdStaticShutdownNowResponse()
 
-    @responseManager(rqd_pb2.RqdStaticShutdownIdleResponse)
-    def shutdownRqdIdle(self, request, context):
+    def ShutdownRqdIdle(self, request, context):
         """RPC call that locks all cores and shuts down rqd when it is idle.
            unlockAll will abort the request."""
         log.info("Request recieved: shutdownRqdIdle")
         self.rqCore.shutdownRqdIdle()
+        return rqd_pb2.RqdStaticShutdownIdleResponse()
 
-    @responseManager(rqd_pb2.RqdStaticRestartNowResponse)
-    def restartRqdNow(self, request, context):
+    def RestartRqdNow(self, request, context):
         """RPC call that kills all running frames and restarts rqd"""
         log.info("Request recieved: restartRqdNow")
         self.rqCore.restartRqdNow()
+        return rqd_pb2.RqdStaticRestartNowResponse()
 
-    @responseManager(rqd_pb2.RqdStaticRestartIdleResponse)
-    def restartRqdIdle(self, request, context):
+    def RestartRqdIdle(self, request, context):
         """RPC call that that locks all cores and restarts rqd when idle.
            unlockAll will abort the request."""
         log.info("Request recieved: restartRqdIdle")
         self.rqCore.restartRqdIdle()
+        return rqd_pb2.RqdStaticRestartIdleResponse()
 
-    @responseManager(rqd_pb2.RqdStaticRebootNowResponse)
-    def rebootNow(self, request, context):
+    def RebootNow(self, request, context):
         """RPC call that kills all running frames and reboots the host."""
         log.info("Request recieved: rebootNow")
         self.rqCore.rebootNow()
+        return rqd_pb2.RqdStaticRebootNowResponse()
 
-    @responseManager(rqd_pb2.RqdStaticRebootIdleResponse)
-    def rebootIdle(self, request, context):
+    def RebootIdle(self, request, context):
         """RPC call that that locks all cores and reboots the host when idle.
            unlockAll will abort the request."""
         log.info("Request recieved: rebootIdle")
         self.rqCore.rebootIdle()
+        return rqd_pb2.RqdStaticRebootIdleResponse()
 
-    @responseManager(rqd_pb2.RqdStaticNimbyOnResponse)
-    def nimbyOn(self, request, context):
+    def NimbyOn(self, request, context):
         """RPC call that activates nimby"""
         log.info("Request recieved: nimbyOn")
         self.rqCore.nimbyOn()
+        return rqd_pb2.RqdStaticNimbyOnResponse()
 
-    @responseManager(rqd_pb2.RqdStaticNimbyOffResponse)
-    def nimbyOff(self, request, context):
+    def NimbyOff(self, request, context):
         """RPC call that deactivates nimby"""
         log.info("Request recieved: nimbyOff")
         self.rqCore.nimbyOff()
+        return rqd_pb2.RqdStaticNimbyOffResponse()
 
-    @responseManager(rqd_pb2.RqdStaticLockResponse)
-    def lock(self, request, context):
+    def Lock(self, request, context):
         """RPC call that locks a specific number of cores"""
         log.info("Request recieved: lock %d" % request.cores)
         self.rqCore.lock(request.cores)
+        return rqd_pb2.RqdStaticLockResponse()
 
-    @responseManager(rqd_pb2.RqdStaticLockAllResponse)
-    def lockAll(self, request, context):
+    def LockAll(self, request, context):
         """RPC call that locks all cores"""
         log.info("Request recieved: lockAll")
         self.rqCore.lockAll()
+        return rqd_pb2.RqdStaticLockAllResponse()
 
-    @responseManager(rqd_pb2.RqdStaticUnlockResponse)
-    def unlock(self, request, context):
+    def Unlock(self, request, context):
         """RPC call that unlocks a specific number of cores"""
         log.info("Request recieved: unlock %d" % request.cores)
         self.rqCore.unlock(request.cores)
+        return rqd_pb2.RqdStaticUnlockResponse()
 
-    @responseManager(rqd_pb2.RqdStaticUnlockAllResponse)
-    def unlockAll(self, request, context):
+    def UnlockAll(self, request, context):
         """RPC call that unlocks all cores"""
         log.info("Request recieved: unlockAll")
         self.rqCore.unlockAll()
+        return rqd_pb2.RqdStaticUnlockAllResponse()

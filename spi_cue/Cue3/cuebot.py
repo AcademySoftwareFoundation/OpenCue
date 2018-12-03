@@ -25,9 +25,13 @@ import logging
 import os
 import yaml
 
+from Cue3.compiled_proto import comment_pb2
 from Cue3.compiled_proto import comment_pb2_grpc
+from Cue3.compiled_proto import criterion_pb2
 from Cue3.compiled_proto import cue_pb2
 from Cue3.compiled_proto import cue_pb2_grpc
+from Cue3.compiled_proto import department_pb2
+from Cue3.compiled_proto import department_pb2_grpc
 from Cue3.compiled_proto import depend_pb2
 from Cue3.compiled_proto import depend_pb2_grpc
 from Cue3.compiled_proto import facility_pb2
@@ -38,6 +42,8 @@ from Cue3.compiled_proto import host_pb2
 from Cue3.compiled_proto import host_pb2_grpc
 from Cue3.compiled_proto import job_pb2
 from Cue3.compiled_proto import job_pb2_grpc
+from Cue3.compiled_proto import renderPartition_pb2
+from Cue3.compiled_proto import renderPartition_pb2_grpc
 from Cue3.compiled_proto import service_pb2
 from Cue3.compiled_proto import service_pb2_grpc
 from Cue3.compiled_proto import show_pb2
@@ -80,7 +86,10 @@ class Cuebot:
     PROTO_MAP = {
         'action': filter_pb2,
         'allocation': facility_pb2,
+        'comment': comment_pb2,
+        'criterion': criterion_pb2,
         'cue': cue_pb2,
+        'department': department_pb2,
         'depend': depend_pb2,
         'facility': facility_pb2,
         'filter': filter_pb2,
@@ -92,6 +101,7 @@ class Cuebot:
         'matcher': filter_pb2,
         'owner': host_pb2,
         'proc': host_pb2,
+        'renderPartition': renderPartition_pb2,
         'service': service_pb2,
         'show': show_pb2,
         'subscription': subscription_pb2,
@@ -104,6 +114,7 @@ class Cuebot:
         'comment': comment_pb2_grpc.CommentInterfaceStub,
         'cue': cue_pb2_grpc.CueInterfaceStub,
         'depend': depend_pb2_grpc.DependInterfaceStub,
+        'department': department_pb2_grpc.DepartmentInterfaceStub,
         'facility': facility_pb2_grpc.FacilityInterfaceStub,
         'filter': filter_pb2_grpc.FilterInterfaceStub,
         'frame': job_pb2_grpc.FrameInterfaceStub,
@@ -114,6 +125,7 @@ class Cuebot:
         'matcher': filter_pb2_grpc.MatcherInterfaceStub,
         'owner': host_pb2_grpc.OwnerInterfaceStub,
         'proc': host_pb2_grpc.ProcInterfaceStub,
+        'renderPartition': renderPartition_pb2_grpc.RenderPartitionInterfaceStub,
         'service': service_pb2_grpc.ServiceInterfaceStub,
         'show': show_pb2_grpc.ShowInterfaceStub,
         'subscription': subscription_pb2_grpc.SubscriptionInterfaceStub,
@@ -182,6 +194,20 @@ class Cuebot:
         Cuebot.Timeout =  timeout
 
     @classmethod
+    def getProto(cls, name):
+        proto = cls.PROTO_MAP.get(name)
+        if proto is None:
+            raise ValueError("Could not find proto for {}.".format(name))
+        return proto
+
+    @classmethod
+    def getService(cls, name):
+        service = cls.SERVICE_MAP.get(name)
+        if service is None:
+            raise ValueError("Could not find stub interface for {}.".format(name))
+        return service
+
+    @classmethod
     def getStub(cls, name):
         """Get the matching stub from the SERVICE_MAP.
         Reuse an existing one if possible.
@@ -190,8 +216,5 @@ class Cuebot:
         if Cuebot.RpcChannel is None:
             raise AttributeError("Cuebot has not been initialized.")
 
-        stubObject = cls.SERVICE_MAP.get(name)
-        if stubObject is None:
-            raise ValueError("Could not find stub interface for {}".format(name))
-
-        return stubObject(Cuebot.RpcChannel)
+        service = cls.getService(name)
+        return service(Cuebot.RpcChannel)

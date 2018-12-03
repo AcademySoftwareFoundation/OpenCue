@@ -48,7 +48,8 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
@@ -103,6 +104,9 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
     @Resource
     JobDao jobDao;
+
+    @Resource
+    FrameSearchFactory frameSearchFactory;
 
     private static final String JOB1 = "pipe-dev.cue-testuser_shell_dispatch_test_v1";
     private static final String JOB2 = "pipe-dev.cue-testuser_shell_dispatch_test_v2";
@@ -413,7 +417,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
     public void eatLayer() {
         JobInterface job = getJob1();
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
-        FrameSearch r = new FrameSearch(layer);
+        FrameSearchInterface r = frameSearchFactory.create(layer);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .setPage(1)
@@ -422,7 +426,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         jobManagerSupport.eatFrames(r, new Source());
 
         assertTrue(
-                frameDao.findFrameDetails(new FrameSearch(layer))
+                frameDao.findFrameDetails(frameSearchFactory.create(layer))
                         .stream()
                         .allMatch(frame -> frame.state == FrameState.EATEN));
     }
@@ -440,7 +444,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         /*
          * Make sure the layer is optimizable.
          */
-        frameDao.findFrames(new FrameSearch(layer))
+        frameDao.findFrames(frameSearchFactory.create(layer))
                 .stream()
                 .limit(5)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
