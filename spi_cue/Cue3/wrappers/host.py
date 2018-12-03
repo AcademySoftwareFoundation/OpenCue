@@ -59,6 +59,15 @@ class Host(object):
                                       timeout=Cuebot.Timeout)
         return [proc.Proc(p) for p in response.procs]
 
+    def getRenderPartitions(self):
+        """Returns a list of render partitions associated with this host
+         @rtype:  list<RenderPartition>
+        @return: A list of render partitions under this host"""
+        response = self.stub.GetRenderPartitions(host_pb2.HostGetRenderPartitionsRequest(
+            host=self.data), timeout=Cuebot.Timeout)
+        partitionSeq = response.render_partitions
+        return partitionSeq.render_partitions
+
     def rebootWhenIdle(self):
         """Causes the host to no longer accept new frames and
         when the machine is idle it will reboot."""

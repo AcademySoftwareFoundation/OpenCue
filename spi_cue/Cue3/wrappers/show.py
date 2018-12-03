@@ -34,6 +34,16 @@ class Show(object):
         self.data = show
         self.stub = Cuebot.getStub('show')
 
+    def createOwner(self, user):
+        """Creates a new owner
+        @type  user: str
+        @param user: user name
+        @rtype:  Owner
+        @return: The created owner object"""
+        response = self.stub.CreateOwner(show_pb2.ShowCreateOwnerRequest(show=self.data, name=user),
+                                         timeout=Cuebot.Timeout)
+        return response.owner
+
     def createSubscription(self, allocation, size, burst):
         """Creates a new subscription
         @type  allocation: Allocation
@@ -56,7 +66,8 @@ class Show(object):
         response = self.stub.GetSubscriptions(show_pb2.ShowGetSubscriptionRequest(
             show=self.data),
             timeout=Cuebot.Timeout)
-        return [subscription.Subscription(subs) for subs in response.subscriptions]
+        subscriptionSeq = response.subscriptions
+        return [subscription.Subscription(subs) for subs in subscriptionSeq.subscriptions]
 
     def findSubscription(self, name):
         """Returns the matching subscription
@@ -77,7 +88,7 @@ class Show(object):
     def setDefaultMaxCores(self, maxcores):
         """Sets the default maximum number of cores
            that new jobs are launched with."""
-        response = self.stub.SetDefaultMaxProcs(show_pb2.ShowSetDefaultMaxCoresRequest(
+        response = self.stub.SetDefaultMaxCores(show_pb2.ShowSetDefaultMaxCoresRequest(
             show=self.data, max_cores=maxcores),
             timeout=Cuebot.Timeout)
         return response
@@ -85,7 +96,7 @@ class Show(object):
     def setDefaultMinCores(self, mincores):
         """Sets the default minimum number of cores
            all new jobs are launched with."""
-        response = self.stub.SetDefaultMinProcs(show_pb2.ShowSetDefaultMinCoresRequest(
+        response = self.stub.SetDefaultMinCores(show_pb2.ShowSetDefaultMinCoresRequest(
             show=self.data, max_cores=mincores),
             timeout=Cuebot.Timeout)
         return response
@@ -120,6 +131,20 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         return group.Group(response.group)
+
+    def enableBooking(self, value):
+        response = self.stub.EnableBooking(show_pb2.ShowEnableBookingRequest(
+            show=self.data,
+            enabled=value),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def enableDispatching(self, value):
+        response = self.stub.EnableDispatching(show_pb2.ShowEnableDispatchingRequest(
+            show=self.data,
+            enabled=value),
+            timeout=Cuebot.Timeout)
+        return response
 
     def id(self):
         """Returns the id of the show
