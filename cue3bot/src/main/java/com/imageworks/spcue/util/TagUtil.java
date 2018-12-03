@@ -22,7 +22,7 @@ package com.imageworks.spcue.util;
 import java.util.ArrayList;
 import java.util.List;
 
-import com.imageworks.spcue.RqdIce.RenderHost;
+import com.imageworks.spcue.grpc.report.RenderHost;
 
 public class TagUtil {
 
@@ -36,11 +36,11 @@ public class TagUtil {
      */
     public static List<String> buildHardwareTags(RenderHost host) {
         List<String> tags = new ArrayList<String>();
-        if (host.tags.contains("linux")) {
+        if (host.getTagsList().contains("linux")) {
             tags.add("linux");
         }
 
-        if (host.tags.contains("64bit")) {
+        if (host.getTagsList().contains("64bit")) {
             tags.add("64bit");
             tags.add("32bit");
         }
