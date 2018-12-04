@@ -247,7 +247,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), item.iceObject)
+        QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), item.rpcObject)
 
     def __itemDoubleClickedEmitToApp(self, item, col):
         """Handles when an item is double clicked on.
@@ -257,8 +257,8 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
-        QtGui.qApp.emit(QtCore.SIGNAL('view_object(PyQt_PyObject)'), item.iceObject)
-        QtGui.qApp.emit(QtCore.SIGNAL("double_click(PyQt_PyObject)"), item.iceObject)
+        QtGui.qApp.emit(QtCore.SIGNAL('view_object(PyQt_PyObject)'), item.rpcObject)
+        QtGui.qApp.emit(QtCore.SIGNAL("double_click(PyQt_PyObject)"), item.rpcObject)
 
     def addObject(self, iceObject):
         """Adds or updates an iceObject in the list using the _createItem function
@@ -325,7 +325,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         """Provides a list of all objects from selected items
         @return: A list of objects from selected items
         @rtype:  list<object>"""
-        return [item.iceObject for item in self.selectedItems()]
+        return [item.rpcObject for item in self.selectedItems()]
 
     def setUpdateInterval(self, seconds):
         """Changes the update interval
@@ -352,27 +352,28 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())
 
-    def _processUpdate(self, work, iceObjects):
+    def _processUpdate(self, work, rpcObjects):
         """A generic function that Will:
         Create new TreeWidgetItems if an item does not exist for the object.
         Update existing TreeWidgetItems if an item already exists for the object.
-        Remove items that were not updated with iceObjects.
+        Remove items that were not updated with rpcObjects.
         @param work:
         @type  work: from ThreadPool
-        @param iceObjects: A list of ice objects
-        @type  iceObjects: list<ice object> """
+        @param rpcObjects: A list of rpc objects
+        @type  rpcObjects: list<rpc object> """
         self._itemsLock.lockForWrite()
         try:
             updated = []
-            for iceObject in iceObjects:
-                updated.append(iceObject.proxy)
+            for rpcObject in rpcObjects:
+                objectId = "{}.{}".format(rpcObject.__class__.__name__, rpcObject.id())
+                updated.append(objectId)
 
                 # If id already exists, update it
-                if self._items.has_key(iceObject.proxy):
-                    self._items[iceObject.proxy].update(iceObject)
+                if self._items.has_key(objectId):
+                    self._items[objectId].update(rpcObject)
                 # If id does not exist, create it
                 else:
-                    self._items[iceObject.proxy] = self._createItem(iceObject)
+                    self._items[objectId] = self._createItem(rpcObject)
 
             # Remove any items that were not updated
             for proxy in list(set(self._items.keys()) - set(updated)):

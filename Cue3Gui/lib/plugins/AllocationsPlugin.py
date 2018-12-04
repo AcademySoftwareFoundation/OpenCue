@@ -47,22 +47,22 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(Cue3Gui.Constants.TYPE_ALLOC)
         self.addColumn("Name", 150, id=1,
-                       data=lambda alloc:(alloc.data.name))
+                       data=lambda alloc: alloc.data.name)
 
         self.addColumn("Tag", 100, id=2,
-                       data=lambda alloc:(alloc.data.tag))
+                       data=lambda alloc: alloc.data.tag)
 
         self.addColumn("Cores", 45, id=3,
-                       data=lambda allocation: (allocation.stats.cores),
-                       sort=lambda allocation: (allocation.stats.cores))
+                       data=lambda allocation: allocation.data.stats.cores,
+                       sort=lambda allocation: allocation.data.stats.cores)
 
         self.addColumn("Idle",45, id=4,
-                       data=lambda allocation: (int(allocation.stats.availableCores)),
-                       sort=lambda allocation: (allocation.stats.availableCores))
+                       data=lambda allocation: (int(allocation.data.stats.available_cores)),
+                       sort=lambda allocation: allocation.data.stats.available_cores)
 
         self.addColumn("Hosts", 45, id=5,
-                       data=lambda alloc:(alloc.stats.hosts),
-                       sort=lambda alloc:(alloc.stats.hosts))
+                       data=lambda alloc: alloc.data.stats.hosts,
+                       sort=lambda alloc: alloc.data.stats.hosts)
 
         # It would be nice to display this again:
         #self.addColumn("Nimby", 40, id=6,
@@ -89,7 +89,7 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            return Cue3.getAllocations()
+            return Cue3.api.getAllocations()
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []

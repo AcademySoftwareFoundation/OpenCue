@@ -1,22 +1,10 @@
 FROM centos:7 as base
 
-ARG BUILD_ENV=prod
-
-ARG CUEBOT_GRPC_CUE_PORT=8443
-ARG CUEBOT_GRPC_RQD_PORT=8444
-
-RUN yum install -y wget \
-    && wget https://zeroc.com/download/Ice/3.6/el7/zeroc-ice3.6.repo -P /etc/yum.repos.d \
-    && yum clean all
-
 # Packages needed at both build and runtime.
-# Configure ICE package repo
 RUN yum install -y \
       vim \
       java-1.8.0-openjdk.x86_64 \
       java-1.8.0-openjdk-devel.x86_64 \
-      ice-all-runtime \
-      ice-all-devel \
       libaio \
       which \
     && yum clean all
@@ -27,62 +15,24 @@ RUN yum install -y \
 # -----------------
 FROM base as build
 
-# Packages needed only at build time.
-RUN yum install -y \
-      ice-slice-3.6.4 \
-      grpc \
-      gcc \
-      gcc-c++ \
-      make \
-      libstdc++-static \
-    && yum clean all
-
 WORKDIR /src
 
-ARG PROXY_HOSTNAME=localhost
-
-ENV proxy_hostname ${PROXY_HOSTNAME}
-
-COPY bin/sbt* bin/
-
-# Copy just build.properties to specify the version of sbt desired.
-COPY project/build.properties project/
+COPY build.gradle .
+COPY gradlew .
+COPY gradlew.bat .
+COPY settings.gradle .
+COPY gradle/ ./gradle/
 
 RUN mkdir logs
 
-# Download sbt.
-RUN wget http://repo.typesafe.com/typesafe/ivy-releases/org.scala-sbt/sbt-launch/0.13.1/sbt-launch.jar -O bin/sbt-launch.jar
-
-RUN bin/sbt clean
-
-COPY build.sbt .
-
-COPY project/ project/
-# Resolve dependencies.
-
-RUN bin/sbt update
-
-ENV PROTOBUF_VERSION 3.5.1
-RUN curl -#sL "https://github.com/google/protobuf/releases/download/v$PROTOBUF_VERSION/protobuf-java-$PROTOBUF_VERSION.tar.gz" | tar -xz -C /usr/local \
-  && cd /usr/local/protobuf-$PROTOBUF_VERSION \
-  && ./configure --prefix=/usr \
-  && make && make install \
-  && rm -rf /usr/local/protobuf-$PROTOBUF_VERSION
-
-ENV LD_LIBRARY_PATH '/usr/lib'
-
-ENV GRPC_JAVA_VERSION 1.14.0
-RUN curl -#sL "https://github.com/grpc/grpc-java/archive/v$GRPC_JAVA_VERSION.tar.gz" | tar -xz -C /usr/local \
-  && cd /usr/local/grpc-java-$GRPC_JAVA_VERSION/compiler \
-  && ../gradlew java_pluginExecutable \
-  && cp ./build/exe/java_plugin/protoc-gen-grpc-java /usr/local/bin/protoc-gen-grpc-java \
-  && rm -rf /usr/local/grpc-java-$GRPC_JAVA_VERSION
-
 COPY src/main/resources/ src/main/resources/
-COPY src/main/slice/ src/main/slice/
 COPY src/main/proto/ src/main/proto/
 COPY src/main/java/ src/main/java/
-RUN bin/sbt compile
+
+# Run as builduser in case tests get run later.
+RUN chmod -R 777 .
+RUN adduser builduser
+RUN su -c "./gradlew build --stacktrace" builduser
 
 
 # -----------------
@@ -96,8 +46,10 @@ ENV CUEBOT_DB_ENGINE=postgres
 
 COPY src/test/ src/test/
 
-RUN if [ "$build_env" == "test" ]; \
-    then bin/sbt test; \
+# Tests must be run as a non-root user as the embedded Postgres server will not
+# work otherwise.
+RUN if [ "$build_env" == "test" ]; then \
+    su -c "./gradlew build --stacktrace" builduser; \
     fi
 
 
@@ -106,7 +58,7 @@ RUN if [ "$build_env" == "test" ]; \
 # -----------------
 FROM build as package
 
-RUN bin/sbt pack
+RUN su -c "./gradlew shadowJar --stacktrace" builduser
 
 
 # -----------------
@@ -114,20 +66,15 @@ RUN bin/sbt pack
 # -----------------
 FROM base
 
+ARG CUEBOT_GRPC_CUE_PORT=8443
+ARG CUEBOT_GRPC_RQD_PORT=8444
+
 WORKDIR /opt/cue3
 
-# Python-Ice
-RUN wget https://zeroc.com/download/Ice/3.7/el7/zeroc-ice3.7.repo -P /etc/yum.repos.d
-RUN yum install -y \
-      ice-all-runtime \
-      ice-all-devel \
-    && yum clean all
+COPY --from=package /src/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
 
-COPY bin/check_ice.py check_ice.py
-
-COPY --from=package /src/target/pack/ /opt/cue3/
-
-HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
+# TODO(cipriano) Implement a new GRPC-based health check. (b/120441749)
+# HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
 VOLUME ["/opt/cue3/logs"]
 
@@ -141,5 +88,6 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
-ENTRYPOINT ["bin/cuebot"]
-
+# TODO(cipriano) Consider creating a wrapper script like bin/cuebot from the SBT setup.
+# We may want to at least import some of the JVM options from that script. (b/120442342)
+ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot.jar"]

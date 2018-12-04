@@ -26,8 +26,8 @@ class SubscriptionCreator(QtGui.QWidget):
             except Exception:
                 show_name = str(show)
 
-        self.__shows = Cue3.getShows()
-        self.__allocs = Cue3.getAllocations()
+        self.__shows = Cue3.api.getShows()
+        self.__allocs = Cue3.api.getAllocations()
 
         layout = QtGui.QFormLayout(self)
 
@@ -59,8 +59,10 @@ class SubscriptionCreator(QtGui.QWidget):
             show = showMap[str(self.showBox.currentText())]
             alloc = allocMap[str(self.allocBox.currentText())]
 
-            show.proxy.createSubscription(alloc.proxy,
-                float(self.sizeBox.value()), float(self.burstBox.value()))
+            show.createSubscription(alloc.data, float(self.sizeBox.value()),
+                                    float(self.burstBox.value()))
+            # show.proxy.createSubscription(alloc.proxy,
+            #     float(self.sizeBox.value()), float(self.burstBox.value()))
         except Exception, e:
             QtGui.QMessageBox.warning(self,
                 "Create Subscription",

@@ -31,7 +31,7 @@ class ServicesDockWidget(Cue3Gui.AbstractDockWidget):
     def __init__(self, parent):
         Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
         self.setWindowTitle("Facility Service Defaults")
-        self.__serviceManager= Cue3Gui.ServiceManager(None, self)
+        self.__serviceManager = Cue3Gui.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
 
         QtCore.QObject.connect(QtGui.qApp,

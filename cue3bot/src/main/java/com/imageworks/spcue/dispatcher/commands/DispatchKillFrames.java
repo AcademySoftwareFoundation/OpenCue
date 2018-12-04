@@ -20,7 +20,7 @@
 package com.imageworks.spcue.dispatcher.commands;
 
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.service.JobManagerSupport;
 
 /**
@@ -30,11 +30,11 @@ import com.imageworks.spcue.service.JobManagerSupport;
  */
 public class DispatchKillFrames implements Runnable {
 
-    private FrameSearch search;
+    private FrameSearchInterface search;
     private JobManagerSupport jobManagerSupport;
     private Source source;
 
-    public DispatchKillFrames(FrameSearch search, Source source, JobManagerSupport jobManagerSupport) {
+    public DispatchKillFrames(FrameSearchInterface search, Source source, JobManagerSupport jobManagerSupport) {
         this.search = search;
         this.source = source;
         this.jobManagerSupport = jobManagerSupport;

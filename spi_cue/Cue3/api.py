@@ -85,7 +85,7 @@ def getService(id):
     @rtype Service
     """
     return Cuebot.getStub('service').GetService(
-        service_pb2.ServiceGetServiceRequest(id), timeout=Cuebot.Timeout).service
+        service_pb2.ServiceGetServiceRequest(id=id), timeout=Cuebot.Timeout).service
 
 
 @util.grpcExceptionParser
@@ -96,7 +96,7 @@ def createService(data):
     @rtype list<Service>
     """
     return Cuebot.getStub('service').CreateService(
-        service_pb2.ServiceCreateServiceRequest(data), timeout=Cuebot.Timeout).service
+        service_pb2.ServiceCreateServiceRequest(data=data), timeout=Cuebot.Timeout).service
 
 
 @util.grpcExceptionParser
@@ -229,18 +229,6 @@ def getGroup(uniq):
 # Jobs
 #
 @util.grpcExceptionParser
-def isJobPending(name):
-    """Returns true if there is an active job in the cue
-    in the pendint state.
-    @type  name: str
-    @param name: A job name
-    @rtype: bool
-    @return: true if the job exists"""
-    return Cuebot.getStub('job').IsJobPending(
-        job_pb2.JobIsJobPendingRequest(name=name), timeout=Cuebot.Timeout).value
-
-
-@util.grpcExceptionParser
 def findJob(name):
     """Returns a Job object for the given job name.
     This will only return one or zero active job.
@@ -289,6 +277,47 @@ def getJobs(**options):
     criteria = search.JobSearch.criteriaFromOptions(**options)
     jobSeq = Cuebot.getStub('job').GetJobs(
         job_pb2.JobGetJobsRequest(r=criteria), timeout=Cuebot.Timeout).jobs
+    return [Job(j) for j in jobSeq.jobs]
+
+
+@util.grpcExceptionParser
+def isJobPending(name):
+    """Returns true if there is an active job in the cue
+    in the pending state.
+    @type  name: str
+    @param name: A job name
+    @rtype: bool
+    @return: true if the job exists"""
+    return Cuebot.getStub('job').IsJobPending(
+        job_pb2.JobIsJobPendingRequest(name=name), timeout=Cuebot.Timeout).value
+
+
+@util.grpcExceptionParser
+def launchSpec(spec):
+    """Launch a new job with the given spec xml data.
+    This call returns immediately but there is guarantee that
+    the job was written to the DB.
+    @type spec: str
+    @param spec: XML string containing job spec
+    @rtype: List<str>
+    @return: List of job names that were submitted
+    """
+    return Cuebot.getStub('job').LaunchSpec(
+        job_pb2.JobLaunchSpecRequest(spec=spec), timeout=Cuebot.Timeout).names
+
+
+@util.grpcExceptionParser
+def launchSpecAndWait(spec):
+    """Launch a new job with the given spec xml data.
+    This call waits on the server until the job is committed
+    in the DB.
+    @type spec: str
+    @param spec: XML string containing job spec
+    @rtype: List<Job>
+    @return: List of Jobs that were submitted
+    """
+    jobSeq = Cuebot.getStub('job').LaunchSpecAndWait(
+        job_pb2.JobLaunchSpecAndWaitRequest(spec=spec), timeout=Cuebot.Timeout).jobs
     return [Job(j) for j in jobSeq.jobs]
 
 

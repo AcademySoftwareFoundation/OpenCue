@@ -9,7 +9,7 @@ import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.criteria.HostSearch;
+import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.commands.ManageReparentHosts;
 import com.imageworks.spcue.grpc.facility.AllocCreateRequest;
@@ -51,6 +51,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     private Whiteboard whiteboard;
     private AdminManager adminManager;
     private HostManager hostManager;
+    private HostSearchFactory hostSearchFactory;
 
     public ManageAllocation() {}
 
@@ -123,7 +124,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
                 .addAllocs(request.getAllocation().getId())
                 .build();
         responseObserver.onNext(AllocFindHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(new HostSearch(searchCriteria)))
+                .setHosts(whiteboard.getHosts(hostSearchFactory.create(searchCriteria)))
                 .build());
         responseObserver.onCompleted();
     }
@@ -131,9 +132,11 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void getHosts(
             AllocGetHostsRequest request, StreamObserver<AllocGetHostsResponse> responseObserver) {
-        AllocationEntity allocEntity = toAllocationEntity(request.getAllocation());
         responseObserver.onNext(AllocGetHostsResponse.newBuilder()
-                .setHosts(whiteboard.getHosts(HostSearch.byAllocation(allocEntity)))
+                .setHosts(
+                        whiteboard.getHosts(
+                                hostSearchFactory.create(
+                                        toAllocationEntity(request.getAllocation()))))
                 .build());
         responseObserver.onCompleted();
     }
@@ -230,6 +233,10 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
 
     public void setHostManager(HostManager hostManager) {
         this.hostManager = hostManager;
+    }
+
+    public void setHostSearchFactory(HostSearchFactory hostSearchFactory) {
+        this.hostSearchFactory = hostSearchFactory;
     }
 
     private AllocationEntity toAllocationEntity(Allocation allocGrpc) {

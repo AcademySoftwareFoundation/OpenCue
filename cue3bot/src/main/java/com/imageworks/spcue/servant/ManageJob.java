@@ -33,8 +33,9 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.JobDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.JobSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchFactory;
 import com.imageworks.spcue.depend.JobOnFrame;
 import com.imageworks.spcue.depend.JobOnJob;
 import com.imageworks.spcue.depend.JobOnLayer;
@@ -161,6 +162,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private LocalBookingSupport localBookingSupport;
     private FilterManager filterManager;
     private JobInterface job;
+    private FrameSearchFactory frameSearchFactory;
+    private JobSearchFactory jobSearchFactory;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -188,7 +191,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     @Override
     public void getJobs(JobGetJobsRequest request, StreamObserver<JobGetJobsResponse> responseObserver) {
         responseObserver.onNext(JobGetJobsResponse.newBuilder()
-                .setJobs(whiteboard.getJobs(new JobSearch(request.getR())))
+                .setJobs(whiteboard.getJobs(jobSearchFactory.create(request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -196,7 +199,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     @Override
     public void getJobNames(JobGetJobNamesRequest request, StreamObserver<JobGetJobNamesResponse> responseObserver) {
         responseObserver.onNext(JobGetJobNamesResponse.newBuilder()
-                .addAllNames(whiteboard.getJobNames(new JobSearch(request.getR())))
+                .addAllNames(whiteboard.getJobNames(jobSearchFactory.create(request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -212,7 +215,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     @Override
     public void getFrames(JobGetFramesRequest request, StreamObserver<JobGetFramesResponse> responseObserver) {
         setupJobData(request.getJob());
-        FrameSeq frameSeq = whiteboard.getFrames(new FrameSearch(job, request.getReq()));
+        FrameSeq frameSeq = whiteboard.getFrames(frameSearchFactory.create(job, request.getReq()));
         responseObserver.onNext(JobGetFramesResponse.newBuilder()
                 .setFrames(frameSeq)
                 .build());
@@ -243,14 +246,14 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                   StreamObserver<JobLaunchSpecAndWaitResponse> responseObserver) {
         JobSpec spec = jobLauncher.parse(request.getSpec());
         jobLauncher.launch(spec);
-        JobSearchCriteria r = JobSearch.criteriaFactory();
+        JobSearchCriteria r = JobSearchInterface.criteriaFactory();
         JobSearchCriteria.Builder builder = r.toBuilder();
         for (BuildableJob job: spec.getJobs()) {
             builder.addIds((job.detail.id)).build();
         }
         r = builder.build();
         responseObserver.onNext(JobLaunchSpecAndWaitResponse.newBuilder()
-                .setJobs(whiteboard.getJobs(new JobSearch(r)))
+                .setJobs(whiteboard.getJobs(jobSearchFactory.create(r)))
                 .build());
         responseObserver.onCompleted();
     }
@@ -323,8 +326,10 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void eatFrames(JobEatFramesRequest request, StreamObserver<JobEatFramesResponse> responseObserver) {
         setupJobData(request.getJob());
         manageQueue.execute(
-                new DispatchEatFrames(new FrameSearch(job, request.getReq()),
-                        new Source(request.toString()), jobManagerSupport));
+                new DispatchEatFrames(
+                        frameSearchFactory.create(job, request.getReq()),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(JobEatFramesResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -332,9 +337,11 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     @Override
     public void killFrames(JobKillFramesRequest request, StreamObserver<JobKillFramesResponse> responseObserver) {
         setupJobData(request.getJob());
-        manageQueue.execute(new DispatchKillFrames(
-                new FrameSearch(job, request.getReq()),
-                new Source(request.toString()), jobManagerSupport));
+        manageQueue.execute(
+                new DispatchKillFrames(
+                        frameSearchFactory.create(job, request.getReq()),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(JobKillFramesResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -343,7 +350,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void markDoneFrames(JobMarkDoneFramesRequest request,
                                StreamObserver<JobMarkDoneFramesResponse> responseObserver) {
         setupJobData(request.getJob());
-        manageQueue.execute(new DispatchSatisfyDepends(new FrameSearch(job, request.getReq()), jobManagerSupport));
+        manageQueue.execute(
+                new DispatchSatisfyDepends(
+                        frameSearchFactory.create(job, request.getReq()), jobManagerSupport));
         responseObserver.onNext(JobMarkDoneFramesResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -352,8 +361,10 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void retryFrames(JobRetryFramesRequest request, StreamObserver<JobRetryFramesResponse> responseObserver) {
         setupJobData(request.getJob());
         manageQueue.execute(
-                new DispatchRetryFrames(new FrameSearch(job, request.getReq()),
-                        new Source(request.toString()), jobManagerSupport));
+                new DispatchRetryFrames(
+                        frameSearchFactory.create(job, request.getReq()),
+                        new Source(request.toString()),
+                        jobManagerSupport));
         responseObserver.onNext(JobRetryFramesResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -497,8 +508,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     public void markAsWaiting(JobMarkAsWaitingRequest request,
                               StreamObserver<JobMarkAsWaitingResponse> responseObserver) {
         setupJobData(request.getJob());
-        jobManagerSupport.markFramesAsWaiting(new FrameSearch(job, request.getReq()),
-                new Source(request.toString()));
+        jobManagerSupport.markFramesAsWaiting(
+                frameSearchFactory.create(job, request.getReq()), new Source(request.toString()));
         responseObserver.onNext(JobMarkAsWaitingResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -655,6 +666,22 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         setJobManager(jobManagerSupport.getJobManager());
         setDependManager(jobManagerSupport.getDependManager());
         job = jobManager.getJob(jobData.getId());
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
+    }
+
+    public JobSearchFactory getJobSearchFactory() {
+        return jobSearchFactory;
+    }
+
+    public void setJobSearchFactory(JobSearchFactory jobSearchFactory) {
+        this.jobSearchFactory = jobSearchFactory;
     }
 }
 

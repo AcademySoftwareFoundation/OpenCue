@@ -22,7 +22,7 @@ package com.imageworks.spcue.dispatcher.commands;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.service.JobManagerSupport;
 
 /**
@@ -35,7 +35,7 @@ public class DispatchSatisfyDepends implements Runnable {
     private JobInterface job = null;
     private LayerInterface layer = null;
     private FrameInterface frame = null;
-    private FrameSearch search;
+    private FrameSearchInterface search;
     private JobManagerSupport jobManagerSupport;
 
     public DispatchSatisfyDepends(JobInterface job, JobManagerSupport jobManagerSupport) {
@@ -53,7 +53,7 @@ public class DispatchSatisfyDepends implements Runnable {
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchSatisfyDepends(FrameSearch search, JobManagerSupport jobManagerSupport) {
+    public DispatchSatisfyDepends(FrameSearchInterface search, JobManagerSupport jobManagerSupport) {
         this.search = search;
         this.jobManagerSupport = jobManagerSupport;
     }

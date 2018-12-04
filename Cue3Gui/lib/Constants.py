@@ -72,14 +72,14 @@ QVARIANT_GREY = QtCore.QVariant(QtGui.QColor(QtCore.Qt.gray))
 ALLOWED_TAGS = ("general", "desktop", "playblast", "util", "preprocess", "wan", "cuda", "splathw",
                 'naiad', 'massive')
 
-RGB_FRAME_STATE = {Cue3.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
-                   Cue3.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
-                   Cue3.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
-                   Cue3.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
-                   Cue3.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
-                   Cue3.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
-                   Cue3.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
-                   Cue3.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
+RGB_FRAME_STATE = {Cue3.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
+                   Cue3.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
+                   Cue3.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
+                   Cue3.api.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
+                   Cue3.api.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
+                   Cue3.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
+                   Cue3.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
+                   Cue3.api.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
 QVARIANT_FRAME_STATE = \
     dict((key, QtCore.QVariant(RGB_FRAME_STATE[key])) for key in RGB_FRAME_STATE.keys())
 

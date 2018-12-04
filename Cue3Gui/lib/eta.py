@@ -58,7 +58,7 @@ class FrameEtaGenerator(object):
             self.log_lines=len(open(self.log).readlines())
             buildTime = self.GetFrameBuildTime(frame)
         try:
-            layer=Cue3.findLayer(job.data.name, frame.data.layerName)
+            layer = Cue3.api.findLayer(job.data.name, frame.data.layerName)
             if 'tango' in layer.data.services:
                 self.Tango(frame)
             elif 'svea' in layer.data.services:

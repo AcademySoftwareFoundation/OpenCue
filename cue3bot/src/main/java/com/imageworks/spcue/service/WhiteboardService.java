@@ -43,10 +43,10 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.HostSearch;
-import com.imageworks.spcue.dao.criteria.JobSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.depend.AbstractDepend;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
@@ -138,7 +138,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getLayers(job);
     }
 
-    public List<String> getJobNames(JobSearch r) {
+    public List<String> getJobNames(JobSearchInterface r) {
         return whiteboardDao.getJobNames(r);
     }
 
@@ -150,7 +150,7 @@ public class WhiteboardService implements Whiteboard {
         return whiteboardDao.getJob(id);
     }
 
-    public FrameSeq getFrames(FrameSearch r) {
+    public FrameSeq getFrames(FrameSearchInterface r) {
         return this.whiteboardDao.getFrames(r);
     }
 
@@ -360,7 +360,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public JobSeq getJobs(JobSearch r) {
+    public JobSeq getJobs(JobSearchInterface r) {
         return whiteboardDao.getJobs(r);
     }
 
@@ -380,7 +380,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public HostSeq getHosts(HostSearch r) {
+    public HostSeq getHosts(HostSearchInterface r) {
         return whiteboardDao.getHosts(r);
     }
 
@@ -390,7 +390,7 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
-    public ProcSeq getProcs(ProcSearch p) {
+    public ProcSeq getProcs(ProcSearchInterface p) {
         return whiteboardDao.getProcs(p);
     }
 

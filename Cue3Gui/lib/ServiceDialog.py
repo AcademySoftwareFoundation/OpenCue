@@ -15,14 +15,10 @@
 
 """Service related widgets."""
 
-import re
-import sys
-
-from Manifest import Cue3, QtGui, QtCore
-
 import Constants
-from TagsWidget import TagsWidget
 import Utils
+from Manifest import Cue3, QtGui, QtCore
+from TagsWidget import TagsWidget
 
 
 class ServiceForm(QtGui.QWidget):
@@ -84,13 +80,13 @@ class ServiceForm(QtGui.QWidget):
         layout.addWidget(self._tags_w, 6, 0, 1, 2)
 
     def _cfg(self):
-        '''
+        """
         Loads (if necessary) and returns the config values.
         Warns and returns an empty dict if there's a problem reading the config
 
         @return: The keys & values stored in the config file
         @rtype: dict<str:str>
-        '''
+        """
         if not hasattr(self, '__config'):
             self.__config = Utils.getResourceConfig()
         return self.__config
@@ -132,23 +128,23 @@ class ServiceForm(QtGui.QWidget):
         on the contents of the form.
         """
         if len(str(self.name.text())) < 3:
-            QtGui.QMessageBox.critical(self, "Error", "The service name must be at least 3 characters.")
+            QtGui.QMessageBox.critical(self, "Error",
+                                       "The service name must be at least 3 characters.")
             return
 
         if not str(self.name.text()).isalnum():
             QtGui.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
-        data = Cue3.Entity.ServiceData()
+        data = Cue3.api.service_pb2.Service()
         data.name = str(self.name.text())
         data.threadable = self.threadable.isChecked()
-        data.minCores = self.min_cores.value()
-        data.maxCores = self.max_cores.value()
-        data.minMemory = self.min_memory.value() * 1024
-        data.minGpu = self.min_gpu.value() * 1024
+        data.min_cores = self.min_cores.value()
+        data.max_cores = self.max_cores.value()
+        data.min_memory = self.min_memory.value() * 1024
+        data.min_gpu = self.min_gpu.value() * 1024
 
-        tags = self._tags_w.get_tags()
-        data.tags = tags
+        data.tags.extend(self._tags_w.get_tags())
         self.emit(QtCore.SIGNAL("saved(PyQt_PyObject)"), data)
 
 
@@ -196,7 +192,8 @@ class ServiceManager(QtGui.QWidget):
                                self.saved)
 
         QtCore.QObject.connect(self.__service_list,
-                               QtCore.SIGNAL("currentItemChanged(QListWidgetItem *,QListWidgetItem *)"),
+                               QtCore.SIGNAL(
+                                   "currentItemChanged(QListWidgetItem *,QListWidgetItem *)"),
                                self.selected)
 
         self.refresh()
@@ -214,7 +211,7 @@ class ServiceManager(QtGui.QWidget):
         if self.__show:
             self.__selected = self.__show.proxy.getServiceOverride(str(item.text()))
         else:
-            self.__selected = Cue3.getService(str(item.text()))
+            self.__selected = Cue3.api.getService(str(item.text()))
         self.__form.setService(self.__selected)
 
     def saved(self, data):
@@ -223,7 +220,8 @@ class ServiceManager(QtGui.QWidget):
         """
         if not self.__show:
             msg = QtGui.QMessageBox()
-            msg.setText("You are about to modify a facility wide service configuration.  Are you in PSR-Resources?")
+            msg.setText("You are about to modify a facility wide service configuration.  "
+                        "Are you in PSR-Resources?")
             msg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
             msg.setDefaultButton(QtGui.QMessageBox.No)
             if msg.exec_() == QtGui.QMessageBox.No:
@@ -233,7 +231,7 @@ class ServiceManager(QtGui.QWidget):
             if self.__show:
                 self.__show.proxy.createServiceOverride(data)
             else:
-                Cue3.createService(data)
+                Cue3.api.createService(data)
         else:
             self.__selected.proxy.update(data)
 
@@ -259,7 +257,7 @@ class ServiceManager(QtGui.QWidget):
         self.__service_list.clear()
         try:
             if not self.__show:
-                self.__services =  Cue3.getDefaultServices()
+                self.__services = Cue3.api.getDefaultServices()
             else:
                 self.__services = self.__show.proxy.getServiceOverrides()
         except Exception, e:
@@ -290,7 +288,7 @@ class ServiceManager(QtGui.QWidget):
         self.__selected.proxy.delete()
         row = self.currentRow()
         if row >= 1:
-            self.__service_list.setCurrentRow(row -1, QtGui.QItemSelectionModel.Select)
+            self.__service_list.setCurrentRow(row - 1, QtGui.QItemSelectionModel.Select)
         self.refresh()
 
     def currentRow(self):

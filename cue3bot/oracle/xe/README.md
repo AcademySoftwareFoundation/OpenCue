@@ -40,4 +40,4 @@ It requires two arguments, the system password for the database and a password t
 `./run_db_container.sh <INSERT PASSWORD> <CUE3 DB PASSWORD> [--build-prod]`
 
 ### Populating the Schema
-Using the `--build-prod` will apply the db schema from `src/main/resources/conf/ddl/db-schema.sql`.
+Using the `--build-prod` will apply the db schema from `src/main/resources/conf/ddl/oracle/schema.sql`.

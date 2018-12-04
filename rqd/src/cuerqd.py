@@ -1,5 +1,4 @@
-#!/usr/bin/python
-
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -16,9 +15,6 @@
 #  limitations under the License.
 
 
-
-
-# Note: Python on mac = /opt/local/bin/python2.4
 """SYNOPSIS
      cuerqd [hostname] [OPTIONS]
       [hostname]            => RQD hostname (defaults to localhost)
@@ -51,123 +47,95 @@
 \nCONTACT
      Middle-Tier Group"""
 
+
 import os
 import sys
 import getopt
 import re
 import random
-
-libPath = os.path.abspath(os.path.dirname(__file__))
-
-# Needed due to segfault from loadSlice when in a protected directory
-os.chdir("/tmp")
-
-import python_ice_server.loader
-python_ice_server.loader.setup_python_for_ice_3_3()
-
-import rqconstants
-import rqutil
 import logging as log
 
-import Ice
-Ice.loadSlice("--all -I{PATH}/slice/spi -I{PATH}/slice/cue {PATH}/slice/cue/" \
-              "rqd_ice.ice".replace("{PATH}", libPath))
-import cue.RqdIce as RqdIce
+import grpc
+
+from compiled_proto import rqd_pb2
+from compiled_proto import rqd_pb2_grpc
+import rqconstants
+
 
 class RqdHost:
-    def __init__(self, rqdHost,
-                 stringFromCuebot = rqconstants.STRING_FROM_CUEBOT,
-                 rqdPort = rqconstants.RQD_PORT):
+    def __init__(self, rqdHost, rqdPort = rqconstants.RQD_GRPC_PORT):
         self.rqdHost = rqdHost
         self.rqdPort = rqdPort
 
-        initData = Ice.InitializationData()
-        props = initData.properties = Ice.createProperties()
-
-        if Ice.intVersion() >= 30600:
-            props.setProperty('Ice.ACM.Client.Timeout', '60',)
-            # Don't close connection when waiting for a response
-            # from a server running Ice < 3.6.
-            # Can remove when server is Ice >= 3.6.
-            props.setProperty('Ice.ACM.Client.Close', '1',)
-        else:
-            props.setProperty('Ice.ACM.Client', '2',)
-
-        # Allow Ice 3.5 clients, remove when server is also Ice 3.5
-        if Ice.intVersion() >= 30500:
-            props.setProperty('Ice.Default.EncodingVersion', '1.0')
-
-        self.communicator = Ice.initialize(initData)
-
-        try:
-            self.DataToRQD = RqdIce.RqdStaticPrx.checkedCast(self.communicator.stringToProxy(stringFromCuebot + ':tcp -h ' + rqdHost + ' -p ' + rqdPort))
-        except Exception, e:
-            print "Unable to connect to rqd on host=", rqdHost, "with port=", rqdPort
-            print Exception
-            print e
-            sys.exit()
-        print "Connection to RQD", rqdHost, "on port", rqdPort, "established"
-
-    def __del__(self):
-        self.communicator.destroy()
+        channel = grpc.insecure_channel('%s:%s' % (self.rqdHost, self.rqdPort))
+        self.stub = rqd_pb2_grpc.RqdInterfaceStub(channel)
+        self.frameStub = rqd_pb2_grpc.RunningFrameStub(channel)
 
     def status(self):
-        return self.DataToRQD.reportStatus()
+        return self.stub.ReportStatus(rqd_pb2.RqdStaticReportStatusRequest())
 
     def getRunningFrame(self, frameId):
-        return self.DataToRQD.getRunningFrame(frameId)
+        return self.stub.GetRunFrame(rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
 
     def nimbyOff(self):
-        print self.rqdHost,"Turning off Nimby"
+        print self.rqdHost, "Turning off Nimby"
         log.info("rqd nimbyoff by {0}".format(os.environ.get("USER")))
-        self.DataToRQD.nimbyOff()
+        self.stub.NimbyOff(rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
         print self.rqdHost,"Turning on Nimby"
         log.info("rqd nimbyon by {0}".format(os.environ.get("USER")))
-        self.DataToRQD.nimbyOn()
+        self.stub.NimbyOn(rqd_pb2.RqdStaticNimbyOnRequest())
 
     def lockAll(self):
         print self.rqdHost,"Locking all cores"
-        self.DataToRQD.lockAll()
+        self.stub.LockAll(rqd_pb2.RqdStaticLockAllRequest())
 
     def unlockAll(self):
         print self.rqdHost,"Unlocking all cores"
-        self.DataToRQD.unlockAll()
+        self.stub.UnlockAll(rqd_pb2.RqdStaticUnlockAllRequest())
 
     def lock(self, cores):
         cores = int(cores)
         print self.rqdHost,"Locking %d cores" % cores
-        self.DataToRQD.lock(cores)
+        self.stub.Lock(rqd_pb2.RqdStaticLockRequest(cores=cores))
 
     def unlock(self, cores):
         cores = int(cores)
         print self.rqdHost,"Unlocking %d cores" % cores
-        self.DataToRQD.unlock(cores)
+        self.stub.Unlock(rqd_pb2.RqdStaticUnlockRequest(cores=cores))
 
     def shutdownRqdIdle(self):
         print self.rqdHost,"Sending shutdownRqdIdle command"
-        self.DataToRQD.shutdownRqdIdle()
+        self.stub.ShutdownRqdIdle(rqd_pb2.RqdStaticShutdownIdleRequest())
 
     def shutdownRqdNow(self):
         print self.rqdHost,"Sending shutdownRqdNow command"
-        self.DataToRQD.shutdownRqdNow()
+        self.stub.ShutdownRqdNow(rqd_pb2.RqdStaticShutdownNowRequest())
 
     def restartRqdIdle(self):
         print self.rqdHost,"Sending restartRqdIdle command"
-        self.DataToRQD.restartRqdIdle()
+        self.stub.RestartRqdIdle(rqd_pb2.RqdStaticRestartIdleRequest())
 
     def restartRqdNow(self):
         print self.rqdHost,"Sending restartRqdNow command"
-        self.DataToRQD.restartRqdNow()
+        self.stub.RestartRqdNow(rqd_pb2.RqdStaticRestartNowRequest())
 
     def rebootIdle(self):
         print self.rqdHost,"Sending rebootIdle command"
-        self.DataToRQD.rebootIdle()
+        self.stub.RebootIdle(rqd_pb2.RqdStaticRebootIdleRequest())
 
     def rebootNow(self):
         print self.rqdHost,"Sending rebootNow command"
-        self.DataToRQD.rebootNow()
+        self.stub.RebootNow(rqd_pb2.RqdStaticRebootNowRequest())
+
+    def launchFrame(self, frame):
+        self.stub.LaunchFrame(rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
+
+    def killFrame(self, frameId, message):
+        runFrame = self.getRunningFrame(frameId)
+        self.frameStub.Kill(run_frame=runFrame, message=message)
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
@@ -233,20 +201,12 @@ if __name__ == "__main__":
             frameProxy = rqdHost.getRunningFrame(a)
             print frameProxy
         if o == "--kill":
-            frameProxyStr = "RunningFrame/%s -t:tcp -h %s -p %s" % \
-                            (a, hostname, rqdHost.rqdPort)
-            try:
-                frameProxy = RqdIce.RunningFramePrx.checkedCast(rqdHost.communicator.stringToProxy(frameProxyStr))
-                frameProxy.kill("Killed by %s using cuerqd.py" % os.environ.get("USER"))
-                print "Sent kill to frame: %s" % frameProxyStr
-            except Exception, e:
-                print "Unable to connect with proxy: %s" % frameProxyStr
-                print e
+            rqdHost.killFrame(a, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
 
         if o == "--test_edu_frame":
             print "Launching edu test frame (logs to /mcp)"
             frameNum = "0001"
-            runFrame = RqdIce.RunFrame()
+            runFrame = rqd_pb2.RunFrame()
             runFrame.jobId = "SD6F3S72DJ26236KFS"
             runFrame.jobName = "edu-trn_jwelborn-jwelborn_teapot_bty"
             runFrame.frameId = "FD1S3I154O646UGSNN%s" % frameNum
@@ -263,10 +223,11 @@ if __name__ == "__main__":
 
             runFrame.numCores = 100
 
-            frameProxy = rqdHost.DataToRQD.launchFrame(runFrame)
+            rqdHost.launchFrame(runFrame)
+
         if o == "--test_script_frame":
             print "Launching script test frame (logs to /mcp)"
-            runFrame = RqdIce.RunFrame()
+            runFrame = rqd_pb2.RunFrame()
             runFrame.resourceId = "8888888877777755555"
             runFrame.jobId = "SD6F3S72DJ26236KFS"
             runFrame.jobName = "swtest-home-jwelborn_rqd_test"
@@ -284,10 +245,11 @@ if __name__ == "__main__":
             #if report.coreInfo.idleCores >= 100
             runFrame.numCores = 50
 
-            frameProxy = rqdHost.DataToRQD.launchFrame(runFrame)
+            rqdHost.launchFrame(runFrame)
+
         if o == "--test_script_frame_mac":
             print "Launching script test frame (logs to /tmp)"
-            runFrame = RqdIce.RunFrame()
+            runFrame = rqd_pb2.RunFrame()
             runFrame.resourceId = "2222222277777755555"
             runFrame.jobId = "SD6F3S72DJ26236KFS"
             runFrame.jobName = "swtest-home-jwelborn_rqd_test"
@@ -304,5 +266,5 @@ if __name__ == "__main__":
             #if report.coreInfo.idleCores >= 100
             runFrame.numCores = 1.0
 
-            frameProxy = rqdHost.DataToRQD.launchFrame(runFrame)
+            rqdHost.launchFrame(runFrame)
 

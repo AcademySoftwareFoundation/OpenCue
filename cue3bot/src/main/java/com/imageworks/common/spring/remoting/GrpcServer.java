@@ -69,7 +69,7 @@ public class GrpcServer implements ApplicationContextAware {
     public void start() throws IOException {
         server = ServerBuilder
                 .forPort(this.port)
-                .addService(new RqdReportStatic())
+                .addService(applicationContext.getBean("rqdReportStatic", RqdReportStatic.class))
                 .addService(applicationContext.getBean("cueStaticServant", CueStatic.class))
                 .addService(applicationContext.getBean("manageAction", ManageAction.class))
                 .addService(applicationContext.getBean("manageAllocation", ManageAllocation.class))
