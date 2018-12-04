@@ -280,7 +280,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @type  update: boolean
         @param update: True if the display should update the displayed shows/jobs"""
         show = str(show)
-        if not self.__shows.has_key(show):
+        if show not in self.__shows:
             try:
                 self.__shows[show] = Cue3.api.findShow(show)
             except:
@@ -295,7 +295,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         show = str(show)
         self._itemsLock.lockForWrite()
         try:
-            if self.__shows.has_key(show):
+            if show in self.__shows:
                 del self.__shows[show]
         finally:
             self._itemsLock.unlock()
@@ -326,7 +326,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
     def __setCollapsed(self, collapsed):
         self.expandAll()
         for id in collapsed:
-            if self._items.has_key(id):
+            if id in self._items:
                 self._items[id].setExpanded(False)
 
     def _getUpdate(self):
@@ -391,7 +391,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @rtype:  list
         @return: The list of all child ids"""
         updated = []
-        if 'nested_groups' in groups:
+        if hasattr(groups, 'nested_groups'):
             groups = groups.nested_groups
         for group in groups:
             updated.append(group.id)
@@ -402,7 +402,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
             # If group has jobs, update them
             jobs = group.jobs
-            if 'nested_jobs' in jobs:
+            if hasattr(jobs, 'nested_jobs'):
                 jobs = jobs.nested_jobs
             for job in jobs:
                 updated.append(job.id)
@@ -415,11 +415,11 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param parent: The parent item for this level of items
         @type  groups: list<NestedGroup>
         @param groups: paramB_description"""
-        if 'nested_groups' in groups:
+        if hasattr(groups, 'nested_groups'):
             groups = groups.nested_groups
         for group in groups:
             # If id already exists, update it
-            if self._items.has_key(group.id):
+            if group.id in self._items:
                 groupItem = self._items[group.id]
                 groupItem.update(group, parent)
 
@@ -435,10 +435,10 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
             # If group has jobs, update them
             jobs = group.jobs
-            if 'nested_jobs' in jobs:
+            if hasattr(jobs, 'nested_jobs'):
                 jobs = jobs.nested_jobs
             for job in jobs:
-                if self._items.has_key(job.id):
+                if job.id in self._items:
                     self._items[job.id].update(job, groupItem)
                 else:
                     self._items[job.id] = JobWidgetItem(job, groupItem)
@@ -700,7 +700,7 @@ class JobWidgetItem(AbstractWidgetItem):
         @rtype:  QtCore.QVariant
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
-            if not self._cache.has_key(col):
+            if col not in self._cache:
                 self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
             return self._cache.get(col, Constants.QVARIANT_NULL)
 
@@ -734,7 +734,7 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            if not self._cache.has_key("FST"):
+            if "FST" not in self._cache:
                 self._cache["FST"] = QtCore.QVariant({
                     Cue3.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
                     Cue3.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
