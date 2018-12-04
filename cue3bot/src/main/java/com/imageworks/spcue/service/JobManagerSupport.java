@@ -33,8 +33,9 @@ import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -45,7 +46,7 @@ import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import com.imageworks.spcue.grpc.job.Order;
-import com.imageworks.spcue.iceclient.RqdClient;
+import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.FrameSet;
 
@@ -64,6 +65,7 @@ public class JobManagerSupport {
     private DispatchQueue manageQueue;
     private RedirectManager redirectManager;
     private EmailSupport emailSupport;
+    private FrameSearchFactory frameSearchFactory;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
@@ -99,7 +101,7 @@ public class JobManagerSupport {
                             " shutdown thread was interrupted.");
                 }
 
-                FrameSearch search = new FrameSearch(job);
+                FrameSearchInterface search = frameSearchFactory.create(job);
                 FrameSearchCriteria newCriteria = search.getCriteria();
                 FrameStateSeq states = newCriteria.getStates().toBuilder()
                         .addFrameStates(FrameState.RUNNING)
@@ -200,7 +202,7 @@ public class JobManagerSupport {
         }
     }
 
-    public void satisfyWhatDependsOn(FrameSearch request) {
+    public void satisfyWhatDependsOn(FrameSearchInterface request) {
         for (FrameInterface frame: jobManager.findFrames(request)) {
             for (LightweightDependency depend: dependManager.getWhatDependsOn(frame)) {
                 dependManager.satisfyDepend(depend);
@@ -283,7 +285,7 @@ public class JobManagerSupport {
      * @param source
      * @return
      */
-    public int unbookProcs(ProcSearch r, boolean killProc, Source source) {
+    public int unbookProcs(ProcSearchInterface r, boolean killProc, Source source) {
         List<VirtualProc> procs = hostManager.findBookedVirtualProcs(r);
         for (VirtualProc proc: procs) {
             unbookProc(proc, killProc, source);
@@ -334,9 +336,10 @@ public class JobManagerSupport {
      * @param source
      * @param unbook
      */
-    public void killProcs(FrameSearch r, Source source, boolean unbook) {
+    public void killProcs(FrameSearchInterface r, Source source, boolean unbook) {
 
-        FrameSearchCriteria newCriteria = r.getCriteria().toBuilder().setStates(FrameStateSeq.newBuilder().build()).build();
+        FrameSearchCriteria newCriteria =
+                r.getCriteria().toBuilder().setStates(FrameStateSeq.newBuilder().build()).build();
         r.setCriteria(newCriteria);
 
         List<VirtualProc> procs = hostManager.findVirtualProcs(r);
@@ -358,7 +361,7 @@ public class JobManagerSupport {
      * @param unbook
      */
     public void killProcs(JobInterface job, Source source, boolean unbook) {
-        List<VirtualProc> procs = hostManager.findVirtualProcs(new FrameSearch(job));
+        List<VirtualProc> procs = hostManager.findVirtualProcs(frameSearchFactory.create(job));
         if (unbook) {
             hostManager.unbookVirtualProcs(procs);
         }
@@ -374,7 +377,7 @@ public class JobManagerSupport {
      * @param request
      * @param source
      */
-    public void retryFrames(FrameSearch request, Source source) {
+    public void retryFrames(FrameSearchInterface request, Source source) {
         for (FrameInterface frame: jobManager.findFrames(request)) {
             try {
                 retryFrame(frame, source);
@@ -439,7 +442,7 @@ public class JobManagerSupport {
      * @param request
      * @param source
      */
-    public void eatFrames(FrameSearch request, Source source) {
+    public void eatFrames(FrameSearchInterface request, Source source) {
         for (FrameInterface frame: jobManager.findFrames(request)) {
             eatFrame(frame, source);
         }
@@ -486,7 +489,7 @@ public class JobManagerSupport {
      * @param request
      * @param source
      */
-    public void markFramesAsWaiting(FrameSearch request, Source source) {
+    public void markFramesAsWaiting(FrameSearchInterface request, Source source) {
         for (FrameInterface frame: jobManager.findFrames(request)) {
             jobManager.markFrameAsWaiting(frame);
         }
@@ -586,6 +589,14 @@ public class JobManagerSupport {
 
     public void setEmailSupport(EmailSupport emailSupport) {
         this.emailSupport = emailSupport;
+    }
+
+    public FrameSearchFactory getFrameSearchFactory() {
+        return frameSearchFactory;
+    }
+
+    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
+        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

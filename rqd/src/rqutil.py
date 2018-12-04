@@ -14,7 +14,6 @@
 #  limitations under the License.
 
 
-
 """
 Utility functions.
 
@@ -26,8 +25,9 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
+
+
 import os
-import sys
 import grp
 import pwd
 import threading
@@ -37,8 +37,10 @@ import functools
 
 import rqconstants
 
+
 PERMISSIONS = threading.Lock()
 HIGH_PERMISSION_GROUPS = os.getgroups()
+
 
 class Memoize(object):
     """From: https://gist.github.com/267733/8f5d2e3576b6a6f221f6fb7e2e10d395ad7303f9"""

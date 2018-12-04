@@ -7,6 +7,7 @@ option java_multiple_files = true;
 
 import "report.proto";
 
+// Interface for issuing commands to an RQD instance.
 
 // -------- Services --------]
 
@@ -138,70 +139,46 @@ message RqdStaticKillRunningFrameRequest {
     string frame_id = 1;
 }
 
-message RqdStaticKillRunningFrameResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticKillRunningFrameResponse {}
 
 // LaunchFrame
 message RqdStaticLaunchFrameRequest {
     RunFrame run_frame = 1;
 }
 
-message RqdStaticLaunchFrameResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticLaunchFrameResponse {}
 
 // LockAll
 message RqdStaticLockAllRequest {} // Empty
 
-message RqdStaticLockAllResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticLockAllResponse {}
 
 // Lock
 message RqdStaticLockRequest {
     int32 cores = 1;
 }
 
-message RqdStaticLockResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticLockResponse {}
 
 // NimbyOff
 message RqdStaticNimbyOffRequest {} // Empty
 
-message RqdStaticNimbyOffResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticNimbyOffResponse {}
 
 // NimbyOn
 message RqdStaticNimbyOnRequest {} // Empty
 
-message RqdStaticNimbyOnResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticNimbyOnResponse {}
 
 // RebootIdle
 message RqdStaticRebootIdleRequest {} // Empty
 
-message RqdStaticRebootIdleResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticRebootIdleResponse {}
 
 // RebootNow
 message RqdStaticRebootNowRequest {} // Empty
 
-message RqdStaticRebootNowResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticRebootNowResponse {}
 
 // ReportStatus
 message RqdStaticReportStatusRequest {} // Empty
@@ -213,52 +190,34 @@ message RqdStaticReportStatusResponse {
 // RestartIdle
 message RqdStaticRestartIdleRequest {}
 
-message RqdStaticRestartIdleResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticRestartIdleResponse {}
 
 // RestartNow
 message RqdStaticRestartNowRequest {}
 
-message RqdStaticRestartNowResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticRestartNowResponse {}
 
 // ShutdownIdle
 message RqdStaticShutdownIdleRequest {}
 
-message RqdStaticShutdownIdleResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticShutdownIdleResponse {}
 
 // ShutdownNow
 message RqdStaticShutdownNowRequest {}
 
-message RqdStaticShutdownNowResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticShutdownNowResponse {}
 
 // Unlock
 message RqdStaticUnlockRequest {
     int32 cores = 1;
 }
 
-message RqdStaticUnlockResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticUnlockResponse {}
 
 // UnlockAll
 message RqdStaticUnlockAllRequest {}
 
-message RqdStaticUnlockAllResponse {
-    ErrorCode status = 1;
-    string message = 2;
-}
+message RqdStaticUnlockAllResponse {}
 
 // RUNNING FRAME ----
 // Kill

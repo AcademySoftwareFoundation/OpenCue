@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
@@ -30,9 +28,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.ProcSearch;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.host.Proc;
 import com.imageworks.spcue.grpc.host.ProcClearRedirectRequest;
@@ -77,22 +74,24 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
     private JobManager jobManager;
     private GroupManager groupManager;
     private RedirectManager redirectManager;
+    private ProcSearchFactory procSearchFactory;
 
     @Override
     public void getProcs(ProcGetProcsRequest request, StreamObserver<ProcGetProcsResponse> responseObserver) {
         responseObserver.onNext(ProcGetProcsResponse.newBuilder()
-                .setProcs(whiteboard.getProcs(new ProcSearch(request.getR())))
+                .setProcs(whiteboard.getProcs(procSearchFactory.create(request.getR())))
                 .build());
         responseObserver.onCompleted();
     }
 
     @Override
     public void unbookProcs(ProcUnbookProcsRequest request, StreamObserver<ProcUnbookProcsResponse> responseObserver) {
+        ProcSearchInterface procSearch = procSearchFactory.create(request.getR());
+        procSearch.sortByBookedTime();
         responseObserver.onNext(ProcUnbookProcsResponse.newBuilder()
-                .setNumProcs(jobManagerSupport.unbookProcs(
-                        new ProcSearch(request.getR(),
-                                new Sort("proc.ts_booked", Direction.ASC)), request.getKill(),
-                        new Source(request.toString())))
+                .setNumProcs(
+                        jobManagerSupport.unbookProcs(
+                                procSearch, request.getKill(), new Source(request.toString())))
                 .build());
         responseObserver.onCompleted();
     }
@@ -301,6 +300,14 @@ public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
     private VirtualProc getVirtualProc(Proc proc) {
         return procDao.getVirtualProc(proc.getId());
+    }
+
+    public ProcSearchFactory getProcSearchFactory() {
+        return procSearchFactory;
+    }
+
+    public void setProcSearchFactory(ProcSearchFactory procSearchFactory) {
+        this.procSearchFactory = procSearchFactory;
     }
 }
 

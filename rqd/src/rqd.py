@@ -1,5 +1,4 @@
-#!/usr/bin/python2.7
-
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -15,11 +14,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-
-
-# Note: Python on mac = /opt/local/bin/python2.4
 
 """
 Initializes and starts rqd.
@@ -90,16 +84,14 @@ PLAYBLAST = True
 SVN: $Id$
 """
 
+
 import sys
 import getopt
 import os
 import platform
-import shutil
-import subprocess
-import traceback
-
 import logging as log
 from logging.handlers import SysLogHandler
+
 
 def setupLogging():
     """Sets up the logging for RQD.
@@ -121,17 +113,9 @@ def setupLogging():
 
 setupLogging()
 
-# TODO: If safe to dockerize rqd, this can be removed.
-# This is required to import the proper ice version
-if platform.system() == 'Linux':
-    import python_ice_server.loader
-    python_ice_server.loader.setup_python_for_ice_3_3()
-
 from rqcore import RqCore
 import rqutil
 import rqconstants
-
-import python_ice_server.ice_server
 
 def usage():
     """Prints command line syntax"""
@@ -164,7 +148,8 @@ if __name__ == "__main__":
             usage()
             sys.exit(0)
         if o in ["-d", "--daemon"]:
-            python_ice_server.ice_server.daemonize()
+            # TODO(cipriano) Background this
+            pass
         if o in ["--nimbyoff"]:
             optNimbyOff = True
 
@@ -177,5 +162,3 @@ if __name__ == "__main__":
 
     rqd = RqCore(optNimbyOff)
     rqd.start()
-    rqd.wait()
-

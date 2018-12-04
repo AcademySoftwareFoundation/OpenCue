@@ -167,7 +167,7 @@ class ShowDialog(QtGui.QDialog):
         if self.__show.data.comment_email != str(self.__show_email.text()):
             self.__show.setCommentEmail(str(self.__show_email.text()))
 
-        if self.__show.data.default_min_cores != self.__defaultMaxCores.value():
+        if self.__show.data.default_max_cores != self.__defaultMaxCores.value():
             self.__show.setDefaultMaxCores(self.__defaultMaxCores.value())
 
         if self.__show.data.default_min_cores != self.__defaultMinCores.value():
