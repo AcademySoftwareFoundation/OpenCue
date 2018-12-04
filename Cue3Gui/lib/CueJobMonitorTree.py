@@ -391,7 +391,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @rtype:  list
         @return: The list of all child ids"""
         updated = []
-        if hasattr(groups, 'nested_groups'):
+        if 'nested_groups' in groups:
             groups = groups.nested_groups
         for group in groups:
             updated.append(group.id)
@@ -402,7 +402,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
             # If group has jobs, update them
             jobs = group.jobs
-            if hasattr(jobs, 'nested_jobs'):
+            if 'nested_jobs' in jobs:
                 jobs = jobs.nested_jobs
             for job in jobs:
                 updated.append(job.id)
@@ -415,7 +415,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param parent: The parent item for this level of items
         @type  groups: list<NestedGroup>
         @param groups: paramB_description"""
-        if hasattr(groups, 'nested_groups'):
+        if 'nested_groups' in groups:
             groups = groups.nested_groups
         for group in groups:
             # If id already exists, update it
@@ -435,7 +435,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
             # If group has jobs, update them
             jobs = group.jobs
-            if hasattr(jobs, 'nested_jobs'):
+            if 'nested_jobs' in jobs:
                 jobs = jobs.nested_jobs
             for job in jobs:
                 if self._items.has_key(job.id):
