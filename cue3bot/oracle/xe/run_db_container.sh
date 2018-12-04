@@ -11,7 +11,8 @@ CUEBOT_ROOT_DIRECTORY=$(dirname $(dirname $XE_DIRECTORY))
 ORACLE_RPM="oracle-xe-11.2.0-1.0.x86_64.rpm.zip"
 ORACLE_DOCKER_REPO="https://github.com/oracle/docker-images.git"
 DOCKER_NAME="oracle-xe"
-ORACLE_SQL_FILE='/tmp/oracle_ddl/db-schema.sql'
+ORACLE_SQL_FILE='/tmp/oracle_ddl/schema.sql'
+ORACLE_SQL_DATA_FILE='/tmp/oracle_ddl/demo_data.sql'
 CUE_DB_USER='CUE3'
 
 
@@ -52,8 +53,9 @@ docker exec oracle-xe /bin/bash -c "/tmp/setup_db.sh $CUE_DB_USER $2"
 if [ "$3" = "--build-prod" ]; then
   echo "Applying Schema..."
   docker exec oracle-xe /bin/bash -c "mkdir $(dirname $ORACLE_SQL_FILE)"
-  docker cp ${CUEBOT_ROOT_DIRECTORY}/src/main/resources/conf/ddl/db-schema.sql oracle-xe:$ORACLE_SQL_FILE
+  docker cp ${CUEBOT_ROOT_DIRECTORY}/src/main/resources/conf/ddl/oracle/schema.sql oracle-xe:$ORACLE_SQL_FILE
+  docker cp ${CUEBOT_ROOT_DIRECTORY}/src/test/resources/conf/ddl/oracle/demo_data.sql oracle-xe:$ORACLE_SQL_DATA_FILE
   docker cp ${CUEBOT_ROOT_DIRECTORY}/oracle/xe/apply_schema.sh oracle-xe:/tmp/
   docker cp ${CUEBOT_ROOT_DIRECTORY}/oracle/xe/apply_schema.py oracle-xe:/tmp/
-  docker exec oracle-xe /bin/bash -c "/tmp/apply_schema.sh $2 $CUE_DB_USER $ORACLE_SQL_FILE"
+  docker exec oracle-xe /bin/bash -c "/tmp/apply_schema.sh $2 $CUE_DB_USER $ORACLE_SQL_FILE $ORACLE_SQL_DATA_FILE"
 fi
