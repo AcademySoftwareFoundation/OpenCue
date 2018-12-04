@@ -122,7 +122,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
     }
 
     private SubscriptionEntity getSubscriptionDetail(Subscription subscription) {
-        return adminManager.getSubscriptionDetail(subscription.getName());
+        return adminManager.getSubscriptionDetail(subscription.getId());
     }
 }
 
