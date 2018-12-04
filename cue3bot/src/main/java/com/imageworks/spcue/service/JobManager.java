@@ -33,7 +33,7 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ThreadStats;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Order;
@@ -214,7 +214,7 @@ public interface JobManager {
      * @param r
      * @return
      */
-    public List<FrameInterface> findFrames(FrameSearch r);
+    public List<FrameInterface> findFrames(FrameSearchInterface r);
 
     /**
      * Updates specified frame to new state.

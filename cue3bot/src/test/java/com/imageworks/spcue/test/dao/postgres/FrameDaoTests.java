@@ -44,12 +44,11 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.depend.FrameOnFrame;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -81,9 +80,6 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     FrameDao frameDao;
 
     @Resource
-    LayerDao layerDao;
-
-    @Resource
     JobManager jobManager;
 
     @Resource
@@ -96,9 +92,6 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     ProcDao procDao;
 
     @Resource
-    AllocationDao allocationDao;
-
-    @Resource
     HostManager hostManager;
 
     @Resource
@@ -106,6 +99,9 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
     @Resource
     DispatchSupport dispatchSupport;
+
+    @Resource
+    FrameSearchFactory frameSearchFactory;
 
     private static final String HOST = "beta";
 
@@ -217,12 +213,12 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindFrames() {
         JobDetail job = launchJob();
-        FrameSearch r = new FrameSearch(job);
+        FrameSearchInterface r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .addFrames("0001-pass_1")
                 .build());
-        assertTrue(frameDao.findFrames(r).size() == 1);
+        assertEquals(1, frameDao.findFrames(r).size());
     }
 
     @Test
@@ -230,12 +226,12 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Rollback(true)
     public void testFindFrameDetails() {
         JobDetail job = launchJob();
-        FrameSearch r = new FrameSearch(job);
+        FrameSearchInterface r = frameSearchFactory.create(job);
         FrameSearchCriteria criteria = r.getCriteria();
         r.setCriteria(criteria.toBuilder()
                 .addFrames("0001-pass_1")
                 .build());
-        assertTrue(frameDao.findFrameDetails(r).size() == 1);
+        assertEquals(1, frameDao.findFrameDetails(r).size());
     }
 
     @Test

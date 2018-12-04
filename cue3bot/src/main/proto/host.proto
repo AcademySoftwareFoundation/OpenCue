@@ -6,6 +6,7 @@ option java_package = "com.imageworks.spcue.grpc.host";
 option java_multiple_files = true;
 
 import "comment.proto";
+import "criterion.proto";
 import "job.proto";
 import "renderPartition.proto";
 
@@ -393,11 +394,11 @@ message ProcSearchCriteria {
     // An array of allocation names to match.
     repeated string allocs = 5;
 
-    // A range of memory usage.  Ranges should be in the format "x-y"  Values are in KB.
-    repeated string memory_range = 6;
+    // A range of memory usage. Values are in KB.
+    repeated criterion.InRangeIntegerSearchCriterion memory_range = 6;
 
-    // A duration range.  Ranges should be in the format "x-y". Values are in seconds.
-    repeated string duration_range = 7;
+    // A duration range. Values are in seconds.
+    repeated criterion.InRangeIntegerSearchCriterion duration_range = 7;
 
     //The maximum number of results.
     repeated int32 max_results = 8;

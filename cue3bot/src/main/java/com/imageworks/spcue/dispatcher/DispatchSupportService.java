@@ -19,7 +19,6 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +39,6 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.RqdIce.RunFrame;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
@@ -56,7 +54,8 @@ import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.iceclient.RqdClient;
+import com.imageworks.spcue.grpc.rqd.RunFrame;
+import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
 
@@ -333,23 +332,6 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Transactional(propagation = Propagation.SUPPORTS)
     public RunFrame prepareRqdRunFrame(VirtualProc proc, DispatchFrame frame) {
-        RunFrame runFrame = new RunFrame();
-
-        runFrame.shot = frame.shot;
-        runFrame.show = frame.show;
-        runFrame.userName = frame.owner;
-        runFrame.uid = frame.uid;
-        runFrame.logDir = frame.logDir;
-        runFrame.jobId = frame.jobId;
-        runFrame.jobName = frame.jobName;
-        runFrame.frameName = frame.name;
-        runFrame.frameId = frame.id;
-        runFrame.layerId = frame.getLayerId();
-        runFrame.resourceId = proc.getProcId();
-        runFrame.numCores = proc.coresReserved;
-        runFrame.startTime = System.currentTimeMillis();
-        runFrame.ignoreNimby = proc.isLocalDispatch;
-
         int threads =  proc.coresReserved / 100;
         if (threads < 1) {
             threads = 1;
@@ -358,41 +340,47 @@ public class DispatchSupportService implements DispatchSupport {
         int frameNumber = Integer.valueOf(frame.name.substring(0,frame.name.indexOf("-")));
         String zFrameNumber = String.format("%04d", frameNumber);
 
-        runFrame.environment = new HashMap<String,String>();
-        runFrame.environment.putAll(jobDao.getEnvironment(frame));
-        runFrame.environment.putAll(layerDao.getLayerEnvironment(frame));
-        runFrame.environment.put("CUE3", "1");
-        runFrame.environment.put("CUE_THREADS", String.valueOf(threads));
-        runFrame.environment.put("CUE_MEMORY", String.valueOf(proc.memoryReserved));
-        runFrame.environment.put("CUE_LOG_PATH", frame.logDir);
-        runFrame.environment.put("CUE_RANGE", frame.range);
-        runFrame.environment.put("CUE_CHUNK", String.valueOf(frame.chunkSize));
-        runFrame.environment.put("CUE_IFRAME", String.valueOf(frameNumber));
-        runFrame.environment.put("CUE_LAYER", frame.layerName);
-        runFrame.environment.put("CUE_JOB", frame.jobName);
-        runFrame.environment.put("CUE_FRAME", frame.name);
-        runFrame.environment.put("CUE_SHOW", frame.show);
-        runFrame.environment.put("CUE_SHOT", frame.shot);
-        runFrame.environment.put("CUE_USER", frame.owner);
-        runFrame.environment.put("CUE_JOB_ID", frame.jobId);
-        runFrame.environment.put("CUE_LAYER_ID", frame.layerId);
-        runFrame.environment.put("CUE_FRAME_ID", frame.id);
-
-        if (frame.threadable) {
-            runFrame.environment.put("CUE_THREADABLE", "1");
-        }
-        else {
-            runFrame.environment.put("CUE_THREADABLE", "0");
-        }
-
-        runFrame.command = frame.command;
-        runFrame.command = runFrame.command.replaceAll("#ZFRAME#", zFrameNumber);
-        runFrame.command = runFrame.command.replaceAll("#IFRAME#",  String.valueOf(frameNumber));
-        runFrame.command = runFrame.command.replaceAll("#LAYER#", frame.layerName);
-        runFrame.command = runFrame.command.replaceAll("#JOB#",  frame.jobName);
-        runFrame.command = runFrame.command.replaceAll("#FRAME#",  frame.name);
-
-        return runFrame;
+        return RunFrame.newBuilder()
+                .setShot(frame.shot)
+                .setShow(frame.show)
+                .setUserName(frame.owner)
+                .setUid(frame.uid)
+                .setLogDir(frame.logDir)
+                .setJobId(frame.jobId)
+                .setJobName(frame.jobName)
+                .setFrameId(frame.id)
+                .setLayerId(frame.getLayerId())
+                .setResourceId(proc.getProcId())
+                .setNumCores(proc.coresReserved)
+                .setStartTime(System.currentTimeMillis())
+                .setIgnoreNimby(proc.isLocalDispatch)
+                .putAllEnvironment(jobDao.getEnvironment(frame))
+                .putAllEnvironment(layerDao.getLayerEnvironment(frame))
+                .putEnvironment("CUE3", "1")
+                .putEnvironment("CUE_THREADS", String.valueOf(threads))
+                .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
+                .putEnvironment("CUE_LOG_PATH", frame.logDir)
+                .putEnvironment("CUE_RANGE", frame.range)
+                .putEnvironment("CUE_CHUNK", String.valueOf(frame.chunkSize))
+                .putEnvironment("CUE_IFRAME", String.valueOf(frameNumber))
+                .putEnvironment("CUE_LAYER", frame.layerName)
+                .putEnvironment("CUE_JOB", frame.jobName)
+                .putEnvironment("CUE_FRAME", frame.name)
+                .putEnvironment("CUE_SHOW", frame.show)
+                .putEnvironment("CUE_SHOT", frame.shot)
+                .putEnvironment("CUE_USER", frame.owner)
+                .putEnvironment("CUE_JOB_ID", frame.jobId)
+                .putEnvironment("CUE_LAYER_ID", frame.layerId)
+                .putEnvironment("CUE_FRAME_ID", frame.id)
+                .putEnvironment("CUE_THREADABLE", frame.threadable ? "1" : "0")
+                .setCommand(
+                        frame.command
+                                .replaceAll("#ZFRAME#", zFrameNumber)
+                                .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
+                                .replaceAll("#LAYER#", frame.layerName)
+                                .replaceAll("#JOB#",  frame.jobName)
+                                .replaceAll("#FRAME#",  frame.name))
+                .build();
     }
 
 

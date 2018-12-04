@@ -39,7 +39,7 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.criteria.FrameSearch;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameReservationException;
 import com.imageworks.spcue.grpc.depend.DependType;
@@ -542,14 +542,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public List<FrameDetail> findFrameDetails(FrameSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_FRAME_DETAIL),
+    public List<FrameDetail> findFrameDetails(FrameSearchInterface r) {
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_FRAME_DETAIL),
                 FRAME_DETAIL_MAPPER, r.getValuesArray());
     }
 
     @Override
-    public List<FrameInterface> findFrames(FrameSearch r) {
-        return getJdbcTemplate().query(r.getQuery(GET_MINIMAL_FRAME),
+    public List<FrameInterface> findFrames(FrameSearchInterface r) {
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_MINIMAL_FRAME),
                 FRAME_MAPPER, r.getValuesArray());
     }
 
@@ -804,7 +804,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     public void reorderFramesLast(LayerInterface layer, FrameSet frameSet) {
         int start;
         int size = frameSet.size();
-        List<Object[]> frames = new ArrayList<Object[]>(size);
+        List<Object[]> frames = new ArrayList<>(size);
         int max = getJdbcTemplate().queryForObject(
                 "SELECT MAX(int_dispatch_order) FROM frame WHERE pk_layer=?", Integer.class,
                 layer.getLayerId());
@@ -824,7 +824,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     public void reorderLayerReverse(LayerInterface layer, FrameSet frameSet) {
 
         int size = frameSet.size();
-        List<Object[]> frames = new ArrayList<Object[]>(size);
+        List<Object[]> frames = new ArrayList<>(size);
 
         for (int i=0; i< size; i++) {
             if (i >= size - i -1) { break; }

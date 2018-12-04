@@ -51,8 +51,8 @@ import com.imageworks.spcue.grpc.report.BootReport;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
-import com.imageworks.spcue.iceclient.RqdClient;
-import com.imageworks.spcue.iceclient.RqdClientException;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
@@ -108,7 +108,7 @@ public class HostReportHandler {
     public void queueBootReport(BootReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host repport. Cuebot not " +
+                    "Error processing host report. Cuebot not " +
                     "accepting packets.");
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));
@@ -122,7 +122,7 @@ public class HostReportHandler {
     public void queueHostReport(HostReport report) {
         if (isShutdown()) {
             throw new RqdRetryReportException(
-                    "Error processing host repport. Cuebot not " +
+                    "Error processing host report. Cuebot not " +
                     "accepting packets.");
         }
         reportQueue.execute(new DispatchHandleHostReport(report, this));

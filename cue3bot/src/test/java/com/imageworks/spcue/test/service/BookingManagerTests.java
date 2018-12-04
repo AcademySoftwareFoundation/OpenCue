@@ -46,7 +46,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.iceclient.RqdClient;
+import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;

@@ -29,7 +29,7 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.iceclient.RqdClientException;
+import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.util.CueUtil;
 
 public interface Dispatcher {
