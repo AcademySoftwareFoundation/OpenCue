@@ -38,7 +38,7 @@ class MainWindow(QtGui.QMainWindow):
         # Setup variables
         self.qApp = QtGui.qApp
         self.settings = QtGui.qApp.settings
-        self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in xrange(2,5)]
+        self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in xrange(2, 5)]
         self.app_name = app_name
         self.app_version = app_version
         if window_name:
@@ -228,7 +228,7 @@ class MainWindow(QtGui.QMainWindow):
         # Load list of window titles
         if not self.windows_titles:
             for name in self.windows_names:
-                self.windows_titles[name] =  str(self.settings.value("%s/Title" % name, QtCore.QVariant(name)).toString())
+                self.windows_titles[name] = str(self.settings.value("%s/Title" % name, QtCore.QVariant(name)).toString())
 
         # Create menu items for Window -> Open/Raise/Add Window "?"
         for name in self.windows_names:

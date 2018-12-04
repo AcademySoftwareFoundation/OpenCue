@@ -27,6 +27,7 @@ from AbstractTreeWidget import *
 from AbstractWidgetItem import *
 from ShowDialog import ShowDialog
 
+
 class SubscriptionsWidget(QtGui.QWidget):
     def __init__(self, parent):
         QtGui.QWidget.__init__(self, parent)
@@ -77,7 +78,7 @@ class SubscriptionsWidget(QtGui.QWidget):
 
     def changeFacility(self):
         try:
-            self.__shows = dict([(show.name(), show) for show in Cue3.getActiveShows()])
+            self.__shows = dict([(show.name(), show) for show in Cue3.api.getActiveShows()])
         except Exception, e:
             self.__shows = {}
         self.__comboShows.clear()
@@ -85,7 +86,7 @@ class SubscriptionsWidget(QtGui.QWidget):
                                    sorted(self.__shows.keys()))
         self.setShow()
 
-    def setShow(self, show = ""):
+    def setShow(self, show=""):
         """Sets the show for the subscription list and combo box
         @type  show: QString or str or Show
         @param show: The show to monitor"""
@@ -101,7 +102,7 @@ class SubscriptionsWidget(QtGui.QWidget):
         elif isinstance(show, str):
             if self.__show and self.__show.name() == show:
                 return
-            if self.__shows.has_key(show):
+            if show in self.__shows:
                 self.__show = self.__shows[show]
             else:
                 show = ""
@@ -129,11 +130,11 @@ class SubscriptionsWidget(QtGui.QWidget):
         self.__monitorSubscriptions._update()
 
     def selectedObjects(self):
-        return [Cue3.findShow(self.__show.name())]
+        return [Cue3.api.findShow(self.__show.name())]
 
     def __showProperties(self):
         if self.__show:
-            dialog = ShowDialog(Cue3.findShow(self.__show.name()), self)
+            dialog = ShowDialog(Cue3.api.findShow(self.__show.name()), self)
             dialog.exec_()
         else:
             self.__comboShows.showPopup()
@@ -149,24 +150,28 @@ class SubscriptionsWidget(QtGui.QWidget):
     def setColumnVisibility(self, settings):
         self.__monitorSubscriptions.setColumnVisibility(settings)
 
+
 class SubscriptionsTreeWidget(AbstractTreeWidget):
     def __init__(self, parent):
 
         self.startColumnsForType(Constants.TYPE_SUB)
         self.addColumn("Alloc", 160, id=1,
-                       data=lambda sub:(sub.data.allocationName))
+                       data=lambda sub: sub.data.allocation_name)
         self.addColumn("Usage", 70, id=2,
-                       data=lambda sub:(sub.data.size and ("%.2f%%" % (sub.data.reservedCores/sub.data.size * 100)) or 0),
-                       sort=lambda sub:(sub.data.size and sub.data.reservedCores/sub.data.size or 0))
+                       data=lambda sub: (sub.data.size and
+                                         ("%.2f%%" % (sub.data.reserved_cores/sub.data.size * 100))
+                                         or 0),
+                       sort=lambda sub: (sub.data.size and
+                                         sub.data.reserved_cores/sub.data.size or 0))
         self.addColumn("Size", 70, id=3,
-                       data=lambda sub:(sub.data.size),
-                       sort=lambda sub:(sub.data.size))
+                       data=lambda sub: sub.data.size,
+                       sort=lambda sub: sub.data.size)
         self.addColumn("Burst", 70, id=4,
-                       data=lambda sub:(sub.data.burst),
-                       sort=lambda sub:(sub.data.burst))
+                       data=lambda sub: sub.data.burst,
+                       sort=lambda sub: sub.data.burst)
         self.addColumn("Used", 70, id=5,
-                       data=lambda sub:("%.2f" % sub.data.reservedCores),
-                       sort=lambda sub:(sub.data.reservedCores))
+                       data=lambda sub: ("%.2f" % sub.data.reserved_cores),
+                       sort=lambda sub: sub.data.reserved_cores)
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -189,7 +194,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
                 self.__show = show
             elif isinstance(show, str):
                 try:
-                    self.__show = Cue3.findShow(show)
+                    self.__show = Cue3.api.findShow(show)
                 except:
                     pass
             self._update()
@@ -222,6 +227,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
         menu.addSeparator()
         self.__menuActions.subscriptions().addAction(menu, "delete")
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
+
 
 class SubscriptionWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):

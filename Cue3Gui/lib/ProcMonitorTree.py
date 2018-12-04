@@ -29,39 +29,40 @@ from AbstractWidgetItem import *
 
 logger = Logger.getLogger(__file__)
 
+
 class ProcMonitorTree(AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(Constants.TYPE_PROC)
         self.addColumn("Name", 150, id=1,
-                       data=lambda proc:(proc.data.name),
+                       data=lambda proc: proc.data.name,
                        tip="Name of the running proc.")
         self.addColumn("Cores", 50, id=2,
-                       data=lambda proc: ("%.2f" % proc.data.reservedCores),
+                       data=lambda proc: ("%.2f" % proc.data.reserved_cores),
                        tip="The number of cores reserved.")
         self.addColumn("Mem Reserved", 100, id=3,
-                       data=lambda proc:(Utils.memoryToString(proc.data.reservedMemory)),
+                       data=lambda proc: Utils.memoryToString(proc.data.reserved_memory),
                        tip="The amount of memory reserved.")
         self.addColumn("Mem Used", 100, id=4,
-                       data=lambda proc:(Utils.memoryToString(proc.data.usedMemory)),
+                       data=lambda proc: Utils.memoryToString(proc.data.used_memory),
                        tip="The amount of memory used.")
         self.addColumn("GPU Used", 100, id=5,
-                       data=lambda proc:(Utils.memoryToString(proc.data.reservedGpu)),
+                       data=lambda proc: Utils.memoryToString(proc.data.reserved_gpu),
                        tip="The amount of gpu memory used.")
         self.addColumn("Age", 60, id=6,
-                       data=lambda proc:(Utils.secondsToHHHMM(time.time() - proc.data.dispatchTime)),
+                       data=lambda proc: Utils.secondsToHHHMM(time.time() - proc.data.dispatch_time),
                        tip="The age of the running frame.")
         self.addColumn("Unbooked", 80, id=7,
-                       data=lambda proc:(proc.data.unbooked),
+                       data=lambda proc: proc.data.unbooked,
                        tip="If the proc has been unbooked.\n If it is unbooked then"
                            "when the frame finishes the job will stop using this proc")
         self.addColumn("Name", 300, id=8,
-                       data=lambda proc:(proc.data.frameName),
+                       data=lambda proc: proc.data.frame_name ,
                        tip="The name of the proc, includes frame number and layer name.")
         self.addColumn("Job", 50, id=9,
-                       data=lambda proc:(proc.data.jobName),
+                       data=lambda proc: proc.data.job_name ,
                        tip="The job that this proc is running on.")
 
-        self.procSearch = Cue3.ProcSearch()
+        self.procSearch = Cue3.search.ProcSearch()
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -114,7 +115,7 @@ class ProcMonitorTree(AbstractTreeWidget):
 
     def clearFilters(self):
         self.clearSelection()
-        self.procSearch = Cue3.ProcSearch()
+        self.procSearch = Cue3.search.ProcSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.removeAllItems()
 
@@ -127,17 +128,17 @@ class ProcMonitorTree(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             # Refuse to update if no search criteria is defined
-            if not self.procSearch.maxResults and \
-               not self.procSearch.hosts and \
-               not self.procSearch.jobs and \
-               not self.procSearch.layers and \
-               not self.procSearch.shows and \
-               not self.procSearch.allocs and \
-               not self.procSearch.memoryRange and \
-               not self.procSearch.durationRange:
+            if not self.procSearch.options.max_results and \
+               not self.procSearch.options.hosts and \
+               not self.procSearch.options.jobs and \
+               not self.procSearch.options.layers and \
+               not self.procSearch.options.shows and \
+               not self.procSearch.options.allocs and \
+               not self.procSearch.options.memory_range and \
+               not self.procSearch.options.durationRange:
                 return []
 
-            return Cue3.Cuebot.Proxy.getProcs(self.procSearch)
+            return Cue3.api.getProcs(self.procSearch)
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
@@ -162,6 +163,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         self.__menuActions.procs().addAction(menu, "kill")
         self.__menuActions.procs().addAction(menu, "unbookKill")
         menu.exec_(e.globalPos())
+
 
 class ProcWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):

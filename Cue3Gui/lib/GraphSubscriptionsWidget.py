@@ -27,7 +27,7 @@ class GraphSubscriptionsWidget(QtGui.QWidget):
         self.__brush.setColor(self.__color)
         self.__brush.setStyle(QtCore.Qt.SolidPattern)
 
-        self.__show = Cue3.findShow("clo")
+        self.__show = Cue3.api.findShow("clo")
         self.__history = [0]*100
         self.__line = 575
         self.__max = max(self.__line * 1.2, 80)

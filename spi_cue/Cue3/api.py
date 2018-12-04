@@ -85,7 +85,7 @@ def getService(id):
     @rtype Service
     """
     return Cuebot.getStub('service').GetService(
-        service_pb2.ServiceGetServiceRequest(id), timeout=Cuebot.Timeout).service
+        service_pb2.ServiceGetServiceRequest(id=id), timeout=Cuebot.Timeout).service
 
 
 @util.grpcExceptionParser
@@ -96,7 +96,7 @@ def createService(data):
     @rtype list<Service>
     """
     return Cuebot.getStub('service').CreateService(
-        service_pb2.ServiceCreateServiceRequest(data), timeout=Cuebot.Timeout).service
+        service_pb2.ServiceCreateServiceRequest(data=data), timeout=Cuebot.Timeout).service
 
 
 @util.grpcExceptionParser

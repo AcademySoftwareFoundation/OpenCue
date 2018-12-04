@@ -34,7 +34,7 @@ class EmailDialog(QtGui.QDialog):
         QtGui.QDialog.__init__(self, parent)
 
         try:
-            self.__frames = job.getFrames(state=[Cue3.FrameState.Dead])
+            self.__frames = job.getFrames(state=[Cue3.api.job_pb2.DEAD])
         except:
             self.__frames = []
 

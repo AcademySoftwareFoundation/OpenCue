@@ -30,7 +30,7 @@ class GroupDialog(QtGui.QDialog):
         __modify = modifyGroup is not None
 
         try:
-            self._departments = Cue3.Cuebot.Proxy.getDepartmentNames()
+            self._departments = Cue3.api.getDepartmentNames()
         except Exception, e:
             self._departments = ["Unknown"]
 
@@ -173,7 +173,7 @@ class GroupDialog(QtGui.QDialog):
 
 class ModifyGroupDialog(GroupDialog):
     def __init__(self, modifyGroup, parent=None):
-        modifyGroup = Cue3.getGroup(modifyGroup)
+        modifyGroup = Cue3.api.getGroup(modifyGroup)
         defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
                     "message": "Modifying the group %s" % modifyGroup.data.name,
                     "name": modifyGroup.data.name,

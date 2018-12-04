@@ -44,7 +44,7 @@ class ShowCombo(QtGui.QComboBox):
 
     def refresh(self):
         self.clear()
-        shows = Cue3.getActiveShows()
+        shows = Cue3.api.getActiveShows()
         shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         for show in shows:
@@ -77,7 +77,7 @@ class AllocFilter(QtGui.QPushButton):
         """
         Refresh the full list of allocations.
         """
-        allocs = Cue3.getAllocations()
+        allocs = Cue3.api.getAllocations()
         allocs.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         self.__menu.clear()
@@ -133,7 +133,7 @@ class JobBox(QtGui.QLineEdit):
         self.refresh()
 
     def refresh(self):
-        slist = QtCore.QStringList([job for job in Cue3.getJobNames()])
+        slist = QtCore.QStringList([job for job in Cue3.api.getJobNames()])
         slist.sort()
 
         self.__c = QtGui.QCompleter(slist, self)
@@ -165,14 +165,14 @@ class GroupFilter(QtGui.QPushButton):
             if show.proxy:
                 return show
         except:
-            return Cue3.findShow(show)
+            return Cue3.api.findShow(show.name())
 
     def showChanged(self, show):
         self.__show = self.__loadShow(show)
 
     def __populate_menu(self):
         self.__menu.clear()
-        for group in self.__show.proxy.getGroups():
+        for group in self.__show.getGroups():
             if self.__actions.has_key(Cue3.id(group)):
                 self.__menu.addAction(self.__actions[Cue3.id(group)])
             else:
@@ -194,7 +194,7 @@ class RedirectControls(QtGui.QWidget):
     """
     def __init__(self, parent=None):
         QtGui.QWidget.__init__(self, parent)
-        self.__current_show = Cue3.findShow(os.getenv("SHOW","pipe"))
+        self.__current_show = Cue3.api.findShow(os.getenv("SHOW","pipe"))
 
         self.__show_combo = ShowCombo(self.__current_show.data.name, self)
         self.__job_box = JobBox(self)
@@ -290,16 +290,16 @@ class RedirectControls(QtGui.QWidget):
         return self.__config
 
     def showChanged(self, show):
-        self.__current_show = Cue3.findShow(str(show))
+        self.__current_show = Cue3.api.findShow(str(show))
         self.__include_group_btn.showChanged(self.__current_show)
 
     def detect(self, name=None):
         try:
-            job = Cue3.findJob(str(self.__job_box.text()))
+            job = Cue3.api.findJob(str(self.__job_box.text()))
         except:
             return
 
-        layers = job.proxy.getLayers()
+        layers = job.getLayers()
         minCores = 1.0
         minMem = 0
         for layer in layers:
@@ -493,7 +493,7 @@ class RedirectWidget(QtGui.QWidget):
         if wc_ok < 0:
             return True
 
-        show_obj = Cue3.findShow(show)
+        show_obj = Cue3.api.findShow(show)
         show_subs = dict((s.data.name.rstrip('.%s' % show), s)
                          for s in show_obj.getSubscriptions()
                          if s.data.allocationName in alloc)
@@ -549,7 +549,7 @@ class RedirectWidget(QtGui.QWidget):
             return
         job = None
         try:
-            job = Cue3.findJob(job_name)
+            job = Cue3.api.findJob(job_name)
         except Cue3.EntityNotFoundException:  # Target job finished, exit
             self.__warn_and_stop('The job you\'re trying to redirect to '
                                  'appears to be no longer in the cue!')
@@ -571,7 +571,7 @@ class RedirectWidget(QtGui.QWidget):
             procs = [proc.proxy for proc in entry["procs"]]
             try:
                 host = entry["host"]
-                host.proxy.redirectToJob(procs, job.proxy)
+                host.proxy.redirectToJob(procs, job)
             except Exception, e:
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
@@ -607,7 +607,7 @@ class RedirectWidget(QtGui.QWidget):
 
         show = self.__controls.getShow()
         alloc = self.__controls.getAllocFilter()
-        procs = Cue3.getProcs(show=show.data.name, alloc=alloc.getSelected())
+        procs = Cue3.api.getProcs(show=show.data.name, alloc=alloc.getSelected())
 
         progress = QtGui.QProgressDialog("Searching","Cancel", 0,
                                          self.__controls.getLimit(), self)
@@ -645,7 +645,7 @@ class RedirectWidget(QtGui.QWidget):
 
             name = proc.data.name.split("/")[0]
             if not hosts.has_key(name):
-                cue_host = Cue3.findHost(name)
+                cue_host = Cue3.api.findHost(name)
                 hosts[name] = {
                                "host": cue_host,
                                "procs":[],

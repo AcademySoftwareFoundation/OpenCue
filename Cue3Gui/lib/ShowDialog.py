@@ -67,7 +67,7 @@ class ShowDialog(QtGui.QDialog):
         ctrl = QtGui.QDoubleSpinBox(self)
         ctrl.setRange(0, 10000)
         ctrl.setDecimals(2)
-        ctrl.setValue(self.__show.data.defaultMaxCores)
+        ctrl.setValue(self.__show.data.default_max_cores)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
         QtCore.QObject.connect(ctrl, QtCore.SIGNAL("valueChanged(double)"),
@@ -78,7 +78,7 @@ class ShowDialog(QtGui.QDialog):
         ctrl = QtGui.QDoubleSpinBox(self)
         ctrl.setRange(0, 10000)
         ctrl.setDecimals(2)
-        ctrl.setValue(self.__show.data.defaultMinCores)
+        ctrl.setValue(self.__show.data.default_min_cores)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
         QtCore.QObject.connect(ctrl, QtCore.SIGNAL("valueChanged(double)"),
@@ -87,7 +87,7 @@ class ShowDialog(QtGui.QDialog):
 
         label = QtGui.QLabel("Comment Notification Email", self)
         text = QtGui.QLineEdit(self)
-        text.setText(self.__show.data.commentEmail)
+        text.setText(self.__show.data.comment_email)
         page.layout().addWidget(text, 2, 0)
         page.layout().addWidget(label, 2, 1, 1, 4)
         QtCore.QObject.connect(text, QtCore.SIGNAL("textChanged(QString)"),
@@ -103,7 +103,7 @@ class ShowDialog(QtGui.QDialog):
 
         label = QtGui.QLabel("Enable booking", self)
         ctrl = QtGui.QCheckBox(self)
-        ctrl.setChecked(self.__show.data.bookingEnabled)
+        ctrl.setChecked(self.__show.data.booking_enabled)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
         QtCore.QObject.connect(ctrl, QtCore.SIGNAL("stateChanged(int)"),
@@ -112,7 +112,7 @@ class ShowDialog(QtGui.QDialog):
 
         label = QtGui.QLabel("Enable dispatch", self)
         ctrl = QtGui.QCheckBox(self)
-        ctrl.setChecked(self.__show.data.bookingEnabled)
+        ctrl.setChecked(self.__show.data.dispatch_enabled)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
         QtCore.QObject.connect(ctrl, QtCore.SIGNAL("stateChanged(int)"),
@@ -127,7 +127,7 @@ class ShowDialog(QtGui.QDialog):
         page.setLayout(QtGui.QGridLayout())
         text = QtGui.QTextEdit(page)
         text.setReadOnly(True)
-        text.setPlainText("%s" % self.__show.stats)
+        text.setPlainText("%s" % self.__show.data.show_stats)
         page.layout().addWidget(text)
 
         #page.layout().setRowStretch(10, 100)
@@ -142,8 +142,8 @@ class ShowDialog(QtGui.QDialog):
         text.setReadOnly(True)
         text.setPlainText("Show: %s%s\n%s\n%s" % (self.__show.name(),
                                                   self.__show.data,
-                                                  self.__show.stats,
-                                                  self.__show.proxy))
+                                                  self.__show.data.show_stats,
+                                                  self.__show.id()))
         page.layout().addWidget(text)
 
         return page
@@ -164,17 +164,17 @@ class ShowDialog(QtGui.QDialog):
         """If the save button is enabled, any changed values will be saved"""
         self.__btnSave.setEnabled(False)
 
-        if self.__show.data.commentEmail != str(self.__show_email.text()):
-            self.__show.proxy.setCommentEmail(str(self.__show_email.text()))
+        if self.__show.data.comment_email != str(self.__show_email.text()):
+            self.__show.setCommentEmail(str(self.__show_email.text()))
 
-        if self.__show.data.defaultMinCores != self.__defaultMaxCores.value():
-            self.__show.proxy.setDefaultMaxCores(self.__defaultMaxCores.value())
+        if self.__show.data.default_max_cores != self.__defaultMaxCores.value():
+            self.__show.setDefaultMaxCores(self.__defaultMaxCores.value())
 
-        if self.__show.data.defaultMinCores != self.__defaultMinCores.value():
-            self.__show.proxy.setDefaultMinCores(self.__defaultMinCores.value())
+        if self.__show.data.default_min_cores != self.__defaultMinCores.value():
+            self.__show.setDefaultMinCores(self.__defaultMinCores.value())
 
-        if self.__show.data.bookingEnabled != self.__bookingEnabled.isChecked():
-            self.__show.proxy.enableBooking(self.__bookingEnabled.isChecked())
+        if self.__show.data.booking_enabled != self.__bookingEnabled.isChecked():
+            self.__show.enableBooking(self.__bookingEnabled.isChecked())
 
-        if self.__show.data.dispatchEnabled != self.__dispatchEnabled.isChecked():
-            self.__show.proxy.enableDispatching(self.__dispatchEnabled.isChecked())
+        if self.__show.data.dispatch_enabled != self.__dispatchEnabled.isChecked():
+            self.__show.enableDispatching(self.__dispatchEnabled.isChecked())

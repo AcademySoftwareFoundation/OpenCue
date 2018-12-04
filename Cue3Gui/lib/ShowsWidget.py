@@ -26,19 +26,19 @@ class ShowsWidget(AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(Constants.TYPE_SHOW)
         self.addColumn("Show Name", 90, id=1,
-                       data=lambda show:(show.data.name))
+                       data=lambda show: (show.data.name))
         self.addColumn("Cores Run", 80, id=2,
-                       data=lambda show:("%.2f" % show.stats.reservedCores),
-                       sort=lambda show:(show.stats.reservedCores))
+                       data=lambda show: ("%.2f" % show.data.show_stats.reserved_cores),
+                       sort=lambda show: (show.data.show_stats.reserved_cores))
         self.addColumn("Frames Run", 80, id=3,
-                       data=lambda show:(show.stats.runningFrames),
-                       sort=lambda show:(show.stats.runningFrames))
+                       data=lambda show: (show.data.show_stats.running_frames),
+                       sort=lambda show: (show.data.show_stats.running_frames))
         self.addColumn("Frames Pending", 80, id=4,
-                       data=lambda show:(show.stats.pendingFrames),
-                       sort=lambda show:(show.stats.pendingFrames))
+                       data=lambda show: (show.data.show_stats.pending_frames),
+                       sort=lambda show: (show.data.show_stats.pending_frames))
         self.addColumn("Jobs", 80, id=5,
-                       data=lambda show:(show.stats.pendingJobs),
-                       sort=lambda show:(show.stats.pendingJobs))
+                       data=lambda show: (show.data.show_stats.pending_jobs),
+                       sort=lambda show: (show.data.show_stats.pending_jobs))
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -74,7 +74,7 @@ class ShowsWidget(AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            return Cue3.getActiveShows()
+            return Cue3.api.getActiveShows()
         except Exception, e:
             log.critical(e)
             return []
@@ -91,7 +91,8 @@ class ShowsWidget(AbstractTreeWidget):
                 menu.addSeparator()
                 self.__menuActions.shows().addAction(menu, "createSubscription")
 
-            menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
+            menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
+
 
 class ShowWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):

@@ -16,16 +16,12 @@
 """
 Wizard interface to setting up dependencies.
 """
-import os
-import sys
 import re
 
-from Manifest import QtCore, QtGui, Cue3, FileSequence
-
 import Cuedepend
-
-import Utils
 import Logger
+import Utils
+from Manifest import QtCore, QtGui, Cue3, FileSequence
 from ProgressDialog import ProgressDialog
 
 logger = Logger.getLogger(__file__)
@@ -33,17 +29,17 @@ logger = Logger.getLogger(__file__)
 __all__ = ["DependWizard"]
 
 # These are the available types of dependencies
-JOJ = str(Cue3.DependType.JobOnJob)
-JOL = str(Cue3.DependType.JobOnLayer)
-JOF = str(Cue3.DependType.JobOnFrame)
-LOJ = str(Cue3.DependType.LayerOnJob)
-LOL = str(Cue3.DependType.LayerOnLayer)
-LOF = str(Cue3.DependType.LayerOnFrame)
-FOJ = str(Cue3.DependType.FrameOnJob)
-FOL = str(Cue3.DependType.FrameOnLayer)
-FOF = str(Cue3.DependType.FrameOnFrame)
-FBF = str(Cue3.DependType.FrameByFrame)
-LOS = str(Cue3.DependType.LayerOnSimFrame)
+JOJ = str(Cue3.api.depend_pb2.JOB_ON_JOB)
+JOL = str(Cue3.api.depend_pb2.JOB_ON_LAYER)
+JOF = str(Cue3.api.depend_pb2.JOB_ON_FRAME)
+LOJ = str(Cue3.api.depend_pb2.LAYER_ON_JOB)
+LOL = str(Cue3.api.depend_pb2.LAYER_ON_LAYER)
+LOF = str(Cue3.api.depend_pb2.LAYER_ON_FRAME)
+FOJ = str(Cue3.api.depend_pb2.FRAME_ON_JOB)
+FOL = str(Cue3.api.depend_pb2.FRAME_ON_LAYER)
+FOF = str(Cue3.api.depend_pb2.FRAME_ON_FRAME)
+FBF = str(Cue3.api.depend_pb2.FRAME_BY_FRAME)
+LOS = str(Cue3.api.depend_pb2.LAYER_ON_SIM_FRAME)
 JFBF = "JobFrameByFrame"
 
 # This determines what order each page is displayed in
@@ -122,7 +118,7 @@ class DependWizard(QtGui.QWizard):
         self.onJobOptions = []
         try:
             show = self.jobs[0].data.name.split('-')[0]
-            self.onJobOptions = [name for name in sorted(Cue3.getJobNames()) if name.startswith(show)]
+            self.onJobOptions = [name for name in sorted(Cue3.api.getJobNames()) if name.startswith(show)]
         except Exception, e:
             logger.critical("Failed getting list of jobs")
             map(logger.critical, Utils.exceptionOutput(e))
@@ -557,7 +553,7 @@ class PageSelectOnLayer(AbstractWizardPage):
     def initializePage(self):
         QtGui.QWizardPage.initializePage(self)
 
-        self.wizard().onLayerOptions = Cue3.findJob(self.wizard().onJob[0]).proxy.getLayers()
+        self.wizard().onLayerOptions = Cue3.api.findJob(self.wizard().onJob[0]).getLayers()
 
         if self.wizard().dependType in (LOS,):
             self.wizard().onLayerOptions = [layer for layer in self.wizard().onLayerOptions if 'simulation' in layer.data.services or 'simulationhi' in layer.data.services or 'houdini' in layer.data.services]
@@ -682,10 +678,10 @@ class PageConfirmation(AbstractWizardPage):
 
         if self.wizard().dependType == JFBF:
             for onJob in onJobs:
-                onLayers = Cue3.findJob(onJob).proxy.getLayers()
+                onLayers = Cue3.api.findJob(onJob).getLayers()
 
                 for job in jobs:
-                    for layer in Cue3.findJob(job).proxy.getLayers():
+                    for layer in Cue3.api.findJob(job).getLayers():
                         for onLayer in onLayers:
                             if layer.data.type == onLayer.data.type:
                                 self.__addDependWork(layer, onLayer)

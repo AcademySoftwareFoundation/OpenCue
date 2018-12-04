@@ -37,7 +37,7 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
         self.column_info = self.treeWidget().getColumnInfo(itemType)
         self._cache = {}
         self._source = source
-        self.iceObject = object
+        self.rpcObject = object
 
     def update(self, object = None, parent = None):
         """Updates visual representation with latest data
@@ -51,7 +51,7 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
             parent.addChild(self)
 
         if object:
-            self.iceObject = object
+            self.rpcObject = object
             self._cache = {}
 
     def data(self, col, role):
@@ -63,7 +63,7 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
         @rtype:  QtCore.QVariant
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][DISPLAY_LAMBDA](self.iceObject))
+            return QtCore.QVariant(self.column_info[col][DISPLAY_LAMBDA](self.rpcObject))
 
         elif role == QtCore.Qt.ForegroundRole:
             return QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
@@ -78,7 +78,7 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         if sortLambda:
             try:
-                return sortLambda(self.iceObject) < sortLambda(other.iceObject)
+                return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
             except:
                 return False
 

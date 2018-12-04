@@ -13,29 +13,29 @@
 #  limitations under the License.
 
 
-from Manifest import Cue3, QtCore, QtGui
+from math import ceil
 
 import Constants
 import Utils
+from Manifest import Cue3, QtCore, QtGui
 
-from math import ceil
-
-RGB_FRAME_STATE = {Cue3.FrameState.Succeeded: QtGui.QColor(55,200,55),
-                   Cue3.FrameState.Running: QtGui.QColor(200,200,55),
-                   Cue3.FrameState.Waiting: QtGui.QColor(135,207,235),
-                   Cue3.FrameState.Depend: QtGui.QColor(160,32,240),
-                   Cue3.FrameState.Dead: QtGui.QColor(255,0,0),
-                   Cue3.FrameState.Eaten: QtGui.QColor(150,0,0)}
+RGB_FRAME_STATE = {Cue3.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
+                   Cue3.api.job_pb2.RUNNING: QtGui.QColor(200, 200, 55),
+                   Cue3.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
+                   Cue3.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
+                   Cue3.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
+                   Cue3.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0)}
 
 # This controls display order
-FRAME_STATES = (Cue3.FrameState.Succeeded,
-                Cue3.FrameState.Running,
-                Cue3.FrameState.Waiting,
-                Cue3.FrameState.Depend,
-                Cue3.FrameState.Dead,
-                Cue3.FrameState.Eaten)
+FRAME_STATES = (Cue3.api.job_pb2.SUCCEEDED,
+                Cue3.api.job_pb2.RUNNING,
+                Cue3.api.job_pb2.WAITING,
+                Cue3.api.job_pb2.DEPEND,
+                Cue3.api.job_pb2.DEAD,
+                Cue3.api.job_pb2.EATEN)
 
 NO_PEN = QtGui.QPen(QtCore.Qt.NoPen)
+
 
 class AbstractDelegate(QtGui.QItemDelegate):
     """Handles drawing of items for the TreeWidget. Provides special handling
@@ -44,6 +44,7 @@ class AbstractDelegate(QtGui.QItemDelegate):
     __brushSelected = QtGui.QBrush(QtCore.Qt.Dense4Pattern)
     __colorUsed = QtGui.QColor(255, 0, 0)
     __colorFree = QtGui.QColor(0, 255, 0)
+
     def __init__(self, parent, jobProgressBarColumn = None, *args):
         QtGui.QItemDelegate.__init__(self, parent, *args)
 
@@ -111,7 +112,8 @@ class AbstractDelegate(QtGui.QItemDelegate):
 
             # Draw the text
             painter.setPen(QtGui.QColor(index.data(QtCore.Qt.ForegroundRole)))
-            painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
+            # TODO: Disable to fix OSX styling - b/120096941
+            # painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
             painter.drawText(option.rect.adjusted(3, -1, -3, 0),
                              index.data(QtCore.Qt.TextAlignmentRole).toInt()[0] | QtCore.Qt.AlignVCenter,
                              index.data(QtCore.Qt.DisplayRole).toString())
@@ -122,7 +124,8 @@ class AbstractDelegate(QtGui.QItemDelegate):
     def _drawBackground(self, painter, option, index):
         # Draw the background color
         painter.setPen(NO_PEN)
-        painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
+        # TODO: Disable to fix OSX styling - b/120096941
+        # painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
         painter.drawRect(option.rect)
 
     def _drawSelectionOverlay(self, painter, option):
@@ -159,11 +162,11 @@ class JobBookingBarDelegate(AbstractDelegate):
 
                         if jobWaiting:
                             painter.fillRect(rect.adjusted(0, 2, 0, -2),
-                                             RGB_FRAME_STATE[Cue3.FrameState.Waiting])
+                                             RGB_FRAME_STATE[Cue3.api.job_pb2.FrameState.Waiting])
 
                         if jobRunning:
                             painter.fillRect(rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
-                                             RGB_FRAME_STATE[Cue3.FrameState.Running])
+                                             RGB_FRAME_STATE[Cue3.api.job_pb2.FrameState.Running])
 
                         painter.setPen(QtCore.Qt.blue)
                         x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
@@ -226,7 +229,7 @@ class JobProgressBarDelegate(AbstractDelegate):
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
 
-                    if state == Cue3.JobState.Finished:
+                    if state == Cue3.api.job_pb2.FINISHED:
                         painter.setPen(QtCore.Qt.black)
                         painter.drawText(option.rect, 0, QtCore.QString("Finished"))
                     elif paused:
