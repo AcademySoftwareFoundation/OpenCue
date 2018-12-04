@@ -23,12 +23,12 @@ Module: host.py - Cue3 Library implementation of a host
 
 import os
 import time
-
-import comment
-import proc
 from Cue3 import Cuebot
 from Cue3.compiled_proto import comment_pb2
 from Cue3.compiled_proto import host_pb2
+
+import comment
+import proc
 
 
 class Host(object):
@@ -44,7 +44,8 @@ class Host(object):
 
     def unlock(self):
         """Unlocks the host and cancels any actions that were waiting for all
-        running frames to finish."""
+        running frames to finish.
+        """
         self.stub.Unlock(host_pb2.HostUnlockRequest(host=self.data), timeout=Cuebot.Timeout)
 
     def delete(self):
@@ -53,15 +54,27 @@ class Host(object):
 
     def getProcs(self):
         """Returns a list of procs under this host.
-        @rtype:  list<Proc>
-        @return: A list of procs under this host"""
+        @rtype: list<Proc>
+        @return: A list of procs under this host
+        """
         response = self.stub.GetProcs(host_pb2.HostGetProcsRequest(host=self.data),
                                       timeout=Cuebot.Timeout)
         return [proc.Proc(p) for p in response.procs]
 
+    def getRenderPartitions(self):
+        """Returns a list of render partitions associated with this host
+        @rtype: list<RenderPartition>
+        @return: A list of render partitions under this host
+        """
+        response = self.stub.GetRenderPartitions(host_pb2.HostGetRenderPartitionsRequest(
+            host=self.data), timeout=Cuebot.Timeout)
+        partitionSeq = response.render_partitions
+        return partitionSeq.render_partitions
+
     def rebootWhenIdle(self):
         """Causes the host to no longer accept new frames and
-        when the machine is idle it will reboot."""
+        when the machine is idle it will reboot.
+        """
         self.stub.RebootWhenIdle(host_pb2.HostRebootWhenIdleRequest(host=self.data),
                                  timeout=Cuebot.Timeout)
 
@@ -71,42 +84,47 @@ class Host(object):
 
     def addTags(self, tags):
         """Adds tags to a host
-        @type  tags: list<str>
-        @param tags: The tags to add"""
+        @type tags: list<str>
+        @param tags: The tags to add
+        """
         self.stub.AddTags(host_pb2.HostAddTagsRequest(host=self.data, tags=tags),
                           timeout=Cuebot.Timeout)
 
     def removeTags(self, tags):
         """Remove tags from this host
-        @type  tags: list<str>
-        @param tags: The tags to remove"""
+        @type tags: list<str>
+        @param tags: The tags to remove
+        """
         self.stub.RemoveTags(host_pb2.HostRemoveTagsRequest(host=self.data, tags=tags),
                              timeout=Cuebot.Timeout)
 
     def renameTag(self, oldTag, newTag):
         """Renames a tag
-        @type  oldTag: str
+        @type oldTag: str
         @param oldTag: The old tag to rename
-        @type  newTag: str
-        @param newTag: The new name for the tag"""
+        @type newTag: str
+        @param newTag: The new name for the tag
+        """
         self.stub.RenameTag(
             host_pb2.HostRenameTagRequest(host=self.data, old_tag=oldTag, new_tag=newTag),
             timeout=Cuebot.Timeout)
 
     def setAllocation(self, allocation):
         """Sets the host to the given allocation
-        @type  allocation: Allocation
-        @param allocation: An allocation object"""
+        @type allocation: Allocation
+        @param allocation: An allocation object
+        """
         self.stub.SetAllocation(
             host_pb2.HostSetAllocationRequest(host=self.data, allocation_name=allocation.id),
             timeout=Cuebot.Timeout)
 
     def addComment(self, subject, message):
         """Appends a comment to the hosts's comment list
-        @type  subject: str
+        @type subject: str
         @param subject: Subject data
-        @type  message: str
-        @param message: Message data"""
+        @type message: str
+        @param message: Message data
+        """
         comment = comment_pb2.Comment(
             user=os.getenv("USER", "unknown"),
             subject=subject,
@@ -124,172 +142,200 @@ class Host(object):
 
     def id(self):
         """Returns the id of the host
-        @rtype:  str
-        @return: Host uuid"""
+        @rtype: str
+        @return: Host uuid
+        """
         if not hasattr(self, "__id"):
             self.__id = self.data.id
         return self.__id
 
     def name(self):
         """Returns the name of the host
-        @rtype:  str
-        @return: Host name"""
+        @rtype: str
+        @return: Host name
+        """
         return self.data.name
 
     def isNimbyEnabled(self):
         """Returns true if nimby is enabled
-        @rtype:  bool
-        @return: True if nimby is enabled"""
+        @rtype: bool
+        @return: True if nimby is enabled
+        """
         return self.data.nimby_enabled
 
     def isUp(self):
         """Returns True if the host is up
-        @rtype:  bool
-        @return: True if the host is up"""
+        @rtype: bool
+        @return: True if the host is up
+        """
         return self.data.state == host_pb2.HardwareState.Value('UP')
 
     def isLocked(self):
         """Returns True if the host is locked
-        @rtype:  bool
-        @return: True if the host is locked"""
+        @rtype: bool
+        @return: True if the host is locked
+        """
         return self.data.lock_state == host_pb2.LockState.Value('LOCKED')
 
     def isCommented(self):
         """Returns true if the host has a comment
-        @rtype:  bool
-        @return: If the job has a comment"""
+        @rtype: bool
+        @return: If the job has a comment
+        """
         return self.data.has_comment
 
     def cores(self):
         """
-        @rtype:  float
-        @return: """
+        @rtype: float
+        @return: number of cores
+        """
         return self.data.cores
 
     def coresReserved(self):
         """
-        @rtype:  float
-        @return: """
+        @rtype: float
+        @return: number of cores reserved
+        """
         return self.data.cores - self.data.idle_ores
 
     def coresIdle(self):
         """
-        @rtype:  float
-        @return: """
+        @rtype: float
+        @return: number of cores idle
+        """
         return self.data.idle_cores
 
     def mem(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: value of memory
+        """
         return self.data.memory
 
     def memReserved(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: value of memory reserved
+        """
         return self.data.memory - self.data.idle_memory
 
     def memIdle(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: value of memory idle
+        """
         return self.data.idle_memory
 
     def memUsed(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: value of memory used
+        """
         return self.data.total_memory - self.data.free_memory
 
     def memTotal(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: total amount of memory on host
+        """
         return self.data.total_memory
 
     def memFree(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: amount of free memory
+        """
         return self.data.free_memory
 
     def swapUsed(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: amount of swap used
+        """
         return self.data.total_swap - self.data.free_swap
 
     def swapTotal(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: total amount of swap
+        """
         return self.data.total_swap
 
     def swapFree(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: amount of free swap
+        """
         return self.data.free_swap
 
     def mcpUsed(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: amount of mcp used
+        """
         return self.mcpTotal() - self.mcpFree()
 
     def mcpTotal(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: total amount of mcp
+        """
         return self.data.total_mcp
 
     def mcpFree(self):
         """
-        @rtype:  int
-        @return: """
+        @rtype: int
+        @return: amount of mcp free
+        """
         return self.data.free_mcp
 
     def load(self):
         """Returns the load on the host
-        @rtype:  int
-        @return: Host load average * 100"""
+        @rtype: int
+        @return: Host load average * 100
+        """
         return self.data.load
 
     def bootTime(self):
         """
-        @rtype:  int
-        @return: Boot time epoch"""
+        @rtype: int
+        @return: Boot time epoch
+        """
         return self.data.boot_time
 
     def pingTime(self):
         """
-        @rtype:  int
-        @return: Ping time epoch"""
+        @rtype: int
+        @return: Ping time epoch
+        """
         return self.data.ping_time
 
     def pingLast(self):
         """
-        @rtype:  int
-        @return: Seconds since last ping"""
+        @rtype: int
+        @return: Seconds since last ping
+        """
         return int(time.time() - self.pingTime())
 
     def tags(self):
         """
-        @rtype:  list<str>
-        @return: Tags applied to the host"""
+        @rtype: list<str>
+        @return: Tags applied to the host
+        """
         return self.data.tags
 
     def state(self):
         """
-        @rtype:  Cue3.HardwareState
-        @return: """
+        @rtype: Cue3.HardwareState
+        @return: the state of the host
+        """
         return self.data.state
 
     def lockState(self):
         """
-        @rtype:  Cue3.LockState
-        @return: """
+        @rtype: Cue3.LockState
+        @return: the lock state of the host
+        """
         return self.data.lock_state
 
 
