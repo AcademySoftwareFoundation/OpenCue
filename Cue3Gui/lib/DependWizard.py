@@ -21,7 +21,7 @@ import re
 import Cuedepend
 import Logger
 import Utils
-from Manifest import QtCore, QtGui, Cue3, FileSequence
+from Manifest import QtCore, QtWidgets, Cue3, FileSequence
 from ProgressDialog import ProgressDialog
 
 logger = Logger.getLogger(__file__)
@@ -69,9 +69,9 @@ PROGRESS_TITLE = "Cancel setting up dependencies?"
 PROGRESS_TEXT = "Are you sure you want to cancel setting up these dependencies?\n\n" + \
                 "The dependencies that are already partially setup will still remain."
 
-class DependWizard(QtGui.QWizard):
+class DependWizard(QtWidgets.QWizard):
     def __init__(self, parent, jobs, layers = [], frames = []):
-        QtGui.QWizard.__init__(self, parent)
+        QtWidgets.QWizard.__init__(self, parent)
 
         # Only allow jobs from one show
         jobs = [job for job in jobs if job.data.show == jobs[0].data.show]
@@ -106,7 +106,7 @@ class DependWizard(QtGui.QWizard):
         self.setStartId(PAGE_SELECT_DEPEND_TYPE)
 
         self.setWindowTitle("Dependency Wizard")
-        self.setOption(QtGui.QWizard.IndependentPages, False)
+        self.setOption(QtWidgets.QWizard.IndependentPages, False)
 
         self._onJobOptionsPopulate()
 
@@ -125,10 +125,10 @@ class DependWizard(QtGui.QWizard):
 
 ################################################################################
 
-class AbstractWizardPage(QtGui.QWizardPage):
+class AbstractWizardPage(QtWidgets.QWizardPage):
     def __init__(self, parent):
-        QtGui.QWizardPage.__init__(self, parent)
-        self.setLayout(QtGui.QGridLayout(self))
+        QtWidgets.QWizardPage.__init__(self, parent)
+        self.setLayout(QtWidgets.QGridLayout(self))
 
         self._widgets = []
 
@@ -148,7 +148,7 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param align: The text alignment
         @rtype:  QLabel
         @return: A reference to the new widget"""
-        label = QtGui.QLabel(text, self)
+        label = QtWidgets.QLabel(text, self)
         label.setAlignment(align)
         self.layout().addWidget(label, row, col, rowSpan, columnSpan)
         self._widgets.append(label)
@@ -164,9 +164,10 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param height: The fixed height of the label (default = None)
         @rtype:  QTextEdit
         @return: A reference to the new widget"""
-        label = QtGui.QTextEdit(text, self)
+        label = QtWidgets.QTextEdit(text, self)
         label.setReadOnly(True)
-        label.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum))
+        label.setSizePolicy(QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred,
+                                                  QtWidgets.QSizePolicy.Maximum))
         if height:
             label.setFixedHeight(height)
         self.layout().addWidget(label, row, col)
@@ -183,7 +184,7 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param text: The text to display in the edit box
         @rtype:  QLineEdit
         @return: A reference to the new widget"""
-        edit = QtGui.QLineEdit(text, self)
+        edit = QtWidgets.QLineEdit(text, self)
         self.layout().addWidget(edit, row, col)
         self._widgets.append(edit)
         return edit
@@ -202,7 +203,7 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param value: The value to display initially
         @rtype:  QLineEdit
         @return: A reference to the new widget"""
-        spin = QtGui.QSpinBox(self)
+        spin = QtWidgets.QSpinBox(self)
         spin.setRange(min, max)
         spin.setValue(value)
         self.layout().addWidget(spin, row, col)
@@ -217,7 +218,7 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param col: The column to place the widget
         @rtype:  QComboBox
         @return: A reference to the new widget"""
-        combo = QtGui.QComboBox()
+        combo = QtWidgets.QComboBox()
         self.layout().addWidget(combo, row, col)
         self._widgets.append(combo)
         return combo
@@ -232,7 +233,7 @@ class AbstractWizardPage(QtGui.QWizardPage):
         @param selection: Allowed selection type
         @rtype:  QListWidget
         @return: A reference to the new widget"""
-        list = QtGui.QListWidget(self)
+        list = QtWidgets.QListWidget(self)
         if selection:
             list.setSelectionMode(selection)
         self.layout().addWidget(list, row, col)
@@ -324,13 +325,13 @@ class PageDependType(AbstractWizardPage):
                 allowed_options.extend([LOJ, LOL, LOF, FBF, FOJ, FOL, FOF, LOS])
 
         # Add the group box for the dependency type options
-        self.__groupBox = QtGui.QGroupBox()
-        self.__groupLayout = QtGui.QGridLayout(self.__groupBox)
+        self.__groupBox = QtWidgets.QGroupBox()
+        self.__groupLayout = QtWidgets.QGridLayout(self.__groupBox)
 
         # Add the options to the group box
         self.__options = {}
         for option in allowed_options:
-            self.__options[option] = QtGui.QRadioButton(DEPEND_NAME[option])
+            self.__options[option] = QtWidgets.QRadioButton(DEPEND_NAME[option])
             self.__groupLayout.addWidget(self.__options[option])
         self.__options[allowed_options[0]].setChecked(True)
 
@@ -393,12 +394,12 @@ class PageSelectLayer(AbstractWizardPage):
 
         self._addLabel("Layer:", 0, 0)
 
-        self.__layerList = self._addListWidget(2, 0, QtGui.QAbstractItemView.MultiSelection)
+        self.__layerList = self._addListWidget(2, 0, QtWidgets.QAbstractItemView.MultiSelection)
 
     def initializePage(self):
         self.wizard().layerOptions = self.wizard().jobs[0].proxy.getLayers()
 
-        QtGui.QWizardPage.initializePage(self)
+        QtWidgets.QWizardPage.initializePage(self)
 
         self.__layerList.clear()
         self.__layerList.addItems([layer for layer in self._getNames(self.wizard().layerOptions)])
@@ -414,11 +415,11 @@ class PageSelectLayer(AbstractWizardPage):
 
         if self.wizard().layers:
             return True
-        QtGui.QMessageBox.warning(self,
-                                  "Warning",
-                                  "Please select one or more layers or go back "
-                                  "and change the dependency type",
-                                  QtGui.QMessageBox.Ok)
+        QtWidgets.QMessageBox.warning(self,
+                                      "Warning",
+                                      "Please select one or more layers or go back "
+                                      "and change the dependency type",
+                                      QtWidgets.QMessageBox.Ok)
         return False
 
     def nextId(self):
@@ -446,7 +447,7 @@ class PageSelectFrame(AbstractWizardPage):
         self.registerField("frame", self.__frame)
 
     def initializePage(self):
-        QtGui.QWizardPage.initializePage(self)
+        QtWidgets.QWizardPage.initializePage(self)
 
     def validatePage(self):
         frames = str(self.field("frame").toString())
@@ -480,9 +481,7 @@ class PageSelectOnJob(AbstractWizardPage):
         self._addLabel("Depend on Job:", 0, 0)
 
         self.__jobFilterLineEdit = self._addLineEdit(2, 0, "")
-        QtCore.QObject.connect(self.__jobFilterLineEdit,
-                               QtCore.SIGNAL('textChanged(const QString &)'),
-                               self.filterJobs)
+        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)
 
         self.__jobList = self._addListWidget(3, 0)
 
@@ -503,14 +502,14 @@ class PageSelectOnJob(AbstractWizardPage):
             self.__jobFilterLineEdit.setText(self.wizard().jobs[0].data.name.split("_")[0] + "_")
 
         if self.wizard().dependType in (JOJ, LOJ, FOJ, JFBF):
-            self.__jobList.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
+            self.__jobList.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
         else:
-            self.__jobList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+            self.__jobList.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
         for num in range(self.__jobList.count()):
             self.__jobList.item(num).setSelected(str(self.__jobList.item(num).text()) in self.wizard().onJob)
 
-        QtGui.QWizardPage.initializePage(self)
+        QtWidgets.QWizardPage.initializePage(self)
 
     def validatePage(self):
         self.wizard().onJob = []
@@ -520,11 +519,11 @@ class PageSelectOnJob(AbstractWizardPage):
 
         if self.wizard().onJob:
             return True
-        QtGui.QMessageBox.warning(self,
-                                  "Warning",
-                                  "Please select one or more jobs or go back "
-                                  "and change the dependency type",
-                                  QtGui.QMessageBox.Ok)
+        QtWidgets.QMessageBox.warning(self,
+                                      "Warning",
+                                      "Please select one or more jobs or go back "
+                                      "and change the dependency type",
+                                      QtWidgets.QMessageBox.Ok)
         return False
 
     def nextId(self):
@@ -551,7 +550,7 @@ class PageSelectOnLayer(AbstractWizardPage):
         self.__onLayerList = self._addListWidget(1, 0)
 
     def initializePage(self):
-        QtGui.QWizardPage.initializePage(self)
+        QtWidgets.QWizardPage.initializePage(self)
 
         self.wizard().onLayerOptions = Cue3.api.findJob(self.wizard().onJob[0]).getLayers()
 
@@ -559,9 +558,9 @@ class PageSelectOnLayer(AbstractWizardPage):
             self.wizard().onLayerOptions = [layer for layer in self.wizard().onLayerOptions if 'simulation' in layer.data.services or 'simulationhi' in layer.data.services or 'houdini' in layer.data.services]
 
         if self.wizard().dependType in (JOL, LOL, FOL, FBF, JOF, LOF, FOF):
-            self.__onLayerList.setSelectionMode(QtGui.QAbstractItemView.MultiSelection)
+            self.__onLayerList.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection)
         else:
-            self.__onLayerList.setSelectionMode(QtGui.QAbstractItemView.SingleSelection)
+            self.__onLayerList.setSelectionMode(QtWidgets.QAbstractItemView.SingleSelection)
 
         self.__onLayerList.clear()
         self.__onLayerList.addItems([layer for layer in self._getNames(self.wizard().onLayerOptions)])
@@ -577,11 +576,11 @@ class PageSelectOnLayer(AbstractWizardPage):
 
         if self.wizard().onLayer:
             return True
-        QtGui.QMessageBox.warning(self,
-                                  "Warning",
-                                  "Please select one or more layers or go back "
-                                  "and change the dependency type",
-                                  QtGui.QMessageBox.Ok)
+        QtWidgets.QMessageBox.warning(self,
+                                      "Warning",
+                                      "Please select one or more layers or go back "
+                                      "and change the dependency type",
+                                      QtWidgets.QMessageBox.Ok)
         return False
 
     def nextId(self):
@@ -608,10 +607,10 @@ class PageSelectOnFrame(AbstractWizardPage):
         self.__frame = self._addLineEdit(1, 0, "1")
         self.registerField("onFrame", self.__frame)
 
-        self.setField("onFrame", QtCore.QVariant(""))
+        self.setField("onFrame", "")
 
     def initializePage(self):
-        QtGui.QWizardPage.initializePage(self)
+        QtWidgets.QWizardPage.initializePage(self)
 
     def validatePage(self):
         frames = str(self.field("onFrame").toString())

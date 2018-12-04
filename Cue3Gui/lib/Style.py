@@ -14,44 +14,48 @@
 
 
 """a module for handling global style setup"""
-import sys
 
-from Manifest import QtGui,QtCore
-import Utils
+from Manifest import QtGui
 
-DEFAULT_COLOR = QtCore.QVariant("DarkPalette")
-DEFAULT_ICON  = QtCore.QVariant("crystal")
-DEFAULT_FONT = QtCore.QVariant("Luxi Sans")
-DEFAULT_FONT_SIZE = QtCore.QVariant(10.0)
+DEFAULT_COLOR = "DarkPalette"
+DEFAULT_ICON = "crystal"
+DEFAULT_FONT = "Luxi Sans"
+DEFAULT_FONT_SIZE = 10.0
 
-ColorTheme = __import__("DarkPalette", globals(), locals())
-IconTheme = __import__("images.crystal.icons_rcc", globals(), locals())
-Font = "Luxi Sans"
+ColorTheme = None
+IconTheme = None
+Font = None
+
 
 def loadColorTheme(name):
     """changes the running color scheme of the app"""
     global ColorTheme
-    ColorTheme = __import__("%s" % name,globals(), locals())
+    ColorTheme = __import__("%s" % name, globals(), locals())
     ColorTheme.init()
+
 
 def setIconTheme(name):
     """stes the icon theme for the app, not sure if this
     can be changed on the fly yet"""
+    global IconTheme
     module = "images.%s.icons_rcc" % name
     IconTheme = __import__(module,  globals(), locals())
 
+
 def setFont(font):
     """sets the application font"""
+    global Font
     Font = font
     QtGui.qApp.setFont(font)
+
 
 def init():
     """initialize the global style settings"""
     settings = QtGui.qApp.settings
-    loadColorTheme(Utils.qvarToString(settings.value("Style/colorTheme", DEFAULT_COLOR)))
-    setIconTheme(Utils.qvarToString(settings.value("Style/iconTheme", DEFAULT_ICON)))
+    loadColorTheme(settings.value("Style/colorTheme", DEFAULT_COLOR))
+    setIconTheme(settings.value("Style/iconTheme", DEFAULT_ICON))
 
-    font = QtGui.QFont(Utils.qvarToString(settings.value("Style/font", DEFAULT_FONT)))
-    fontSize = Utils.qvarToFloat(settings.value("Style/fontSize", DEFAULT_FONT_SIZE))
+    font = QtGui.QFont(settings.value("Style/font", DEFAULT_FONT))
+    fontSize = settings.value("Style/fontSize", DEFAULT_FONT_SIZE)
     font.setPointSizeF(fontSize)
     setFont(font)

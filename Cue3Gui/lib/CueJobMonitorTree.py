@@ -13,19 +13,17 @@
 #  limitations under the License.
 
 
-import os
 import time
 
-from Manifest import QtCore, QtGui, Cue3
-
-import Utils
 import Constants
-import Style
 import Logger
+import Style
+import Utils
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+from ItemDelegate import JobThinProgressBarDelegate
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
-from ItemDelegate import JobThinProgressBarDelegate, JobBookingBarDelegate
 
 logger = Logger.getLogger(__file__)
 
@@ -33,7 +31,7 @@ COLUMN_COMMENT = 1
 COLUMN_EAT = 2
 COLUMN_MAXRSS = 13
 
-FONT_BOLD = QtCore.QVariant(QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold))
+FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
 
 def getEta(stats):
     if stats.runningFrames:
@@ -43,6 +41,9 @@ def getEta(stats):
     return "-"
 
 class CueJobMonitorTree(AbstractTreeWidget):
+
+    view_object = QtCore.Signal(object)
+
     def __init__(self, parent):
 
         self.__shows = {}
@@ -160,20 +161,14 @@ class CueJobMonitorTree(AbstractTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
-        self.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
 
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('facility_changed()'),
-                               self.removeAllShows)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedComment)
+        QtGui.qApp.facility_changed.connect(self.removeAllShows)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedComment)
 
         # Skip updates if the user is scrolling
         self._limitUpdatesDuringScrollSetup()
@@ -189,8 +184,8 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
         if selected:
-            QtGui.QApplication.clipboard().setText(" ".join(selected),
-                                                   QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -249,14 +244,15 @@ class CueJobMonitorTree(AbstractTreeWidget):
                 if job_ids:
                     body += "Jobs:\n" + "\n".join(Utils.dropEvent(event, "application/x-job-names"))
 
-                result = QtGui.QMessageBox.question(self,
-                                                    "Move groups/jobs?",
-                                                    "Move the following into the group: " +
-                                                    "\"%s\"?\n\n%s" % (
-                                                        item.rpcObject.data.name, body),
-                                                    QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+                result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Move groups/jobs?",
+                    "Move the following into the group: " +
+                    "\"%s\"?\n\n%s" % (
+                        item.rpcObject.data.name, body),
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
-                if result == QtGui.QMessageBox.Yes:
+                if result == QtWidgets.QMessageBox.Yes:
                     if job_ids:
                         item.rpcObject.reparentJobs(job_ids)
                         # If no exception, then move was allowed, so do it locally:
@@ -446,20 +442,20 @@ class CueJobMonitorTree(AbstractTreeWidget):
     def mouseDoubleClickEvent(self,event):
         objects = self.selectedObjects()
         if objects:
-            self.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), objects[0])
+            self.view_object.emit(objects[0])
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
         selectedObjects = self.selectedObjects()
         counts = Utils.countObjectTypes(selectedObjects)
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         if counts["rootgroup"] > 0:
             if counts["group"] > 0 or counts["job"] > 0:
                 if counts["rootgroup"] == 1:
-                    rmenu = QtGui.QMenu("Root Group ->", self)
+                    rmenu = QtWidgets.QMenu("Root Group ->", self)
                 else:
-                    rmenu = QtGui.QMenu("Root Groups ->", self)
+                    rmenu = QtWidgets.QMenu("Root Groups ->", self)
                 menu.addMenu(rmenu)
                 menu.addSeparator()
             else:
@@ -477,9 +473,9 @@ class CueJobMonitorTree(AbstractTreeWidget):
         if counts["group"] > 0:
             if counts["rootgroup"] > 0 or counts["job"] > 0:
                 if counts["group"] == 1:
-                    gmenu = QtGui.QMenu("Group ->", self)
+                    gmenu = QtWidgets.QMenu("Group ->", self)
                 else:
-                    gmenu = QtGui.QMenu("Groups ->", self)
+                    gmenu = QtWidgets.QMenu("Groups ->", self)
                 menu.addMenu(gmenu)
                 menu.addSeparator()
             else:
@@ -499,7 +495,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "sendToGroup")
 
-            depend_menu = QtGui.QMenu("Dependencies", self)
+            depend_menu = QtWidgets.QMenu("Dependencies", self)
             self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
             self.__menuActions.jobs().addAction(depend_menu, "dependWizard")
             depend_menu.addSeparator()

@@ -47,6 +47,10 @@ LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
 
 class FrameMonitorTree(AbstractTreeWidget):
+
+    job_changed = QtCore.Signal()
+    handle_filter_layers_byLayer = QtCore.Signal(list)
+
     def __init__(self, parent):
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
@@ -169,19 +173,11 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedViewLog)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
-                               self.__itemDoubleClickedViewLog)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedViewLog)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
+        self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 
-        QtCore.QObject.connect(self.header(),
-                               QtCore.SIGNAL('sortIndicatorChanged(int,Qt::SortOrder)'),
-                               self.__sortByColumnSave)
 
         self.__load = None
         self.startTicksUpdate(20)
@@ -270,8 +266,8 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param col: Column number single clicked on"""
         selected = [frame.data.name for frame in self.selectedObjects() if Utils.isFrame(frame)]
         if selected:
-            QtGui.QApplication.clipboard().setText(" ".join(selected),
-                                                   QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedViewLog(self, item, col):
         """Called when an item is clicked on. Views the log file contents
@@ -286,8 +282,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                                    reverse=True)
         except ValueError:
             pass
-        QtGui.qApp.emit(QtCore.SIGNAL('DisplayLogFileContent(PyQt_PyObject)'),
-                        [current_log_file] + old_log_files)
+        QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -318,7 +313,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.removeAllItems()
         self.__sortByColumnLoad()
         self._lastUpdate = 0
-        self.emit(QtCore.SIGNAL("job_changed()"))
+        self.job_changed.emit()
 
     def getJob(self):
         """Returns the current job
@@ -411,7 +406,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         logger.info("_getUpdateChanged")
         if not self.__job or \
            (self.__jobState and self.__jobState == Cue3.api.job_pb2.FINISHED):
-            log.warning("no job or job is finished, bailing")
+            logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
         updatedFrames = []
@@ -547,7 +542,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         results = {}
         for frame in self.selectedObjects():
             results[frame.layer()] = True
-        self.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"), results.keys())
+        self.handle_filter_layers_byLayer[str].emit(results.keys())
 
 class FrameWidgetItem(AbstractWidgetItem):
     __initialized = False

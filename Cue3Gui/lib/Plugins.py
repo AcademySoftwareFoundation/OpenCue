@@ -46,7 +46,7 @@ import sys
 import traceback
 import pickle
 
-from Manifest import QtCore, QtGui
+from Manifest import QtCore, QtGui, QtWidgets
 import Logger
 import Constants
 import Utils
@@ -78,7 +78,7 @@ class Plugins(object):
         self.__menu_separator = " \t-> "
 
         # Load plugin paths from the config file
-        __pluginPaths = list(QtGui.qApp.settings.value("Plugin_Paths", QtCore.QVariant([])).toStringList())
+        __pluginPaths = QtGui.qApp.settings.value("Plugin_Paths", [])
         for path in Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
 
@@ -97,7 +97,7 @@ class Plugins(object):
         The imported module must have an init function and a QMainWindow will be
         passed to it.
         """
-        __plugins = QtGui.qApp.settings.value("%s/Plugins" % configGroup, QtCore.QVariant(QtCore.QStringList([]))).toStringList()
+        __plugins = QtGui.qApp.settings.value("%s/Plugins" % configGroup, [])
 
         for plugin in __plugins:
             path = os.path.dirname(str(plugin))
@@ -126,7 +126,7 @@ class Plugins(object):
         @param object: The object created by loadin"""
         for item in self.__running:
             if item[1] == object:
-                if isinstance(object, QtGui.QDockWidget):
+                if isinstance(object, QtWidgets.QDockWidget):
                     self.mainWindow.removeDockWidget(object)
                 self.__running.remove(item)
                 return
@@ -147,20 +147,21 @@ class Plugins(object):
                         opened.append("%s::%s" % (plugin[0], pickle.dumps(plugin[1].pluginSaveState())))
             except Exception, e:
                 logger.warning("Error saving plugin state for: %s\n%s" % (plugin[0], e))
-        QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, QtCore.QVariant(QtCore.QStringList(opened)))
+        QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, opened)
 
     def restoreState(self):
         """Loads any user defined pluggin directories.
            Restores all open plugins.
            Calls .restoreSettings (if available) on all plugins."""
         # Loads any user defined pluggin directories
-        for path in QtGui.qApp.settings.value("Plugins/Paths", QtCore.QVariant([])).toStringList():
+        for path in QtGui.qApp.settings.value("Plugins/Paths", []):
             self.loadPluginPath(str(path))
 
         # Runs any plugins that were saved to the settings
-        for plugin in QtGui.qApp.settings.value("%s/Plugins_Opened" % self.name, QtCore.QVariant([])).toStringList():
-            [plugin_name, plugin_state] = str(plugin).split("::")
-            self.launchPlugin(plugin_name, plugin_state)
+        for plugin in (QtGui.qApp.settings.value("%s/Plugins_Opened" % self.name) or []):
+            if '::' in plugin:
+                [plugin_name, plugin_state] = str(plugin).split("::")
+                self.launchPlugin(plugin_name, plugin_state)
 
     def launchPlugin(self, plugin_name, plugin_state):
         """Launches the desired plugin
@@ -177,7 +178,7 @@ class Plugins(object):
         try:
             plugin_instance = plugin_class(self.mainWindow)
             self.__running.append((plugin_name, plugin_instance))
-            QtCore.QObject.connect(plugin_instance, QtCore.SIGNAL("closed(PyQt_PyObject)"), self.__closePlugin, QtCore.Qt.QueuedConnection)
+            plugin_instance.closed.connect(self.__closePlugin, QtCore.Qt.QueuedConnection)
         except Exception, e:
             logger.warning("Failed to load plugin module: %s\n%s" % (plugin_name,
                                                                      ''.join(traceback.format_exception(*sys.exc_info())) ))
@@ -253,13 +254,13 @@ class Plugins(object):
         """Adds a plugin menu option to the supplied menubar
         @param menu: The menu to add the loaded plugins to
         @type  menu: QMenu"""
-        QtCore.QObject.connect(menu, QtCore.SIGNAL("triggered(QAction*)"), self._handlePluginMenu)
+        menu.triggered.connect(self._handlePluginMenu)
 
         # Create the submenus (ordered)
         submenus = {}
         menu_locations = {"root": []}
         for category in set(sorted([plugin[CATEGORY] for plugin in self.__plugins.values() if plugin.has_key(CATEGORY)])):
-            submenus[category] = QtGui.QMenu(category, menu)
+            submenus[category] = QtWidgets.QMenu(category, menu)
             menu.addMenu(submenus[category])
             menu_locations[category] = []
 
@@ -271,8 +272,8 @@ class Plugins(object):
         # Create the QAction and add it to the correct menu (sorted)
         for category in menu_locations:
             for plugin in sorted(menu_locations[category]):
-                action = QtGui.QAction("%s%s%s" % (plugin, self.__menu_separator, self.__plugins[plugin][DESCRIPTION]), menu)
-                if submenus.has_key(category):
+                action = QtWidgets.QAction("{}".format(plugin), menu)
+                if category in submenus:
                     submenus[category].addAction(action)
                 else:
                     menu.addAction(action)
@@ -286,7 +287,7 @@ class Plugins(object):
         plugin_name = str(action.text()).split("%s" % self.__menu_separator)[0]
         self.launchPlugin(plugin_name, "")
 
-class Plugin:
+class Plugin(object):
     def __init__(self):
         self.__settings = []
 

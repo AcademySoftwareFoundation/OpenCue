@@ -16,7 +16,7 @@
 """
 Provides extended QWidgetItem functionality.
 """
-from Manifest import os, sys, time, QtCore, QtGui
+from Manifest import os, sys, time, QtCore, QtGui, QtWidgets
 
 import Constants
 import Style
@@ -31,15 +31,15 @@ WIDTH = 1
 DISPLAY_LAMBDA = 2
 SORT_LAMBDA = 3
 
-class AbstractWidgetItem(QtGui.QTreeWidgetItem):
-    def __init__(self, itemType, object, parent, source = None):
-        QtGui.QTreeWidgetItem.__init__(self, parent, itemType)
+class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
+    def __init__(self, itemType, object, parent, source=None):
+        QtWidgets.QTreeWidgetItem.__init__(self, parent, itemType)
         self.column_info = self.treeWidget().getColumnInfo(itemType)
         self._cache = {}
         self._source = source
         self.rpcObject = object
 
-    def update(self, object = None, parent = None):
+    def update(self, object=None, parent=None):
         """Updates visual representation with latest data
         @type  object: Object
         @param object: The object that contains updated information
@@ -60,16 +60,16 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][DISPLAY_LAMBDA](self.rpcObject))
+            return self.column_info[col][DISPLAY_LAMBDA](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
-            return QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
+            return Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         elif role == QtCore.Qt.UserRole:
-            return QtCore.QVariant(self.type())
+            return self.type()
 
         return Constants.QVARIANT_NULL
 
@@ -78,8 +78,8 @@ class AbstractWidgetItem(QtGui.QTreeWidgetItem):
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         if sortLambda:
             try:
-                return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
+                return sortLambda(self.rpcObject.name()) < sortLambda(other.rpcObject.name())
             except:
                 return False
-
-        return QtGui.QTreeWidgetItem.__lt__(self, other)
+        else:
+            return str(self) < str(other)

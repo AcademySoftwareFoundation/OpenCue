@@ -16,16 +16,18 @@
 """
 Handles the dialog to display/modify a show's filters, matchers and actions
 """
-from Manifest import os, QtCore, QtGui, Cue3
-
 import re
+
 import Logger
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
+
 logger = Logger.getLogger(__file__)
 
+import Constants
 import Utils
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
 from TextEditDialog import TextEditDialog
 from Cue3.compiled_proto.filter_pb2 import ActionType
 from Cue3.compiled_proto.filter_pb2 import FilterType
@@ -46,32 +48,31 @@ PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
 
 
-class FilterDialog(QtGui.QDialog):
+class FilterDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
-        QtGui.QDialog.__init__(self, parent)
-
+        QtWidgets.QDialog.__init__(self, parent)
         self.__show = show
 
         self.__filters = FilterMonitorTree(show, self)
         self.__matchers = MatcherMonitorTree(None, self)
         self.__actions = ActionMonitorTree(show, None, self)
-        self.__btnRefresh = QtGui.QPushButton("Refresh", self)
+        self.__btnRefresh = QtWidgets.QPushButton("Refresh", self)
         self.__btnRefresh.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnAddFilter = QtGui.QPushButton("Add Filter", self)
+        self.__btnAddFilter = QtWidgets.QPushButton("Add Filter", self)
         self.__btnAddFilter.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnAddMultipleMatchers = QtGui.QPushButton("Add Multiple Matchers", self)
+        self.__btnAddMultipleMatchers = QtWidgets.QPushButton("Add Multiple Matchers", self)
         self.__btnAddMultipleMatchers.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnReplaceAllMatchers = QtGui.QPushButton("Replace All Matchers", self)
+        self.__btnReplaceAllMatchers = QtWidgets.QPushButton("Replace All Matchers", self)
         self.__btnReplaceAllMatchers.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnDeleteAllMatchers = QtGui.QPushButton("Delete All Matchers", self)
+        self.__btnDeleteAllMatchers = QtWidgets.QPushButton("Delete All Matchers", self)
         self.__btnDeleteAllMatchers.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnAddMatcher = QtGui.QPushButton("Add Matcher", self)
+        self.__btnAddMatcher = QtWidgets.QPushButton("Add Matcher", self)
         self.__btnAddMatcher.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnDeleteAllActions = QtGui.QPushButton("Delete All Actions", self)
+        self.__btnDeleteAllActions = QtWidgets.QPushButton("Delete All Actions", self)
         self.__btnDeleteAllActions.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnAddAction = QtGui.QPushButton("Add Action", self)
+        self.__btnAddAction = QtWidgets.QPushButton("Add Action", self)
         self.__btnAddAction.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnDone = QtGui.QPushButton("Done", self)
+        self.__btnDone = QtWidgets.QPushButton("Done", self)
         self.__btnDone.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.setWindowTitle("Filters for: %s" % show.name())
@@ -79,7 +80,7 @@ class FilterDialog(QtGui.QDialog):
         self.setSizeGripEnabled(True)
         self.resize(1000, 600)
 
-        glayout = QtGui.QGridLayout(self)
+        glayout = QtWidgets.QGridLayout(self)
         glayout.addWidget(self.__filters, 0, 0, 8, 4)
         glayout.addWidget(self.__matchers, 0, 4, 3, 4)
         glayout.addWidget(self.__actions, 4, 4, 3, 4)
@@ -93,29 +94,21 @@ class FilterDialog(QtGui.QDialog):
         glayout.addWidget(self.__btnAddAction, 7, 7, 1, 1)
         glayout.addWidget(self.__btnDone, 8, 7, 1, 1)
 
-        QtCore.QObject.connect(self.__filters,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClicked)
-        QtCore.QObject.connect(self.__btnRefresh, QtCore.SIGNAL("clicked()"), self.__refresh)
-        QtCore.QObject.connect(self.__btnAddFilter, QtCore.SIGNAL("clicked()"), self.__createFilter)
-        QtCore.QObject.connect(self.__btnAddMultipleMatchers, QtCore.SIGNAL("clicked()"),
-                               self.__matchers.addMultipleMatchers)
-        QtCore.QObject.connect(self.__btnReplaceAllMatchers, QtCore.SIGNAL("clicked()"),
-                               self.__matchers.replaceAllMatchers)
-        QtCore.QObject.connect(self.__btnDeleteAllMatchers, QtCore.SIGNAL("clicked()"),
-                               self.__matchers.deleteAllMatchers)
-        QtCore.QObject.connect(self.__btnAddMatcher, QtCore.SIGNAL("clicked()"),
-                               self.__matchers.createMatcher)
-        QtCore.QObject.connect(self.__btnDeleteAllActions, QtCore.SIGNAL("clicked()"),
-                               self.__actions.deleteAllActions)
-        QtCore.QObject.connect(self.__btnAddAction, QtCore.SIGNAL("clicked()"),
-                               self.__actions.createAction)
-        QtCore.QObject.connect(self.__btnDone, QtCore.SIGNAL("clicked()"), self.accept)
+        self.__filters.itemClicked.connect(self.__itemSingleClicked)
+        self.__btnRefresh.clicked.connect(self.__refresh)
+        self.__btnAddFilter.clicked.connect(self.__createFilter)
+        self.__btnAddMultipleMatchers.clicked.connect(self.__matchers.addMultipleMatchers)
+        self.__btnReplaceAllMatchers.clicked.connect(self.__matchers.replaceAllMatchers)
+        self.__btnDeleteAllMatchers.clicked.connect(self.__matchers.deleteAllMatchers)
+        self.__btnAddMatcher.clicked.connect(self.__matchers.createMatcher)
+        self.__btnDeleteAllActions.clicked.connect(self.__actions.deleteAllActions)
+        self.__btnAddAction.clicked.connect(self.__actions.createAction)
+        self.__btnDone.clicked.connect(self.accept)
 
     def __createFilter(self):
         """Prompts the user to create a new filter"""
-        (value, choice) = QtGui.QInputDialog.getText(self, "Add filter", "Filter name?",
-                                                     QtGui.QLineEdit.Normal, "")
+        (value, choice) = QtWidgets.QInputDialog.getText(self, "Add filter", "Filter name?",
+                                                     QtWidgets.QLineEdit.Normal, "")
         if choice:
             self.__filters.addObject(self.__show.createFilter(str(value)))
 
@@ -172,7 +165,7 @@ class FilterMonitorTree(AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         self.__menuActions.filters().addAction(menu, "raiseOrder")
         self.__menuActions.filters().addAction(menu, "lowerOrder")
         menu.addSeparator()
@@ -229,12 +222,12 @@ class MatcherMonitorTree(AbstractTreeWidget):
         return []
 
     def __getMatcherSubjectDialog(self):
-        return QtGui.QInputDialog.getItem(self, "Create Matcher",
+        return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
                                           "Please select the type of item to match",
                                           MATCHSUBJECT, DEFAULT_MATCHSUBJECT, False)
 
     def __getMatcherTypeDialog(self):
-        return QtGui.QInputDialog.getItem(self, "Create Matcher",
+        return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
                                           "Please select the type of match to perform",
                                           MATCHTYPE, DEFAULT_MATCHTYPE, False)
 
@@ -251,9 +244,9 @@ class MatcherMonitorTree(AbstractTreeWidget):
         if not choice:
             return
 
-        (input, choice) = QtGui.QInputDialog.getText(self, "Create Matcher",
+        (input, choice) = QtWidgets.QInputDialog.getText(self, "Create Matcher",
                                                      "Please enter the string to match",
-                                                     QtGui.QLineEdit.Normal, "")
+                                                     QtWidgets.QLineEdit.Normal, "")
         if not choice:
             return
 
@@ -262,11 +255,11 @@ class MatcherMonitorTree(AbstractTreeWidget):
     def deleteAllMatchers(self):
         """Prompts the user and then deletes all matchers"""
         if self.__filter:
-            result = QtGui.QMessageBox.question(self,
+            result = QtWidgets.QMessageBox.question(self,
                                                 "Delete All Matchers?",
                                                 "Are you sure you want to delete all matchers?",
-                                                QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
-            if result == QtGui.QMessageBox.Yes:
+                                                QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
+            if result == QtWidgets.QMessageBox.Yes:
                 self._itemsLock.lockForWrite()
                 try:
                     for item in self._items.values():
@@ -374,7 +367,7 @@ class ActionMonitorTree(AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         menu.addSeparator()
         self.__menuActions.actions().addAction(menu, "delete")
@@ -384,45 +377,45 @@ class ActionMonitorTree(AbstractTreeWidget):
     def createAction(self):
         """Prompts the user to create a new action"""
         if self.__filter:
-            (actionType, choice) = QtGui.QInputDialog.getItem(self, "Create Action", "Please select the type of action to add:", [addSpaces(action) for action in ACTIONTYPE], 0, False)
+            (actionType, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Please select the type of action to add:", [addSpaces(action) for action in ACTIONTYPE], 0, False)
             if choice:
                 value = None
                 actionType = getattr(Cue3.api.filter_pb2, str(actionType).replace(" ", ""))
 
                 # Give the proper prompt for the desired action type
                 if actionType in (Cue3.api.filter_pb2.PAUSE_JOB,):
-                    (value, choice) = QtGui.QInputDialog.getItem(self, "Create Action", "Should the job be paused or unpaused?", PAUSETYPE, 0, False)
+                    (value, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Should the job be paused or unpaused?", PAUSETYPE, 0, False)
                     value = PAUSETYPE.index(str(value)) == 0
 
                 elif actionType in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
                                     Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
-                    (value, choice) = QtGui.QInputDialog.getDouble(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 2)
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 2)
                     value = float(value)
 
                 elif actionType in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
-                    (value, choice) = QtGui.QInputDialog.getInteger(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 1)
+                    (value, choice) = QtWidgets.QInputDialog.getInteger(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 1)
 
                 elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
-                    (value, choice) = QtGui.QInputDialog.getDouble(self, "Create Action", "How much memory (in GB) should each render layer require?", 4.0, 0.1, 47.0, 2)
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action", "How much memory (in GB) should each render layer require?", 4.0, 0.1, 47.0, 2)
                     value = int(value * 1048576)
 
                 elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,):
-                    (value, choice) = QtGui.QInputDialog.getDouble(self, "Create Action", "How many cores should every render layer require?", 1, .1, 100, 2)
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action", "How many cores should every render layer require?", 1, .1, 100, 2)
                     value = float(value)
 
                 elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
-                    (value, choice) = QtGui.QInputDialog.getText(self, "Create Action", "What tags should all render layers be set to?")
+                    (value, choice) = QtWidgets.QInputDialog.getText(self, "Create Action", "What tags should all render layers be set to?")
                     value = str(value)
 
                 elif actionType in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                     groups = {}
                     for group in self.__show.getGroups():
                         groups[group.name()] = group
-                    (group, choice) = QtGui.QInputDialog.getItem(self, "Create Action", "What group should it move to?", groups.keys(), 0, False)
+                    (group, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "What group should it move to?", groups.keys(), 0, False)
                     value = groups[str(group)]
 
                 elif actionType in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
-                    (value, choice) = QtGui.QInputDialog.getItem(self, "Create Action", "Should the memory optimizer be enabled or disabled?", MEMOPTTYPE, 0, False)
+                    (value, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Should the memory optimizer be enabled or disabled?", MEMOPTTYPE, 0, False)
                     value = MEMOPTTYPE.index(str(value)) == 0
 
                 if choice:
@@ -431,11 +424,11 @@ class ActionMonitorTree(AbstractTreeWidget):
     def deleteAllActions(self):
         """Prompts the user and then deletes all actions"""
         if self.__filter:
-            result = QtGui.QMessageBox.question(self,
+            result = QtWidgets.QMessageBox.question(self,
                                                 "Delete All Actions?",
                                                 "Are you sure you want to delete all actions?",
-                                                QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
-            if result == QtGui.QMessageBox.Yes:
+                                                QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
+            if result == QtWidgets.QMessageBox.Yes:
                 self._itemsLock.lockForWrite()
                 try:
                     for item in self._items.values():
@@ -464,11 +457,11 @@ class FilterWidgetItem(AbstractWidgetItem):
         self.iceObject.setEnabled(bool(value))
 
     def delete(self):
-        result = QtGui.QMessageBox.question(self.treeWidget(),
+        result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Filter?",
                                            "Are you sure you want to delete this filter?\n\n%s" % self.iceObject.name(),
-                                           QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
-        if result == QtGui.QMessageBox.Yes:
+                                           QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
+        if result == QtWidgets.QMessageBox.Yes:
             self.iceObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
@@ -477,16 +470,16 @@ class FilterWidgetItem(AbstractWidgetItem):
 
     def updateWidgets(self):
         if not self.__widgets:
-            combo = QtGui.QCheckBox(self.parent())
+            combo = QtWidgets.QCheckBox(self.parent())
             combo.setFocusPolicy(QtCore.Qt.NoFocus)
             self.treeWidget().setItemWidget(self, 1, combo)
-            QtCore.QObject.connect(combo, QtCore.SIGNAL("stateChanged(int)"), self.setEnabled)
+            combo.stateChanged.connect(self.setEnabled)
             self.__widgets["enabled"] = combo
 
             combo = NoWheelComboBox(self.parent())
             combo.addItems(FILTERTYPE)
             self.treeWidget().setItemWidget(self, 3, combo)
-            QtCore.QObject.connect(combo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setType)
+            combo.currentIndexChanged.connect(self.setType)
             self.__widgets["type"] = combo
 
         self.__widgets["type"].setCurrentIndex(FILTERTYPE.index(str(self.iceObject.type())))
@@ -519,11 +512,11 @@ class MatcherWidgetItem(AbstractWidgetItem):
             self.iceObject.setInput(text)
 
     def delete(self, checked = False):
-        result = QtGui.QMessageBox.question(self.treeWidget(),
+        result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Matcher?",
                                            "Are you sure you want to delete this matcher?\n\n%s" % self.iceObject.name(),
-                                           QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
-        if result == QtGui.QMessageBox.Yes:
+                                           QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
+        if result == QtWidgets.QMessageBox.Yes:
             self.iceObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
@@ -538,23 +531,23 @@ class MatcherWidgetItem(AbstractWidgetItem):
             combo = NoWheelComboBox(parent)
             combo.addItems(MATCHSUBJECT)
             treeWidget.setItemWidget(self, 0, combo)
-            QtCore.QObject.connect(combo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setSubject)
+            combo.currentIndexChanged.connect(self.setSubject)
             self.__widgets["subject"] = combo
 
             combo = NoWheelComboBox(parent)
             combo.addItems(MATCHTYPE)
             treeWidget.setItemWidget(self, 1, combo)
-            QtCore.QObject.connect(combo, QtCore.SIGNAL("currentIndexChanged(QString)"), self.setType)
+            combo.currentIndexChanged.connect(self.setType)
             self.__widgets["type"] = combo
 
-            edit = QtGui.QLineEdit("", parent)
+            edit = QtWidgets.QLineEdit("", parent)
             treeWidget.setItemWidget(self, 2, edit)
-            QtCore.QObject.connect(edit, QtCore.SIGNAL("editingFinished()"), self.setInput)
+            edit.editingFinished.connect(self.setInput)
             self.__widgets["input"] = edit
 
-            btn = QtGui.QPushButton(QtGui.QIcon(":kill.png"), "", parent)
+            btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "", parent)
             treeWidget.setItemWidget(self, 3, btn)
-            QtCore.QObject.connect(btn, QtCore.SIGNAL("clicked(bool)"), self.delete)
+            btn.clicked.connect(self.delete)
             self.__widgets["delete"]  = btn
 
         self.__widgets["subject"].setCurrentIndex(MATCHSUBJECT.index(str(self.iceObject.subject())))
@@ -576,11 +569,11 @@ class ActionWidgetItem(AbstractWidgetItem):
         self.updateWidgets()
 
     def delete(self, checked = False):
-        result = QtGui.QMessageBox.question(self.treeWidget(),
+        result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Action?",
                                            "Are you sure you want to delete this action?\n\n%s" % self.iceObject.name(),
-                                           QtGui.QMessageBox.Yes|QtGui.QMessageBox.No)
-        if result == QtGui.QMessageBox.Yes:
+                                           QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
+        if result == QtWidgets.QMessageBox.Yes:
             self.iceObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
@@ -630,19 +623,19 @@ class ActionWidgetItem(AbstractWidgetItem):
             if self.iceObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(PAUSETYPE)
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("currentIndexChanged(QString)"), self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
                 widget = NoWheelSpinBox(self.parent())
                 widget.setMaximum(99999)
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("editingFinished()"), self.__setValue)
+                widget.editingFinished.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
                                          Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("editingFinished()"), self.__setValue)
+                widget.editingFinished.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
                                          Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
@@ -650,30 +643,30 @@ class ActionWidgetItem(AbstractWidgetItem):
                 widget.setDecimals(0)
                 widget.setSingleStep(1)
                 widget.setMaximum(1000)
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("editingFinished()"), self.__setValue)
+                widget.editingFinished.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
-                widget = QtGui.QLineEdit("", self.parent())
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("editingFinished()"), self.__setValue)
+                widget = QtWidgets.QLineEdit("", self.parent())
+                widget.editingFinished.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(self.treeWidget().groupNames.keys())
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("currentIndexChanged(QString)"), self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)
 
             elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(MEMOPTTYPE)
-                QtCore.QObject.connect(widget, QtCore.SIGNAL("currentIndexChanged(QString)"), self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)
 
             if widget:
                 self.treeWidget().setItemWidget(self, 1, widget)
                 self.__widgets["ActionValue"] = widget
 
-            btn = QtGui.QPushButton(QtGui.QIcon(":kill.png"), "", self.parent())
+            btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "", self.parent())
             self.treeWidget().setItemWidget(self, 2, btn)
-            QtCore.QObject.connect(btn, QtCore.SIGNAL("clicked(bool)"), self.delete)
-            self.__widgets["delete"]  = btn
+            btn.clicked.connect(self.delete)
+            self.__widgets["delete"] = btn
 
         # Update the widget with the current value
 
@@ -702,29 +695,29 @@ class ActionWidgetItem(AbstractWidgetItem):
         elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
             self.__widgets["ActionValue"].setCurrentIndex(int(not self.iceObject.value()))
 
-class NoWheelComboBox(QtGui.QComboBox):
+class NoWheelComboBox(QtWidgets.QComboBox):
     """Provides a QComboBox that does not respond to the mouse wheel to avoid
     accidental changes"""
     def __init__(self, parent):
-        QtGui.QComboBox.__init__(self, parent)
+        QtWidgets.QComboBox.__init__(self, parent)
 
     def wheelEvent(self, event):
         event.ignore()
 
-class NoWheelDoubleSpinBox(QtGui.QDoubleSpinBox):
+class NoWheelDoubleSpinBox(QtWidgets.QDoubleSpinBox):
     """Provides a QDoubleSpinBox that does not respond to the mouse wheel to avoid
     accidental changes"""
     def __init__(self, parent):
-        QtGui.QDoubleSpinBox.__init__(self, parent)
+        QtWidgets.QDoubleSpinBox.__init__(self, parent)
 
     def wheelEvent(self, event):
         event.ignore()
 
-class NoWheelSpinBox(QtGui.QSpinBox):
+class NoWheelSpinBox(QtWidgets.QSpinBox):
     """Provides a QSpinBox that does not respond to the mouse wheel to avoid
     accidental changes"""
     def __init__(self, parent):
-        QtGui.QSpinBox.__init__(self, parent)
+        QtWidgets.QSpinBox.__init__(self, parent)
 
     def wheelEvent(self, event):
         event.ignore()

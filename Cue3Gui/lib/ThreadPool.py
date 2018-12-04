@@ -41,10 +41,11 @@ def someWorkCallback(work, result):
     print result
 """
 
-from Manifest import os, QtCore, QtGui
 import Logger
+from Manifest import os, QtCore
 
 logger = Logger.getLogger(__file__)
+
 
 def systemCpuCount():
     """systemCpuCount()->int
@@ -55,12 +56,14 @@ def systemCpuCount():
     except:
         return 1
 
+
 class ThreadPool(QtCore.QObject):
     """ThreadPool(QtCore.QObject)
 
         ThreadPool is a general purpose work queue class
     """
-    def __init__(self, num_threads, max_queue = 20):
+
+    def __init__(self, num_threads, max_queue=20):
         QtCore.QObject.__init__(self)
         self.__threads = [ ]
         self.__started = False
@@ -76,13 +79,13 @@ class ThreadPool(QtCore.QObject):
             return
         #logger.debug("spawning %d worker threads" % (self.__num_threads))
         self.__started = True
-        for i in range(0,self.__num_threads):
-            self.__threads.append(ThreadPool.WorkerThread(i,self))
+        for i in range(0, self.__num_threads):
+            self.__threads.append(ThreadPool.WorkerThread(i, self))
             self.__threads[i].start()
-            QtCore.QObject.connect(self.__threads[i], QtCore.SIGNAL("workComplete(PyQt_PyObject,PyQt_PyObject)"),
-                                   self.runCallback,QtCore.Qt.BlockingQueuedConnection)
+            self.__threads[i].workComplete.connect(self.runCallback,
+                                                   QtCore.Qt.BlockingQueuedConnection)
 
-    def queue(self,callable,callback,comment,*args):
+    def queue(self, callable, callback, comment, *args):
         """queue(callable work, callable callback, str comment, * args)
             queue up a callable to be run from within a separate thread of execution
         """
@@ -96,14 +99,14 @@ class ThreadPool(QtCore.QObject):
         self._q_mutex.unlock()
         self._q_empty.wakeAll()
 
-    def local(self,callable,callback,comment,*args):
-        work = (callable,callback,comment,args)
+    def local(self, callable, callback, comment, *args):
+        work = (callable, callback, comment, args)
         if work[3]:
             result = work[0](*work[3])
         else:
             result = work[0]()
         if work[1]:
-            self.runCallback(work,result)
+            self.runCallback(work, result)
 
     def runCallback(self, work, result):
         """runCallback(tuple work, object result)
@@ -119,8 +122,11 @@ class ThreadPool(QtCore.QObject):
             using SpiCue.cueprofile and emits a "parsingComplete" signal
             when complete.
         """
-        def __init__(self,name,parent):
-            QtCore.QThread.__init__(self,parent)
+
+        workComplete = QtCore.Signal(object, object)
+
+        def __init__(self, name, parent):
+            QtCore.QThread.__init__(self, parent)
             self.__parent = parent
             self.__name = name
 
@@ -145,7 +151,7 @@ class ThreadPool(QtCore.QObject):
                     else:
                         result = work[0]()
                     if work[1]:
-                        self.emit(QtCore.SIGNAL("workComplete(PyQt_PyObject,PyQt_PyObject)"),work,result)
+                        self.workComplete.emit(work, result)
                         del result
                 except Exception,e:
                     logger.info("Error processing work:' %s ', %s" % (work[2],e))

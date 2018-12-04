@@ -16,14 +16,15 @@
 """
 A progress dialog that accepts a list of work units and displays the progress.
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, QtWidgets, Cue3
 
 import Utils
 
 import Logger
 logger = Logger.getLogger(__file__)
 
-class ProgressDialog(QtGui.QDialog):
+
+class ProgressDialog(QtWidgets.QDialog):
     def __init__(self, title, function, work, concurrent, cancelTitle,
                  cancelText, parent = None):
         """Creates, displays and starts the progress bar.
@@ -43,7 +44,7 @@ class ProgressDialog(QtGui.QDialog):
                            dialog box if the user attempts to cancel
         @type  parent: QObject
         @param parent: The parent for this object"""
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         self.__work = work
         self.__function = function
@@ -51,15 +52,15 @@ class ProgressDialog(QtGui.QDialog):
         self.__workLock = QtCore.QReadWriteLock()
         self.__count = 0
 
-        self.__bar = QtGui.QProgressBar(self)
+        self.__bar = QtWidgets.QProgressBar(self)
         self.__bar.setRange(0, len(self.__work))
         self.__bar.setValue(0)
-        self.__btn_cancel = QtGui.QPushButton("Cancel", self)
+        self.__btn_cancel = QtWidgets.QPushButton("Cancel", self)
         self.__cancelConfirmation = None
         self.__cancelTitle = cancelTitle
         self.__cancelText = cancelText
 
-        vlayout = QtGui.QVBoxLayout(self)
+        vlayout = QtWidgets.QVBoxLayout(self)
         vlayout.addWidget(self.__bar)
         vlayout.addWidget(self.__btn_cancel)
         self.setLayout(vlayout)
@@ -70,9 +71,7 @@ class ProgressDialog(QtGui.QDialog):
         self.setFixedSize(300, 100)
         self.setWindowTitle(title)
 
-        QtCore.QObject.connect(self.__btn_cancel,
-                               QtCore.SIGNAL('clicked()'),
-                               self.cancel)
+        self.__btn_cancel.clicked.connect(self.cancel)
 
         self.show()
 
@@ -88,12 +87,12 @@ class ProgressDialog(QtGui.QDialog):
         """Called when the user wishes to cancel the work. Work already
         in threadpool will complete and the progress bar will exit"""
         self.__cancelConfirmation = \
-            QtGui.QMessageBox(QtGui.QMessageBox.Warning,
-                              self.__cancelTitle,
-                              self.__cancelText,
-                              QtGui.QMessageBox.Yes|QtGui.QMessageBox.No,
-                              self)
-        if self.__cancelConfirmation.exec_() == QtGui.QMessageBox.Yes:
+            QtWidgets.QMessageBox(QtWidgets.QMessageBox.Warning,
+                                  self.__cancelTitle,
+                                  self.__cancelText,
+                                  QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No,
+                                  self)
+        if self.__cancelConfirmation.exec_() == QtWidgets.QMessageBox.Yes:
             self.__workLock.lockForWrite()
             try:
                 self.__work = []

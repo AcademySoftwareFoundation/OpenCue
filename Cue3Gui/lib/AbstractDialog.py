@@ -13,12 +13,12 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui
+from Manifest import QtCore, QtWidgets
 
 
-class AbstractDialog(QtGui.QDialog):
+class AbstractDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
     def _newCheckBoxSelectionMatrix(self,
                                     title,
@@ -31,31 +31,29 @@ class AbstractDialog(QtGui.QDialog):
                                        parent)
 
     def _newDialogButtonBox(self, buttons, orientation=QtCore.Qt.Horizontal):
-        buttonBox = QtGui.QDialogButtonBox(buttons, orientation, self)
-        QtCore.QObject.connect(buttonBox, QtCore.SIGNAL("accepted()"),
-                               self, QtCore.SLOT("accept()"))
-        QtCore.QObject.connect(buttonBox, QtCore.SIGNAL("rejected()"),
-                               self, QtCore.SLOT("reject()"))
+        buttonBox = QtWidgets.QDialogButtonBox(buttons, orientation, self)
+        buttonBox.accepted.connect(self.accept)
+        buttonBox.regected.connect(self.reject)
         return buttonBox
 
     def _addWidgetRow(self, *widgets):
-        __hlayout = QtGui.QHBoxLayout()
+        __hlayout = QtWidgets.QHBoxLayout()
         for widget in widgets:
             __hlayout.addWidget(widget)
         self.layout().addLayout(__hlayout)
 
 
-class CheckBoxSelectionMatrix(QtGui.QWidget):
+class CheckBoxSelectionMatrix(QtWidgets.QWidget):
     def __init__(self, title, allowedOptions, checkedOptions, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        QtWidgets.QWidget.__init__(self, parent)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        self.__group = QtGui.QGroupBox(title, self)
-        self.__group_layout = QtGui.QGridLayout()
+        self.__group = QtWidgets.QGroupBox(title, self)
+        self.__group_layout = QtWidgets.QGridLayout()
 
         self.__checkBoxes = []
         for index, item in enumerate(allowedOptions):
-            box = QtGui.QCheckBox(item, self.__group)
+            box = QtWidgets.QCheckBox(item, self.__group)
             box.setChecked(item in checkedOptions)
             self.__checkBoxes.append(box)
             self.__group_layout.addWidget(box, index / 2, index % 2)

@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, QtWidgets, Cue3
 
 import Constants
 import Logger
@@ -24,8 +24,8 @@ import Style
 import Utils
 
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
 
 logger = Logger.getLogger(__file__)
 
@@ -69,14 +69,10 @@ class ProcMonitorTree(AbstractTreeWidget):
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
 
         # Don't use the standard space bar to refresh
-        QtCore.QObject.disconnect(QtGui.qApp,
-                                  QtCore.SIGNAL('request_update()'),
-                                  self.updateRequest)
+        QtGui.qApp.request_update.connect(self.updateRequest)
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
@@ -110,7 +106,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [proc.data.name for proc in self.selectedObjects() if Utils.isProc(proc)]
         if selected:
-            QtGui.QApplication.clipboard().setText(",".join(selected),
+            QtWidgets.QApplication.clipboard().setText(",".join(selected),
                                                    QtGui.QClipboard.Selection)
 
     def clearFilters(self):
@@ -157,7 +153,7 @@ class ProcMonitorTree(AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         self.__menuActions.procs().addAction(menu, "view")
         self.__menuActions.procs().addAction(menu, "unbook")
         self.__menuActions.procs().addAction(menu, "kill")

@@ -17,7 +17,8 @@ from math import ceil
 
 import Constants
 import Utils
-from Manifest import Cue3, QtCore, QtGui
+
+from Manifest import Cue3, QtCore, QtGui, QtWidgets
 
 RGB_FRAME_STATE = {Cue3.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
                    Cue3.api.job_pb2.RUNNING: QtGui.QColor(200, 200, 55),
@@ -35,9 +36,10 @@ FRAME_STATES = (Cue3.api.job_pb2.SUCCEEDED,
                 Cue3.api.job_pb2.EATEN)
 
 NO_PEN = QtGui.QPen(QtCore.Qt.NoPen)
+NO_BRUSH = QtGui.QBrush(QtCore.Qt.NoBrush)
 
 
-class AbstractDelegate(QtGui.QItemDelegate):
+class AbstractDelegate(QtWidgets.QItemDelegate):
     """Handles drawing of items for the TreeWidget. Provides special handling
     for selected jobs in order to still display background color."""
     __colorInvalid = QtGui.QColor()
@@ -46,15 +48,15 @@ class AbstractDelegate(QtGui.QItemDelegate):
     __colorFree = QtGui.QColor(0, 255, 0)
 
     def __init__(self, parent, jobProgressBarColumn = None, *args):
-        QtGui.QItemDelegate.__init__(self, parent, *args)
+        QtWidgets.QItemDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if option.state & QtGui.QStyle.State_Selected:
+        if option.state & QtWidgets.QStyle.State_Selected:
             # If selected cell
             self._paintSelected(painter, option, index)
         else:
             # Everything else
-            QtGui.QItemDelegate.paint(self, painter, option, index)
+            QtWidgets.QItemDelegate.paint(self, painter, option, index)
 
     def _paintDifferenceBar(self, painter, option, index, used, total):
         if not total:
@@ -71,7 +73,7 @@ class AbstractDelegate(QtGui.QItemDelegate):
             painter.fillRect(rect.adjusted(length, 0, 0, 0),
                              self.__colorFree)
 
-            if option.state & QtGui.QStyle.State_Selected:
+            if option.state & QtWidgets.QStyle.State_Selected:
                 self._drawSelectionOverlay(painter, option)
         finally:
             painter.restore()
@@ -103,7 +105,7 @@ class AbstractDelegate(QtGui.QItemDelegate):
 
             # Draw the icon, if any
             value = index.data(QtCore.Qt.DecorationRole)
-            if not value.isNull():
+            if value is not None:
                 icon = QtGui.QIcon(value)
                 icon.paint(painter,
                            option.rect.adjusted(3, 1, -1, -1),
@@ -115,8 +117,8 @@ class AbstractDelegate(QtGui.QItemDelegate):
             # TODO: Disable to fix OSX styling - b/120096941
             # painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
             painter.drawText(option.rect.adjusted(3, -1, -3, 0),
-                             index.data(QtCore.Qt.TextAlignmentRole).toInt()[0] | QtCore.Qt.AlignVCenter,
-                             index.data(QtCore.Qt.DisplayRole).toString())
+                             QtCore.Qt.TextAlignmentRole | QtCore.Qt.AlignVCenter,
+                             str(index.data(QtCore.Qt.DisplayRole)))
         finally:
             painter.restore()
             del painter
@@ -126,13 +128,18 @@ class AbstractDelegate(QtGui.QItemDelegate):
         painter.setPen(NO_PEN)
         # TODO: Disable to fix OSX styling - b/120096941
         # painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
+        painter.setBrush(NO_BRUSH)
         painter.drawRect(option.rect)
 
     def _drawSelectionOverlay(self, painter, option):
         # Draw the selection
         if option.rect.width() > 0:
-            QtGui.qDrawPlainRect(painter, option.rect, self.__colorInvalid, 0,
-                                 self.__brushSelected)
+            selectionPen = QtGui.QPen(self.__colorInvalid)
+            selectionPen.setWidth(0)
+            painter.setPen(selectionPen)
+            painter.setBrush(self.__brushSelected)
+            painter.drawRect(option.rect)
+
 
 class JobBookingBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
@@ -179,7 +186,7 @@ class JobBookingBarDelegate(AbstractDelegate):
                     except ZeroDivisionError:
                         pass
 
-                    if option.state & QtGui.QStyle.State_Selected:
+                    if option.state & QtWidgets.QStyle.State_Selected:
                         self._drawSelectionOverlay(painter, option)
                 finally:
                     painter.restore()
@@ -203,7 +210,7 @@ class JobThinProgressBarDelegate(AbstractDelegate):
                                       option.rect.adjusted(0, 6, 0, -6),
                                       frameStateTotals)
 
-                if option.state & QtGui.QStyle.State_Selected:
+                if option.state & QtWidgets.QStyle.State_Selected:
                     self._drawSelectionOverlay(painter, option)
             finally:
                 painter.restore()
@@ -326,7 +333,7 @@ class HostHistoryDelegate(AbstractDelegate):
 
                     painter.drawPolygon(points)
 
-                if option.state & QtGui.QStyle.State_Selected:
+                if option.state & QtWidgets.QStyle.State_Selected:
                     self._drawSelectionOverlay(painter, option)
             finally:
                 painter.restore()

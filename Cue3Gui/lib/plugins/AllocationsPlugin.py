@@ -17,7 +17,7 @@ import os
 import Cue3Gui
 import Cue3
 
-from PyQt4 import QtGui, QtCore
+from PySide2 import QtGui, QtCore, QtWidgets
 
 from decimal import Decimal
 
@@ -76,9 +76,9 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True);
         self.setDragEnabled(True)
-        self.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('facility_changed()'), self._update)
+        QtGui.qApp.facility_changed.connect(self._update)
 
         self.setUpdateInterval(60)
 

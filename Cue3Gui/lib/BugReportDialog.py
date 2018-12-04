@@ -13,8 +13,8 @@
 #  limitations under the License.
 
 
-from Manifest import QtGui
+from Manifest import QtWidgets
 
-class BugReportWidget(QtGui.QWidget):
+class BugReportWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self)
+        QtWidgets.QWidget.__init__(self)

@@ -16,32 +16,47 @@
 """
 Main entry point for the application.
 """
-# SVN: $Id$
 import os
-import sys
-import time
-import traceback
 
-from Manifest import QtCore, QtGui, Cue3
-
-import Cue3Gui.Style as Style
-import Utils
 import Constants
 import Logger
+import Style
 from MainWindow import MainWindow
+from Manifest import QtCore, QtGui, QtWidgets
 from ThreadPool import ThreadPool
 
-import Logger
 logger = Logger.getLogger(__file__)
+
+
+class CueGuiApplication(QtWidgets.QApplication):
+
+    # Global signals
+    display_log_file_content = QtCore.Signal(object)
+    double_click = QtCore.Signal(object)
+    facility_changed = QtCore.Signal()
+    single_click = QtCore.Signal(object)
+    unmonitor = QtCore.Signal(object)
+    view_hosts = QtCore.Signal(object)
+    view_object = QtCore.Signal(object)
+    view_procs = QtCore.Signal(object)
+    request_update = QtCore.Signal()
+    status = QtCore.Signal()
+    quit = QtCore.Signal()
+
+    def __init__(self, *args, **kwargs):
+        super(CueGuiApplication, self).__init__(*args, **kwargs)
+
 
 def cuetopia(argv):
     startup("Cuetopia3", Constants.VERSION, argv)
 
+
 def cuecommander(argv):
     startup("CueCommander3", Constants.VERSION, argv)
 
+
 def startup(app_name, app_version, argv):
-    app = QtGui.QApplication(argv)
+    app = CueGuiApplication(argv)
 
     # Start splash screen
     from SplashWindow import SplashWindow
@@ -56,7 +71,7 @@ def startup(app_name, app_version, argv):
     app.setWindowIcon(QtGui.QIcon('%s/images/windowIcon.png' % Constants.RESOURCE_PATH))
 
     app.setApplicationName(app_name)
-    QtCore.QObject.connect(app, QtCore.SIGNAL('lastWindowClosed()'), app, QtCore.SLOT('quit()'))
+    app.lastWindowClosed.connect(app.quit)
 
     QtGui.qApp.threadpool = ThreadPool(3)
 
@@ -88,7 +103,7 @@ def startup(app_name, app_version, argv):
 
     # Open all windows that were open when the app was last closed
     for name in mainWindow.windows_names[1:]:
-        if settings.value("%s/Open" % name, QtCore.QVariant(False)).toBool():
+        if settings.value("%s/Open" % name, False):
             mainWindow.windowMenuOpenWindow(name)
 
     # End splash screen

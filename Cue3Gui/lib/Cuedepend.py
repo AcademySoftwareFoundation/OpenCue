@@ -57,7 +57,7 @@ ERR_INVALID_ER_LAYER = "Error, a dependency of this type requires a valid layer 
 ERR_INVALID_ER_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -frame."
 
 def __is_valid(value, error):
-    """A couple sanity checks before.  The Ice library takes
+    """A couple sanity checks before.  The gRpc library takes
     care of everything else"""
     if not value:
         raise ValueError(error)

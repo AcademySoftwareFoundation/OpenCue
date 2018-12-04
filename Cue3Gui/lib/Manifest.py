@@ -18,11 +18,11 @@ import os
 import sys
 import time
 
-QT4_VERSION = "4.4.3"
+QT5_VERSION = "5.11.2"
 
-import PyQt4.QtCore as QtCore
-import PyQt4.QtGui as QtGui
-import PyQt4.Qt as Qt
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 import Cue3
 

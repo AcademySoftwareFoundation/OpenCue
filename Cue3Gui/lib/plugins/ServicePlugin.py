@@ -13,11 +13,9 @@
 #  limitations under the License.
 
 
-import os
 import Cue3Gui
-import Cue3
 
-from PyQt4 import QtGui, QtCore
+from PySide2 import QtGui, QtCore
 
 PLUGIN_NAME = "Services"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -33,8 +31,4 @@ class ServicesDockWidget(Cue3Gui.AbstractDockWidget):
         self.setWindowTitle("Facility Service Defaults")
         self.__serviceManager = Cue3Gui.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
-
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('facility_changed()'),
-                               self.__serviceManager.refresh)
-
+        QtGui.qApp.facility_changed.connect(self.__serviceManager.refresh)

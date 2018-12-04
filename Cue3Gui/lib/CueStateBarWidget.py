@@ -13,17 +13,17 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui
-
+import threading
 import time
 import weakref
-import threading
 
 import Logger
+from Manifest import QtCore, QtGui, QtWidgets
 
 logger = Logger.getLogger(__file__)
 
-class CueStateBarWidget(QtGui.QWidget):
+
+class CueStateBarWidget(QtWidgets.QWidget):
     """Creates a bar that graphically displays the state of all jobs displayed"""
     __colorInvalid = QtGui.QColor()
     __brushPattern = QtGui.QBrush(QtCore.Qt.Dense4Pattern)
@@ -33,7 +33,7 @@ class CueStateBarWidget(QtGui.QWidget):
         @param sourceTree: The tree to get the jobs from
         @type  parent: QWidget
         @param parent: The parent widget"""
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.setContentsMargins(8, 1, 1, 1)
         self.setFixedWidth(22)
 
@@ -44,17 +44,9 @@ class CueStateBarWidget(QtGui.QWidget):
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0
 
-        QtCore.QObject.connect(self.__timer,
-                               QtCore.SIGNAL('timeout()'),
-                               self.updateColors)
-
-        QtCore.QObject.connect(self.__sourceTree.verticalScrollBar(),
-                               QtCore.SIGNAL('valueChanged(int)'),
-                               self, QtCore.SLOT('update()'))
-
-        QtCore.QObject.connect(self.__sourceTree.verticalScrollBar(),
-                               QtCore.SIGNAL('rangeChanged(int,int)'),
-                               self.__updateColors)
+        self.__timer.timeout.connect(self.updateColors)
+        self.__sourceTree.verticalScrollBar().valueChanged.connect(self.update)
+        self.__sourceTree.verticalScrollBar().rangeChanged.connect(self.__updateColors)
 
         self.__timer.start(10000)
 
@@ -110,6 +102,7 @@ class CueStateBarWidget(QtGui.QWidget):
                                self.__background.rect())
 
             # Draw the slider
+            # TODO: (gdenton) - replace for PySide2
             QtGui.qDrawPlainRect(painter,
                                  rect.adjusted(2,
                                                shift,

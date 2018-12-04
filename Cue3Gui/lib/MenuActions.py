@@ -25,7 +25,7 @@ import glob
 import urllib2
 import subprocess
 
-from Manifest import QtCore, QtGui, Cue3, FileSequence
+from Manifest import QtCore, QtGui, QtWidgets, Cue3, FileSequence
 
 import Cue3.compiled_proto.job_pb2
 import Action
@@ -128,14 +128,14 @@ class AbstractActions(object):
                 else:
                     self.__iconCache[info[ICON]] = QtGui.QIcon(":%s.png" % info[ICON])
 
-            action = QtGui.QAction(self.__iconCache[info[ICON]], info[TITLE], self._caller)
+            action = QtWidgets.QAction(self.__iconCache[info[ICON]], info[TITLE], self._caller)
 
             if not callback:
                 callback = actionName
             if isinstance(callback, str):
                 callback = getattr(self, callback)
 
-            QtCore.QObject.connect(action, QtCore.SIGNAL("triggered()"), callback)
+            action.triggered.connect(callback)
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
@@ -155,10 +155,11 @@ class AbstractActions(object):
         try:
             return callable(*args)
         except Exception, e:
-            QtGui.QMessageBox.critical(self._caller,
+            print e
+            QtWidgets.QMessageBox.critical(self._caller,
                                        errorMessageTitle,
                                        e.message,
-                                       QtGui.QMessageBox.Ok)
+                                       QtWidgets.QMessageBox.Ok)
             return None
 
     def getText(self, title, body, default):
@@ -171,10 +172,10 @@ class AbstractActions(object):
         @param default: The default text to provide in the input dialog
         @rtype: tuple(str, bool)
         @return: (input, choice)"""
-        (input, choice) = QtGui.QInputDialog.getText(self._caller,
+        (input, choice) = QtWidgets.QInputDialog.getText(self._caller,
                                                      title,
                                                      body,
-                                                     QtGui.QLineEdit.Normal,
+                                                     QtWidgets.QLineEdit.Normal,
                                                      default)
         return (str(input), choice)
 
@@ -190,7 +191,7 @@ class JobActions(AbstractActions):
     view_info = ["View Job", None, "view"]
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
-            QtGui.qApp.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), job)
+            QtGui.qApp.view_object.emit(job)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
@@ -211,7 +212,7 @@ class JobActions(AbstractActions):
             current = max([job.data.minCores for job in jobs])
             title = "Set Minimum Cores"
             body = "Please enter the new minimum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
@@ -228,7 +229,7 @@ class JobActions(AbstractActions):
             current = max([job.data.maxCores for job in jobs])
             title = "Set Maximum Cores"
             body = "Please enter the new maximum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
@@ -244,7 +245,7 @@ class JobActions(AbstractActions):
             current = max([job.data.priority for job in jobs])
             title = "Set Priority"
             body = "Please enter the new priority value:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             current,
                                                             0, 1000000, 1)
@@ -259,7 +260,7 @@ class JobActions(AbstractActions):
         if jobs:
             title = "Set Max Retries"
             body = "Please enter the number of retries that a frame should be allowed before it becomes dead:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             0, 0, 10, 1)
             if choice:
@@ -397,7 +398,7 @@ class JobActions(AbstractActions):
 
         body = "What order should the range %s take?" % range
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -422,7 +423,7 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtGui.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
@@ -451,7 +452,7 @@ class JobActions(AbstractActions):
         body = "What group should these jobs move to?\n" + \
                "\n".join([job.data.name for job in jobs])
 
-        (group, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (group, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(groups.keys()),
@@ -480,8 +481,8 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             paths = [job.data.logDir for job in jobs]
-            QtGui.QApplication.clipboard().setText(" ".join(paths),
-                                                   QtGui.QClipboard.Clipboard)
+            QtWidgets.QApplication.clipboard().setText(" ".join(paths),
+                                                       QtGui.QClipboard.Clipboard)
 
     setUserColor1_info = ["Set Color 1", "Set user defined background color", Constants.COLOR_USER_1]
     def setUserColor1(self, rpcObjects=None):
@@ -512,8 +513,7 @@ class LayerActions(AbstractActions):
     def view(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            self._caller.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"),
-                              [layer.data.name for layer in layers])
+            self._caller.handle_filter_layers_byLayer.emit([layer.data.name for layer in layers])
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
@@ -528,7 +528,7 @@ class LayerActions(AbstractActions):
             current = max([layer.data.minCores for layer in layers])
             title = "Set minimum number of cores required"
             body = "Please enter the new minimum number of cores that frames in the selected layer(s) should require:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0.01, 64.0, 2)
@@ -544,7 +544,7 @@ class LayerActions(AbstractActions):
             current = max([layer.data.minMemory / 1048576 for layer in layers])
             title = "Set minimum amount of memory required"
             body = "Please enter the new minimum amount of memory in GB that frames in the selected layer(s) should require:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0.01, 64.0, 1)
@@ -669,7 +669,7 @@ class LayerActions(AbstractActions):
 
         body = "What order should the range %s take?" % range
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -698,7 +698,7 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtGui.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
@@ -775,8 +775,8 @@ class FrameActions(AbstractActions):
         frames = self._getOnlyFrameObjects(rpcObjects)
         hosts = list(set([frame.data.lastResource.split("/")[0] for frame in frames if frame.data.lastResource]))
         if hosts:
-            QtGui.qApp.emit(QtCore.SIGNAL("view_hosts(PyQt_PyObject)"), hosts)
-            QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), Cue3.api.findHost(hosts[0]))
+            QtGui.qApp.view_hosts.emit(hosts)
+            QtGui.qApp.single_click.emit(Cue3.api.findHost(hosts[0]))
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
     def getWhatThisDependsOn(self, rpcObjects=None):
@@ -819,7 +819,7 @@ class FrameActions(AbstractActions):
             d.process()
             d.exec_()
         except Exception, e:
-            QtGui.QMessageBox.critical(None, "Preview Error", 
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
                                        "Error displaying preview frames, %s" % e)
 
     previewAovs_info = ["Preview All", None, "previewAovs"]
@@ -831,7 +831,7 @@ class FrameActions(AbstractActions):
             d.process()
             d.exec_()
         except Exception, e:
-            QtGui.QMessageBox.critical(None, "Preview Error", 
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
                                        "Error displaying preview frames, %s" % e)
     eat_info = ["&Eat", None, "eat"]
     def eat(self, rpcObjects=None):
@@ -909,7 +909,7 @@ class FrameActions(AbstractActions):
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -941,8 +941,8 @@ class FrameActions(AbstractActions):
         if not frames: return
         job = self._getSource()
         paths = [Utils.getFrameLogFile(job, frame) for frame in frames]
-        QtGui.QApplication.clipboard().setText(paths,
-                                               QtGui.QClipboard.Clipboard)
+        QtWidgets.QApplication.clipboard().setText(paths,
+                                                   QtGui.QClipboard.Clipboard)
 
     eatandmarkdone_info = ["Eat and Mark done", None, "eatandmarkdone"]
     def eatandmarkdone(self, rpcObjects=None):
@@ -1049,10 +1049,10 @@ class RootGroupActions(AbstractActions):
                 cuewho = Utils.getCuewho(rootgroup.data.name)
                 extension = Utils.getExtension(cuewho)
                 message.append("Cuewho for %s is: %s %s" % (rootgroup.data.name, cuewho, extension ))
-            QtGui.QMessageBox.information(self._caller,
+            QtWidgets.QMessageBox.information(self._caller,
                                           "Show Cuewho",
                                           '\n'.join(message),
-                                          QtGui.QMessageBox.Ok)
+                                          QtWidgets.QMessageBox.Ok)
 
     createGroup_info = ["Create Group...", None, "configure"]
     def createGroup(self, rpcObjects=None):
@@ -1124,22 +1124,22 @@ class SubscriptionActions(AbstractActions):
             body = "Please enter the new subscription size value:\nThis " \
                    "should only be changed by administrators.\nPlease " \
                    "contact the resource department."
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
-                msg = QtGui.QMessageBox()
+                msg = QtWidgets.QMessageBox()
                 msg.setText("You are about to modify a number that can effect a shows billing. Are you in PSR-Resources?")
-                msg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-                msg.setDefaultButton(QtGui.QMessageBox.No)
-                if msg.exec_() == QtGui.QMessageBox.No:
+                msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                msg.setDefaultButton(QtWidgets.QMessageBox.No)
+                if msg.exec_() == QtWidgets.QMessageBox.No:
                     return
 
                 for sub in subs:
-                    self.cuebotCall(sub.proxy.setSize,
+                    self.cuebotCall(sub.setSize,
                                     "Set Size on Subscription %s Failed" % sub.data.name,
-                                    float(value))
+                                    int(value))
                 self._update()
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
@@ -1150,15 +1150,15 @@ class SubscriptionActions(AbstractActions):
             title = "Edit Subscription Burst"
             body = "Please enter the maximum number of cores that this " \
                    "subscription should be allowed to reach:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
                 for sub in subs:
-                    self.cuebotCall(sub.proxy.setBurst,
+                    self.cuebotCall(sub.setBurst,
                                     "Set Burst on Subscription %s Failed" % sub.data.name,
-                                    float(value))
+                                    int(value))
                 self._update()
 
     delete_info = ["Delete Subscription", None, "configure"]
@@ -1194,7 +1194,7 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         hosts = list(set([host.data.name for host in hosts]))
         if hosts:
-            QtGui.qApp.emit(QtCore.SIGNAL("view_procs(PyQt_PyObject)"), hosts)
+            QtGui.qApp.view_procs.emit(hosts)
 
     hinv_info = ["View Host Information (hinv)", None, "view"]
     def hinv(self, rpcObjects=None):
@@ -1202,10 +1202,10 @@ class HostActions(AbstractActions):
         for host in hosts:
             try:
                 lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
-                QtGui.QMessageBox.information(self._caller,
+                QtWidgets.QMessageBox.information(self._caller,
                                               "%s hinv" % host.data.name,
                                               "\n".join(lines),
-                                              QtGui.QMessageBox.Ok)
+                                              QtWidgets.QMessageBox.Ok)
             except Exception, e:
                 logger.warning("Failed to get host's hinv: %s" % e)
 
@@ -1291,7 +1291,7 @@ class HostActions(AbstractActions):
         if hosts:
             title = "Rename tag"
             body = "What tag should be renamed?"
-            (oldTag, choice) = QtGui.QInputDialog.getItem(self._caller,
+            (oldTag, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                           title, body,
                                                           hosts[0].data.tags,
                                                           0, False)
@@ -1316,7 +1316,7 @@ class HostActions(AbstractActions):
             allocations = dict([(alloc.data.name, alloc) for alloc in Cue3.api.getAllocations()])
             title = "Move host to allocation"
             body = "What allocation should the host(s) be moved to?"
-            (allocationName, choice) = QtGui.QInputDialog.getItem(self._caller,
+            (allocationName, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                                   title, body,
                                                                   sorted(allocations.keys()),
                                                                   0, False)
@@ -1356,7 +1356,7 @@ class ProcActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in list(set([proc.data.jobName for proc in self._getOnlyProcObjects(rpcObjects)])):
             try:
-                QtGui.qApp.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), Cue3.api.findJob(job))
+                QtGui.qApp.view_object.emit(Cue3.api.findJob(job))
             except Exception, e:
                 logger.warning("Unable to load: %s" % job)
 
@@ -1479,7 +1479,7 @@ class FilterActions(AbstractActions):
         if filters:
             title = "Set Filter Order"
             body = "Please enter the new filter order:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             filters[0].order(),
                                                             0, 50000, 1)
@@ -1543,7 +1543,7 @@ class TaskActions(AbstractActions):
             current = max([task.data.minCores for task in tasks])
             title = "Set Minimum Cores"
             body = "Please enter the new minimum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)

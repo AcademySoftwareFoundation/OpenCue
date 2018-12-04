@@ -13,11 +13,7 @@
 #  limitations under the License.
 
 
-import os
 import Cue3Gui
-import Cue3
-
-from PyQt4 import QtGui, QtCore
 
 PLUGIN_NAME = "Shows"
 PLUGIN_CATEGORY = "Cuecommander"

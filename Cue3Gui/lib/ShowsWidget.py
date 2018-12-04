@@ -13,14 +13,12 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
-
-import Utils
 import Constants
-
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+
 
 class ShowsWidget(AbstractTreeWidget):
     def __init__(self, parent):
@@ -45,11 +43,8 @@ class ShowsWidget(AbstractTreeWidget):
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedToDouble)
-
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('facility_changed()'), self.__facilityChanged)
+        self.itemClicked.connect(self.__itemSingleClickedToDouble)
+        QtGui.qApp.facility_changed.connect(self.__facilityChanged)
 
         self.setUpdateInterval(60)
 
@@ -65,11 +60,12 @@ class ShowsWidget(AbstractTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        self.emit(QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'), item, col)
+        self.itemDoubleClicked.emit(item, col)
 
     def _createItem(self, object):
         """Creates and returns the proper item"""
-        return ShowWidgetItem(object, self)
+        item = ShowWidgetItem(object, self)
+        return item
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
@@ -83,7 +79,7 @@ class ShowsWidget(AbstractTreeWidget):
         """When right clicking on an item, this raises a context menu"""
 
         count = len(self.selectedObjects())
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         if count:
             self.__menuActions.shows().addAction(menu, "properties")

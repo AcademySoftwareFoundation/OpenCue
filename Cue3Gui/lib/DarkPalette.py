@@ -15,8 +15,9 @@
 
 """The dark widget color scheme used by image viewing applications.
 """
+import platform
 import Constants
-from Manifest import QtCore, QtGui
+from Manifest import QtGui, QtWidgets
 
 
 def init():
@@ -24,7 +25,14 @@ def init():
     application and configures the palette and style for the Plastique
     color scheme"""
     QtGui.qApp.setPalette(DarkPalette())
-    QtGui.qApp.setStyle(QtGui.QStyleFactory.create(Constants.COLOR_THEME))
+    if platform.system() == 'Darwin':
+        setDarkStyleSheet()
+    else:
+        QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(Constants.COLOR_THEME))
+
+
+def setDarkStyleSheet():
+    QtGui.qApp.setStyleSheet(open(Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():

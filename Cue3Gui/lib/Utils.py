@@ -29,7 +29,7 @@ from yaml.scanner import ScannerError
 import Logger
 from ConfirmationDialog import ConfirmationDialog
 from Constants import DEFAULT_INI_PATH
-from Manifest import QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, Cue3, QtWidgets
 
 logger = Logger.getLogger(__file__)
 
@@ -80,11 +80,11 @@ def countJobTypes(objects):
 
 def qvarToString(qv):
     """converts a QVariant to a python string"""
-    return str(qv.toString())
+    return str(qv)
 
 def qvarToFloat(qv):
     """converts a Qvariant to a python float"""
-    return float(qv.toDouble()[0])
+    return float(qv)
 
 def isJob(object):
     """Returns true of the object is a job, false if not
@@ -365,8 +365,7 @@ def popupTail(file, facility=None):
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
-        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor",
-                                                    QtCore.QVariant(DEFAULT_EDITOR)).toString())
+        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", DEFAULT_EDITOR))
         shellOut("%s %s" % (JOB_LOG_CMD or DEFAULT_EDITOR, file))
 
 def openURL(url):
@@ -504,3 +503,13 @@ def mimeDataAdd(mimeData, format, objects):
     text = QtCore.QString(":".join(objects))
     stream << text
     mimeData.setData(format, data)
+
+def showErrorMessageBox(text, title="ERROR!", detailedText=None):
+    messageBox = QtWidgets.QMessageBox()
+    messageBox.setIcon(QtWidgets.QMessageBox.Critical)
+    messageBox.setText(text)
+    messageBox.setWindowTitle(title)
+    if detailedText:
+        messageBox.setDetailedText(detailedText)
+    messageBox.setStandardButtons(QtWidgets.QMessageBox.Close)
+    return messageBox.exec_()
