@@ -13,18 +13,14 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui
-
-import re
-import sys
-
-import Constants
 from AbstractDialog import AbstractDialog
+from Manifest import QtWidgets
+
 
 class RunLocalDialog(AbstractDialog):
     def __init__(self, job, parent=None):
         AbstractDialog.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
         title = "Use local desktop cores"
         body = "Please enter the number of local desktop cores to provide" \
@@ -33,19 +29,19 @@ class RunLocalDialog(AbstractDialog):
                " allowed)\n%s" % job.data.name
 
         self.setWindowTitle(title)
-        self.__descriptionLabel = QtGui.QLabel(body, self)
+        self.__descriptionLabel = QtWidgets.QLabel(body, self)
 
         # The number to allow booking
-        self.__amountLabel = QtGui.QLabel("Number of local cores to use:", self)
-        self.__amountSpinBox = QtGui.QSpinBox(self)
+        self.__amountLabel = QtWidgets.QLabel("Number of local cores to use:", self)
+        self.__amountSpinBox = QtWidgets.QSpinBox(self)
         self.__amountSpinBox.setRange(0, 16)
         self.__amountSpinBox.setValue(1)
 
         # The option to only use local cores
-        self.__localOnlyLabel = QtGui.QLabel("Only use local cores for this job?", self)
-        self.__localOnlyCheckBox = QtGui.QCheckBox(self)
+        self.__localOnlyLabel = QtWidgets.QLabel("Only use local cores for this job?", self)
+        self.__localOnlyCheckBox = QtWidgets.QCheckBox(self)
 
-        self.__buttons = self._newDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.__buttons = self._newDialogButtonBox(QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
 
         layout.addWidget(self.__descriptionLabel)
         self._addWidgetRow(self.__amountLabel, self.__amountSpinBox)

@@ -19,7 +19,7 @@ Provides extended QTreeWidget functionality.
 import os
 import time
 
-from Manifest import QtCore, QtGui
+from Manifest import QtCore, QtGui, QtWidgets
 
 import Utils
 import Constants
@@ -27,6 +27,7 @@ import Logger
 logger = Logger.getLogger(__file__)
 
 from ItemDelegate import ItemDelegate
+from AbstractWidgetItem import AbstractWidgetItem
 
 COLUMN_NAME = 0
 COLUMN_WIDTH = 1
@@ -40,8 +41,16 @@ DEFAULT_LAMBDA = lambda s:""
 DEFAULT_NAME = ""
 DEFAULT_WIDTH = 0
 
-class AbstractTreeWidget(QtGui.QTreeWidget):
+class AbstractTreeWidget(QtWidgets.QTreeWidget):
     """Forms the basis for all TreeWidgets"""
+
+    double_click = QtCore.Signal(object)
+    single_click = QtCore.Signal(object)
+    itemDoubleClicked = QtCore.Signal(QtWidgets.QTreeWidgetItem, int)
+    itemSingleClicked = QtCore.Signal(QtWidgets.QTreeWidgetItem, int)
+    updated = QtCore.Signal()
+    view_object = QtCore.Signal(object)
+
     def __init__(self, parent):
         """Standard method to display a list or tree using QTreeWidget
 
@@ -54,7 +63,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
 
         @type  parent: QWidget
         @param parent: The widget to set as the parent"""
-        QtGui.QTreeWidget.__init__(self, parent)
+        QtWidgets.QTreeWidget.__init__(self, parent)
 
         self._items = {}
         self._lastUpdate = 0
@@ -62,7 +71,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         self._itemsLock = QtCore.QReadWriteLock()
         self._timer = QtCore.QTimer(self)
 
-        self.setSelectionMode(QtGui.QAbstractItemView.ExtendedSelection)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
         self.setUniformRowHeights(True)
         self.setAutoScroll(False)
@@ -70,7 +79,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         self.setAlternatingRowColors(True)
 
         self.setSortingEnabled(True)
-        self.header().setMovable(False)
+        self.header().setSectionsMovable(False)
         self.header().setStretchLastSection(True)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
@@ -80,18 +89,10 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
 
         self.__setupColumnMenu()
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedEmitToApp)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
-                               self.__itemDoubleClickedEmitToApp)
-        QtCore.QObject.connect(self._timer,
-                               QtCore.SIGNAL('timeout()'),
-                               self.updateRequest)
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('request_update()'),
-                               self.updateRequest)
+        self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
+        self._timer.timeout.connect(self.updateRequest)
+        QtGui.qApp.request_update.connect(self.updateRequest)
 
         self.updateRequest()
         self.setUpdateInterval(10)
@@ -152,7 +153,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
             # Setup the column tooltips
             if columnInfo[COLUMN_TOOLTIP]:
                 self.model().setHeaderData(col, QtCore.Qt.Horizontal,
-                                           QtCore.QVariant(columnInfo[COLUMN_TOOLTIP]),
+                                           columnInfo[COLUMN_TOOLTIP],
                                            QtCore.Qt.ToolTipRole)
 
             # Setup column delegates
@@ -165,7 +166,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
             else:
                 columnNames.append(columnInfo[COLUMN_NAME])
 
-        self.setHeaderLabels(QtCore.QStringList(columnNames))
+        self.setHeaderLabels(columnNames)
 
 
     def startTicksUpdate(self, updateInterval,
@@ -188,9 +189,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
 
         self.ticksLock = QtCore.QMutex()
         self.__ticksTimer = QtCore.QTimer(self)
-        QtCore.QObject.connect(self.__ticksTimer,
-                               QtCore.SIGNAL('timeout()'),
-                               self.__tick)
+        self.__ticksTimer.timeout.connect(self.__tick)
         self.__ticksTimer.start(1000)
         self.ticksWithoutUpdate = 999
 
@@ -247,7 +246,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), item.rpcObject)
+        self.single_click.emit(item.rpcObject)
 
     def __itemDoubleClickedEmitToApp(self, item, col):
         """Handles when an item is double clicked on.
@@ -257,11 +256,11 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
-        QtGui.qApp.emit(QtCore.SIGNAL('view_object(PyQt_PyObject)'), item.rpcObject)
-        QtGui.qApp.emit(QtCore.SIGNAL("double_click(PyQt_PyObject)"), item.rpcObject)
+        self.view_object.emit(item.rpcObject)
+        self.double_click.emit(item.rpcObject)
 
-    def addObject(self, iceObject):
-        """Adds or updates an iceObject in the list using the _createItem function
+    def addObject(self, rpcObject):
+        """Adds or updates an rpcObject in the list using the _createItem function
         and object.proxy as the key. Used when user is adding an item but will
         not want to wait for an update.
         @type  paramA: Cue3 object
@@ -269,11 +268,14 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         self._itemsLock.lockForWrite()
         try:
             # If id already exists, update it
-            if self._items.has_key(iceObject.proxy):
-                self._items[iceObject.proxy].update(iceObject)
+            objectClass = rpcObject.__class__.__name__
+            objectId = rpcObject.id()
+            objectKey = "{}.{}".format(objectClass, objectId)
+            if self._items.has_key(objectKey):
+                self._items[objectKey].update(rpcObject)
             # If id does not exist, create it
             else:
-                self._items[iceObject.proxy] = self._createItem(iceObject)
+                self._items[objectKey] = self._createItem(rpcObject)
         finally:
             self._itemsLock.unlock()
 
@@ -291,12 +293,11 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         """Removes an item from the TreeWidget without locking
         @type  item: AbstractTreeWidgetItem or String
         @param item: A tree widget item or the string with the id of the item"""
-        if hasattr(item, "ice_getEndpoints"):
-            if self._items.has_key(item):
-                item = self._items[item]
-            else:
-                # if the parent was already deleted, then this one was too
-                return
+        if self._items.has_key(item):
+            item = self._items[item]
+        elif not isinstance(item, AbstractWidgetItem):
+            # if the parent was already deleted, then this one was too
+            return
 
         # If it has children, they must be deleted first
         if item.childCount() > 0:
@@ -311,7 +312,9 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
             #item.parent().removeChild(item)
             self.invisibleRootItem().removeChild(item)
         self.takeTopLevelItem(self.indexOfTopLevelItem(item))
-        del self._items[item.iceObject.proxy]
+        objectClass = item.rpcObject.__class__.__name__
+        objectId = item.rpcObject.id()
+        del self._items['{}.{}'.format(objectClass, objectId)]
 
     def removeAllItems(self):
         self._itemsLock.lockForWrite()
@@ -378,7 +381,6 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
             # Remove any items that were not updated
             for proxy in list(set(self._items.keys()) - set(updated)):
                 self._removeItem(proxy)
-
             self.redraw()
         finally:
             self._itemsLock.unlock()
@@ -435,9 +437,7 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         self.__updateSkipCount = 0
         self.__allowedSkipCount = skipsAllowed
         self.__allowedSkipDelay = delay
-        QtCore.QObject.connect(self.verticalScrollBar(),
-                               QtCore.SIGNAL('valueChanged(int)'),
-                               self.__userScrolled)
+        self.verticalScrollBar().valueChanged.connect(self.__userScrolled)
 
     def __userScrolled(self, val):
         """Stores the time when the user last scrolled"""
@@ -463,16 +463,14 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
 # Allow the user to show or hide columns
 ################################################################################
     def __setupColumnMenu(self):
-        self.__dropdown = QtGui.QToolButton(self)
+        self.__dropdown = QtWidgets.QToolButton(self)
         self.__dropdown.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__dropdown.setFixedHeight(self.header().height())
+        self.__dropdown.setFixedHeight(self.header().height() - 10)
         self.__dropdown.setToolTip("Click to select columns to display")
         self.__dropdown.setIcon(QtGui.QIcon(":column_popdown.png"))
-        QtCore.QObject.connect(self.__dropdown,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__displayColumnMenu)
+        self.__dropdown.clicked.connect(self.__displayColumnMenu)
 
-        layout = QtGui.QHBoxLayout(self.header())
+        layout = QtWidgets.QHBoxLayout(self.header())
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(QtCore.Qt.AlignRight)
         layout.addWidget(self.__dropdown)
@@ -481,14 +479,12 @@ class AbstractTreeWidget(QtGui.QTreeWidget):
         point = self.__dropdown.mapToGlobal(QtCore.QPoint(self.__dropdown.width(),
                                                           self.__dropdown.height()))
 
-        menu = QtGui.QMenu(self)
-        QtCore.QObject.connect(menu,
-                               QtCore.SIGNAL("triggered(QAction*)"),
-                               self.__handleColumnMenu)
+        menu = QtWidgets.QMenu(self)
+        menu.triggered.connect(self.__handleColumnMenu)
         for col in range(self.columnCount()):
             if self.columnWidth(col) or self.isColumnHidden(col):
                 name = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_NAME]
-                a = QtGui.QAction(menu)
+                a = QtWidgets.QAction(menu)
                 a.setText("%s. %s" % (col, name))
                 a.setCheckable(True)
                 a.setChecked(not self.isColumnHidden(col))

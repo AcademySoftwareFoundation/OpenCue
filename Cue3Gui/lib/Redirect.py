@@ -20,7 +20,7 @@ job to another job.
 import os
 import re
 import time
-from Manifest import QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 import Utils
 
 
@@ -33,12 +33,12 @@ import Utils
 # redirected to the target job.
 #
 
-class ShowCombo(QtGui.QComboBox):
+class ShowCombo(QtWidgets.QComboBox):
     """
     A combo box for show selection
     """
     def __init__(self, selected="pipe", parent=None):
-        QtGui.QComboBox.__init__(self, parent)
+        QtWidgets.QComboBox.__init__(self, parent)
         self.refresh()
         self.setCurrentIndex(self.findText(selected))
 
@@ -48,12 +48,13 @@ class ShowCombo(QtGui.QComboBox):
         shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         for show in shows:
-            self.addItem(show.data.name, QtCore.QVariant(show))
+            self.addItem(show.data.name, show)
 
     def getShow(self):
         return str(self.setCurrentText())
 
-class AllocFilter(QtGui.QPushButton):
+
+class AllocFilter(QtWidgets.QPushButton):
     """
     A drop down box for selecting allocations you want
     to include in the redirect.
@@ -61,8 +62,8 @@ class AllocFilter(QtGui.QPushButton):
     default = ["lax.spinux"]
 
     def __init__(self, parent=None):
-        QtGui.QPushButton.__init__(self, "Allocations", parent)
-        self.__menu = QtGui.QMenu(self)
+        QtWidgets.QPushButton.__init__(self, "Allocations", parent)
+        self.__menu = QtWidgets.QMenu(self)
         self.__selected = None
 
         self.refresh()
@@ -70,9 +71,8 @@ class AllocFilter(QtGui.QPushButton):
 
         # This is used to provide the number of allocations selected
         # on the button title.
-        QtCore.QObject.connect(self.__menu,
-                               QtCore.SIGNAL("triggered(QAction*)"),
-                               self.__afterClicked)
+        self.__menu.triggered.connect(self.__afterClicked)
+
     def refresh(self):
         """
         Refresh the full list of allocations.
@@ -83,7 +83,7 @@ class AllocFilter(QtGui.QPushButton):
         self.__menu.clear()
         checked = 0
         for alloc in allocs:
-            a = QtGui.QAction(self.__menu)
+            a = QtWidgets.QAction(self.__menu)
             a.setText(alloc.data.name)
             a.setCheckable(True)
             if alloc.data.name in AllocFilter.default:
@@ -122,42 +122,41 @@ class AllocFilter(QtGui.QPushButton):
         self.__setSelected()
         self.setText("Allocations (%d)" % len(self.__selected))
 
-class JobBox(QtGui.QLineEdit):
+
+class JobBox(QtWidgets.QLineEdit):
     """
     A text box that auto-completes job names.
     """
     def __init__(self,  parent=None):
-        QtGui.QLineEdit.__init__(self, parent)
+        QtWidgets.QLineEdit.__init__(self, parent)
 
         self.__c = None
         self.refresh()
 
     def refresh(self):
-        slist = QtCore.QStringList([job for job in Cue3.api.getJobNames()])
+        slist = [job for job in Cue3.api.getJobNames()]
         slist.sort()
 
-        self.__c = QtGui.QCompleter(slist, self)
+        self.__c = QtWidgets.QCompleter(slist, self)
         self.__c.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.setCompleter(self.__c)
 
 
-class GroupFilter(QtGui.QPushButton):
+class GroupFilter(QtWidgets.QPushButton):
     """
     A Button widget that displays a drop down menu of
     selectable groups.
     """
     def __init__(self, show, name, parent=None):
-        QtGui.QPushButton.__init__(self, name, parent)
+        QtWidgets.QPushButton.__init__(self, name, parent)
 
         self.__show = self.__loadShow(show)
-        self.__menu = QtGui.QMenu(self)
+        self.__menu = QtWidgets.QMenu(self)
         self.__actions = { }
 
         self.setMenu(self.__menu)
 
-        QtCore.QObject.connect(self.__menu,
-                               QtCore.SIGNAL("aboutToShow()"),
-                               self.__populate_menu)
+        self.__menu.aboutToShow.connect(self.__populate_menu)
 
     def __loadShow(self, show):
         self.__actions = { }
@@ -176,7 +175,7 @@ class GroupFilter(QtGui.QPushButton):
             if self.__actions.has_key(Cue3.id(group)):
                 self.__menu.addAction(self.__actions[Cue3.id(group)])
             else:
-                action = QtGui.QAction(self)
+                action = QtWidgets.QAction(self)
                 action.setText(group.data.name)
                 action.setCheckable(True)
                 self.__actions[Cue3.id(group)] = action
@@ -187,34 +186,34 @@ class GroupFilter(QtGui.QPushButton):
                 self.__actions.itervalues() if action.isChecked()]
 
 
-class RedirectControls(QtGui.QWidget):
+class RedirectControls(QtWidgets.QWidget):
     """
     A widget that contains all the controls to search for possible
     procs that can be redirected.
     """
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__current_show = Cue3.api.findShow(os.getenv("SHOW","pipe"))
 
         self.__show_combo = ShowCombo(self.__current_show.data.name, self)
         self.__job_box = JobBox(self)
         self.__alloc_filter = AllocFilter(self)
 
-        self.__cores_spin = QtGui.QSpinBox(self)
+        self.__cores_spin = QtWidgets.QSpinBox(self)
         self.__cores_spin.setRange(1, self._cfg().get('max_cores', 32))
         self.__cores_spin.setValue(1)
 
-        self.__mem_spin = QtGui.QDoubleSpinBox(self)
+        self.__mem_spin = QtWidgets.QDoubleSpinBox(self)
         self.__mem_spin.setRange(1, self._cfg().get('max_memory', 200))
         self.__mem_spin.setDecimals(1)
         self.__mem_spin.setValue(4)
         self.__mem_spin.setSuffix("GB")
 
-        self.__limit_spin = QtGui.QSpinBox(self)
+        self.__limit_spin = QtWidgets.QSpinBox(self)
         self.__limit_spin.setRange(1, 100)
         self.__limit_spin.setValue(10)
 
-        self.__prh_spin = QtGui.QDoubleSpinBox(self)
+        self.__prh_spin = QtWidgets.QDoubleSpinBox(self)
         self.__prh_spin.setRange(1, self._cfg().get('max_proc_hour_cutoff', 30))
         self.__prh_spin.setDecimals(1)
         self.__prh_spin.setValue(10)
@@ -222,60 +221,55 @@ class RedirectControls(QtGui.QWidget):
 
         # Job Filters
         self.__include_group_btn = GroupFilter(self.__current_show, "Include Groups", self)
-        self.__require_services = QtGui.QLineEdit(self)
-        self.__exclude_regex =  QtGui.QLineEdit(self)
+        self.__require_services = QtWidgets.QLineEdit(self)
+        self.__exclude_regex =  QtWidgets.QLineEdit(self)
 
-        self.__update_btn = QtGui.QPushButton("Search", self)
-        self.__redirect_btn = QtGui.QPushButton("Redirect", self)
-        self.__select_all_btn = QtGui.QPushButton("Select All", self)
-        self.__clear_btn = QtGui.QPushButton("Clr", self)
+        self.__update_btn = QtWidgets.QPushButton("Search", self)
+        self.__redirect_btn = QtWidgets.QPushButton("Redirect", self)
+        self.__select_all_btn = QtWidgets.QPushButton("Select All", self)
+        self.__clear_btn = QtWidgets.QPushButton("Clr", self)
 
-        self.__group = QtGui.QGroupBox("Resource Filters")
-        self.__group_filter = QtGui.QGroupBox("Job Filters")
+        self.__group = QtWidgets.QGroupBox("Resource Filters")
+        self.__group_filter = QtWidgets.QGroupBox("Job Filters")
 
-        layout1 = QtGui.QHBoxLayout()
+        layout1 = QtWidgets.QHBoxLayout()
         layout1.addWidget(self.__update_btn)
         layout1.addWidget(self.__redirect_btn)
         layout1.addWidget(self.__select_all_btn)
-        layout1.addWidget(QtGui.QLabel("Target:", self))
+        layout1.addWidget(QtWidgets.QLabel("Target:", self))
         layout1.addWidget(self.__job_box)
         layout1.addWidget(self.__clear_btn)
 
-        layout2 = QtGui.QHBoxLayout()
+        layout2 = QtWidgets.QHBoxLayout()
         layout2.addWidget(self.__alloc_filter)
-        layout2.addWidget(QtGui.QLabel("Minimum Cores:", self))
+        layout2.addWidget(QtWidgets.QLabel("Minimum Cores:", self))
         layout2.addWidget(self.__cores_spin)
-        layout2.addWidget(QtGui.QLabel("Minimum Memory:", self))
+        layout2.addWidget(QtWidgets.QLabel("Minimum Memory:", self))
         layout2.addWidget(self.__mem_spin)
-        layout2.addWidget(QtGui.QLabel("Result Limit:", self))
+        layout2.addWidget(QtWidgets.QLabel("Result Limit:", self))
         layout2.addWidget(self.__limit_spin)
-        layout2.addWidget(QtGui.QLabel("Proc Hour Cutoff:", self))
+        layout2.addWidget(QtWidgets.QLabel("Proc Hour Cutoff:", self))
         layout2.addWidget(self.__prh_spin)
 
-        layout3 = QtGui.QHBoxLayout()
-        layout3.addWidget(QtGui.QLabel("Show:", self))
+        layout3 = QtWidgets.QHBoxLayout()
+        layout3.addWidget(QtWidgets.QLabel("Show:", self))
         layout3.addWidget(self.__show_combo)
         layout3.addWidget(self.__include_group_btn)
-        layout3.addWidget(QtGui.QLabel("Require Services", self))
+        layout3.addWidget(QtWidgets.QLabel("Require Services", self))
         layout3.addWidget(self.__require_services)
-        layout3.addWidget(QtGui.QLabel("Exclude Regex", self))
+        layout3.addWidget(QtWidgets.QLabel("Exclude Regex", self))
         layout3.addWidget(self.__exclude_regex)
 
         self.__group.setLayout(layout2)
         self.__group_filter.setLayout(layout3)
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__group_filter)
         layout.addWidget(self.__group)
         layout.addLayout(layout1)
 
-        QtCore.QObject.connect(self.__job_box,
-                               QtCore.SIGNAL("textChanged(QString)"),
-                               self.detect)
-
-        QtCore.QObject.connect(self.__show_combo,
-                               QtCore.SIGNAL("currentIndexChanged(QString)"),
-                               self.showChanged)
+        self.__job_box.textChanged.connect(self.detect)
+        self.__show_combo.currentIndexChanged.connect(self.showChanged)
 
     def _cfg(self):
         '''
@@ -359,7 +353,7 @@ class RedirectControls(QtGui.QWidget):
         return self.__include_group_btn.getChecked()
 
 
-class RedirectWidget(QtGui.QWidget):
+class RedirectWidget(QtWidgets.QWidget):
     """
     Displays a table of procs that can be selected for redirect.
     """
@@ -367,7 +361,7 @@ class RedirectWidget(QtGui.QWidget):
     HEADERS = ["Name","Cores","Memory","PrcTime", "Group","Service"]
 
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__hosts = { }
 
         self.__controls = RedirectControls(self)
@@ -376,29 +370,18 @@ class RedirectWidget(QtGui.QWidget):
         self.__model.setColumnCount(5)
         self.__model.setHorizontalHeaderLabels(RedirectWidget.HEADERS)
 
-        self.__tree = QtGui.QTreeView(self)
-        self.__tree.setEditTriggers(QtGui.QAbstractItemView.NoEditTriggers)
+        self.__tree = QtWidgets.QTreeView(self)
+        self.__tree.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.__tree.setModel(self.__model)
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__controls)
         layout.addWidget(self.__tree)
 
-        QtCore.QObject.connect(self.__controls.getUpdateButton(),
-                               QtCore.SIGNAL("pressed()"),
-                               self.update)
-
-        QtCore.QObject.connect(self.__controls.getRedirectButton(),
-                               QtCore.SIGNAL("pressed()"),
-                               self.redirect)
-
-        QtCore.QObject.connect(self.__controls.getSelectAllButton(),
-                               QtCore.SIGNAL("pressed()"),
-                               self.selectAll)
-
-        QtCore.QObject.connect(self.__controls.getClearButton(),
-                               QtCore.SIGNAL("pressed()"),
-                               self.clearTarget)
+        self.__controls.getUpdateButton().pressed.connect(self.update)
+        self.__controls.getRedirectButton().pressed.connect(self.redirect)
+        self.__controls.getSelectAllButton().pressed.connect(self.selectAll)
+        self.__controls.getClearButton().pressed.connect(self.clearTarget)
 
     def __get_selected_procs_by_alloc(self, selected_items):
         '''
@@ -410,7 +393,7 @@ class RedirectWidget(QtGui.QWidget):
 
         @return: A dictionary with the allocation neames are the keys and the
                  selected procs are the values.
-        @rtype: dict<str:L{cue.CueClientIce.Proc}>
+        @rtype: dict<str:L{Cue3.wrappers.proc.Proc}>
         '''
 
         procs_by_alloc = {}
@@ -430,7 +413,7 @@ class RedirectWidget(QtGui.QWidget):
         @type msg: str
         '''
 
-        message = QtGui.QMessageBox(self)
+        message = QtWidgets.QMessageBox(self)
         message.setText(msg)
         message.exec_()
 
@@ -440,7 +423,7 @@ class RedirectWidget(QtGui.QWidget):
         to another, based on user response to the warning message
 
         @param procs: The procs to redirect
-        @type procs: L{cue.CueClientIce.Proc}
+        @type procs: L{Cue3.wrappers.proc.Proc}
 
         @param target_show: The name of the target show
         @type target_show: str
@@ -477,7 +460,7 @@ class RedirectWidget(QtGui.QWidget):
         @type alloc: str
 
         @param procs: The procs to be redirected
-        @type procs: L{cue.CueClientIce.Proc}
+        @type procs: L{Cue3.wrappers.proc.Proc}
 
         @param show: The name of the target show
         @type show: str
@@ -609,7 +592,7 @@ class RedirectWidget(QtGui.QWidget):
         alloc = self.__controls.getAllocFilter()
         procs = Cue3.api.getProcs(show=show.data.name, alloc=alloc.getSelected())
 
-        progress = QtGui.QProgressDialog("Searching","Cancel", 0,
+        progress = QtWidgets.QProgressDialog("Searching","Cancel", 0,
                                          self.__controls.getLimit(), self)
         progress.setWindowModality(QtCore.Qt.WindowModal)
 
@@ -701,7 +684,3 @@ class RedirectWidget(QtGui.QWidget):
 
         self.__tree.setExpanded(self.__model.indexFromItem(checkbox), True)
         self.__tree.resizeColumnToContents(0)
-
-
-
-

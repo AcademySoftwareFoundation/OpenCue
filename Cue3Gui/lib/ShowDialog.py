@@ -16,16 +16,14 @@
 """
 Displays the show dialog with show configuration options
 """
-from Manifest import os, QtCore, QtGui, Cue3
 
 import Utils
+from Manifest import QtCore, QtWidgets
 
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
 
-class ShowDialog(QtGui.QDialog):
+class ShowDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         self.setWindowTitle("%s Properties" % show.name())
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -34,98 +32,88 @@ class ShowDialog(QtGui.QDialog):
 
         self.__show = show
 
-        self.__btnSave = QtGui.QPushButton("Save", self)
+        self.__btnSave = QtWidgets.QPushButton("Save", self)
         self.__btnSave.setEnabled(False)
-        self.__btnClose = QtGui.QPushButton("Close", self)
+        self.__btnClose = QtWidgets.QPushButton("Close", self)
 
-        self.__tabWidget = QtGui.QTabWidget(self)
+        self.__tabWidget = QtWidgets.QTabWidget(self)
         self.__tabWidget.addTab(self.__createSettingsPage(), "Settings")
         self.__tabWidget.addTab(self.__createBookingPage(), "Booking")
         self.__tabWidget.addTab(self.__createStatisticsPage(), "Statistics")
         self.__tabWidget.addTab(self.__createRawShowDataPage(), "Raw Show Data")
 
-        QtGui.QGridLayout(self)
+        QtWidgets.QGridLayout(self)
         self.layout().addWidget(self.__tabWidget, 0, 0, 4, 3)
         self.layout().addWidget(self.__btnSave, 5, 1)
         self.layout().addWidget(self.__btnClose, 5, 2)
 
-        QtCore.QObject.connect(self.__btnSave,
-                               QtCore.SIGNAL("clicked()"),
-                               self.__saveChanges)
-
-        QtCore.QObject.connect(self.__btnClose,
-                               QtCore.SIGNAL("clicked()"),
-                               self.__closeDialog)
+        self.__btnSave.clicked.connect(self.__saveChanges)
+        self.__btnClose.clicked.connect(self.__closeDialog)
 
     def __createSettingsPage(self):
         """Settings Page"""
-        page = QtGui.QWidget()
-        page.setLayout(QtGui.QGridLayout())
+        page = QtWidgets.QWidget()
+        page.setLayout(QtWidgets.QGridLayout())
         page.layout().setRowStretch(10, 100)
 
-        label = QtGui.QLabel("Default maximum cores", self)
-        ctrl = QtGui.QDoubleSpinBox(self)
+        label = QtWidgets.QLabel("Default maximum cores", self)
+        ctrl = QtWidgets.QDoubleSpinBox(self)
         ctrl.setRange(0, 10000)
         ctrl.setDecimals(2)
         ctrl.setValue(self.__show.data.default_max_cores)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
-        QtCore.QObject.connect(ctrl, QtCore.SIGNAL("valueChanged(double)"),
-                               self.__valueChanged)
+        ctrl.valueChanged.connect(self.__valueChanged)
         self.__defaultMaxCores = ctrl
 
-        label = QtGui.QLabel("Default minimum cores", self)
-        ctrl = QtGui.QDoubleSpinBox(self)
+        label = QtWidgets.QLabel("Default minimum cores", self)
+        ctrl = QtWidgets.QDoubleSpinBox(self)
         ctrl.setRange(0, 10000)
         ctrl.setDecimals(2)
         ctrl.setValue(self.__show.data.default_min_cores)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
-        QtCore.QObject.connect(ctrl, QtCore.SIGNAL("valueChanged(double)"),
-                               self.__valueChanged)
+        ctrl.valueChanged.connect(self.__valueChanged)
         self.__defaultMinCores = ctrl
 
-        label = QtGui.QLabel("Comment Notification Email", self)
-        text = QtGui.QLineEdit(self)
+        label = QtWidgets.QLabel("Comment Notification Email", self)
+        text = QtWidgets.QLineEdit(self)
         text.setText(self.__show.data.comment_email)
         page.layout().addWidget(text, 2, 0)
         page.layout().addWidget(label, 2, 1, 1, 4)
-        QtCore.QObject.connect(text, QtCore.SIGNAL("textChanged(QString)"),
-                               self.__valueChanged)
+        text.textChanged.connect(self.__valueChanged)
         self.__show_email = text
         return page
 
     def __createBookingPage(self):
         """Booking Page"""
-        page = QtGui.QWidget()
-        page.setLayout(QtGui.QGridLayout())
+        page = QtWidgets.QWidget()
+        page.setLayout(QtWidgets.QGridLayout())
         page.layout().setRowStretch(10, 100)
 
-        label = QtGui.QLabel("Enable booking", self)
-        ctrl = QtGui.QCheckBox(self)
+        label = QtWidgets.QLabel("Enable booking", self)
+        ctrl = QtWidgets.QCheckBox(self)
         ctrl.setChecked(self.__show.data.booking_enabled)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
-        QtCore.QObject.connect(ctrl, QtCore.SIGNAL("stateChanged(int)"),
-                               self.__valueChanged)
+        ctrl.stateChanged.connect(self.__valueChanged)
         self.__bookingEnabled = ctrl
 
-        label = QtGui.QLabel("Enable dispatch", self)
-        ctrl = QtGui.QCheckBox(self)
+        label = QtWidgets.QLabel("Enable dispatch", self)
+        ctrl = QtWidgets.QCheckBox(self)
         ctrl.setChecked(self.__show.data.dispatch_enabled)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
-        QtCore.QObject.connect(ctrl, QtCore.SIGNAL("stateChanged(int)"),
-                               self.__valueChanged)
+        ctrl.stateChanged.connect(self.__valueChanged)
         self.__dispatchEnabled = ctrl
 
         return page
 
     def __createStatisticsPage(self):
         """Statistics Page"""
-        page = QtGui.QWidget()
-        page.setLayout(QtGui.QGridLayout())
-        text = QtGui.QTextEdit(page)
+        page = QtWidgets.QWidget()
+        page.setLayout(QtWidgets.QGridLayout())
+        text = QtWidgets.QTextEdit(page)
         text.setReadOnly(True)
         text.setPlainText("%s" % self.__show.data.show_stats)
         page.layout().addWidget(text)
@@ -136,9 +124,9 @@ class ShowDialog(QtGui.QDialog):
 
     def __createRawShowDataPage(self):
         """Raw Show Data Page"""
-        page = QtGui.QWidget()
-        page.setLayout(QtGui.QVBoxLayout())
-        text = QtGui.QTextEdit(page)
+        page = QtWidgets.QWidget()
+        page.setLayout(QtWidgets.QVBoxLayout())
+        text = QtWidgets.QTextEdit(page)
         text.setReadOnly(True)
         text.setPlainText("Show: %s%s\n%s\n%s" % (self.__show.name(),
                                                   self.__show.data,
@@ -148,7 +136,7 @@ class ShowDialog(QtGui.QDialog):
 
         return page
 
-    def __valueChanged(self, value = None):
+    def __valueChanged(self, value=None):
         """Called when something changes to enable the save button"""
         self.__btnSave.setEnabled(True)
 

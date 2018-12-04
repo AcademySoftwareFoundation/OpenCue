@@ -13,33 +13,31 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, Cue3
-
 import re
-import sys
-import os
 
-import Constants
 from AbstractDialog import AbstractDialog
+from Manifest import QtCore, QtWidgets, Cue3
+
 
 class UnbookDialog(AbstractDialog):
     def __init__(self, jobs, parent=None):
         AbstractDialog.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
         self.setWindowTitle("Unbook matching frames")
 
-        __descriptionLabel = QtGui.QLabel("Unbook and optionally kill the matching frames from the following jobs:", self)
+        __descriptionLabel = QtWidgets.QLabel("Unbook and optionally kill the matching frames from the following jobs:", self)
 
         self.__show = Cue3.api.findShow(jobs[0].data.name.split("-")[0])
         self.__jobs = [job.data.name for job in jobs if job.data.name.startswith(self.__show.data.name)]
         self.__subscriptions = [sub.data.name.split(".")[1] for sub in self.__show.getSubscriptions()]
 
         # Show list of jobs selected
-        self.__jobList = QtGui.QTextEdit(self)
+        self.__jobList = QtWidgets.QTextEdit(self)
         self.__jobList.setText("\n".join(self.__jobs))
         self.__jobList.setReadOnly(True)
-        self.__jobList.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum))
+        self.__jobList.setSizePolicy(
+            QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum))
 
         # matrix of subscribed allocations
         self.__matrix = self._newCheckBoxSelectionMatrix("Allocations",
@@ -47,20 +45,21 @@ class UnbookDialog(AbstractDialog):
                                                          self.__subscriptions)
 
         # The number to unbook
-        __amountLabel = QtGui.QLabel("Amount to unbook:", self)
-        self.__amount = QtGui.QSpinBox(self)
+        __amountLabel = QtWidgets.QLabel("Amount to unbook:", self)
+        self.__amount = QtWidgets.QSpinBox(self)
         self.__amount.setRange(0, 10000)
         self.__amount.setValue(1)
 
         # checkbox for "Kill unbooked frames"
-        __killLabel = QtGui.QLabel("Kill unbooked frames?", self)
-        self.__kill = QtGui.QCheckBox(self)
+        __killLabel = QtWidgets.QLabel("Kill unbooked frames?", self)
+        self.__kill = QtWidgets.QCheckBox(self)
 
         # checkbox for "Redirect procs to a group or job?"
-        __redirectLabel = QtGui.QLabel("Redirect procs to a group or job?", self)
-        self.__redirect = QtGui.QCheckBox(self)
+        __redirectLabel = QtWidgets.QLabel("Redirect procs to a group or job?", self)
+        self.__redirect = QtWidgets.QCheckBox(self)
 
-        self.__buttons = self._newDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.__buttons = self._newDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
 
         layout.addWidget(__descriptionLabel)
         layout.addWidget(self.__jobList)
@@ -80,14 +79,14 @@ class UnbookDialog(AbstractDialog):
         layout.addWidget(self.__buttons)
 
     def __createRangeBox(self, layout, name, units, max):
-        __group = QtGui.QGroupBox(name)
+        __group = QtWidgets.QGroupBox(name)
         __group.setCheckable(True)
         __group.setChecked(False)
-        __layout = QtGui.QGridLayout(__group)
+        __layout = QtWidgets.QGridLayout(__group)
 
-        __moreThan = QtGui.QRadioButton("More than")
-        __lessThan = QtGui.QRadioButton("Less than")
-        __range = QtGui.QRadioButton("Between")
+        __moreThan = QtWidgets.QRadioButton("More than")
+        __lessThan = QtWidgets.QRadioButton("Less than")
+        __range = QtWidgets.QRadioButton("Between")
 
         __range.setChecked(True)
 
@@ -95,38 +94,32 @@ class UnbookDialog(AbstractDialog):
         __layout.addWidget(__lessThan, 1, 1)
         __layout.addWidget(__range, 1, 2)
 
-        __min = QtGui.QSpinBox(self)
+        __min = QtWidgets.QSpinBox(self)
         __min.setRange(0, max)
         __layout.addWidget(__min, 0, 0)
 
-        __minLabel = QtGui.QLabel(units)
+        __minLabel = QtWidgets.QLabel(units)
         __layout.addWidget(__minLabel, 0, 1)
 
-        __toLabel = QtGui.QLabel(" to ")
+        __toLabel = QtWidgets.QLabel(" to ")
         __layout.addWidget(__toLabel, 0, 2, QtCore.Qt.AlignHCenter)
 
-        __max = QtGui.QSpinBox(self)
+        __max = QtWidgets.QSpinBox(self)
         __max.setRange(0, max)
         __layout.addWidget(__max, 0, 3)
 
-        __maxLabel = QtGui.QLabel(units)
+        __maxLabel = QtWidgets.QLabel(units)
         __layout.addWidget(__maxLabel, 0, 4)
 
         # Setting the minimum should disable the right hand side of the range
-        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
-                               __min, QtCore.SLOT("setDisabled(bool)"))
-        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
-                               __toLabel, QtCore.SLOT("setDisabled(bool)"))
-        QtCore.QObject.connect(__lessThan, QtCore.SIGNAL("toggled(bool)"),
-                               __minLabel, QtCore.SLOT("setDisabled(bool)"))
+        __lessThan.toggled.connect(__min.setDisabled)
+        __lessThan.toggled.connect(__toLabel.setDisabled)
+        __lessThan.toggled.connect(__minLabel.setDisabled)
 
         # Setting the maximum should disable the left hand side of the range
-        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
-                               __max, QtCore.SLOT("setDisabled(bool)"))
-        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
-                               __toLabel, QtCore.SLOT("setDisabled(bool)"))
-        QtCore.QObject.connect(__moreThan, QtCore.SIGNAL("toggled(bool)"),
-                               __maxLabel, QtCore.SLOT("setDisabled(bool)"))
+        __moreThan.toggled.connect(__max.setDisabled)
+        __moreThan.toggled.connect(__toLabel.setDisabled)
+        __moreThan.toggled.connect(__maxLabel.setDisabled)
 
         layout.addWidget(__group)
 
@@ -193,12 +186,12 @@ class UnbookDialog(AbstractDialog):
             body = "Redirect to what show?"
             shows = dict([(show.data.name, show) for show in Cue3.api.getActiveShows()])
             items = [self.__jobs[0].split("-")[0]] + sorted(shows.keys())
-            (show, choice) = QtGui.QInputDialog.getItem(self,
-                                                        title,
-                                                        body,
-                                                        items,
-                                                        0,
-                                                        False)
+            (show, choice) = QtWidgets.QInputDialog.getItem(self,
+                                                            title,
+                                                            body,
+                                                            items,
+                                                            0,
+                                                            False)
             if not choice:
                 return
             show = shows[str(show)]
@@ -207,12 +200,12 @@ class UnbookDialog(AbstractDialog):
             title = "Select Redirection Type"
             body = "Redirect to a job or a group?"
             items = ["Job", "Group"]
-            (redirectTo, choice) = QtGui.QInputDialog.getItem(self,
-                                                              title,
-                                                              body,
-                                                              items,
-                                                              0,
-                                                              False)
+            (redirectTo, choice) = QtWidgets.QInputDialog.getItem(self,
+                                                                  title,
+                                                                  body,
+                                                                  items,
+                                                                  0,
+                                                                  False)
             if not choice:
                 return
 
@@ -222,7 +215,7 @@ class UnbookDialog(AbstractDialog):
                 dialog = SelectItemsWithSearchDialog(self,
                                                      "Redirect to which job?",
                                                      jobs.keys(),
-                                                     QtGui.QAbstractItemView.SingleSelection)
+                                                     QtWidgets.QAbstractItemView.SingleSelection)
                 dialog.exec_()
                 selected = dialog.selected()
                 if selected:
@@ -234,12 +227,12 @@ class UnbookDialog(AbstractDialog):
                 title = "Select Redirection Group"
                 body = "Redirect to which group?"
                 groups = dict([(group.data.name, group) for group in show.proxy.getGroups()])
-                (group, choice) = QtGui.QInputDialog.getItem(self,
-                                                             title,
-                                                             body,
-                                                             sorted(groups.keys()),
-                                                             0,
-                                                             False)
+                (group, choice) = QtWidgets.QInputDialog.getItem(self,
+                                                                 title,
+                                                                 body,
+                                                                 sorted(groups.keys()),
+                                                                 0,
+                                                                 False)
                 if not choice:
                     return
                 group = groups[str(group)]
@@ -275,17 +268,18 @@ class UnbookDialog(AbstractDialog):
                 self.close()
 
     def __informationBox(self, title, message):
-        QtGui.QMessageBox.information(self.parent(),
-                                      title,
-                                      message,
-                                      QtGui.QMessageBox.Ok)
+        QtWidgets.QMessageBox.information(self.parent(),
+                                          title,
+                                          message,
+                                          QtWidgets.QMessageBox.Ok)
+
 
 class SelectItemsWithSearchDialog(AbstractDialog):
     def __init__(self, parent, header, items,
-                 selectionMode=QtGui.QAbstractItemView.MultiSelection):
+                 selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
         AbstractDialog.__init__(self, parent)
 
-        QtGui.QVBoxLayout(self)
+        QtWidgets.QVBoxLayout(self)
 
         self.__items = items
 
@@ -295,7 +289,8 @@ class SelectItemsWithSearchDialog(AbstractDialog):
                                                     selectionMode)
         self.layout().addWidget(self.__widget)
 
-        self.__buttons = self._newDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.__buttons = self._newDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
         self.layout().addWidget(self.__buttons)
 
     def selected(self):
@@ -303,26 +298,25 @@ class SelectItemsWithSearchDialog(AbstractDialog):
             return self.__widget.selected()
         return None
 
-class SelectItemsWithSearchWidget(QtGui.QWidget):
-    def __init__(self, parent, header, items,
-                 selectionMode=QtGui.QAbstractItemView.MultiSelection):
-        QtGui.QWidget.__init__(self, parent)
 
-        QtGui.QGridLayout(self)
+class SelectItemsWithSearchWidget(QtWidgets.QWidget):
+    def __init__(self, parent, header, items,
+                 selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
+        QtWidgets.QWidget.__init__(self, parent)
+
+        QtWidgets.QGridLayout(self)
 
         self.__items = items
 
-        self.__label = QtGui.QLabel(header, self)
+        self.__label = QtWidgets.QLabel(header, self)
         self.layout().addWidget(self.__label, 0, 0, 1, 1)
 
-        self.__filter = QtGui.QLineEdit("", self)
+        self.__filter = QtWidgets.QLineEdit("", self)
         self.layout().addWidget(self.__filter, 2, 0)
 
-        QtCore.QObject.connect(self.__filter,
-                               QtCore.SIGNAL('textChanged(const QString &)'),
-                               self.filterJobs)
+        self.__filter.textChanged.connect(self.filterJobs)
 
-        self.__list = QtGui.QListWidget(self)
+        self.__list = QtWidgets.QListWidget(self)
         self.__list.setSelectionMode(selectionMode)
         self.layout().addWidget(self.__list, 3, 0)
 
@@ -339,6 +333,7 @@ class SelectItemsWithSearchWidget(QtGui.QWidget):
             if self.__list.item(num).isSelected():
                 selected.append(str(self.__list.item(num).text()))
         return selected
+
 
 class RangeBox(object):
     """Stores the parts the make up the range box and provides a way to query
@@ -361,10 +356,11 @@ class RangeBox(object):
                 return "%d-%d" % (self.__min.value(), self.__max.value())
         return ""
 
-class KillConfirmationDialog(QtGui.QDialog):
+
+class KillConfirmationDialog(QtWidgets.QDialog):
     def __init__(self, procSearch, parent=None):
-        QtGui.QDialog.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        QtWidgets.QDialog.__init__(self, parent)
+        layout = QtWidgets.QVBoxLayout(self)
 
         self.setModal(True)
         self.setFixedWidth(500)
@@ -378,26 +374,26 @@ class KillConfirmationDialog(QtGui.QDialog):
             msg = "Unbook and kill this %d matching frame?"
         else:
             msg = "Unbook and kill these %d matching frames?"
-        __descriptionLabel = QtGui.QLabel(msg % self.__amount, self)
+        __descriptionLabel = QtWidgets.QLabel(msg % self.__amount, self)
 
         # Show list of jobs selected
-        self.__jobList = QtGui.QTextEdit(self)
+        self.__jobList = QtWidgets.QTextEdit(self)
         self.__jobList.setText("\n".join(["%s %s" % (proc.data.jobName, proc.data.frameName) for proc in self.__procs]))
         self.__jobList.setReadOnly(True)
-        self.__jobList.setSizePolicy(QtGui.QSizePolicy(QtGui.QSizePolicy.Preferred, QtGui.QSizePolicy.Maximum))
+        self.__jobList.setSizePolicy(
+            QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum))
 
-        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel,
-                                                QtCore.Qt.Horizontal,
-                                                self)
+        self.__buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+            QtCore.Qt.Horizontal,
+            self)
 
         layout.addWidget(__descriptionLabel)
         layout.addWidget(self.__jobList)
         layout.addWidget(self.__buttons)
 
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"),
-                               self, QtCore.SLOT("accept()"))
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"),
-                               self, QtCore.SLOT("reject()"))
+        self.__buttons.accepted.connect(self.accept)
+        self.__buttons.rejected.connect(self.reject)
 
     def accept(self):
         for proc in self.__procs:
@@ -410,9 +406,9 @@ class KillConfirmationDialog(QtGui.QDialog):
             msg = "%d frame has been unbooked and killed."
         else:
             msg = "%d frames have been unbooked and killed."
-        QtGui.QMessageBox.information(self.parent(),
-                                      "Unbooked and killed frames",
-                                      msg % self.__amount,
-                                      QtGui.QMessageBox.Ok)
+        QtWidgets.QMessageBox.information(self.parent(),
+                                          "Unbooked and killed frames",
+                                          msg % self.__amount,
+                                          QtWidgets.QMessageBox.Ok)
 
-        self.done(QtGui.QDialog.Accepted)
+        self.done(QtWidgets.QDialog.Accepted)

@@ -15,13 +15,12 @@
 
 import os
 import re
-import time
 import weakref
-import Cue3Gui
+
+from PySide2 import QtGui, QtCore, QtWidgets
+
 import Cue3
-
-from PyQt4 import QtGui, QtCore
-
+import Cue3Gui
 
 logger = Cue3Gui.Logger.getLogger(__file__)
 
@@ -31,36 +30,34 @@ PLUGIN_DESCRIPTION = "An improved tree listing of shows, groups and jobs"
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
+
 class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
         Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__monitorCue = Cue3Gui.CueJobMonitorTree(self)
-        self.__toolbar = QtGui.QToolBar(self)
+        self.__toolbar = QtWidgets.QToolBar(self)
         self.__showMenuSetup()
         self.__expandAllSetup()
         self.__collapseAllSetup()
         self.__toolbar.addSeparator()
         self.__selectJobsSetup()
         self.__buttonSetup(self.__toolbar)
-        spacer = QtGui.QLabel(self)
-        spacer.setSizePolicy(QtGui.QSizePolicy.Expanding,
-                             QtGui.QSizePolicy.Ignored)
+        spacer = QtWidgets.QLabel(self)
+        spacer.setSizePolicy(QtWidgets.QSizePolicy.Expanding,
+                             QtWidgets.QSizePolicy.Ignored)
         self.__toolbar.addWidget(spacer)
         self.__jobSelectedSetup()
 
         self.layout().addWidget(self.__toolbar)
-        self.__hlayout = QtGui.QHBoxLayout()
+        self.__hlayout = QtWidgets.QHBoxLayout()
         self.__cueStateBarSetup(self.__hlayout)
         self.__hlayout.addWidget(self.__monitorCue)
 
         self.layout().addLayout(self.__hlayout)
 
-        QtCore.QObject.connect(self.__monitorCue,
-                               QtCore.SIGNAL('view_object(PyQt_PyObject)'),
-                               QtGui.qApp,
-                               QtCore.SIGNAL('view_object(PyQt_PyObject)'))
+        self.__monitorCue.view_object.connect(QtGui.qApp.view_object.emit)
 
         self.pluginRegisterSettings([("shows",
                                       self.__monitorCue.getShowNames,
@@ -75,79 +72,63 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         self.addShows([os.getenv('SHOW')])
 
     def __cueStateBarSetup(self, layout):
-        if QtGui.qApp.settings.value("CueStateBar",
-                                     QtCore.QVariant(False)).toBool():
-            self.__cueStateBar = Cue3Gui.CueStateBarWidget(self.__monitorCue,
-                                                           self)
+        if QtGui.qApp.settings.value("CueStateBar", False):
+            self.__cueStateBar = Cue3Gui.CueStateBarWidget(self.__monitorCue, self)
             layout.addWidget(self.__cueStateBar)
 
     def __expandAllSetup(self):
         """Sets up the expand all button"""
-        btn = QtGui.QPushButton()
+        btn = QtWidgets.QPushButton()
         self.__toolbar.addWidget(btn)
         btn.setIcon(QtGui.QIcon(":down.png"))
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setToolTip("Expand all groups")
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.expandAll)
+        btn.clicked.connect(self.__monitorCue.expandAll)
 
     def __collapseAllSetup(self):
         """Sets up the collapse all button"""
-        btn = QtGui.QPushButton()
+        btn = QtWidgets.QPushButton()
         self.__toolbar.addWidget(btn)
         btn.setIcon(QtGui.QIcon(":up.png"))
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setToolTip("Collapse all groups")
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.collapseAll)
+        btn.clicked.connect(self.__monitorCue.collapseAll)
 
     def __buttonSetup(self, layout):
-        btn = QtGui.QPushButton(QtGui.QIcon(":eat.png"), "")
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "")
         btn.setToolTip("Eats all dead frames for selected jobs")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFlat(True)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.actionEatSelectedItems)
+        btn.clicked.connect(self.__monitorCue.actionEatSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":retry.png"), "")
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "")
         btn.setToolTip("Retries all dead frames for selected jobs")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFlat(True)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.actionRetrySelectedItems)
+        btn.clicked.connect(self.__monitorCue.actionRetrySelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":kill.png"), "")
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "")
         btn.setToolTip("Kill selected jobs")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFlat(True)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.actionKillSelectedItems)
+        btn.clicked.connect(self.__monitorCue.actionKillSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":pause.png"), "")
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":pause.png"), "")
         btn.setToolTip("Pause selected jobs")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFlat(True)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.actionPauseSelectedItems)
+        btn.clicked.connect(self.__monitorCue.actionPauseSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":unpause.png"), "")
+        btn = QtWidgets.QPushButton(QtGui.QIcon(":unpause.png"), "")
         btn.setToolTip("Unpause selected jobs")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFlat(True)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__monitorCue.actionResumeSelectedItems)
+        btn.clicked.connect(self.__monitorCue.actionResumeSelectedItems)
 
 
 ################################################################################
@@ -155,23 +136,17 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
 ################################################################################
     def __showMenuSetup(self):
         """Sets up the show selection menu"""
-        self.__showMenuBtn = QtGui.QPushButton("Shows ",self)
+        self.__showMenuBtn = QtWidgets.QPushButton("Shows ",self)
         self.__showMenuBtn.setIcon(QtGui.QIcon(":show.png"))
-        QtCore.QObject.connect(self.__showMenuBtn,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__showMenuCheck)
+        self.__showMenuBtn.pressed.connect(self.__showMenuCheck)
         self.__toolbar.addWidget(self.__showMenuBtn)
 
-        self.__showMenu = QtGui.QMenu(self)
+        self.__showMenu = QtWidgets.QMenu(self)
         self.__showMenuBtn.setMenu(self.__showMenu)
         self.__showMenuBtn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.__showMenu.setFont(Cue3Gui.Constants.STANDARD_FONT)
-        QtCore.QObject.connect(self.__showMenu,
-                               QtCore.SIGNAL("triggered(QAction*)"),
-                               self.__showMenuHandle)
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('facility_changed()'),
-                               self.__showMenuUpdate)
+        self.__showMenu.triggered.connect(self.__showMenuHandle)
+        QtGui.qApp.facility_changed.connect(self.__showMenuUpdate)
 
         self.__showMenuUpdate()
 
@@ -198,7 +173,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         monitored = [show.name() for show in self.__monitorCue.getShows()]
 
         for show in shows:
-            action = QtGui.QAction(show, self.__showMenu)
+            action = QtWidgets.QAction(show, self.__showMenu)
             action.setCheckable(True)
             if show in monitored:
                 action.setChecked(True)
@@ -217,34 +192,26 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         """Selects jobs by name substring.
         Requires: self._selectJobsHandle() and class JobSelectEditBox"""
 
-        btn = QtGui.QPushButton("Select:")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__toolbar.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__selectJobsHandle)
+        select_btn = QtWidgets.QPushButton("Select:")
+        select_btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.__toolbar.addWidget(select_btn)
+        select_btn.clicked.connect(self.__selectJobsHandle)
 
         self._selectJobsEditBox = JobSelectEditBox(self)
         self.__toolbar.addWidget(self._selectJobsEditBox)
-        QtCore.QObject.connect(self._selectJobsEditBox,
-                               QtCore.SIGNAL('returnPressed()'),
-                               self.__selectJobsHandle)
+        self._selectJobsEditBox.returnPressed.connect(self.__selectJobsHandle)
 
-        btn = QtGui.QPushButton("Clr")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFixedWidth(24)
-        self.__toolbar.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self._selectJobsEditBox.actionClear)
+        clear_btn = QtWidgets.QPushButton("Clr")
+        clear_btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        clear_btn.setFixedWidth(24)
+        self.__toolbar.addWidget(clear_btn)
+        clear_btn.clicked.connect(self._selectJobsEditBox.actionClear)
 
-        btn = QtGui.QPushButton("selectMine")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFixedWidth(70)
-        self.__toolbar.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__selectJobsHandleMine)
+        mine_btn = QtWidgets.QPushButton("selectMine")
+        mine_btn.setFocusPolicy(QtCore.Qt.NoFocus)
+        mine_btn.setFixedWidth(70)
+        self.__toolbar.addWidget(mine_btn)
+        mine_btn.clicked.connect(self.__selectJobsHandleMine)
 
     def __selectJobsHandle(self, value = None):
         """This will select all jobs that have a name that contain the substring
@@ -278,7 +245,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
 
                 # Scroll to the first item
                 self.__monitorCue.scrollToItem(items[0],
-                                          QtGui.QAbstractItemView.PositionAtTop)
+                                          QtWidgets.QAbstractItemView.PositionAtTop)
 
     def __selectJobsHandleMine(self):
         self.__selectJobsHandle("-%s_" % Cue3Gui.Utils.getUsername())
@@ -288,14 +255,12 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
 ################################################################################
     def __jobSelectedSetup(self):
         """Sets up the selected job edit box"""
-        self.__jobSelectedLineEdit = QtGui.QLineEdit()
+        self.__jobSelectedLineEdit = QtWidgets.QLineEdit()
         self.__jobSelectedLineEdit.setMaximumWidth(300)
         self.__jobSelectedLineEdit.setFocusPolicy(QtCore.Qt.NoFocus)
         self.__jobSelectedLineEdit.setFont(Cue3Gui.Constants.STANDARD_FONT)
         self.__toolbar.addWidget(self.__jobSelectedLineEdit)
-        QtCore.QObject.connect(self.__monitorCue,
-                               QtCore.SIGNAL('single_click(PyQt_PyObject)'),
-                               self.__jobSelectedHandle)
+        self.__monitorCue.single_click.connect(self.__jobSelectedHandle)
 
     def __jobSelectedHandle(self, job):
         """Updates the selected job edit box with the provided job
@@ -321,10 +286,11 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         self.__monitorCue._update()
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
 
-class JobSelectEditBox(QtGui.QLineEdit):
+
+class JobSelectEditBox(QtWidgets.QLineEdit):
     """An edit box intended for selecting matching jobs"""
     def __init__(self, parent):
-        QtGui.QLineEdit.__init__(self)
+        QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setFont(Cue3Gui.Constants.STANDARD_FONT)
@@ -335,7 +301,7 @@ class JobSelectEditBox(QtGui.QLineEdit):
         """Called when selection box is right clicked
         @type  event: QEvent
         @param event: Click QEvent"""
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
 
         menu.addAction(Cue3Gui.Action.create(self,
                                              "Select matching jobs (Enter)",
@@ -355,11 +321,11 @@ class JobSelectEditBox(QtGui.QLineEdit):
 
     def _actionSelect(self):
         """Signals that a return was pressed"""
-        self.emit(QtCore.SIGNAL("returnPressed()"))
+        self.returnPressed.emit()
 
     def keyPressEvent(self, event):
         """Let the parent handle any space key presses"""
         if event.key() == QtCore.Qt.Key_Space:
             self.parent.keyPressEvent(event)
         else:
-            QtGui.QLineEdit.keyPressEvent(self, event)
+            QtWidgets.QLineEdit.keyPressEvent(self, event)

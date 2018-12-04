@@ -13,14 +13,13 @@
 #  limitations under the License.
 
 
-import os
 import re
-import time
 import weakref
-import Cue3Gui
-import Cue3
 
-from PyQt4 import QtGui, QtCore
+import Cue3Gui
+from PySide2 import QtGui, QtCore, QtWidgets
+
+import Cue3
 
 logger = Cue3Gui.Logger.getLogger(__file__)
 
@@ -29,14 +28,18 @@ PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 
+
 class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
+
+    view_object = QtCore.Signal(object)
+
     def __init__(self, parent):
         Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.jobMonitor = Cue3Gui.JobMonitorTree(self)
 
-        self.__toolbar = QtGui.QToolBar(self)
+        self.__toolbar = QtWidgets.QToolBar(self)
         self._regexLoadJobsSetup(self.__toolbar)
         #self.__toolbar.addSeparator()
         self._buttonSetup(self.__toolbar)
@@ -45,10 +48,10 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
         self.layout().addWidget(self.jobMonitor)
 
         #Signals in:
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('view_object(PyQt_PyObject)'), self.addJob)
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('facility_changed()'), self.jobMonitor.removeAllItems)
+        QtGui.qApp.view_object.connect(self.addJob)
+        QtGui.qApp.facility_changed.connect(self.jobMonitor.removeAllItems)
         #Signals out:
-        QtCore.QObject.connect(self.jobMonitor, QtCore.SIGNAL('view_object(PyQt_PyObject)'), self, QtCore.SIGNAL('view_object(PyQt_PyObject)'))
+        self.jobMonitor.view_object.connect(self.view_object.emit)
 
         self.pluginRegisterSettings([("regexText",
                                       self.__regexLoadJobsEditBox.text,
@@ -108,14 +111,14 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
         Requires: self._regexLoadJobsHandle() and class JobRegexLoadEditBox
         @param layout: The layout that the widgets will be placed in
         @type  layout: QLayout"""
-        btn = QtGui.QPushButton("Load:")
+        btn = QtWidgets.QPushButton("Load:")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self._regexLoadJobsHandle)
+        btn.clicked.connect(self._regexLoadJobsHandle)
 
         self.__regexLoadJobsEditBox = JobRegexLoadEditBox(self)
         layout.addWidget(self.__regexLoadJobsEditBox)
-        QtCore.QObject.connect(self.__regexLoadJobsEditBox, QtCore.SIGNAL('returnPressed()'), self._regexLoadJobsHandle)
+        self.__regexLoadJobsEditBox.returnPressed.connect(self._regexLoadJobsHandle)
 
     def _regexLoadJobsHandle(self):
         """This will select all jobs that have a name that contain the substring
@@ -140,81 +143,82 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
                 self.jobMonitor.addJob(job)
 
     def _buttonSetup(self, layout):
-        btn = QtGui.QPushButton("Clr")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFixedWidth(24)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.__regexLoadJobsEditBox.actionClear)
+        clearButton = QtWidgets.QPushButton("Clr")
+        clearButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        clearButton.setFixedWidth(24)
+        layout.addWidget(clearButton)
+        clearButton.clicked.connect(self.__regexLoadJobsEditBox.actionClear)
 
-        spacer = QtGui.QWidget()
+        spacer = QtWidgets.QWidget()
         spacer.setFixedWidth(20)
         layout.addWidget(spacer)
 
-        btn = QtGui.QCheckBox("Autoload Mine")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setChecked(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('stateChanged(int)'), self.jobMonitor.setLoadMine)
+        mineCheckbox = QtWidgets.QCheckBox("Autoload Mine")
+        mineCheckbox.setFocusPolicy(QtCore.Qt.NoFocus)
+        mineCheckbox.setChecked(True)
+        layout.addWidget(mineCheckbox)
+        mineCheckbox.stateChanged.connect(self.jobMonitor.setLoadMine)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
-        btn.setToolTip("Unmonitor finished jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.removeFinishedItems)
+        finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
+        finishedButton.setToolTip("Unmonitor finished jobs")
+        finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        finishedButton.setFlat(True)
+        layout.addWidget(finishedButton)
+        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":eject.png"), "All")
-        btn.setToolTip("Unmonitor all jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.removeAllItems)
+        allButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "All")
+        allButton.setToolTip("Unmonitor all jobs")
+        allButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        allButton.setFlat(True)
+        layout.addWidget(allButton)
+        allButton.clicked.connect(self.jobMonitor.removeAllItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":eject.png"), "")
-        btn.setToolTip("Unmonitor selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionRemoveSelectedItems)
+        removeSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "")
+        removeSelectedButton.setToolTip("Unmonitor selected jobs")
+        removeSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        removeSelectedButton.setFlat(True)
+        layout.addWidget(removeSelectedButton)
+        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":eat.png"), "")
-        btn.setToolTip("Eats all dead frames for selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionEatSelectedItems)
+        eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "")
+        eatSelectedButton.setToolTip("Eats all dead frames for selected jobs")
+        eatSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        eatSelectedButton.setFlat(True)
+        layout.addWidget(eatSelectedButton)
+        eatSelectedButton.clicked.connect(self.jobMonitor.actionEatSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":retry.png"), "")
-        btn.setToolTip("Retries all dead frames for selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionRetrySelectedItems)
+        retryButton = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "")
+        retryButton.setToolTip("Retries all dead frames for selected jobs")
+        retryButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        retryButton.setFlat(True)
+        layout.addWidget(retryButton)
+        retryButton.clicked.connect(self.jobMonitor.actionRetrySelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":kill.png"), "")
-        btn.setToolTip("Kill selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionKillSelectedItems)
+        killButton = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "")
+        killButton.setToolTip("Kill selected jobs")
+        killButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        killButton.setFlat(True)
+        layout.addWidget(killButton)
+        killButton.clicked.connect(self.jobMonitor.actionKillSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":pause.png"), "")
-        btn.setToolTip("Pause selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionPauseSelectedItems)
+        pauseButton = QtWidgets.QPushButton(QtGui.QIcon(":pause.png"), "")
+        pauseButton.setToolTip("Pause selected jobs")
+        pauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        pauseButton.setFlat(True)
+        layout.addWidget(pauseButton)
+        pauseButton.clicked.connect(self.jobMonitor.actionPauseSelectedItems)
 
-        btn = QtGui.QPushButton(QtGui.QIcon(":unpause.png"), "")
-        btn.setToolTip("Unpause selected jobs")
-        btn.setFocusPolicy(QtCore.Qt.NoFocus)
-        btn.setFlat(True)
-        layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.jobMonitor.actionResumeSelectedItems)
+        unpauseButton = QtWidgets.QPushButton(QtGui.QIcon(":unpause.png"), "")
+        unpauseButton.setToolTip("Unpause selected jobs")
+        unpauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
+        unpauseButton.setFlat(True)
+        layout.addWidget(unpauseButton)
+        unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)
 
-class JobRegexLoadEditBox(QtGui.QLineEdit):
+
+class JobRegexLoadEditBox(QtWidgets.QLineEdit):
     def __init__(self, parent):
-        QtGui.QLineEdit.__init__(self)
+        QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
         self.setFont(Cue3Gui.Constants.STANDARD_FONT)
@@ -229,10 +233,10 @@ class JobRegexLoadEditBox(QtGui.QLineEdit):
                   'Jobs finished for 3 days will no longer be available in cuetopia.<br>' \
                   'Load your finished jobs with at least: show-shot-username_'
 
-        self.setToolTip(QtCore.QString(toolTip))
+        self.setToolTip(toolTip)
 
     def contextMenuEvent(self, e):
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
 
         menu.addAction(Cue3Gui.Action.create(self,
                                              "Load matching jobs (Enter)",
@@ -255,7 +259,7 @@ class JobRegexLoadEditBox(QtGui.QLineEdit):
         self.setText("")
 
     def _actionLoad(self):
-        self.emit(QtCore.SIGNAL("returnPressed()"))
+        self.returnPressed.emit()
 
     def toggleReadOnly(self):
         self.setReadOnly(not self.isReadOnly())
@@ -265,4 +269,4 @@ class JobRegexLoadEditBox(QtGui.QLineEdit):
         if event.key() == QtCore.Qt.Key_Space:
             self.parent.keyPressEvent(event)
         else:
-            QtGui.QLineEdit.keyPressEvent(self, event)
+            QtWidgets.QLineEdit.keyPressEvent(self, event)

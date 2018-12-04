@@ -13,28 +13,25 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
-
-from MenuActions import MenuActions
-import Utils
-import Constants
 import Logger
-
+import Utils
+from Manifest import QtCore, QtGui, QtWidgets
 from ProcMonitorTree import ProcMonitorTree
 
 log = Logger.getLogger(__file__)
 
 FILTER_HEIGHT = 20
 
-class ProcMonitor(QtGui.QWidget):
+
+class ProcMonitor(QtWidgets.QWidget):
     """This contains the frame list table with controls at the top"""
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         self.procMonitorTree = ProcMonitorTree(self)
 
         # Setup main vertical layout
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
@@ -42,7 +39,7 @@ class ProcMonitor(QtGui.QWidget):
         self.layout().setSpacing(4)
 
         # This hlayout would contain any filter/control buttons
-        hlayout = QtGui.QHBoxLayout()
+        hlayout = QtWidgets.QHBoxLayout()
         self.__filterByHostNameSetup(hlayout)   # Menu to filter by proc name
         hlayout.addStretch()
         self.__refreshToggleCheckBoxSetup(hlayout) # Checkbox to disable auto refresh
@@ -70,28 +67,23 @@ class ProcMonitor(QtGui.QWidget):
 # Text box to load procs by hostname
 # ==============================================================================
     def __filterByHostNameSetup(self, layout):
-        btn = QtGui.QLineEdit(self)
+        btn = QtWidgets.QLineEdit(self)
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFixedWidth(155)
         btn.setFocusPolicy(QtCore.Qt.StrongFocus)
         layout.addWidget(btn)
         self.__filterByHostName = btn
 
-        btn = QtGui.QPushButton("Clr")
+        btn = QtWidgets.QPushButton("Clr")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFixedWidth(24)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__filterByHostNameClear)
+        btn.clicked.connect(self.__filterByHostNameClear)
         self.__filterByHostNameClearBtn = btn
 
         self.__filterByHostNameLastInput = None
-
-        QtCore.QObject.connect(self.__filterByHostName,
-                               QtCore.SIGNAL('editingFinished()'),
-                               self.__filterByHostNameHandle)
+        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)
 
     def __filterByHostNameHandle(self):
         hosts = str(self.__filterByHostName.text()).split()
@@ -109,13 +101,11 @@ class ProcMonitor(QtGui.QWidget):
 # Checkbox to toggle auto-refresh
 # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
-        checkBox = QtGui.QCheckBox("Auto-refresh", self)
+        checkBox = QtWidgets.QCheckBox("Auto-refresh", self)
         layout.addWidget(checkBox)
         if self.procMonitorTree.enableRefresh:
             checkBox.setCheckState(QtCore.Qt.Checked)
-        QtCore.QObject.connect(checkBox,
-                               QtCore.SIGNAL('stateChanged(int)'),
-                               self.__refreshToggleCheckBoxHandle)
+        checkBox.stateChanged.connect(self.__refreshToggleCheckBoxHandle)
         __refreshToggleCheckBoxCheckBox = checkBox
 
     def __refreshToggleCheckBoxHandle(self, state):
@@ -128,17 +118,12 @@ class ProcMonitor(QtGui.QWidget):
         """Sets up the refresh button, adds it to the given layout
         @param layout: The layout to add the button to
         @type  layout: QLayout"""
-        self.btn_refresh = QtGui.QPushButton("Refresh")
+        self.btn_refresh = QtWidgets.QPushButton("Refresh")
         self.btn_refresh.setMaximumHeight(FILTER_HEIGHT)
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        QtCore.QObject.connect(self.btn_refresh,
-                               QtCore.SIGNAL('clicked()'),
-                               self.procMonitorTree.updateRequest)
-
-        QtCore.QObject.connect(self.procMonitorTree,
-                               QtCore.SIGNAL("updated()"),
-                               self.__refreshButtonDisableHandle)
+        self.btn_refresh.clicked.connect(self.procMonitorTree.updateRequest)
+        self.procMonitorTree.updated.connect(self.__refreshButtonDisableHandle)
 
     def __refreshButtonEnableHandle(self):
         """Called when the refresh button should be enabled"""
@@ -156,12 +141,12 @@ class ProcMonitor(QtGui.QWidget):
         """Sets up the clear button, adds it to the given layout
         @param layout: The layout to add the button to
         @type  layout: QLayout"""
-        btn = QtGui.QPushButton("Clear")
+        btn = QtWidgets.QPushButton("Clear")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn, QtCore.SIGNAL('clicked()'), self.__clearButtonHandle)
+        btn.clicked.connect(self.__clearButtonHandle)
 
     def __clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -173,9 +158,7 @@ class ProcMonitor(QtGui.QWidget):
 # Monitors and handles the view_procs signal
 # ==============================================================================
     def __viewProcsSetup(self):
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('view_procs(PyQt_PyObject)'),
-                               self.__viewProcsHandle)
+        QtGui.qApp.view_procs.connect(self.__viewProcsHandle)
 
     def __viewProcsHandle(self, hosts):
         self.procMonitorTree.procSearch.hosts = hosts
@@ -185,9 +168,7 @@ class ProcMonitor(QtGui.QWidget):
 # Views procs when a host is double clicked
 # ==============================================================================
     def __hostDoubleClickedSetup(self):
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('view_object(PyQt_PyObject)'),
-                               self.__hostDoubleClickedHandle)
+        QtGui.qApp.view_object.connect(self.__hostDoubleClickedHandle)
 
     def __hostDoubleClickedHandle(self, rpcObject):
         if Utils.isHost(rpcObject):
@@ -198,9 +179,7 @@ class ProcMonitor(QtGui.QWidget):
 # Monitors and handles the view_hosts signal
 # ==============================================================================
     def __viewHostsSetup(self):
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('view_hosts(PyQt_PyObject)'),
-                               self.__viewHostsHandle)
+        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
 
     def __viewHostsHandle(self, hosts):
         if hosts:

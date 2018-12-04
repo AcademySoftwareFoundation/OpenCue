@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 
 import os
 import time
@@ -29,7 +29,7 @@ PREDEFINED_COMMENT_DELETE = "> Delete predefined comment"
 SAVE_EDIT = "Save Changes"
 SAVE_NEW = "Save New Comment"
 
-class CommentListDialog(QtGui.QDialog):
+class CommentListDialog(QtWidgets.QDialog):
     """A dialog to display a comment list"""
     def __init__(self, source, parent = None):
         """Initialize the dialog
@@ -37,23 +37,23 @@ class CommentListDialog(QtGui.QDialog):
         @param source: The source to get the comments from
         @type  parent: QWidget
         @param parent: The dialog's parent"""
-        QtGui.QDialog.__init__(self,parent)
+        QtWidgets.QDialog.__init__(self,parent)
         self.__source = source
 
-        self.__labelTitle = QtGui.QLabel(self.__source.data.name, self)
+        self.__labelTitle = QtWidgets.QLabel(self.__source.data.name, self)
 
-        self.__splitter = QtGui.QSplitter(self)
+        self.__splitter = QtWidgets.QSplitter(self)
         self.__splitter.setOrientation(QtCore.Qt.Vertical)
 
-        self.__treeSubjects = QtGui.QTreeWidget(self)
-        self.__textSubject = QtGui.QLineEdit(self)
-        self.__textMessage = QtGui.QTextEdit(self)
+        self.__treeSubjects = QtWidgets.QTreeWidget(self)
+        self.__textSubject = QtWidgets.QLineEdit(self)
+        self.__textMessage = QtWidgets.QTextEdit(self)
 
-        self.__comboMacro = QtGui.QComboBox(self)
-        self.__btnNew = QtGui.QPushButton("New", self)
-        self.__btnSave = QtGui.QPushButton(SAVE_EDIT, self)
-        self.__btnDel = QtGui.QPushButton("Delete", self)
-        self.__btnClose = QtGui.QPushButton("Close", self)
+        self.__comboMacro = QtWidgets.QComboBox(self)
+        self.__btnNew = QtWidgets.QPushButton("New", self)
+        self.__btnSave = QtWidgets.QPushButton(SAVE_EDIT, self)
+        self.__btnDel = QtWidgets.QPushButton("Delete", self)
+        self.__btnClose = QtWidgets.QPushButton("Close", self)
 
         self.setWindowTitle("Comments")
         self.resize(600, 300)
@@ -61,20 +61,20 @@ class CommentListDialog(QtGui.QDialog):
         self.__treeSubjects.setHeaderLabels(
                                 QtCore.QStringList(["Subject", "User", "Date"]))
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__labelTitle)
 
         self.__splitter.addWidget(self.__treeSubjects)
 
-        self.__group = QtGui.QGroupBox(self.__splitter)
-        glayout = QtGui.QVBoxLayout()
+        self.__group = QtWidgets.QGroupBox(self.__splitter)
+        glayout = QtWidgets.QVBoxLayout()
         glayout.addWidget(self.__textSubject)
         glayout.addWidget(self.__textMessage)
         self.__group.setLayout(glayout)
 
         layout.addWidget(self.__splitter)
 
-        btnLayout = QtGui.QHBoxLayout()
+        btnLayout = QtWidgets.QHBoxLayout()
         btnLayout.addWidget(self.__comboMacro)
         btnLayout.addStretch()
         btnLayout.addWidget(self.__btnSave)
@@ -83,32 +83,14 @@ class CommentListDialog(QtGui.QDialog):
         btnLayout.addWidget(self.__btnClose)
         layout.addLayout(btnLayout)
 
-        QtCore.QObject.connect(self.__treeSubjects,
-                               QtCore.SIGNAL("itemSelectionChanged()"),
-                               self.__itemChanged)
-
-        QtCore.QObject.connect(self.__comboMacro,
-                               QtCore.SIGNAL("currentIndexChanged(QString)"),
-                               self.__macroHandle)
-        QtCore.QObject.connect(self.__btnSave,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__saveComment)
-        QtCore.QObject.connect(self.__btnDel,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__deleteSelectedComment)
-        QtCore.QObject.connect(self.__btnNew,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__createNewComment)
-        QtCore.QObject.connect(self.__btnClose,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__close)
-
-        QtCore.QObject.connect(self.__textSubject,
-                               QtCore.SIGNAL("textEdited(const QString &)"),
-                               self.__textEdited)
-        QtCore.QObject.connect(self.__textMessage,
-                               QtCore.SIGNAL("textChanged()"),
-                               self.__textEdited)
+        self.__treeSubjects.itemSelectionChanged.connect(self.__itemChanged)
+        self.__comboMacro.currentIndexChanged.connect(self.__macroHandle)
+        self.__btnSave.pressed.connect(self.__saveComment)
+        self.__btnDel.pressed.connect(self.__deleteSelectedComment)
+        self.__btnNew.pressed.connect(self.__createNewComment)
+        self.__btnClose.pressed.connect(self.__close)
+        self.__textSubject.textEdited.connect(self.__textEdited)
+        self.__textMessage.textChanged.connect(self.__textEdited)
 
         self.refreshComments()
         self.__macroLoad()
@@ -224,8 +206,7 @@ class CommentListDialog(QtGui.QDialog):
 
     def __macroSave(self):
         """Saves the current comment macros to settings"""
-        QtGui.qApp.settings.setValue("Comments",
-                                QtCore.QVariant(pickle.dumps(self.__macroList)))
+        QtGui.qApp.settings.setValue("Comments", pickle.dumps(self.__macroList))
 
     def __macroHandle(self, selection):
         """Called when the comment macro combo box is selected
@@ -234,7 +215,7 @@ class CommentListDialog(QtGui.QDialog):
         self.__comboMacro.setCurrentIndex(0)
         selection = str(selection)
 
-        if self.__macroList.has_key(selection):
+        if selection in self.__macroList:
             self.__addComment(self.__macroList[selection][0],
                               self.__macroList[selection][1])
             self.refreshComments()
@@ -282,12 +263,13 @@ class CommentListDialog(QtGui.QDialog):
                        "edit" or "delete"
         @rtype:  tuple(str, bool)
         @return: The results from the dialog"""
-        result = QtGui.QInputDialog.getItem(self,
-                                            "%s a predefined comment" % action.title(),
-                                            "Please select the predefined comment to %s:" % action.lower(),
-                                            sorted(self.__macroList.keys()),
-                                            0,
-                                            False)
+        result = QtWidgets.QInputDialog.getItem(
+            self,
+            "%s a predefined comment" % action.title(),
+            "Please select the predefined comment to %s:" % action.lower(),
+            sorted(self.__macroList.keys()),
+            0,
+            False)
         return (str(result[0]), result[1])
 
     def __addComment(self, subject, message):
@@ -298,7 +280,7 @@ class CommentListDialog(QtGui.QDialog):
         c.timestamp = 0
         self.__source.proxy.addComment(c)
 
-class CommentMacroDialog(QtGui.QDialog):
+class CommentMacroDialog(QtWidgets.QDialog):
     """A dialog for adding or modifying macro comments"""
     def __init__(self, name = "", subject = "", message = "", parent = None):
         """Initializes the new/edit comment dialog
@@ -310,38 +292,34 @@ class CommentMacroDialog(QtGui.QDialog):
         @param name: The message of the macro
         @type  parent: QWidget
         @param parent: The dialog's parent"""
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
-        self.__textName = QtGui.QLineEdit(name, self)
-        self.__textSubject = QtGui.QLineEdit(subject, self)
-        self.__textMessage = QtGui.QTextEdit(message, self)
+        self.__textName = QtWidgets.QLineEdit(name, self)
+        self.__textSubject = QtWidgets.QLineEdit(subject, self)
+        self.__textMessage = QtWidgets.QTextEdit(message, self)
 
-        self.__btnSave = QtGui.QPushButton("Apply", self)
-        self.__btnCancel = QtGui.QPushButton("Cancel", self)
+        self.__btnSave = QtWidgets.QPushButton("Apply", self)
+        self.__btnCancel = QtWidgets.QPushButton("Cancel", self)
 
         self.setWindowTitle("Add/Modify Comment Macro")
         self.resize(450, 225)
 
-        btnLayout = QtGui.QHBoxLayout()
+        btnLayout = QtWidgets.QHBoxLayout()
         btnLayout.addStretch()
         btnLayout.addWidget(self.__btnSave)
         btnLayout.addWidget(self.__btnCancel)
 
-        layout = QtGui.QVBoxLayout(self)
-        layout.addWidget(QtGui.QLabel("Name:", self))
+        layout = QtWidgets.QVBoxLayout(self)
+        layout.addWidget(QtWidgets.QLabel("Name:", self))
         layout.addWidget(self.__textName)
-        layout.addWidget(QtGui.QLabel("Subject:", self))
+        layout.addWidget(QtWidgets.QLabel("Subject:", self))
         layout.addWidget(self.__textSubject)
-        layout.addWidget(QtGui.QLabel("Message:", self))
+        layout.addWidget(QtWidgets.QLabel("Message:", self))
         layout.addWidget(self.__textMessage)
         layout.addLayout(btnLayout)
 
-        QtCore.QObject.connect(self.__btnSave,
-                               QtCore.SIGNAL("pressed()"),
-                               self.__save)
-        QtCore.QObject.connect(self.__btnCancel,
-                               QtCore.SIGNAL("pressed()"),
-                               self.reject)
+        self.__btnSave.pressed.connect(self.__save)
+        self.__btnCancel.pressed.connect(self.reject)
 
     def __save(self):
         """Validates and then exits from the dialog in success"""
@@ -361,10 +339,10 @@ class CommentMacroDialog(QtGui.QDialog):
                 str(self.__textSubject.text()),
                 str(self.__textMessage.toPlainText()))
 
-class Comment(QtGui.QTreeWidgetItem):
+class Comment(QtWidgets.QTreeWidgetItem):
     """A widget to represent an item in the comment list"""
     def __init__(self, comment):
-        QtGui.QTreeWidgetItem.__init__(self,
+        QtWidgets.QTreeWidgetItem.__init__(self,
                                        QtCore.QStringList([comment.subject(),
                                                            comment.user(),
                                                            Utils.dateToMMDDHHMM(comment.timestamp())]))

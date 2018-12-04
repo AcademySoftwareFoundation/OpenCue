@@ -139,18 +139,11 @@ class HostMonitorTree(AbstractTreeWidget):
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedComment)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedComment)
 
         # Don't use the standard space bar to refresh
-        QtCore.QObject.disconnect(QtGui.qApp,
-                                  QtCore.SIGNAL('request_update()'),
-                                  self.updateRequest)
+        QtGui.qApp.request_update.connect(self.updateRequest)
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
@@ -190,8 +183,8 @@ class HostMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [host.data.name for host in self.selectedObjects() if Utils.isHost(host)]
         if selected:
-            QtGui.QApplication.clipboard().setText(",".join(selected),
-                                                   QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(",".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the

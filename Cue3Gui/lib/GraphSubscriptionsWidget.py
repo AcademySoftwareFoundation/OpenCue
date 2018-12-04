@@ -13,14 +13,12 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 
-import Utils
-import Constants
 
-class GraphSubscriptionsWidget(QtGui.QWidget):
+class GraphSubscriptionsWidget(QtWidgets.QWidget):
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         self.__color = QtGui.QColor(55,200,55)
         self.__brush = QtGui.QBrush()
@@ -33,9 +31,7 @@ class GraphSubscriptionsWidget(QtGui.QWidget):
         self.__max = max(self.__line * 1.2, 80)
 
         self.__timer = QtCore.QTimer(self)
-        QtCore.QObject.connect(self.__timer,
-                               QtCore.SIGNAL('timeout()'),
-                               self.addNumber)
+        self.__timer.timeout.connect(self.addNumber)
 
         self.__timer.start(10000)
 
@@ -52,7 +48,7 @@ class GraphSubscriptionsWidget(QtGui.QWidget):
         self.update()
 
     def paintEvent(self, event):
-        QtGui.QWidget.paintEvent(self, event)
+        QtWidgets.QWidget.paintEvent(self, event)
 
         #Skip this if too small, if splitter is all the way over
 

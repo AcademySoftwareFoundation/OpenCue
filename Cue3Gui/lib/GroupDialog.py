@@ -13,17 +13,13 @@
 #  limitations under the License.
 
 
-from Manifest import Cue3, QtCore, QtGui
+from Manifest import Cue3, QtCore, QtWidgets
 
-import sys
-import Utils
 
-import Constants
-
-class GroupDialog(QtGui.QDialog):
+class GroupDialog(QtWidgets.QDialog):
     def __init__(self, parentGroup, modifyGroup, defaults, parent):
-        QtGui.QDialog.__init__(self, parent)
-        layout = QtGui.QGridLayout(self)
+        QtWidgets.QDialog.__init__(self, parent)
+        layout = QtWidgets.QGridLayout(self)
 
         self._parentGroup = parentGroup
         self._modifyGroup = modifyGroup
@@ -45,14 +41,14 @@ class GroupDialog(QtGui.QDialog):
         __maxCores = defaults["maxCores"]
 
         self.setWindowTitle(__title)
-        layout.addWidget(QtGui.QLabel(__message, self), 0, 1, 1, 3)
+        layout.addWidget(QtWidgets.QLabel(__message, self), 0, 1, 1, 3)
 
-        layout.addWidget(QtGui.QLabel("Group Name:", self), 1, 1)
-        self._nameValue = QtGui.QLineEdit(__name, self)
+        layout.addWidget(QtWidgets.QLabel("Group Name:", self), 1, 1)
+        self._nameValue = QtWidgets.QLineEdit(__name, self)
         layout.addWidget(self._nameValue, 1, 2)
 
-        layout.addWidget(QtGui.QLabel("Department:", self), 2, 1)
-        self._departmentValue = QtGui.QComboBox(self)
+        layout.addWidget(QtWidgets.QLabel("Department:", self), 2, 1)
+        self._departmentValue = QtWidgets.QComboBox(self)
         self._departmentValue.addItems(self._departments)
         self._departmentValue.setCurrentIndex(self._departments.index(__department))
         layout.addWidget(self._departmentValue, 2, 2)
@@ -78,10 +74,11 @@ class GroupDialog(QtGui.QDialog):
                                              __modify and __maxCores != -1.0,
                                              __maxCores, 1)
 
-        self.__createButtons(QtGui.QDialogButtonBox.Save | QtGui.QDialogButtonBox.Cancel, 8, 3)
+        self.__createButtons(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, 8, 3)
 
     def __createToggleDoubleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
-        inputWidget = QtGui.QDoubleSpinBox(self)
+        inputWidget = QtWidgets.QDoubleSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
         inputWidget.setDecimals(2)
@@ -89,35 +86,31 @@ class GroupDialog(QtGui.QDialog):
         return self.__createToggleInput(text, row, inputWidget, startEnabled)
 
     def __createToggleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
-        inputWidget = QtGui.QSpinBox(self)
+        inputWidget = QtWidgets.QSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
         inputWidget.setValue(currentValue)
         return self.__createToggleInput(text, row, inputWidget, startEnabled)
 
     def __createToggleInput(self, text, row, inputWidget, startEnabled):
-        label = QtGui.QLabel(text, self)
+        label = QtWidgets.QLabel(text, self)
         label.setEnabled(startEnabled)
-        check = QtGui.QCheckBox(self)
+        check = QtWidgets.QCheckBox(self)
         check.setChecked(startEnabled)
         self.layout().addWidget(check, row, 0)
         self.layout().addWidget(label, row, 1)
         self.layout().addWidget(inputWidget, row, 2)
-        QtCore.QObject.connect(check, QtCore.SIGNAL("clicked(bool)"),
-                               inputWidget.setEnabled)
-        QtCore.QObject.connect(check, QtCore.SIGNAL("clicked(bool)"),
-                               label.setEnabled)
+        check.clicked.connect(inputWidget.setEnabled)
+        check.clicked.connect(label.setEnabled)
         return (check, inputWidget)
 
     def __createButtons(self, buttons, row, width):
-        self.__buttons = QtGui.QDialogButtonBox(buttons,
+        self.__buttons = QtWidgets.QDialogButtonBox(buttons,
                                                 QtCore.Qt.Horizontal,
                                                 self)
         self.layout().addWidget(self.__buttons, row, 1, 1, width)
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"),
-                               self, QtCore.SLOT("accept()"))
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"),
-                               self, QtCore.SLOT("reject()"))
+        self.__buttons.accepted.connect(self.accept)
+        self.__buttons.rejected.connect(self.reject)
 
     def accept(self):
         __name = str(self._nameValue.text())

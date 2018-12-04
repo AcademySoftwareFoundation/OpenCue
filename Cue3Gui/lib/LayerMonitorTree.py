@@ -32,6 +32,9 @@ def displayRange(layer):
 
 
 class LayerMonitorTree(AbstractTreeWidget):
+
+    handle_filter_layers_byLayer = QtCore.Signal(list)
+
     def __init__(self, parent):
         self.startColumnsForType(Constants.TYPE_LAYER)
         self.addColumn("dispatchOrder", 0, id=1,
@@ -109,9 +112,7 @@ class LayerMonitorTree(AbstractTreeWidget):
 
         AbstractTreeWidget.__init__(self, parent)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
-                               self.__itemDoubleClickedFilterLayer)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
 
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
@@ -212,8 +213,7 @@ class LayerMonitorTree(AbstractTreeWidget):
         menu.exec_(e.globalPos())
 
     def __itemDoubleClickedFilterLayer(self, item, col):
-        self.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"),
-                  [item.iceObject.data.name])
+        self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
 
 class LayerWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):

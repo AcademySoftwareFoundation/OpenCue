@@ -16,7 +16,7 @@
 """
 Displays the email dialog when emailing an artist.
 """
-from Manifest import os, time, QtCore, QtGui, Cue3
+from Manifest import os, time, QtCore, QtGui, QtWidgets, Cue3
 
 import pwd
 import Logger
@@ -29,9 +29,10 @@ import Constants
 
 logger = Logger.getLogger(__file__)
 
-class EmailDialog(QtGui.QDialog):
+
+class EmailDialog(QtWidgets.QDialog):
     def __init__(self, job, format, parent = None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         try:
             self.__frames = job.getFrames(state=[Cue3.api.job_pb2.DEAD])
@@ -47,14 +48,14 @@ class EmailDialog(QtGui.QDialog):
         self.__appendDeadFrameInfo(job)
         self.__logView = LogViewWidget(job, self.__frames, self)
 
-        hlayout = QtGui.QHBoxLayout(self)
+        hlayout = QtWidgets.QHBoxLayout(self)
         hlayout.addWidget(self.__email)
         hlayout.addWidget(self.__logView)
 
         self.__email.giveFocus()
 
-        QtCore.QObject.connect(self.__email, QtCore.SIGNAL("send()"), self.accept)
-        QtCore.QObject.connect(self.__email, QtCore.SIGNAL("cancel()"), self.reject)
+        self.__email.send.connect(self.accept)
+        self.__email.cancel.connect(self.reject)
 
     def __appendDeadFrameInfo(self, job):
         """Adds frame data to email body
@@ -74,36 +75,36 @@ class EmailDialog(QtGui.QDialog):
             except:
                 pass
 
-class LogViewWidget(QtGui.QWidget):
+class LogViewWidget(QtWidgets.QWidget):
     def __init__(self, job, frames, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        QtGui.QVBoxLayout(self)
+        QtWidgets.QWidget.__init__(self, parent)
+        QtWidgets.QVBoxLayout(self)
         ly = self.layout()
 
         self.__job = job
         self.__frames = frames
 
-        self.__sel_frames = QtGui.QComboBox(self)
+        self.__sel_frames = QtWidgets.QComboBox(self)
         for frame in frames:
             self.__sel_frames.addItem(frame.data.name)
 
-        self.__txt_find = QtGui.QLineEdit(self)
+        self.__txt_find = QtWidgets.QLineEdit(self)
 
-        self.__txt_log = QtGui.QPlainTextEdit(self)
+        self.__txt_log = QtWidgets.QPlainTextEdit(self)
         self.__txt_log.setWordWrapMode(QtGui.QTextOption.NoWrap)
         self.__txt_log.ensureCursorVisible()
 
         if self.__frames:
             self.switchLogEvent(self.__frames[0].data.name)
 
-        ly.addWidget(QtGui.QLabel("Select Frame:",self))
+        ly.addWidget(QtWidgets.QLabel("Select Frame:",self))
         ly.addWidget(self.__sel_frames)
-        ly.addWidget(QtGui.QLabel("Find:",self))
+        ly.addWidget(QtWidgets.QLabel("Find:",self))
         ly.addWidget(self.__txt_find)
         ly.addWidget(self.__txt_log)
 
-        QtCore.QObject.connect(self.__sel_frames,QtCore.SIGNAL("activated(QString)"), self.switchLogEvent)
-        QtCore.QObject.connect(self.__txt_find,QtCore.SIGNAL("returnPressed()"), self.findEvent)
+        self.__sel_frames.activated.connect(self.switchLogEvent)
+        self.__txt_find.returnPressed.connect(self.findEvent)
 
     def __getFrame(self, name):
         for frame in self.__frames:
@@ -125,21 +126,27 @@ class LogViewWidget(QtGui.QWidget):
             self.__txt_log.appendPlainText("\n")
             fp.close()
 
-        except Exception,e:
+        except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
-            logger.info("error loading frame: %s, %s" % (str_frame,e))
+            logger.info("error loading frame: %s, %s" % (str_frame, e))
 
     def findEvent(self):
         """attempts to find the text from the find text box,
         highlights and scrolls to it"""
         document = self.__txt_log.document()
-        cursor = document.find(str(self.__txt_find.text()).strip(),self.__txt_log.textCursor().position(),QtGui.QTextDocument.FindBackward)
+        cursor = document.find(
+            str(self.__txt_find.text()).strip(),
+            self.__txt_log.textCursor().position(),
+            QtWidgets.QTextDocument.FindBackward)
         if cursor.position() > 1:
             self.__txt_log.setTextCursor(cursor)
 
-class EmailWidget(QtGui.QWidget):
-    def __init__(self, job, format, parent = None):
-        QtGui.QWidget.__init__(self)
+class EmailWidget(QtWidgets.QWidget):
+
+    send = QtCore.Signal()
+
+    def __init__(self, job, format, parent=None):
+        QtWidgets.QWidget.__init__(self)
 
         self.__job = job
 
@@ -152,54 +159,55 @@ class EmailWidget(QtGui.QWidget):
                                      Constants.EMAIL_BODY_SUFFIX)
         __default_body += "Hi %s,\n\n" % pwd.getpwnam(job.username()).pw_gecos
 
-        self.__btnSend = QtGui.QPushButton("Send", self)
-        self.__btnCancel = QtGui.QPushButton("Cancel", self)
+        self.__btnSend = QtWidgets.QPushButton("Send", self)
+        self.__btnCancel = QtWidgets.QPushButton("Cancel", self)
 
         # Body Widgets
-        self.__email_body = QtGui.QTextEdit(self)
+        self.__email_body = QtWidgets.QTextEdit(self)
         self.appendToBody(__default_body)
-        spacerItem = QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Minimum)
+        spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding,
+                                           QtWidgets.QSizePolicy.Minimum)
 
-        self.__email_from = QtGui.QLineEdit(__default_from, self)
-        self.__email_to = QtGui.QLineEdit(__default_to, self)
-        self.__email_cc = QtGui.QLineEdit(__default_cc, self)
-        self.__email_bcc = QtGui.QLineEdit(__default_bcc, self)
-        self.__email_subject = QtGui.QLineEdit(__default_subject, self)
+        self.__email_from = QtWidgets.QLineEdit(__default_from, self)
+        self.__email_to = QtWidgets.QLineEdit(__default_to, self)
+        self.__email_cc = QtWidgets.QLineEdit(__default_cc, self)
+        self.__email_bcc = QtWidgets.QLineEdit(__default_bcc, self)
+        self.__email_subject = QtWidgets.QLineEdit(__default_subject, self)
 
         # Main Virtical Layout
-        vlayout = QtGui.QVBoxLayout(self)
+        vlayout = QtWidgets.QVBoxLayout(self)
 
         # Top Grid Layout
-        glayout = QtGui.QGridLayout()
+        glayout = QtWidgets.QGridLayout()
         glayout.setContentsMargins(0, 0, 0, 0)
 
-        glayout.addWidget(QtGui.QLabel("From:", self), 0, 0)
+        glayout.addWidget(QtWidgets.QLabel("From:", self), 0, 0)
         glayout.addWidget(self.__email_from, 0, 1)
 
-        glayout.addWidget(QtGui.QLabel("To:", self), 1, 0)
+        glayout.addWidget(QtWidgets.QLabel("To:", self), 1, 0)
         glayout.addWidget(self.__email_to, 1, 1)
 
-        glayout.addWidget(QtGui.QLabel("CC:", self), 2, 0)
+        glayout.addWidget(QtWidgets.QLabel("CC:", self), 2, 0)
         glayout.addWidget(self.__email_cc, 2, 1)
 
-        glayout.addWidget(QtGui.QLabel("BCC:", self), 3, 0)
+        glayout.addWidget(QtWidgets.QLabel("BCC:", self), 3, 0)
         glayout.addWidget(self.__email_bcc, 3, 1)
 
-        glayout.addWidget(QtGui.QLabel("Subject:", self), 4, 0)
+        glayout.addWidget(QtWidgets.QLabel("Subject:", self), 4, 0)
         glayout.addWidget(self.__email_subject, 4, 1)
 
         vlayout.addLayout(glayout)
         vlayout.addWidget(self.__email_body)
 
         # Bottom Horizontal Layout
-        hlayout = QtGui.QHBoxLayout()
+        hlayout = QtWidgets.QHBoxLayout()
         hlayout.addItem(spacerItem)
         hlayout.addWidget(self.__btnSend)
         hlayout.addWidget(self.__btnCancel)
         vlayout.addLayout(hlayout)
 
-        QtCore.QObject.connect(self.__btnSend, QtCore.SIGNAL("clicked()"), self.sendEmail)
-        QtCore.QObject.connect(self.__btnCancel, QtCore.SIGNAL("clicked()"), self, QtCore.SIGNAL("cancel()"))
+        self.__btnSend.clicked.connect(self.sendEmail)
+        self.__btnCancel.clicked.connect(self.cancel.emit)
 
     def giveFocus(self):
         self.__email_body.setFocus(QtCore.Qt.OtherFocusReason)
@@ -234,7 +242,7 @@ class EmailWidget(QtGui.QWidget):
         self.__email_body.setText(txt)
 
     def sendEmail(self):
-        self.emit(QtCore.SIGNAL("send()"))
+        self.send.emit()
 
         msg = MIMEText(self.email_body())
         msg["Subject"] = Header(self.email_subject(), continuation_ws=' ')

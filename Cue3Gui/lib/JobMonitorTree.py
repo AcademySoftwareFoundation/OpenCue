@@ -16,7 +16,7 @@
 """
 A monitored job list based on AbstractTreeWidget
 """
-from Manifest import os, sys, QtCore, QtGui, Cue3
+from Manifest import os, sys, QtCore, QtGui, QtWidgets, Cue3
 
 import time
 
@@ -25,8 +25,8 @@ import Constants
 import Style
 import Logger
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
 from ItemDelegate import JobProgressBarDelegate
 
 logger = Logger.getLogger(__file__)
@@ -35,6 +35,7 @@ COLUMN_NAME = 0
 COLUMN_COMMENT = 1
 COLUMN_AUTOEAT = 2
 COLUMN_STATE = 3
+
 
 def displayState(job):
     """Returns the string to display in the status for the given job
@@ -54,8 +55,10 @@ def displayState(job):
         return "Dependency"
     return "In Progress"
 
+
 class JobMonitorTree(AbstractTreeWidget):
     __loadMine = True
+    view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
         self.startColumnsForType(Constants.TYPE_JOB)
@@ -137,14 +140,10 @@ class JobMonitorTree(AbstractTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
-        self.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedComment)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedComment)
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
@@ -171,7 +170,7 @@ class JobMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
         if selected:
-            QtGui.QApplication.clipboard().setText(" ".join(selected),
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
                                                    QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
@@ -224,15 +223,15 @@ class JobMonitorTree(AbstractTreeWidget):
         """Removes an item from the TreeWidget without locking
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
-        QtGui.qApp.emit(QtCore.SIGNAL('unmonitor(PyQt_PyObject)'), item.iceObject.proxy)
+        QtGui.qApp.unmonitor.emit(item.rpcObject)
         AbstractTreeWidget._removeItem(self, item)
-        self.__jobTimeLoaded.pop(item.iceObject.proxy, "")
+        self.__jobTimeLoaded.pop(item.rpcObject, "")
 
     def removeAllItems(self):
         """Notifies the other widgets of each item being unmonitored, then calls
         the the AbstractTreeWidget.removeAllItems like normal"""
         for proxy in self._items.keys():
-            QtGui.qApp.emit(QtCore.SIGNAL('unmonitor(PyQt_PyObject)'), proxy)
+            QtGui.qApp.unmonitor.emit(proxy)
             if self.__jobTimeLoaded.has_key(proxy):
                 del self.__jobTimeLoaded[proxy]
         AbstractTreeWidget.removeAllItems(self)
@@ -246,7 +245,7 @@ class JobMonitorTree(AbstractTreeWidget):
         """Creates a context menu when an item is right clicked.
         @param e: Right click QEvent
         @type  e: QEvent"""
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         __selectedObjects = self.selectedObjects()
         __count = len(__selectedObjects)
@@ -258,7 +257,7 @@ class JobMonitorTree(AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "viewComments")
         self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
-        depend_menu = QtGui.QMenu("&Dependencies",self)
+        depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
         self.__menuActions.jobs().addAction(depend_menu, "dependWizard")
         depend_menu.addSeparator()
@@ -266,7 +265,7 @@ class JobMonitorTree(AbstractTreeWidget):
         self.__menuActions.jobs().addAction(depend_menu, "dropInternalDependencies")
         menu.addMenu(depend_menu)
 
-        color_menu = QtGui.QMenu("&Set user color",self)
+        color_menu = QtWidgets.QMenu("&Set user color",self)
         self.__menuActions.jobs().addAction(color_menu, "setUserColor1")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor2")
         self.__menuActions.jobs().addAction(color_menu, "setUserColor3")
@@ -428,26 +427,19 @@ class JobWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent, created):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__commentIcon = \
-                                    QtCore.QVariant(QtGui.QIcon(":comment.png"))
-            self.__class__.__eatIcon = QtCore.QVariant(QtGui.QIcon(":eat.png"))
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                          QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__pausedColor = \
-                   QtCore.QVariant(Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND)
-            self.__class__.__dyingColor = \
-                    QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND)
-            self.__class__.__finishedColor = \
-                 QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND)
-            self.__class__.__newJobColor = \
-                                      QtCore.QVariant(QtGui.QColor(255,255,255))
+            self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__finishedColor = Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
+            self.__class__.__newJobColor = QtGui.QColor(255, 255, 255)
             __font = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
             __font.setUnderline(True)
-            self.__class__.__newJobFont = QtCore.QVariant(__font)
-            self.__class__.__centerAlign = QtCore.QVariant(QtCore.Qt.AlignCenter)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_JOB)
+            self.__class__.__newJobFont = __font
+            self.__class__.__centerAlign = QtCore.Qt.AlignCenter
+            self.__class__.__type = Constants.TYPE_JOB
 
         # Keeps time when job was first loaded
         self.created = created or time.time()
@@ -459,7 +451,7 @@ class JobWidgetItem(AbstractWidgetItem):
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject)
 
         elif role == QtCore.Qt.ForegroundRole:
             if col == 0:
@@ -495,12 +487,12 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            return QtCore.QVariant(self.iceObject.frameStateTotals())
+            return self.iceObject.frameStateTotals()
 
         elif role == QtCore.Qt.UserRole + 2:
-            return QtCore.QVariant(self.iceObject.state())
+            return self.iceObject.state()
 
         elif role == QtCore.Qt.UserRole + 3:
-            return QtCore.QVariant(self.iceObject.isPaused())
+            return self.iceObject.isPaused()
 
         return Constants.QVARIANT_NULL

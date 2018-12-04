@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import os, time, QtCore, QtGui
+from Manifest import os, time, QtCore, QtGui, QtWidgets
 
 __all__ = ["SplashWindow"]
 
@@ -29,8 +29,7 @@ class SplashWindow(object):
         image = self._findSplash(app_name, version, resource_path)
         if image:
             pixmap = QtGui.QPixmap.fromImage(image)
-            self.splash = QtGui.QSplashScreen(None, pixmap,
-                                              QtCore.Qt.WindowStaysOnTopHint)
+            self.splash = QtWidgets.QSplashScreen(pixmap, QtCore.Qt.WindowStaysOnTopHint)
             self.splash.show()
             self.app.processEvents()
 

@@ -48,6 +48,5 @@ class DependDialog(QtGui.QDialog):
         self.hlayout.addWidget(self._depend)
 
         self.setLayout(self.hlayout)
-
-        QtCore.QObject.connect(self._depend, QtCore.SIGNAL("send()"), self.accept)
-        QtCore.QObject.connect(self._depend, QtCore.SIGNAL("cancel()"), self.reject)
+        self._depend.send.connect(self.accept)
+        self._depend.cancel.connect(self.reject)

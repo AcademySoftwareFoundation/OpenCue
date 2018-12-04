@@ -19,19 +19,20 @@ A Widget for displaying and editing Tags
 
 
 import re
+
 import Constants
-from Manifest import QtCore, QtGui
 from AbstractDialog import CheckBoxSelectionMatrix
+from Manifest import QtCore, QtWidgets
 
 
-class TagsWidget(QtGui.QWidget):
-    '''
+class TagsWidget(QtWidgets.QWidget):
+    """
     A Widget for displaying and editing Tags.Includes checkboxes for the given
     list of standard tag options, and a textfield for the user to enter one or
     more custom tags
-    '''
+    """
     def __init__(self, allowed_tags=None, parent=None):
-        '''
+        """
         A Widget for displaying and editing Tags
 
         @ivar allowed_tags: The list of tags to include in the Standard
@@ -39,11 +40,11 @@ class TagsWidget(QtGui.QWidget):
         @type allowed_tags: list<str>
 
         @ivar parent: The parent widget for this TagsWidget. Default is None
-        @type parent: QtGui.QWidget
-        '''
+        @type parent: QtWidgets.QWidget
+        """
 
-        QtGui.QWidget.__init__(self, parent)
-        layout = QtGui.QGridLayout(self)
+        QtWidgets.QWidget.__init__(self, parent)
+        layout = QtWidgets.QGridLayout(self)
 
         # Standard Tags
         if not allowed_tags:
@@ -55,23 +56,21 @@ class TagsWidget(QtGui.QWidget):
         layout.addWidget(self.standard_tags, 0, 0, 1, 2)
 
         # Custom Tags
-        self.__enable_custom = QtGui.QCheckBox('Custom Tags', self)
-        self.__custom = QtGui.QLineEdit(self)
+        self.__enable_custom = QtWidgets.QCheckBox('Custom Tags', self)
+        self.__custom = QtWidgets.QLineEdit(self)
         self.__custom.setDisabled(True)
-        QtCore.QObject.connect(self.__enable_custom,
-                               QtCore.SIGNAL('toggled(bool)'),
-                               self.toggleCustom)
+        self.__enable_custom.toggled.connect(self.toggleCustom)
         layout.addWidget(self.__enable_custom)
         layout.addWidget(self.__custom)
         layout.setContentsMargins(0, 0, 0, 0)
 
     def toggleCustom(self, state):
-        '''
+        """
         Toggles the "custom tags" checkBox on and off.
 
         @param state: The state to set the "custom tags" checkBox to
         @type state: bool
-        '''
+        """
 
         if state:
             self.__enableCustom()
@@ -79,28 +78,28 @@ class TagsWidget(QtGui.QWidget):
             self.__disableCustom()
 
     def __enableCustom(self):
-        '''
+        """
         Enables the "custom tags" checkBox and disables the standard "tags"
-        '''
+        """
 
         self.standard_tags.setDisabled(True)
         self.__custom.setDisabled(False)
 
     def __disableCustom(self):
-        '''
+        """
         Disables the "custom tags" checkBox and enables the standard "tags"
-        '''
+        """
 
         self.standard_tags.setDisabled(False)
         self.__custom.setDisabled(True)
 
     def set_tags(self, tags=None):
-        '''
+        """
         Set the tags value based on the given list of tags.
 
         @param tags: The list of tags to set
         @type tags: iter<str>
-        '''
+        """
 
         current_tags = tags or []
         if set(current_tags).issubset(Constants.ALLOWED_TAGS):
@@ -115,14 +114,13 @@ class TagsWidget(QtGui.QWidget):
             self.__custom.setText(','.join(current_tags))
 
     def get_tags(self):
-        '''
+        """
         Returns the list of selected tags or manually entered custom tags
 
         @return: The list of selected tags or manually entered custom tags
         @rtype: list<str>
-        '''
+        """
 
-        tags = []
         if self.__enable_custom.isChecked():
             tags = str(self.__custom.text())
             tags = re.split('[\s,|]+', tags)
@@ -131,11 +129,11 @@ class TagsWidget(QtGui.QWidget):
         return [tag.strip() for tag in tags if tag.strip().isalnum()]
 
     def is_custom_enabled(self):
-        '''
+        """
         Returns whether or not the "custom tags" checkbox is enabled
 
         @return: Whether or not the "custom tags" checkbox is enabled
         @rtype: bool
-        '''
+        """
 
         return self.__enable_custom.isChecked()

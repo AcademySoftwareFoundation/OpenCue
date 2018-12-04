@@ -13,28 +13,26 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
-
-from MenuActions import MenuActions
-import Utils
-import Constants
 import Logger
-
+import Utils
 from HostMonitorTree import HostMonitorTree
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
+
 
 log = Logger.getLogger(__file__)
 
 FILTER_HEIGHT = 20
 
-class HostMonitor(QtGui.QWidget):
+
+class HostMonitor(QtWidgets.QWidget):
     """This contains the frame list table with controls at the top"""
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         self.hostMonitorTree = HostMonitorTree(self)
 
         # Setup main vertical layout
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(layout)
 
@@ -42,7 +40,7 @@ class HostMonitor(QtGui.QWidget):
         self.layout().setSpacing(4)
 
         # This hlayout would contain any filter/control buttons
-        hlayout = QtGui.QHBoxLayout()
+        hlayout = QtWidgets.QHBoxLayout()
         self.__filterByHostNameSetup(hlayout)      # Menu to filter by host name
         self.__filterAllocationSetup(hlayout)    # Menu to filter by allocation
         self.__filterHardwareStateSetup(hlayout) # Menu to filter by hardware state
@@ -69,7 +67,7 @@ class HostMonitor(QtGui.QWidget):
 # Text box to filter by host name
 # ==============================================================================
     def __filterByHostNameSetup(self, layout):
-        btn = QtGui.QLineEdit(self)
+        btn = QtWidgets.QLineEdit(self)
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFixedWidth(155)
         btn.setFocusPolicy(QtCore.Qt.StrongFocus)
@@ -82,7 +80,7 @@ class HostMonitor(QtGui.QWidget):
                                QtCore.SIGNAL('editingFinished()'),
                                self.__filterByHostNameHandle)
 
-        btn = QtGui.QPushButton("Clr")
+        btn = QtWidgets.QPushButton("Clr")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFixedWidth(24)
@@ -109,15 +107,20 @@ class HostMonitor(QtGui.QWidget):
 # Menu to filter by allocation
 # ==============================================================================
     def __filterAllocationSetup(self, layout):
-        self.__filterAllocationList = sorted([alloc.name() for alloc in Cue3.api.getAllocations()])
+        try:
+            self.__filterAllocationList = sorted(
+                [alloc.name() for alloc in Cue3.api.getAllocations()])
+        except Cue3.CueException, e:
+            Utils.showErrorMessageBox("Could not connect to Cuebot! Unable to retrieve allocations.")
+            return
 
-        btn = QtGui.QPushButton("Filter Allocation")
+        btn = QtWidgets.QPushButton("Filter Allocation")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         btn.setFlat(True)
 
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
@@ -125,7 +128,7 @@ class HostMonitor(QtGui.QWidget):
 
         for item in ["Clear", None] + self.__filterAllocationList:
             if item:
-                a = QtGui.QAction(menu)
+                a = QtWidgets.QAction(menu)
                 a.setText(str(item))
                 if item != "Clear":
                     a.setCheckable(True)
@@ -174,13 +177,13 @@ class HostMonitor(QtGui.QWidget):
         self.__filterHardwareStateList = sorted(
             [state for state in dir(Cue3.api.host_pb2.HardwareState) if not state.startswith("_")])
 
-        btn = QtGui.QPushButton("Filter HardwareState")
+        btn = QtWidgets.QPushButton("Filter HardwareState")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         btn.setFlat(True)
 
-        menu = QtGui.QMenu(self)
+        menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
         QtCore.QObject.connect(menu,
                                QtCore.SIGNAL("triggered(QAction*)"),
@@ -188,7 +191,7 @@ class HostMonitor(QtGui.QWidget):
 
         for item in ["Clear", None] + self.__filterHardwareStateList:
             if item:
-                a = QtGui.QAction(menu)
+                a = QtWidgets.QAction(menu)
                 a.setText(str(item))
                 if item != "Clear":
                     a.setCheckable(True)
@@ -237,7 +240,7 @@ class HostMonitor(QtGui.QWidget):
 # Checkbox to toggle auto-refresh
 # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
-        checkBox = QtGui.QCheckBox("Auto-refresh", self)
+        checkBox = QtWidgets.QCheckBox("Auto-refresh", self)
         layout.addWidget(checkBox)
         if self.hostMonitorTree.enableRefresh:
             checkBox.setCheckState(QtCore.Qt.Checked)
@@ -256,17 +259,12 @@ class HostMonitor(QtGui.QWidget):
         """Sets up the refresh button, adds it to the given layout
         @param layout: The layout to add the button to
         @type  layout: QLayout"""
-        self.btn_refresh = QtGui.QPushButton("Refresh")
+        self.btn_refresh = QtWidgets.QPushButton("Refresh")
         self.btn_refresh.setMaximumHeight(FILTER_HEIGHT)
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        QtCore.QObject.connect(self.btn_refresh,
-                               QtCore.SIGNAL('clicked()'),
-                               self.hostMonitorTree.updateRequest)
-
-        QtCore.QObject.connect(self.hostMonitorTree,
-                               QtCore.SIGNAL("updated()"),
-                               self.__refreshButtonDisableHandle)
+        self.btn_refresh.clicked.connect(self.hostMonitorTree.updateRequest)
+        self.hostMonitorTree.updated.connect(self.__refreshButtonDisableHandle)
 
     def __refreshButtonEnableHandle(self):
         """Called when the refresh button should be enabled"""
@@ -284,14 +282,12 @@ class HostMonitor(QtGui.QWidget):
         """Sets up the clear button, adds it to the given layout
         @param layout: The layout to add the button to
         @type  layout: QLayout"""
-        btn = QtGui.QPushButton("Clear")
+        btn = QtWidgets.QPushButton("Clear")
         btn.setMaximumHeight(FILTER_HEIGHT)
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        QtCore.QObject.connect(btn,
-                               QtCore.SIGNAL('clicked()'),
-                               self.__clearButtonHandle)
+        btn.clicked.connect(self.__clearButtonHandle)
 
     def __clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -305,9 +301,7 @@ class HostMonitor(QtGui.QWidget):
 # Monitors and handles the view_hosts signal
 # ==============================================================================
     def __viewHostsSetup(self):
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('view_hosts(PyQt_PyObject)'),
-                               self.__viewHostsHandle)
+        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
 
     def __viewHostsHandle(self, hosts):
         self.__clearButtonHandle()

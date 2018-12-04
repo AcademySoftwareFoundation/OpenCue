@@ -7,6 +7,3 @@ cuebot.facility:
         - cue3bot2.spimageworks.com:9019
         - cue3bot3.spimageworks.com:9019
 cuebot.timeout: 10000
-ice.init:
-    Ice.ACM.Client: 60
-    Ice.MessageSizeMax: 102400

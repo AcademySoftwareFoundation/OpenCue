@@ -13,12 +13,12 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import QtCore, QtWidgets, Cue3
 
 
-class SubscriptionCreator(QtGui.QWidget):
+class SubscriptionCreator(QtWidgets.QWidget):
     def __init__(self, show=None, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         show_name = ""
         if show:
             try:
@@ -29,12 +29,12 @@ class SubscriptionCreator(QtGui.QWidget):
         self.__shows = Cue3.api.getShows()
         self.__allocs = Cue3.api.getAllocations()
 
-        layout = QtGui.QFormLayout(self)
+        layout = QtWidgets.QFormLayout(self)
 
-        self.showBox = QtGui.QComboBox(self)
-        self.allocBox = QtGui.QComboBox(self)
-        self.sizeBox = QtGui.QDoubleSpinBox(self)
-        self.burstBox = QtGui.QDoubleSpinBox(self)
+        self.showBox = QtWidgets.QComboBox(self)
+        self.allocBox = QtWidgets.QComboBox(self)
+        self.sizeBox = QtWidgets.QDoubleSpinBox(self)
+        self.burstBox = QtWidgets.QDoubleSpinBox(self)
 
         self.showBox.addItems([s.data.name for s in self.__shows])
         defaultIndex = self.showBox.findText(show_name)
@@ -64,27 +64,28 @@ class SubscriptionCreator(QtGui.QWidget):
             # show.proxy.createSubscription(alloc.proxy,
             #     float(self.sizeBox.value()), float(self.burstBox.value()))
         except Exception, e:
-            QtGui.QMessageBox.warning(self,
+            QtWidgets.QMessageBox.warning(
+                self,
                 "Create Subscription",
                 "An exception occured while creating a subscription: %s" % e,
-                QtGui.QMessageBox.Ok)
+                QtWidgets.QMessageBox.Ok)
 
 
-class SubscriptionCreatorDialog(QtGui.QDialog):
+class SubscriptionCreatorDialog(QtWidgets.QDialog):
     def __init__(self, show=None, parent=None):
-        QtGui.QDialog.__init__(self)
+        QtWidgets.QDialog.__init__(self)
 
         self.__creator = SubscriptionCreator(show, self)
-        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        self.__buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel)
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__creator)
         layout.addWidget(self.__buttons)
 
-        self.resize(400,0)
-
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"), self.create)
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"), self.close)
+        self.resize(400, 0)
+        self.__buttons.accepted.connect(self.create)
+        self.__buttons.rejected.connect(self.close)
 
     def create(self):
         self.__creator.create()

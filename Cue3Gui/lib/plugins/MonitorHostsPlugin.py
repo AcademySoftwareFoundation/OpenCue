@@ -13,17 +13,17 @@
 #  limitations under the License.
 
 
-import os
-import time
+from PySide2 import QtCore, QtWidgets
+
 import Cue3Gui
 
-from PyQt4 import QtGui, QtCore
 
 PLUGIN_NAME = "Monitor Hosts"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to hosts and procs"
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "HostMonitorDockWidget"
+
 
 class HostMonitorDockWidget(Cue3Gui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
@@ -32,7 +32,7 @@ class HostMonitorDockWidget(Cue3Gui.AbstractDockWidget):
 
         self.__monitorHosts = Cue3Gui.HostMonitor(self)
         self.__monitorProcs = Cue3Gui.ProcMonitor(self)
-        self.__splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+        self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.layout().addWidget(self.__splitter)
 

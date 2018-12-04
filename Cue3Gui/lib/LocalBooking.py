@@ -13,19 +13,23 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, Cue3, os
-import Utils
 import time
-
 from socket import gethostname
 
-class LocalBookingWidget(QtGui.QWidget):
+import Utils
+from Manifest import QtCore, QtWidgets, Cue3, os
+
+
+class LocalBookingWidget(QtWidgets.QWidget):
     """
     A widget for creating Cue3 RenderParitions, otherwise know
     as local core booking.
     """
+
+    hosts_changed = QtCore.Signal()
+
     def __init__(self, target, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         # Can either be a Cue3 job, layer, or frame.
         self.__target = target
@@ -33,12 +37,12 @@ class LocalBookingWidget(QtGui.QWidget):
 
         self.jobName = self.getTargetJobName()
 
-        QtGui.QVBoxLayout(self)
+        QtWidgets.QVBoxLayout(self)
 
-        layout = QtGui.QGridLayout()
+        layout = QtWidgets.QGridLayout()
 
-        self.__select_host = QtGui.QComboBox(self)
-        self.__lba_group = QtGui.QGroupBox("Settings", self)
+        self.__select_host = QtWidgets.QComboBox(self)
+        self.__lba_group = QtWidgets.QGroupBox("Settings", self)
 
         try:
             owner = Cue3.api.getOwner(os.environ["USER"])
@@ -51,114 +55,89 @@ class LocalBookingWidget(QtGui.QWidget):
         self.__deed_button = None
         self.__msg_widget = None
         if self.__select_host.count() == 0:
-            self.__deed_button = QtGui.QPushButton("Deed This Machine", self)
+            self.__deed_button = QtWidgets.QPushButton("Deed This Machine", self)
             msg = "You have not deeded any hosts or they are not NIMBY locked."
-            self.__msg_widget = QtGui.QLabel(msg, self)
+            self.__msg_widget = QtWidgets.QLabel(msg, self)
             self.layout().addWidget(self.__msg_widget)
             self.layout().addWidget(self.__deed_button)
-            QtCore.QObject.connect(self.__deed_button, 
-                                   QtCore.SIGNAL("pressed()"),
-                                   self.deedLocalhost)
+            self.__deed_button.pressed.connect(self.deedLocalhost)
             self.__lba_group.setDisabled(True)
 
-        self.__text_target = QtGui.QLabel(self.__target.data.name, self)
+        self.__text_target = QtWidgets.QLabel(self.__target.data.name, self)
 
-        self.__num_threads = QtGui.QSpinBox(self)
+        self.__num_threads = QtWidgets.QSpinBox(self)
         self.__num_threads.setValue(1);
 
-        self.__num_cores = QtGui.QLineEdit(self)
+        self.__num_cores = QtWidgets.QLineEdit(self)
         self.__num_cores.setText("1");
         self.__num_cores.setReadOnly(True)
 
-        self.__num_frames = QtGui.QSpinBox(self)
+        self.__num_frames = QtWidgets.QSpinBox(self)
         self.__num_frames.setValue(1)
 
-        self.__frame_warn = QtGui.QLabel(self)
+        self.__frame_warn = QtWidgets.QLabel(self)
 
-        self.__num_mem = QtGui.QSlider(self)
+        self.__num_mem = QtWidgets.QSlider(self)
         self.__num_mem.setValue(4);
         self.__num_mem.setOrientation(QtCore.Qt.Horizontal)
-        self.__num_mem.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.__num_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_mem.setTickInterval(1)
 
-        self.__text_num_mem = QtGui.QSpinBox(self)
+        self.__text_num_mem = QtWidgets.QSpinBox(self)
         self.__text_num_mem.setValue(4)
         self.__text_num_mem.setSuffix("GB")
 
         #
         # Next layout is if the deed is in use.
         #
-        layout2 = QtGui.QGridLayout()
+        layout2 = QtWidgets.QGridLayout()
 
-        self.__run_group = QtGui.QGroupBox("Deed Currently in Use", self)
+        self.__run_group = QtWidgets.QGroupBox("Deed Currently in Use", self)
 
-        self.__run_cores = QtGui.QSpinBox(self)
+        self.__run_cores = QtWidgets.QSpinBox(self)
 
-        self.__run_mem = QtGui.QSlider(self)
+        self.__run_mem = QtWidgets.QSlider(self)
         self.__run_mem.setValue(4)
         self.__run_mem.setOrientation(QtCore.Qt.Horizontal)
-        self.__run_mem.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.__run_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__run_mem.setTickInterval(1)
 
-        self.__text_run_mem = QtGui.QSpinBox(self)
+        self.__text_run_mem = QtWidgets.QSpinBox(self)
         self.__text_run_mem.setValue(4)
         self.__text_run_mem.setSuffix("GB")
 
-        self.__btn_clear = QtGui.QPushButton("Clear", self)
+        self.__btn_clear = QtWidgets.QPushButton("Clear", self)
 
 
         #
         # Setup the signals.
         #
-        QtCore.QObject.connect(self.__btn_clear,
-                               QtCore.SIGNAL("pressed()"),
-                               self.clearCurrentHost)
+        self.__btn_clear.pressed.connect(self.clearCurrentHost)
+        self.__select_host.activated.connect(self.__host_changed)
+        self.__num_mem.valueChanged.connect(self.__text_num_mem.setValue)
+        self.__text_num_mem.valueChanged.connect(self.__num_mem.setValue)
+        self.__num_threads.valueChanged.connect(self.__calculateCores)
+        self.__num_frames.valueChanged.connect(self.__calculateCores)
+        self.__run_mem.valueChanged.connect(self.__text_run_mem.setValue)
+        self.__text_run_mem.valueChanged.connect(self.__run_mem.setValue)
 
-        QtCore.QObject.connect(self.__select_host,
-                               QtCore.SIGNAL("activated(QString)"),
-                               self.__host_changed)
-
-        QtCore.QObject.connect(self.__num_mem,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__text_num_mem.setValue)
-
-        QtCore.QObject.connect(self.__text_num_mem,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__num_mem.setValue)
-
-        QtCore.QObject.connect(self.__num_threads,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__calculateCores)
-
-        QtCore.QObject.connect(self.__num_frames,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__calculateCores)
-
-        QtCore.QObject.connect(self.__run_mem,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__text_run_mem.setValue)
-
-        QtCore.QObject.connect(self.__text_run_mem,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__run_mem.setValue)
-
-        self.layout().addWidget(QtGui.QLabel("Target Host:"))
+        self.layout().addWidget(QtWidgets.QLabel("Target Host:"))
         self.layout().addWidget(self.__select_host)
 
-        layout.addWidget(QtGui.QLabel("Target:"), 1, 0)
+        layout.addWidget(QtWidgets.QLabel("Target:"), 1, 0)
         layout.addWidget(self.__text_target, 1, 1, 1, 3)
 
-        layout.addWidget(QtGui.QLabel("Parallel Frames:"), 2, 0)
+        layout.addWidget(QtWidgets.QLabel("Parallel Frames:"), 2, 0)
         layout.addWidget(self.__num_frames, 2, 1)
 
-        layout.addWidget(QtGui.QLabel("Threads: "), 2, 2)
+        layout.addWidget(QtWidgets.QLabel("Threads: "), 2, 2)
         layout.addWidget(self.__num_threads, 2, 3)
 
-        layout.addWidget(QtGui.QLabel("Cores: "), 3, 0)
+        layout.addWidget(QtWidgets.QLabel("Cores: "), 3, 0)
         layout.addWidget(self.__num_cores, 3, 1)
         layout.addWidget(self.__frame_warn, 3, 2, 1, 2)
 
-        layout.addWidget(QtGui.QLabel("Memory (GB): "), 4, 0)
+        layout.addWidget(QtWidgets.QLabel("Memory (GB): "), 4, 0)
 
         layout.addWidget(self.__num_mem, 4, 1, 1, 2)
         layout.addWidget(self.__text_num_mem, 4, 3)
@@ -166,10 +145,10 @@ class LocalBookingWidget(QtGui.QWidget):
         #
         # Layout 2
         #
-        layout2.addWidget(QtGui.QLabel("Running Cores:"), 1, 0)
+        layout2.addWidget(QtWidgets.QLabel("Running Cores:"), 1, 0)
         layout2.addWidget(self.__run_cores, 1, 1)
 
-        layout2.addWidget(QtGui.QLabel("Memory (GB): "), 3, 0)
+        layout2.addWidget(QtWidgets.QLabel("Memory (GB): "), 3, 0)
         layout2.addWidget(self.__run_mem, 3, 1, 1, 2)
         layout2.addWidget(self.__text_run_mem, 3, 3)
 
@@ -181,7 +160,7 @@ class LocalBookingWidget(QtGui.QWidget):
         self.__run_group.setLayout(layout2)
         self.__lba_group.setLayout(layout)
 
-        self.__stack = QtGui.QStackedLayout()
+        self.__stack = QtWidgets.QStackedLayout()
         self.__stack.addWidget(self.__lba_group)
         self.__stack.addWidget(self.__run_group)
 
@@ -237,7 +216,7 @@ class LocalBookingWidget(QtGui.QWidget):
         try:
             _show = Cue3.api.findShow(show_name)
         except Exception, e:
-            msg = QtGui.QMessageBox(self)
+            msg = QtWidgets.QMessageBox(self)
             msg.setText("Error %s, please setshot and rerun cuetopia3", e)
             msg.exec_()
             return
@@ -262,10 +241,10 @@ class LocalBookingWidget(QtGui.QWidget):
                 self.__msg_widget.setVisible(False)
             self.__deed_button = None
             self.__msg_widget = None
-            self.emit(QtCore.SIGNAL("hosts_changed()"))
-            
+            self.hosts_changed.emit()
+
         except Exception, e:
-            msg = QtGui.QMessageBox(self)
+            msg = QtWidgets.QMessageBox(self)
             msg.setText("Unable to determine your machine's hostname. " +
                         "It is not setup properly for local booking")
 
@@ -345,20 +324,20 @@ class LocalBookingWidget(QtGui.QWidget):
                                                    0)
 
 
-class LocalBookingDialog(QtGui.QDialog):
+class LocalBookingDialog(QtWidgets.QDialog):
     """
     A dialog to wrap a LocalBookingWidget.  Provides action buttons.
     """
     def __init__(self, target, parent=None):
-        QtGui.QDialog.__init__(self, parent)
-        QtGui.QVBoxLayout(self)
-        btn_layout = QtGui.QHBoxLayout()
+        QtWidgets.QDialog.__init__(self, parent)
+        QtWidgets.QVBoxLayout(self)
+        btn_layout = QtWidgets.QHBoxLayout()
 
         self.setWindowTitle("Assign Local Cores")
         self.__booking = LocalBookingWidget(target, parent)
 
-        self.__btn_ok = QtGui.QPushButton("Ok")
-        self.__btn_cancel = QtGui.QPushButton("Cancel")
+        self.__btn_ok = QtWidgets.QPushButton("Ok")
+        self.__btn_cancel = QtWidgets.QPushButton("Cancel")
 
         self.__updateOkButtion()
 
@@ -369,11 +348,9 @@ class LocalBookingDialog(QtGui.QDialog):
         self.layout().addWidget(self.__booking)
         self.layout().addLayout(btn_layout)
 
-        QtCore.QObject.connect(self.__booking, QtCore.SIGNAL("hosts_changed()"), self.__updateOkButtion)
-        QtCore.QObject.connect(self.__btn_ok,  QtCore.SIGNAL("pressed()"),
-                               self.doLocalBooking)
-        QtCore.QObject.connect(self.__btn_cancel, QtCore.SIGNAL("pressed()"),
-                               self.close)
+        self.__booking.hosts_changed.connect(self.__updateOkButtion)
+        self.__btn_ok.pressed.connect(self.doLocalBooking)
+        self.__btn_cancel.pressed.connect(self.close)
 
     def __updateOkButtion(self):
         self.__btn_ok.setDisabled(not self.__booking.hostAvailable())
@@ -383,7 +360,7 @@ class LocalBookingDialog(QtGui.QDialog):
             self.__booking.bookCurrentHost()
             self.close()
         except Exception, e:
-            msg = QtGui.QMessageBox(self)
+            msg = QtWidgets.QMessageBox(self)
             msg.setText("Failed to book local cores.  \
 There were no pending frames that met your criteria.  Be sure to double check \
 if your allocating enough memory and that your job has waiting frames.")

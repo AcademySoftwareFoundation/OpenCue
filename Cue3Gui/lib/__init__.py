@@ -58,7 +58,7 @@ from GraphSubscriptionsWidget import GraphSubscriptionsWidget
 from CueStateBarWidget import CueStateBarWidget
 from Plugins import Plugin
 from Redirect import RedirectWidget
-from ServiceDialog import *
+from ServiceDialog import ServiceDialog, ServiceForm, ServiceManager
 
 import Style
 import ThreadPool

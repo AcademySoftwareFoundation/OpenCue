@@ -13,8 +13,8 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore,QtGui
+from Manifest import QtWidgets
 
-class ApplicationConfig(QtGui.QWidget):
+class ApplicationConfig(QtWidgets.QWidget):
     def __init__(self):
         pass
