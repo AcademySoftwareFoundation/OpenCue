@@ -112,9 +112,10 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
             hostNames = Cue3Gui.Utils.dropEvent(event, "application/x-host-names")
             if hostIds and \
                Cue3Gui.Utils.questionBoxYesNo(self, "Move hosts to new allocation?",
-                                              "Move the hosts into the allocation: \"%s\"?" % item.iceObject.data.name,
+                                              "Move the hosts into the allocation: \"%s\"?" %
+                                              item.rpcObject.data.name,
                                               hostNames):
-                item.iceObject.reparentHosts(hostIds)
+                item.rpcObject.reparentHosts(hostIds)
                 self.updateSoon()
 
 class AllocationWidgetItem(Cue3Gui.AbstractWidgetItem):

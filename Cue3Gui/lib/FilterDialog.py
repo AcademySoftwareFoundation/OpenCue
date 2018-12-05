@@ -263,7 +263,7 @@ class MatcherMonitorTree(AbstractTreeWidget):
                 self._itemsLock.lockForWrite()
                 try:
                     for item in self._items.values():
-                        item.iceObject.delete()
+                        item.rpcObject.delete()
                 finally:
                     self._itemsLock.unlock()
                 self.removeAllItems()
@@ -432,7 +432,7 @@ class ActionMonitorTree(AbstractTreeWidget):
                 self._itemsLock.lockForWrite()
                 try:
                     for item in self._items.values():
-                        item.iceObject.delete()
+                        item.rpcObject.delete()
                 finally:
                     self._itemsLock.unlock()
                 self.removeAllItems()
@@ -451,18 +451,19 @@ class FilterWidgetItem(AbstractWidgetItem):
         self.updateWidgets()
 
     def setType(self, text):
-        self.iceObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
 
     def setEnabled(self, value):
-        self.iceObject.setEnabled(bool(value))
+        self.rpcObject.setEnabled(bool(value))
 
     def delete(self):
         result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Filter?",
-                                           "Are you sure you want to delete this filter?\n\n%s" % self.iceObject.name(),
+                                           "Are you sure you want to delete this filter?\n\n%s" %
+                                                self.rpcObject.name(),
                                            QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
         if result == QtWidgets.QMessageBox.Yes:
-            self.iceObject.delete()
+            self.rpcObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
     def __delete(self):
@@ -482,8 +483,8 @@ class FilterWidgetItem(AbstractWidgetItem):
             combo.currentIndexChanged.connect(self.setType)
             self.__widgets["type"] = combo
 
-        self.__widgets["type"].setCurrentIndex(FILTERTYPE.index(str(self.iceObject.type())))
-        if self.iceObject.isEnabled():
+        self.__widgets["type"].setCurrentIndex(FILTERTYPE.index(str(self.rpcObject.type())))
+        if self.rpcObject.isEnabled():
             state = QtCore.Qt.Checked
         else:
             state = QtCore.Qt.Unchecked
@@ -501,23 +502,24 @@ class MatcherWidgetItem(AbstractWidgetItem):
         self.updateWidgets()
 
     def setType(self, text):
-        self.iceObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
 
     def setSubject(self, text):
-        self.iceObject.setSubject(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setSubject(getattr(Cue3.api.filter_pb2, str(text)))
 
     def setInput(self):
         text = str(self.__widgets["input"].text())
-        if self.iceObject.input() != text:
-            self.iceObject.setInput(text)
+        if self.rpcObject.input() != text:
+            self.rpcObject.setInput(text)
 
     def delete(self, checked = False):
         result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Matcher?",
-                                           "Are you sure you want to delete this matcher?\n\n%s" % self.iceObject.name(),
+                                           "Are you sure you want to delete this matcher?\n\n%s" %
+                                                self.rpcObject.name(),
                                            QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
         if result == QtWidgets.QMessageBox.Yes:
-            self.iceObject.delete()
+            self.rpcObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
     def __delete(self):
@@ -550,12 +552,12 @@ class MatcherWidgetItem(AbstractWidgetItem):
             btn.clicked.connect(self.delete)
             self.__widgets["delete"]  = btn
 
-        self.__widgets["subject"].setCurrentIndex(MATCHSUBJECT.index(str(self.iceObject.subject())))
-        self.__widgets["type"].setCurrentIndex(MATCHTYPE.index(str(self.iceObject.type())))
+        self.__widgets["subject"].setCurrentIndex(MATCHSUBJECT.index(str(self.rpcObject.subject())))
+        self.__widgets["type"].setCurrentIndex(MATCHTYPE.index(str(self.rpcObject.type())))
         # Only update input if user is not currently editing the value
         if not self.__widgets["input"].hasFocus() or \
            not self.__widgets["input"].isModified():
-            self.__widgets["input"].setText(self.iceObject.input())
+            self.__widgets["input"].setText(self.rpcObject.input())
 
 class ActionWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
@@ -571,10 +573,11 @@ class ActionWidgetItem(AbstractWidgetItem):
     def delete(self, checked = False):
         result = QtWidgets.QMessageBox.question(self.treeWidget(),
                                            "Delete Action?",
-                                           "Are you sure you want to delete this action?\n\n%s" % self.iceObject.name(),
+                                           "Are you sure you want to delete this action?\n\n%s" %
+                                                self.rpcObject.name(),
                                            QtWidgets.QMessageBox.Yes|QtWidgets.QMessageBox.No)
         if result == QtWidgets.QMessageBox.Yes:
-            self.iceObject.delete()
+            self.rpcObject.delete()
             QtCore.QTimer.singleShot(0, self.__delete)
 
     def __delete(self):
@@ -585,59 +588,59 @@ class ActionWidgetItem(AbstractWidgetItem):
         widget = self.__widgets["ActionValue"]
 
         # Get the proper value from the widget
-        if self.iceObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+        if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
             value = PAUSETYPE.index(str(value)) == 0
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
             value = widget.value()
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
             value = int(widget.value() * 1048576)
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
                                      Cue3.api.filter_pb2.SET_JOB_MIN_CORES,
                                      Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
             value = float(widget.value())
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
             value = str(widget.text())
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
             group = self.treeWidget().groupNames[str(value)]
-            if self.iceObject.value() != group.proxy:
-                self.iceObject.setTypeAndValue(self.iceObject.type(), group)
+            if self.rpcObject.value() != group:
+                self.rpcObject.setTypeAndValue(self.rpcObject.type(), group)
             return
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
             value = MEMOPTTYPE.index(str(value)) == 0
 
         # Set the new value
-        if self.iceObject.value() != value:
-            self.iceObject.setTypeAndValue(self.iceObject.type(), value)
+        if self.rpcObject.value() != value:
+            self.rpcObject.setTypeAndValue(self.rpcObject.type(), value)
 
     def updateWidgets(self):
         if not self.__widgets:
             widget = None
 
             # Create the proper widget depending on the action type
-            if self.iceObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+            if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(PAUSETYPE)
                 widget.currentIndexChanged.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
                 widget = NoWheelSpinBox(self.parent())
                 widget.setMaximum(99999)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
                                          Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
                                          Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(0)
@@ -645,16 +648,16 @@ class ActionWidgetItem(AbstractWidgetItem):
                 widget.setMaximum(1000)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
                 widget = QtWidgets.QLineEdit("", self.parent())
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(self.treeWidget().groupNames.keys())
                 widget.currentIndexChanged.connect(self.__setValue)
 
-            elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(MEMOPTTYPE)
                 widget.currentIndexChanged.connect(self.__setValue)
@@ -670,30 +673,30 @@ class ActionWidgetItem(AbstractWidgetItem):
 
         # Update the widget with the current value
 
-        if self.iceObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
-            self.__widgets["ActionValue"].setCurrentIndex(int(not self.iceObject.value()))
+        if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+            self.__widgets["ActionValue"].setCurrentIndex(int(not self.rpcObject.value()))
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
-            self.__widgets["ActionValue"].setValue(self.iceObject.value())
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+            self.__widgets["ActionValue"].setValue(self.rpcObject.value())
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
-            self.__widgets["ActionValue"].setValue(float(self.iceObject.value()) / 1048576)
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+            self.__widgets["ActionValue"].setValue(float(self.rpcObject.value()) / 1048576)
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
-            self.__widgets["ActionValue"].setText(self.iceObject.value())
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+            self.__widgets["ActionValue"].setText(self.rpcObject.value())
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
                                      Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
                                      Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
-            self.__widgets["ActionValue"].setValue(float(str(self.iceObject.value())))
+            self.__widgets["ActionValue"].setValue(float(str(self.rpcObject.value())))
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
-            name = self.treeWidget().groupIds[self.iceObject.value()].name()
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+            name = self.treeWidget().groupIds[self.rpcObject.value()].name()
             index = self.treeWidget().groupNames.keys().index(name)
             self.__widgets["ActionValue"].setCurrentIndex(index)
 
-        elif self.iceObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
-            self.__widgets["ActionValue"].setCurrentIndex(int(not self.iceObject.value()))
+        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+            self.__widgets["ActionValue"].setCurrentIndex(int(not self.rpcObject.value()))
 
 class NoWheelComboBox(QtWidgets.QComboBox):
     """Provides a QComboBox that does not respond to the mouse wheel to avoid

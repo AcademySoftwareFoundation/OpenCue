@@ -33,7 +33,7 @@ class AbstractDialog(QtWidgets.QDialog):
     def _newDialogButtonBox(self, buttons, orientation=QtCore.Qt.Horizontal):
         buttonBox = QtWidgets.QDialogButtonBox(buttons, orientation, self)
         buttonBox.accepted.connect(self.accept)
-        buttonBox.regected.connect(self.reject)
+        buttonBox.rejected.connect(self.reject)
         return buttonBox
 
     def _addWidgetRow(self, *widgets):

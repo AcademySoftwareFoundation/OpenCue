@@ -97,9 +97,9 @@ class LogViewWidget(QtWidgets.QWidget):
         if self.__frames:
             self.switchLogEvent(self.__frames[0].data.name)
 
-        ly.addWidget(QtWidgets.QLabel("Select Frame:",self))
+        ly.addWidget(QtWidgets.QLabel("Select Frame:", self))
         ly.addWidget(self.__sel_frames)
-        ly.addWidget(QtWidgets.QLabel("Find:",self))
+        ly.addWidget(QtWidgets.QLabel("Find:", self))
         ly.addWidget(self.__txt_find)
         ly.addWidget(self.__txt_log)
 

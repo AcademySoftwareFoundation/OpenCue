@@ -171,7 +171,7 @@ class JobMonitorTree(AbstractTreeWidget):
         selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(" ".join(selected),
-                                                   QtGui.QClipboard.Selection)
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -180,7 +180,7 @@ class JobMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        job = item.iceObject
+        job = item.rpcObject
         if col == COLUMN_COMMENT and job.isCommented():
             self.__menuActions.jobs().viewComments([job])
 
@@ -211,8 +211,9 @@ class JobMonitorTree(AbstractTreeWidget):
         self.ticksLock.lock()
         try:
             if newJobObj:
-                self.__load[newJobObj.proxy] = newJobObj
-                self.__jobTimeLoaded[newJobObj.proxy] = time.time()
+                objectKey = Utils.getObjectKey(newJobObj)
+                self.__load[objectKey] = newJobObj
+                self.__jobTimeLoaded[objectKey] = time.time()
         finally:
             self.ticksLock.unlock()
 
@@ -232,7 +233,7 @@ class JobMonitorTree(AbstractTreeWidget):
         the the AbstractTreeWidget.removeAllItems like normal"""
         for proxy in self._items.keys():
             QtGui.qApp.unmonitor.emit(proxy)
-            if self.__jobTimeLoaded.has_key(proxy):
+            if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
         AbstractTreeWidget.removeAllItems(self)
 
@@ -304,10 +305,11 @@ class JobMonitorTree(AbstractTreeWidget):
     def actionSetUserColor(self, color):
         """Set selected items to have provided background color"""
         for item in self.selectedItems():
-            if color is None and item.iceObject.proxy in self.__userColors:
-                self.__userColors.pop(item.iceObject.proxy)
+            objectKey = Utils.getObjectKey(item)
+            if color is None and objectKey in self.__userColors:
+                self.__userColors.pop(objectKey)
             elif color is not None:
-                self.__userColors[item.iceObject.proxy] = color
+                self.__userColors[objectKey] = color
             item.setUserColor(color)
 
     def actionEatSelectedItems(self):
@@ -338,24 +340,26 @@ class JobMonitorTree(AbstractTreeWidget):
         """Gets the currently monitored jobs from the cuebot. Will also load
         any of the users jobs if self.__loadMine is True
         @return: dict of updated jobs
-        @rtype:  dict<job.proxy: job>"""
+        @rtype:  dict<class.id: job>"""
         try:
             jobs = {}
 
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
             for item in self._items.values():
-                if item.iceObject.data.state == Cue3.api.job_pb2.FINISHED:
+                objectKey = Utils.getObjectKey(item.rpcObject)
+                if item.rpcObject.data.state == Cue3.api.job_pb2.FINISHED:
                     # Reuse the old object if job is finished
-                    jobs[item.iceObject.proxy] = item.iceObject
+                    jobs[objectKey] = item.rpcObject
                 else:
                     # Gather list of all other jobs to update
-                    monitored_proxies.append(item.iceObject.proxy)
+                    monitored_proxies.append(objectKey)
 
             if self.__loadMine:
                 # This auto-loads all the users jobs
                 for job in Cue3.api.getJobs(user=[Utils.getUsername()]):
-                    jobs[job.proxy] = job
+                    objectKey = Utils.getObjectKey(job)
+                    jobs[objectKey] = job
 
                 # Prune the users jobs from the remaining proxies to update
                 for proxy, job in jobs.iteritems():
@@ -364,7 +368,8 @@ class JobMonitorTree(AbstractTreeWidget):
 
             if monitored_proxies:
                 for job in Cue3.api.getJobs(id=monitored_proxies, all=True):
-                    jobs[job.proxy] = job
+                    objectKey = Utils.getObjectKey(job)
+                    jobs[objectKey] = job
 
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -378,34 +383,33 @@ class JobMonitorTree(AbstractTreeWidget):
 
         self._itemsLock.lockForWrite()
 
-        # include iceObjects from self._items that are not in jobObjects
+        # include rpcObjects from self._items that are not in jobObjects
         for proxy, item in self._items.iteritems():
             if not proxy in jobObjects:
-                jobObjects[proxy] = item.iceObject
+                jobObjects[proxy] = item.rpcObject
 
         try:
-            try:
-                selected = [item.iceObject.proxy for item in self.selectedItems()]
-                scrolled = self.verticalScrollBar().value()
+            selectedKeys = [Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
+            scrolled = self.verticalScrollBar().value()
 
-                # Store the creation time for the current item
-                for item in self._items.values():
-                    self.__jobTimeLoaded[item.iceObject.proxy] = item.created
+            # Store the creation time for the current item
+            for item in self._items.values():
+                self.__jobTimeLoaded[Utils.getObjectKey(item.rpcObject)] = item.created
 
-                self._items = {}
-                self.clear()
+            self._items = {}
+            self.clear()
 
-                for proxy, job in jobObjects.iteritems():
-                    self._items[proxy] = JobWidgetItem(job,
-                                                       self.invisibleRootItem(),
-                                                       self.__jobTimeLoaded.get(proxy, None))
-                    if proxy in self.__userColors:
-                        self._items[proxy].setUserColor(self.__userColors[proxy])
+            for proxy, job in jobObjects.iteritems():
+                self._items[proxy] = JobWidgetItem(job,
+                                                   self.invisibleRootItem(),
+                                                   self.__jobTimeLoaded.get(proxy, None))
+                if proxy in self.__userColors:
+                    self._items[proxy].setUserColor(self.__userColors[proxy])
 
-                self.verticalScrollBar().setValue(scrolled)
-                [self._items[proxy].setSelected(True) for proxy in selected if self._items.has_key(proxy)]
-            except Exception, e:
-                map(logger.warning, Utils.exceptionOutput(e))
+            self.verticalScrollBar().setValue(scrolled)
+            [self._items[key].setSelected(True) for key in selectedKeys if key in self._items]
+        except Exception, e:
+            map(logger.warning, Utils.exceptionOutput(e))
         finally:
             self._itemsLock.unlock()
 
@@ -451,7 +455,7 @@ class JobWidgetItem(AbstractWidgetItem):
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject)
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
             if col == 0:
@@ -460,11 +464,11 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
-            if self.iceObject.data.state == Cue3.api.job_pb2.FINISHED:
+            if self.rpcObject.data.state == Cue3.api.job_pb2.FINISHED:
                 return self.__finishedColor
-            elif self.iceObject.data.isPaused:
+            elif self.rpcObject.data.isPaused:
                 return self.__pausedColor
-            elif self.iceObject.stats.deadFrames:
+            elif self.rpcObject.stats.deadFrames:
                 return self.__dyingColor
             return self.__backgroundColor
         elif role == QtCore.Qt.BackgroundRole and self.__userColor:
@@ -478,21 +482,21 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__centerAlign
 
         elif role == QtCore.Qt.DecorationRole:
-            if col == COLUMN_COMMENT and self.iceObject.isCommented():
+            if col == COLUMN_COMMENT and self.rpcObject.isCommented():
                 return self.__commentIcon
-            if col == COLUMN_AUTOEAT and self.iceObject.isAutoEating():
+            if col == COLUMN_AUTOEAT and self.rpcObject.isAutoEating():
                 return self.__eatIcon
 
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            return self.iceObject.frameStateTotals()
+            return self.rpcObject.frameStateTotals()
 
         elif role == QtCore.Qt.UserRole + 2:
-            return self.iceObject.state()
+            return self.rpcObject.state()
 
         elif role == QtCore.Qt.UserRole + 3:
-            return self.iceObject.isPaused()
+            return self.rpcObject.isPaused()
 
         return Constants.QVARIANT_NULL

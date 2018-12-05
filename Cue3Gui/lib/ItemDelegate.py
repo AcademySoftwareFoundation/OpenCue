@@ -152,7 +152,7 @@ class JobBookingBarDelegate(AbstractDelegate):
            option.rect.width() > 30:
                 # This itemFromIndex could cause problems
                 # I need: minCores, maxCores, totalRunning, totalWaiting
-                job = self.parent().itemFromIndex(index).iceObject
+                job = self.parent().itemFromIndex(index).rpcObject
 
                 rect = option.rect.adjusted(12, 6, -12, -6)
 
@@ -313,7 +313,7 @@ class HostHistoryDelegate(AbstractDelegate):
     def paint(self, painter, option, index):
         if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_HOST:
             hostItem = self.parent().itemFromIndex(index)
-            host = hostItem.iceObject
+            host = hostItem.rpcObject
 
             painter.save()
             try:

@@ -156,7 +156,7 @@ class Attributes(QtWidgets.QWidget):
 
 
 class AbstractAttributes(QtWidgets.QTreeWidget):
-    def __init__(self, iceObject, preload, parent=None):
+    def __init__(self, rpcObject, preload, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
         def addData(parent, value):
@@ -179,7 +179,7 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
                 parent.setText(1, str(value))
 
         root = QtWidgets.QTreeWidgetItem([str(self.NAME)])
-        data = self.dataSource(iceObject, preload)
+        data = self.dataSource(rpcObject, preload)
         addData(root, data)
 
         self.setColumnCount(2)

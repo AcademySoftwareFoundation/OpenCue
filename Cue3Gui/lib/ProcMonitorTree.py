@@ -107,7 +107,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         selected = [proc.data.name for proc in self.selectedObjects() if Utils.isProc(proc)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected),
-                                                   QtGui.QClipboard.Selection)
+                                                       QtGui.QClipboard.Selection)
 
     def clearFilters(self):
         self.clearSelection()

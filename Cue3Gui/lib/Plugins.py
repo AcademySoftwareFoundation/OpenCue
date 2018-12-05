@@ -160,7 +160,7 @@ class Plugins(object):
         # Runs any plugins that were saved to the settings
         for plugin in (QtGui.qApp.settings.value("%s/Plugins_Opened" % self.name) or []):
             if '::' in plugin:
-                [plugin_name, plugin_state] = str(plugin).split("::")
+                plugin_name, plugin_state = str(plugin).split("::")
                 self.launchPlugin(plugin_name, plugin_state)
 
     def launchPlugin(self, plugin_name, plugin_state):

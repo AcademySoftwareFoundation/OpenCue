@@ -351,7 +351,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
         try:
             for layer in self.__layers:
                 layer.proxy.setTags(tags)
-        except Cue3. Cue3.CueException, e:
+        except Cue3.CueException, e:
             warning = QtWidgets.QMessageBox(self)
             warning.setText("Error applying layer tags.")
             warning.setDetailedText("%s" % e)

@@ -41,6 +41,7 @@ DEFAULT_LAMBDA = lambda s:""
 DEFAULT_NAME = ""
 DEFAULT_WIDTH = 0
 
+
 class AbstractTreeWidget(QtWidgets.QTreeWidget):
     """Forms the basis for all TreeWidgets"""
 
@@ -265,10 +266,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self._itemsLock.lockForWrite()
         try:
             # If id already exists, update it
-            objectClass = rpcObject.__class__.__name__
-            objectId = rpcObject.id()
-            objectKey = "{}.{}".format(objectClass, objectId)
-            if self._items.has_key(objectKey):
+            objectKey = Utils.getObjectKey(rpcObject)
+            if objectKey in self._items:
                 self._items[objectKey].update(rpcObject)
             # If id does not exist, create it
             else:
@@ -290,7 +289,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Removes an item from the TreeWidget without locking
         @type  item: AbstractTreeWidgetItem or String
         @param item: A tree widget item or the string with the id of the item"""
-        if self._items.has_key(item):
+        if item in self._items:
             item = self._items[item]
         elif not isinstance(item, AbstractWidgetItem):
             # if the parent was already deleted, then this one was too
@@ -369,7 +368,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                 updated.append(objectId)
 
                 # If id already exists, update it
-                if self._items.has_key(objectId):
+                if objectId in self._items:
                     self._items[objectId].update(rpcObject)
                 # If id does not exist, create it
                 else:

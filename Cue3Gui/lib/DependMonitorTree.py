@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtWidgets, Cue3
 
 import Logger
 logger = Logger.getLogger(__file__)
@@ -21,8 +21,8 @@ logger = Logger.getLogger(__file__)
 import Utils
 import Constants
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
 
 class DependMonitorTree(AbstractTreeWidget):
     def __init__(self, parent, object):
@@ -46,7 +46,7 @@ class DependMonitorTree(AbstractTreeWidget):
         self.addColumn("OnFrame", 100, id=9,
                        data=lambda depend:(depend.dependOnFrame()))
 
-        self.iceObject = object
+        self.rpcObject = object
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -62,9 +62,9 @@ class DependMonitorTree(AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            if hasattr(self.iceObject.proxy, "getDepends"):
-                return self.iceObject.proxy.getDepends()
-            return self.iceObject.proxy.getWhatThisDependsOn()
+            if hasattr(self.rpcObject, "getDepends"):
+                return self.rpcObject.getDepends()
+            return self.rpcObject.getWhatThisDependsOn()
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
@@ -72,7 +72,7 @@ class DependMonitorTree(AbstractTreeWidget):
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         self.__menuActions.dependencies().addAction(menu, "satisfy")
         #self.__menuActions.dependencies().addAction(menu, "unsatisfy")
