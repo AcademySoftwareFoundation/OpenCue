@@ -102,15 +102,11 @@ class CueStateBarWidget(QtWidgets.QWidget):
                                self.__background.rect())
 
             # Draw the slider
-            # TODO: (gdenton) - replace for PySide2
-            QtGui.qDrawPlainRect(painter,
-                                 rect.adjusted(2,
-                                               shift,
-                                               -2,
-                                               -(offPage) + shift),
-                                 self.__colorInvalid,
-                                 0,
-                                 self.__brushPattern)
+            pen = QtGui.QPen(self.__colorInvalid)
+            pen.setWidth(0)
+            painter.setPen(pen)
+            painter.setBrush(self.__brushPattern)
+            painter.drawRect(rect.adjusted(2, shift, -2, -offPage + shift))
         finally:
             painter.restore()
             painter.end()
