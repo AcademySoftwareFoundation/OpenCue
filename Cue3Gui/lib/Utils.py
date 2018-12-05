@@ -29,11 +29,12 @@ from yaml.scanner import ScannerError
 import Logger
 from ConfirmationDialog import ConfirmationDialog
 from Constants import DEFAULT_INI_PATH
-from Manifest import QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, Cue3, QtWidgets
 
 logger = Logger.getLogger(__file__)
 
 __USERNAME = None
+
 
 def questionBoxYesNo(parent, title, text, items = []):
     """A simple yes/no alert box
@@ -48,6 +49,7 @@ def questionBoxYesNo(parent, title, text, items = []):
                   acted on"""
     return ConfirmationDialog(title, text, items, parent).exec_() == 1
 
+
 def countObjectTypes(objects):
     results = {"rootgroup": 0, "group": 0, "job": 0}
     for object in objects:
@@ -59,6 +61,7 @@ def countObjectTypes(objects):
             results["rootgroup"] += 1
     results["total"] = len(objects)
     return results
+
 
 def countJobTypes(objects):
     results = {"paused": False, "unpaused": False, "hasDead": False,
@@ -78,13 +81,16 @@ def countJobTypes(objects):
                 results["notEating"] = True
     return results
 
+
 def qvarToString(qv):
     """converts a QVariant to a python string"""
-    return str(qv.toString())
+    return str(qv)
+
 
 def qvarToFloat(qv):
     """converts a Qvariant to a python float"""
-    return float(qv.toDouble()[0])
+    return float(qv)
+
 
 def isJob(object):
     """Returns true of the object is a job, false if not
@@ -92,11 +98,13 @@ def isJob(object):
     @rtype:  bool"""
     return object.__class__.__name__ in ["Job", "NestedJob"]
 
+
 def isLayer(object):
     """Returns true if the object is a layer, false if not
     @return: If the object is a layer
     @rtype:  bool"""
     return object.__class__.__name__ == "Layer"
+
 
 def isFrame(object):
     """Returns true if the object is frame, false if not
@@ -104,11 +112,13 @@ def isFrame(object):
     @rtype:  bool"""
     return object.__class__.__name__ == "Frame"
 
+
 def isShow(object):
     """Returns true if the object is a show, false if not
     @return: If the object is a show
     @rtype:  bool"""
     return object.__class__.__name__ == "Show"
+
 
 def isRootGroup(object):
     """Returns true if the object is a root, false if not
@@ -116,11 +126,13 @@ def isRootGroup(object):
     @rtype:  bool"""
     return object.__class__.__name__ in ["NestedGroup", "Group"] and not object.parent
 
+
 def isGroup(object):
     """Returns true if the object is a group, false if not
     @return: If the object is a group
     @rtype:  bool"""
     return object.__class__.__name__ in ["NestedGroup", "Group"] and (not hasattr(object, "parent") or object.parent)
+
 
 def isHost(object):
     """Returns true of the object is a host, false if not
@@ -128,11 +140,13 @@ def isHost(object):
     @rtype:  bool"""
     return object.__class__.__name__ in ["NestedHost", "Host"]
 
+
 def isProc(object):
     """Returns true if the object is a proc, false if not
     @return: If the object is a proc
     @rtype:  bool"""
     return object.__class__.__name__ in ["Proc", "NestedProc"]
+
 
 def isTask(object):
     """Returns true if the object is a task, false if not
@@ -140,7 +154,10 @@ def isTask(object):
     @rtype:  bool"""
     return object.__class__.__name__ == "Task"
 
+
 __REGEX_ID = re.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+
+
 def isStringId(value):
     """Checks if the given string is an id
     @type  value: str
@@ -148,6 +165,7 @@ def isStringId(value):
     @rtype:  bool
     @return: True if the string is an id"""
     return __REGEX_ID.match(value)
+
 
 def getCuewho(show):
     """Returns the username that is cuewho for the given show
@@ -162,6 +180,7 @@ def getCuewho(show):
         logger.warning("Failed to update cuewho: %s\n%s" % (show, e))
         return "Unknown"
 
+
 def getUsername():
     """Returns the username that this process is running under"""
     global __USERNAME
@@ -172,6 +191,7 @@ def getUsername():
         except KeyError:
             __USERNAME = str(os.getuid())
     return __USERNAME
+
 
 def getExtension(username):
     try:
@@ -187,6 +207,20 @@ def getExtension(username):
     except Exception, e:
         logger.warning("Failed to update extension: %s\n%s" % (username, e))
         return ""
+
+
+def getObjectKey(rpcObject):
+    """Given a rpc object, get a unique key that in the form
+    'class.id'
+    @type rpcObject: grpc.Message
+    @param rpcObject: Rpc object to get a key for
+    @rtype: str
+    @return:  String key in the form <class>.<id>
+    """
+    objectClass = rpcObject.__class__.__name__
+    objectId = rpcObject.id()
+    return "{}.{}".format(objectClass, objectId)
+
 
 def findJob(job):
     """Returns a job object, accepts a job object, job id or a job name.
@@ -210,8 +244,10 @@ def findJob(job):
         logger.debug("Error loading job: %s\n%s" % (job, e))
         return None
 
+
 def shellOut(cmd):
     os.system("%s &" % cmd)
+
 
 def exceptionOutput(e):
     """Returns formatted lines to pass to the logger
@@ -224,6 +260,7 @@ def exceptionOutput(e):
     results.append(e)
     return results
 
+
 def handleExceptions(function):
     def new(*args):
         try:
@@ -231,6 +268,7 @@ def handleExceptions(function):
         except Exception, e:
             map(logger.warning, exceptionOutput(e))
     return new
+
 
 def __splitTime(sec):
     """Takes an amount of seconds and returns a tuple for hours, minutes and seconds.
@@ -240,11 +278,13 @@ def __splitTime(sec):
     hour, min = divmod(min, 60)
     return (hour, min, sec)
 
+
 def secondsToHHMMSS(sec):
     """Returns time in the format HH:MM:SS
     @rtype:  str
     @return: Time in the format HH:MM:SS"""
     return "%02d:%02d:%02d" % __splitTime(sec)
+
 
 def secondsToHMMSS(sec):
     """Returns time in the format H:MM:SS
@@ -252,11 +292,13 @@ def secondsToHMMSS(sec):
     @return: Time in the format H:MM:SS"""
     return "%d:%02d:%02d" % __splitTime(sec)
 
+
 def secondsToHHHMM(sec):
     """Returns time in the format HHH:MM
     @rtype:  str
     @return: Time in the format HHH:MM"""
     return "%03d:%02d" % __splitTime(sec)[:2]
+
 
 def secondsDiffToHMMSS(secA, secB):
     """Returns time difference of arguements in the format H:MM:SS
@@ -272,6 +314,7 @@ def secondsDiffToHMMSS(secA, secB):
         secB = time.time()
     return secondsToHMMSS(max(secA, secB) - min(secA, secB))
 
+
 def dateToMMDDHHMM(sec):
     """Returns date in the format %m/%d %H:%M
     @rtype:  str
@@ -279,6 +322,7 @@ def dateToMMDDHHMM(sec):
     if sec == 0:
         return "--/-- --:--"
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
+
 
 def memoryToString(kmem, unit = None):
     k = 1024
@@ -288,6 +332,7 @@ def memoryToString(kmem, unit = None):
         return "%dM" % (kmem / k)
     if unit == "G" or not unit and kmem < pow(k,3):
         return "%.01fG" % (float(kmem) / pow(k,2))
+
 
 def getResourceConfig(path=None):
     """Reads the given yaml file and returns the entries as a dictionary.
@@ -312,12 +357,14 @@ def getResourceConfig(path=None):
                % (path, e))
     return config
 
+
 ################################################################################
 # Frame log functions
 ################################################################################
 
 def getFrameLogFile(job, frame):
     return os.path.join(job.data.logDir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
+
 
 def getFrameLLU(job, frame):
     __now = time.time()
@@ -329,12 +376,14 @@ def getFrameLLU(job, frame):
         frame.getFrameLLUTime = __now
     return frame.getFrameLLU
 
+
 def getFrameLastLine(job, frame):
     __now = time.time()
     if __now - getattr(frame, "getFrameLastLineTime", 0) >= 5:
         frame.getFrameLastLine = getLastLine(getFrameLogFile(job, frame))
         frame.getFrameLastLineTime = __now
     return frame.getFrameLastLine
+
 
 def getLastLine(path):
     """Reads the last line from the file"""
@@ -357,22 +406,25 @@ def getLastLine(path):
     except IOError:
         return ""
 
+
 def popupTail(file, facility=None):
     if not popupWeb(file, facility):
         JOB_LOG_CMD = "/usr/bin/xterm -sb -sl 4096 -n RQLOG -geometry 200x50+0+0 -title %s -e '/usr/bin/tail -n+0 -f %s'" % (os.path.basename(file), file)
         shellOut(JOB_LOG_CMD)
 
+
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
-        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor",
-                                                    QtCore.QVariant(DEFAULT_EDITOR)).toString())
+        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", DEFAULT_EDITOR))
         shellOut("%s %s" % (JOB_LOG_CMD or DEFAULT_EDITOR, file))
+
 
 def openURL(url):
     import webbrowser
     webbrowser.open_new(url)
     return True
+
 
 def popupWeb(file, facility=None):
     client = os.getenv('FACILITY', 'unknown')
@@ -382,17 +434,20 @@ def popupWeb(file, facility=None):
         return True
     return False
 
+
 def popupFrameTail(job, frame, logNumber = 0):
     path = getFrameLogFile(job, frame)
     if logNumber:
         path += ".%s" % logNumber
     popupTail(path, job.data.facility)
 
+
 def popupFrameView(job, frame, logNumber = 0):
     path = getFrameLogFile(job, frame)
     if logNumber:
         path += ".%s" % logNumber
     popupView(path, job.data.facility)
+
 
 def popupFrameXdiff(job, frame1, frame2, frame3 = None):
     for command in ['/usr/bin/xxdiff',
@@ -402,6 +457,7 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
                 if frame:
                     command += " --title1 %s %s" % (frame.data.name, getFrameLogFile(job, frame))
             shellOut(command)
+
 
 def getOutputFromLayers(job, layers):
     """Returns the output paths from the frame logs
@@ -414,7 +470,7 @@ def getOutputFromLayers(job, layers):
     paths = []
     for layer in layers:
         svi_found = False
-        outputs =  layer.proxy.getOutputPaths()
+        outputs = layer.getOutputPaths()
         if outputs:
             for path in outputs:
                 if path.find("_svi") != -1:
@@ -425,6 +481,7 @@ def getOutputFromLayers(job, layers):
                 paths.append(outputs[0])
     return paths
 
+
 def getOutputFromFrame(job, layer, frame):
     """Returns the output paths from a single frame
     @type  job: Job
@@ -434,11 +491,12 @@ def getOutputFromFrame(job, layer, frame):
     @rtype:  list
     @return: A list of output paths"""
     try:
-        main_output =  layer.proxy.getOutputPaths()[0]
+        main_output = layer.getOutputPaths()[0]
         main_output = main_output.replace("#", "%04d" % frame.data.number)
         return [main_output]
     except IndexError, e:
         return []
+
 
 ################################################################################
 # Drag and drop functions
@@ -476,11 +534,13 @@ def startDrag(dragSource, dropActions, objects):
     drag.setMimeData(mimeData)
     drag.exec_(QtCore.Qt.MoveAction)
 
+
 def dragEnterEvent(event, format = "application/x-job-names"):
     if event.mimeData().hasFormat(format):
         event.accept()
     else:
         event.ignore()
+
 
 def dragMoveEvent(event, format = "application/x-job-names"):
     if event.mimeData().hasFormat(format):
@@ -488,6 +548,7 @@ def dragMoveEvent(event, format = "application/x-job-names"):
         event.accept()
     else:
         event.ignore()
+
 
 def dropEvent(event, format = "application/x-job-names"):
     if event.mimeData().hasFormat(format):
@@ -498,9 +559,21 @@ def dropEvent(event, format = "application/x-job-names"):
         event.accept()
         return [name for name in str(names).split(":") if name]
 
+
 def mimeDataAdd(mimeData, format, objects):
     data = QtCore.QByteArray()
     stream = QtCore.QDataStream(data, QtCore.QIODevice.WriteOnly)
     text = QtCore.QString(":".join(objects))
     stream << text
     mimeData.setData(format, data)
+
+
+def showErrorMessageBox(text, title="ERROR!", detailedText=None):
+    messageBox = QtWidgets.QMessageBox()
+    messageBox.setIcon(QtWidgets.QMessageBox.Critical)
+    messageBox.setText(text)
+    messageBox.setWindowTitle(title)
+    if detailedText:
+        messageBox.setDetailedText(detailedText)
+    messageBox.setStandardButtons(QtWidgets.QMessageBox.Close)
+    return messageBox.exec_()

@@ -21,7 +21,7 @@ import Cue3
 
 logger = Cue3Gui.Logger.getLogger(__file__)
 
-from PyQt4 import QtGui, QtCore
+from PySide2 import QtGui, QtCore, QtWidgets
 
 PLUGIN_NAME = "Attributes"
 PLUGIN_CATEGORY = "Other"
@@ -57,7 +57,7 @@ def getDependsForm(depends):
 
     return result
 
-class Attributes(QtGui.QWidget):
+class Attributes(QtWidgets.QWidget):
     """Attributes
         The Attributes widget contains a path or some text
         that indicates what you are looking at and a custom
@@ -65,26 +65,25 @@ class Attributes(QtGui.QWidget):
         via the setForm method.
     """
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        QtWidgets.QWidget.__init__(self, parent)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
 
-        self.__scrollArea = QtGui.QScrollArea()
+        self.__scrollArea = QtWidgets.QScrollArea()
         self.__scrollArea.setWidgetResizable(True)
         self.__scrollArea.setFocusPolicy(QtCore.Qt.NoFocus)
 
-        self.__scrollWidget = QtGui.QWidget(None)
-        QtGui.QVBoxLayout(self.__scrollWidget)
+        self.__scrollWidget = QtWidgets.QWidget(None)
+        QtWidgets.QVBoxLayout(self.__scrollWidget)
 
-        self.__path = QtGui.QLineEdit("", self.__scrollWidget)
+        self.__path = QtWidgets.QLineEdit("", self.__scrollWidget)
         self.__path.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__stack = QtGui.QStackedWidget(self.__scrollWidget)
+        self.__stack = QtWidgets.QStackedWidget(self.__scrollWidget)
         self.__scrollWidget.layout().addWidget(self.__path)
         self.__scrollWidget.layout().addWidget(self.__stack)
         self.__scrollArea.setWidget(self.__scrollWidget)
         layout.addWidget(self.__scrollArea)
-
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL("single_click(PyQt_PyObject)"), self.setWidget);
+        QtGui.qApp.single_click.connect(self.setWidget)
 
         self.__load = None
 
@@ -151,14 +150,14 @@ class Attributes(QtGui.QWidget):
             if self.__stack.count() > 1:
                 oldWidget = self.__stack.widget(0)
                 self.__stack.removeWidget(oldWidget)
-                oldWidget.setParent(QtGui.QWidget())
+                oldWidget.setParent(QtWidgets.QWidget())
         except Exception, e:
             map(logger.warning, Cue3Gui.Utils.exceptionOutput(e))
 
 
-class AbstractAttributes(QtGui.QTreeWidget):
-    def __init__(self, iceObject, preload, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+class AbstractAttributes(QtWidgets.QTreeWidget):
+    def __init__(self, rpcObject, preload, parent=None):
+        QtWidgets.QWidget.__init__(self, parent)
 
         def addData(parent, value):
             if isinstance(value, dict):
@@ -170,7 +169,7 @@ class AbstractAttributes(QtGui.QTreeWidget):
                     keys = value.keys()
 
                 for key in keys:
-                    child = QtGui.QTreeWidgetItem([str(key)])
+                    child = QtWidgets.QTreeWidgetItem([str(key)])
                     try:
                         addData(child, value[key])
                         parent.addChild(child)
@@ -179,12 +178,12 @@ class AbstractAttributes(QtGui.QTreeWidget):
             else:
                 parent.setText(1, str(value))
 
-        root = QtGui.QTreeWidgetItem([str(self.NAME)])
-        data = self.dataSource(iceObject, preload)
+        root = QtWidgets.QTreeWidgetItem([str(self.NAME)])
+        data = self.dataSource(rpcObject, preload)
         addData(root, data)
 
         self.setColumnCount(2)
-        self.header().setResizeMode(QtGui.QHeaderView.ResizeToContents)
+        self.header().setResizeMode(QtWidgets.QHeaderView.ResizeToContents)
         self.header().hide()
         self.addTopLevelItem(root)
         self.expandAll()
@@ -199,7 +198,7 @@ class LayerAttributes(AbstractAttributes):
 
     def dataSource(self, layer, preload):
         d = {
-                "id": Cue3.util.id(layer.proxy),
+                "id": Cue3.util.id(layer),
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
@@ -242,13 +241,13 @@ class LayerAttributes(AbstractAttributes):
                 }
 
 
-        for num, output in enumerate(layer.proxy.getOutputPaths()):
+        for num, output in enumerate(layer.getOutputPaths()):
             # Try to formulate a unique name the output.
             try:
                 # Outline only puts outputs in as filespecs,
                 # so we're just going to assume it is.
                 rep = output.split("/")[-2]
-                if d["outputs"].has_key(rep):
+                if rep in d["outputs"]:
                     rep = "%s #%d" % (rep, num)
             except:
                 rep = "output #%d" % num
@@ -315,8 +314,8 @@ class JobAttributes(AbstractAttributes):
 
         ## In in the layer outputs.
         if job.stats.totalLayers < 20:
-            for layer in job.proxy.getLayers():
-                outputs = layer.proxy.getOutputPaths()
+            for layer in job.getLayers():
+                outputs = layer.getOutputPaths()
                 if not outputs:
                     continue
                 entry = {}
@@ -328,7 +327,7 @@ class JobAttributes(AbstractAttributes):
                         # Outline only puts outputs in as filespecs,
                         # so we're just going to assume it is.
                         rep = output.split("/")[-2]
-                        if entry.has_key(rep):
+                        if rep in entry:
                             rep = "%s #%d" % (rep, num)
                     except:
                         rep = "output #%d" % num

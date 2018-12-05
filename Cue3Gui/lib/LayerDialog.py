@@ -13,38 +13,33 @@
 #  limitations under the License.
 
 
-
-import sys
-from Manifest import QtCore, QtGui, Cue3
 import Constants
-from TagsWidget import TagsWidget
-from AbstractDialog import CheckBoxSelectionMatrix
 import Utils
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from TagsWidget import TagsWidget
 
 
 def warning(msg, parent=None):
     """
     Utility method for poping up a warning.
     """
-    box = QtGui.QMessageBox(parent)
+    box = QtWidgets.QMessageBox(parent)
     box.setText(msg)
     box.exec_()
 
 
-class EnableableItem(QtGui.QWidget):
+class EnableableItem(QtWidgets.QWidget):
     def __init__(self, widget, enable, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__widget = widget
-        self.__checkbox = QtGui.QCheckBox()
+        self.__checkbox = QtWidgets.QCheckBox()
 
-        layout = QtGui.QHBoxLayout(self)
+        layout = QtWidgets.QHBoxLayout(self)
         layout.setSpacing(0)
         if enable:
             self.__widget.setDisabled(True)
             layout.addWidget(self.__checkbox)
-            QtCore.QObject.connect(self.__checkbox,
-                                   QtCore.SIGNAL("toggled(bool)"),
-                                   self.enable)
+            self.__checkbox.toggled.connect(self.enable)
         layout.addWidget(self.__widget)
 
     def getWidget(self):
@@ -58,18 +53,18 @@ class EnableableItem(QtGui.QWidget):
         self.__widget.setDisabled(b == False)
 
 
-class LayerPropertiesItem(QtGui.QWidget):
+class LayerPropertiesItem(QtWidgets.QWidget):
     """
     An key/value widget for populating a dialog box.
     """
     def __init__(self, label, widget, stretch=True, help=None, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__label = label
         self.__widget = widget
 
-        layout = QtGui.QHBoxLayout(self)
+        layout = QtWidgets.QHBoxLayout(self)
         if label:
-            layout.addWidget(QtGui.QLabel(label, self))
+            layout.addWidget(QtWidgets.QLabel(label, self))
         if stretch:
             layout.addStretch()
         layout.addWidget(self.__widget)
@@ -77,30 +72,30 @@ class LayerPropertiesItem(QtGui.QWidget):
             layout.addWidget(help)
 
 
-class SlideSpinner(QtGui.QWidget):
+class SlideSpinner(QtWidgets.QWidget):
     """
     A QSlider and QSpinBox
     """
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
-        self.slider = QtGui.QSlider(self)
+        self.slider = QtWidgets.QSlider(self)
         self.slider.setOrientation(QtCore.Qt.Horizontal)
-        self.slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        self.slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
 
-        self.spinner = QtGui.QDoubleSpinBox(self)
+        self.spinner = QtWidgets.QDoubleSpinBox(self)
 
-        layout = QtGui.QHBoxLayout(self)
+        layout = QtWidgets.QHBoxLayout(self)
         layout.addWidget(self.slider)
         layout.addWidget(self.spinner)
 
 
-class LayerPropertiesDialog(QtGui.QDialog):
+class LayerPropertiesDialog(QtWidgets.QDialog):
     """
     A dialog box for editing a layer.
     """
     def __init__(self, layers, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.__layers = [Cue3.getLayer(Cue3.id(l)) for l in layers]
 
         self.setWindowTitle("Layer Properties")
@@ -119,7 +114,7 @@ class LayerPropertiesDialog(QtGui.QDialog):
         self.gpu_min_gb = 0.0
         self.gpu_tick_gb = .25
 
-        self.__group = QtGui.QGroupBox("Resource Options", self)
+        self.__group = QtWidgets.QGroupBox("Resource Options", self)
 
         ## Memory
         self.__mem = SlideSpinner(self)
@@ -131,13 +126,13 @@ class LayerPropertiesDialog(QtGui.QDialog):
         self.__mem.spinner.setRange(self.mem_min_gb, self.mem_max_gb)
 
         ## Cores
-        self.__core = QtGui.QDoubleSpinBox(self)
+        self.__core = QtWidgets.QDoubleSpinBox(self)
         self.__core.setDecimals(1)
         self.__core.setRange(0, int(self._cfg().get('max_cores', 16)))
         self.__core.setSingleStep(1)
 
         ## Max cores
-        self.__max_cores = QtGui.QSpinBox(self)
+        self.__max_cores = QtWidgets.QSpinBox(self)
         self.__max_cores.setRange(0, int(self._cfg().get('max_cores', 16)))
         self.__max_cores.setSingleStep(1)
 
@@ -146,11 +141,11 @@ class LayerPropertiesDialog(QtGui.QDialog):
             self.__core.setDisabled(True)
 
         # Threads
-        self.__thread = QtGui.QCheckBox(self)
+        self.__thread = QtWidgets.QCheckBox(self)
         self.__thread.setChecked(self.getThreading())
 
         # Memory Optimizer
-        self.__mem_opt = QtGui.QCheckBox()
+        self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
 
         # Tags
@@ -168,33 +163,18 @@ class LayerPropertiesDialog(QtGui.QDialog):
         self.__gpu.spinner.setSingleStep(self.gpu_tick_gb)
 
         # Our dialog buttons.
-        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Save |
-                                                QtGui.QDialogButtonBox.Cancel,
-                                                QtCore.Qt.Horizontal,
-                                                self)
+        self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save |
+                                                    QtWidgets.QDialogButtonBox.Cancel,
+                                                    QtCore.Qt.Horizontal,
+                                                    self)
 
         # Setup signals
-        QtCore.QObject.connect(self.__mem.slider,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__translateToMemSpinbox)
-
-        QtCore.QObject.connect(self.__mem.spinner,
-                               QtCore.SIGNAL("valueChanged(double)"),
-                               self.__translateToMemSlider)
-
-        QtCore.QObject.connect(self.__gpu.slider,
-                               QtCore.SIGNAL("valueChanged(int)"),
-                               self.__translateToGpuSpinbox)
-
-        QtCore.QObject.connect(self.__gpu.spinner,
-                               QtCore.SIGNAL("valueChanged(double)"),
-                               self.__translateToGpuSlider)
-
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"),
-                               self.verify)
-
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"),
-                               self, QtCore.SLOT("reject()"))
+        self.__mem.slider.valueChanged.connect(self.__translateToMemSpinbox)
+        self.__mem.spinner.valueChanged.connect(self.__translateToMemSlider)
+        self.__gpu.slisder.valueChanged.connect(self.__translateToGpuSpinbox)
+        self.__gpu.spinner.valueChanged.connect(self.__translateToGpuSlider)
+        self.__buttons.accepted.connect(self.verify)
+        self.__buttons.rejected.connect(self.reject)
 
         # Set actual values once signals are setup
         self.__mem.slider.setValue(self.getMaxMemory())
@@ -202,9 +182,9 @@ class LayerPropertiesDialog(QtGui.QDialog):
         self.__core.setValue(self.getMinCores())
         self.__max_cores.setValue(self.getMaxCores())
 
-        QtGui.QVBoxLayout(self)
+        QtWidgets.QVBoxLayout(self)
 
-        layout = QtGui.QVBoxLayout()
+        layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
                                                              self.__mem,
                                                              False),
@@ -272,17 +252,17 @@ class LayerPropertiesDialog(QtGui.QDialog):
         """
         for layer in self.__layers:
             if self.__mem.isEnabled():
-                layer.proxy.setMinMemory(self.__mem.slider.value())
+                layer.setMinMemory(self.__mem.slider.value())
             if self.__mem_opt.isEnabled():
-                layer.proxy.enableMemoryOptimizer(self.__mem_opt.isChecked())
+                layer.enableMemoryOptimizer(self.__mem_opt.isChecked())
             if self.__core.isEnabled():
-                layer.proxy.setMinCores(float(self.__core.value()))
+                layer.setMinCores(float(self.__core.value()))
             if self.__max_cores.isEnabled():
-                layer.proxy.setMaxCores(float(self.__max_cores.value()))
+                layer.setMaxCores(float(self.__max_cores.value()))
             if self.__thread.isEnabled():
-                layer.proxy.setThreadable(self.__thread.isChecked())
+                layer.setThreadable(self.__thread.isChecked())
             if self.__gpu.isEnabled():
-                layer.proxy.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
+                layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
 
         if self.__tags.isEnabled():
             self.__tags.apply()
@@ -341,20 +321,20 @@ class LayerPropertiesDialog(QtGui.QDialog):
         self.__gpu.slider.setValue(int(value * 1024.0 * 1024.0) / self.gpu_tick_kb)
 
 
-class LayerTagsWidget(QtGui.QWidget):
+class LayerTagsWidget(QtWidgets.QWidget):
     """
     A widget for editing tags.
     """
     def __init__(self, layers, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__layers = layers
 
         currentTags = set()
         for layer in self.__layers:
             for tag in layer.data.tags:
                 currentTags.add(tag)
-        layout = QtGui.QVBoxLayout(self)
-        custom_layout = QtGui.QHBoxLayout()
+        layout = QtWidgets.QVBoxLayout(self)
+        custom_layout = QtWidgets.QHBoxLayout()
         self._tags_widget = TagsWidget(allowed_tags=Constants.ALLOWED_TAGS)
         self._tags_widget.set_tags(currentTags)
         custom_layout.addWidget(self._tags_widget)
@@ -370,9 +350,9 @@ class LayerTagsWidget(QtGui.QWidget):
 
         try:
             for layer in self.__layers:
-                layer.proxy.setTags(tags)
-        except Cue3.CueIceException, e:
-            warning = QtGui.QMessageBox(self)
+                layer.setTags(tags)
+        except Cue3.CueException, e:
+            warning = QtWidgets.QMessageBox(self)
             warning.setText("Error applying layer tags.")
             warning.setDetailedText("%s" % e)
             warning.exec_()
@@ -387,21 +367,20 @@ class LayerTagsWidget(QtGui.QWidget):
         return True
 
 
-class LayerTagsDialog(QtGui.QDialog):
+class LayerTagsDialog(QtWidgets.QDialog):
     def __init__(self, layers, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self._tags_widget = LayerTagsWidget(layers=layers,
                                             parent=parent)
-        self.__warning = QtGui.QLabel("Warning: Changing these tags may cause "
+        self.__warning = QtWidgets.QLabel("Warning: Changing these tags may cause "
                                       "your job to not run any frames")
-        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Save | QtGui.QDialogButtonBox.Cancel,
-                                                QtCore.Qt.Horizontal,
-                                                self)
+        self.__buttons = QtWidgets.QDialogButtonBox(
+            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel,
+            QtCore.Qt.Horizontal,
+            self)
 
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("accepted()"),
-                               self, QtCore.SLOT("accept()"))
-        QtCore.QObject.connect(self.__buttons, QtCore.SIGNAL("rejected()"),
-                               self, QtCore.SLOT("reject()"))
+        self.__buttons.accepted.connect(self.accept)
+        self.__buttons.rejected.connect(self.reject)
 
     def accept(self):
         self._tags_widget.apply()

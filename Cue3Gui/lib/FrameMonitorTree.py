@@ -47,6 +47,10 @@ LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
 
 class FrameMonitorTree(AbstractTreeWidget):
+
+    job_changed = QtCore.Signal()
+    handle_filter_layers_byLayer = QtCore.Signal(list)
+
     def __init__(self, parent):
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
@@ -169,19 +173,11 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedViewLog)
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemDoubleClicked(QTreeWidgetItem*,int)'),
-                               self.__itemDoubleClickedViewLog)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedViewLog)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
+        self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 
-        QtCore.QObject.connect(self.header(),
-                               QtCore.SIGNAL('sortIndicatorChanged(int,Qt::SortOrder)'),
-                               self.__sortByColumnSave)
 
         self.__load = None
         self.startTicksUpdate(20)
@@ -252,12 +248,12 @@ class FrameMonitorTree(AbstractTreeWidget):
         @type  order: Qt::SortOrder
         @param order: The order to sort"""
         if self.__job:
-            self.__sortByColumnCache[self.__job.proxy] = (logicalIndex, order)
+            self.__sortByColumnCache[Utils.getObjectKey(self.__job)] = (logicalIndex, order)
 
     def __sortByColumnLoad(self):
         """Loads the last used sort column and order for the current job, or
         uses default ascending dispatch order"""
-        key = self.__job and self.__job.proxy or None
+        key = self.__job and Utils.getObjectKey(self.__job) or None
         settings = self.__sortByColumnCache.get(key, (0, QtCore.Qt.AscendingOrder))
         self.sortByColumn(settings[0], settings[1])
 
@@ -270,8 +266,8 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param col: Column number single clicked on"""
         selected = [frame.data.name for frame in self.selectedObjects() if Utils.isFrame(frame)]
         if selected:
-            QtGui.QApplication.clipboard().setText(" ".join(selected),
-                                                   QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedViewLog(self, item, col):
         """Called when an item is clicked on. Views the log file contents
@@ -279,15 +275,14 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        current_log_file = Utils.getFrameLogFile(self.__job, item.iceObject)
+        current_log_file = Utils.getFrameLogFile(self.__job, item.rpcObject)
         try:
             old_log_files = sorted(glob.glob('%s.*' % current_log_file),
                                    key=lambda l: int(l.split('rqlog.')[-1]),
                                    reverse=True)
         except ValueError:
             pass
-        QtGui.qApp.emit(QtCore.SIGNAL('DisplayLogFileContent(PyQt_PyObject)'),
-                        [current_log_file] + old_log_files)
+        QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -295,7 +290,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
-        frame = item.iceObject
+        frame = item.rpcObject
         if frame.data.state == Cue3.api.job_pb2.RUNNING:
             Utils.popupFrameTail(self.__job, frame)
         else:
@@ -318,7 +313,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.removeAllItems()
         self.__sortByColumnLoad()
         self._lastUpdate = 0
-        self.emit(QtCore.SIGNAL("job_changed()"))
+        self.job_changed.emit()
 
     def getJob(self):
         """Returns the current job
@@ -399,7 +394,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         try:
             if self.__job:
                 self.__lastUpdateTime = int(time.time())
-                return self.__job.proxy.getFrames(self.frameSearch)
+                return self.__job.getFrames(self.frameSearch)
             return []
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -411,7 +406,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         logger.info("_getUpdateChanged")
         if not self.__job or \
            (self.__jobState and self.__jobState == Cue3.api.job_pb2.FINISHED):
-            log.warning("no job or job is finished, bailing")
+            logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
         updatedFrames = []
@@ -419,7 +414,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
             # Once the updatedFrames include the proxy instead of the id, this can be removed
             for frame in updated_data.updatedFrames:
-                frame.proxy = Cue3.util.proxy(frame.id, "Frame")
+                frame = Cue3.util.proxy(frame.id, "Frame")
             logger.info("Frame Updates: %s" % len(updated_data.updatedFrames))
             self.__lastUpdateTime = updated_data.serverTime
             self.__jobState = updated_data.state
@@ -438,50 +433,51 @@ class FrameMonitorTree(AbstractTreeWidget):
         logger.info(" - %s" % self.__class__)
         return updatedFrames
 
-    def _processUpdate(self, work, iceObjects):
+    def _processUpdate(self, work, rpcObjects):
         """Remove all items currently in the list.
-        Create new TreeWidgetItems for all new iceObjects.
+        Create new TreeWidgetItems for all new rpcObjects.
         @param work:
         @type  work: from ThreadPool
-        @param iceObjects: A list of iceObjects
-        @type  iceObjects: list<iceObject> """
+        @param rpcObjects: A list of rpcObjects
+        @type  rpcObjects: list<rpcObject> """
         logger.info("_processUpdate")
         try:
             self._itemsLock.lockForWrite()
             try:
                 self.clear()
                 self._items = {}
-                for iceObject in iceObjects:
-                    self._items[iceObject.proxy] = self._createItem(iceObject)
+                for rpcObject in rpcObjects:
+                    self._items[Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
             finally:
                 self._itemsLock.unlock()
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
 
-    def _processUpdateChanged(self, work, iceObjects):
-        """Update existing TreeWidgetItems if an item already exists for the iceObject.
-        Remove items that were not updated with iceObjects.
+    def _processUpdateChanged(self, work, rpcObjects):
+        """Update existing TreeWidgetItems if an item already exists for the rpcObject.
+        Remove items that were not updated with rpcObjects.
         @param work: from ThreadPool
         @type  work:
-        @param iceObjects: A list of iceObjects
-        @type  iceObjects: list<iceObject> """
+        @param rpcObjects: A list of rpcObjects
+        @type  rpcObjects: list<rpcObject> """
         logger.info("_processUpdateChanged")
         try:
-            if iceObjects is None:
+            if rpcObjects is None:
                 # Update request time must be off, do a full update
-                logger.warning("iceObjects is None")
+                logger.warning("rpcObjects is None")
                 self.updateRequest()
             else:
                 self._itemsLock.lockForWrite()
                 try:
-                    for iceObject in iceObjects:
+                    for rpcObject in rpcObjects:
                         # If id already exists, update it
-                        if self._items.has_key(iceObject.proxy):
-                            frame = self._items[iceObject.proxy].iceObject
+                        objectKey = Utils.getObjectKey(rpcObject)
+                        if objectKey in self._items:
+                            frame = self._items[objectKey].rpcObject
 
-                            for item in dir(iceObject):
+                            for item in dir(rpcObject):
                                 if not item.startswith("__") and item != "id":
-                                    setattr(frame.data, item, getattr(iceObject, item))
+                                    setattr(frame.data, item, getattr(rpcObject, item))
                 finally:
                     self._itemsLock.unlock()
 
@@ -529,7 +525,8 @@ class FrameMonitorTree(AbstractTreeWidget):
         menu.addMenu(depend_menu)
         menu.addSeparator()
 
-        self.__menuActions.frames().createAction(menu, "Filter Selected Layers", None, self._actionFilterSelectedLayers, "stock-filters")
+        self.__menuActions.frames().createAction(menu, "Filter Selected Layers", None,
+                                                 self._actionFilterSelectedLayers, "stock-filters")
         self.__menuActions.frames().addAction(menu, "reorder")
         menu.addSeparator()
         self.__menuActions.frames().addAction(menu, "previewMain")
@@ -547,25 +544,23 @@ class FrameMonitorTree(AbstractTreeWidget):
         results = {}
         for frame in self.selectedObjects():
             results[frame.layer()] = True
-        self.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"), results.keys())
+        self.handle_filter_layers_byLayer[str].emit(results.keys())
 
 class FrameWidgetItem(AbstractWidgetItem):
     __initialized = False
     def __init__(self, object, parent, job):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                          QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__foregroundColorBlack = QtCore.QVariant(QCOLOR_BLACK)
-            self.__class__.__foregroundColorGreen = QtCore.QVariant(QCOLOR_GREEN)
-            self.__class__.__alignCenter = QtCore.QVariant(QtCore.Qt.AlignCenter)
-            self.__class__.__alignRight = QtCore.QVariant(QtCore.Qt.AlignRight)
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__foregroundColorBlack = QCOLOR_BLACK
+            self.__class__.__foregroundColorGreen = QCOLOR_GREEN
+            self.__class__.__alignCenter = QtCore.Qt.AlignCenter
+            self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
             for key in Constants.RGB_FRAME_STATE:
-                self.__class__.__rgbFrameState[key] = QtCore.QVariant(Constants.RGB_FRAME_STATE[key])
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_FRAME)
+                self.__class__.__rgbFrameState[key] = Constants.RGB_FRAME_STATE[key]
+            self.__class__.__type = Constants.TYPE_FRAME
         AbstractWidgetItem.__init__(self, Constants.TYPE_FRAME, object, parent, job)
         self.__show = job.data.show
 
@@ -575,30 +570,31 @@ class FrameWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.iceObject))
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](
+                self._source, self.rpcObject)
 
 #        if role == QtCore.Qt.DisplayRole:
-#            if not self._cache.has_key(col):
-#                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.iceObject))
+#            if col not in self._cache:
+#                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.rpcObject))
 #            return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
             if col == STATUS_COLUMN:
                 return self.__foregroundColorBlack
-            elif col == PROC_COLUMN and self.iceObject.data.lastResource.startswith(LOCALRESOURCE):
+            elif col == PROC_COLUMN and self.rpcObject.data.lastResource.startswith(LOCALRESOURCE):
                 return self.__foregroundColorGreen
             else:
                 return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole and col == STATUS_COLUMN:
-            return self.__rgbFrameState[self.iceObject.data.state]
+            return self.__rgbFrameState[self.rpcObject.data.state]
 
         elif role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
-            if self.iceObject.data.checkpointState == Cue3.api.job_pb2.ENABLED:
-                return QtCore.QVariant(QtGui.QIcon(":markdone.png"))
+            if self.rpcObject.data.checkpointState == Cue3.api.job_pb2.ENABLED:
+                return QtGui.QIcon(":markdone.png")
         elif role == QtCore.Qt.TextAlignmentRole:
             if col == STATUS_COLUMN:
                 return self.__alignCenter
@@ -615,7 +611,8 @@ class FrameWidgetItem(AbstractWidgetItem):
         """Custom sorting for columns that have a function defined for sorting"""
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         if sortLambda:
-            return sortLambda(self._source, self.iceObject) < sortLambda(other._source, other.iceObject)
+            return sortLambda(self._source, self.rpcObject) < sortLambda(
+                other._source, other.rpcObject)
 
         return QtGui.QTreeWidgetItem.__lt__(self, other)
 
@@ -657,24 +654,26 @@ class FrameLogDataBuffer(object):
         it"""
         try:
             __now = time.time()
-            if self.__currentJob != job.proxy:
+            jobKey = Utils.getObjectKey(job)
+            if self.__currentJob != jobKey:
                 # New job so clear cache
                 self.__cache.clear()
                 self.__queue.clear()
-                self.__currentJob = job.proxy
+                self.__currentJob = jobKey
 
             if len(self.__queue) > len(self.__threadPool._q_queue):
                 # Everything is hung up, start over
                 self.__cache.clear()
                 self.__queue.clear()
 
-            if self.__cache.has_key(frame.proxy):
+            frameKey = Utils.getObjectKey(frame)
+            if frameKey in self.__cache:
                 # Last line is cached
-                __cached = self.__cache[frame.proxy]
+                __cached = self.__cache[frameKey]
                 if __cached[self.__TIME] < __now - self.maxCacheTime:
                     # Its an old cache, queue an update
-                    self.__cache[frame.proxy][0] = __now + 60
-                    self.__queue[frame.proxy] = __cached[self.__PATH]
+                    self.__cache[frameKey][0] = __now + 60
+                    self.__queue[frameKey] = __cached[self.__PATH]
                     self.__threadPool.queue(self.__doWork, self.__saveWork,
                                             "getting data for %s" % self.__class__)
                 # Return the cached results anyway
@@ -682,12 +681,12 @@ class FrameLogDataBuffer(object):
             else:
                 __path = Utils.getFrameLogFile(job, frame)
                 # Cache a blank entry until it is filled in
-                self.__cache[frame.proxy] = [__now + 60,
+                self.__cache[frameKey] = [__now + 60,
                                              __path,
                                              self.__defaultLine,
                                              self.__defaultLLU]
                 # Queue an update
-                self.__queue[frame.proxy] = __path
+                self.__queue[frameKey] = __path
                 self.__threadPool.queue(self.__doWork, self.__saveWork,
                                         "getting data for %s" % self.__class__)
                 # Since nothing is updated yet, return an empty string
@@ -748,30 +747,32 @@ class FrameEtaDataBuffer(object):
     def getEta(self, job, frame):
         __now = time.time()
         try:
-            if self.__currentJob != job.proxy:
+            jobKey = Utils.getObjectKey(job)
+            if self.__currentJob != jobKey:
                 # New job so clear cache
                 self.__cache.clear()
-                self.__currentJob = job.proxy
+                self.__currentJob = jobKey
 
-            if self.__cache.has_key(frame.proxy):
+            frameKey = Utils.getObjectKey(frame)
+            if frameKey in self.__cache:
                 # Frame eta is cached
-                __cached = self.__cache[frame.proxy]
+                __cached = self.__cache[frameKey]
                 if __cached[self.__TIME] < __now - self.maxCacheTime:
                     # It is an old cache, queue an update, reset the time until updated
-                    self.__cache[frame.proxy][0] = __now + 60
+                    self.__cache[frameKey][0] = __now + 60
                     self.__threadPool.queue(self.__doWork, self.__saveWork,
-                                            "getting data for %s" % self.__class__, frame.proxy, job, frame)
+                                            "getting data for %s" % self.__class__, frameKey, job, frame)
                 # Return the cached results anyway
                 if __cached[self.__ETA] is not None:
                     return max(__cached[self.__ETA] - __now + __cached[self.__TIME], 0)
             else:
                 # Queue an update, cache a blank entry until updated
-                self.__cache[frame.proxy] = [__now + 60, None]
+                self.__cache[frameKey] = [__now + 60, None]
                 self.__threadPool.queue(self.__doWork, self.__saveWork,
-                                        "getting data for %s" % self.__class__, frame.proxy, job, frame)
+                                        "getting data for %s" % self.__class__, frameKey, job, frame)
                 # Since nothing is updated yet, return a default
         except Exception, e:
-            self.__cache[frame.proxy] = [__now,
+            self.__cache[frameKey] = [__now,
                                          None]
             map(logger.warning, Utils.exceptionOutput(e))
 

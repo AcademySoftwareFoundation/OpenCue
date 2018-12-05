@@ -139,18 +139,11 @@ class HostMonitorTree(AbstractTreeWidget):
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
 
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedCopy)
-
-        QtCore.QObject.connect(self,
-                               QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                               self.__itemSingleClickedComment)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedComment)
 
         # Don't use the standard space bar to refresh
-        QtCore.QObject.disconnect(QtGui.qApp,
-                                  QtCore.SIGNAL('request_update()'),
-                                  self.updateRequest)
+        QtGui.qApp.request_update.connect(self.updateRequest)
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
@@ -190,8 +183,8 @@ class HostMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [host.data.name for host in self.selectedObjects() if Utils.isHost(host)]
         if selected:
-            QtGui.QApplication.clipboard().setText(",".join(selected),
-                                                   QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(",".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -200,7 +193,7 @@ class HostMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        host = item.iceObject
+        host = item.rpcObject
         if col == COMMENT_COLUMN and Utils.isHost(host) and host.data.hasComment:
             self.__menuActions.hosts().viewComments([host])
 
@@ -273,17 +266,12 @@ class HostWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__commentIcon = \
-                QtCore.QVariant(QtGui.QIcon(":comment.png"))
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__pausedColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND)
-            self.__class__.__dyingColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_HOST)
+            self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__type = Constants.TYPE_HOST
         AbstractWidgetItem.__init__(self, Constants.TYPE_HOST, object, parent)
 
     def data(self, col, role):
@@ -292,41 +280,41 @@ class HostWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
             if col not in self._cache:
-                self._cache[col] = QtCore.QVariant(
-                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+                self._cache[col] = \
+                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
             return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole:
-            if not self.iceObject.data.state == Cue3.api.host_pb2.UP:
+            if not self.rpcObject.data.state == Cue3.api.host_pb2.UP:
                 return self.__dyingColor
-            if self.iceObject.data.lockState == Cue3.api.host_pb2.LOCKED:
+            if self.rpcObject.data.lockState == Cue3.api.host_pb2.LOCKED:
                 return self.__pausedColor
             return self.__backgroundColor
 
         elif role == QtCore.Qt.DecorationRole:
-            if col == COMMENT_COLUMN and self.iceObject.data.hasComment:
+            if col == COMMENT_COLUMN and self.rpcObject.data.hasComment:
                 return self.__commentIcon
 
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            return QtCore.QVariant([self.iceObject.data.totalSwap - self.iceObject.data.freeSwap,
-                                    self.iceObject.data.totalSwap])
+            return [self.rpcObject.data.totalSwap - self.rpcObject.data.freeSwap,
+                    self.rpcObject.data.totalSwap]
 
         elif role == QtCore.Qt.UserRole + 2:
-            return QtCore.QVariant([self.iceObject.data.totalMemory - self.iceObject.data.freeMemory,
-                                    self.iceObject.data.totalMemory])
+            return [self.rpcObject.data.totalMemory - self.rpcObject.data.freeMemory,
+                    self.rpcObject.data.totalMemory]
 
         elif role == QtCore.Qt.UserRole + 3:
-            return QtCore.QVariant([self.iceObject.data.totalGpu - self.iceObject.data.freeGpu,
-                                    self.iceObject.data.totalGpu])
+            return [self.rpcObject.data.totalGpu - self.rpcObject.data.freeGpu,
+                    self.rpcObject.data.totalGpu]
 
         return Constants.QVARIANT_NULL

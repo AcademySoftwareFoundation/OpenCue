@@ -13,39 +13,33 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtGui, Cue3
-
-from decimal import Decimal
-
-import Utils
 import Constants
-import Style
-import Logger
-
+import Utils
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
 from ShowDialog import ShowDialog
 
 
-class SubscriptionsWidget(QtGui.QWidget):
+class SubscriptionsWidget(QtWidgets.QWidget):
     def __init__(self, parent):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
 
         self.__show = None
 
-        self.__comboShows = QtGui.QComboBox(self)
+        self.__comboShows = QtWidgets.QComboBox(self)
         self.__comboShows.setFocusPolicy(QtCore.Qt.NoFocus)
 
-        self.__btnShowProperties = QtGui.QPushButton("Show Properties", self)
+        self.__btnShowProperties = QtWidgets.QPushButton("Show Properties", self)
         self.__btnShowProperties.setFocusPolicy(QtCore.Qt.NoFocus)
 
-        self.__btnAddSubscription = QtGui.QPushButton("Add Subscription", self)
+        self.__btnAddSubscription = QtWidgets.QPushButton("Add Subscription", self)
         self.__btnAddSubscription.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.__monitorSubscriptions = SubscriptionsTreeWidget(self)
 
-        layout = QtGui.QGridLayout(self)
+        layout = QtWidgets.QGridLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         layout.addWidget(self.__comboShows, 0, 0)
@@ -53,22 +47,11 @@ class SubscriptionsWidget(QtGui.QWidget):
         layout.addWidget(self.__btnAddSubscription, 0, 3)
         layout.addWidget(self.__monitorSubscriptions, 2, 0, 3, 4)
 
-        QtCore.QObject.connect(self.__btnShowProperties,
-                               QtCore.SIGNAL("clicked()"),
-                               self.__showProperties)
-        QtCore.QObject.connect(self.__btnAddSubscription,
-                               QtCore.SIGNAL("clicked()"),
-                               self.__addSubscription)
-
-        QtCore.QObject.connect(self.__comboShows,
-                               QtCore.SIGNAL("currentIndexChanged(QString)"),
-                               self.setShow)
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('view_object(PyQt_PyObject)'),
-                               self.setShow)
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('facility_changed()'),
-                               self.changeFacility)
+        self.__btnShowProperties.clicked.connect(self.__showProperties)
+        self.__btnAddSubscription.clicked.connect(self.__addSubscription)
+        self.__comboShows.currentIndexChanged.connect(self.setShow)
+        QtGui.qApp.view_object.connect(self.setShow)
+        QtGui.qApp.facility_changed.connect(self.changeFacility)
 
         self.__menuActions = MenuActions(self,
                                          self.updateSoon,
@@ -88,12 +71,10 @@ class SubscriptionsWidget(QtGui.QWidget):
 
     def setShow(self, show=""):
         """Sets the show for the subscription list and combo box
-        @type  show: QString or str or Show
+        @type  show: str or Show
         @param show: The show to monitor"""
-
-        if isinstance(show, QtCore.QString):
-            show = str(show)
-
+        if isinstance(show, int):
+            show = str(self.__comboShows.currentText())
         if Utils.isShow(show):
             if self.__show and self.__show.name() == show.name():
                 return
@@ -185,7 +166,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
 
         self.setUpdateInterval(30)
 
-    def setShow(self, show = None):
+    def setShow(self, show=None):
         self._itemsLock.lockForWrite()
         try:
             if not show:
@@ -221,7 +202,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         self.__menuActions.subscriptions().addAction(menu, "editSize")
         self.__menuActions.subscriptions().addAction(menu, "editBurst")
         menu.addSeparator()

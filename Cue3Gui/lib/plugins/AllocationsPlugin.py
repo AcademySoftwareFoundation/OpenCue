@@ -17,7 +17,7 @@ import os
 import Cue3Gui
 import Cue3
 
-from PyQt4 import QtGui, QtCore
+from PySide2 import QtGui, QtCore, QtWidgets
 
 from decimal import Decimal
 
@@ -76,9 +76,9 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True);
         self.setDragEnabled(True)
-        self.setDragDropMode(QtGui.QAbstractItemView.DragDrop)
+        self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('facility_changed()'), self._update)
+        QtGui.qApp.facility_changed.connect(self._update)
 
         self.setUpdateInterval(60)
 
@@ -112,9 +112,10 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
             hostNames = Cue3Gui.Utils.dropEvent(event, "application/x-host-names")
             if hostIds and \
                Cue3Gui.Utils.questionBoxYesNo(self, "Move hosts to new allocation?",
-                                              "Move the hosts into the allocation: \"%s\"?" % item.iceObject.data.name,
+                                              "Move the hosts into the allocation: \"%s\"?" %
+                                              item.rpcObject.data.name,
                                               hostNames):
-                item.iceObject.reparentHosts(hostIds)
+                item.rpcObject.reparentHosts(hostIds)
                 self.updateSoon()
 
 class AllocationWidgetItem(Cue3Gui.AbstractWidgetItem):

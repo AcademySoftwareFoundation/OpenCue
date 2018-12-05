@@ -13,13 +13,9 @@
 #  limitations under the License.
 
 
-import os
 import Cue3Gui
-import Cue3
 
-from PyQt4 import QtGui, QtCore
-
-from decimal import Decimal
+from PySide2 import QtCore, QtWidgets
 
 PLUGIN_NAME = "Subscriptions"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -27,12 +23,13 @@ PLUGIN_DESCRIPTION = "An administrator interface to subscriptions"
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "SubscriptionDockWidget"
 
+
 class SubscriptionDockWidget(Cue3Gui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
         Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         self.layout().addWidget(self.__splitter)
 
         self.__subscriptionsWidget = Cue3Gui.SubscriptionsWidget(self)

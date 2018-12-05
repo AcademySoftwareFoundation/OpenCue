@@ -25,7 +25,7 @@ import glob
 import urllib2
 import subprocess
 
-from Manifest import QtCore, QtGui, Cue3, FileSequence
+from Manifest import QtCore, QtGui, QtWidgets, Cue3, FileSequence
 
 import Cue3.compiled_proto.job_pb2
 import Action
@@ -116,11 +116,11 @@ class AbstractActions(object):
 
         # Uses a cache to only create actions once
         key = (actionName, callback)
-        if not self.__actionCache.has_key(key):
+        if key not in self.__actionCache:
             info = getattr(self, "%s_info" % actionName)
 
             # Uses a cache to only load icons once
-            if not self.__iconCache.has_key(info[ICON]):
+            if info[ICON] not in self.__iconCache:
                 if type(info[ICON]) is QtGui.QColor:
                     pixmap = QtGui.QPixmap(100, 100)
                     pixmap.fill(info[ICON])
@@ -128,14 +128,14 @@ class AbstractActions(object):
                 else:
                     self.__iconCache[info[ICON]] = QtGui.QIcon(":%s.png" % info[ICON])
 
-            action = QtGui.QAction(self.__iconCache[info[ICON]], info[TITLE], self._caller)
+            action = QtWidgets.QAction(self.__iconCache[info[ICON]], info[TITLE], self._caller)
 
             if not callback:
                 callback = actionName
             if isinstance(callback, str):
                 callback = getattr(self, callback)
 
-            QtCore.QObject.connect(action, QtCore.SIGNAL("triggered()"), callback)
+            action.triggered.connect(callback)
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
@@ -155,10 +155,11 @@ class AbstractActions(object):
         try:
             return callable(*args)
         except Exception, e:
-            QtGui.QMessageBox.critical(self._caller,
+            print e
+            QtWidgets.QMessageBox.critical(self._caller,
                                        errorMessageTitle,
                                        e.message,
-                                       QtGui.QMessageBox.Ok)
+                                       QtWidgets.QMessageBox.Ok)
             return None
 
     def getText(self, title, body, default):
@@ -171,10 +172,10 @@ class AbstractActions(object):
         @param default: The default text to provide in the input dialog
         @rtype: tuple(str, bool)
         @return: (input, choice)"""
-        (input, choice) = QtGui.QInputDialog.getText(self._caller,
+        (input, choice) = QtWidgets.QInputDialog.getText(self._caller,
                                                      title,
                                                      body,
-                                                     QtGui.QLineEdit.Normal,
+                                                     QtWidgets.QLineEdit.Normal,
                                                      default)
         return (str(input), choice)
 
@@ -190,7 +191,7 @@ class JobActions(AbstractActions):
     view_info = ["View Job", None, "view"]
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
-            QtGui.qApp.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), job)
+            QtGui.qApp.view_object.emit(job)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
@@ -211,14 +212,14 @@ class JobActions(AbstractActions):
             current = max([job.data.minCores for job in jobs])
             title = "Set Minimum Cores"
             body = "Please enter the new minimum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
                 for job in jobs:
                     Cue3.wrappers.job.Job(job).setMinCores(float(value))
-                    job.proxy.setMinCores(float(value))
+                    job.setMinCores(float(value))
                 self._update()
 
     setMaxCores_info = ["Set Maximum Cores...", "Set Job(s) Maximum Cores", "configure"]
@@ -228,7 +229,7 @@ class JobActions(AbstractActions):
             current = max([job.data.maxCores for job in jobs])
             title = "Set Maximum Cores"
             body = "Please enter the new maximum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
@@ -244,7 +245,7 @@ class JobActions(AbstractActions):
             current = max([job.data.priority for job in jobs])
             title = "Set Priority"
             body = "Please enter the new priority value:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             current,
                                                             0, 1000000, 1)
@@ -259,7 +260,7 @@ class JobActions(AbstractActions):
         if jobs:
             title = "Set Max Retries"
             body = "Please enter the number of retries that a frame should be allowed before it becomes dead:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             0, 0, 10, 1)
             if choice:
@@ -346,7 +347,7 @@ class JobActions(AbstractActions):
                                       "Drop all external dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
+                    job.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
                 self._update()
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
@@ -357,7 +358,7 @@ class JobActions(AbstractActions):
                                       "Drop all internal dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.api.depend_pb2.INTERNAL)
+                    job.dropDepends(Cue3.api.depend_pb2.INTERNAL)
                 self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
@@ -375,7 +376,7 @@ class JobActions(AbstractActions):
     def __getJobRange(self, job):
         __minRange = []
         __maxRange = []
-        for layer in job.proxy.getLayers():
+        for layer in job.getLayers():
             fs = FileSequence.FrameSet(layer.data.range)
             fs.normalize()
             __minRange.append(fs[0])
@@ -397,7 +398,7 @@ class JobActions(AbstractActions):
 
         body = "What order should the range %s take?" % range
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -405,7 +406,7 @@ class JobActions(AbstractActions):
                                                      False)
         if not choice: return
 
-        self.cuebotCall(__job.proxy.reorderFrames, "Reorder Frames Failed",
+        self.cuebotCall(__job.reorderFrames, "Reorder Frames Failed",
                         range, getattr(Cue3.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
@@ -422,14 +423,14 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtGui.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
 
         if not choice: return
 
-        self.cuebotCall(__job.proxy.staggerFrames, "Stagger Frames Failed",
+        self.cuebotCall(__job.staggerFrames, "Stagger Frames Failed",
                         range, int(increment))
 
     unbook_info = ["Unbook Frames...", None, "kill"]
@@ -451,7 +452,7 @@ class JobActions(AbstractActions):
         body = "What group should these jobs move to?\n" + \
                "\n".join([job.data.name for job in jobs])
 
-        (group, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (group, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(groups.keys()),
@@ -460,7 +461,7 @@ class JobActions(AbstractActions):
         if not choice:
             return
 
-        groups[str(group)].proxy.reparentJobs([job.proxy for job in jobs])
+        groups[str(group)].reparentJobs(jobs)
         self._update()
 
 
@@ -480,8 +481,8 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             paths = [job.data.logDir for job in jobs]
-            QtGui.QApplication.clipboard().setText(" ".join(paths),
-                                                   QtGui.QClipboard.Clipboard)
+            QtWidgets.QApplication.clipboard().setText(" ".join(paths),
+                                                       QtGui.QClipboard.Clipboard)
 
     setUserColor1_info = ["Set Color 1", "Set user defined background color", Constants.COLOR_USER_1]
     def setUserColor1(self, rpcObjects=None):
@@ -512,8 +513,7 @@ class LayerActions(AbstractActions):
     def view(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            self._caller.emit(QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"),
-                              [layer.data.name for layer in layers])
+            self._caller.handle_filter_layers_byLayer.emit([layer.data.name for layer in layers])
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
@@ -528,13 +528,13 @@ class LayerActions(AbstractActions):
             current = max([layer.data.minCores for layer in layers])
             title = "Set minimum number of cores required"
             body = "Please enter the new minimum number of cores that frames in the selected layer(s) should require:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0.01, 64.0, 2)
             if choice:
                 for layer in layers:
-                    layer.proxy.setMinCores(float(value))
+                    layer.setMinCores(float(value))
                 self._update()
 
     setMinMemoryKb_info = ["Set Minimum Memory", "Set the amount of memory required for this layer", "configure"]
@@ -544,7 +544,7 @@ class LayerActions(AbstractActions):
             current = max([layer.data.minMemory / 1048576 for layer in layers])
             title = "Set minimum amount of memory required"
             body = "Please enter the new minimum amount of memory in GB that frames in the selected layer(s) should require:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0.01, 64.0, 1)
@@ -633,7 +633,7 @@ class LayerActions(AbstractActions):
                                       "Mark done ALL frames in selected layers?",
                                       [layer.data.name for layer in layers]):
                 for layer in layers:
-                    layer.proxy.markdoneFrames()
+                    layer.markdoneFrames()
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -669,7 +669,7 @@ class LayerActions(AbstractActions):
 
         body = "What order should the range %s take?" % range
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -678,7 +678,7 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         for layer in layers:
-            self.cuebotCall(layer.proxy.reorderFrames, "Reorder Frames Failed",
+            self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
                             range, getattr(Cue3.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
@@ -698,14 +698,14 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtGui.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
 
         if not choice: return
 
-        self.cuebotCall(__layer.proxy.staggerFrames, "Stagger Frames Failed",
+        self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
                         range, int(increment))
 
 
@@ -775,8 +775,8 @@ class FrameActions(AbstractActions):
         frames = self._getOnlyFrameObjects(rpcObjects)
         hosts = list(set([frame.data.lastResource.split("/")[0] for frame in frames if frame.data.lastResource]))
         if hosts:
-            QtGui.qApp.emit(QtCore.SIGNAL("view_hosts(PyQt_PyObject)"), hosts)
-            QtGui.qApp.emit(QtCore.SIGNAL("single_click(PyQt_PyObject)"), Cue3.api.findHost(hosts[0]))
+            QtGui.qApp.view_hosts.emit(hosts)
+            QtGui.qApp.single_click.emit(Cue3.api.findHost(hosts[0]))
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
     def getWhatThisDependsOn(self, rpcObjects=None):
@@ -807,7 +807,7 @@ class FrameActions(AbstractActions):
                                       "Retry selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                job.proxy.retryFrames(frameSearch)
+                job.retryFrames(frameSearch)
                 self._update()
 
     previewMain_info = ["Preview Main", None, "previewMain"]
@@ -819,7 +819,7 @@ class FrameActions(AbstractActions):
             d.process()
             d.exec_()
         except Exception, e:
-            QtGui.QMessageBox.critical(None, "Preview Error", 
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
                                        "Error displaying preview frames, %s" % e)
 
     previewAovs_info = ["Preview All", None, "previewAovs"]
@@ -831,7 +831,7 @@ class FrameActions(AbstractActions):
             d.process()
             d.exec_()
         except Exception, e:
-            QtGui.QMessageBox.critical(None, "Preview Error", 
+            QtWidgets.QMessageBox.critical(None, "Preview Error",
                                        "Error displaying preview frames, %s" % e)
     eat_info = ["&Eat", None, "eat"]
     def eat(self, rpcObjects=None):
@@ -841,7 +841,7 @@ class FrameActions(AbstractActions):
                                       "Eat selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.eatFrames(frameSearch)
+                self._getSource().eatFrames(frameSearch)
                 self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -852,7 +852,7 @@ class FrameActions(AbstractActions):
                                       "Kill selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.killFrames(frameSearch)
+                self._getSource().killFrames(frameSearch)
                 self._update()
 
     markAsWaiting_info = ["Mark as &waiting", None, "configure"]
@@ -864,7 +864,7 @@ class FrameActions(AbstractActions):
                                       "(Ignores all of the frames's dependencies once)",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.markAsWaiting(frameSearch)
+                self._getSource().markAsWaiting(frameSearch)
                 self._update()
 
     dropDepends_info = ["D&rop depends", None, "configure"]
@@ -877,7 +877,7 @@ class FrameActions(AbstractActions):
                                       "(Drops all of the frame's dependencies)",
                                       names):
                 for frame in frames:
-                    frame.proxy.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
+                    frame.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -896,7 +896,7 @@ class FrameActions(AbstractActions):
                                       "(Drops any dependencies that are waiting on these frames)",
                                       frameNames):
                 frameSearch = Cue3.search.FrameSearch(name=frameNames)
-                self._getSource().proxy.markDoneFrames(frameSearch)
+                self._getSource().markDoneFrames(frameSearch)
                 self._update()
 
     reorder_info = ["Reorder...", None, "configure"]
@@ -909,7 +909,7 @@ class FrameActions(AbstractActions):
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
         items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
-        (order, choice) = QtGui.QInputDialog.getItem(self._caller,
+        (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
@@ -918,7 +918,7 @@ class FrameActions(AbstractActions):
         if not choice: return
 
         # Store the proxy and a place for the frame numbers keyed to the layer name
-        __layersDict = dict([(layer.data.name, (layer.proxy, [])) for layer in __job.getLayers()])
+        __layersDict = dict([(layer.data.name, (layer, [])) for layer in __job.getLayers()])
 
         # For each frame, store the number in the list for that layer
         for frame in frames:
@@ -941,8 +941,8 @@ class FrameActions(AbstractActions):
         if not frames: return
         job = self._getSource()
         paths = [Utils.getFrameLogFile(job, frame) for frame in frames]
-        QtGui.QApplication.clipboard().setText(paths,
-                                               QtGui.QClipboard.Clipboard)
+        QtWidgets.QApplication.clipboard().setText(paths,
+                                                   QtGui.QClipboard.Clipboard)
 
     eatandmarkdone_info = ["Eat and Mark done", None, "eatandmarkdone"]
     def eatandmarkdone(self, rpcObjects=None):
@@ -973,18 +973,18 @@ class FrameActions(AbstractActions):
                         return
 
                 frameSearch = Cue3.search.FrameSearch(name=frameNames)
-                self._getSource().proxy.eatFrames(frameSearch)
-                self._getSource().proxy.markDoneFrames(frameSearch)
+                self._getSource().eatFrames(frameSearch)
+                self._getSource().markDoneFrames(frameSearch)
 
                 # Warning: The below assumes that eaten frames are desired to be markdone
 
                 # Wait for the markDoneFrames to be processed, then drop the dependencies on the layer if all frames are done
                 layerNames = [frame.data.layerName for frame in frames]
                 time.sleep(1)
-                for layer in self._getSource().proxy.getLayers():
+                for layer in self._getSource().getLayers():
                     if layer.data.name in layerNames:
                         if layer.stats.eatenFrames + layer.stats.succeededFrames == layer.stats.totalFrames:
-                            layer.proxy.markdoneFrames()
+                            layer.markdoneFrames()
                 self._update()
 
 
@@ -1049,10 +1049,10 @@ class RootGroupActions(AbstractActions):
                 cuewho = Utils.getCuewho(rootgroup.data.name)
                 extension = Utils.getExtension(cuewho)
                 message.append("Cuewho for %s is: %s %s" % (rootgroup.data.name, cuewho, extension ))
-            QtGui.QMessageBox.information(self._caller,
+            QtWidgets.QMessageBox.information(self._caller,
                                           "Show Cuewho",
                                           '\n'.join(message),
-                                          QtGui.QMessageBox.Ok)
+                                          QtWidgets.QMessageBox.Ok)
 
     createGroup_info = ["Create Group...", None, "configure"]
     def createGroup(self, rpcObjects=None):
@@ -1124,22 +1124,22 @@ class SubscriptionActions(AbstractActions):
             body = "Please enter the new subscription size value:\nThis " \
                    "should only be changed by administrators.\nPlease " \
                    "contact the resource department."
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
-                msg = QtGui.QMessageBox()
+                msg = QtWidgets.QMessageBox()
                 msg.setText("You are about to modify a number that can effect a shows billing. Are you in PSR-Resources?")
-                msg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-                msg.setDefaultButton(QtGui.QMessageBox.No)
-                if msg.exec_() == QtGui.QMessageBox.No:
+                msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+                msg.setDefaultButton(QtWidgets.QMessageBox.No)
+                if msg.exec_() == QtWidgets.QMessageBox.No:
                     return
 
                 for sub in subs:
-                    self.cuebotCall(sub.proxy.setSize,
+                    self.cuebotCall(sub.setSize,
                                     "Set Size on Subscription %s Failed" % sub.data.name,
-                                    float(value))
+                                    int(value))
                 self._update()
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
@@ -1150,15 +1150,15 @@ class SubscriptionActions(AbstractActions):
             title = "Edit Subscription Burst"
             body = "Please enter the maximum number of cores that this " \
                    "subscription should be allowed to reach:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
                 for sub in subs:
-                    self.cuebotCall(sub.proxy.setBurst,
+                    self.cuebotCall(sub.setBurst,
                                     "Set Burst on Subscription %s Failed" % sub.data.name,
-                                    float(value))
+                                    int(value))
                 self._update()
 
     delete_info = ["Delete Subscription", None, "configure"]
@@ -1194,7 +1194,7 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         hosts = list(set([host.data.name for host in hosts]))
         if hosts:
-            QtGui.qApp.emit(QtCore.SIGNAL("view_procs(PyQt_PyObject)"), hosts)
+            QtGui.qApp.view_procs.emit(hosts)
 
     hinv_info = ["View Host Information (hinv)", None, "view"]
     def hinv(self, rpcObjects=None):
@@ -1202,10 +1202,10 @@ class HostActions(AbstractActions):
         for host in hosts:
             try:
                 lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
-                QtGui.QMessageBox.information(self._caller,
+                QtWidgets.QMessageBox.information(self._caller,
                                               "%s hinv" % host.data.name,
                                               "\n".join(lines),
-                                              QtGui.QMessageBox.Ok)
+                                              QtWidgets.QMessageBox.Ok)
             except Exception, e:
                 logger.warning("Failed to get host's hinv: %s" % e)
 
@@ -1213,14 +1213,14 @@ class HostActions(AbstractActions):
     def lock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
-            host.proxy.lock()
+            host.lock()
         self._update()
 
     unlock_info = ["Unlock Host", None, "lock"]
     def unlock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
-            host.proxy.unlock()
+            host.unlock()
         self._update()
 
     delete_info = ["Delete Host", "Delete host from cuebot", "kill"]
@@ -1234,10 +1234,10 @@ class HostActions(AbstractActions):
                                   [host.data.name for host in hosts]):
             for host in hosts:
                 # Delete current render partitions to avoid oracle exception
-                for rp in host.proxy.getRenderPartitions():
-                    rp.proxy.delete()
+                for rp in host.getRenderPartitions():
+                    rp.delete()
 
-                self.cuebotCall(host.proxy.delete,
+                self.cuebotCall(host.delete,
                                 "Delete %s Failed" % host.data.name)
             self._update()
 
@@ -1251,7 +1251,7 @@ class HostActions(AbstractActions):
                                   body,
                                   [host.data.name for host in hosts]):
             for host in hosts:
-                self.cuebotCall(host.proxy.rebootWhenIdle,
+                self.cuebotCall(host.rebootWhenIdle,
                                 "Reboot %s When Idle Failed" % host.data.name)
             self._update()
 
@@ -1265,7 +1265,7 @@ class HostActions(AbstractActions):
             if choice:
                 tags = str(tags).replace(" ", ",").split(",")
                 for host in hosts:
-                    self.cuebotCall(host.proxy.addTags,
+                    self.cuebotCall(host.addTags,
                                     "Add Tags to %s Failed" % host.data.name,
                                     tags)
                 self._update()
@@ -1280,7 +1280,7 @@ class HostActions(AbstractActions):
             if choice:
                 tags = str(tags).replace(" ", ",").split(",")
                 for host in hosts:
-                    self.cuebotCall(host.proxy.removeTags,
+                    self.cuebotCall(host.removeTags,
                                     "Remove Tags From %s Failed" % host.data.name,
                                     tags)
                 self._update()
@@ -1291,7 +1291,7 @@ class HostActions(AbstractActions):
         if hosts:
             title = "Rename tag"
             body = "What tag should be renamed?"
-            (oldTag, choice) = QtGui.QInputDialog.getItem(self._caller,
+            (oldTag, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                           title, body,
                                                           hosts[0].data.tags,
                                                           0, False)
@@ -1304,7 +1304,7 @@ class HostActions(AbstractActions):
             if not choice: return
 
             for host in hosts:
-                self.cuebotCall(host.proxy.renameTag,
+                self.cuebotCall(host.renameTag,
                                 "Rename Tags on %s Failed" % host.data.name,
                                 oldTag, newTag)
             self._update()
@@ -1316,16 +1316,16 @@ class HostActions(AbstractActions):
             allocations = dict([(alloc.data.name, alloc) for alloc in Cue3.api.getAllocations()])
             title = "Move host to allocation"
             body = "What allocation should the host(s) be moved to?"
-            (allocationName, choice) = QtGui.QInputDialog.getItem(self._caller,
+            (allocationName, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                                   title, body,
                                                                   sorted(allocations.keys()),
                                                                   0, False)
             if choice:
                 allocation = allocations[str(allocationName)]
                 for host in hosts:
-                    self.cuebotCall(host.proxy.setAllocation,
+                    self.cuebotCall(host.setAllocation,
                                     "Set Allocation on %s Failed" % host.data.name,
-                                    allocation.proxy)
+                                    allocation)
                 self._update()
 
     setRepair_info = ["Set Repair State", None, "configure"]
@@ -1334,7 +1334,7 @@ class HostActions(AbstractActions):
         repair = Cue3.api.host_pb2.REPAIR
         for host in hosts:
             if host.data.state != repair:
-                host.proxy.setHardwareState(repair)
+                host.setHardwareState(repair)
         self._update()
 
     clearRepair_info = ["Clear Repair State", None, "configure"]
@@ -1344,7 +1344,7 @@ class HostActions(AbstractActions):
         down = Cue3.api.host_pb2.DOWN
         for host in hosts:
             if host.data.state == repair:
-                host.proxy.setHardwareState(down)
+                host.setHardwareState(down)
         self._update()
 
 
@@ -1356,7 +1356,7 @@ class ProcActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in list(set([proc.data.jobName for proc in self._getOnlyProcObjects(rpcObjects)])):
             try:
-                QtGui.qApp.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), Cue3.api.findJob(job))
+                QtGui.qApp.view_object.emit(Cue3.api.findJob(job))
             except Exception, e:
                 logger.warning("Unable to load: %s" % job)
 
@@ -1368,7 +1368,7 @@ class ProcActions(AbstractActions):
                                       "Kill selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.kill,
+                    self.cuebotCall(proc.kill,
                                     "Kill Proc %s Failed" % proc.data.name)
                 self._update()
 
@@ -1380,7 +1380,7 @@ class ProcActions(AbstractActions):
                                       "Unbook selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.unbook,
+                    self.cuebotCall(proc.unbook,
                                     "Unbook Proc %s Failed" % proc.data.name,
                                     False)
                 self._update()
@@ -1393,7 +1393,7 @@ class ProcActions(AbstractActions):
                                       "Unbook and Kill selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.unbook,
+                    self.cuebotCall(proc.unbook,
                                     "Unbook and Kill Proc %s Failed" % proc.data.name,
                                     True)
                 self._update()
@@ -1407,14 +1407,14 @@ class DependenciesActions(AbstractActions):
     def satisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
-            dependency.proxy.satisfy()
+            dependency.satisfy()
         self._update()
 
     unsatisfy_info = ["Unsatisfy Dependency", None, "retry"]
     def unsatisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
-            dependency.proxy.unsatisfy()
+            dependency.unsatisfy()
         self._update()
 
 
@@ -1479,7 +1479,7 @@ class FilterActions(AbstractActions):
         if filters:
             title = "Set Filter Order"
             body = "Please enter the new filter order:"
-            (value, choice) = QtGui.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
                                                             title, body,
                                                             filters[0].order(),
                                                             0, 50000, 1)
@@ -1543,20 +1543,20 @@ class TaskActions(AbstractActions):
             current = max([task.data.minCores for task in tasks])
             title = "Set Minimum Cores"
             body = "Please enter the new minimum cores value:"
-            (value, choice) = QtGui.QInputDialog.getDouble(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                            title, body,
                                                            current,
                                                            0, 50000, 0)
             if choice:
                 for task in tasks:
-                    task.proxy.setMinCores(float(value))
+                    task.setMinCores(float(value))
                 self._update()
 
     clearAdjustment_info = ["Clear Minimum Core Adjustment", "Clear Task(s) Minimum Core Adjustment", "configure"]
     def clearAdjustment(self, rpcObjects=None):
         tasks = self._getSelected(rpcObjects)
         for task in tasks:
-            task.proxy.clearAdjustment()
+            task.clearAdjustment()
         self._update()
 
     delete_info = ["Delete Task", None, "configure"]
@@ -1567,7 +1567,7 @@ class TaskActions(AbstractActions):
                                       "Delete selected tasks?",
                                       [task.data.shot for task in tasks]):
                 for task in tasks:
-                    task.proxy.delete()
+                    task.delete()
                 self._update()
 
 

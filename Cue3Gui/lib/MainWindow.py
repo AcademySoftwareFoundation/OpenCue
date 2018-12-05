@@ -16,7 +16,7 @@
 """
 All windows are an instance of this MainWindow.
 """
-from Manifest import os, QtCore, QtGui, Cue3, CueConfig
+from Manifest import os, QtCore, QtGui, QtWidgets, Cue3, CueConfig
 
 import sys
 
@@ -25,7 +25,7 @@ import Plugins
 import Utils
 import Constants
 
-class MainWindow(QtGui.QMainWindow):
+class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
     windows = []
     windows_names = []
@@ -33,7 +33,7 @@ class MainWindow(QtGui.QMainWindow):
     windows_actions = {}
 
     def __init__(self, app_name, app_version, window_name, parent = None):
-        QtGui.QMainWindow.__init__(self, parent)
+        QtWidgets.QMainWindow.__init__(self, parent)
 
         # Setup variables
         self.qApp = QtGui.qApp
@@ -47,7 +47,7 @@ class MainWindow(QtGui.QMainWindow):
             self.name = self.windows_names[0]
 
         # Provides a location for widgets to the right of the menu
-        menuLayout = QtGui.QHBoxLayout()
+        menuLayout = QtWidgets.QHBoxLayout()
         menuLayout.addStretch()
         self.menuBar().setLayout(menuLayout)
 
@@ -69,28 +69,27 @@ class MainWindow(QtGui.QMainWindow):
         # Restore saved settings
         self.__restoreSettings()
 
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('status(PyQt_PyObject)'),
-                               self.showStatusBarMessage)
+        QtGui.qApp.status.connect(self.showStatusBarMessage)
 
         self.showStatusBarMessage("Ready")
 
     def displayStartupNotice(self):
         import time
         now = int(time.time())
-        lastView = self.settings.value("LastNotice", QtCore.QVariant(0)).toInt()[0]
+        lastView = self.settings.value("LastNotice", 0)
         if lastView < Constants.STARTUP_NOTICE_DATE:
-            QtGui.QMessageBox.information(self, "Notice", Constants.STARTUP_NOTICE_MSG, QtGui.QMessageBox.Ok)
-        self.settings.setValue("LastNotice", QtCore.QVariant(now))
+            QtWidgets.QMessageBox.information(self, "Notice", Constants.STARTUP_NOTICE_MSG,
+                                              QtWidgets.QMessageBox.Ok)
+        self.settings.setValue("LastNotice", now)
 
-    def showStatusBarMessage(self, message, delay = 5000):
+    def showStatusBarMessage(self, message, delay=5000):
         self.statusBar().showMessage(str(message), delay)
 
     def displayAbout(self):
         msg = self.app_name + "\n\nA Cue3 tool\n\n"
         msg += "Qt:\n%s\n\n" % QtCore.qVersion()
         msg += "Python:\n%s\n\n" % sys.version
-        QtGui.QMessageBox.about(self, "About", msg)
+        QtWidgets.QMessageBox.about(self, "About", msg)
 
     def openSuggestionPage(self):
         Utils.openURL(Constants.URL_SUGGESTION)
@@ -112,13 +111,13 @@ class MainWindow(QtGui.QMainWindow):
         @rtype:  QMenu"""
         self.__actions_facility = {}
         menu.setFont(Constants.STANDARD_FONT)
-        QtCore.QObject.connect(menu, QtCore.SIGNAL("triggered(QAction*)"), self.__facilityMenuHandle)
+        menu.triggered.connect(self.__facilityMenuHandle)
 
         self.facility_default = CueConfig.get("cuebot.facility_default")
         self.facility_dict = CueConfig.get("cuebot.facility")
 
         for facility in self.facility_dict:
-            self.__actions_facility[facility] = QtGui.QAction(facility, menu)
+            self.__actions_facility[facility] = QtWidgets.QAction(facility, menu)
             self.__actions_facility[facility].setCheckable(True)
             menu.addAction(self.__actions_facility[facility])
 
@@ -146,7 +145,7 @@ class MainWindow(QtGui.QMainWindow):
         for facility in self.__actions_facility.itervalues():
             if facility.isChecked():
                 Cue3.Cuebot.setFacility(str(facility.text()))
-                QtGui.qApp.emit(QtCore.SIGNAL("facility_changed()"))
+                QtGui.qApp.facility_changed.emit()
                 return
 
 ################################################################################
@@ -163,16 +162,16 @@ class MainWindow(QtGui.QMainWindow):
         self.helpMenu = self.menuBar().addMenu("&Help")
 
         # Menu Bar: File -> Close Window
-        close = QtGui.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
+        close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
         close.setStatusTip('Close Window')
-        QtCore.QObject.connect(close, QtCore.SIGNAL('triggered()'), self.__windowCloseWindow)
+        close.triggered.connect(self.__windowCloseWindow)
         self.fileMenu.addAction(close)
 
         # Menu Bar: File -> Exit Application
-        exit = QtGui.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
+        exit = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
         exit.setShortcut('Ctrl+Q')
         exit.setStatusTip('Exit application')
-        QtCore.QObject.connect(exit, QtCore.SIGNAL('triggered()'), self.__windowCloseApplication)
+        exit.triggered.connect(self.__windowCloseApplication)
         self.fileMenu.addAction(exit)
 
         self.__windowMenuSetup(self.windowMenu)
@@ -182,27 +181,27 @@ class MainWindow(QtGui.QMainWindow):
         self.__toggleFullscreenSetup(self.windowMenu)
 
         # Menu Bar: Help -> Online User Guide.
-        action = QtGui.QAction('Online User Guide', self)
-        QtCore.QObject.connect(action, QtCore.SIGNAL('triggered()'), self.openUserGuide)
+        action = QtWidgets.QAction('Online User Guide', self)
+        action.triggered.connect(self.openUserGuide)
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Make a Suggestion
-        action = QtGui.QAction('Make a Suggestion', self)
-        QtCore.QObject.connect(action, QtCore.SIGNAL('triggered()'), self.openSuggestionPage)
+        action = QtWidgets.QAction('Make a Suggestion', self)
+        action.triggered.connect(self.openSuggestionPage)
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Report a Bug
-        action = QtGui.QAction('Report a Bug', self)
-        QtCore.QObject.connect(action, QtCore.SIGNAL('triggered()'), self.openBugPage)
+        action = QtWidgets.QAction('Report a Bug', self)
+        action.triggered.connect(self.openBugPage)
         self.helpMenu.addAction(action)
 
         self.helpMenu.addSeparator()
 
         # Menu Bar: Help -> About
-        about = QtGui.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
+        about = QtWidgets.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
         about.setShortcut('F1')
         about.setStatusTip('About')
-        QtCore.QObject.connect(about, QtCore.SIGNAL('triggered()'), self.displayAbout)
+        about.triggered.connect(self.displayAbout)
         self.helpMenu.addAction(about)
 
 ################################################################################
@@ -214,13 +213,13 @@ class MainWindow(QtGui.QMainWindow):
         self.windowMenu = menu
 
         # Menu Bar: Window -> Change Window Title
-        changeTitle = QtGui.QAction("Change Window Title", self)
-        QtCore.QObject.connect(changeTitle, QtCore.SIGNAL('triggered()'), self.__windowMenuHandleChangeTitle)
+        changeTitle = QtWidgets.QAction("Change Window Title", self)
+        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)
         menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings
-        saveWindowSettings = QtGui.QAction("Save Window Settings", self)
-        QtCore.QObject.connect(saveWindowSettings, QtCore.SIGNAL('triggered()'), self.__saveSettings)
+        saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
+        saveWindowSettings.triggered.connect(self.__saveSettings)
         menu.addAction(saveWindowSettings)
 
         menu.addSeparator()
@@ -228,16 +227,16 @@ class MainWindow(QtGui.QMainWindow):
         # Load list of window titles
         if not self.windows_titles:
             for name in self.windows_names:
-                self.windows_titles[name] = str(self.settings.value("%s/Title" % name, QtCore.QVariant(name)).toString())
+                self.windows_titles[name] = str(self.settings.value("%s/Title" % name, name))
 
         # Create menu items for Window -> Open/Raise/Add Window "?"
         for name in self.windows_names:
-            if not self.windows_actions.has_key(name):
-                self.windows_actions[name] = QtGui.QAction("", self)
+            if name not in self.windows_actions:
+                self.windows_actions[name] = QtWidgets.QAction("", self)
 
             menu.addAction(self.windows_actions[name])
 
-        QtCore.QObject.connect(self.windowMenu, QtCore.SIGNAL("triggered(QAction*)"), self.__windowMenuHandle)
+        self.windowMenu.triggered.connect(self.__windowMenuHandle)
 
         self.__windowMenuUpdate()
 
@@ -245,7 +244,7 @@ class MainWindow(QtGui.QMainWindow):
         """Updates the QAction for each main window"""
         number = 1
         for name in self.windows_names:
-            title = self.settings.value("%s/Title" % name, QtCore.QVariant("")).toString()
+            title = self.settings.value("%s/Title" % name, "")
             if title:
                 title = "Open Window: %s" % self.windows_titles[name]
             else:
@@ -279,7 +278,9 @@ class MainWindow(QtGui.QMainWindow):
     def __windowMenuHandleChangeTitle(self):
         """Changes the title of the current window"""
         # Change the title of the current window
-        (value, choice) = QtGui.QInputDialog.getText(self, "Rename window","Please provide a title for the window", QtGui.QLineEdit.Normal, str(self.windowTitle()))
+        (value, choice) = QtWidgets.QInputDialog.getText(
+            self, "Rename window","Please provide a title for the window",
+            QtWidgets.QLineEdit.Normal, str(self.windowTitle()))
         if choice:
             # Don't allow the same name twice
             for window in self.windows:
@@ -289,8 +290,7 @@ class MainWindow(QtGui.QMainWindow):
             self.windows_titles[self.name] = str(value)
 
         # Save the new title to settings
-        self.settings.setValue("%s/Title" % self.name,
-                               QtCore.QVariant(self.windowTitle()))
+        self.settings.setValue("%s/Title" % self.name, self.windowTitle())
 
         self.__windowMenuUpdate()
 
@@ -313,7 +313,7 @@ class MainWindow(QtGui.QMainWindow):
 
     def __windowOpened(self):
         """Called from __init__ on window creation"""
-        QtCore.QObject.connect(self.qApp, QtCore.SIGNAL('quit()'), self, QtCore.SLOT('close()'))
+        self.qApp.quit.connect(self.close)
         self.windows.append(self)
         self.qApp.closingApp = False
 
@@ -321,11 +321,10 @@ class MainWindow(QtGui.QMainWindow):
         """Called from closeEvent on window close"""
 
         # Disconnect to avoid multiple attempts to close a window
-        QtCore.QObject.disconnect(self.qApp, QtCore.SIGNAL('quit()'), self, QtCore.SLOT('close()'))
+        self.qApp.quit.connect(self.close)
 
         # Save the fact that this window is open or not when the app closed
-        self.settings.setValue("%s/Open" % self.name,
-                               QtCore.QVariant(self.qApp.closingApp))
+        self.settings.setValue("%s/Open" % self.name, self.qApp.closingApp)
 
         try:
             self.windows.remove(self)
@@ -341,16 +340,16 @@ class MainWindow(QtGui.QMainWindow):
         """Called when the entire application should exit. Signals other windows
         to exit."""
         self.qApp.closingApp = True
-        self.qApp.emit(QtCore.SIGNAL('quit()'))
+        self.qApp.quit.emit()
 
 ################################################################################
 
     def __toggleFullscreenSetup(self, menu):
         # Menu Bar: Window -> Toggle Full-Screen
-        fullscreen = QtGui.QAction(QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
+        fullscreen = QtWidgets.QAction(QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
         fullscreen.setShortcut('Ctrl+F')
         fullscreen.setStatusTip('Toggle Full-Screen')
-        QtCore.QObject.connect(fullscreen, QtCore.SIGNAL('triggered()'), self.__toggleFullscreen)
+        fullscreen.triggered.connect(self.__toggleFullscreen)
         menu.addAction(fullscreen)
 
     def __toggleFullscreen(self):
@@ -364,7 +363,7 @@ class MainWindow(QtGui.QMainWindow):
 ################################################################################
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            QtGui.qApp.emit(QtCore.SIGNAL("request_update()"))
+            QtGui.qApp.request_update.emit()
             event.accept()
 
     def closeEvent(self, event):
@@ -379,13 +378,13 @@ class MainWindow(QtGui.QMainWindow):
         self.__plugins.restoreState()
 
         self.setWindowTitle(self.settings.value("%s/Title" % self.name,
-                                                QtCore.QVariant(self.app_name)).toString())
+                                                self.app_name))
         self.restoreState(self.settings.value("%s/State" % self.name,
-                                              QtCore.QVariant(QtCore.QByteArray())).toByteArray())
+                                              QtCore.QByteArray()))
         self.resize(self.settings.value("%s/Size" % self.name,
-                                        QtCore.QVariant(QtCore.QSize(1280,1024))).toSize())
+                                        QtCore.QSize(1280, 1024)))
         self.move(self.settings.value("%s/Position" % self.name,
-                                      QtCore.QVariant(QtCore.QPoint(0,0))).toPoint())
+                                      QtCore.QPoint(0, 0)))
 
     def __saveSettings(self):
         """Saves the windows settings"""
@@ -395,13 +394,13 @@ class MainWindow(QtGui.QMainWindow):
 
         # For populating the default state: print self.saveState().toBase64()
 
-        self.settings.setValue("Version", QtCore.QVariant(self.app_version))
+        self.settings.setValue("Version", self.app_version)
 
         self.settings.setValue("%s/Title" % self.name,
-                               QtCore.QVariant(self.windowTitle()))
+                               self.windowTitle())
         self.settings.setValue("%s/State" % self.name,
-                               QtCore.QVariant(self.saveState()))
+                               self.saveState())
         self.settings.setValue("%s/Size" % self.name,
-                               QtCore.QVariant(self.size()))
+                               self.size())
         self.settings.setValue("%s/Position" % self.name,
-                               QtCore.QVariant(self.pos()))
+                               self.pos())

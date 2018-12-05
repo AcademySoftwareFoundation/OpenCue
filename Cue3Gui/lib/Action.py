@@ -17,20 +17,20 @@
 
     utility functions for creating QActions
 """
-from Manifest import QtGui, QtCore
-
 import Constants
+from Manifest import QtGui, QtWidgets
 
-Actions = { }
-Groups = { }
+Actions = {}
+Groups = {}
 
 ICON_PATH = "%s/images" % Constants.RESOURCE_PATH
 
-def create(parent,text,tip,callback=None,icon=None):
+
+def create(parent, text, tip, callback=None, icon=None):
     """create(QtGui.QWidget, string text, string tip, callable callback=None, string icon=None)
         creates a QtGui.QAction and optionally connects it to a slot
     """
-    a = QtGui.QAction(parent)
+    a = QtWidgets.QAction(parent)
     a.setText(text)
     if tip:
         a.setToolTip(tip)
@@ -40,14 +40,15 @@ def create(parent,text,tip,callback=None,icon=None):
         connectActionSlot(a,callback)
     return a
 
-def createAction(parent,id,text,tip,callback=None,icon=None):
-    """create(QtGui.QWidget, string text, string tip, callable callback=None, string icon=None)
+
+def createAction(parent, id, text, tip, callback=None, icon=None):
+    """create(QtWidgets.QWidget, string text, string tip, callable callback=None, string icon=None)
         creates a QtGui.QAction and optionally connects it to a slot
     """
-    if Actions.has_key(id):
+    if id in Actions:
         raise Exception("Action %s has already been created" % (id))
 
-    a = QtGui.QAction(parent)
+    a = QtWidgets.QAction(parent)
     a.setText(text)
     if tip:
         a.setToolTip(tip)
@@ -58,37 +59,43 @@ def createAction(parent,id,text,tip,callback=None,icon=None):
     Actions[id] = a
     return a
 
+
 def getAction(id):
     return Actions[id]
 
-def createActionGroup(parent,id,actions):
-    g = QtGui.QActionGroup(parent)
+
+def createActionGroup(parent, id, actions):
+    g = QtWidgets.QActionGroup(parent)
     for action in actions:
         g.addAction(action)
     Groups[id] = g
 
+
 def getActionGroup(id):
     return Groups[id]
 
-def applyActionGroup(id,menu):
+
+def applyActionGroup(id, menu):
     for act in getActionGroup(id).actions():
         menu.addAction(act)
 
-def connectActionSlot(action,callable):
+
+def connectActionSlot(action, callable):
     """connectActionSlot
         connects an action's triggered() signal to a callable object
     """
-    QtCore.QObject.connect(action,QtCore.SIGNAL("triggered()"), callable)
+    action.triggered.connect(callable)
 
-class Refresh(QtGui.QAction):
+
+class Refresh(QtWidgets.QAction):
     """Refresh
 
         refresh something
     """
 
     def __init__(self,callback=None, parent=None):
-        QtGui.QAction.__init__(self,parent)
+        QtWidgets.QAction.__init__(self,parent)
         self.setText("Refresh")
         self.setIcon(QtGui.QIcon(":/images/stock-refresh.png"))
         if callback:
-            QtCore.QObject.connect(self,QtCore.SIGNAL("triggered()"), callback)
+            self.triggered.connect(callback)

@@ -22,11 +22,11 @@ import xml.etree.ElementTree as Et
 
 import Utils
 
-from Manifest import QtCore, QtGui, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, Cue3
 
-class PreviewProcessorDialog(QtGui.QDialog):
+class PreviewProcessorDialog(QtWidgets.QDialog):
     def __init__(self, job, frame, aovs=False, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.__job = job
         self.__frame = frame
         self.__aovs = aovs
@@ -34,10 +34,10 @@ class PreviewProcessorDialog(QtGui.QDialog):
         self.__previewThread = None
         self.__itvFile = None
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
         
-        self.__msg = QtGui.QLabel("Waiting for preview images...", self)
-        self.__progbar = QtGui.QProgressBar(self)
+        self.__msg = QtWidgets.QLabel("Waiting for preview images...", self)
+        self.__progbar = QtWidgets.QProgressBar(self)
 
         layout.addWidget(self.__msg)
         layout.addWidget(self.__progbar)
@@ -64,13 +64,8 @@ class PreviewProcessorDialog(QtGui.QDialog):
         self.__previewThread.start()
         self.__progbar.setRange(0, len(items))
 
-        QtCore.QObject.connect(self.__previewThread,
-                               QtCore.SIGNAL("existCountChanged(int, int)"),
-                               self.updateProgressDialog)
-
-        QtCore.QObject.connect(self.__previewThread,
-                               QtCore.SIGNAL("timeout"),
-                               self.processTimedOut)
+        self.__previewThread.existCountChanged.connect(self.updateProgressDialog)
+        self.__previewThread.timeout.connect(self.processTimedOut)
 
     def updateProgressDialog(self, current, max):
         if max != current:
@@ -80,7 +75,7 @@ class PreviewProcessorDialog(QtGui.QDialog):
     
     def processTimedOut(self):
         self.close()
-        QtGui.QMessageBox.critical(self, "Preview Timeout", "Unable to preview images, " +
+        QtWidgets.QMessageBox.critical(self, "Preview Timeout", "Unable to preview images, " +
                                    "timed out while waiting for images to be copied.")
 
     def __writePlaylist(self, data):
@@ -115,6 +110,8 @@ class PreviewProcessorWatchThread(QtCore.QThread):
     thread times out after 60 seconds, which should only occur if there are
     serious filer problems.
     """
+    existCountChanged = QtCore.Signal(int, int)
+
     def __init__(self, items, parent=None):
         QtCore.QThread.__init__(self, parent)
         self.__items = items
@@ -129,10 +126,11 @@ class PreviewProcessorWatchThread(QtCore.QThread):
         while 1:
             count = len([path for path in self.__items if os.path.exists(path)])
             self.emit(QtCore.SIGNAL('existCountChanged(int, int)'), count, len(self.__items))
+            self.existsCountChanged.emit(count, len(self.__items))
             if count == len(self.__items):
                 break
             time.sleep(1)
             if time.time() > self.__timeout + start_time:
-                self.emit(QtCore.SIGNAL('timeout'))
+                self.timeout.emit()
                 print "Timed out waiting for preview server."
                 break

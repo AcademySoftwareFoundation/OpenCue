@@ -20,7 +20,7 @@ import time
 import Cue3Gui
 import Cue3
 
-from PyQt4 import QtGui, QtCore
+from PySide2 import QtGui, QtCore, QtWidgets
 
 PLUGIN_NAME = 'LogView'
 PLUGIN_CATEGORY = 'Other'
@@ -29,7 +29,7 @@ PLUGIN_PROVIDES = 'LogViewPlugin'
 PRINTABLE = set(string.printable)
 
 
-class LineNumberArea(QtGui.QWidget):
+class LineNumberArea(QtWidgets.QWidget):
     '''
     Custom widget for the line numbers. This widget is designed to be attached
     to a QPlainTextEdit or a QTextEdit, and expects the editor widget as a
@@ -41,7 +41,7 @@ class LineNumberArea(QtGui.QWidget):
         Creates the LineNumberArea instance
 
         @param editor: The text editor widget to attach this widget to
-        @type editor: QtGui.QPlainTextEdit or QtGui.QTextEdit
+        @type editor: QtWidgets.QPlainTextEdit or QtWidgets.QTextEdit
         '''
 
         super(LineNumberArea, self).__init__(editor)
@@ -59,12 +59,14 @@ class LineNumberArea(QtGui.QWidget):
         self.editor.line_number_area_paint_event(event)
 
 
-class LogTextEdit(QtGui.QPlainTextEdit):
+class LogTextEdit(QtWidgets.QPlainTextEdit):
     '''
     This is an extension of QPlainTextEdit, with an added custom widget for
     line numbers and automatic highlighting for the current line (the line
     where the cursor is)
     '''
+
+    mousePressedSignal = QtCore.Signal(object)
 
     def __init__(self, parent):
         '''
@@ -72,7 +74,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
         update the line-number area
 
         @param parent: The parent widget
-        @type parent: QtGui.QWidget
+        @type parent: QtWidgets.QWidget
         '''
 
         super(LogTextEdit, self).__init__(parent)
@@ -84,19 +86,16 @@ class LogTextEdit(QtGui.QPlainTextEdit):
 
         self._line_num_area = LineNumberArea(self)
         self.blockCountChanged.connect(self.update_line_number_area_width)
-        self.connect(self, QtCore.SIGNAL('blockCountChanged(int)'),
-                     self.update_line_number_area_width)
-        self.connect(self, QtCore.SIGNAL('updateRequest(QRect, int)'),
-                     self.update_line_number_area)
-        self.connect(self, QtCore.SIGNAL('cursorPositionChanged()'),
-                     self.highlight_current_line)
+        self.updateRequest.connect(self.update_line_number_area)
+        self.cursorPositionChanged.connect(self.highlight_current_line)
+
         self.update_line_number_area_width()
         self.setReadOnly(True)
         self.setMaximumBlockCount(20000)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.context_menu)
 
-        self.copy_action = QtGui.QAction('Copy', self)
+        self.copy_action = QtWidgets.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
         self.copy_action.triggered.connect(lambda triggered, i=0:
@@ -109,7 +108,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
         Log View. Triggered by the customContextMenuRequested signal
         '''
 
-        self._context_menu = QtGui.QMenu(self)
+        self._context_menu = QtWidgets.QMenu(self)
         self._context_menu.addAction(self.copy_action)
         self._context_menu.exec_(QtGui.QCursor.pos())
 
@@ -130,9 +129,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
 
         super(LogTextEdit, self).mouseReleaseEvent(event)
         pos = event.pos()
-        QtCore.QObject.emit(self,
-                            QtCore.SIGNAL('mousePressedSignal(PyQt_PyObject)'),
-                            pos)
+        self.mousePressedSignal.emit(pos)
         self.copy_selection(1)
 
     def scrollContentsBy(self, *args, **kwargs):
@@ -141,7 +138,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
         '''
 
         self._line_num_area.repaint()
-        return QtGui.QPlainTextEdit.scrollContentsBy(self, *args, **kwargs)
+        return QtWidgets.QPlainTextEdit.scrollContentsBy(self, *args, **kwargs)
 
     def copy_selection(self, mode):
         '''
@@ -154,8 +151,8 @@ class LogTextEdit(QtGui.QPlainTextEdit):
         '''
 
         selection = self.textCursor().selection()
-        QtGui.QApplication.clipboard().setText('', mode)
-        QtGui.QApplication.clipboard().setText(selection.toPlainText(), mode)
+        QtWidgets.QApplication.clipboard().setText('', mode)
+        QtWidgets.QApplication.clipboard().setText(selection.toPlainText(), mode)
 
     def get_line_number_area_width(self):
         '''
@@ -219,7 +216,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
                         background color
         '''
 
-        crnt_selection = QtGui.QTextEdit.ExtraSelection()
+        crnt_selection = QtWidgets.QTextEdit.ExtraSelection()
         line_color = QtGui.QColor(QtCore.Qt.red).lighter(12)
         crnt_selection.format.setBackground(line_color)
         crnt_selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection,
@@ -277,7 +274,7 @@ class LogTextEdit(QtGui.QPlainTextEdit):
             block_number += 1
 
 
-class LogViewWidget(QtGui.QWidget):
+class LogViewWidget(QtWidgets.QWidget):
     '''
     Displays the log file for the selected frame
     '''
@@ -288,38 +285,38 @@ class LogViewWidget(QtGui.QWidget):
         '''
 
         # Main Widget
-        QtGui.QWidget.__init__(self, parent)
-        layout = QtGui.QVBoxLayout(self)
+        QtWidgets.QWidget.__init__(self, parent)
+        layout = QtWidgets.QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        self._scrollArea = QtGui.QScrollArea()
+        self._scrollArea = QtWidgets.QScrollArea()
         self._scrollArea.setWidgetResizable(True)
         self._scrollArea.setFocusPolicy(QtCore.Qt.NoFocus)
-        self._scrollWidget = QtGui.QWidget(self)
-        QtGui.QVBoxLayout(self._scrollWidget)
+        self._scrollWidget = QtWidgets.QWidget(self)
+        QtWidgets.QVBoxLayout(self._scrollWidget)
         self._scrollArea.setWidget(self._scrollWidget)
         layout.addWidget(self._scrollArea)
 
         # Log Path
-        path_widget = QtGui.QWidget(self)
-        path_layout = QtGui.QHBoxLayout(path_widget)
+        path_widget = QtWidgets.QWidget(self)
+        path_layout = QtWidgets.QHBoxLayout(path_widget)
         path_layout.setContentsMargins(0, 0, 0, 0)
-        self._first_log_button = QtGui.QPushButton('<<', self)
+        self._first_log_button = QtWidgets.QPushButton('<<', self)
         self._first_log_button.clicked.connect(
                                 lambda: self._load_other_log(float('inf')))
         self._first_log_button.setEnabled(False)
         self._first_log_button.setToolTip('Load First Log')
         path_layout.addWidget(self._first_log_button)
-        self._prev_log_button = QtGui.QPushButton('<', self)
+        self._prev_log_button = QtWidgets.QPushButton('<', self)
         self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))
         self._prev_log_button.setEnabled(False)
         self._prev_log_button.setToolTip('Load Previous Log')
         path_layout.addWidget(self._prev_log_button)
-        self._next_log_button = QtGui.QPushButton('>', self)
+        self._next_log_button = QtWidgets.QPushButton('>', self)
         self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))
         self._next_log_button.setEnabled(False)
         self._next_log_button.setToolTip('Load Next Log')
         path_layout.addWidget(self._next_log_button)
-        self._last_log_button = QtGui.QPushButton('>>', self)
+        self._last_log_button = QtWidgets.QPushButton('>>', self)
         self._last_log_button.clicked.connect(
                                 lambda: self._load_other_log(-float('inf')))
         self._last_log_button.setEnabled(False)
@@ -332,22 +329,22 @@ class LogViewWidget(QtGui.QWidget):
             button.setFixedWidth(20)
             button.setFont(font)
 
-        self._path = QtGui.QLineEdit('', path_widget)
+        self._path = QtWidgets.QLineEdit('', path_widget)
         self._path.setFocusPolicy(QtCore.Qt.NoFocus)
         path_layout.addWidget(self._path)
         self._scrollWidget.layout().addWidget(path_widget)
         self._scrollWidget.layout().setContentsMargins(0, 0, 0, 0)
 
         # Word-Wrap
-        self._word_wrap_checkbox = QtGui.QCheckBox('Word Wrap', self)
+        self._word_wrap_checkbox = QtWidgets.QCheckBox('Word Wrap', self)
         self._word_wrap_checkbox.setFont(font)
         path_layout.addWidget(self._word_wrap_checkbox)
         self._word_wrap_checkbox.setCheckState(QtCore.Qt.Checked)
         self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)
 
         # Content
-        content_widget = QtGui.QWidget(self)
-        content_layout = QtGui.QHBoxLayout(content_widget)
+        content_widget = QtWidgets.QWidget(self)
+        content_layout = QtWidgets.QHBoxLayout(content_widget)
         self._content_box = LogTextEdit(self)
         content_layout.addWidget(self._content_box)
         self._scrollWidget.layout().addWidget(content_widget)
@@ -355,48 +352,48 @@ class LogViewWidget(QtGui.QWidget):
         self._content_box.ensureCursorVisible()
 
         # Search
-        search_top_widget = QtGui.QWidget(self)
-        search_top_layout = QtGui.QVBoxLayout(search_top_widget)
+        search_top_widget = QtWidgets.QWidget(self)
+        search_top_layout = QtWidgets.QVBoxLayout(search_top_widget)
         search_top_layout.setContentsMargins(0, 0, 0, 0)
 
         self._matches = []
         self._last_search_case_stv = False
-        search_widget = QtGui.QWidget(self)
-        search_layout = QtGui.QHBoxLayout(search_widget)
-        self._case_stv_checkbox = QtGui.QCheckBox('Aa')
+        search_widget = QtWidgets.QWidget(self)
+        search_layout = QtWidgets.QHBoxLayout(search_widget)
+        self._case_stv_checkbox = QtWidgets.QCheckBox('Aa')
         search_layout.addWidget(self._case_stv_checkbox)
         self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)
 
-        self._search_box = QtGui.QLineEdit('', self)
+        self._search_box = QtWidgets.QLineEdit('', self)
         search_layout.addWidget(self._search_box)
         self._search_box.show()
         self._search_box.editingFinished.connect(self._find_text)
-        search_button = QtGui.QPushButton('Find', self)
+        search_button = QtWidgets.QPushButton('Find', self)
         search_layout.addWidget(search_button)
-        prev_button = QtGui.QPushButton('Prev')
+        prev_button = QtWidgets.QPushButton('Prev')
         prev_button.clicked.connect(self._move_to_prev_match)
-        next_button = QtGui.QPushButton('Next')
+        next_button = QtWidgets.QPushButton('Next')
         next_button.clicked.connect(self._move_to_next_match)
         search_layout.addWidget(next_button)
         search_layout.addWidget(prev_button)
-        search_refresh_button = QtGui.QPushButton('Refresh', self)
+        search_refresh_button = QtWidgets.QPushButton('Refresh', self)
         search_layout.addWidget(search_refresh_button)
         search_refresh_button.clicked.connect(self._move_to_search_box)
 
-        clear_search_button = QtGui.QPushButton('Clr', self)
+        clear_search_button = QtWidgets.QPushButton('Clr', self)
         search_layout.addWidget(clear_search_button)
         clear_search_button.clicked.connect(self._clear_search_text)
         search_button.clicked.connect(self._find_text)
 
-        matches_widget = QtGui.QWidget(self)
-        matches_layout = QtGui.QHBoxLayout(matches_widget)
+        matches_widget = QtWidgets.QWidget(self)
+        matches_layout = QtWidgets.QHBoxLayout(matches_widget)
         matches_layout.setContentsMargins(0, 0, 0, 0)
-        self._matches_label = QtGui.QLabel('', self)
+        self._matches_label = QtWidgets.QLabel('', self)
         self._matches_label.setFixedHeight(9)
         self._matches_label.setStyleSheet('QLabel {color : gray};')
         self._matches_label.setFont(font)
         matches_layout.addWidget(self._matches_label)
-        self._log_index_label = QtGui.QLabel('', self)
+        self._log_index_label = QtWidgets.QLabel('', self)
         self._log_index_label.setAlignment(QtCore.Qt.AlignRight)
         self._log_index_label.setStyleSheet('QLabel {color : gray}')
         self._log_index_label.setFont(font)
@@ -409,10 +406,7 @@ class LogViewWidget(QtGui.QWidget):
         self._cursor = self._content_box.textCursor()
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
-        QtCore.QObject.connect(QtGui.qApp,
-                               QtCore.SIGNAL('DisplayLogFileContent'
-                                             '(PyQt_PyObject)'),
-                               self._set_log_files)
+        QtGui.qApp.display_log_file_content.connect(self._set_log_files)
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -434,11 +428,7 @@ class LogViewWidget(QtGui.QWidget):
         self._format = QtGui.QTextCharFormat()
         self._format.setBackground(QtCore.Qt.red)
         self._current_match = 0
-
-        QtCore.QObject.connect(self._content_box,
-                               QtCore.SIGNAL('mousePressedSignal'
-                                             '(PyQt_PyObject)'),
-                               self._on_mouse_pressed)
+        self._content_box.mousePressedSignal.connect(self._on_mouse_pressed)
 
     def _on_mouse_pressed(self, pos):
         '''
@@ -856,7 +846,7 @@ class LogViewPlugin(Cue3Gui.AbstractDockWidget):
         Create a LogViewPlugin instance
 
         @param parent: The parent widget
-        @type parent: QtGui.QWidget or None
+        @type parent: QtWidgets.QWidget or None
         '''
 
         Cue3Gui.AbstractDockWidget.__init__(self, parent,

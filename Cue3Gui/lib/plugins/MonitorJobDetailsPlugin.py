@@ -13,12 +13,10 @@
 #  limitations under the License.
 
 
-import os
-import time
-import Cue3Gui
-import Cue3
+from PySide2 import QtGui, QtCore, QtWidgets
 
-from PyQt4 import QtGui, QtCore
+import Cue3
+import Cue3Gui
 
 logger = Cue3Gui.Logger.getLogger(__file__)
 
@@ -39,7 +37,7 @@ class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
 
         self.__monitorLayers = Cue3Gui.LayerMonitorTree(self)
         self.__monitorFrames = Cue3Gui.FrameMonitor(self)
-        self.__splitter = QtGui.QSplitter(QtCore.Qt.Vertical)
+        self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.setAcceptDrops(True)
 
@@ -48,16 +46,13 @@ class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
         self.__splitter.addWidget(self.__monitorFrames)
 
         #Signals in:
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('view_object(PyQt_PyObject)'), self.__setJob)
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('unmonitor(PyQt_PyObject)'), self.__unmonitor)
-        QtCore.QObject.connect(QtGui.qApp, QtCore.SIGNAL('facility_changed()'), self.__setJob)
+        QtGui.qApp.view_object.connect(self.__setJob)
+        QtGui.qApp.unmonitor.connect(self.__unmonitor)
+        QtGui.qApp.facility_changed.connect(self.__setJob)
+        self.__monitorLayers.handle_filter_layers_byLayer.connect(
+            self.__monitorFrames.handle_filter_layers_byLayer.emit)
+        self.__splitter.splitterMoved.connect(self.__splitterMoved)
 
-        QtCore.QObject.connect(self.__monitorLayers, QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"),
-                               self.__monitorFrames, QtCore.SIGNAL("handle_filter_layers_byLayer(PyQt_PyObject)"))
-
-        QtCore.QObject.connect(self.__splitter,
-                               QtCore.SIGNAL('splitterMoved(int,int)'),
-                               self.__splitterMoved)
 
         self.pluginRegisterSettings([("splitterSize",
                                       self.__splitter.sizes,
@@ -101,13 +96,13 @@ class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
             self.__monitorFrames.setJob(new_job)
             self.__monitorLayers.setJob(new_job)
         elif not job and self.__job:
-            self.__unmonitor(self.__job.proxy)
+            self.__unmonitor(self.__job)
 
     def __unmonitor(self, proxy):
         """Unmonitors the current job if it matches the supplied proxy.
         @param proxy: A job proxy
         @type  proxy: proxy"""
-        if self.__job and self.__job.proxy == proxy:
+        if self.__job and self.__job == proxy:
             self.__job = None
             self.setWindowTitle("Monitor Job Details")
 

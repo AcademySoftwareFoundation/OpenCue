@@ -1,0 +1,92 @@
+
+/* Note: this is a Qt based style sheet with similar rules to CSS.
+   http://doc.qt.io/qt-5/stylesheet-syntax.html */
+
+QCheckBox {
+    color: rgb(200, 200, 200);
+}
+
+QCheckBox::indicator:unchecked {
+    background-color: rgb(65, 65, 65);
+    border: 1px solid rgb(22, 22, 22);
+    border-radius: 3px;
+}
+
+QComboBox {
+    background-color: rgb(65, 65, 65);
+    color: rgb(200, 200, 200);
+    border: 1px solid rgb(22, 22, 22);
+    min-width: 6em;
+    padding: 1px 18px 1px 3px;
+}
+
+QDoubleSpinBox {
+    background-color: rgb(65, 65, 65);
+    color: rgb(200, 200, 200);
+    border: 1px solid rgb(22, 22, 22);
+    margin-left: 5px;
+    min-height: 2em;
+    padding-right: 15px;
+}
+
+QGroupBox {
+    padding-top: 2em;
+}
+
+QLineEdit {
+    background-color: rgb(65, 65, 65);
+    border: 1px solid rgb(22, 22, 22);
+    border-radius: 3px;
+    color: rgb(200, 200, 200);
+    margin-left: 5px;
+}
+
+QPushButton {
+    background-color: rgb(65, 65, 65);
+    border: 1px solid rgb(22, 22, 22);
+    border-radius: 3px;
+    color: rgb(200, 200, 200);
+    margin-left: 5px;
+    min-height: 15px;
+    min-width: 5em;
+}
+
+QPushButton:pressed {
+    background-color: rgb(80, 80, 80);
+}
+
+QSpinBox {
+    background-color: rgb(65, 65, 65);
+    border: 1px solid rgb(22, 22, 22);
+    color: rgb(200, 200, 200);
+    min-height: 2em;
+}
+
+QTabBar::tab:unselected {
+    background: rgb(65, 65, 65);
+}
+
+QTabBar::tab:selected {
+    background: rgb(120, 120, 120);
+}
+
+QToolBar {
+    background: rgb(44, 44, 44);
+    border: none;
+    spacing: 3px;
+}
+
+QToolButton {
+    background-color: rgb(65, 65, 65);
+    border: 1px solid rgb(22, 22, 22);
+    color: rgb(200, 200, 200);
+}
+
+QToolButton:pressed {
+    background-color: rgb(80, 80, 80);
+}
+
+QWidget {
+    margin-left: 3px;
+    margin-right: 3px;
+}

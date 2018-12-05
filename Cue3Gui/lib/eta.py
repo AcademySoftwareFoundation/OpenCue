@@ -171,8 +171,8 @@ class FrameEtaGenerator(object):
 
 
     def GetFrameStartTime(self, frame):
-        key = (frame.proxy, frame.data.startTime)
-        if self.startTimeCache.has_key(key):
+        key = (frame, frame.data.startTime)
+        if key in self.startTimeCache:
             return self.startTimeCache[key]
         # read the logFile here for time
         result=''
@@ -186,8 +186,8 @@ class FrameEtaGenerator(object):
         return result
 
     def GetFrameBuildTime(self, frame):
-        key = (frame.proxy, frame.data.startTime)
-        if self.buildTimeCache.has_key(key):
+        key = (frame, frame.data.startTime)
+        if key in self.buildTimeCache:
             return self.buildTimeCache[key]
         # read the logFile here for time
         result=''

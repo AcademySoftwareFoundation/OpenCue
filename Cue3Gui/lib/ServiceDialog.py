@@ -17,64 +17,64 @@
 
 import Constants
 import Utils
-from Manifest import Cue3, QtGui, QtCore
+from Manifest import Cue3, QtCore, QtWidgets
 from TagsWidget import TagsWidget
 
 
-class ServiceForm(QtGui.QWidget):
+class ServiceForm(QtWidgets.QWidget):
     """
     An Widget for displaying and editing a service.
     """
+    saved = QtCore.Signal(object)
+
     def __init__(self, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__service = None
 
         self.gpu_max_mb = 2 * 1024
         self.gpu_min_mb = 0
         self.gpu_tick_mb = 256
 
-        self.name = QtGui.QLineEdit(self)
-        self.threadable = QtGui.QCheckBox(self)
-        self.min_cores = QtGui.QSpinBox(self)
+        self.name = QtWidgets.QLineEdit(self)
+        self.threadable = QtWidgets.QCheckBox(self)
+        self.min_cores = QtWidgets.QSpinBox(self)
         self.min_cores.setRange(50, int(self._cfg().get('max_cores', 16)) * 100)
         self.min_cores.setSingleStep(50)
         self.min_cores.setValue(100)
-        self.max_cores = QtGui.QSpinBox(self)
+        self.max_cores = QtWidgets.QSpinBox(self)
         self.max_cores.setRange(0, int(self._cfg().get('max_cores', 16)) * 100)
         self.max_cores.setSingleStep(100)
         self.max_cores.setValue(100)
-        self.min_memory = QtGui.QSpinBox(self)
+        self.min_memory = QtWidgets.QSpinBox(self)
         self.min_memory.setRange(512, int(self._cfg().get('max_memory', 48)) * 1024)
         self.min_memory.setValue(3276)
-        self.min_gpu = QtGui.QSpinBox(self)
+        self.min_gpu = QtWidgets.QSpinBox(self)
         self.min_gpu.setRange(self.gpu_min_mb, self.gpu_max_mb)
         self.min_gpu.setValue(0)
         self.min_gpu.setSingleStep(self.gpu_tick_mb)
         self.min_gpu.setSuffix(" MB")
-        layout = QtGui.QGridLayout(self)
-        layout.addWidget(QtGui.QLabel("Name:", self), 0, 0)
+        layout = QtWidgets.QGridLayout(self)
+        layout.addWidget(QtWidgets.QLabel("Name:", self), 0, 0)
         layout.addWidget(self.name, 0, 1)
-        layout.addWidget(QtGui.QLabel("Threadable:", self), 1, 0)
+        layout.addWidget(QtWidgets.QLabel("Threadable:", self), 1, 0)
         layout.addWidget(self.threadable, 1, 1)
-        layout.addWidget(QtGui.QLabel("Min Threads (100 = 1 thread):", self), 2, 0)
+        layout.addWidget(QtWidgets.QLabel("Min Threads (100 = 1 thread):", self), 2, 0)
         layout.addWidget(self.min_cores, 2, 1)
-        layout.addWidget(QtGui.QLabel("Max Threads (100 = 1 thread):", self), 3, 0)
+        layout.addWidget(QtWidgets.QLabel("Max Threads (100 = 1 thread):", self), 3, 0)
         layout.addWidget(self.max_cores, 3, 1)
-        layout.addWidget(QtGui.QLabel("Min Memory MB:", self), 4, 0)
+        layout.addWidget(QtWidgets.QLabel("Min Memory MB:", self), 4, 0)
         layout.addWidget(self.min_memory, 4, 1)
-        layout.addWidget(QtGui.QLabel("Min Gpu Memory MB:", self), 5, 0)
+        layout.addWidget(QtWidgets.QLabel("Min Gpu Memory MB:", self), 5, 0)
         layout.addWidget(self.min_gpu, 5, 1)
 
-        self.__buttons = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Save,
+        self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save,
                                                 QtCore.Qt.Horizontal,
                                                 self)
         self.__buttons.setDisabled(True)
 
         layout.addWidget(self.__buttons, 8, 1)
 
-        QtCore.QObject.connect(self.__buttons,
-                               QtCore.SIGNAL("accepted()"),
-                               self.save)
+        self.__buttons.accepted.connect(self.save)
 
         self._tags_w = TagsWidget(allowed_tags=Constants.ALLOWED_TAGS)
         layout.addWidget(self._tags_w, 6, 0, 1, 2)
@@ -128,12 +128,12 @@ class ServiceForm(QtGui.QWidget):
         on the contents of the form.
         """
         if len(str(self.name.text())) < 3:
-            QtGui.QMessageBox.critical(self, "Error",
-                                       "The service name must be at least 3 characters.")
+            QtWidgets.QMessageBox.critical(self, "Error",
+                                           "The service name must be at least 3 characters.")
             return
 
         if not str(self.name.text()).isalnum():
-            QtGui.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
+            QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
         data = Cue3.api.service_pb2.Service()
@@ -145,59 +145,47 @@ class ServiceForm(QtGui.QWidget):
         data.min_gpu = self.min_gpu.value() * 1024
 
         data.tags.extend(self._tags_w.get_tags())
-        self.emit(QtCore.SIGNAL("saved(PyQt_PyObject)"), data)
+        self.saved.emit(data)
 
 
-class ServiceManager(QtGui.QWidget):
+class ServiceManager(QtWidgets.QWidget):
     """
     Wraps the ServiceForm widget with the logic and controls needed
     to add, update, and detete services.
     """
     def __init__(self, show, parent=None):
-        QtGui.QWidget.__init__(self, parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__show = show
         self.__services = []
         self.__selected = None
         self.__new_service = False
 
-        layout = QtGui.QVBoxLayout(self)
+        layout = QtWidgets.QVBoxLayout(self)
 
-        self.__splitter = QtGui.QSplitter(QtCore.Qt.Horizontal, self)
-        self.__service_list = QtGui.QListWidget(self)
+        self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal, self)
+        self.__service_list = QtWidgets.QListWidget(self)
         self.__form = ServiceForm(self)
 
         layout.addWidget(self.__splitter)
         self.__splitter.addWidget(self.__service_list)
         self.__splitter.addWidget(self.__form)
 
-        self.__btn_new = QtGui.QPushButton("New", self)
-        self.__btn_del = QtGui.QPushButton("Del", self)
+        self.__btn_new = QtWidgets.QPushButton("New", self)
+        self.__btn_del = QtWidgets.QPushButton("Del", self)
 
-        self.__btn_layout = QtGui.QHBoxLayout()
+        self.__btn_layout = QtWidgets.QHBoxLayout()
         self.__btn_layout.addWidget(self.__btn_new)
         self.__btn_layout.addWidget(self.__btn_del)
         self.__btn_layout.addStretch()
         layout.addLayout(self.__btn_layout)
 
-        QtCore.QObject.connect(self.__btn_new,
-                               QtCore.SIGNAL("clicked()"),
-                               self.newService)
-
-        QtCore.QObject.connect(self.__btn_del,
-                               QtCore.SIGNAL("clicked()"),
-                               self.delService)
-
-        QtCore.QObject.connect(self.__form,
-                               QtCore.SIGNAL("saved(PyQt_PyObject)"),
-                               self.saved)
-
-        QtCore.QObject.connect(self.__service_list,
-                               QtCore.SIGNAL(
-                                   "currentItemChanged(QListWidgetItem *,QListWidgetItem *)"),
-                               self.selected)
+        self.__btn_new.clicked.connect(self.newService)
+        self.__btn_del.clicked.connect(self.delService)
+        self.__form.saved.connect(self.saved)
+        self.__service_list.currentItemChanged.connect(self.selected)
 
         self.refresh()
-        self.__service_list.setCurrentRow(0, QtGui.QItemSelectionModel.Select)
+        self.__service_list.setCurrentRow(0, QtCore.QItemSelectionModel.Select)
 
     def selected(self, item, old_item):
         """
@@ -209,7 +197,7 @@ class ServiceManager(QtGui.QWidget):
             return
 
         if self.__show:
-            self.__selected = self.__show.proxy.getServiceOverride(str(item.text()))
+            self.__selected = self.__show.getServiceOverride(str(item.text()))
         else:
             self.__selected = Cue3.api.getService(str(item.text()))
         self.__form.setService(self.__selected)
@@ -219,21 +207,21 @@ class ServiceManager(QtGui.QWidget):
         Save a service to Cue3.
         """
         if not self.__show:
-            msg = QtGui.QMessageBox()
+            msg = QtWidgets.QMessageBox()
             msg.setText("You are about to modify a facility wide service configuration.  "
                         "Are you in PSR-Resources?")
-            msg.setStandardButtons(QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
-            msg.setDefaultButton(QtGui.QMessageBox.No)
-            if msg.exec_() == QtGui.QMessageBox.No:
+            msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+            msg.setDefaultButton(QtWidgets.QMessageBox.No)
+            if msg.exec_() == QtWidgets.QMessageBox.No:
                 return
 
         if self.__new_service:
             if self.__show:
-                self.__show.proxy.createServiceOverride(data)
+                self.__show.createServiceOverride(data)
             else:
                 Cue3.api.createService(data)
         else:
-            self.__selected.proxy.update(data)
+            self.__selected.update(data)
 
         self.refresh()
         self.__new_service = False
@@ -242,7 +230,7 @@ class ServiceManager(QtGui.QWidget):
             item = self.__service_list.item(i)
             if item:
                 if str(item.text()) == data.name:
-                    self.__service_list.setCurrentRow(i, QtGui.QItemSelectionModel.Select)
+                    self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select)
                     break
 
     def refresh(self):
@@ -259,12 +247,12 @@ class ServiceManager(QtGui.QWidget):
             if not self.__show:
                 self.__services = Cue3.api.getDefaultServices()
             else:
-                self.__services = self.__show.proxy.getServiceOverrides()
+                self.__services = self.__show.getServiceOverrides()
         except Exception, e:
             return
 
         for service in self.__services:
-            item = QtGui.QListWidgetItem(service.data.name)
+            item = QtWidgets.QListWidgetItem(service.data.name)
             self.__service_list.addItem(item)
             if service.data.name in selected:
                 item.setSelected(True)
@@ -285,10 +273,10 @@ class ServiceManager(QtGui.QWidget):
         """
         Delete the selected service.
         """
-        self.__selected.proxy.delete()
+        self.__selected.delete()
         row = self.currentRow()
         if row >= 1:
-            self.__service_list.setCurrentRow(row - 1, QtGui.QItemSelectionModel.Select)
+            self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select)
         self.refresh()
 
     def currentRow(self):
@@ -300,12 +288,12 @@ class ServiceManager(QtGui.QWidget):
         return -1
 
 
-class ServiceDialog(QtGui.QDialog):
+class ServiceDialog(QtWidgets.QDialog):
     """
     Wraps the ServiceManager in a dialog window.
     """
     def __init__(self, show, parent=None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         self.__srv_manager = ServiceManager(show, self)
 

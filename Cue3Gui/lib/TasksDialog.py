@@ -16,36 +16,36 @@
 """
 Handles the dialog to display/modify a show's tasks
 """
-from Manifest import os, QtCore, QtGui, Cue3
-
-import re
 import Logger
+from Manifest import QtCore, QtWidgets
+
 logger = Logger.getLogger(__file__)
 
 import Utils
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
-
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
 
 MANAGED_CORES_PREFIX = "Minimum Cores: "
-class TasksDialog(QtGui.QDialog):
+
+
+class TasksDialog(QtWidgets.QDialog):
     def __init__(self, show, parent = None):
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         self.__show = show
 
-        self.__comboDepartments = QtGui.QComboBox(self)
+        self.__comboDepartments = QtWidgets.QComboBox(self)
         self.__tasks = TaskMonitorTree(None, self)
-        self.__btnMinCores = QtGui.QPushButton(MANAGED_CORES_PREFIX, self)
+        self.__btnMinCores = QtWidgets.QPushButton(MANAGED_CORES_PREFIX, self)
         self.__btnMinCores.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__checkManaged = QtGui.QCheckBox("Managed", self)
+        self.__checkManaged = QtWidgets.QCheckBox("Managed", self)
         self.__checkManaged.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnAddTask = QtGui.QPushButton("Add Task", self)
+        self.__btnAddTask = QtWidgets.QPushButton("Add Task", self)
         self.__btnAddTask.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnRefresh = QtGui.QPushButton("Refresh", self)
+        self.__btnRefresh = QtWidgets.QPushButton("Refresh", self)
         self.__btnRefresh.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__btnDone = QtGui.QPushButton("Done", self)
+        self.__btnDone = QtWidgets.QPushButton("Done", self)
         self.__btnDone.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.setWindowTitle("Tasks for: %s" % show.name())
@@ -53,7 +53,7 @@ class TasksDialog(QtGui.QDialog):
         self.setSizeGripEnabled(True)
         self.resize(500, 600)
 
-        glayout = QtGui.QGridLayout(self)
+        glayout = QtWidgets.QGridLayout(self)
         glayout.addWidget(self.__comboDepartments, 0, 0)
         glayout.addWidget(self.__checkManaged, 0, 1)
         glayout.addWidget(self.__btnMinCores, 0, 2)
@@ -62,34 +62,19 @@ class TasksDialog(QtGui.QDialog):
         glayout.addWidget(self.__btnRefresh, 4, 1)
         glayout.addWidget(self.__btnDone, 4, 2)
 
-        QtCore.QObject.connect(self.__btnMinCores,
-                               QtCore.SIGNAL("clicked()"),
-                               self.setMinCores)
-
-        QtCore.QObject.connect(self.__checkManaged,
-                               QtCore.SIGNAL("clicked(bool)"),
-                               self.setManaged)
-
-        QtCore.QObject.connect(self.__btnAddTask,
-                               QtCore.SIGNAL("clicked()"),
-                               self.__tasks.createTask)
-
-        QtCore.QObject.connect(self.__btnRefresh,
-                               QtCore.SIGNAL("clicked()"),
-                               self.refresh)
-
-        QtCore.QObject.connect(self.__comboDepartments,
-                               QtCore.SIGNAL("currentIndexChanged(QString)"),
-                               self.setDepartment)
-
-        QtCore.QObject.connect(self.__btnDone, QtCore.SIGNAL("clicked()"), self.accept)
+        self.__btnMinCores.clicked.connect(self.setMinCores)
+        self.__checkManaged.clicked.connect(self.setManaged)
+        self.__btnAddTask.clicked.connect(self.__tasks.createTask)
+        self.__btnRefresh.clicked.connect(self.refresh)
+        self.__comboDepartments.currentIndexChanged.connect(self.setDepartment)
+        self.__btnDone.clicked.connect(self.accept)
 
         self.getDepartments()
 
     def getDepartments(self):
         selected = self.__comboDepartments.currentText()
 
-        self.__departments = self.__show.proxy.getDepartments()
+        self.__departments = self.__show.getDepartments()
         departmentNames = sorted([dept.data.name for dept in self.__departments])
         self.__comboDepartments.clear()
         self.__comboDepartments.addItems(departmentNames)
@@ -110,7 +95,7 @@ class TasksDialog(QtGui.QDialog):
         if __department:
             (managedCores, choice) = self.__askManagedCores(__department)
             if choice:
-                __department.proxy.setManagedCores(managedCores)
+                __department.setManagedCores(managedCores)
                 self.__btnMinCores.setText(MANAGED_CORES_PREFIX + "%.02f" % managedCores)
                 self.getDepartments()
 
@@ -119,27 +104,27 @@ class TasksDialog(QtGui.QDialog):
         if not __department.data.tiManaged and checked:
             title = "Manage Department"
             body = "What tiTask should be used to manage the %s department?" % __department.data.name
-            (tiTask, choice) = QtGui.QInputDialog.getText(self,
+            (tiTask, choice) = QtWidgets.QInputDialog.getText(self,
                                                           title, body,
-                                                          QtGui.QLineEdit.Normal,
+                                                          QtWidgets.QLineEdit.Normal,
                                                           __department.data.tiTask)
             if choice:
                 (managedCores, choice) = self.__askManagedCores(__department)
                 if choice:
-                    __department.proxy.enableTiManaged(str(tiTask), managedCores)
+                    __department.enableTiManaged(str(tiTask), managedCores)
 
         if __department.data.tiManaged and not checked:
             if Utils.questionBoxYesNo(self,
                                       "Confirm",
                                       "Disable management of the %s department?" % __department.data.name):
-                __department.proxy.disableTiManaged()
+                __department.disableTiManaged()
 
         self.getDepartments()
 
     def __askManagedCores(self, department):
         title = "Set Managed Cores"
         body = "Please enter the new managed cores value:"
-        (managedCores, choice) = QtGui.QInputDialog.getDouble(self,
+        (managedCores, choice) = QtWidgets.QInputDialog.getDouble(self,
                                                               title, body,
                                                               department.data.minCores,
                                                               0, 50000, 0)
@@ -190,7 +175,7 @@ class TaskMonitorTree(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             if self.__department:
-                return self.__department.proxy.getTasks()
+                return self.__department.getTasks()
             else:
                 return []
         except Exception, e:
@@ -204,7 +189,7 @@ class TaskMonitorTree(AbstractTreeWidget):
 
         __managed = self.__department.data.tiManaged
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         self.__menuActions.tasks().addAction(menu, "setMinCores")
         self.__menuActions.tasks().addAction(menu, "clearAdjustment")
         if not __managed:
@@ -216,17 +201,17 @@ class TaskMonitorTree(AbstractTreeWidget):
         if self.__department:
             title = "Create Task"
             body = "What shot is this task for? "
-            (shot, choice) = QtGui.QInputDialog.getText(self, title, body,
-                                                        QtGui.QLineEdit.Normal, "")
+            (shot, choice) = QtWidgets.QInputDialog.getText(self, title, body,
+                                                        QtWidgets.QLineEdit.Normal, "")
             if choice:
                 title = "Set Minimum Cores"
                 body = "Please enter the new minimum cores value:"
-                (minCores, choice) = QtGui.QInputDialog.getDouble(self,
+                (minCores, choice) = QtWidgets.QInputDialog.getDouble(self,
                                                                   title, body,
                                                                   1,
                                                                   0, 50000, 0)
                 if choice:
-                    self.__department.proxy.addTask(str(shot), float(minCores))
+                    self.__department.addTask(str(shot), float(minCores))
                     self._update()
 
 class TaskWidgetItem(AbstractWidgetItem):

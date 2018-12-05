@@ -17,35 +17,39 @@
 Extends QDockWidget to provide a standard setup
 """
 
-from Manifest import os, QtCore, QtGui
+from Manifest import os, QtCore, QtGui, QtWidgets
 
 from Plugins import Plugin
 
-class AbstractDockWidget(Plugin, QtGui.QDockWidget):
+class AbstractDockWidget(Plugin, QtWidgets.QDockWidget):
+
+    closed = QtCore.Signal(object)
+    enabled = QtCore.Signal()
+
     def __init__(self, parent, name, area = QtCore.Qt.LeftDockWidgetArea):
-        QtGui.QDockWidget.__init__(self, name, parent)
+        QtWidgets.QDockWidget.__init__(self, name, parent)
         Plugin.__init__(self)
 
         self.parent = parent
 
         self.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
-        self.setFeatures(QtGui.QDockWidget.DockWidgetClosable | QtGui.QDockWidget.DockWidgetMovable)
+        self.setFeatures(QtWidgets.QDockWidget.DockWidgetClosable | QtWidgets.QDockWidget.DockWidgetMovable)
         self.setObjectName(name)
         parent.addDockWidget(area, self)
 
         # Setup main vertical layout
-        self.__layout = QtGui.QVBoxLayout()
+        self.__layout = QtWidgets.QVBoxLayout()
         self.__layout.setContentsMargins(0, 0, 0, 0)
 
         # Required to get layout on DockWidget
-        self.setWidget(QtGui.QWidget())
+        self.setWidget(QtWidgets.QWidget())
         self.widget().setLayout(self.__layout)
 
     def closeEvent(self, event):
-        self.emit(QtCore.SIGNAL("closed(PyQt_PyObject)"), self)
+        self.closed.emit(self)
 
     def showEvent(self, event):
-        self.emit(QtCore.SIGNAL("enabled()"))
+        self.enabled.emit()
 
     def layout(self):
         return self.__layout
