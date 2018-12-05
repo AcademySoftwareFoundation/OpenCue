@@ -259,7 +259,8 @@ class Plugins(object):
         # Create the submenus (ordered)
         submenus = {}
         menu_locations = {"root": []}
-        for category in set(sorted([plugin[CATEGORY] for plugin in self.__plugins.values() if plugin.has_key(CATEGORY)])):
+        for category in set([plugin[CATEGORY] for plugin in self.__plugins.values()
+                             if CATEGORY in plugin]):
             submenus[category] = QtWidgets.QMenu(category, menu)
             menu.addMenu(submenus[category])
             menu_locations[category] = []
@@ -298,7 +299,7 @@ class Plugin(object):
         if self.__settings and saved and isinstance(saved, dict):
             for setting in self.__settings:
                 item = setting[SETTINGS_KEY]
-                if saved.has_key(item):
+                if item in saved:
                     setting[SETTINGS_SET](saved[item])
 
     def pluginSaveState(self):

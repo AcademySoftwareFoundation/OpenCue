@@ -577,7 +577,7 @@ class FrameWidgetItem(AbstractWidgetItem):
                 self._source, self.rpcObject)
 
 #        if role == QtCore.Qt.DisplayRole:
-#            if not self._cache.has_key(col):
+#            if col not in self._cache:
 #                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.rpcObject))
 #            return self._cache.get(col, Constants.QVARIANT_NULL)
 
@@ -754,7 +754,7 @@ class FrameEtaDataBuffer(object):
                 self.__currentJob = jobKey
 
             frameKey = Utils.getObjectKey(frame)
-            if self.__cache.has_key(frameKey):
+            if frameKey in self.__cache:
                 # Frame eta is cached
                 __cached = self.__cache[frameKey]
                 if __cached[self.__TIME] < __now - self.maxCacheTime:

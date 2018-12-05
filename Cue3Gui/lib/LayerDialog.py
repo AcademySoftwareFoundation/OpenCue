@@ -252,17 +252,17 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         """
         for layer in self.__layers:
             if self.__mem.isEnabled():
-                layer.proxy.setMinMemory(self.__mem.slider.value())
+                layer.setMinMemory(self.__mem.slider.value())
             if self.__mem_opt.isEnabled():
-                layer.proxy.enableMemoryOptimizer(self.__mem_opt.isChecked())
+                layer.enableMemoryOptimizer(self.__mem_opt.isChecked())
             if self.__core.isEnabled():
-                layer.proxy.setMinCores(float(self.__core.value()))
+                layer.setMinCores(float(self.__core.value()))
             if self.__max_cores.isEnabled():
-                layer.proxy.setMaxCores(float(self.__max_cores.value()))
+                layer.setMaxCores(float(self.__max_cores.value()))
             if self.__thread.isEnabled():
-                layer.proxy.setThreadable(self.__thread.isChecked())
+                layer.setThreadable(self.__thread.isChecked())
             if self.__gpu.isEnabled():
-                layer.proxy.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
+                layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
 
         if self.__tags.isEnabled():
             self.__tags.apply()
@@ -350,7 +350,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
 
         try:
             for layer in self.__layers:
-                layer.proxy.setTags(tags)
+                layer.setTags(tags)
         except Cue3.CueException, e:
             warning = QtWidgets.QMessageBox(self)
             warning.setText("Error applying layer tags.")

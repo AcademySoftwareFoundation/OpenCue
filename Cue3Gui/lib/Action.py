@@ -45,7 +45,7 @@ def createAction(parent, id, text, tip, callback=None, icon=None):
     """create(QtWidgets.QWidget, string text, string tip, callable callback=None, string icon=None)
         creates a QtGui.QAction and optionally connects it to a slot
     """
-    if Actions.has_key(id):
+    if id in Actions:
         raise Exception("Action %s has already been created" % (id))
 
     a = QtWidgets.QAction(parent)

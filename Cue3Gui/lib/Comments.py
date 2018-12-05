@@ -175,7 +175,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def refreshComments(self):
         """Clears and populates the comment list from the cuebot"""
-        comments = self.__source.proxy.getComments()
+        comments = self.__source.getComments()
         self.__treeSubjects.clear()
         for comment in comments:
             item = Comment(comment)
@@ -233,7 +233,7 @@ class CommentListDialog(QtWidgets.QDialog):
         elif selection == PREDEFINED_COMMENT_DELETE:
             (comment, choice) = self.__macroSelectDialog("delete")
             if choice:
-                if self.__macroList.has_key(comment):
+                if comment in self.__macroList:
                     del self.__macroList[comment]
                     self.__macroSave()
                     self.__macroRefresh()
@@ -241,7 +241,7 @@ class CommentListDialog(QtWidgets.QDialog):
         elif selection == PREDEFINED_COMMENT_EDIT:
             (comment, choice) = self.__macroSelectDialog("edit")
             if choice:
-                if self.__macroList.has_key(comment):
+                if comment in self.__macroList:
                     commentMacroDialog = CommentMacroDialog(comment,
                                                             self.__macroList[comment][0],
                                                             self.__macroList[comment][1],
@@ -279,7 +279,7 @@ class CommentListDialog(QtWidgets.QDialog):
         c.subject = str(subject)
         c.message = str(message) or " "
         c.timestamp = 0
-        self.__source.proxy.addComment(c)
+        self.__source.addComment(c)
 
 class CommentMacroDialog(QtWidgets.QDialog):
     """A dialog for adding or modifying macro comments"""

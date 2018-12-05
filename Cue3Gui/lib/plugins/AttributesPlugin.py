@@ -198,7 +198,7 @@ class LayerAttributes(AbstractAttributes):
 
     def dataSource(self, layer, preload):
         d = {
-                "id": Cue3.util.id(layer.proxy),
+                "id": Cue3.util.id(layer),
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
@@ -241,13 +241,13 @@ class LayerAttributes(AbstractAttributes):
                 }
 
 
-        for num, output in enumerate(layer.proxy.getOutputPaths()):
+        for num, output in enumerate(layer.getOutputPaths()):
             # Try to formulate a unique name the output.
             try:
                 # Outline only puts outputs in as filespecs,
                 # so we're just going to assume it is.
                 rep = output.split("/")[-2]
-                if d["outputs"].has_key(rep):
+                if rep in d["outputs"]:
                     rep = "%s #%d" % (rep, num)
             except:
                 rep = "output #%d" % num
@@ -314,8 +314,8 @@ class JobAttributes(AbstractAttributes):
 
         ## In in the layer outputs.
         if job.stats.totalLayers < 20:
-            for layer in job.proxy.getLayers():
-                outputs = layer.proxy.getOutputPaths()
+            for layer in job.getLayers():
+                outputs = layer.getOutputPaths()
                 if not outputs:
                     continue
                 entry = {}
@@ -327,7 +327,7 @@ class JobAttributes(AbstractAttributes):
                         # Outline only puts outputs in as filespecs,
                         # so we're just going to assume it is.
                         rep = output.split("/")[-2]
-                        if entry.has_key(rep):
+                        if rep in entry:
                             rep = "%s #%d" % (rep, num)
                     except:
                         rep = "output #%d" % num

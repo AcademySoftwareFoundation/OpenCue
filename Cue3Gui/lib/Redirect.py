@@ -161,7 +161,7 @@ class GroupFilter(QtWidgets.QPushButton):
     def __loadShow(self, show):
         self.__actions = { }
         try:
-            if show.proxy:
+            if show:
                 return show
         except:
             return Cue3.api.findShow(show.name())
@@ -172,7 +172,7 @@ class GroupFilter(QtWidgets.QPushButton):
     def __populate_menu(self):
         self.__menu.clear()
         for group in self.__show.getGroups():
-            if self.__actions.has_key(Cue3.id(group)):
+            if Cue3.id(group) in self.__actions:
                 self.__menu.addAction(self.__actions[Cue3.id(group)])
             else:
                 action = QtWidgets.QAction(self)
@@ -433,8 +433,8 @@ class RedirectWidget(QtWidgets.QWidget):
         @rtype: bool
         '''
 
-        xshow_jobs = [proc.proxy.getJob() for proc in procs if not
-                      proc.proxy.getJob().show() == target_show]
+        xshow_jobs = [proc.getJob() for proc in procs if not
+                      proc.getJob().show() == target_show]
         if not xshow_jobs:
             return True  # No cross-show procs
 
@@ -551,10 +551,10 @@ class RedirectWidget(QtWidgets.QWidget):
         errors = []
         for item in selected_items:
             entry = self.__hosts.get(str(item.text()))
-            procs = [proc.proxy for proc in entry["procs"]]
+            procs = entry["procs"]
             try:
                 host = entry["host"]
-                host.proxy.redirectToJob(procs, job)
+                host.redirectToJob(procs, job)
             except Exception, e:
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
@@ -627,7 +627,7 @@ class RedirectWidget(QtWidgets.QWidget):
                     continue
 
             name = proc.data.name.split("/")[0]
-            if not hosts.has_key(name):
+            if name not in hosts:
                 cue_host = Cue3.api.findHost(name)
                 hosts[name] = {
                                "host": cue_host,

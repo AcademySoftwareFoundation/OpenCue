@@ -139,7 +139,8 @@ def createHardDepend(job, onjob):
     for depend_er_layer in Cue3.api.findJob(job).getLayers():
             for depend_on_layer in onLayers:
                 if depend_er_layer.data.type == depend_on_layer.data.type:
-                    depends.append(depend_er_layer.proxy.createFrameByFrameDependency(depend_on_layer.proxy,False))
+                    depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer,
+                                                                                False))
     return depends
 
 def createJobOnJobDepend(job, onjob):
@@ -198,7 +199,7 @@ def createJobOnFrameDepend(job, onjob, onlayer, onframe):
                  % (job, onjob, onlayer, onframe))
     depend_er_job = Cue3.findJob(job)
     depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
-    return depend_er_job.proxy.createDependencyOnFrame(depend_on_frame.proxy)
+    return depend_er_job.createDependencyOnFrame(depend_on_frame)
 
 def createLayerOnJobDepend(job, layer, onjob):
     """Creates a layer on job dependency
@@ -402,11 +403,11 @@ def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
     depend_on_frame = Cue3.api.findFrame(onjob, onlayer, onframe)
 
     # if createSimDependencyOnFrame existed, we would use it here:
-    #return depend_er_layer.proxy.createSimDependencyOnFrame(depend_on_frame.proxy)
+    #return depend_er_layer.createSimDependencyOnFrame(depend_on_frame)
 
     depends = []
     for depend_er_frame in depend_er_layer.getFrames():
-        depends.append(depend_er_frame.proxy.createDependencyOnFrame(depend_on_frame))
+        depends.append(depend_er_frame.createDependencyOnFrame(depend_on_frame))
     return depends
 
 def dropDepend(id):

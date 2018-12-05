@@ -265,7 +265,7 @@ class FrameMonitor(QtWidgets.QWidget):
         if has_filters:
             temp_search = deepcopy(self.frameMonitorTree.frameSearch)
             temp_search.page = self.page + 1
-            temp_frames = job.proxy.getFrames(temp_search)
+            temp_frames = job.getFrames(temp_search)
             self.next_page_btn.setEnabled(len(temp_frames) > 0)
         else:
             page_label_text += ' of {0}'.format(total_pages)

@@ -274,7 +274,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
 ################################################################################
     def addShows(self, shows):
         for show in shows:
-            if self.__showMenuActions.has_key(show):
+            if show in self.__showMenuActions:
                 self.__monitorCue.addShow(show, False)
                 self.__showMenuActions[show].setChecked(True)
 

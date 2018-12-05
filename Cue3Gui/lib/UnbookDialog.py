@@ -226,7 +226,7 @@ class UnbookDialog(AbstractDialog):
             elif redirectTo == "Group":
                 title = "Select Redirection Group"
                 body = "Redirect to which group?"
-                groups = dict([(group.data.name, group) for group in show.proxy.getGroups()])
+                groups = dict([(group.data.name, group) for group in show.getGroups()])
                 (group, choice) = QtWidgets.QInputDialog.getItem(self,
                                                                  title,
                                                                  body,
@@ -245,9 +245,9 @@ class UnbookDialog(AbstractDialog):
                 for proc in procs:
                     try:
                         if job:
-                            proc.proxy.redirectToJob(job.proxy, kill)
+                            proc.redirectToJob(job, kill)
                         elif group:
-                            proc.proxy.redirectToGroup(group.proxy, kill)
+                            proc.redirectToGroup(group, kill)
                         amount += 1
                     except Exception, e:
                         pass
@@ -398,7 +398,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
     def accept(self):
         for proc in self.__procs:
             try:
-                proc.proxy.kill()
+                proc.kill()
             except Exception, e:
                 pass
 

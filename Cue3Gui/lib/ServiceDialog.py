@@ -197,7 +197,7 @@ class ServiceManager(QtWidgets.QWidget):
             return
 
         if self.__show:
-            self.__selected = self.__show.proxy.getServiceOverride(str(item.text()))
+            self.__selected = self.__show.getServiceOverride(str(item.text()))
         else:
             self.__selected = Cue3.api.getService(str(item.text()))
         self.__form.setService(self.__selected)
@@ -217,11 +217,11 @@ class ServiceManager(QtWidgets.QWidget):
 
         if self.__new_service:
             if self.__show:
-                self.__show.proxy.createServiceOverride(data)
+                self.__show.createServiceOverride(data)
             else:
                 Cue3.api.createService(data)
         else:
-            self.__selected.proxy.update(data)
+            self.__selected.update(data)
 
         self.refresh()
         self.__new_service = False
@@ -247,7 +247,7 @@ class ServiceManager(QtWidgets.QWidget):
             if not self.__show:
                 self.__services = Cue3.api.getDefaultServices()
             else:
-                self.__services = self.__show.proxy.getServiceOverrides()
+                self.__services = self.__show.getServiceOverrides()
         except Exception, e:
             return
 
@@ -273,7 +273,7 @@ class ServiceManager(QtWidgets.QWidget):
         """
         Delete the selected service.
         """
-        self.__selected.proxy.delete()
+        self.__selected.delete()
         row = self.currentRow()
         if row >= 1:
             self.__service_list.setCurrentRow(row - 1, QtCore.QItemSelectionModel.Select)

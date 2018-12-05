@@ -470,7 +470,7 @@ def getOutputFromLayers(job, layers):
     paths = []
     for layer in layers:
         svi_found = False
-        outputs =  layer.proxy.getOutputPaths()
+        outputs = layer.getOutputPaths()
         if outputs:
             for path in outputs:
                 if path.find("_svi") != -1:
@@ -491,7 +491,7 @@ def getOutputFromFrame(job, layer, frame):
     @rtype:  list
     @return: A list of output paths"""
     try:
-        main_output =  layer.proxy.getOutputPaths()[0]
+        main_output = layer.getOutputPaths()[0]
         main_output = main_output.replace("#", "%04d" % frame.data.number)
         return [main_output]
     except IndexError, e:

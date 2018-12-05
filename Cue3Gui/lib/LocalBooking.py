@@ -46,7 +46,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         try:
             owner = Cue3.api.getOwner(os.environ["USER"])
-            for host in owner.proxy.getHosts():
+            for host in owner.getHosts():
                 if host.data.lockState != Cue3.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
         except Exception, e:
@@ -231,7 +231,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         hostname = gethostname()
         try:
             host = Cue3.api.findHost(hostname.rsplit(".",2)[0])
-            owner.proxy.takeOwnership(host.data.name)
+            owner.takeOwnership(host.data.name)
             self.__select_host.addItem(host.data.name)
             self.__lba_group.setDisabled(False)
 
@@ -290,7 +290,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             if rp:
                 rp = rp[0]
         
-                rp.proxy.delete()
+                rp.delete()
 
                 ## Wait for hosts to clear out, then switch
                 ## back to the booking widget
@@ -313,11 +313,11 @@ class LocalBookingWidget(QtWidgets.QWidget):
         rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
         if rp:
             # A render partition already exists on this hosts and user is modifying
-            rp[0].proxy.setMaxResources(int(self.__run_cores.value() * 100),
+            rp[0].setMaxResources(int(self.__run_cores.value() * 100),
                                         int(self.__run_mem.value()) * 1024 * 1024,
                                         0)
         else:
-            self.__target.proxy.addRenderPartition(str(self.__select_host.currentText()),
+            self.__target.addRenderPartition(str(self.__select_host.currentText()),
                                                    int(self.__num_threads.value()),
                                                    int(self.__num_cores.text()),
                                                    int(self.__num_mem.value() * 1048576),

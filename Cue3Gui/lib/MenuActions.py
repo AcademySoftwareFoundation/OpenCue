@@ -116,11 +116,11 @@ class AbstractActions(object):
 
         # Uses a cache to only create actions once
         key = (actionName, callback)
-        if not self.__actionCache.has_key(key):
+        if key not in self.__actionCache:
             info = getattr(self, "%s_info" % actionName)
 
             # Uses a cache to only load icons once
-            if not self.__iconCache.has_key(info[ICON]):
+            if info[ICON] not in self.__iconCache:
                 if type(info[ICON]) is QtGui.QColor:
                     pixmap = QtGui.QPixmap(100, 100)
                     pixmap.fill(info[ICON])
@@ -219,7 +219,7 @@ class JobActions(AbstractActions):
             if choice:
                 for job in jobs:
                     Cue3.wrappers.job.Job(job).setMinCores(float(value))
-                    job.proxy.setMinCores(float(value))
+                    job.setMinCores(float(value))
                 self._update()
 
     setMaxCores_info = ["Set Maximum Cores...", "Set Job(s) Maximum Cores", "configure"]
@@ -347,7 +347,7 @@ class JobActions(AbstractActions):
                                       "Drop all external dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
+                    job.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
                 self._update()
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
@@ -358,7 +358,7 @@ class JobActions(AbstractActions):
                                       "Drop all internal dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.proxy.dropDepends(Cue3.api.depend_pb2.INTERNAL)
+                    job.dropDepends(Cue3.api.depend_pb2.INTERNAL)
                 self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
@@ -376,7 +376,7 @@ class JobActions(AbstractActions):
     def __getJobRange(self, job):
         __minRange = []
         __maxRange = []
-        for layer in job.proxy.getLayers():
+        for layer in job.getLayers():
             fs = FileSequence.FrameSet(layer.data.range)
             fs.normalize()
             __minRange.append(fs[0])
@@ -406,7 +406,7 @@ class JobActions(AbstractActions):
                                                      False)
         if not choice: return
 
-        self.cuebotCall(__job.proxy.reorderFrames, "Reorder Frames Failed",
+        self.cuebotCall(__job.reorderFrames, "Reorder Frames Failed",
                         range, getattr(Cue3.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
@@ -430,7 +430,7 @@ class JobActions(AbstractActions):
 
         if not choice: return
 
-        self.cuebotCall(__job.proxy.staggerFrames, "Stagger Frames Failed",
+        self.cuebotCall(__job.staggerFrames, "Stagger Frames Failed",
                         range, int(increment))
 
     unbook_info = ["Unbook Frames...", None, "kill"]
@@ -461,7 +461,7 @@ class JobActions(AbstractActions):
         if not choice:
             return
 
-        groups[str(group)].proxy.reparentJobs([job.proxy for job in jobs])
+        groups[str(group)].reparentJobs(jobs)
         self._update()
 
 
@@ -534,7 +534,7 @@ class LayerActions(AbstractActions):
                                                            0.01, 64.0, 2)
             if choice:
                 for layer in layers:
-                    layer.proxy.setMinCores(float(value))
+                    layer.setMinCores(float(value))
                 self._update()
 
     setMinMemoryKb_info = ["Set Minimum Memory", "Set the amount of memory required for this layer", "configure"]
@@ -633,7 +633,7 @@ class LayerActions(AbstractActions):
                                       "Mark done ALL frames in selected layers?",
                                       [layer.data.name for layer in layers]):
                 for layer in layers:
-                    layer.proxy.markdoneFrames()
+                    layer.markdoneFrames()
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -678,7 +678,7 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         for layer in layers:
-            self.cuebotCall(layer.proxy.reorderFrames, "Reorder Frames Failed",
+            self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
                             range, getattr(Cue3.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
@@ -705,7 +705,7 @@ class LayerActions(AbstractActions):
 
         if not choice: return
 
-        self.cuebotCall(__layer.proxy.staggerFrames, "Stagger Frames Failed",
+        self.cuebotCall(__layer.staggerFrames, "Stagger Frames Failed",
                         range, int(increment))
 
 
@@ -807,7 +807,7 @@ class FrameActions(AbstractActions):
                                       "Retry selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                job.proxy.retryFrames(frameSearch)
+                job.retryFrames(frameSearch)
                 self._update()
 
     previewMain_info = ["Preview Main", None, "previewMain"]
@@ -841,7 +841,7 @@ class FrameActions(AbstractActions):
                                       "Eat selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.eatFrames(frameSearch)
+                self._getSource().eatFrames(frameSearch)
                 self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -852,7 +852,7 @@ class FrameActions(AbstractActions):
                                       "Kill selected frames?",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.killFrames(frameSearch)
+                self._getSource().killFrames(frameSearch)
                 self._update()
 
     markAsWaiting_info = ["Mark as &waiting", None, "configure"]
@@ -864,7 +864,7 @@ class FrameActions(AbstractActions):
                                       "(Ignores all of the frames's dependencies once)",
                                       names):
                 frameSearch = Cue3.search.FrameSearch(name=names)
-                self._getSource().proxy.markAsWaiting(frameSearch)
+                self._getSource().markAsWaiting(frameSearch)
                 self._update()
 
     dropDepends_info = ["D&rop depends", None, "configure"]
@@ -877,7 +877,7 @@ class FrameActions(AbstractActions):
                                       "(Drops all of the frame's dependencies)",
                                       names):
                 for frame in frames:
-                    frame.proxy.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
+                    frame.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -896,7 +896,7 @@ class FrameActions(AbstractActions):
                                       "(Drops any dependencies that are waiting on these frames)",
                                       frameNames):
                 frameSearch = Cue3.search.FrameSearch(name=frameNames)
-                self._getSource().proxy.markDoneFrames(frameSearch)
+                self._getSource().markDoneFrames(frameSearch)
                 self._update()
 
     reorder_info = ["Reorder...", None, "configure"]
@@ -918,7 +918,7 @@ class FrameActions(AbstractActions):
         if not choice: return
 
         # Store the proxy and a place for the frame numbers keyed to the layer name
-        __layersDict = dict([(layer.data.name, (layer.proxy, [])) for layer in __job.getLayers()])
+        __layersDict = dict([(layer.data.name, (layer, [])) for layer in __job.getLayers()])
 
         # For each frame, store the number in the list for that layer
         for frame in frames:
@@ -973,18 +973,18 @@ class FrameActions(AbstractActions):
                         return
 
                 frameSearch = Cue3.search.FrameSearch(name=frameNames)
-                self._getSource().proxy.eatFrames(frameSearch)
-                self._getSource().proxy.markDoneFrames(frameSearch)
+                self._getSource().eatFrames(frameSearch)
+                self._getSource().markDoneFrames(frameSearch)
 
                 # Warning: The below assumes that eaten frames are desired to be markdone
 
                 # Wait for the markDoneFrames to be processed, then drop the dependencies on the layer if all frames are done
                 layerNames = [frame.data.layerName for frame in frames]
                 time.sleep(1)
-                for layer in self._getSource().proxy.getLayers():
+                for layer in self._getSource().getLayers():
                     if layer.data.name in layerNames:
                         if layer.stats.eatenFrames + layer.stats.succeededFrames == layer.stats.totalFrames:
-                            layer.proxy.markdoneFrames()
+                            layer.markdoneFrames()
                 self._update()
 
 
@@ -1213,14 +1213,14 @@ class HostActions(AbstractActions):
     def lock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
-            host.proxy.lock()
+            host.lock()
         self._update()
 
     unlock_info = ["Unlock Host", None, "lock"]
     def unlock(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         for host in hosts:
-            host.proxy.unlock()
+            host.unlock()
         self._update()
 
     delete_info = ["Delete Host", "Delete host from cuebot", "kill"]
@@ -1234,10 +1234,10 @@ class HostActions(AbstractActions):
                                   [host.data.name for host in hosts]):
             for host in hosts:
                 # Delete current render partitions to avoid oracle exception
-                for rp in host.proxy.getRenderPartitions():
-                    rp.proxy.delete()
+                for rp in host.getRenderPartitions():
+                    rp.delete()
 
-                self.cuebotCall(host.proxy.delete,
+                self.cuebotCall(host.delete,
                                 "Delete %s Failed" % host.data.name)
             self._update()
 
@@ -1251,7 +1251,7 @@ class HostActions(AbstractActions):
                                   body,
                                   [host.data.name for host in hosts]):
             for host in hosts:
-                self.cuebotCall(host.proxy.rebootWhenIdle,
+                self.cuebotCall(host.rebootWhenIdle,
                                 "Reboot %s When Idle Failed" % host.data.name)
             self._update()
 
@@ -1265,7 +1265,7 @@ class HostActions(AbstractActions):
             if choice:
                 tags = str(tags).replace(" ", ",").split(",")
                 for host in hosts:
-                    self.cuebotCall(host.proxy.addTags,
+                    self.cuebotCall(host.addTags,
                                     "Add Tags to %s Failed" % host.data.name,
                                     tags)
                 self._update()
@@ -1280,7 +1280,7 @@ class HostActions(AbstractActions):
             if choice:
                 tags = str(tags).replace(" ", ",").split(",")
                 for host in hosts:
-                    self.cuebotCall(host.proxy.removeTags,
+                    self.cuebotCall(host.removeTags,
                                     "Remove Tags From %s Failed" % host.data.name,
                                     tags)
                 self._update()
@@ -1304,7 +1304,7 @@ class HostActions(AbstractActions):
             if not choice: return
 
             for host in hosts:
-                self.cuebotCall(host.proxy.renameTag,
+                self.cuebotCall(host.renameTag,
                                 "Rename Tags on %s Failed" % host.data.name,
                                 oldTag, newTag)
             self._update()
@@ -1323,9 +1323,9 @@ class HostActions(AbstractActions):
             if choice:
                 allocation = allocations[str(allocationName)]
                 for host in hosts:
-                    self.cuebotCall(host.proxy.setAllocation,
+                    self.cuebotCall(host.setAllocation,
                                     "Set Allocation on %s Failed" % host.data.name,
-                                    allocation.proxy)
+                                    allocation)
                 self._update()
 
     setRepair_info = ["Set Repair State", None, "configure"]
@@ -1334,7 +1334,7 @@ class HostActions(AbstractActions):
         repair = Cue3.api.host_pb2.REPAIR
         for host in hosts:
             if host.data.state != repair:
-                host.proxy.setHardwareState(repair)
+                host.setHardwareState(repair)
         self._update()
 
     clearRepair_info = ["Clear Repair State", None, "configure"]
@@ -1344,7 +1344,7 @@ class HostActions(AbstractActions):
         down = Cue3.api.host_pb2.DOWN
         for host in hosts:
             if host.data.state == repair:
-                host.proxy.setHardwareState(down)
+                host.setHardwareState(down)
         self._update()
 
 
@@ -1368,7 +1368,7 @@ class ProcActions(AbstractActions):
                                       "Kill selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.kill,
+                    self.cuebotCall(proc.kill,
                                     "Kill Proc %s Failed" % proc.data.name)
                 self._update()
 
@@ -1380,7 +1380,7 @@ class ProcActions(AbstractActions):
                                       "Unbook selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.unbook,
+                    self.cuebotCall(proc.unbook,
                                     "Unbook Proc %s Failed" % proc.data.name,
                                     False)
                 self._update()
@@ -1393,7 +1393,7 @@ class ProcActions(AbstractActions):
                                       "Unbook and Kill selected frames?",
                                       ["%s -> %s @ %s" % (proc.data.jobName, proc.data.frameName, proc.data.name) for proc in procs]):
                 for proc in procs:
-                    self.cuebotCall(proc.proxy.unbook,
+                    self.cuebotCall(proc.unbook,
                                     "Unbook and Kill Proc %s Failed" % proc.data.name,
                                     True)
                 self._update()
@@ -1407,14 +1407,14 @@ class DependenciesActions(AbstractActions):
     def satisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
-            dependency.proxy.satisfy()
+            dependency.satisfy()
         self._update()
 
     unsatisfy_info = ["Unsatisfy Dependency", None, "retry"]
     def unsatisfy(self, rpcObjects=None):
         dependencies = self._getSelected(rpcObjects)
         for dependency in dependencies:
-            dependency.proxy.unsatisfy()
+            dependency.unsatisfy()
         self._update()
 
 
@@ -1549,14 +1549,14 @@ class TaskActions(AbstractActions):
                                                            0, 50000, 0)
             if choice:
                 for task in tasks:
-                    task.proxy.setMinCores(float(value))
+                    task.setMinCores(float(value))
                 self._update()
 
     clearAdjustment_info = ["Clear Minimum Core Adjustment", "Clear Task(s) Minimum Core Adjustment", "configure"]
     def clearAdjustment(self, rpcObjects=None):
         tasks = self._getSelected(rpcObjects)
         for task in tasks:
-            task.proxy.clearAdjustment()
+            task.clearAdjustment()
         self._update()
 
     delete_info = ["Delete Task", None, "configure"]
@@ -1567,7 +1567,7 @@ class TaskActions(AbstractActions):
                                       "Delete selected tasks?",
                                       [task.data.shot for task in tasks]):
                 for task in tasks:
-                    task.proxy.delete()
+                    task.delete()
                 self._update()
 
 

@@ -231,7 +231,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Create menu items for Window -> Open/Raise/Add Window "?"
         for name in self.windows_names:
-            if not self.windows_actions.has_key(name):
+            if name not in self.windows_actions:
                 self.windows_actions[name] = QtWidgets.QAction("", self)
 
             menu.addAction(self.windows_actions[name])

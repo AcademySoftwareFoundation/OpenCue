@@ -96,13 +96,13 @@ class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
             self.__monitorFrames.setJob(new_job)
             self.__monitorLayers.setJob(new_job)
         elif not job and self.__job:
-            self.__unmonitor(self.__job.proxy)
+            self.__unmonitor(self.__job)
 
     def __unmonitor(self, proxy):
         """Unmonitors the current job if it matches the supplied proxy.
         @param proxy: A job proxy
         @type  proxy: proxy"""
-        if self.__job and self.__job.proxy == proxy:
+        if self.__job and self.__job == proxy:
             self.__job = None
             self.setWindowTitle("Monitor Job Details")
 

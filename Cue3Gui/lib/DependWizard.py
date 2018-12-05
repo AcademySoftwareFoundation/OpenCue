@@ -397,7 +397,7 @@ class PageSelectLayer(AbstractWizardPage):
         self.__layerList = self._addListWidget(2, 0, QtWidgets.QAbstractItemView.MultiSelection)
 
     def initializePage(self):
-        self.wizard().layerOptions = self.wizard().jobs[0].proxy.getLayers()
+        self.wizard().layerOptions = self.wizard().jobs[0].getLayers()
 
         QtWidgets.QWizardPage.initializePage(self)
 

@@ -74,7 +74,7 @@ class TasksDialog(QtWidgets.QDialog):
     def getDepartments(self):
         selected = self.__comboDepartments.currentText()
 
-        self.__departments = self.__show.proxy.getDepartments()
+        self.__departments = self.__show.getDepartments()
         departmentNames = sorted([dept.data.name for dept in self.__departments])
         self.__comboDepartments.clear()
         self.__comboDepartments.addItems(departmentNames)
@@ -95,7 +95,7 @@ class TasksDialog(QtWidgets.QDialog):
         if __department:
             (managedCores, choice) = self.__askManagedCores(__department)
             if choice:
-                __department.proxy.setManagedCores(managedCores)
+                __department.setManagedCores(managedCores)
                 self.__btnMinCores.setText(MANAGED_CORES_PREFIX + "%.02f" % managedCores)
                 self.getDepartments()
 
@@ -111,13 +111,13 @@ class TasksDialog(QtWidgets.QDialog):
             if choice:
                 (managedCores, choice) = self.__askManagedCores(__department)
                 if choice:
-                    __department.proxy.enableTiManaged(str(tiTask), managedCores)
+                    __department.enableTiManaged(str(tiTask), managedCores)
 
         if __department.data.tiManaged and not checked:
             if Utils.questionBoxYesNo(self,
                                       "Confirm",
                                       "Disable management of the %s department?" % __department.data.name):
-                __department.proxy.disableTiManaged()
+                __department.disableTiManaged()
 
         self.getDepartments()
 
@@ -175,7 +175,7 @@ class TaskMonitorTree(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             if self.__department:
-                return self.__department.proxy.getTasks()
+                return self.__department.getTasks()
             else:
                 return []
         except Exception, e:
@@ -211,7 +211,7 @@ class TaskMonitorTree(AbstractTreeWidget):
                                                                   1,
                                                                   0, 50000, 0)
                 if choice:
-                    self.__department.proxy.addTask(str(shot), float(minCores))
+                    self.__department.addTask(str(shot), float(minCores))
                     self._update()
 
 class TaskWidgetItem(AbstractWidgetItem):
