@@ -266,17 +266,12 @@ class HostWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__commentIcon = \
-                QtCore.QVariant(QtGui.QIcon(":comment.png"))
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__pausedColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND)
-            self.__class__.__dyingColor = \
-                QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_HOST)
+            self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__type = Constants.TYPE_HOST
         AbstractWidgetItem.__init__(self, Constants.TYPE_HOST, object, parent)
 
     def data(self, col, role):
@@ -285,12 +280,12 @@ class HostWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
             if col not in self._cache:
-                self._cache[col] = QtCore.QVariant(
-                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+                self._cache[col] = \
+                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.iceObject)
             return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
@@ -311,15 +306,15 @@ class HostWidgetItem(AbstractWidgetItem):
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            return QtCore.QVariant([self.iceObject.data.totalSwap - self.iceObject.data.freeSwap,
-                                    self.iceObject.data.totalSwap])
+            return [self.iceObject.data.totalSwap - self.iceObject.data.freeSwap,
+                    self.iceObject.data.totalSwap]
 
         elif role == QtCore.Qt.UserRole + 2:
-            return QtCore.QVariant([self.iceObject.data.totalMemory - self.iceObject.data.freeMemory,
-                                    self.iceObject.data.totalMemory])
+            return [self.iceObject.data.totalMemory - self.iceObject.data.freeMemory,
+                    self.iceObject.data.totalMemory]
 
         elif role == QtCore.Qt.UserRole + 3:
-            return QtCore.QVariant([self.iceObject.data.totalGpu - self.iceObject.data.freeGpu,
-                                    self.iceObject.data.totalGpu])
+            return [self.iceObject.data.totalGpu - self.iceObject.data.freeGpu,
+                    self.iceObject.data.totalGpu]
 
         return Constants.QVARIANT_NULL

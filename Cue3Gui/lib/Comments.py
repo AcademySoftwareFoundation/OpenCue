@@ -192,7 +192,8 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
-        self.__macroList = pickle.loads(str(QtGui.qApp.settings.value("Comments", QtCore.QVariant(pickle.dumps({}))).toString()))
+        self.__macroList = pickle.loads(
+            str(QtGui.qApp.settings.value("Comments", pickle.dumps({}))))
         self.__macroRefresh()
 
     def __macroRefresh(self):

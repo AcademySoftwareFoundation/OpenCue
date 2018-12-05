@@ -549,18 +549,16 @@ class FrameWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent, job):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                          QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__foregroundColorBlack = QtCore.QVariant(QCOLOR_BLACK)
-            self.__class__.__foregroundColorGreen = QtCore.QVariant(QCOLOR_GREEN)
-            self.__class__.__alignCenter = QtCore.QVariant(QtCore.Qt.AlignCenter)
-            self.__class__.__alignRight = QtCore.QVariant(QtCore.Qt.AlignRight)
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__foregroundColorBlack = QCOLOR_BLACK
+            self.__class__.__foregroundColorGreen = QCOLOR_GREEN
+            self.__class__.__alignCenter = QtCore.Qt.AlignCenter
+            self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
             for key in Constants.RGB_FRAME_STATE:
-                self.__class__.__rgbFrameState[key] = QtCore.QVariant(Constants.RGB_FRAME_STATE[key])
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_FRAME)
+                self.__class__.__rgbFrameState[key] = Constants.RGB_FRAME_STATE[key]
+            self.__class__.__type = Constants.TYPE_FRAME
         AbstractWidgetItem.__init__(self, Constants.TYPE_FRAME, object, parent, job)
         self.__show = job.data.show
 
@@ -570,10 +568,11 @@ class FrameWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.iceObject))
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](
+                self._source, self.iceObject)
 
 #        if role == QtCore.Qt.DisplayRole:
 #            if not self._cache.has_key(col):
@@ -593,7 +592,7 @@ class FrameWidgetItem(AbstractWidgetItem):
 
         elif role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
             if self.iceObject.data.checkpointState == Cue3.api.job_pb2.ENABLED:
-                return QtCore.QVariant(QtGui.QIcon(":markdone.png"))
+                return QtGui.QIcon(":markdone.png")
         elif role == QtCore.Qt.TextAlignmentRole:
             if col == STATUS_COLUMN:
                 return self.__alignCenter
