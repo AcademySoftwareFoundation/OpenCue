@@ -114,8 +114,7 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
 
             # Draw the text
             painter.setPen(QtGui.QColor(index.data(QtCore.Qt.ForegroundRole)))
-            # TODO: Disable to fix OSX styling - b/120096941
-            # painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
+            painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
             painter.drawText(option.rect.adjusted(3, -1, -3, 0),
                              QtCore.Qt.TextAlignmentRole | QtCore.Qt.AlignVCenter,
                              str(index.data(QtCore.Qt.DisplayRole)))
@@ -126,9 +125,11 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
     def _drawBackground(self, painter, option, index):
         # Draw the background color
         painter.setPen(NO_PEN)
-        # TODO: Disable to fix OSX styling - b/120096941
-        # painter.setBrush(QtGui.QBrush(index.data(QtCore.Qt.BackgroundRole)))
-        painter.setBrush(NO_BRUSH)
+        role = index.data(QtCore.Qt.BackgroundRole)
+        if role is not None:
+            painter.setBrush(QtGui.QBrush(role))
+        else:
+            painter.setBrush(NO_BRUSH)
         painter.drawRect(option.rect)
 
     def _drawSelectionOverlay(self, painter, option):
@@ -194,13 +195,14 @@ class JobBookingBarDelegate(AbstractDelegate):
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
+
 class JobThinProgressBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
         # Only if job
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_JOB:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB:
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1).toPyObject()
             painter.save()
             try:
@@ -217,6 +219,7 @@ class JobThinProgressBarDelegate(AbstractDelegate):
                 del painter
         else:
             AbstractDelegate.paint(self, painter, option, index)
+
 
 class JobProgressBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
@@ -252,6 +255,7 @@ class JobProgressBarDelegate(AbstractDelegate):
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
+
 class HostSwapBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
@@ -262,6 +266,7 @@ class HostSwapBarDelegate(AbstractDelegate):
                                      *index.data(QtCore.Qt.UserRole + 1).toPyObject())
         else:
             AbstractDelegate.paint(self, painter, option, index)
+
 
 class HostMemBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
@@ -274,6 +279,7 @@ class HostMemBarDelegate(AbstractDelegate):
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
+
 class HostGpuBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
@@ -284,6 +290,7 @@ class HostGpuBarDelegate(AbstractDelegate):
                                      *index.data(QtCore.Qt.UserRole + 3).toPyObject())
         else:
             AbstractDelegate.paint(self, painter, option, index)
+
 
 class HostHistoryDelegate(AbstractDelegate):
 #To use this delegate, the host item must have this:
@@ -340,6 +347,7 @@ class HostHistoryDelegate(AbstractDelegate):
                 del painter
         else:
             AbstractDelegate.paint(self, painter, option, index)
+
 
 class ItemDelegate(AbstractDelegate):
     def __init__(self, parent, *args):

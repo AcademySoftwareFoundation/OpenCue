@@ -148,7 +148,7 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         groupSeq = response.groups
-        return [group.Group(group) for group in groupSeq]
+        return [group.Group(grp) for grp in groupSeq.groups]
 
     def getJobWhiteboard(self):
         """Get the whiteboard for the show

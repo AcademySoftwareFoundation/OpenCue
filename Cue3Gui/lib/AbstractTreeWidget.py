@@ -253,7 +253,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
-        QtGui.qApp.view_object(item.rpcObject)
+        QtGui.qApp.view_object.emit(item.rpcObject)
         QtGui.qApp.double_click.emit(item.rpcObject)
 
     def addObject(self, rpcObject):

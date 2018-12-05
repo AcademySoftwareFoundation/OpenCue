@@ -43,6 +43,7 @@ def getEta(stats):
 class CueJobMonitorTree(AbstractTreeWidget):
 
     view_object = QtCore.Signal(object)
+    single_click = QtCore.Signal(object)
 
     def __init__(self, parent):
 
@@ -557,12 +558,10 @@ class RootGroupWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__icon = QtCore.QVariant(QtGui.QIcon(":show.png"))
-            self.__class__.__foregroundColor = \
-                         QtCore.QVariant(Style.ColorTheme.COLOR_SHOW_FOREGROUND)
-            self.__class__.__backgroundColor = \
-                         QtCore.QVariant(Style.ColorTheme.COLOR_SHOW_BACKGROUND)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_ROOTGROUP)
+            self.__class__.__icon = QtGui.QIcon(":show.png")
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_SHOW_FOREGROUND
+            self.__class__.__backgroundColor = Style.ColorTheme.COLOR_SHOW_BACKGROUND
+            self.__class__.__type = Constants.TYPE_ROOTGROUP
 
         AbstractWidgetItem.__init__(self, Constants.TYPE_ROOTGROUP, object, parent)
 
@@ -572,10 +571,10 @@ class RootGroupWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -610,12 +609,10 @@ class GroupWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__icon = QtCore.QVariant(QtGui.QIcon(":group.png"))
-            self.__class__.__foregroundColor = \
-                        QtCore.QVariant(Style.ColorTheme.COLOR_GROUP_FOREGROUND)
-            self.__class__.__backgroundColor = \
-                        QtCore.QVariant(Style.ColorTheme.COLOR_GROUP_BACKGROUND)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_GROUP)
+            self.__class__.__icon = QtGui.QIcon(":group.png")
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_GROUP_FOREGROUND
+            self.__class__.__backgroundColor = Style.ColorTheme.COLOR_GROUP_BACKGROUND
+            self.__class__.__type = Constants.TYPE_GROUP
 
         AbstractWidgetItem.__init__(self, Constants.TYPE_GROUP, object, parent)
 
@@ -625,10 +622,10 @@ class GroupWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
+            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -662,26 +659,17 @@ class JobWidgetItem(AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__commentIcon = \
-                                    QtCore.QVariant(QtGui.QIcon(":comment.png"))
-            self.__class__.__eatIcon = QtCore.QVariant(QtGui.QIcon(":eat.png"))
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                          QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FOREGROUND)
-            self.__class__.__pausedColor = \
-                   QtCore.QVariant(Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND)
-            self.__class__.__finishedColor = \
-                 QtCore.QVariant(Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND)
-            self.__class__.__dyingColor = \
-                    QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND)
-            self.__class__.__dependedColor = \
-                            QtCore.QVariant(Style.ColorTheme.COLOR_JOB_DEPENDED)
-            self.__class__.__noRunningColor = \
-                       QtCore.QVariant(Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS)
-            self.__class__.__highMemoryColor = \
-                         QtCore.QVariant(Style.ColorTheme.COLOR_JOB_HIGH_MEMORY)
-            self.__class__.__type = QtCore.QVariant(Constants.TYPE_JOB)
+            self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__finishedColor = Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
+            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__dependedColor = Style.ColorTheme.COLOR_JOB_DEPENDED
+            self.__class__.__noRunningColor = Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS
+            self.__class__.__highMemoryColor = Style.ColorTheme.COLOR_JOB_HIGH_MEMORY
+            self.__class__.__type = Constants.TYPE_JOB
 
         object.parent = None
 
@@ -693,11 +681,12 @@ class JobWidgetItem(AbstractWidgetItem):
         @param col: The column being displayed
         @type  role: QtCore.Qt.ItemDataRole
         @param role: The role being displayed
-        @rtype:  QtCore.QVariant
-        @return: The desired data wrapped in a QVariant"""
+        @rtype:  object
+        @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
             if col not in self._cache:
-                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject))
+                self._cache[col] = \
+                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
             return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
@@ -731,7 +720,7 @@ class JobWidgetItem(AbstractWidgetItem):
 
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
-                self._cache["FST"] = QtCore.QVariant({
+                self._cache["FST"] = {
                     Cue3.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
                     Cue3.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
                     Cue3.job_pb2.FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
@@ -739,7 +728,7 @@ class JobWidgetItem(AbstractWidgetItem):
                     Cue3.job_pb2.FrameState.Setup: 0,
                     Cue3.job_pb2.FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
                     Cue3.job_pb2.FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
-                })
+                }
             return self._cache.get("FST", Constants.QVARIANT_NULL)
 
         return Constants.QVARIANT_NULL
