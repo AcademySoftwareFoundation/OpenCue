@@ -1,6 +1,0 @@
-FILESEQUENCE_V6 {
-    global:
-        init_FileSequence;
-
-    local: *;
-};
