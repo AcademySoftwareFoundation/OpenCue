@@ -13,12 +13,12 @@
 #  limitations under the License.
 
 
-import unittest
 import logging
-
-import main
+import unittest
 
 import common
+import main
+
 Cue3 = common.Cue3
 
 logger = logging.getLogger("cue3.cuetools")
@@ -29,79 +29,80 @@ TEST_HOST = ""
 TEST_FAC = ""
 TEST_SHOW = ""
 
+
 class CueadminTests(unittest.TestCase):
 
     def testCreateShow(self):
         show = "test_show"
-        args = Parser.parse_args(["-create-show",show,"-force"])
+        args = Parser.parse_args(["-create-show", show, "-force"])
         try:
-            s = Cue3.findShow(show)
-            s.proxy.delete()
-        except Cue3.EntityNotFoundException,e:
+            s = Cue3.api.findShow(show)
+            s.delete()
+        except Cue3.EntityNotFoundException:
             pass
 
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertEqual(s.data.name,show)
-        s.proxy.delete()
+        s = Cue3.api.findShow(show)
+        self.assertEqual(s.data.name, show)
+        s.delete()
 
     def testDeleteShow(self):
         show = "test_show"
-        args = Parser.parse_args(["-delete-show",show,"-force"])
+        args = Parser.parse_args(["-delete-show", show, "-force"])
         try:
-            s = Cue3.findShow(show)
-        except Cue3.EntityNotFoundException,e:
-            s = Cue3.createShow(show)
+            s = Cue3.api.findShow(show)
+        except Cue3.EntityNotFoundException:
+            s = Cue3.api.createShow(show)
         main.handleArgs(args)
         try:
-            s = Cue3.findShow(show)
+            s = Cue3.api.findShow(show)
             assert False
-        except Cue3.EntityNotFoundException,e:
+        except Cue3.EntityNotFoundException:
             assert True
 
     def testEnableBooking(self):
         show = TEST_SHOW
-        args = Parser.parse_args(["-booking",show,"off","-force"])
+        args = Parser.parse_args(["-booking", show, "off", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertFalse(s.data.bookingEnabled)
-        args = Parser.parse_args(["-booking",show,"on","-force"])
+        s = Cue3.api.findShow(show)
+        self.assertFalse(s.data.booking_enabled)
+        args = Parser.parse_args(["-booking", show, "on", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertTrue(s.data.bookingEnabled)
+        s = Cue3.api.findShow(show)
+        self.assertTrue(s.data.booking_enabled)
 
     def testEnableDispatch(self):
         show = TEST_SHOW
-        args = Parser.parse_args(["-dispatching",show,"off","-force"])
+        args = Parser.parse_args(["-dispatching", show, "off", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertFalse(s.data.dispatchEnabled)
-        args = Parser.parse_args(["-dispatching",show,"on","-force"])
+        s = Cue3.api.findShow(show)
+        self.assertFalse(s.data.dispatch_enabled)
+        args = Parser.parse_args(["-dispatching", show, "on", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertTrue(s.data.dispatchEnabled)
+        s = Cue3.api.findShow(show)
+        self.assertTrue(s.data.dispatch_enabled)
 
     def testDefaultMinCores(self):
         show = TEST_SHOW
-        args = Parser.parse_args(["-default-min-cores",show,"100","-force"])
+        args = Parser.parse_args(["-default-min-cores", show, "100", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertEquals(100, s.data.defaultMinCores)
-        args = Parser.parse_args(["-default-min-cores",show,"1","-force"])
+        s = Cue3.api.findShow(show)
+        self.assertEquals(100, s.data.default_min_cores)
+        args = Parser.parse_args(["-default-min-cores", show, "1", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertEquals(1, s.data.defaultMinCores)
+        s = Cue3.api.findShow(show)
+        self.assertEquals(1, s.data.default_min_cores)
 
     def testDefaultMaxCores(self):
         show = TEST_SHOW
-        args = Parser.parse_args(["-default-max-cores",show,"100","-force"])
+        args = Parser.parse_args(["-default-max-cores", show, "100", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertEquals(100, s.data.defaultMaxCores)
-        args = Parser.parse_args(["-default-max-cores",show,"200","-force"])
+        s = Cue3.api.findShow(show)
+        self.assertEquals(100, s.data.default_max_cores)
+        args = Parser.parse_args(["-default-max-cores", show, "200", "-force"])
         main.handleArgs(args)
-        s = Cue3.findShow(show)
-        self.assertEquals(200, s.data.defaultMaxCores)
+        s = Cue3.api.findShow(show)
+        self.assertEquals(200, s.data.default_max_cores)
 
     def testCreateAlloc(self):
         fac = TEST_FAC
@@ -109,35 +110,34 @@ class CueadminTests(unittest.TestCase):
         entity = "%s.%s" % (fac, name)
         args = Parser.parse_args(["-create-alloc", fac, name, "tag", "-force"])
         try:
-            s = Cue3.findAllocation(entity)
-            s.proxy.delete()
-        except Cue3.EntityNotFoundException,e:
+            s = Cue3.api.findAllocation(entity)
+            s.delete()
+        except Cue3.EntityNotFoundException:
             pass
         main.handleArgs(args)
-        s = Cue3.findAllocation(entity)
+        s = Cue3.api.findAllocation(entity)
         self.assertEqual(s.data.name, entity)
-        s.proxy.delete()
+        s.delete()
 
     def testDeleteAlloc(self):
         entity = "{0}.test_alloc".format(TEST_FAC)
         args = Parser.parse_args(["-delete-alloc", entity, "-force"])
         try:
-            s = Cue3.findAllocation(entity)
-        except Cue3.EntityNotFoundException,e:
-            f = Cue3.getFacility(TEST_FAC)
+            s = Cue3.api.findAllocation(entity)
+        except Cue3.EntityNotFoundException:
+            f = Cue3.api.getFacility(TEST_FAC)
             f.proxy.createAllocation("test_alloc", "tulip")
         main.handleArgs(args)
         try:
-            Cue3.findAllocation(entity)
+            Cue3.api.findAllocation(entity)
             assert False
-        except Cue3.EntityNotFoundException,e:
+        except Cue3.EntityNotFoundException:
             assert True
 
     def testRenameAlloc(self):
-        facprx = Cue3.getFacility(TEST_FAC).proxy
+        facility = Cue3.api.getFacility(TEST_FAC)
 
         entity1 = "{0}.test_alloc".format(TEST_FAC)
-        new_name = "other_alloc"
         entity2 = "{0}.other_alloc".format(TEST_FAC)
 
         args = Parser.parse_args(["-rename-alloc", entity1, entity2, "-force"])
@@ -145,41 +145,41 @@ class CueadminTests(unittest.TestCase):
         deleteAlloc(entity1)
         deleteAlloc(entity2)
 
-        facprx.createAllocation("test_alloc", "tulip")
+        facility.createAllocation("test_alloc", "tulip")
         main.handleArgs(args)
-        s = Cue3.findAllocation(entity2)
+        s = Cue3.api.findAllocation(entity2)
         self.assertEqual(s.data.name, entity2)
-        s.proxy.delete()
+        s.delete()
 
     def testTagAlloc(self):
-        fprx = Cue3.getFacility(TEST_FAC).proxy
+        facility = Cue3.api.getFacility(TEST_FAC)
         entity = "{0}.test_alloc".format(TEST_FAC)
         new_tag = "new_tag"
-        args = Parser.parse_args(["-tag-alloc", entity ,new_tag, "-force"])
+        args = Parser.parse_args(["-tag-alloc", entity, new_tag, "-force"])
 
         deleteAlloc(entity)
 
-        fprx.createAllocation("test_alloc", entity)
+        facility.createAllocation("test_alloc", entity)
         main.handleArgs(args)
-        s = Cue3.findAllocation(entity)
+        s = Cue3.api.findAllocation(entity)
         self.assertEqual(s.data.tag, new_tag)
-        s.proxy.delete()
+        s.delete()
 
     def testTransferAlloc(self):
-        fprx = Cue3.getFacility(TEST_FAC).proxy
+        facility = Cue3.api.getFacility(TEST_FAC)
         e1 = "{0}.talloc1".format(TEST_FAC)
-        e2 = "{0}.talloc2";.format(TEST_FAC)
-        args = Parser.parse_args(["-transfer", e1 ,e2, "-force"])
+        e2 = "{0}.talloc2".format(TEST_FAC)
+        args = Parser.parse_args(["-transfer", e1, e2, "-force"])
 
         deleteAlloc(e1)
         deleteAlloc(e2)
 
-        fprx.createAllocation("talloc1", e1)
-        fprx.createAllocation("talloc2", e2)
+        facility.createAllocation("talloc1", e1)
+        facility.createAllocation("talloc2", e2)
         main.handleArgs(args)
 
-        Cue3.findAllocation(e1).proxy.delete()
-        Cue3.findAllocation(e2).proxy.delete()
+        Cue3.api.findAllocation(e1).delete()
+        Cue3.api.findAllocation(e2).delete()
 
         # Need to make this test better to sure hosts are
         # actually being transfered on the server.
@@ -189,71 +189,71 @@ class CueadminTests(unittest.TestCase):
         args = Parser.parse_args(["-repair", "-host", e, "-force"])
         main.handleArgs(args)
 
-        self.assertEquals(Cue3.findHost(e).data.state,Cue3.HardwareState.Repair)
-        Cue3.findHost(e).proxy.setHardwareState(Cue3.HardwareState.Up)
+        self.assertEquals(Cue3.api.findHost(e).data.state, Cue3.api.host_pb2.REPAIR)
+        Cue3.api.findHost(e).setHardwareState(Cue3.api.host_pb2.UP)
 
     def testLockHost(self):
         e = TEST_HOST
         args = Parser.parse_args(["-lock", "-host", e, "-force"])
         main.handleArgs(args)
 
-        self.assertEquals(Cue3.findHost(e).data.lockState,Cue3.LockState.Locked)
-        Cue3.findHost(e).proxy.unlock()
+        self.assertEquals(Cue3.api.findHost(e).data.lock_state, Cue3.api.host_pb2.LOCKED)
+        Cue3.api.findHost(e).unlock()
 
     def testUnlockHost(self):
         e = TEST_HOST
         args = Parser.parse_args(["-unlock", "-host", e, "-force"])
         main.handleArgs(args)
 
-        self.assertEquals(Cue3.findHost(e).data.lockState,Cue3.LockState.Open)
-        Cue3.findHost(e).proxy.unlock()
+        self.assertEquals(Cue3.api.findHost(e).data.lock_state, Cue3.api.host_pb2.OPEN)
+        Cue3.api.findHost(e).unlock()
 
     def testMovesHost(self):
         e = TEST_HOST
         dst = "{0}.unassigned".format(TEST_FAC)
-        back = Cue3.findHost(e).data.allocName
+        back = Cue3.api.findHost(e).data.alloc_name
 
         args = Parser.parse_args(["-move", dst, "-host", e, "-force"])
         main.handleArgs(args)
 
-        self.assertEquals(Cue3.findHost(e).data.allocName, dst)
+        self.assertEquals(Cue3.api.findHost(e).data.alloc_name, dst)
         args = Parser.parse_args(["-move", back, "-host", e, "-force"])
         main.handleArgs(args)
-        self.assertEquals(Cue3.findHost(e).data.allocName, back)
+        self.assertEquals(Cue3.api.findHost(e).data.alloc_name, back)
 
     def testCreateSub(self):
         a = "{0}.unassigned".format(TEST_FAC)
         h = TEST_SHOW
-        r = "%s.%s" % (a,h)
+        r = "%s.%s" % (a, h)
         deleteSub(r)
 
-        args = Parser.parse_args(["-create-sub", h, a, "100","110", "-force"])
+        args = Parser.parse_args(["-create-sub", h, a, "100", "110", "-force"])
         main.handleArgs(args)
 
-        s = Cue3.findSubscription(r)
-        self.assertEquals(s.data.showName,h)
-        self.assertEquals(s.data.allocationName,a)
+        s = Cue3.api.findSubscription(r)
+        self.assertEquals(s.data.show_name, h)
+        self.assertEquals(s.data.allocation_name, a)
         self.assertEquals(s.data.name, r)
         self.assertEquals(s.data.size, float(100))
         self.assertEquals(s.data.burst, float(110))
-        s.proxy.delete()
+        s.delete()
 
     def testDeleteSub(self):
         a = "{0}.unassigned".format(TEST_FAC)
         h = TEST_SHOW
-        r = "%s.%s" % (a,h)
+        r = "%s.%s" % (a, h)
         deleteSub(r)
 
-        show = Cue3.findShow(h)
-        show.proxy.createSubscription(Cue3.findAllocation(a).proxy, 100.0, 110.0)
+        show = Cue3.api.findShow(h)
+        show.createSubscription(Cue3.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-delete-sub", h, a, "-force"])
         main.handleArgs(args)
 
         try:
-            Cue3.findSubscription(r)
+            Cue3.api.findSubscription(r)
             raise Exception("subscription should have been deleted")
-        except:
+        except Exception:
             pass
 
     def testSetSize(self):
@@ -262,14 +262,14 @@ class CueadminTests(unittest.TestCase):
         r = "%s.%s" % (a, h)
         deleteSub(r)
 
-        show = Cue3.findShow(h)
-        show.proxy.createSubscription(Cue3.findAllocation(a).proxy, 100.0, 110.0)
+        show = Cue3.api.findShow(h)
+        show.createSubscription(Cue3.api.findAllocation(a).data, 100.0, 110.0)
 
-        args = Parser.parse_args(["-size", h, a, "200","-force"])
+        args = Parser.parse_args(["-size", h, a, "200", "-force"])
         main.handleArgs(args)
 
-        s = Cue3.findSubscription(r)
-        self.assertEquals(s.data.size,200.0)
+        s = Cue3.api.findSubscription(r)
+        self.assertEquals(s.data.size, 200.0)
         deleteSub(r)
 
     def testSetBurst (self):
@@ -278,14 +278,14 @@ class CueadminTests(unittest.TestCase):
         r = "%s.%s" % (a, h)
         deleteSub(r)
 
-        show = Cue3.findShow(h)
-        show.proxy.createSubscription(Cue3.findAllocation(a).proxy, 100.0, 110.0)
+        show = Cue3.api.findShow(h)
+        show.createSubscription(Cue3.api.findAllocation(a).data, 100.0, 110.0)
 
-        args = Parser.parse_args(["-burst", h, a, "200","-force"])
+        args = Parser.parse_args(["-burst", h, a, "200", "-force"])
         main.handleArgs(args)
 
-        s = Cue3.findSubscription(r)
-        self.assertEquals(s.data.burst,200.0)
+        s = Cue3.api.findSubscription(r)
+        self.assertEquals(s.data.burst, 200.0)
         deleteSub(r)
 
     def testSetBurstPercentage (self):
@@ -294,28 +294,31 @@ class CueadminTests(unittest.TestCase):
         r = "%s.%s" % (a, h)
         deleteSub(r)
 
-        show = Cue3.findShow(h)
-        show.proxy.createSubscription(Cue3.findAllocation(a).proxy, 100.0, 110.0)
+        show = Cue3.api.findShow(h)
+        show.createSubscription(Cue3.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-burst", h, a, "20%","-force"])
         main.handleArgs(args)
 
-        s = Cue3.findSubscription(r)
+        s = Cue3.api.findSubscription(r)
         self.assertEquals(s.data.burst, 120.0)
         deleteSub(r)
 
+
 def deleteSub(name):
     try:
-        Cue3.findSubscription(name).proxy.delete()
-    except Cue3.EntityNotFoundException,e:
+        Cue3.api.findSubscription(name).delete()
+    except Cue3.EntityNotFoundException:
         pass
+
 
 def deleteAlloc(name):
     try:
-        s = Cue3.findAllocation(name)
-        s.proxy.delete()
-    except Cue3.EntityNotFoundException,e:
+        s = Cue3.api.findAllocation(name)
+        s.delete()
+    except Cue3.EntityNotFoundException:
         pass
+
 
 def run(parser):
     if not TEST_FAC or not TEST_HOST or not TEST_SHOW:
