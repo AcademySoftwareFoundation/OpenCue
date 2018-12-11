@@ -15,25 +15,26 @@
 
 """Cue3 integration module."""
 
-import versions
-import sys
 import logging
-import time
 import os
-
-from xml.etree import ElementTree as Et
+import sys
+import time
 from xml.dom.minidom import parseString
+from xml.etree import ElementTree as Et
 
+import Cue3
+
+import versions
 from outline import config, util, OutlineException
 from outline.depend import DependType
 from outline.manifest import FileSequence
 
-import Cue3
 
 logger = logging.getLogger("outline.backend.cue3")
 
 __all__ = ["launch",
            "serialize"]
+
 
 def build_command(launcher, layer):
     """
@@ -63,9 +64,9 @@ def build_command(launcher, layer):
     if layer.get_arg("wrapper"):
         wrapper = layer.get_arg("wrapper")
     elif layer.get_arg("setshot", True):
-        wrapper = "%s/cue3_wrap_frame" % config.get("outline","wrapper_dir")
+        wrapper = "%s/cue3_wrap_frame" % config.get("outline", "wrapper_dir")
     else:
-        wrapper = "%s/cue3_wrap_frame_no_ss" % config.get("outline","wrapper_dir")
+        wrapper = "%s/cue3_wrap_frame_no_ss" % config.get("outline", "wrapper_dir")
 
     command.append(wrapper)
     command.append(config.get("outline", "user_dir"))
@@ -83,6 +84,7 @@ def build_command(launcher, layer):
         command.append("--dev-user %s" % launcher.get("devuser"))
 
     return command
+
 
 def launch(launcher):
     """
@@ -102,7 +104,7 @@ def launch(launcher):
         Cue3.Cuebot.setHosts([launcher.get("server")])
         logger.info("cue3bot host set to: %s" % launcher.get("server"))
 
-    job = Cue3.Cuebot.Proxy.launchSpecAndWait(launcher.serialize())[0]
+    job = Cue3.api.launchSpecAndWait(launcher.serialize())[0]
 
     if launcher.get("wait"):
         wait(job)
@@ -110,6 +112,7 @@ def launch(launcher):
         test(job)
 
     return job
+
 
 def test(job):
     """
@@ -124,26 +127,27 @@ def test(job):
     logger.info("Entering test mode for job: %s" % job.data.name)
 
     # Unpause the job.
-    job.proxy.resume()
+    job.resume()
 
     try:
         while True:
             try:
-                job = Cue3.getJob(job)
-                if job.stats.deadFrames + job.stats.eatenFrames > 0:
+                job = Cue3.api.getJob(job)
+                if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     msg = "Job test failed, dead or eaten frames on: %s"
                     raise OutlineException(msg % job.data.name)
-                if job.data.state == Cue3.JobState.Finished:
+                if job.data.state == Cue3.api.job_pb2.FINISHED:
                     break
                 msg = "waiting on %s job to complete: %d/%d"
-                logger.debug(msg % (job.data.name, job.stats.succeededFrames,
-                                   job.stats.totalFrames))
-            except Cue3.CueIceException, ie:
+                logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
+                                    job.data.job_stats.total_frames))
+            except Cue3.CueException, ie:
                 raise OutlineException("test for job %s failed: %s" %
                                        (job.data.name, ie))
             time.sleep(5)
     finally:
-        job.proxy.kill()
+        job.kill()
+
 
 def wait(job):
     """
@@ -154,18 +158,19 @@ def wait(job):
     """
     while True:
         try:
-            if not Cue3.isJobPending(job.data.name):
+            if not Cue3.api.isJobPending(job.data.name):
                 break
             msg = "waiting on %s job to complete: %d/%d"
-            logger.debug(msg % (job.data.name, job.stats.succeededFrames,
-                               job.stats.totalFrames))
-        except Cue3.CueIceException, ie:
+            logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
+                                job.data.job_stats.total_frames))
+        except Cue3.CueException, ie:
             msg = "Cue3 error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, ie)
         except Exception, e:
             msg = "Cue3 error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, e)
         time.sleep(5)
+
 
 def serialize(launcher):
     """
@@ -183,30 +188,30 @@ def serialize(launcher):
     root = Et.Element("spec")
     depends = Et.Element("depends")
 
-    subElement(root, "facility", launcher.get("facility"))
-    subElement(root, "show", util.get_show())
-    subElement(root, "shot", launcher.get("shot"))
+    sub_element(root, "facility", launcher.get("facility"))
+    sub_element(root, "show", util.get_show())
+    sub_element(root, "shot", launcher.get("shot"))
     user = launcher.get_flag("user")
     if not user:
         user = util.get_user()
-    subElement(root, "user", user)
+    sub_element(root, "user", user)
     if not launcher.get("nomail"):
-        subElement(root, "email", "%s@%s" % (util.get_user(),
-                                             config.get("outline", "domain")))
-    subElement(root, "uid", str(util.get_uid()))
+        sub_element(root, "email", "%s@%s" % (util.get_user(),
+                                              config.get("outline", "domain")))
+    sub_element(root, "uid", str(util.get_uid()))
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
-    subElement(j, "paused", str(launcher.get("pause")))
-    subElement(j, "maxretries", str(launcher.get("maxretries")))
-    subElement(j, "autoeat", str(launcher.get("autoeat")))
+    sub_element(j, "paused", str(launcher.get("pause")))
+    sub_element(j, "maxretries", str(launcher.get("maxretries")))
+    sub_element(j, "autoeat", str(launcher.get("autoeat")))
 
     if ol.get_arg("localbook"):
         Et.SubElement(j, "localbook", ol.get_arg("localbook"))
 
     if launcher.get("os"):
-        subElement(j, "os", launcher.get("os"))
+        sub_element(j, "os", launcher.get("os"))
     elif os.environ.get("OL_OS", False):
-        subElement(j, "os", os.environ.get("OL_OS"))
+        sub_element(j, "os", os.environ.get("OL_OS"))
 
     env = Et.SubElement(j, "env")
     for env_k, env_v in ol.get_env().iteritems():
@@ -230,8 +235,8 @@ def serialize(launcher):
         # The layer will return a valid range if its range and
         # the job's range are compatible.  If not, skip launching
         # that layer.
-        range = layer.get_frame_range();
-        if not range:
+        frame_range = layer.get_frame_range()
+        if not frame_range:
             logger.info("Skipping layer %s, its range (%s) does not intersect "
                         "with ol range %s" % (layer, layer.get_arg("range"),
                                               ol.get_frame_range()))
@@ -239,37 +244,37 @@ def serialize(launcher):
 
         spec_layer = Et.SubElement(layers, "layer",
                                    {"name": layer.get_name(),
-                                    "type": layer.get_type() })
-        subElement(spec_layer, "cmd",
-                   " ".join(build_command(launcher, layer)))
-        subElement(spec_layer, "range", str(range))
-        subElement(spec_layer, "chunk", str(layer.get_chunk_size()))
+                                    "type": layer.get_type()})
+        sub_element(spec_layer, "cmd",
+                    " ".join(build_command(launcher, layer)))
+        sub_element(spec_layer, "range", str(frame_range))
+        sub_element(spec_layer, "chunk", str(layer.get_chunk_size()))
 
         # Cue3 specific options
         if layer.get_arg("threads"):
-            subElement(spec_layer, "cores", "%0.1f" % (layer.get_arg("threads")))
+            sub_element(spec_layer, "cores", "%0.1f" % (layer.get_arg("threads")))
 
         if layer.is_arg_set("threadable"):
-            subElement(spec_layer, "threadable",
-                       bool_to_str(layer.get_arg("threadable")))
+            sub_element(spec_layer, "threadable",
+                        bool_to_str(layer.get_arg("threadable")))
 
         if layer.get_arg("memory"):
-            subElement(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
+            sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
 
         if os.environ.get("OL_TAG_OVERRIDE", False):
-            subElement(spec_layer, "tags",
-                       scrub_tags(os.environ["OL_TAG_OVERRIDE"]))
+            sub_element(spec_layer, "tags",
+                        scrub_tags(os.environ["OL_TAG_OVERRIDE"]))
         elif layer.get_arg("tags"):
-            subElement(spec_layer, "tags", scrub_tags(layer.get_arg("tags")))
+            sub_element(spec_layer, "tags", scrub_tags(layer.get_arg("tags")))
 
         services = Et.SubElement(spec_layer, "services")
         service = Et.SubElement(services, "service")
         try:
             service.text = layer.get_service().split(",")[0].strip()
-        except Exception, e:
+        except Exception:
             service.text = "default"
 
-        buildDependencies(ol, layer, depends)
+        build_dependencies(ol, layer, depends)
 
     if not len(layers):
         raise OutlineException("Failed to launch job.  There are no layers with frame "
@@ -281,12 +286,14 @@ def serialize(launcher):
 
     xml = []
     xml.append('<?xml version="1.0"?>')
-    xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" "http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
+    xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
+               '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
     xml.append(Et.tostring(root))
 
     result = "".join(xml)
     logger.debug(parseString(result).toprettyxml())
     return result
+
 
 def scrub_tags(tags):
     """
@@ -297,6 +304,7 @@ def scrub_tags(tags):
                 if tag.strip().isalnum()]
     return " | ".join(tags)
 
+
 def bool_to_str(value):
     """
     If the given value evaluates to True, return
@@ -306,7 +314,8 @@ def bool_to_str(value):
         return "True"
     return "False"
 
-def buildDependencies(ol, layer, all_depends):
+
+def build_dependencies(ol, layer, all_depends):
     """
     Iterate through all the layer's dependencies and
     add them to the job spec.
@@ -315,27 +324,27 @@ def buildDependencies(ol, layer, all_depends):
 
         depend = Et.SubElement(all_depends, "depend",
                                type=dep.get_type(),
-                               anyframe= str(dep.is_any_frame()))
+                               anyframe=str(dep.is_any_frame()))
 
         if dep.get_type() == DependType.LayerOnSimFrame:
 
             frame_range = dep.get_depend_on_layer().get_frame_range()
             first_frame = FileSequence.FrameSet(frame_range)[0]
 
-            subElement(depend, "depjob", ol.get_name())
-            subElement(depend, "deplayer", layer.get_name())
-            subElement(depend, "onjob", ol.get_name())
-            subElement(depend, "onframe", "%04d-%s"
-                       % (first_frame, dep.get_depend_on_layer().get_name()))
+            sub_element(depend, "depjob", ol.get_name())
+            sub_element(depend, "deplayer", layer.get_name())
+            sub_element(depend, "onjob", ol.get_name())
+            sub_element(depend, "onframe", "%04d-%s"
+                        % (first_frame, dep.get_depend_on_layer().get_name()))
         else:
-            subElement(depend, "depjob", ol.get_name())
-            subElement(depend, "deplayer", layer.get_name())
-            subElement(depend, "onjob", ol.get_name())
-            subElement(depend, "onlayer", dep.get_depend_on_layer().get_name())
+            sub_element(depend, "depjob", ol.get_name())
+            sub_element(depend, "deplayer", layer.get_name())
+            sub_element(depend, "onjob", ol.get_name())
+            sub_element(depend, "onlayer", dep.get_depend_on_layer().get_name())
 
-def subElement(root, tag, text):
-    """Convinience method to create a sub element with text"""
+
+def sub_element(root, tag, text):
+    """Convenience method to create a sub element with text"""
     e = Et.SubElement(root, tag)
     e.text = text
     return e
-

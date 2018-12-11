@@ -65,10 +65,10 @@ def deed_local_machine():
     show = Cue3.findShow(os.environ.get("SHOW", "pipe"))
     try:
         owner = Cue3.getOwner(user)
-    except Cue3.CueIceException, e:
-        owner = show.proxy.createOwner(user)
+    except Cue3.CueException, e:
+        owner = show.createOwner(user)
 
-    owner.proxy.takeOwnership(gethostname())
+    owner.takeOwnership(gethostname())
 
 def setup_local_cores(e):
 
