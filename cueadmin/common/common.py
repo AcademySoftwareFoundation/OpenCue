@@ -90,7 +90,7 @@ def handleParserException(args, e):
     except ValueError, ex:
             print >>sys.stderr, "Error: %s. Try the -verbose or -h flags for more info." % ex
     except Exception, ex:
-        print >>sys.stderr, "Error: %s." % ex
+        print >> sys.stderr, "Error: %s." % ex
 
 
 def getCommonParser(**options):
