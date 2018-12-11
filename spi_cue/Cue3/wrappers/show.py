@@ -62,6 +62,20 @@ class Show(object):
             timeout=Cuebot.Timeout)
         return subscription.Subscription(response.subscription)
 
+    def delete(self):
+        """Delete this show"""
+        self.stub.Delete(show_pb2.ShowDeleteRequest(show=self.data), timeout=Cuebot.Timeout)
+
+    def getServiceOverrides(self):
+        """Returns a list of service overrides on the show.
+        @rtype: list<ServiceOverride>
+        @return: a list of service override objects
+        """
+        serviceOverrideSeq = self.stub.GetServiceOverrides(
+            show_pb2.ShowGetServiceOverridesRequest(show=self.data),
+            timeout=Cuebot.Timeout).service_overrides
+        return serviceOverrideSeq.service_overrides
+
     def getSubscriptions(self):
         """Returns a list of all subscriptions
         @rtype: list<Subscription>
@@ -90,6 +104,14 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         return [filter.Filter(filter) for filter in response.filters]
+
+    def setActive(self, value):
+        """Set the active state of this show to value
+        @type value: bool
+        @param value: boolean value to set active state to
+        """
+        self.stub.SetActive(show_pb2.ShowSetActiveRequest(show=self.data, value=value),
+                            timeout=Cuebot.Timeout)
 
     def setDefaultMaxCores(self, maxcores):
         """Sets the default maximum number of cores
