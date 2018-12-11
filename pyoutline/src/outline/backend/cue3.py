@@ -20,14 +20,15 @@ import os
 import sys
 import time
 from xml.dom.minidom import parseString
+from xml.etree import ElementTree as Et
+
+import Cue3
 
 import versions
 from outline import config, util, OutlineException
 from outline.depend import DependType
 from outline.manifest import FileSequence
-from xml.etree import ElementTree as Et
 
-import Cue3
 
 logger = logging.getLogger("outline.backend.cue3")
 
