@@ -528,7 +528,7 @@ class ActionUtil(object):
             act.stringValue = value
             act.valueType = Cue3.api.filter_pb2.STRING_TYPE
 
-        elif act.type in (Cue3.api.filter_pb2.STOP_PROCESSING,):
+        elif act.type == Cue3.api.filter_pb2.STOP_PROCESSING:
             act.valueType = Cue3.api.filter_pb2.NONE_TYPE
         else:
             raise TypeError("invalid action type: %s" % act.type)
