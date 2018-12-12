@@ -20,8 +20,7 @@ RUN add-apt-repository \
 
 RUN apt-get update -y && apt-get install -y \
   docker-ce \
-  && usermod -aG docker jenkins \
-  && systemctl enable docker
+  && usermod -aG docker jenkins
 
 USER jenkins
 
