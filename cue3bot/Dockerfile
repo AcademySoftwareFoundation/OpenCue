@@ -40,17 +40,13 @@ RUN su -c "./gradlew build --stacktrace" builduser
 # -----------------
 FROM build as test
 
-ARG build_env
-
 ENV CUEBOT_DB_ENGINE=postgres
 
 COPY src/test/ src/test/
 
 # Tests must be run as a non-root user as the embedded Postgres server will not
 # work otherwise.
-RUN if [ "$build_env" == "test" ]; then \
-    su -c "./gradlew build --stacktrace" builduser; \
-    fi
+RUN su -c "./gradlew build --stacktrace" builduser
 
 
 # -----------------
