@@ -26,4 +26,9 @@ pipeline {
             }
         }
     }
+    post {
+        always {
+            archiveArtifacts artifacts: 'build/cuebot.jar', fingerprint: true
+        }
+    }
 }
