@@ -22,7 +22,7 @@ pipeline {
         }
         stage('Publish') {
             steps {
-                sh "echo ${env.CUE_PUBLISH_BUCKET}"
+                sh "jenkins/publish_artifacts.sh ${env.BUILD_ID} ./build"
             }
         }
     }
