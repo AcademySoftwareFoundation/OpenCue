@@ -1,0 +1,10 @@
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'docker build --target build -t opencue/cuebot-build cue3bot/'
+            }
+        }
+    }
+}
