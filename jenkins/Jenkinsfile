@@ -1,6 +1,9 @@
 pipeline {
     agent any
     stages {
+        environment {
+            BUILD_ID = sh(script: "TZ=utc git log -n 1 --pretty=format:'%cd.%h' --date=format-local:'%Y%m%d-%H%M%S'", returnStdout: true).trim()
+        }
         stage('Build') {
             steps {
                 sh 'docker build --target build -t opencue/cuebot-build cue3bot/'
@@ -9,6 +12,11 @@ pipeline {
         stage('Test') {
             steps {
                 sh 'docker build --target test -t opencue/cuebot-test cue3bot/'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                sh "echo ${env.BUILD_ID}"
             }
         }
     }
