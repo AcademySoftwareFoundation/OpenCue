@@ -140,6 +140,29 @@ class Host(object):
                                          timeout=Cuebot.Timeout)
         return [comment.Comment(c) for c in response.comments]
 
+    def setHardwareState(self, state):
+        """Sets the host's hardware state
+        @type state: host_pb2.HardwareState
+        @param state: state to set host to"""
+        self.stub.SetHardwareState(
+            host_pb2.HostSetHardwareStateRequest(host=self.data, state=state),
+            timeout=Cuebot.Timeout)
+
+    def setOs(self, os):
+        """Sets the host os
+        @type os: string
+        @param os: os value to set host to"""
+        self.stub.SetOs(host_pb2.HostSetOsRequest(host=self.data, os=os),
+                        timeout=Cuebot.Timeout)
+
+    def setThreadMode(self, mode):
+        """Set the thread mode to mode
+        @type mode: ThreadMode
+        @param mode: ThreadMode to set host to
+        """
+        self.stub.SetThreadMode(host_pb2.HostSetThreadModeRequest(host=self.data, mode=mode),
+                                timeout=Cuebot.Timeout)
+
     def id(self):
         """Returns the id of the host
         @rtype: str

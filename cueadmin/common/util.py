@@ -14,15 +14,16 @@
 
 
 """Utility functions for Cue3Tools"""
+import logging
 import sys
 import time
-import logging
 
 from Manifest import Cue3
 
 __ALL__ = ["enableDebugLogging",
            "promptYesNo",
            "waitOnJobName"]
+
 
 def enableDebugLogging():
     """enables debug logging for cue3 and cue3 tools"""
@@ -33,24 +34,26 @@ def enableDebugLogging():
     logger.addHandler(console)
     logger.setLevel(logging.DEBUG)
 
-def promptYesNo(prompt, force = False):
+
+def promptYesNo(prompt, force=False):
     """Asks the user the supplied question and returns with a boolean to
     indicate the users input.
-    @type  option: string
-    @param option: The question that the user can see
+    @type  prompt: string
+    @param prompt: The question that the user can see
     @type  force: boolean
     @param force: (Optional) If true, skips the prompt and returns true
     @rtype:  bool
     @return: The users response"""
     try:
-        result = force or raw_input("%s [y/n] " %prompt) in ("y", "Y")
+        result = force or raw_input("%s [y/n] " % prompt) in ("y", "Y")
     except KeyboardInterrupt:
-        print
         raise
-    if not result: print "Canceled"
+    if not result:
+        print "Canceled"
     return result
 
-def waitOnJobName(jobName, maxWaitForLaunch = None):
+
+def waitOnJobName(jobName, maxWaitForLaunch=None):
     """Waits on the given job name to enter and then leave the queue.
     @type  jobName: str
     @param jobName: Full name of the job
@@ -67,7 +70,7 @@ def waitOnJobName(jobName, maxWaitForLaunch = None):
     time.sleep(4)
     while True:
         try:
-            isPending = Cue3.isJobPending(jobName.lower())
+            isPending = Cue3.api.isJobPending(jobName.lower())
             isLocated = isLocated or isPending
 
             if isLocated:
@@ -79,10 +82,9 @@ def waitOnJobName(jobName, maxWaitForLaunch = None):
                 waited += delay
                 if maxWaitForLaunch and waited >= maxWaitForLaunch:
                     return False
-        except Cue3.ConnectionRefusedException, e:
+        except Cue3.CueException, e:
             print >>sys.stderr, "Error: %s" % e
         except Exception, e:
             print >>sys.stderr, "Error: %s" % e
 
         time.sleep(delay)
-

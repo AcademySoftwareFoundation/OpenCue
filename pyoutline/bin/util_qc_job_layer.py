@@ -22,19 +22,19 @@ import Cue3
 
 job = Cue3.findJob(os.environ.get('CUE_JOB', ''))
 
-job.proxy.pause()
+job.pause()
 
 SUBJECT = 'Waiting on artist to QC, pausing'
 MESSAGE = 'Eat the frame from the wait_on_artist_to_qc layer to allow the job to exit the cue'
 
-for layer in job.proxy.getLayers():
+for layer in job.getLayers():
     if layer.data.name == 'wait_on_artist_to_qc':
-        if not [comment for comment in job.proxy.getComments() if comment.data.subject == SUBJECT]:
+        if not [comment for comment in job.getComments() if comment.data.subject == SUBJECT]:
             comment = Cue3.CommentData(user='monitor',
                                        subject=SUBJECT,
                                        message=MESSAGE)
-            job.proxy.addComment(comment)
-        layer.proxy.retryFrames()
+            job.addComment(comment)
+        layer.retryFrames()
         sys.exit()
 sys.exit(1)
 
