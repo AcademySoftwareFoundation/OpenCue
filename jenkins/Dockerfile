@@ -2,7 +2,8 @@ FROM jenkins/jenkins:2.153
 
 RUN /usr/local/bin/install-plugins.sh \
   git \
-  google-login
+  google-login \
+  workflow-aggregator
 
 USER root
 
@@ -21,6 +22,8 @@ RUN add-apt-repository \
 RUN apt-get update -y && apt-get install -y \
   docker-ce \
   && usermod -aG docker jenkins
+
+RUN touch /var/run/docker.sock && chmod 666 /var/run/docker.sock
 
 USER jenkins
 
