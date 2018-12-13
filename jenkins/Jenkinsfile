@@ -22,7 +22,7 @@ pipeline {
         }
         stage('Publish') {
             steps {
-                sh "echo ${env.BUILD_ID}"
+                sh "echo ${env.CUE_PUBLISH_BUCKET}"
             }
         }
     }
