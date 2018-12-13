@@ -6,5 +6,10 @@ pipeline {
                 sh 'docker build --target build -t opencue/cuebot-build cue3bot/'
             }
         }
+        stage('Test') {
+            steps {
+                sh 'docker build --target test -t opencue/cuebot-test cue3bot/'
+            }
+        }
     }
 }
