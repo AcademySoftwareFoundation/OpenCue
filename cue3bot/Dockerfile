@@ -25,9 +25,9 @@ COPY gradle/ ./gradle/
 
 RUN mkdir logs
 
-COPY src/main/resources/ src/main/resources/
-COPY src/main/proto/ src/main/proto/
-COPY src/main/java/ src/main/java/
+COPY proto/ proto/
+COPY cue3bot/src/main/resources/ src/main/resources/
+COPY cue3bot/src/main/java/ src/main/java/
 
 # Run as builduser in case tests get run later.
 RUN chmod -R 777 .
