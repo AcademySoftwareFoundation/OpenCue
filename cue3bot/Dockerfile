@@ -32,7 +32,7 @@ RUN mkdir logs
 # Run as builduser in case tests get run later.
 RUN chmod -R 777 .
 RUN adduser builduser
-RUN su -c "cue3bot/gradlew build --stacktrace" builduser
+RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
 
 
 # -----------------
@@ -46,7 +46,7 @@ COPY cue3bot/src/test/ cue3bot/src/test/
 
 # Tests must be run as a non-root user as the embedded Postgres server will not
 # work otherwise.
-RUN su -c "cue3bot/gradlew build --stacktrace" builduser
+RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
 
 
 # -----------------
@@ -54,7 +54,7 @@ RUN su -c "cue3bot/gradlew build --stacktrace" builduser
 # -----------------
 FROM build as package
 
-RUN su -c "cue3bot/gradlew shadowJar --stacktrace" builduser
+RUN su -c "cd cue3bot && ./gradlew shadowJar --stacktrace" builduser
 
 
 # -----------------
