@@ -17,22 +17,22 @@ FROM base as build
 
 WORKDIR /src
 
-COPY build.gradle .
-COPY gradlew .
-COPY gradlew.bat .
-COPY settings.gradle .
-COPY gradle/ ./gradle/
+COPY cue3bot/build.gradle cue3bot/
+COPY cue3bot/gradlew cue3bot/
+COPY cue3bot/gradlew.bat cue3bot/
+COPY cue3bot/settings.gradle cue3bot/
+COPY cue3bot/gradle/ cue3bot/gradle/
+
+COPY proto/ proto/
+COPY cue3bot/src/main/resources/ cue3bot/src/main/resources/
+COPY cue3bot/src/main/java/ cue3bot/src/main/java/
 
 RUN mkdir logs
-
-COPY src/main/resources/ src/main/resources/
-COPY src/main/proto/ src/main/proto/
-COPY src/main/java/ src/main/java/
 
 # Run as builduser in case tests get run later.
 RUN chmod -R 777 .
 RUN adduser builduser
-RUN su -c "./gradlew build --stacktrace" builduser
+RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
 
 
 # -----------------
@@ -40,17 +40,13 @@ RUN su -c "./gradlew build --stacktrace" builduser
 # -----------------
 FROM build as test
 
-ARG build_env
-
 ENV CUEBOT_DB_ENGINE=postgres
 
-COPY src/test/ src/test/
+COPY cue3bot/src/test/ cue3bot/src/test/
 
 # Tests must be run as a non-root user as the embedded Postgres server will not
 # work otherwise.
-RUN if [ "$build_env" == "test" ]; then \
-    su -c "./gradlew build --stacktrace" builduser; \
-    fi
+RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
 
 
 # -----------------
@@ -58,7 +54,7 @@ RUN if [ "$build_env" == "test" ]; then \
 # -----------------
 FROM build as package
 
-RUN su -c "./gradlew shadowJar --stacktrace" builduser
+RUN su -c "cd cue3bot && ./gradlew shadowJar --stacktrace" builduser
 
 
 # -----------------
@@ -71,7 +67,7 @@ ARG CUEBOT_GRPC_RQD_PORT=8444
 
 WORKDIR /opt/cue3
 
-COPY --from=package /src/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
+COPY --from=package /src/cue3bot/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
 
 # TODO(cipriano) Implement a new GRPC-based health check. (b/120441749)
 # HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019

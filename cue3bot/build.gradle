@@ -50,7 +50,7 @@ dependencies {
     compile group: 'org.postgresql', name: 'postgresql', version: '42.2.2'
     compile group: 'com.google.protobuf', name: 'protobuf-java', version: '3.4.0'
 
-    // protobuf fileTree("src/main/proto/")
+    protobuf fileTree("../proto/")
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
     testCompile group: 'com.novocode', name: 'junit-interface', version: '0.11'
