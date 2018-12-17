@@ -15,6 +15,6 @@ docker cp $container_id:/opt/cue3/cuebot.jar "$artifact_directory/"
 docker rm $container_id
 
 container_id=$(docker create opencue/rqd:$build_id)
-docker cp $container_id:/opt/cue3/rqd-0.1-linux-x86_64.tar.gz "$artifact_directory/"
+docker cp $container_id:/opt/cue3/rqd-*.tar.gz "$artifact_directory/"
 docker rm $container_id
 

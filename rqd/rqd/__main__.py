@@ -103,10 +103,10 @@ def setupLogging():
     fileLevel     = log.WARNING # Equal to or greater than the consoleLevel
 
     log.basicConfig(level=consoleLevel, format=consoleFormat)
-    #if platform.system() == 'Linux':
-    #    logfile = SysLogHandler(address='/dev/log')
-    #else:
-    logfile = SysLogHandler()
+    if platform.system() == 'Linux':
+        logfile = SysLogHandler(address='/dev/log')
+    else:
+        logfile = SysLogHandler()
     logfile.setLevel(fileLevel)
     logfile.setFormatter(log.Formatter(fileFormat))
     log.getLogger('').addHandler(logfile)

@@ -14,15 +14,16 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
-COPY proto/ ./proto
 COPY requirements.txt ./
-COPY rqd/rqd/ ./rqd
-COPY rqd/setup.py ./
 
 # TODO Remove PySide for now. It's not needed for RQD anyway.
 RUN sed -i '/^PySide/ d' requirements.txt
 
 RUN pip install -r requirements.txt
+
+COPY proto/ ./proto
+COPY rqd/rqd/ ./rqd
+COPY rqd/setup.py ./
 
 RUN python -m grpc_tools.protoc \
   -I=./proto \
@@ -38,7 +39,9 @@ RUN python -m grpc_tools.protoc \
 # -----------------
 FROM build as test
 
-# TODO: run tests here
+COPY rqd/rqd/test/ ./rqd/test
+
+RUN rqd/unittests.py
 
 
 # -----------------

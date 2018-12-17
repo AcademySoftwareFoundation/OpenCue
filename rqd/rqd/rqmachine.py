@@ -414,8 +414,7 @@ class Machine:
         if platform.system() == "Linux" or pathCpuInfo is not None:
             # Reads static information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.total_mcp = (mcpStat[statvfs.F_BLOCKS]
-                                          * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
+            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize / KILOBYTE
 
             # Reads static information from /proc/cpuinfo
             cpuinfoFile = open(pathCpuInfo or rqconstants.PATH_CPUINFO, "r")
@@ -429,7 +428,7 @@ class Machine:
                 # The end of a processor block
                 elif lineList == ['']:
                     # Check for hyper-threading
-                    hyperthreadingMultipler =  (int(singleCore.get('siblings', '1'))
+                    hyperthreadingMultiplier =  (int(singleCore.get('siblings', '1'))
                                                / int(singleCore.get('cpu cores', '1')))
 
                     __totalCores += rqconstants.CORE_VALUE
@@ -444,23 +443,8 @@ class Machine:
                 # An entry without data
                 elif len(lineList) == 1:
                     singleCore[lineList[0]] = ""
-
-            # Running unittests on osx
-            if platform.system() == 'Darwin' and pathCpuInfo is not None:
-                self.__renderHost.total_mem = os.sysconf('SC_PAGE_SIZE') * os.sysconf('SC_PHYS_PAGES')
-                self.__renderHost.total_swap = 0
-            else:
-                # Reads static information from /proc/meminfo
-                with  open(rqconstants.PATH_MEMINFO, "r") as meminfoFile:
-                    for line in meminfoFile:
-                        if line.startswith("MemTotal"):
-                            self.__renderHost.total_mem = int(line.split()[1])
-                        elif line.startswith("SwapTotal"):
-                            self.__renderHost.total_swap = int(line.split()[1])
-
-            self.__renderHost.attributes['totalGpu'] = str(self.getGpuMemoryTotal())
         else:
-            hyperthreadingMultipler = 1
+            hyperthreadingMultiplier = 1
 
         if platform.system() == 'Windows':
             # Windows memory information
@@ -495,15 +479,15 @@ class Machine:
             __numProcs = rqconstants.OVERRIDE_PROCS
 
         # Don't report/reserve cores added due to hyperthreading
-        __totalCores = __totalCores / hyperthreadingMultipler
+        __totalCores = __totalCores / hyperthreadingMultiplier
 
         self.__coreInfo.idle_cores = __totalCores
         self.__coreInfo.total_cores = __totalCores
         self.__renderHost.num_procs = __numProcs
         self.__renderHost.cores_per_proc = __totalCores / __numProcs
 
-        if hyperthreadingMultipler > 1:
-           self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultipler)
+        if hyperthreadingMultiplier > 1:
+           self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
     def getWindowsMemory(self):
         # From http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
