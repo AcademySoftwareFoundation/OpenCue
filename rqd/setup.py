@@ -20,22 +20,25 @@ here = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(here, 'README.md')) as fp:
     long_description = fp.read()
 
-setup(name='rqd',
-      # TODO(cipriano) This version number should be dynamic. (b/121159512)
-      version='0.1',
-      description='The OpenCue RQD render client daemon',
-      long_description=long_description,
-      long_description_content_type='text/markdown',
-      url='https://github.com/imageworks/cue3',
-      classifiers=[
-          'License :: OSI Approved :: Apache Software License',
+setup(
+    name='rqd',
+    # TODO(cipriano) This version number should be dynamic. (b/121159512)
+    version='0.1',
+    description='The OpenCue RQD render client daemon',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://github.com/imageworks/OpenCue',
+    classifiers=[
+        'License :: OSI Approved :: Apache Software License',
 
-          'Programming Language :: Python :: 2',
-          'Programming Language :: Python :: 2.7',
-      ],
-      packages=['rqd', 'rqd.compiled_proto'],
-      entry_points={
-          'console_scripts': [
-              'rqd=rqd.__main__:main'
-          ]
-      })
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    packages=['rqd', 'rqd.compiled_proto'],
+    entry_points={
+        'console_scripts': [
+            'rqd=rqd.__main__:main'
+        ]
+    },
+)
+
