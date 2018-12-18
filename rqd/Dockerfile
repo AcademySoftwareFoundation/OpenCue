@@ -22,13 +22,14 @@ RUN sed -i '/^PySide/ d' requirements.txt
 RUN pip install -r requirements.txt
 
 COPY proto/ ./proto
-COPY rqd/rqd/ ./rqd
-COPY rqd/setup.py ./
+COPY rqd/README.md ./rqd/
+COPY rqd/setup.py ./rqd/
+COPY rqd/rqd/ ./rqd/rqd
 
 RUN python -m grpc_tools.protoc \
   -I=./proto \
-  --python_out=./rqd/compiled_proto \
-  --grpc_python_out=./rqd/compiled_proto \
+  --python_out=./rqd/rqd/compiled_proto \
+  --grpc_python_out=./rqd/rqd/compiled_proto \
   ./proto/*.proto
 
 # TODO(cipriano) Lint the code here. (b/121159562)
@@ -39,9 +40,9 @@ RUN python -m grpc_tools.protoc \
 # -----------------
 FROM build as test
 
-COPY rqd/rqd/test/ ./rqd/test
+COPY rqd/rqd/test/ ./rqd/rqd/test
 
-RUN rqd/unittests.py
+RUN rqd/rqd/unittests.py
 
 
 # -----------------
@@ -54,7 +55,7 @@ FROM build as package
 # `rqd` launcher script to your PATH.
 
 RUN pip install platter
-RUN platter build -r requirements.txt .
+RUN platter build -r requirements.txt ./rqd
 
 
 # -----------------
