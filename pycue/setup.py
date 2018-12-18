@@ -12,32 +12,28 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+import os
+from setuptools import setup
 
+here = os.path.abspath(os.path.dirname(__file__))
 
-import os, setuptools, sys
+with open(os.path.join(here, 'README.md')) as fp:
+    long_description = fp.read()
 
-# Only insert Cue3.version module to path
-modulePath = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'Cue3')
-sys.path.insert(0, modulePath)
-from version import version
-sys.path.remove(modulePath)
+setup(
+    name='pycue',
+    # TODO(cipriano) This version number should be dynamic. (b/121159512)
+    version='0.1',
+    description='The OpenCue Python API',
+    long_description=long_description,
+    long_description_content_type='text/markdown',
+    url='https://github.com/imageworks/OpenCue',
+    classifiers=[
+        'License :: OSI Approved :: Apache Software License',
 
-
-setuptools.setup(
-    name='Cue3',
-    # packages=['spi_cue3', 'spi_cue3.libice', 'spi_cue3.wrappers'],
-    package_dir={'Cue3':'Cue3'},
-    packages=setuptools.find_packages(),
-    include_package_data=True,
-    version=version,
-    description='SPI Cue3 Python API sdk',
-    maintainer='',
-    maintainer_email='',
-    url='',
-    download_url='',
-    keywords=['cue3', 'api'],
-    classifiers=[],
-    install_requires=['pyyaml'],
-    long_description=open('README.md').read()
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 2.7',
+    ],
+    packages=['Cue3', 'Cue3.compiled_proto', 'FileSequence'],
 )
 
