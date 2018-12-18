@@ -102,8 +102,7 @@ class TestRqdWithGrpc(SetupCuebotListener):
 
     def tearDown(self):
         self.rqd.shutdownRqdNow()
-        # del self.rqd
-    
+
     def _verifyStatusReport(self, report):
         assert len(report.host.name) > 0
         #nimbyEnabled = False

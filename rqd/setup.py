@@ -21,7 +21,7 @@ with open(os.path.join(here, 'README.md')) as fp:
     long_description = fp.read()
 
 setup(name='rqd',
-      # TODO(cipriano) This version number should be dynamic. (b/)
+      # TODO(cipriano) This version number should be dynamic. (b/121159512)
       version='0.1',
       description='The OpenCue RQD render client daemon',
       long_description=long_description,

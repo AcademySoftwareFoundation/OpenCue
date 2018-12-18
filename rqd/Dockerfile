@@ -31,7 +31,7 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./rqd/compiled_proto \
   ./proto/*.proto
 
-# TODO(cipriano) Lint the code here. (b/)
+# TODO(cipriano) Lint the code here. (b/121159562)
 
 
 # -----------------
@@ -64,7 +64,7 @@ FROM base
 
 WORKDIR /opt/cue3
 
-# TODO(cipriano) Make version number dynamic. (b/)
+# TODO(cipriano) Make version number dynamic. (b/121159512)
 
 COPY --from=package /src/dist/rqd-0.1-linux-x86_64.tar.gz ./
 
