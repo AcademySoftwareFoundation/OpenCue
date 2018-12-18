@@ -154,9 +154,3 @@ class RqdReportInterfaceServicer(report_pb2_grpc.RqdReportInterfaceServicer):
         elif self.verbose == 3:
             print "Receiving reportRunningFrameCompletion"
             print report
-
-#if __name__ == "__main__":
-#    listener = RqdReportStatic(STRING_TO_CUEBOT, CUEBOT_PORT)
-#    listener.verbose = 2
-#    listener.wait()
-

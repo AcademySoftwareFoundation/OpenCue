@@ -16,7 +16,7 @@ RUN yum -y install python-pip
 
 COPY requirements.txt ./
 
-# TODO Remove PySide for now. It's not needed for RQD anyway.
+# TODO(cipriano) Remove PySide for now. It's not needed for RQD anyway.
 RUN sed -i '/^PySide/ d' requirements.txt
 
 RUN pip install -r requirements.txt
@@ -31,7 +31,7 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./rqd/compiled_proto \
   ./proto/*.proto
 
-# TODO: lint the code here
+# TODO(cipriano) Lint the code here. (b/)
 
 
 # -----------------
@@ -49,6 +49,10 @@ RUN rqd/unittests.py
 # -----------------
 FROM build as package
 
+# We use Platter here to build a self-contained installer, but if you'd rather have
+# a systemwide install you can also just do `python setup.py install`. This adds a
+# `rqd` launcher script to your PATH.
+
 RUN pip install platter
 RUN platter build -r requirements.txt .
 
@@ -59,6 +63,8 @@ RUN platter build -r requirements.txt .
 FROM base
 
 WORKDIR /opt/cue3
+
+# TODO(cipriano) Make version number dynamic. (b/)
 
 COPY --from=package /src/dist/rqd-0.1-linux-x86_64.tar.gz ./
 
