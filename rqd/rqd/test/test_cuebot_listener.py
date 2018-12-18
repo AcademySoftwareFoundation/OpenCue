@@ -1,6 +1,3 @@
-#!/bin/sh
-
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,89 +13,75 @@
 #  limitations under the License.
 
 
-
-
-""":"
-if [ -x /usr/local/bin/python ];then
-    exec /usr/local/bin/python $0 ${1+"$@"}
-elif [ -x /opt/local/bin/python2.4 ];then
-    exec /opt/local/bin/python2.4 $0 ${1+"$@"}
-elif [ -x /usr/bin/python2.3 ];then
-    echo "WARNING, python 2.3 may not support everything rqd uses"
-    exec /usr/bin/python2.3 $0 ${1+"$@"}
-else
-    echo "$0: Unable to find python" >&2
-    exit 2
-fi
-"""
-
 # $Id$
 #
 # A simple test script that acts like the cuebot by listening for messages from RQD.
 #
 # Author: John Welborn (jwelborn@imageworks.com)
 
-import thread
+from concurrent import futures
 import time
-import os
 import sys
 
-libPath = "%s/../" % os.path.dirname(__file__)
-sys.path.append(libPath)
+import grpc
 
-from rqconstants import STRING_TO_CUEBOT, CUEBOT_PORT
-
-import Ice
-Ice.loadSlice('--all -I%s/slice/spi -I%s/slice/cue %s/slice/cue/cue_ice.ice' % (libPath, libPath, libPath))
-import cue.CueIce as CueIce
+from compiled_proto import report_pb2_grpc
+import rqconstants
 
 # THIS IS FOR TESTING rqd.py ONLY
 
-class RqdReportStatic(CueIce.RqdReportStatic):
+class RqdReportStaticServer(object):
+
+    def __init__(self):
+        self.server = grpc.server(futures.ThreadPoolExecutor(max_workers=1))
+        self.servicerName = 'RqdReportInterfaceServicer'
+        self.servicer = None
+        self.server.add_insecure_port('[::]:{0}'.format(rqconstants.CUEBOT_GRPC_PORT))
+
+    def addServicers(self):
+        addFunc = getattr(report_pb2_grpc, 'add_{0}_to_server'.format(self.servicerName))
+        servicerClass = globals()[self.servicerName]
+        self.servicer = servicerClass()
+        addFunc(self.servicer, self.server)
+
+    def serve(self):
+        self.addServicers()
+        self.server.start()
+
+    def serveForever(self):
+        self.serve()
+        self.stayAlive()
+
+    def shutdown(self):
+        self.server.stop(0)
+
+    def stayAlive(self):
+        try:
+            while True:
+                time.sleep(rqconstants.RQD_GRPC_SLEEP)
+        except KeyboardInterrupt:
+            self.server.stop(0)
+
+
+class RqdReportInterfaceServicer(report_pb2_grpc.RqdReportInterfaceServicer):
     """Test class implements RqdReportStatic interface.
-       Recieved reports are stored in the variables listed below.
+       Received reports are stored in the variables listed below.
        Create as an object to connect.
        call .wait() to block until ice exits.
-       call .stop to destory the ice communicator, after .wait() will exit."""
+       call .stop to destroy the ice communicator, after .wait() will exit."""
     lastReportRqdStartup = None
     lastReportStatus = None
     lastReportRunningFrameCompletion = None
 
     statusCheckin = {}
 
-    start = False
-
-    def __init__(self, stringToCuebot=STRING_TO_CUEBOT, cuebotPort=CUEBOT_PORT):
+    def __init__(self):
         self.verbose = 2
-
-        # This causes the connection to close after 1 second
-        initData = Ice.InitializationData()
-        props = initData.properties = Ice.createProperties()
-        props.setProperty('Ice.ACM.Server', '1')
-
-        self.communicator = Ice.initialize(initData)
-        print "cuebotPort = %s, stringToCuebot = %s, pid = %d" % (cuebotPort, stringToCuebot, os.getpid())
-        self.DataFromRQD = self.communicator.createObjectAdapterWithEndpoints(stringToCuebot, 'default -p ' + cuebotPort)
-        self.DataFromRQD.add(self, self.communicator.stringToIdentity(STRING_TO_CUEBOT))
-        self.DataFromRQD.activate()
-        print "Cuebot Listener started"
-        self.start = True
-
-    def wait(self):
-        try:
-            self.communicator.waitForShutdown()
-        except KeyboardInterrupt:
-            print "Killed by keyboard interrupt, RqdReportStatic exiting"
-        self.communicator.destroy()
-        self.start = False
-
-    def stop(self):
-        self.communicator.destroy()
 
     def _trackUpdateTime(self, report):
         now = time.time()
         self.statusCheckin[report.host.name] = {"last": now, "report": report}
-        print "-"*20, time.asctime(time.localtime(now)), "-"*20
+        print "-" * 20, time.asctime(time.localtime(now)), "-" * 20
         for host in sorted(self.statusCheckin.keys()):
             secondsSinceLast = now - self.statusCheckin[host]["last"]
             if host == report.host.name:
@@ -111,9 +94,8 @@ class RqdReportStatic(CueIce.RqdReportStatic):
                   , str(self.statusCheckin[host]["report"].host.freeMem).ljust(10) \
                   , ",".join(self.statusCheckin[host]["report"].host.tags)
 
-    # These are defined by the rqd_ice.ice slice file:
-
-    def reportRqdStartup(self, report, current=None):
+    def ReportRqdStartup(self, request, context):
+        report = request.bootReport
         self.lastReportRqdStartup = report
 
         if self.verbose == 0:
@@ -132,7 +114,8 @@ class RqdReportStatic(CueIce.RqdReportStatic):
         elif self.verbose == 4:
             self._trackUpdateTime(report)
 
-    def reportStatus(self, report, current=None):
+    def ReportStatus(self, request, context):
+        report = request.hostReport
         self.lastReportStatus = report
 
         if self.verbose == 0:
@@ -153,7 +136,8 @@ class RqdReportStatic(CueIce.RqdReportStatic):
         elif self.verbose == 4:
             self._trackUpdateTime(report)
 
-    def reportRunningFrameCompletion(self, report, current=None):
+    def ReportRunningFrameCompletion(self, request, context):
+        report = request.frameCompleteReport
         self.lastReportRunningFrameCompletion = report
 
         if self.verbose == 0:
@@ -170,9 +154,3 @@ class RqdReportStatic(CueIce.RqdReportStatic):
         elif self.verbose == 3:
             print "Receiving reportRunningFrameCompletion"
             print report
-
-if __name__ == "__main__":
-    listener = RqdReportStatic(STRING_TO_CUEBOT, CUEBOT_PORT)
-    listener.verbose = 2
-    listener.wait()
-

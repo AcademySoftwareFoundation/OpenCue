@@ -1,17 +1,11 @@
-rqd.py                  - The main RQD executable
-cuerqd.py               - A utility to interact with RQD
+# RQD
 
-rqcore.py               - Main body of code for RQD
-rqnetwork.py            - Network/ICE related code
-rqmachine.py            - Machine/System related code
-rqnimby.py              - Nimby code
-rqconstants.py          - Constants
-rqutil.py               - Utility functions
+RQD is the client software that runs on all hosts that are doing work for an OpenCue deployment.
 
-rqd3_init.d             - Init script for RQD
-./test/                 - Test cpuinfo files and test frame executables
-./doc/                  - Documentation
+RQD's responsibilities include registering the host with the Cuebot, receiving instructions
+about what work to do and monitoring the worker processes it launches.
 
-./slice/                - Cue and facility slice files
-./python_ice_server/    - Facility ice functions in python
+It uses GRPC to communicate with the Cuebot, as well as runs its own GRPC server which is called
+by the Cuebot's client to send instructions to RQD.
 
+To run RQD, see the included `Dockerfile`.

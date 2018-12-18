@@ -128,7 +128,7 @@ def usage():
     print >> s, "                            Defaults to /etc/rqd3/rqd3.conf"
     print >> s, "                            Config file is optional"
 
-if __name__ == "__main__":
+def main():
     if platform.system() == 'Linux' and os.getuid() != 0:
         log.critical("Please run launch as root")
         sys.exit(1)
@@ -162,3 +162,8 @@ if __name__ == "__main__":
 
     rqd = RqCore(optNimbyOff)
     rqd.start()
+
+
+if __name__ == "__main__":
+  main()
+

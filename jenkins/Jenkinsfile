@@ -7,16 +7,19 @@ pipeline {
         stage('Build') {
             steps {
                 sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
             }
         }
         stage('Test') {
             steps {
                 sh "docker build --target test -t opencue/cuebot-test:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build --target test -t opencue/rqd-test:${env.BUILD_ID} -f rqd/Dockerfile ."
             }
         }
         stage('Package') {
             steps {
                 sh "docker build -t opencue/cuebot:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build -t opencue/rqd:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build"
             }
         }
@@ -29,6 +32,7 @@ pipeline {
     post {
         always {
             archiveArtifacts artifacts: 'build/cuebot.jar', fingerprint: true
+            archiveArtifacts artifacts: 'build/rqd-*.tar.gz', fingerprint: true
         }
     }
 }

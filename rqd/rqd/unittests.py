@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
@@ -15,31 +15,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-
-
+import os
 import unittest
 
-import rqutil
-
 from rqcore import RqCore
-from rqnetwork import Network
-from rqnetwork import RunningFrame
-from rqmachine import Machine
-from rqnimby import Nimby
 
-import rqconstants
+from test.test_cuebot_listener import RqdReportStaticServer
 
-import time
-
-from test.test_cuebot_listener import RqdReportStatic
-
-#class setup_rqd(unittest.TestCase):
 
 class SetupCuebotListener(unittest.TestCase):
-    listener = RqdReportStatic(rqconstants.STRING_TO_CUEBOT, rqconstants.CUEBOT_PORT)
-    listener.verbose = 0
+    def __init__(self):
+        super(SetupCuebotListener, self).__init__()
+        self.server = RqdReportStaticServer()
+        self.servicer = self.server.servicer
+
 
 class test_Machine_cpuinfo(unittest.TestCase):
     def setUp(self):
@@ -90,10 +79,11 @@ class test_Machine_cpuinfo(unittest.TestCase):
 
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
+        pathCpuInfo = os.path.join(os.path.dirname(__file__), pathCpuInfo)
         renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
         totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
-        assert renderHost.numProcs == int(numProcs), '%s == %s' % (renderHost.numProcs, numProcs)
-        assert renderHost.coresPerProc == int(coresPerProc) * 100, '%s == %s' % (renderHost.coresPerProc, int(coresPerProc) * 100)
+        assert renderHost.num_procs == int(numProcs), '%s == %s' % (renderHost.numProcs, numProcs)
+        assert renderHost.cores_per_proc == int(coresPerProc) * 100, '%s == %s' % (renderHost.coresPerProc, int(coresPerProc) * 100)
         assert coreInfo.total_cores == int(totalCores) * 100, '%s == %s' % (coreInfo.total_cores, int(totalCores) * 100)
         assert coreInfo.idle_cores == int(totalCores) * 100, '%s == %s' % (coreInfo.idle_cores, int(totalCores) * 100)
         assert coreInfo.locked_cores == 0, coreInfo.locked_cores
@@ -101,20 +91,18 @@ class test_Machine_cpuinfo(unittest.TestCase):
         if pathCpuInfo.find('_ht_') != -1:
             assert renderHost.attributes['hyperthreadingMultiplier'] ==  pathCpuInfo.split('-')[3]
 
-class TestRqdWithIce(SetupCuebotListener):
+class TestRqdWithGrpc(SetupCuebotListener):
     def setUp(self):
         #Constants.DISABLE_NIMBY = True
         self.rqd = RqCore()
-        self.listener.last_reportRqdStartup = None
-        self.listener.last_reportStatus = None
-        self.listener.last_reportRunningFrameCompletion = None
+        self.servicer.last_reportRqdStartup = None
+        self.servicer.last_reportStatus = None
+        self.servicer.last_reportRunningFrameCompletion = None
         self.rqd.start()
 
     def tearDown(self):
         self.rqd.shutdownRqdNow()
-        self.rqd.wait()
-        del self.rqd
-    
+
     def _verifyStatusReport(self, report):
         assert len(report.host.name) > 0
         #nimbyEnabled = False
@@ -132,13 +120,13 @@ class TestRqdWithIce(SetupCuebotListener):
         assert len(report.procs) > 0
     
     def _test_send_startup(self):
-        report = self.listener.last_reportRqdStartup
+        report = self.servicer.last_reportRqdStartup
         self._verifyStatusReport(report)
 
     def _test_send_status(self):
-        self.listener.last_reportStatus = None
+        self.servicer.last_reportStatus = None
         self.rqd.network.reportStatus(self.rqd.machine.getHostReport())
-        report = self.listener.last_reportStatus
+        report = self.servicer.last_reportStatus
         self._verifyStatusReport(report)
         
 if __name__ == '__main__':

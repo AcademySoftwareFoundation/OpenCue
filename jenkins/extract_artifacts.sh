@@ -9,7 +9,12 @@ build_id=$1
 artifact_directory=$2
 
 mkdir -p "$artifact_directory"
+
 container_id=$(docker create opencue/cuebot:$build_id)
 docker cp $container_id:/opt/cue3/cuebot.jar "$artifact_directory/"
+docker rm $container_id
+
+container_id=$(docker create opencue/rqd:$build_id)
+docker cp $container_id:/opt/cue3/rqd-*.tar.gz "$artifact_directory/"
 docker rm $container_id
 

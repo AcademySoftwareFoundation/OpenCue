@@ -13,7 +13,7 @@ Gradle automatically compiles these proto files, no further action is needed.
 To generate:
 
 ```
-python -m grpc_tools.protoc -I=. --python_out=../rqd/src/compiled_proto --grpc_python_out=../rqd/src/compiled_proto ./*.proto
+python -m grpc_tools.protoc -I=. --python_out=../rqd/rqd/compiled_proto --grpc_python_out=../rqd/rqd/compiled_proto ./*.proto
 ```
 
 ## spi_cue
