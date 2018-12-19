@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -17,15 +17,6 @@
 
 import os
 import sys
-
-# This is a hack to allow plugins to work by replacing
-# the proprietary SPI import library
-path = os.path.realpath(os.path.dirname(__file__))
-mod = path.split('/')[-1]
-parent = os.path.dirname(path)
-sys.path.insert(0, parent)
-Cue3Gui = __import__(mod)
-sys.modules['Cue3Gui'] = Cue3Gui
 
 from Manifest import *
 
@@ -66,4 +57,11 @@ import Style
 import ThreadPool
 import Utils
 
-Main.cuecommander(sys.argv)
+
+def main():
+  Main.cuecommander(sys.argv)
+
+
+if __name__ == '__main__':
+  main()
+
