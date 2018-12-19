@@ -15,8 +15,11 @@
 #  limitations under the License.
 
 
+import os
+import sys
 import unittest
 
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 import Cue3 as cue3
 
 TEST_SHOW_NAME = "pipe"
