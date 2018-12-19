@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 import os
+from setuptools import find_packages
 from setuptools import setup
 
 here = os.path.abspath(os.path.dirname(__file__))
@@ -34,6 +35,9 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
     ],
-    packages=['Cue3', 'Cue3.compiled_proto', 'FileSequence'],
+    packages=find_packages(exclude=['tests']),
+    package_data={
+        'Cue3': ['default.yaml'],
+    },
 )
 

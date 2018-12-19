@@ -1,5 +1,6 @@
 FROM centos:7 as base
 
+
 # -----------------
 # BUILD
 # -----------------
@@ -41,15 +42,28 @@ RUN python -m grpc_tools.protoc \
 # -----------------
 FROM build as test
 
+COPY pycue/tests/ ./pycue/tests
+
+# TODO(cipriano) Run unit tests.
+
 
 # -----------------
 # PACKAGE
 # -----------------
 FROM build as package
 
+RUN cp requirements.txt pycue/
+
+# TODO(cipriano) Make version number dynamic. (b/121159512)
+RUN tar -cvzf pycue-0.1-all.tar.gz pycue/*
+
 
 # -----------------
 # RUN
 # -----------------
 FROM base
+
+WORKDIR /opt/cue3
+
+COPY --from=package /src/pycue-0.1-all.tar.gz ./
 
