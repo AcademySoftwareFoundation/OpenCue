@@ -20,6 +20,6 @@ artifact_directory=$2
 # fi
 
 # TODO publish JAR to GCS
-# TODO publish RQD tarball to GCS
+# TODO publish RQD, pycue, cuegui tarballs to GCS
 # TODO publish images to GCR
 

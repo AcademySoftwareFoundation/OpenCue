@@ -18,3 +18,11 @@ container_id=$(docker create opencue/rqd:$build_id)
 docker cp $container_id:/opt/cue3/rqd-*.tar.gz "$artifact_directory/"
 docker rm $container_id
 
+container_id=$(docker create opencue/pycue:$build_id)
+docker cp $container_id:/opt/cue3/pycue-*.tar.gz "$artifact_directory/"
+docker rm $container_id
+
+container_id=$(docker create opencue/cuegui:$build_id)
+docker cp $container_id:/opt/cue3/cuegui-*.tar.gz "$artifact_directory/"
+docker rm $container_id
+

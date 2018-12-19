@@ -8,7 +8,19 @@ FROM base as build
 
 WORKDIR /opt/cue3
 
-# TODO Install pycue
+RUN yum -y install \
+  epel-release \
+  gcc \
+  python-devel
+
+RUN yum -y install python-pip
+
+# TODO(cipriano) Make version number dynamic. (b/121159512)
+RUN tar -xvzf pycue-0.1-all.tar.gz
+
+RUN pip install -r pycue/requirements.txt
+
+RUN cd pycue && python setup.py install
 
 WORKDIR /src
 
