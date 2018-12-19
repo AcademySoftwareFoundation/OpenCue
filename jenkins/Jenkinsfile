@@ -39,8 +39,8 @@ pipeline {
         always {
             archiveArtifacts artifacts: 'build/cuebot.jar', fingerprint: true
             archiveArtifacts artifacts: 'build/rqd-*.tar.gz', fingerprint: true
-            archiveArtifacts artifacts: 'build/pycue-*.tar.gz', fingerprint: true
-            archiveArtifacts artifacts: 'build/cuegui-*.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/pycue-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
         }
     }
 }
