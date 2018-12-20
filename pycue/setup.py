@@ -24,7 +24,7 @@ with open(os.path.join(here, 'README.md')) as fp:
 setup(
     name='pycue',
     # TODO(cipriano) This version number should be dynamic. (b/121159512)
-    version='0.1',
+    version='0.1.a8ef',
     description='The OpenCue Python API',
     long_description=long_description,
     long_description_content_type='text/markdown',
