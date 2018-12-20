@@ -22,10 +22,10 @@ with open(os.path.join(here, 'README.md')) as fp:
     long_description = fp.read()
 
 setup(
-    name='pycue',
+    name='cuegui',
     # TODO(cipriano) This version number should be dynamic. (b/121159512)
     version='0.1',
-    description='The OpenCue Python API',
+    description='The OpenCue management GUI',
     long_description=long_description,
     long_description_content_type='text/markdown',
     url='https://github.com/imageworks/OpenCue',
@@ -35,9 +35,11 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
     ],
-    packages=find_packages(exclude=['tests']),
-    package_data={
-        'Cue3': ['default.yaml'],
+    packages=find_packages(),
+    entry_points={
+        'console_scripts': [
+            'cuegui=cuegui.__main__:main'
+        ]
     },
 )
 

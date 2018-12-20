@@ -12,13 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-"""
-Project: Cue3 Library
-
-Module: Cuebot.py - Cue3 Library API.
-"""
 import atexit
 import grpc
 import logging
@@ -53,6 +46,7 @@ from Cue3.compiled_proto import subscription_pb2_grpc
 from Cue3.compiled_proto import task_pb2
 from Cue3.compiled_proto import task_pb2_grpc
 
+
 __all__ = ["Cuebot"]
 
 logger = logging.getLogger("cue3")
@@ -63,10 +57,8 @@ fcnf = os.environ.get('CUE3_CONF', '')
 if os.path.exists(fcnf):
     config = yaml.load(open(fcnf).read())
 else:
-    _this_dir = os.path.dirname(__file__)
-    default_config = os.path.join(os.path.dirname(_this_dir), 'etc/default.yaml')
+    default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
     config = yaml.load(open(default_config).read())
-
 
 
 class Cuebot:

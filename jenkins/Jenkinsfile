@@ -8,18 +8,24 @@ pipeline {
             steps {
                 sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cue3bot/Dockerfile ."
                 sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
+                sh "docker build --target build -t opencue/pycue-build:${env.BUILD_ID} -f pycue/Dockerfile ."
+                sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile ."
             }
         }
         stage('Test') {
             steps {
                 sh "docker build --target test -t opencue/cuebot-test:${env.BUILD_ID} -f cue3bot/Dockerfile ."
                 sh "docker build --target test -t opencue/rqd-test:${env.BUILD_ID} -f rqd/Dockerfile ."
+                sh "docker build --target test -t opencue/pycue-test:${env.BUILD_ID} -f pycue/Dockerfile ."
+                sh "docker build --target test -t opencue/cuegui-test:${env.BUILD_ID} -f cuegui/Dockerfile ."
             }
         }
         stage('Package') {
             steps {
                 sh "docker build -t opencue/cuebot:${env.BUILD_ID} -f cue3bot/Dockerfile ."
                 sh "docker build -t opencue/rqd:${env.BUILD_ID} -f rqd/Dockerfile ."
+                sh "docker build -t opencue/pycue:${env.BUILD_ID} -f pycue/Dockerfile ."
+                sh "docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile ."
                 sh "jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build"
             }
         }
@@ -33,6 +39,8 @@ pipeline {
         always {
             archiveArtifacts artifacts: 'build/cuebot.jar', fingerprint: true
             archiveArtifacts artifacts: 'build/rqd-*.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/pycue-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
         }
     }
 }

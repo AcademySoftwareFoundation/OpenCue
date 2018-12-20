@@ -1,7 +1,6 @@
-# This file needs to be located here:
-# /shots/spi/home/etc/cue3/default.yaml
+# Default pycue config file
 
-# Cue3 library logger
+# Logger
 logger.format: "%(levelname)-9s %(module)-10s %(message)s"
 logger.level: WARNING
 
@@ -9,19 +8,17 @@ logger.level: WARNING
 cuebot.port: 9019
 cuebot.protocol: tcp
 cuebot.grpc_port: 8443
-
-# Ice Interfaces
-cuebot.interface.whiteboard: WhiteboardStatic
-cuebot.interface.admin: AdminStatic
+cuebot.timeout: 10000
 
 cuebot.facility_default: lax
 cuebot.facility:
     dev:
         - cue3test02-vm.spimageworks.com:9019
     lax:
-        - localhost:9019
+        - cue3bot1.spimageworks.com:9019
+        - cue3bot2.spimageworks.com:9019
+        - cue3bot3.spimageworks.com:9019
     maa:
         - cuebot1-vm.maa.spimageworks.com:9019
         - cuebot2-vm.maa.spimageworks.com:9019
 
-cuebot.timeout: 10000

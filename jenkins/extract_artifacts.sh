@@ -15,6 +15,14 @@ docker cp $container_id:/opt/cue3/cuebot.jar "$artifact_directory/"
 docker rm $container_id
 
 container_id=$(docker create opencue/rqd:$build_id)
-docker cp $container_id:/opt/cue3/rqd-*.tar.gz "$artifact_directory/"
+docker cp $container_id:/opt/cue3/rqd-0.1-all.tar.gz "$artifact_directory/"
+docker rm $container_id
+
+container_id=$(docker create opencue/pycue:$build_id)
+docker cp $container_id:/opt/cue3/pycue-0.1-all.tar.gz "$artifact_directory/"
+docker rm $container_id
+
+container_id=$(docker create opencue/cuegui:$build_id)
+docker cp $container_id:/opt/cue3/cuegui-0.1-all.tar.gz "$artifact_directory/"
 docker rm $container_id
 
