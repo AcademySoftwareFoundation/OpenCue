@@ -16,15 +16,17 @@ import os
 from setuptools import find_packages
 from setuptools import setup
 
-here = os.path.abspath(os.path.dirname(__file__))
+cuegui_dir = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(here, 'README.md')) as fp:
+with open(os.path.join(cuegui_dir, 'VERSION')) as fp:
+    version = fp.read().strip()
+
+with open(os.path.join(cuegui_dir, 'README.md')) as fp:
     long_description = fp.read()
 
 setup(
     name='cuegui',
-    # TODO(cipriano) This version number should be dynamic. (b/121159512)
-    version='0.1',
+    version=version,
     description='The OpenCue management GUI',
     long_description=long_description,
     long_description_content_type='text/markdown',

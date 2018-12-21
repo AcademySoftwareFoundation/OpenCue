@@ -1,12 +1,5 @@
 FROM centos:7 as base
 
-# -----------------
-# BUILD
-# -----------------
-FROM base as build
-
-WORKDIR /src
-
 RUN yum -y install \
   epel-release \
   gcc \
@@ -14,14 +7,21 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
-COPY requirements.txt ./
 
-# TODO(cipriano) Remove PySide for now. It's not needed for RQD anyway.
-RUN sed -i '/^PySide/ d' requirements.txt
+# -----------------
+# BUILD
+# -----------------
+FROM base as build
+
+WORKDIR /src
+
+COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
+COPY VERSION ./
 COPY proto/ ./proto
+COPY rqd/deploy ./rqd/deploy
 COPY rqd/README.md ./rqd/
 COPY rqd/setup.py ./rqd/
 COPY rqd/rqd/ ./rqd/rqd
@@ -50,12 +50,16 @@ RUN rqd/rqd/unittests.py
 # -----------------
 FROM build as package
 
-# We use Platter here to build a self-contained installer, but if you'd rather have
-# a systemwide install you can also just do `python setup.py install`. This adds a
-# `rqd` launcher script to your PATH.
+RUN mkdir dist
 
-RUN pip install platter
-RUN platter build -r requirements.txt ./rqd
+RUN cp rqd/deploy/install_and_run.sh dist/
+
+RUN cp requirements.txt VERSION rqd/
+
+RUN versioned_name="rqd-$(cat ./VERSION)-all" \
+  && mv rqd dist/$versioned_name \
+  && cd dist \
+  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
 # -----------------
@@ -65,13 +69,9 @@ FROM base
 
 WORKDIR /opt/cue3
 
-# TODO(cipriano) Make version number dynamic. (b/121159512)
+COPY --from=package /src/dist/rqd-*-all.tar.gz ./
+COPY --from=package /src/dist/install_and_run.sh ./
+RUN chmod +x ./install_and_run.sh
 
-COPY --from=package /src/dist/rqd-0.1-linux-x86_64.tar.gz ./
-
-RUN tar -xvzf rqd-0.1-linux-x86_64.tar.gz
-
-RUN ./rqd-0.1-linux-x86_64/install.sh ./rqd
-
-ENTRYPOINT ["/opt/cue3/rqd/bin/rqd"]
+ENTRYPOINT ["/opt/cue3/install_and_run.sh"]
 

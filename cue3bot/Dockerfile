@@ -2,7 +2,6 @@ FROM centos:7 as base
 
 # Packages needed at both build and runtime.
 RUN yum install -y \
-      vim \
       java-1.8.0-openjdk.x86_64 \
       java-1.8.0-openjdk-devel.x86_64 \
       libaio \
@@ -34,6 +33,8 @@ RUN chmod -R 777 .
 RUN adduser builduser
 RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
 
+COPY VERSION ./
+
 
 # -----------------
 # TEST
@@ -56,6 +57,8 @@ FROM build as package
 
 RUN su -c "cd cue3bot && ./gradlew shadowJar --stacktrace" builduser
 
+RUN mv cue3bot/build/libs/cuebot-all.jar cue3bot/build/libs/cuebot-$(cat ./VERSION)-all.jar
+
 
 # -----------------
 # RUN
@@ -67,7 +70,9 @@ ARG CUEBOT_GRPC_RQD_PORT=8444
 
 WORKDIR /opt/cue3
 
-COPY --from=package /src/cue3bot/build/libs/cuebot-all.jar /opt/cue3/cuebot.jar
+COPY --from=package /src/cue3bot/build/libs/cuebot-*-all.jar ./
+
+RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
 
 # TODO(cipriano) Implement a new GRPC-based health check. (b/120441749)
 # HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
@@ -84,6 +89,5 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
-# TODO(cipriano) Consider creating a wrapper script like bin/cuebot from the SBT setup.
-# We may want to at least import some of the JVM options from that script. (b/120442342)
-ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot.jar"]
+ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot-latest.jar"]
+
