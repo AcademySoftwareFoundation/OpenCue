@@ -37,7 +37,9 @@ FROM build as package
 
 RUN cp requirements.txt VERSION cuegui/
 
-RUN tar -cvzf cuegui-$(cat ./VERSION)-all.tar.gz cuegui/*
+RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
+  && mv cuegui $versioned_name \
+  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
 # -----------------

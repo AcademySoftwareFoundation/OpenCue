@@ -51,7 +51,9 @@ FROM build as package
 
 RUN cp requirements.txt VERSION pycue/
 
-RUN tar -cvzf pycue-$(cat ./VERSION)-all.tar.gz pycue/*
+RUN versioned_name="pycue-$(cat ./VERSION)-all" \
+  && mv pycue $versioned_name \
+  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
 # -----------------

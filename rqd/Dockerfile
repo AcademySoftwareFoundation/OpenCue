@@ -50,9 +50,16 @@ RUN rqd/rqd/unittests.py
 # -----------------
 FROM build as package
 
+RUN mkdir dist
+
+RUN cp rqd/deploy/install_and_run.sh dist/
+
 RUN cp requirements.txt VERSION rqd/
 
-RUN tar -cvzf rqd-$(cat ./VERSION)-all.tar.gz rqd/*
+RUN versioned_name="rqd-$(cat ./VERSION)-all" \
+  && mv rqd dist/$versioned_name \
+  && cd dist \
+  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
 # -----------------
@@ -62,8 +69,8 @@ FROM base
 
 WORKDIR /opt/cue3
 
-COPY --from=package /src/rqd-*-all.tar.gz ./
-COPY --from=package /src/rqd/deploy/install_and_run.sh ./
+COPY --from=package /src/dist/rqd-*-all.tar.gz ./
+COPY --from=package /src/dist/install_and_run.sh ./
 RUN chmod +x ./install_and_run.sh
 
 ENTRYPOINT ["/opt/cue3/install_and_run.sh"]
