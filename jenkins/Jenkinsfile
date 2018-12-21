@@ -4,6 +4,11 @@ pipeline {
         BUILD_ID = sh(script: "jenkins/generate_version_number.sh && cat ./VERSION", returnStdout: true).trim()
     }
     stages {
+        stage('Clean') {
+            steps {
+                sh "rm build/*"
+            }
+        }
         stage('Build') {
             steps {
                 sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cue3bot/Dockerfile ."
@@ -37,10 +42,10 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: 'build/cuebot-${env.BUILD_ID}-all.jar', fingerprint: true
-            archiveArtifacts artifacts: 'build/rqd-${env.BUILD_ID}-all.tar.gz', fingerprint: true
-            archiveArtifacts artifacts: 'build/pycue-${env.BUILD_ID}-all.tar.gz', fingerprint: true
-            archiveArtifacts artifacts: 'build/cuegui-${env.BUILD_ID}-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/cuebot-*-all.jar', fingerprint: true
+            archiveArtifacts artifacts: 'build/rqd-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/pycue-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
         }
     }
 }
