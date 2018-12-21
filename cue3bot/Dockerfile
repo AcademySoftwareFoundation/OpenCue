@@ -22,7 +22,6 @@ COPY cue3bot/gradlew.bat cue3bot/
 COPY cue3bot/settings.gradle cue3bot/
 COPY cue3bot/gradle/ cue3bot/gradle/
 
-COPY VERSION ./
 COPY proto/ proto/
 COPY cue3bot/src/main/resources/ cue3bot/src/main/resources/
 COPY cue3bot/src/main/java/ cue3bot/src/main/java/
@@ -33,6 +32,8 @@ RUN mkdir logs
 RUN chmod -R 777 .
 RUN adduser builduser
 RUN su -c "cd cue3bot && ./gradlew build --stacktrace" builduser
+
+COPY VERSION ./
 
 
 # -----------------
