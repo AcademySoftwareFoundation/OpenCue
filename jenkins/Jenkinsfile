@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        BUILD_ID = sh(script: "jenkins/generate_version_number.sh && echo VERSION", returnStdout: true).trim()
+        BUILD_ID = sh(script: "jenkins/generate_version_number.sh && cat ./VERSION", returnStdout: true).trim()
     }
     stages {
         stage('Build') {
