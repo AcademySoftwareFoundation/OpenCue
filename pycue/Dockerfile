@@ -1,6 +1,5 @@
 FROM centos:7 as base
 
-
 # -----------------
 # BUILD
 # -----------------
@@ -13,15 +12,13 @@ RUN yum -y install \
   gcc \
   python-devel
 
-# TODO remove
-RUN yum -y install vim
-
 RUN yum -y install python-pip
 
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
+COPY VERSION ./
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
@@ -52,10 +49,9 @@ COPY pycue/tests/ ./pycue/tests
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt pycue/
+RUN cp requirements.txt VERSION pycue/
 
-# TODO(cipriano) Make version number dynamic. (b/121159512)
-RUN tar -cvzf pycue-0.1-all.tar.gz pycue/*
+RUN tar -cvzf pycue-$(cat ./VERSION)-all.tar.gz pycue/*
 
 
 # -----------------
@@ -65,5 +61,5 @@ FROM base
 
 WORKDIR /opt/cue3
 
-COPY --from=package /src/pycue-0.1-all.tar.gz ./
+COPY --from=package /src/pycue-*-all.tar.gz ./
 

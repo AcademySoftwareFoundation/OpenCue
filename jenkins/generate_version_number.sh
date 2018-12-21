@@ -15,7 +15,7 @@ if [ "$current_branch" == "master" ]; then
   full_version="${version_major_minor}.${commit_count}"
 else
   commit_short_hash=$(git rev-parse --short HEAD)
-  full_version="${version_major_minor}.${commit_short_hash}"
+  full_version="${version_major_minor}.0-${commit_short_hash}"
 fi
 
 version_out_file="${toplevel_dir}/VERSION"

@@ -1,12 +1,13 @@
-FROM opencue/pycue:latest as base
+ARG upstream_version=latest
 
+FROM opencue/pycue:${upstream_version} as base
 
 # -----------------
 # BUILD
 # -----------------
 FROM base as build
 
-WORKDIR /opt/cue3
+ARG upstream_version
 
 RUN yum -y install \
   epel-release \
@@ -15,8 +16,16 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
-# TODO(cipriano) Make version number dynamic. (b/121159512)
-RUN tar -xvzf pycue-0.1-all.tar.gz
+WORKDIR /src
+
+COPY VERSION ./
+
+# If an upstream version was specified make sure it matches what's in the code.
+RUN test "${upstream_version}" == "latest" || test "${upstream_version}" = "$(cat ./VERSION)"
+
+WORKDIR /opt/cue3
+
+RUN tar -xvzf pycue-$(cat /src/VERSION)-all.tar.gz
 
 RUN pip install -r pycue/requirements.txt
 
@@ -24,6 +33,7 @@ RUN cd pycue && python setup.py install
 
 WORKDIR /src
 
+COPY requirements.txt ./
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
 COPY cuegui/cuegui ./cuegui/cuegui
@@ -44,8 +54,9 @@ FROM build as test
 # -----------------
 FROM build as package
 
-# TODO(cipriano) Make version number dynamic. (b/121159512)
-RUN tar -cvzf cuegui-0.1-all.tar.gz cuegui/*
+RUN cp requirements.txt VERSION cuegui/
+
+RUN tar -cvzf cuegui-$(cat ./VERSION)-all.tar.gz cuegui/*
 
 
 # -----------------
@@ -55,5 +66,5 @@ FROM base
 
 WORKDIR /opt/cue3
 
-COPY --from=package /src/cuegui-0.1-all.tar.gz ./
+COPY --from=package /src/cuegui-*-all.tar.gz ./
 

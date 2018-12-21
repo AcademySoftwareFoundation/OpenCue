@@ -1,7 +1,7 @@
 pipeline {
     agent any
     environment {
-        BUILD_ID = sh(script: "TZ=utc git log -n 1 --pretty=format:'%cd.%h' --date=format-local:'%Y%m%d-%H%M%S'", returnStdout: true).trim()
+        BUILD_ID = sh(script: "jenkins/generate_version_number.sh && echo VERSION", returnStdout: true).trim()
     }
     stages {
         stage('Build') {
@@ -37,8 +37,8 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: 'build/cuebot.jar', fingerprint: true
-            archiveArtifacts artifacts: 'build/rqd-*.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/cuebot-*-all.jar', fingerprint: true
+            archiveArtifacts artifacts: 'build/rqd-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/pycue-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
         }
