@@ -7,10 +7,10 @@ toplevel_dir="$(dirname "$script_dir")"
 
 version_in="$toplevel_dir/VERSION.in"
 
-version_major_minor=$(cat "$version_in" | sed 's/[[:space:]]//g')
-current_branch=$(git rev-parse --abbrev-ref HEAD)
+version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
+current_branch="$(git ls-remote --heads origin | grep $(git rev-parse HEAD) | cut -d / -f 3)"
 
-if [ "$current_branch" == "master" ]; then
+if [ "$current_branch" = "master" ]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
   full_version="${version_major_minor}.${commit_count}"
 else
