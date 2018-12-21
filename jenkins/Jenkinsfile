@@ -6,7 +6,7 @@ pipeline {
     stages {
         stage('Clean') {
             steps {
-                sh "rm build/*"
+                sh "rm build/* || true"
             }
         }
         stage('Build') {
