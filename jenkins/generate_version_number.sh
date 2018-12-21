@@ -22,5 +22,3 @@ version_out_file="${toplevel_dir}/VERSION"
 
 echo $full_version > "$version_out_file"
 
-echo "Version number $full_version has been written to $version_out_file"
-
