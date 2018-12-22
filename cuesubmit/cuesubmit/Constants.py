@@ -1,0 +1,14 @@
+
+import os
+
+UI_NAME = 'OPENCUEMAYA'
+SUBMIT_APP_WINDOW_TITLE = 'OpenCue Submit'
+
+UP_KEY = 16777235
+DOWN_KEY = 16777237
+TAB_KEY = 16777217
+
+RENDER_CMD = 'Render'
+FRAME_TOKEN = '#IFRAME#'
+
+DIR_PATH = os.path.dirname(__file__)
