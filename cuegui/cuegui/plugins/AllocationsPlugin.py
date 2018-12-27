@@ -13,13 +13,11 @@
 #  limitations under the License.
 
 
-import os
-import Cue3Gui
+from PySide2 import QtGui, QtWidgets
+
 import Cue3
+import cuegui
 
-from PySide2 import QtGui, QtCore, QtWidgets
-
-from decimal import Decimal
 
 PLUGIN_NAME = "Allocations"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -27,10 +25,10 @@ PLUGIN_DESCRIPTION = "An administrator interface to allocations"
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "AllocationsDockWidget"
 
-class AllocationsDockWidget(Cue3Gui.AbstractDockWidget):
+class AllocationsDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__monitorAllocations = MonitorAllocations(self)
         self.layout().addWidget(self.__monitorAllocations)
@@ -43,9 +41,9 @@ class AllocationsDockWidget(Cue3Gui.AbstractDockWidget):
 # Allocations
 ################################################################################
 
-class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
+class MonitorAllocations(cuegui.AbstractTreeWidget):
     def __init__(self, parent):
-        self.startColumnsForType(Cue3Gui.Constants.TYPE_ALLOC)
+        self.startColumnsForType(cuegui.Constants.TYPE_ALLOC)
         self.addColumn("Name", 150, id=1,
                        data=lambda alloc: alloc.data.name)
 
@@ -68,10 +66,10 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
         #self.addColumn("Nimby", 40, id=6,
         #               data=lambda alloc:(alloc.totalNimbyLockedHosts()))
 
-        Cue3Gui.AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = Cue3Gui.MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions(self, self.updateSoon, self.selectedObjects)
 
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True);
@@ -99,25 +97,25 @@ class MonitorAllocations(Cue3Gui.AbstractTreeWidget):
         pass
 
     def dragEnterEvent(self, event):
-        Cue3Gui.Utils.dragEnterEvent(event, "application/x-host-ids")
+        cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
-        Cue3Gui.Utils.dragMoveEvent(event, "application/x-host-ids")
+        cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
     def dropEvent(self, event):
         item = self.itemAt(event.pos())
 
-        if item.type() == Cue3Gui.Constants.TYPE_ALLOC:
-            hostIds = Cue3Gui.Utils.dropEvent(event, "application/x-host-ids")
-            hostNames = Cue3Gui.Utils.dropEvent(event, "application/x-host-names")
+        if item.type() == cuegui.Constants.TYPE_ALLOC:
+            hostIds = cuegui.Utils.dropEvent(event, "application/x-host-ids")
+            hostNames = cuegui.Utils.dropEvent(event, "application/x-host-names")
             if hostIds and \
-               Cue3Gui.Utils.questionBoxYesNo(self, "Move hosts to new allocation?",
+               cuegui.Utils.questionBoxYesNo(self, "Move hosts to new allocation?",
                                               "Move the hosts into the allocation: \"%s\"?" %
                                               item.rpcObject.data.name,
                                               hostNames):
                 item.rpcObject.reparentHosts(hostIds)
                 self.updateSoon()
 
-class AllocationWidgetItem(Cue3Gui.AbstractWidgetItem):
+class AllocationWidgetItem(cuegui.AbstractWidgetItem):
     def __init__(self, object, parent):
-        Cue3Gui.AbstractWidgetItem.__init__(self, Cue3Gui.Constants.TYPE_ALLOC, object, parent)
+        cuegui.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_ALLOC, object, parent)

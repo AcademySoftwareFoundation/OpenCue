@@ -16,12 +16,12 @@
 import re
 import weakref
 
-import Cue3Gui
+import cuegui
 from PySide2 import QtGui, QtCore, QtWidgets
 
 import Cue3
 
-logger = Cue3Gui.Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Monitor Jobs"
 PLUGIN_CATEGORY = "Cuetopia"
@@ -29,15 +29,15 @@ PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 
 
-class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
+class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
 
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.jobMonitor = Cue3Gui.JobMonitorTree(self)
+        self.jobMonitor = cuegui.JobMonitorTree(self)
 
         self.__toolbar = QtWidgets.QToolBar(self)
         self._regexLoadJobsSetup(self.__toolbar)
@@ -67,9 +67,9 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
                                       self.jobMonitor.setColumnWidths)])
 
     def addJob(self, object):
-        if Cue3Gui.Utils.isProc(object):
-            object = Cue3Gui.Utils.findJob(object.data.jobName)
-        elif not Cue3Gui.Utils.isJob(object):
+        if cuegui.Utils.isProc(object):
+            object = cuegui.Utils.findJob(object.data.jobName)
+        elif not cuegui.Utils.isJob(object):
             return
         self.jobMonitor.addJob(object)
         self.raise_()
@@ -91,7 +91,7 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
         @param settings: Last state of the plugin instance
         @type  settings: any"""
         if isinstance(settings, dict):
-            Cue3Gui.AbstractDockWidget.pluginRestoreState(self, settings)
+            cuegui.AbstractDockWidget.pluginRestoreState(self, settings)
 
         elif settings:
             # old method that needs to go away
@@ -128,7 +128,7 @@ class MonitorJobsDockWidget(Cue3Gui.AbstractDockWidget):
         if not substring:
             return
 
-        if Cue3Gui.Utils.isStringId(substring):
+        if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
         elif re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
@@ -221,7 +221,7 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
         QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.setFont(Cue3Gui.Constants.STANDARD_FONT)
+        self.setFont(cuegui.Constants.STANDARD_FONT)
         self.setFixedWidth(200)
         self.setMaxLength(200)
 
@@ -238,17 +238,17 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
     def contextMenuEvent(self, e):
         menu = QtWidgets.QMenu(self)
 
-        menu.addAction(Cue3Gui.Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                              "Load matching jobs (Enter)",
                                              "Load matching jobs",
                                              self._actionLoad))
 
-        menu.addAction(Cue3Gui.Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                              "Lock/Unlock edit box",
                                              "Lock/Unlock edit box",
                                              self.toggleReadOnly))
 
-        menu.addAction(Cue3Gui.Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                              "Clear",
                                              "Clear text",
                                              self.actionClear))

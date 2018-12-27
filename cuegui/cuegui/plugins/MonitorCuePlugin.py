@@ -20,10 +20,10 @@ import weakref
 from PySide2 import QtGui, QtCore, QtWidgets
 
 import Cue3
-import Cue3Gui
+import cuegui
 
 
-logger = Cue3Gui.Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Monitor Cue"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -32,12 +32,12 @@ PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
-class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
+class MonitorCueDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__monitorCue = Cue3Gui.CueJobMonitorTree(self)
+        self.__monitorCue = cuegui.CueJobMonitorTree(self)
         self.__toolbar = QtWidgets.QToolBar(self)
         self.__showMenuSetup()
         self.__expandAllSetup()
@@ -74,7 +74,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
 
     def __cueStateBarSetup(self, layout):
         if QtGui.qApp.settings.value("CueStateBar", False):
-            self.__cueStateBar = Cue3Gui.CueStateBarWidget(self.__monitorCue, self)
+            self.__cueStateBar = cuegui.CueStateBarWidget(self.__monitorCue, self)
             layout.addWidget(self.__cueStateBar)
 
     def __expandAllSetup(self):
@@ -145,7 +145,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         self.__showMenu = QtWidgets.QMenu(self)
         self.__showMenuBtn.setMenu(self.__showMenu)
         self.__showMenuBtn.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__showMenu.setFont(Cue3Gui.Constants.STANDARD_FONT)
+        self.__showMenu.setFont(cuegui.Constants.STANDARD_FONT)
         self.__showMenu.triggered.connect(self.__showMenuHandle)
         QtGui.qApp.facility_changed.connect(self.__showMenuUpdate)
 
@@ -249,7 +249,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
                                           QtWidgets.QAbstractItemView.PositionAtTop)
 
     def __selectJobsHandleMine(self):
-        self.__selectJobsHandle("-%s_" % Cue3Gui.Utils.getUsername())
+        self.__selectJobsHandle("-%s_" % cuegui.Utils.getUsername())
 
 ################################################################################
 # Displays the last selected job name in a text box
@@ -259,7 +259,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         self.__jobSelectedLineEdit = QtWidgets.QLineEdit()
         self.__jobSelectedLineEdit.setMaximumWidth(300)
         self.__jobSelectedLineEdit.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__jobSelectedLineEdit.setFont(Cue3Gui.Constants.STANDARD_FONT)
+        self.__jobSelectedLineEdit.setFont(cuegui.Constants.STANDARD_FONT)
         self.__toolbar.addWidget(self.__jobSelectedLineEdit)
         self.__monitorCue.single_click.connect(self.__jobSelectedHandle)
 
@@ -282,7 +282,7 @@ class MonitorCueDockWidget(Cue3Gui.AbstractDockWidget):
         """Called on plugin start with any previously saved state.
         @param settings: Last state of the plugin instance
         @type  settings: any"""
-        Cue3Gui.AbstractDockWidget.pluginRestoreState(self, settings)
+        cuegui.AbstractDockWidget.pluginRestoreState(self, settings)
 
         self.__monitorCue._update()
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
@@ -294,7 +294,7 @@ class JobSelectEditBox(QtWidgets.QLineEdit):
         QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.setFont(Cue3Gui.Constants.STANDARD_FONT)
+        self.setFont(cuegui.Constants.STANDARD_FONT)
         self.setFixedWidth(200)
         self.setMaxLength(100)
 
@@ -304,12 +304,12 @@ class JobSelectEditBox(QtWidgets.QLineEdit):
         @param event: Click QEvent"""
         menu = QtWidgets.QMenu(self)
 
-        menu.addAction(Cue3Gui.Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                              "Select matching jobs (Enter)",
                                              "Select matching jobs",
                                              self._actionSelect))
 
-        menu.addAction(Cue3Gui.Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                              "Clear",
                                              "Clear text",
                                              self.actionClear))

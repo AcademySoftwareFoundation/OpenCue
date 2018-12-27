@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-import Cue3Gui
+import cuegui
 
 PLUGIN_NAME = "Shows"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -21,12 +21,12 @@ PLUGIN_DESCRIPTION = "An administrator interface to shows"
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "ShowsDockWidget"
 
-class ShowsDockWidget(Cue3Gui.AbstractDockWidget):
+class ShowsDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__showsWidget = Cue3Gui.ShowsWidget(self)
+        self.__showsWidget = cuegui.ShowsWidget(self)
 
         self.layout().addWidget(self.__showsWidget)
 

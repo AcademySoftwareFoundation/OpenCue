@@ -22,8 +22,8 @@ path = os.path.realpath(os.path.dirname(__file__))
 mod = path.split('/')[-1]
 parent = os.path.dirname(path)
 sys.path.insert(0, parent)
-Cue3Gui = __import__(mod)
-sys.modules['Cue3Gui'] = Cue3Gui
+cuegui = __import__(mod)
+sys.modules['cuegui'] = cuegui
 
 from Manifest import *
 
