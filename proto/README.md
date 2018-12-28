@@ -16,11 +16,11 @@ To generate:
 python -m grpc_tools.protoc -I=. --python_out=../rqd/rqd/compiled_proto --grpc_python_out=../rqd/rqd/compiled_proto ./*.proto
 ```
 
-## spi_cue
+## pycue
 
 To generate:
 
 ```
-python -m grpc_tools.protoc -I=. --python_out=../spi_cue/Cue3/compiled_proto --grpc_python_out=../spi_cue/Cue3/compiled_proto ./*.proto
+python -m grpc_tools.protoc -I=. --python_out=../pycue/Cue3/compiled_proto --grpc_python_out=../pycue/Cue3/compiled_proto ./*.proto
 ```
 

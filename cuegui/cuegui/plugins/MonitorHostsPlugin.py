@@ -15,7 +15,7 @@
 
 from PySide2 import QtCore, QtWidgets
 
-import Cue3Gui
+import cuegui
 
 
 PLUGIN_NAME = "Monitor Hosts"
@@ -25,13 +25,13 @@ PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "HostMonitorDockWidget"
 
 
-class HostMonitorDockWidget(Cue3Gui.AbstractDockWidget):
+class HostMonitorDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__monitorHosts = Cue3Gui.HostMonitor(self)
-        self.__monitorProcs = Cue3Gui.ProcMonitor(self)
+        self.__monitorHosts = cuegui.HostMonitor(self)
+        self.__monitorProcs = cuegui.ProcMonitor(self)
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.layout().addWidget(self.__splitter)

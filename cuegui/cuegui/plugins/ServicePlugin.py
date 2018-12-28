@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-import Cue3Gui
+import cuegui
 
 from PySide2 import QtGui, QtCore
 
@@ -24,11 +24,11 @@ PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "ServicesDockWidget"
 
 
-class ServicesDockWidget(Cue3Gui.AbstractDockWidget):
+class ServicesDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
         self.setWindowTitle("Facility Service Defaults")
-        self.__serviceManager = Cue3Gui.ServiceManager(None, self)
+        self.__serviceManager = cuegui.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
         QtGui.qApp.facility_changed.connect(self.__serviceManager.refresh)

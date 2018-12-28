@@ -15,7 +15,7 @@
 
 import os
 
-import Cue3Gui
+import cuegui
 
 PLUGIN_NAME = "Redirect"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -23,7 +23,7 @@ PLUGIN_DESCRIPTION = "Redirect procs from one job to another."
 PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "RedirectWidget"
 
-class RedirectWidget(Cue3Gui.AbstractDockWidget):
+class RedirectWidget(cuegui.AbstractDockWidget):
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
-        self.layout().addWidget(Cue3Gui.RedirectWidget(self))
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        self.layout().addWidget(cuegui.RedirectWidget(self))
