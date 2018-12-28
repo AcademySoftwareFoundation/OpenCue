@@ -239,19 +239,19 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
         menu = QtWidgets.QMenu(self)
 
         menu.addAction(cuegui.Action.create(self,
-                                             "Load matching jobs (Enter)",
-                                             "Load matching jobs",
-                                             self._actionLoad))
+                                            "Load matching jobs (Enter)",
+                                            "Load matching jobs",
+                                            self._actionLoad))
 
         menu.addAction(cuegui.Action.create(self,
-                                             "Lock/Unlock edit box",
-                                             "Lock/Unlock edit box",
-                                             self.toggleReadOnly))
+                                            "Lock/Unlock edit box",
+                                            "Lock/Unlock edit box",
+                                            self.toggleReadOnly))
 
         menu.addAction(cuegui.Action.create(self,
-                                             "Clear",
-                                             "Clear text",
-                                             self.actionClear))
+                                            "Clear",
+                                            "Clear text",
+                                            self.actionClear))
 
         menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 

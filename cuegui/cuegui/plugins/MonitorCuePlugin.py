@@ -305,14 +305,14 @@ class JobSelectEditBox(QtWidgets.QLineEdit):
         menu = QtWidgets.QMenu(self)
 
         menu.addAction(cuegui.Action.create(self,
-                                             "Select matching jobs (Enter)",
-                                             "Select matching jobs",
-                                             self._actionSelect))
+                                            "Select matching jobs (Enter)",
+                                            "Select matching jobs",
+                                            self._actionSelect))
 
         menu.addAction(cuegui.Action.create(self,
-                                             "Clear",
-                                             "Clear text",
-                                             self.actionClear))
+                                            "Clear",
+                                            "Clear text",
+                                            self.actionClear))
 
         menu.exec_(QtCore.QPoint(event.globalX(), event.globalY()))
 

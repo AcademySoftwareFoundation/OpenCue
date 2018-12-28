@@ -110,9 +110,9 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
             hostNames = cuegui.Utils.dropEvent(event, "application/x-host-names")
             if hostIds and \
                cuegui.Utils.questionBoxYesNo(self, "Move hosts to new allocation?",
-                                              "Move the hosts into the allocation: \"%s\"?" %
-                                              item.rpcObject.data.name,
-                                              hostNames):
+                                             "Move the hosts into the allocation: \"%s\"?" %
+                                             item.rpcObject.data.name,
+                                             hostNames):
                 item.rpcObject.reparentHosts(hostIds)
                 self.updateSoon()
 
