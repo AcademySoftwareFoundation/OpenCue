@@ -27,8 +27,8 @@ def buildLayer(layerData, command):
     @type command: str
     @param command: command to run
     """
-    layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunks,
-                  threads=layerData.cores, range=layerData.layerRange)
+    layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
+                  threads=float(layerData.cores), range=str(layerData.layerRange))
     if layerData.dependType and layerData.dependsOn:
         if layerData.dependType == 'Layer':
             layer.depend_all(layerData.dependsOn)
@@ -47,12 +47,12 @@ def buildNukeLayer(layerData):
 
 
 def buildShellLayer(layerData):
-    return buildLayer(layerData, layerData.cmd)
+    return buildLayer(layerData, layerData.cmd['commandTextBox'])
 
 
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
-    outline = Outline(jobData.name)
+    outline = Outline(jobData['name'])
     for layerData in jobData['layers']:
         if layerData.layerType == JobTypes.JobTypes.MAYA:
             layer = buildMayaLayer(layerData)
@@ -60,5 +60,5 @@ def submitJob(jobData):
             layer = buildShellLayer(layerData)
         elif layerData.layerType == JobTypes.JobTypes.NUKE:
             layer = buildNukeLayer(layerData)
-        outline.addLayer(layer)
+        outline.add_layer(layer)
     cuerun.launch(outline)
