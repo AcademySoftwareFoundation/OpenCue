@@ -116,6 +116,7 @@ import com.imageworks.spcue.grpc.job.JobRetryFramesResponse;
 import com.imageworks.spcue.grpc.job.JobRunFiltersRequest;
 import com.imageworks.spcue.grpc.job.JobRunFiltersResponse;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.grpc.job.JobSetAutoEatRequest;
 import com.imageworks.spcue.grpc.job.JobSetAutoEatResponse;
 import com.imageworks.spcue.grpc.job.JobSetGroupRequest;
@@ -246,14 +247,13 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                                   StreamObserver<JobLaunchSpecAndWaitResponse> responseObserver) {
         JobSpec spec = jobLauncher.parse(request.getSpec());
         jobLauncher.launch(spec);
-        JobSearchCriteria r = JobSearchInterface.criteriaFactory();
-        JobSearchCriteria.Builder builder = r.toBuilder();
-        for (BuildableJob job: spec.getJobs()) {
-            builder.addIds((job.detail.id)).build();
+        JobSeq.Builder jobSeqBuilder = JobSeq.newBuilder();
+        for (BuildableJob j: spec.getJobs()) {
+            jobSeqBuilder.addJobs(whiteboard.findJob(j.detail.name));
         }
-        r = builder.build();
+
         responseObserver.onNext(JobLaunchSpecAndWaitResponse.newBuilder()
-                .setJobs(whiteboard.getJobs(jobSearchFactory.create(r)))
+                .setJobs(jobSeqBuilder.build())
                 .build());
         responseObserver.onCompleted();
     }
