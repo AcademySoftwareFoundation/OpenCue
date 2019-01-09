@@ -102,6 +102,14 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         this.serviceManager = serviceManager;
     }
 
+    public Whiteboard getWhiteboard() {
+        return whiteboard;
+    }
+
+    public void setWhiteboard(Whiteboard whiteboard) {
+        this.whiteboard = whiteboard;
+    }
+
     private ServiceEntity toServiceEntity(Service service) {
         ServiceEntity entity = new ServiceEntity();
         entity.id = service.getId();
