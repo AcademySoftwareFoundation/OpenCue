@@ -44,7 +44,7 @@ class Job(object):
 
     def pause(self):
         """Pauses the job"""
-        self.stub.Pause(job_pb2.JobPauseRequest(job=self.data), timout=Cuebot.Timeout)
+        self.stub.Pause(job_pb2.JobPauseRequest(job=self.data), timeout=Cuebot.Timeout)
 
     def resume(self):
         """Resumes the job"""
