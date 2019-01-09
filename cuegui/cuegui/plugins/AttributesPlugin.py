@@ -16,10 +16,10 @@
 import time
 import os
 
-import Cue3Gui
+import cuegui
 import Cue3
 
-logger = Cue3Gui.Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 from PySide2 import QtGui, QtCore, QtWidgets
 
@@ -28,9 +28,9 @@ PLUGIN_CATEGORY = "Other"
 PLUGIN_DESCRIPTION = "Displays entity attributes"
 PLUGIN_PROVIDES = "AttributesPlugin"
 
-class AttributesPlugin(Cue3Gui.AbstractDockWidget):
+class AttributesPlugin(cuegui.AbstractDockWidget):
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__attributes = Attributes(self)
         self.layout().addWidget(self.__attributes)
 
@@ -94,13 +94,13 @@ class Attributes(QtWidgets.QWidget):
 
         # Define the known types here
         # Also define the string that populates the path bar at the top
-        if Cue3Gui.Utils.isJob(item):
+        if cuegui.Utils.isJob(item):
             function = JobAttributes
             path = item.data.logDir
-        elif Cue3Gui.Utils.isLayer(item):
+        elif cuegui.Utils.isLayer(item):
             function = LayerAttributes
             path = ""
-        elif Cue3Gui.Utils.isHost(item):
+        elif cuegui.Utils.isHost(item):
             function = HostAttributes
             path = ""
         else:
@@ -132,7 +132,7 @@ class Attributes(QtWidgets.QWidget):
                 work["preload"] = work["function"].preload(work["item"])
                 return work
         except Exception, e:
-            map(logger.warning, Cue3Gui.Utils.exceptionOutput(e))
+            map(logger.warning, cuegui.Utils.exceptionOutput(e))
 
     def __processResults(self, work, result):
         """Unpacks the worker thread results and calls function to create widget"""
@@ -152,7 +152,7 @@ class Attributes(QtWidgets.QWidget):
                 self.__stack.removeWidget(oldWidget)
                 oldWidget.setParent(QtWidgets.QWidget())
         except Exception, e:
-            map(logger.warning, Cue3Gui.Utils.exceptionOutput(e))
+            map(logger.warning, cuegui.Utils.exceptionOutput(e))
 
 
 class AbstractAttributes(QtWidgets.QTreeWidget):
@@ -219,15 +219,15 @@ class LayerAttributes(AbstractAttributes):
                 },
                 "stats": {
                       "avgFrameTime":
-                          Cue3Gui.Utils.secondsToHHMMSS(layer.stats.avgFrameSec),
+                          cuegui.Utils.secondsToHHMMSS(layer.stats.avgFrameSec),
                       "Total Core Hours":
-                          Cue3Gui.Utils.secondsToHHMMSS(layer.stats.totalCoreSec),
+                          cuegui.Utils.secondsToHHMMSS(layer.stats.totalCoreSec),
                       "Core Hours Succeeded":
-                          Cue3Gui.Utils.secondsToHHMMSS(layer.stats.renderedCoreSec),
+                          cuegui.Utils.secondsToHHMMSS(layer.stats.renderedCoreSec),
                       "Core Hours Failed":
-                          Cue3Gui.Utils.secondsToHHMMSS(layer.stats.failedCoreSec),
+                          cuegui.Utils.secondsToHHMMSS(layer.stats.failedCoreSec),
                       "Remaining Core Hours":
-                          Cue3Gui.Utils.secondsToHHMMSS(layer.stats.remainingCoreSec)
+                          cuegui.Utils.secondsToHHMMSS(layer.stats.remainingCoreSec)
                  },
                 "resources": {
                           "cores": "%02.f" % layer.stats.reservedCores,
@@ -273,8 +273,8 @@ class JobAttributes(AbstractAttributes):
             "shot": job.data.shot,
             "user": job.data.user,
             "state": str(job.data.state),
-            "startTime": Cue3Gui.Utils.dateToMMDDHHMM(job.data.startTime),
-            "stopTime": Cue3Gui.Utils.dateToMMDDHHMM(job.data.stopTime),
+            "startTime": cuegui.Utils.dateToMMDDHHMM(job.data.startTime),
+            "stopTime": cuegui.Utils.dateToMMDDHHMM(job.data.stopTime),
             "priority": {
                          "group": job.data.group,
                          "level": job.data.priority,
@@ -293,15 +293,15 @@ class JobAttributes(AbstractAttributes):
                        },
             "stats": {
                   "avgFrameTime":
-                      Cue3Gui.Utils.secondsToHHMMSS(job.stats.avgFrameSec),
+                      cuegui.Utils.secondsToHHMMSS(job.stats.avgFrameSec),
                   "totalCoreSeconds":
-                      Cue3Gui.Utils.secondsToHHMMSS(job.stats.totalCoreSec),
+                      cuegui.Utils.secondsToHHMMSS(job.stats.totalCoreSec),
                   "renderedCoreSeconds":
-                      Cue3Gui.Utils.secondsToHHMMSS(job.stats.renderedCoreSec),
+                      cuegui.Utils.secondsToHHMMSS(job.stats.renderedCoreSec),
                   "failedCoreSeconds":
-                      Cue3Gui.Utils.secondsToHHMMSS(job.stats.failedCoreSec),
+                      cuegui.Utils.secondsToHHMMSS(job.stats.failedCoreSec),
                   "remainingCoreSeconds":
-                      Cue3Gui.Utils.secondsToHHMMSS(job.stats.remainingCoreSec)
+                      cuegui.Utils.secondsToHHMMSS(job.stats.remainingCoreSec)
              },
             "resources": {
                           "cores": "%02.f" % job.stats.reservedCores,
@@ -347,8 +347,8 @@ class HostAttributes(AbstractAttributes):
                 "state": str(host.data.state),
                 "lock": str(host.data.lockState),
                 "load": "%.2f" % (host.data.load/float(100)),
-                "bootTime": Cue3Gui.Utils.dateToMMDDHHMM(host.data.bootTime),
-                "pingTime": Cue3Gui.Utils.dateToMMDDHHMM(host.data.pingTime),
+                "bootTime": cuegui.Utils.dateToMMDDHHMM(host.data.bootTime),
+                "pingTime": cuegui.Utils.dateToMMDDHHMM(host.data.pingTime),
                 "pingLast": int(time.time() - host.data.pingTime),
                 "tags": ",".join(host.data.tags),
                 "cores": {

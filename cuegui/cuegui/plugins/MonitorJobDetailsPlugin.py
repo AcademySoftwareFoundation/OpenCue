@@ -16,27 +16,27 @@
 from PySide2 import QtGui, QtCore, QtWidgets
 
 import Cue3
-import Cue3Gui
+import cuegui
 
-logger = Cue3Gui.Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Monitor Job Details"
 PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitor a job's layers and frames"
 PLUGIN_PROVIDES = "MonitorLayerFramesDockWidget"
 
-class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
+class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget):
     """This builds a display that can monitor the layers and frames of a job."""
     def __init__(self, parent):
         """Creates the dock widget and docks it to the parent.
         @param parent: The main window to dock to
         @type  parent: QMainWindow"""
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__job = None
 
-        self.__monitorLayers = Cue3Gui.LayerMonitorTree(self)
-        self.__monitorFrames = Cue3Gui.FrameMonitor(self)
+        self.__monitorLayers = cuegui.LayerMonitorTree(self)
+        self.__monitorFrames = cuegui.FrameMonitor(self)
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.setAcceptDrops(True)
@@ -74,20 +74,20 @@ class MonitorLayerFramesDockWidget(Cue3Gui.AbstractDockWidget):
         self.__monitorLayers.disableUpdate = not bool(pos)
 
     def dragEnterEvent(self, event):
-        Cue3Gui.Utils.dragEnterEvent(event)
+        cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
-        Cue3Gui.Utils.dragMoveEvent(event)
+        cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
-        for jobName in Cue3Gui.Utils.dropEvent(event):
+        for jobName in cuegui.Utils.dropEvent(event):
             self.__setJob(jobName)
 
     def __setJob(self, job = None):
-        if Cue3Gui.Utils.isJob(job) and self.__job and Cue3.id(job) == Cue3.id(self.__job):
+        if cuegui.Utils.isJob(job) and self.__job and Cue3.id(job) == Cue3.id(self.__job):
             return
 
-        new_job = Cue3Gui.Utils.findJob(job)
+        new_job = cuegui.Utils.findJob(job)
         if new_job:
             self.__job = new_job
             self.setWindowTitle("%s" % new_job.data.name)

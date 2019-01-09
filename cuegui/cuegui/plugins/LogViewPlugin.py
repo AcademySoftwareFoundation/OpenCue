@@ -17,8 +17,7 @@ import os
 import re
 import string
 import time
-import Cue3Gui
-import Cue3
+import cuegui
 
 from PySide2 import QtGui, QtCore, QtWidgets
 
@@ -30,52 +29,52 @@ PRINTABLE = set(string.printable)
 
 
 class LineNumberArea(QtWidgets.QWidget):
-    '''
+    """
     Custom widget for the line numbers. This widget is designed to be attached
     to a QPlainTextEdit or a QTextEdit, and expects the editor widget as a
     required arg for creating the Widget
-    '''
+    """
 
     def __init__(self, editor):
-        '''
+        """
         Creates the LineNumberArea instance
 
         @param editor: The text editor widget to attach this widget to
         @type editor: QtWidgets.QPlainTextEdit or QtWidgets.QTextEdit
-        '''
+        """
 
         super(LineNumberArea, self).__init__(editor)
         self.editor = editor
 
     def paintEvent(self, event):
-        '''
+        """
         The paint event for this widget will trigger the text update on the
         editor widget
 
         @pararm event: The event to trigger
         @type event: QtGui.QPaintEvent
-        '''
+        """
 
         self.editor.line_number_area_paint_event(event)
 
 
 class LogTextEdit(QtWidgets.QPlainTextEdit):
-    '''
+    """
     This is an extension of QPlainTextEdit, with an added custom widget for
     line numbers and automatic highlighting for the current line (the line
     where the cursor is)
-    '''
+    """
 
     mousePressedSignal = QtCore.Signal(object)
 
     def __init__(self, parent):
-        '''
+        """
         Creates the LogTextEdit instance and calls the necessary methods to
         update the line-number area
 
         @param parent: The parent widget
         @type parent: QtWidgets.QWidget
-        '''
+        """
 
         super(LogTextEdit, self).__init__(parent)
 
@@ -103,17 +102,17 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.addAction(self.copy_action)
 
     def context_menu(self):
-        '''
+        """
         A custom context menu to pop up when the user Right-Clicks in the
         Log View. Triggered by the customContextMenuRequested signal
-        '''
+        """
 
         self._context_menu = QtWidgets.QMenu(self)
         self._context_menu.addAction(self.copy_action)
         self._context_menu.exec_(QtGui.QCursor.pos())
 
     def mouseReleaseEvent(self, event):
-        '''
+        """
         This is used to trigger the text highlighting update at the parent's
         level
         * For performance sake, we're only highlighting visible matches, which
@@ -125,7 +124,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         @postcondition: The mousePressedSignal is emitted (triggers highlights
                         for surronding matches), and the current selection is
                         stored in the "selection" (AKA. middle-mouse) clipboard
-        '''
+        """
 
         super(LogTextEdit, self).mouseReleaseEvent(event)
         pos = event.pos()
@@ -133,35 +132,35 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.copy_selection(1)
 
     def scrollContentsBy(self, *args, **kwargs):
-        '''
+        """
         Overriding to make sure the line numbers area is updated when scrolling
-        '''
+        """
 
         self._line_num_area.repaint()
         return QtWidgets.QPlainTextEdit.scrollContentsBy(self, *args, **kwargs)
 
     def copy_selection(self, mode):
-        '''
+        """
         Copy (Ctrl + C) action. Stores the currently selected text in the
         clipboard.
 
         @param mode: The QClipboard mode value (0 = GLOBAL
                                                 1 = Selection (middle-mouse))
         @type mode: int
-        '''
+        """
 
         selection = self.textCursor().selection()
         QtWidgets.QApplication.clipboard().setText('', mode)
         QtWidgets.QApplication.clipboard().setText(selection.toPlainText(), mode)
 
     def get_line_number_area_width(self):
-        '''
+        """
         Returns the recommended width for the line number area based on the
         current line-count and the font being used
 
         @return: The recommended width for the line-number area
         @rtype: int
-        '''
+        """
 
         digits = 1
         count = max(1, self.blockCount())
@@ -172,19 +171,19 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         return space
 
     def update_line_number_area_width(self):
-        '''
+        """
         Sets the width for the line number area to the recommended width based
         on line count and the font being used
 
         @postcondition: The line number area is resized to have the new
                         recommended width
-        '''
+        """
 
         width = self.get_line_number_area_width()
         self.setViewportMargins(width, 0, 0, 0)
 
     def update_line_number_area(self, rect, dy):
-        '''
+        """
         Calls the necessary methods to update the size and content of the
         line number area.
         * This slot is connected to the updateRequest signal of this object
@@ -195,7 +194,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         @param dy: The scroll value (will be 0 if the update request was
                    triggerred by an event other than scroll)
         @type dy: int
-        '''
+        """
 
         if dy:
             self._line_num_area.scroll(0, dy)
@@ -209,12 +208,12 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             self.update_line_number_area_width()
 
     def highlight_current_line(self):
-        '''
+        """
         Highlights the line where the cursor is
 
         @postcondition: The line where the cursor is will have a different
                         background color
-        '''
+        """
 
         crnt_selection = QtWidgets.QTextEdit.ExtraSelection()
         line_color = QtGui.QColor(QtCore.Qt.red).lighter(12)
@@ -226,13 +225,13 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.setExtraSelections([crnt_selection])
 
     def resizeEvent(self, event):
-        '''
+        """
         Overriding to make sure the line-number area also gets resized when the
         text-editor widget gets resized
 
         @param event: The resize event
         @type event: QtGui.QResizeEvent
-        '''
+        """
 
         super(LogTextEdit, self).resizeEvent(event)
         contents_rect = self.contentsRect()
@@ -243,13 +242,13 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self._line_num_area.setGeometry(new_rect)
 
     def line_number_area_paint_event(self, event):
-        '''
+        """
         Paint the line numbers in the line-number area.
         *This is triggered by the paintEvent of the line-number area
 
         @param event: The paint event
         @type event: QtGui.QPaintEvent
-        '''
+        """
 
         painter = QtGui.QPainter(self._line_num_area)
         block = self.firstVisibleBlock()
@@ -275,14 +274,14 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
 
 class LogViewWidget(QtWidgets.QWidget):
-    '''
+    """
     Displays the log file for the selected frame
-    '''
+    """
 
     def __init__(self, parent=None):
-        '''
+        """
         Create the UI elements
-        '''
+        """
 
         # Main Widget
         QtWidgets.QWidget.__init__(self, parent)
@@ -431,12 +430,12 @@ class LogViewWidget(QtWidgets.QWidget):
         self._content_box.mousePressedSignal.connect(self._on_mouse_pressed)
 
     def _on_mouse_pressed(self, pos):
-        '''
+        """
         Mouse press event, to be called when the user scrolls by hand or moves
         the cursor manually by pressing somewhere in the log-view area.
         It calls the necessary methods to highlight the search pattern matches
         closest to the current cursor position
-        '''
+        """
 
         if not self._matches or not self._matches_to_highlight:
             return
@@ -451,13 +450,13 @@ class LogViewWidget(QtWidgets.QWidget):
                 break
 
     def _load_other_log(self, offset):
-        '''
+        """
         Sets the current log index by adding or subtracting 1 from the current
         index, then triggers reloading the appropriate log file content
 
         @praram offset: The offset to apply to the current log index
         @type offset: int
-        '''
+        """
 
         index = max(0, min(self._current_log_index + offset,
                            len(self._log_files) - 1))
@@ -465,21 +464,21 @@ class LogViewWidget(QtWidgets.QWidget):
         self._set_log_file()
 
     def _set_log_files(self, log_files):
-        '''
+        """
         Sets the log files list. This "slot" is connected to the frame
         selection in FrameMonitorTree
 
         @param log_files: The log files to display from
         @type log_files: list<str>
-        '''
+        """
         self._log_files = log_files
         self._current_log_index = 0
         self._set_log_file()
 
     def _set_log_file(self):
-        '''
+        """
         Sets and displays the content of the log file.
-        '''
+        """
 
         self._clear_search_data()
         self._content_box.setPlainText('')
@@ -501,7 +500,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._log_index_label.setText(log_index_txt)
 
     def _set_word_wrap(self, state):
-        '''
+        """
         Sets the word-wrap mode for the log content box, then refreshes the
         content to reflect the change
 
@@ -510,14 +509,14 @@ class LogViewWidget(QtWidgets.QWidget):
 
         @postcondition: The new word-wrap state is implemented, the content is
                         refreshed, all highlights are removed
-        '''
+        """
 
         self._content_box.setWordWrapMode(QtGui.QTextOption.WordWrap if state
                                           else QtGui.QTextOption.NoWrap)
         self._set_log_file()
 
     def _move_to_next_match(self):
-        '''
+        """
         Moves the cursor to the next occurance of search pattern match,
         scrolling up/down through the content to display the cursor position.
         When the cursor is not set and this method is called, the cursor will
@@ -525,7 +524,7 @@ class LogViewWidget(QtWidgets.QWidget):
         the next matches (moving forward). When the cursor is at the last match
         and this method is called, the cursor will be moved back to the first
         match. If there are no matches, this method does nothing.
-        '''
+        """
 
         if not self._matches:
             return
@@ -538,7 +537,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._current_match += 1
 
     def _move_to_prev_match(self):
-        '''
+        """
         Moves the cursor to the previous occurance of search pattern match,
         scrolling up/down through the content to display the cursor position.
         When called the first time, it moves the cursor to the last match,
@@ -546,7 +545,7 @@ class LogViewWidget(QtWidgets.QWidget):
         the cursor is at the first match and this method is called, the cursor
         will be moved back to the last match
         If there are no matches, this method does nothing.
-        '''
+        """
 
         if not self._matches:
             return
@@ -559,7 +558,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._current_match -= 1
 
     def _move_to_match(self, pos, length):
-        '''
+        """
         Moves the cursor in the content box to the given pos, then moves it
         forwards by "length" steps, selecting the characters in between
 
@@ -573,7 +572,7 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The cursor is moved to pos, the characters between pos
                         and length are selected, and the content is scrolled
                         up/down to ensure the cursor is visible
-        '''
+        """
 
         self._cursor.setPosition(pos)
         self._cursor.movePosition(QtGui.QTextCursor.Right,
@@ -588,25 +587,25 @@ class LogViewWidget(QtWidgets.QWidget):
                                        len(self._matches)))
 
     def _move_to_search_box(self):
-        '''
+        """
         Case-sensetive checkbox state has changed. Trigger a new search
 
         @postcondition: All previous search data is cleared, a new search is
                         performed and focus is given to the search box
-        '''
+        """
 
         self._clear_search_data()
         self._find_text()
         self._search_box.setFocus()
 
     def _find_text(self):
-        '''
+        """
         Finds and stores the list of text fragments matching the search pattern
         entered in the search box.
 
         @postcondition: The text matching the search pattern is stored for
                         later access & processing
-        '''
+        """
 
         if self._new_log:
             return  # Prevent searching while loading a new log file
@@ -656,14 +655,14 @@ class LogViewWidget(QtWidgets.QWidget):
             self._matches_label.setStyleSheet('QLabel {color : indianred}')
 
     def _highlight_matches(self):
-        '''
+        """
         Highlights the matches closest to the current match
         (current = the one the cursor is at)
         (closest = up to 300 matches before + up to 300 matches after)
 
         @postcondition: The matches closest to the current match have a new
                         background color (Red)
-        '''
+        """
 
         if not self._matches_to_highlight or not self._matches:
             return  # nothing to match
@@ -683,24 +682,24 @@ class LogViewWidget(QtWidgets.QWidget):
             self._matches_to_highlight.discard(match)
 
     def _clear_search_text(self):
-        '''
+        """
         Removes the text in the search pattern box
 
         @postcondition: The text in the search field is removed.
-        '''
+        """
 
         self._search_box.setText('')
         self._clear_search_data()
 
     def _clear_search_data(self):
-        '''
+        """
         Removes the text in the search pattern box, clears all highlights and
         stored search data
 
         @postcondition: The text in the search field is removed, match list is
                         cleared, and format/selection in the main content box
                         are also removed.
-        '''
+        """
 
         self._matches = []
         self._matches_to_highlight = set()
@@ -716,25 +715,25 @@ class LogViewWidget(QtWidgets.QWidget):
         self._highlight_cursor.clearSelection()
 
     def _set_scrollbar_value(self, val):
-        '''
+        """
         Stores the passed value in self._scrollbar_value. This slot is
         connected to the valueChanged event of the main scrollbar, and is used
         for storing the scrollbar value after updating the content box.
         * It also triggers the same actions triggered by pressing the mouse
         somewhere in the content box, (updating)
-        '''
+        """
 
         self._scrollbar_value = val
         self._on_mouse_pressed(QtCore.QPoint(0, 0))
 
     def _update_visible_indices(self):
-        '''
+        """
         Updates the stored first & last visible text content indices so we
         can focus operations like highlighting on text that is visible
 
         @postcondition: The _first_visible_index & _last_visible_index are
                         up to date (in sync with the current viewport)
-        '''
+        """
 
         viewport = self._content_box.viewport()
         try:
@@ -749,13 +748,13 @@ class LogViewWidget(QtWidgets.QWidget):
             pass
 
     def _display_log_content(self):
-        '''
+        """
         Displays the log file content in the TextEdit field, and schedules the
         next run of the update method
 
         @postcondition: The _update_log method is scheduled to run again
                         after 5 seconds
-        '''
+        """
 
         try:
             self._update_log()
@@ -764,7 +763,7 @@ class LogViewWidget(QtWidgets.QWidget):
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
     def _update_log(self):
-        '''
+        """
         Updates the content of the content box with the content of the log
         file, if necessary. The full path to the log file will be populated in
         the "log path" field.
@@ -781,7 +780,7 @@ class LogViewWidget(QtWidgets.QWidget):
         @postcondition: The content of the log file is displayed in the content
                         box, and the content is scrolled to the end,
                         (if necessary)
-        '''
+        """
 
         # Get the content of the log file
         if not self._log_file:
@@ -835,22 +834,19 @@ class LogViewWidget(QtWidgets.QWidget):
         self._scrollbar_value = self._log_scrollbar.value()
 
 
-class LogViewPlugin(Cue3Gui.AbstractDockWidget):
-    '''
+class LogViewPlugin(cuegui.AbstractDockWidget):
+    """
     Plugin for displaying the log file content for the selected frame with
     the ability to perform regex-based search
-    '''
+    """
 
     def __init__(self, parent=None):
-        '''
+        """
         Create a LogViewPlugin instance
 
         @param parent: The parent widget
         @type parent: QtWidgets.QWidget or None
-        '''
-
-        Cue3Gui.AbstractDockWidget.__init__(self, parent,
-                                            PLUGIN_NAME,
-                                            QtCore.Qt.RightDockWidgetArea)
+        """
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__logview_widget = LogViewWidget(self)
         self.layout().addWidget(self.__logview_widget)

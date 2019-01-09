@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-import Cue3Gui
+import cuegui
 
 from PySide2 import QtCore, QtWidgets
 
@@ -24,16 +24,16 @@ PLUGIN_REQUIRES = "CueCommander3"
 PLUGIN_PROVIDES = "SubscriptionDockWidget"
 
 
-class SubscriptionDockWidget(Cue3Gui.AbstractDockWidget):
+class SubscriptionDockWidget(cuegui.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        Cue3Gui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         self.layout().addWidget(self.__splitter)
 
-        self.__subscriptionsWidget = Cue3Gui.SubscriptionsWidget(self)
-        #self.__graphSubscriptionsWidget = Cue3Gui.GraphSubscriptionsWidget(self)
+        self.__subscriptionsWidget = cuegui.SubscriptionsWidget(self)
+        #self.__graphSubscriptionsWidget = cuegui.GraphSubscriptionsWidget(self)
 
         self.__splitter.addWidget(self.__subscriptionsWidget)
         #self.__splitter.addWidget(self.__graphSubscriptionsWidget)
