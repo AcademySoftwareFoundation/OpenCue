@@ -1,4 +1,4 @@
-FROM jenkins/jenkins:2.153
+FROM jenkins/jenkins:2.157
 
 RUN /usr/local/bin/install-plugins.sh \
   git \
@@ -23,7 +23,9 @@ RUN apt-get update -y && apt-get install -y \
   docker-ce \
   && usermod -aG docker jenkins
 
-RUN touch /var/run/docker.sock && chmod 666 /var/run/docker.sock
+RUN touch /var/run/docker.sock \
+  && chmod 666 /var/run/docker.sock \
+  && chgrp docker /var/run/docker.dock
 
 USER jenkins
 

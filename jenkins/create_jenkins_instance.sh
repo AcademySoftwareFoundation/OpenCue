@@ -49,5 +49,6 @@ gcloud compute instances create ${INSTANCE_NAME} \
     --image-family=centos-7 \
     --disk=name=${DISK_NAME},device-name=jenkins-home \
     --address=${JENKINS_STATIC_IP} \
+    --metadata=opencue-image-tag=${TIMESTAMP} \
     --metadata-from-file=startup-script=./jenkins_startup_script.sh
 
