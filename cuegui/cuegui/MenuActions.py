@@ -120,15 +120,20 @@ class AbstractActions(object):
             info = getattr(self, "%s_info" % actionName)
 
             # Uses a cache to only load icons once
-            if info[ICON] not in self.__iconCache:
+            if isinstance(info[ICON], QtGui.QColor):
+                # QColor objects are not hashable
+                icon_key = info[TITLE]
+            else:
+                icon_key = info[ICON]
+            if icon_key not in self.__iconCache:
                 if type(info[ICON]) is QtGui.QColor:
                     pixmap = QtGui.QPixmap(100, 100)
                     pixmap.fill(info[ICON])
-                    self.__iconCache[info[ICON]] = QtGui.QIcon(pixmap)
+                    self.__iconCache[icon_key] = QtGui.QIcon(pixmap)
                 else:
-                    self.__iconCache[info[ICON]] = QtGui.QIcon(":%s.png" % info[ICON])
+                    self.__iconCache[icon_key] = QtGui.QIcon(":%s.png" % info[ICON])
 
-            action = QtWidgets.QAction(self.__iconCache[info[ICON]], info[TITLE], self._caller)
+            action = QtWidgets.QAction(self.__iconCache[icon_key], info[TITLE], self._caller)
 
             if not callback:
                 callback = actionName
@@ -274,7 +279,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                Cue3.wrappers.job.Job(job).pause()
+                Cue3.wrappers.job.Job(job.data).pause()
             self._update()
 
     resume_info = ["&Unpause", None, "unpause"]
