@@ -61,4 +61,4 @@ def submitJob(jobData):
         elif layerData.layerType == JobTypes.JobTypes.NUKE:
             layer = buildNukeLayer(layerData)
         outline.add_layer(layer)
-    cuerun.launch(outline)
+    return cuerun.launch(outline)

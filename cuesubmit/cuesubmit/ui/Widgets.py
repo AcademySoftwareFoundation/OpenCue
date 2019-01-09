@@ -408,3 +408,12 @@ def separatorLine():
     line.setAutoFillBackground(True)
     line.setStyleSheet(Style.SEPARATOR_LINE)
     return line
+
+
+def messageBox(message, title=None, parent=None):
+    messageBox = QtWidgets.QMessageBox(parent)
+    messageBox.setIcon(QtWidgets.QMessageBox.Information)
+    messageBox.setText(message)
+    messageBox.setWindowTitle(title)
+    messageBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+    return messageBox
