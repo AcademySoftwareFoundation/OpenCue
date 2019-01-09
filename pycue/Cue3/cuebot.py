@@ -45,6 +45,7 @@ from Cue3.compiled_proto import subscription_pb2
 from Cue3.compiled_proto import subscription_pb2_grpc
 from Cue3.compiled_proto import task_pb2
 from Cue3.compiled_proto import task_pb2_grpc
+from Cue3.exception import CueException
 
 
 __all__ = ["Cuebot"]
@@ -133,6 +134,9 @@ class Cuebot:
         else:
             facility_default = config.get("cuebot.facility_default")
             Cuebot.setFacility(facility_default)
+        if Cuebot.Hosts is None:
+            raise CueException('Cuebot host not set. Please ensure CUEBOT_HOSTS is set ' +
+                               'or a facility_default host is set in the yaml pycue config.')
         Cuebot.setChannel()
 
     @staticmethod
@@ -147,9 +151,12 @@ class Cuebot:
             try:
                 Cuebot.RpcChannel = grpc.insecure_channel(connect_str)
             except Exception:
+                logger.warning('Could not establish grpc channel with {}.'.format(connect_str))
                 continue
             atexit.register(Cuebot.RpcChannel.close)
             return None
+        raise CueException('No grpc connection could be established. ' +
+                           'Please check configured cuebot hosts.')
 
     @staticmethod
     def setFacility(facility):

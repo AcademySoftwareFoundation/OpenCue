@@ -78,14 +78,14 @@ def getDefaultServices():
 
 
 @util.grpcExceptionParser
-def getService(id):
+def getService(name):
     """
     Return the default service list.  Services
     define the default application features.
     @rtype Service
     """
     return Cuebot.getStub('service').GetService(
-        service_pb2.ServiceGetServiceRequest(id=id), timeout=Cuebot.Timeout).service
+        service_pb2.ServiceGetServiceRequest(name=name), timeout=Cuebot.Timeout).service
 
 
 @util.grpcExceptionParser
