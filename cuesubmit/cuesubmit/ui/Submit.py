@@ -273,9 +273,11 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def submit(self):
         """Submit action to submit a job."""
-        job = Submission.submitJob(self.getJobData())
-        message = "Submitted Job to OpenCue.\nJob ID: {}\nJob Name: {}".format(job.id(), job.name())
-        Widgets.messageBox(message, title="Submitted Job", parent=self).show()
+        jobs = Submission.submitJob(self.getJobData())
+        message = "Submitted Job to OpenCue."
+        for job in jobs:
+            message += "\nJob ID: {}\nJob Name: {}".format(job.id(), job.name())
+        Widgets.messageBox(message, title="Submitted Job Data", parent=self).show()
 
     def cancel(self):
         """Action called when the cancel button is clicked."""
