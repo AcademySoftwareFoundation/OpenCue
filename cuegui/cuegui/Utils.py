@@ -69,13 +69,13 @@ def countJobTypes(objects):
 
     for object in objects:
         if isJob(object):
-            if object.data.isPaused:
+            if object.data.is_paused:
                 results["paused"] = True
             else:
                 results["unpaused"] = True
-            if object.stats.deadFrames:
+            if object.data.job_stats.dead_frames:
                 results["hasDead"] = True
-            if object.data.autoEat:
+            if object.data.auto_eat:
                 results["autoEating"] = True
             else:
                 results["notEating"] = True

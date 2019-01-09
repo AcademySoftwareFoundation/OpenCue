@@ -66,6 +66,8 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
             return self.column_info[col][DISPLAY_LAMBDA](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
+            if Style.ColorTheme is None:
+                Style.init()
             return Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         elif role == QtCore.Qt.UserRole:

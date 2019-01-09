@@ -45,13 +45,13 @@ def displayState(job):
     @return: The status of the job for display"""
     if job.data.state == Cue3.api.job_pb2.FINISHED:
         return "Finished"
-    if job.data.isPaused:
+    if job.data.is_paused:
         return "Paused"
-    if job.stats.deadFrames > 0:
+    if job.data.job_stats.dead_frames > 0:
         return "Failing"
-    if (job.stats.dependFrames and
-        job.stats.dependFrames == job.stats.pendingFrames and
-            job.stats.runningFrames == 0):
+    if (job.data.job_stats.depend_frames and
+        job.data.job_stats.depend_frames == job.data.job_stats.pending_frames and
+            job.data.job_stats.running_frames == 0):
         return "Dependency"
     return "In Progress"
 
@@ -63,62 +63,66 @@ class JobMonitorTree(AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(Constants.TYPE_JOB)
         self.addColumn("Job", 470, id=1,
-                       data=lambda job:(job.data.name),
+                       data=lambda job: job.data.name,
                        tip="The name of the job: show-shot-user_uniqueName")
         self.addColumn("_Comment", 20, id=2,
-                       sort=lambda job:(job.data.hasComment),
+                       sort=lambda job: job.data.has_comment,
                        tip="A comment icon will appear if a job has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("_Autoeat", 20, id=3,
-                       sort=lambda job:(job.data.autoEat),
+                       sort=lambda job: job.data.auto_eat,
                        tip="If the job has auto eating enabled, a pac-man icon\n"
                            "will appear here and all frames that become dead will\n"
                            "automatically be eaten.")
 #        self.addColumn("Group", 70, id=3,
 #                       data=lambda job:("%s [%d]" % (job.group(), job.priority())))
         self.addColumn("State", 80, id=4,
-                       data=lambda job:(displayState(job)),
+                       data=lambda job: displayState(job),
                        tip="The state of each job.\n"
                            "In Progress \t The job is on the queue\n"
                            "Failing \t The job has dead frames\n"
                            "Paused \t The job has been paused\n"
                            "Finished \t The job has finished and is no longer in the queue")
         self.addColumn("Done/Total", 90, id=5,
-                       data=lambda job:("%d of %d" % (job.stats.succeededFrames, job.stats.totalFrames)),
-                       sort=lambda job:(job.stats.succeededFrames),
+                       data=lambda job: "%d of %d" % (job.data.job_stats.succeeded_frames,
+                                                      job.data.job_stats.total_frames),
+                       sort=lambda job: job.data.job_stats.succeeded_frames,
                        tip="The number of succeeded frames vs the total number\n"
                            "of frames in each job.")
         self.addColumn("Running", 60, id=6,
-                       data=lambda job:(job.stats.runningFrames),
-                       sort=lambda job:(job.stats.runningFrames),
+                       data=lambda job: job.data.job_stats.running_frames,
+                       sort=lambda job: job.data.job_stats.running_frames,
                        tip="The number of running frames in each job,")
         self.addColumn("Dead", 50, id=7,
-                       data=lambda job:(job.stats.deadFrames),
-                       sort=lambda job:(job.stats.deadFrames),
+                       data=lambda job: job.data.job_stats.dead_frames,
+                       sort=lambda job: job.data.job_stats.dead_frames,
                        tip="Total number of dead frames in each job.")
         self.addColumn("Eaten", 50, id=8,
-                       data=lambda job:(job.stats.eatenFrames),
-                       sort=lambda job:(job.stats.eatenFrames),
+                       data=lambda job: job.data.job_stats.eaten_frames,
+                       sort=lambda job: job.data.job_stats.eaten_frames,
                        tip="Total number of eaten frames in each job.")
         self.addColumn("Wait", 60, id=9,
-                       data=lambda job:(job.stats.waitingFrames),
-                       sort=lambda job:(job.stats.waitingFrames),
+                       data=lambda job: job.data.job_stats.waiting_frames,
+                       sort=lambda job: job.data.job_stats.waiting_frames,
                        tip="The number of waiting frames in each job,")
         self.addColumn("MaxRss", 55, id=10,
-                       data=lambda job:(Utils.memoryToString(job.stats.maxRss)),\
-                       sort=lambda job:(job.stats.maxRss),
+                       data=lambda job: Utils.memoryToString(job.data.job_stats.max_rss),
+                       sort=lambda job: job.data.job_stats.max_rss,
                        tip="The maximum memory used any single frame in each job.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job:(Utils.secondsToHHHMM((job.data.stopTime or time.time()) - job.data.startTime)),
-                       sort=lambda job:((job.data.stopTime or time.time()) - job.data.startTime),
+                       data=lambda job: (Utils.secondsToHHHMM((job.data.stop_time or
+                                                               time.time()) - job.data.start_time)),
+                       sort=lambda job: ((job.data.stop_time or time.time()) - job.data.start_time),
                        tip="The HOURS:MINUTES that the job has spent in the queue.")
         self.addColumn("Launched", 100, id=12,
-                       data=lambda job:(job.startTime("%m/%d %H:%M")),
-                       sort=lambda job:(job.data.startTime),
+                       data=lambda job: Utils.dateToMMDDHHMM(job.data.start_time),
+                       sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
         self.addColumn("Finished", 100, id=13,
-                       data=lambda job:(job.data.stopTime > 0 and job.stopTime("%m/%d %H:%M") or ""),
-                       sort=lambda job:(job.data.stopTime),
+                       data=lambda job: (job.data.stop_time > 0
+                                         and Utils.dateToMMDDHHMM(job.stop_time)
+                                         or ""),
+                       sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
         self.addColumn("Progress", 0, id=14,
                        delegate=JobProgressBarDelegate,
@@ -466,9 +470,9 @@ class JobWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
             if self.rpcObject.data.state == Cue3.api.job_pb2.FINISHED:
                 return self.__finishedColor
-            elif self.rpcObject.data.isPaused:
+            elif self.rpcObject.data.is_paused:
                 return self.__pausedColor
-            elif self.rpcObject.stats.deadFrames:
+            elif self.rpcObject.data.job_stats.dead_frames:
                 return self.__dyingColor
             return self.__backgroundColor
         elif role == QtCore.Qt.BackgroundRole and self.__userColor:
