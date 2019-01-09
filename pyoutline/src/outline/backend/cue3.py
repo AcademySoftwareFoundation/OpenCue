@@ -97,21 +97,18 @@ def launch(launcher):
     @return: The Cue3 job that was launched.
     """
 
-    # Disable the network timeout for Cue3.
-    Cue3.Cuebot.setTimeout(0)
-
     if launcher.get("server"):
         Cue3.Cuebot.setHosts([launcher.get("server")])
         logger.info("cue3bot host set to: %s" % launcher.get("server"))
 
-    job = Cue3.api.launchSpecAndWait(launcher.serialize())[0]
+    jobs = Cue3.api.launchSpecAndWait(launcher.serialize())
 
     if launcher.get("wait"):
-        wait(job)
+        wait(jobs[0])
     elif launcher.get("test"):
-        test(job)
+        test(jobs[0])
 
-    return job
+    return jobs
 
 
 def test(job):
