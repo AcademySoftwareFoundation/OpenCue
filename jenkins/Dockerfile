@@ -2,6 +2,7 @@ FROM jenkins/jenkins:2.157
 
 RUN /usr/local/bin/install-plugins.sh \
   git \
+  github-branch-source \
   google-login \
   workflow-aggregator
 
@@ -25,7 +26,7 @@ RUN apt-get update -y && apt-get install -y \
 
 RUN touch /var/run/docker.sock \
   && chmod 666 /var/run/docker.sock \
-  && chgrp docker /var/run/docker.dock
+  && chgrp docker /var/run/docker.sock
 
 USER jenkins
 
