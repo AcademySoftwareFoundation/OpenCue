@@ -87,9 +87,9 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
         @param rect: The area to draw in
         @type  frameStateTotals: dict
         @param frameStateTotals: Dictionary of frame states and their amount"""
-        ratio = rect.width() / float(sum(frameStateTotals.values()))
+        ratio = rect.width() / float(sum([list(values)[1] for values in frameStateTotals]))
         for frameState in FRAME_STATES:
-            length = int(ceil( ratio * frameStateTotals[frameState]))
+            length = int(ceil(ratio * list(frameStateTotals)[frameState][1]))
             if length > 0:
                 rect.setWidth(length)
                 painter.fillRect(rect, RGB_FRAME_STATE[frameState])
@@ -148,7 +148,7 @@ class JobBookingBarDelegate(AbstractDelegate):
 
     def paint(self, painter, option, index):
         # Only if job
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_JOB and \
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB and \
            option.rect.width() > 30:
                 # This itemFromIndex could cause problems
                 # I need: minCores, maxCores, totalRunning, totalWaiting
@@ -203,7 +203,7 @@ class JobThinProgressBarDelegate(AbstractDelegate):
     def paint(self, painter, option, index):
         # Only if job
         if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB:
-            frameStateTotals = index.data(QtCore.Qt.UserRole + 1).toPyObject()
+            frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
             painter.save()
             try:
                 self._drawBackground(painter, option, index)
@@ -226,11 +226,11 @@ class JobProgressBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_JOB:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB:
             # This is a lot of data calls to build this one item
-            frameStateTotals = index.data(QtCore.Qt.UserRole + 1).toPyObject()
-            state = index.data(QtCore.Qt.UserRole + 2).toPyObject()
-            paused = index.data(QtCore.Qt.UserRole + 3).toBool()
+            frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
+            state = index.data(QtCore.Qt.UserRole + 2)
+            paused = index.data(QtCore.Qt.UserRole + 3)
 
             painter.save()
             try:
@@ -238,17 +238,16 @@ class JobProgressBarDelegate(AbstractDelegate):
                     self._drawProgressBar(painter,
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
-
                     if state == Cue3.api.job_pb2.FINISHED:
                         painter.setPen(QtCore.Qt.black)
-                        painter.drawText(option.rect, 0, QtCore.QString("Finished"))
+                        painter.drawText(option.rect, 0, "Finished")
                     elif paused:
                         painter.setPen(QtCore.Qt.blue)
-                        painter.drawText(option.rect, 0, QtCore.QString("Paused"))
+                        painter.drawText(option.rect, 0, "Paused")
                 except Exception, e:
                     print "Exception:", e
                     painter.setPen(QtCore.Qt.red)
-                    painter.drawText(option.rect, 0, QtCore.QString("Gui Error"))
+                    painter.drawText(option.rect, 0, "Gui Error")
             finally:
                 painter.restore()
                 del painter
@@ -261,9 +260,9 @@ class HostSwapBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
-                                     *index.data(QtCore.Qt.UserRole + 1).toPyObject())
+                                     *index.data(QtCore.Qt.UserRole + 1))
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
@@ -273,9 +272,9 @@ class HostMemBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
-                                     *index.data(QtCore.Qt.UserRole + 2).toPyObject())
+                                     *index.data(QtCore.Qt.UserRole + 2))
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
@@ -285,9 +284,9 @@ class HostGpuBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
-                                     *index.data(QtCore.Qt.UserRole + 3).toPyObject())
+                                     *index.data(QtCore.Qt.UserRole + 3))
         else:
             AbstractDelegate.paint(self, painter, option, index)
 
@@ -311,7 +310,7 @@ class HostHistoryDelegate(AbstractDelegate):
         self.__brush.setStyle(QtCore.Qt.SolidPattern)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole).toInt()[0] == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
             hostItem = self.parent().itemFromIndex(index)
             host = hostItem.rpcObject
 

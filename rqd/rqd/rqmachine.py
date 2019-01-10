@@ -613,7 +613,7 @@ class Machine:
         """ Setup rqd for hyper-threading """
 
         if self.__enabledHT():
-            self.__coreInfo.tasksets = set(range(self.__coreInfo.totalCores / 100))
+            self.__tasksets = set(range(self.__coreInfo.total_cores / 100))
 
     def reserveHT(self, reservedCores):
         """ Reserve cores for use by taskset
@@ -634,14 +634,14 @@ class Machine:
 
         log.debug('Taskset: Requesting reserve of %s' % (reservedCores / 100))
 
-        if len(self.__coreInfo.tasksets) < reservedCores / 100:
+        if len(self.__tasksets) < reservedCores / 100:
             err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
             log.critical(err)
             raise CoreReservationFailureException(err)
 
         tasksets = []
         for x in range(reservedCores / 100):
-            core = self.__coreInfo.tasksets.pop()
+            core = self.__tasksets.pop()
             tasksets.append(str(core))
             tasksets.append(str(core + self.__coreInfo.totalCores / 100))
 
@@ -663,5 +663,5 @@ class Machine:
         log.debug('Taskset: Releasing cores - %s' % reservedHT)
         for core in reservedHT.split(','):
             if int(core) < self.__coreInfo.totalCores / 100:
-                self.__coreInfo.tasksets.add(int(core))
+                self.__tasksets.add(int(core))
 

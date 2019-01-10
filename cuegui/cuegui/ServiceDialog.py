@@ -98,14 +98,14 @@ class ServiceForm(QtWidgets.QWidget):
         self.__buttons.setDisabled(False)
         self.__service = service
 
-        self.name.setText(service.data.name)
-        self.threadable.setChecked(service.data.threadable)
-        self.min_cores.setValue(service.data.minCores)
-        self.max_cores.setValue(service.data.maxCores)
-        self.min_memory.setValue(service.data.minMemory / 1024)
-        self.min_gpu.setValue(service.data.minGpu / 1024)
+        self.name.setText(service.name)
+        self.threadable.setChecked(service.threadable)
+        self.min_cores.setValue(service.min_cores)
+        self.max_cores.setValue(service.max_cores)
+        self.min_memory.setValue(service.min_memory / 1024)
+        self.min_gpu.setValue(service.min_gpu / 1024)
 
-        self._tags_w.set_tags(service.data.tags)
+        self._tags_w.set_tags(service.tags)
 
     def new(self):
         """
@@ -252,9 +252,9 @@ class ServiceManager(QtWidgets.QWidget):
             return
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.data.name)
+            item = QtWidgets.QListWidgetItem(service.name)
             self.__service_list.addItem(item)
-            if service.data.name in selected:
+            if service.name in selected:
                 item.setSelected(True)
 
         self.__service_list.sortItems()

@@ -200,7 +200,7 @@ public abstract class Criteria implements CriteriaInterface {
         StringBuilder sb = new StringBuilder(1024);
         sb.append("(");
         for (String w: s) {
-            sb.append(String.format("REGEXP_LIKE(%s,?)", col));
+            sb.append(String.format("%s ~ ?", col));
             sb.append(" OR ");
             values.add(w);
         }

@@ -159,6 +159,7 @@
 
     <bean scope="prototype" id="manageService" class="com.imageworks.spcue.servant.ManageService">
         <property name="serviceManager" ref="serviceManager" />
+        <property name="whiteboard" ref="whiteboard" />
     </bean>
 
     <bean scope="prototype" id="manageServiceOverride" class="com.imageworks.spcue.servant.ManageServiceOverride">

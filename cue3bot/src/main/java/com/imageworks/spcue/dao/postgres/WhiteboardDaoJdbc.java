@@ -1089,7 +1089,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             new RowMapper<Job>() {
                 public Job mapRow(ResultSet rs, int rowNum) throws SQLException {
                     Job.Builder jobBuilder = Job.newBuilder()
-                            .setLogDir(SqlUtil.getString(rs,"str_log_dir"))
+                            .setId(SqlUtil.getString(rs, "pk_job"))
+                            .setLogDir(SqlUtil.getString(rs, "str_log_dir"))
                             .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                             .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                             .setName(SqlUtil.getString(rs,"str_name"))

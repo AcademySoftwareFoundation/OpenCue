@@ -133,9 +133,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
             self.jobMonitor.addJob(substring)
         elif re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
             # If show and shot is provided, load all finished jobs
-            jobSearch = Cue3.search.JobSearch(regex=[substring])
-            jobSearch.includeFinished = True
-            for job in Cue3.api.getJobs(jobSearch):
+            for job in Cue3.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
         else:
             # Otherwise, just load current matching jobs
