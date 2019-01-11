@@ -30,7 +30,7 @@ fi
 
 TIMESTAMP="$(date -u +%Y%m%d-%H%M%S)"
 INSTANCE_NAME="opencue-jenkins-${TIMESTAMP}"
-INSTANCE_TYPE="n1-standard-8"
+INSTANCE_TYPE="n1-standard-4"
 DISK_NAME="opencue-jenkins-home"
 ZONE="us-central1-c"
 NETWORK="jenkins"
@@ -47,6 +47,7 @@ gcloud compute instances create ${INSTANCE_NAME} \
     --machine-type=${INSTANCE_TYPE} \
     --image-project=centos-cloud \
     --image-family=centos-7 \
+    --boot-disk-size=100G \
     --disk=name=${DISK_NAME},device-name=jenkins-home \
     --address=${JENKINS_STATIC_IP} \
     --metadata=opencue-image-tag=${TIMESTAMP} \
