@@ -97,12 +97,17 @@ message RunFrame {
     string log_dir = 9;
     string show = 10;
     string shot = 11;
-    int64 start_time = 12;
-    int32 uid = 13;
-    int32 num_cores = 14;
-    bool ignore_nimby = 15;
-    map<string, string> environment = 16;
-    map<string, string> attributes = 17;
+    string job_temp_dir = 12;
+    string frame_temp_dir = 13;
+    string log_file = 14;
+    string log_dir_file = 15;
+    int64 start_time = 16;
+    int32 uid = 17;
+    int32 num_cores = 18;
+    int32 gid = 19;
+    bool ignore_nimby = 20;
+    map<string, string> environment = 21;
+    map<string, string> attributes = 22;
 }
 
 message RunFrameSeq {
