@@ -74,8 +74,8 @@ class RunningFrame(object):
     def __init__(self, rqCore, runFrame):
         self.rqCore = rqCore
         self.runFrame = runFrame
-        self.ignoreNimby = runFrame.ignoreNimby
-        self.frameId = runFrame.frameId
+        self.ignoreNimby = runFrame.ignore_nimby
+        self.frameId = runFrame.frame_id
 
         self.killMessage = ""
 
@@ -97,17 +97,17 @@ class RunningFrame(object):
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
         runningFrameInfo = report_pb2.RunningFrameInfo(
-            resourceId=self.runFrame.resourceId,
-            jobId=self.runFrame.jobId,
-            jobName=self.runFrame.jobName,
-            frameId=self.runFrame.frameId,
-            frameName=self.runFrame.frameName,
-            layerId=self.runFrame.layerId,
-            numCores=self.runFrame.numCores,
-            startTime=self.runFrame.startTime,
-            maxRss=self.maxRss,
+            resourceId=self.runFrame.resource_id,
+            jobId=self.runFrame.job_id,
+            jobName=self.runFrame.job_name,
+            frameId=self.runFrame.frame_id,
+            frameName=self.runFrame.frame_name,
+            layerId=self.runFrame.layer_id,
+            numCores=self.runFrame.num_cores,
+            startTime=self.runFrame.start_time,
+            maxRss=self.max_rss,
             rss=self.rss,
-            maxVsize=self.maxVsize,
+            maxVsize=self.max_vsize,
             vsize=self.vsize,
             attributes=self.runFrame.attributes
         )
@@ -117,7 +117,7 @@ class RunningFrame(object):
         """Returns the status of the frame"""
         return self.runningFrameInfo()
 
-    def kill(self, message = ""):
+    def kill(self, message=""):
         """Kills the frame"""
         log.info("Request recieved: kill")
         if self.frameAttendantThread is None:
@@ -205,20 +205,20 @@ class Network(object):
         return report_pb2_grpc.RqdReportInterfaceStub(channel)
 
     def reportRqdStartup(self, report):
-        """Wraps the ability to send a startup report to rqd via Ice"""
+        """Wraps the ability to send a startup report to rqd via grpc"""
         stub = self.__getReportStub()
         request = report_pb2.RqdReportRqdStartupRequest(boot_report=report)
         stub.ReportRqdStartup(request, timeout=rqconstants.RQD_TIMEOUT)
 
     def reportStatus(self, report):
-        """Wraps the ability to send a status report to the cuebot via Ice"""
+        """Wraps the ability to send a status report to the cuebot via grpc"""
         stub = self.__getReportStub()
         request = report_pb2.RqdReportStatusRequest(host_report=report)
         stub.ReportStatus(request, timeout=rqconstants.RQD_TIMEOUT)
 
     def reportRunningFrameCompletion(self, report):
         """Wraps the ability to send a running frame completion report
-           to the cuebot via Ice"""
+           to the cuebot via grpc"""
         stub = self.__getReportStub()
         request = report_pb2.RqdReportRunningFrameCompletionRequest(frame_complete_report=report)
         stub.ReportRunningFrameCompletion(request, timeout=rqconstants.RQD_TIMEOUT)

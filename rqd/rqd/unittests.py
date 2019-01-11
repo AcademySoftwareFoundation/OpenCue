@@ -106,16 +106,16 @@ class TestRqdWithGrpc(SetupCuebotListener):
     def _verifyStatusReport(self, report):
         assert len(report.host.name) > 0
         #nimbyEnabled = False
-        assert report.host.numProcs > 0
-        assert report.host.coresPerProc > 0
-        assert report.host.totalSwap > 0
-        assert report.host.totalMem > 0
-        assert report.host.totalMcp > 0
-        assert report.host.freeSwap > 0
-        assert report.host.freeMem > 0
-        assert report.host.freeMcp > 0
+        assert report.host.num_procs > 0
+        assert report.host.cores_per_proc > 0
+        assert report.host.total_swap > 0
+        assert report.host.total_mem > 0
+        assert report.host.total_mcp > 0
+        assert report.host.free_swap > 0
+        assert report.host.free_mem > 0
+        assert report.host.free_mcp > 0
         #load = 6
-        assert report.host.bootTime > 0
+        assert report.host.boot_time > 0
         assert len(report.host.tags) > 0 
         assert len(report.procs) > 0
     

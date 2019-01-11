@@ -63,7 +63,7 @@ import rqconstants
 
 
 class RqdHost:
-    def __init__(self, rqdHost, rqdPort = rqconstants.RQD_GRPC_PORT):
+    def __init__(self, rqdHost, rqdPort=rqconstants.RQD_GRPC_PORT):
         self.rqdHost = rqdHost
         self.rqdPort = rqdPort
 
@@ -83,7 +83,7 @@ class RqdHost:
         self.stub.NimbyOff(rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
-        print self.rqdHost,"Turning on Nimby"
+        print self.rqdHost, "Turning on Nimby"
         log.info("rqd nimbyon by {0}".format(os.environ.get("USER")))
         self.stub.NimbyOn(rqd_pb2.RqdStaticNimbyOnRequest())
 
@@ -163,7 +163,7 @@ if __name__ == "__main__":
     rqdHost = RqdHost(hostname)
 
     for o, a in opts:
-        if o in ("-h","--help"):
+        if o in ("-h", "--help"):
             print __doc__
             sys.exit(0)
         if o in ("-s", "--s"):
@@ -207,13 +207,13 @@ if __name__ == "__main__":
             print "Launching edu test frame (logs to /mcp)"
             frameNum = "0001"
             runFrame = rqd_pb2.RunFrame()
-            runFrame.jobId = "SD6F3S72DJ26236KFS"
-            runFrame.jobName = "edu-trn_jwelborn-jwelborn_teapot_bty"
-            runFrame.frameId = "FD1S3I154O646UGSNN%s" % frameNum
-            runFrame.frameName = "%s-teapot_bty_3D" % frameNum
+            runFrame.job_id = "SD6F3S72DJ26236KFS"
+            runFrame.job_name = "edu-trn_jwelborn-jwelborn_teapot_bty"
+            runFrame.frame_id = "FD1S3I154O646UGSNN%s" % frameNum
+            runFrame.frame_name = "%s-teapot_bty_3D" % frameNum
             runFrame.command = "/usr/bin/env VNP_APPLICATION_TIME=1197683283873 /usr/bin/env VNP_VCR_SESSION=3411896 /usr/bin/env PROFILE=default /shots/edu/home/perl/etc/qwrap.cuerun /shots/edu/trn_jwelborn/cue/jwelborn olrun /shots/edu/trn_jwelborn/cue/cue_archive/edu-trn_jwelborn-jwelborn_teapot_bty/v4/teapot_bty.outline %d -batch -event teapot_bty_3D" % int(frameNum)
-            runFrame.userName = "jwelborn"
-            runFrame.logDir = "/mcp" # This would be on the shottree
+            runFrame.user_name = "jwelborn"
+            runFrame.log_dir = "/mcp" # This would be on the shottree
             runFrame.show = "edu"
             runFrame.shot = "trn_jwelborn"
             runFrame.uid = 10164
@@ -221,50 +221,50 @@ if __name__ == "__main__":
             #report = rqdHost.status()
             #if report.coreInfo.idleCores >= 100
 
-            runFrame.numCores = 100
+            runFrame.num_cores = 100
 
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame":
             print "Launching script test frame (logs to /mcp)"
             runFrame = rqd_pb2.RunFrame()
-            runFrame.resourceId = "8888888877777755555"
-            runFrame.jobId = "SD6F3S72DJ26236KFS"
-            runFrame.jobName = "swtest-home-jwelborn_rqd_test"
-            runFrame.frameId = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
-            runFrame.frameName = "0001-preprocess"
+            runFrame.resource_id = "8888888877777755555"
+            runFrame.job_id = "SD6F3S72DJ26236KFS"
+            runFrame.job_name = "swtest-home-jwelborn_rqd_test"
+            runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
+            runFrame.frame_name = "0001-preprocess"
             # Script output is not buffered due to python -u option
             runFrame.command = "/net/people/jwelborn/test_python_u -t 5 -e 0"
-            runFrame.userName = "jwelborn"
-            runFrame.logDir = "/mcp" # This would be on the shottree
+            runFrame.user_name = "jwelborn"
+            runFrame.log_dir = "/mcp" # This would be on the shottree
             runFrame.show = "swtest"
             runFrame.shot = "home"
             runFrame.uid = 10164
             #runFrame.type = CueIce.LayerType.Render
             #report = rqdHost.status()
             #if report.coreInfo.idleCores >= 100
-            runFrame.numCores = 50
+            runFrame.num_cores = 50
 
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame_mac":
             print "Launching script test frame (logs to /tmp)"
             runFrame = rqd_pb2.RunFrame()
-            runFrame.resourceId = "2222222277777755555"
-            runFrame.jobId = "SD6F3S72DJ26236KFS"
-            runFrame.jobName = "swtest-home-jwelborn_rqd_test"
-            runFrame.frameId = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
-            runFrame.frameName = "0001-preprocess"
+            runFrame.resource_id = "2222222277777755555"
+            runFrame.job_id = "SD6F3S72DJ26236KFS"
+            runFrame.job_name = "swtest-home-jwelborn_rqd_test"
+            runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
+            runFrame.frame_name = "0001-preprocess"
             # Script output is not buffered due to python -u option
             runFrame.command = "/net/people/jwelborn/test_python_u_mac -t 5 -e 0"
-            runFrame.userName = "jwelborn"
-            runFrame.logDir = "/tmp" # This would be on the shottree
+            runFrame.user_name = "jwelborn"
+            runFrame.log_dir = "/tmp" # This would be on the shottree
             runFrame.show = "swtest"
             runFrame.shot = "home"
             runFrame.uid = 10164
             #report = rqdHost.status()
             #if report.coreInfo.idleCores >= 100
-            runFrame.numCores = 1.0
+            runFrame.num_cores = 1.0
 
             rqdHost.launchFrame(runFrame)
 
