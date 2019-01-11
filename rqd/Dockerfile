@@ -67,11 +67,11 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
 # -----------------
 FROM base
 
-WORKDIR /opt/cue3
+WORKDIR /opt/opencue
 
 COPY --from=package /src/dist/rqd-*-all.tar.gz ./
 COPY --from=package /src/dist/install_and_run.sh ./
 RUN chmod +x ./install_and_run.sh
 
-ENTRYPOINT ["/opt/cue3/install_and_run.sh"]
+ENTRYPOINT ["/opt/opencue/install_and_run.sh"]
 
