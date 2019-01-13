@@ -24,9 +24,14 @@ RUN apt-get update -y && apt-get install -y \
   docker-ce \
   && usermod -aG docker jenkins
 
-RUN touch /var/run/docker.sock \
-  && chmod 666 /var/run/docker.sock \
-  && chgrp docker /var/run/docker.sock
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
 
-USER jenkins
+RUN add-apt-repository \
+  "deb http://packages.cloud.google.com/apt cloud-sdk-$(lsb_release -c -s) main"
+
+RUN apt-get update -y && apt-get install -y google-cloud-sdk
+
+COPY init_docker_and_run_jenkins.sh /usr/local/bin/
+
+ENTRYPOINT ["/usr/local/bin/init_docker_and_run_jenkins.sh"]
 
