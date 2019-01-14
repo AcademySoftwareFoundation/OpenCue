@@ -1,24 +1,40 @@
 #!/usr/bin/env python
 
+# Script for publishing a public release from an OpenCue build.
+#
+# Depends on the `requests` library, which you can install via pip:
+#
 # pip install requests
-
-# Need a personal access token. Generate one with:
+#
+# This script calls the GitHub API and needs a Personal Access Token to be
+# provided via the GITHUB_TOKEN environment variable. You can create this
+# token via the GitHub UI or on the commandline like:
+#
+# curl \
+#  -u 'username' \
+#  -d '{"scopes":["repo"], "note":"Publishing an OpenCue release"}' \
+#  https://api.github.com/authorizations
+#
+# If you use multi-factor authentication you can provide that via a header
+# like:
+#
 # curl \
 #  -u 'username' \
 #  -H 'X-GitHub-OTP: 000000' \
 #  -d '{"scopes":["repo"], "note":"Publishing an OpenCue release"}' \
 #  https://api.github.com/authorizations
 
-# Store "token" field from JSON response to GITHUB_TOKEN
-
 import argparse
 import os
+import re
+import shutil
 import subprocess
 import tempfile
 
 import requests
 
 
+BUILD_ID_RE = re.compile('^\d+\.\d+\.\d+$')
 GITHUB_API = 'https://api.github.com'
 REPO = 'imageworks/OpenCue'
 
@@ -58,7 +74,7 @@ def _create_release(release_tag):
           # TODO: pull from metadata artifact
           'target_commitish': 'master',
           'name': release_tag,
-          # TODO: pull changelog from metadata artifact
+          # TODO(bcipriano) Construct changelog from commits since the last release.
           'body': 'OpenCue %s' % release_tag,
           'draft': False,
           'prerelease': False,
@@ -114,15 +130,19 @@ def main():
   parser.add_argument('--build_id', required=True, help='Build ID to release')
   args = parser.parse_args()
 
+  # Verify build ID is valid. This also forces releases to come from the master branch -
+  # other branches append a commit hash to the build ID.
+  if not BUILD_ID_RE.match(args.build_id):
+    raise Exception('Invalid build ID %s' % args.build_id)
+
   req_env_vars = ['GITHUB_TOKEN', 'CUE_PUBLISH_BUCKET']
   for req_env_var in req_env_vars:
     if req_env_var not in os.environ:
       raise Exception('Environment var %s is required and was not found' % req_env_var)
 
-  # TODO build id is from master only - \d.\d.\d
-
   tmpdir = tempfile.mkdtemp()
 
+  print 'Collecting build artifacts from GCS...'
   cmd = [
       'gsutil', '-m', 'cp',
       'gs://%s/%s/*' % (os.environ['CUE_PUBLISH_BUCKET'], args.build_id),
@@ -133,8 +153,7 @@ def main():
   if not release_artifacts:
     raise Exception('No release artifacts were found')
 
-  release_tag = 'v%s-test' % args.build_id
-
+  release_tag = 'v%s' % args.build_id
   if _release_exists(release_tag):
     print 'Found release %s' % release_tag
     release = _get_release(release_tag)
@@ -145,7 +164,7 @@ def main():
   for release_artifact in release_artifacts:
     _upload_artifact(os.path.join(tmpdir, release_artifact), release)
 
-  # TODO remove tmp files
+  shutil.rmtree(tmpdir)
 
 
 if __name__ == '__main__':
