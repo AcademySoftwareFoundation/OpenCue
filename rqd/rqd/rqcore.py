@@ -128,9 +128,8 @@ class FrameAttendantThread(threading.Thread):
             os.chmod(commandFile, 0777)
             return commandFile
         except Exception, e:
-            log.critical("Unable to make command file: %s due to %s at %s" % \
-                                      (commandFile, e,
-                                       traceback.extract_tb(sys.exc_info()[2])))
+            log.critical("Unable to make command file: %s due to %s at %s" % (
+                commandFile, e, traceback.extract_tb(sys.exc_info()[2])))
 
     def __writeHeader(self):
         """Writes the frame's log header"""
@@ -139,11 +138,10 @@ class FrameAttendantThread(threading.Thread):
 
         try:
             print >> self.rqlog, "="*59
-            print >> self.rqlog, "RenderQ JobSpec     ", \
-                            time.ctime(self.frameInfo.start_time), "\n"
-            print >> self.rqlog, "proxy               ",  "RunningFrame/%s -t:tcp -h %s -p 10021" % \
-                                                          (self.runFrame.frame_id,
-                                                           self.rqCore.machine.getHostname())
+            print >> self.rqlog, "RenderQ JobSpec     ", time.ctime(self.frameInfo.start_time), "\n"
+            print >> self.rqlog, "proxy               ", "RunningFrame/%s -t:tcp -h %s -p 10021" % (
+                self.runFrame.frame_id,
+                self.rqCore.machine.getHostname())
             print >> self.rqlog, "%-21s%s" % ("command", self.runFrame.command)
             print >> self.rqlog, "%-21s%s" % ("uid", self.runFrame.uid)
             print >> self.rqlog, "%-21s%s" % ("gid", self.runFrame.gid)
@@ -223,9 +221,8 @@ class FrameAttendantThread(threading.Thread):
                     try:
                         os.remove(location)
                     except Exception, e:
-                        log.warning("Unable to delete file: %s due to %s at %s" % \
-                                     (location, e,
-                                     traceback.extract_tb(sys.exc_info()[2])))
+                        log.warning("Unable to delete file: %s due to %s at %s" % (
+                            location, e, traceback.extract_tb(sys.exc_info()[2])))
         finally:
             rqutil.permissionsLow()
 
@@ -233,9 +230,8 @@ class FrameAttendantThread(threading.Thread):
         try:
             self.rqlog.close()
         except Exception, e:
-            log.warning("Unable to close file: %s due to %s at %s" % \
-                         (self.runFrame.log_file, e,
-                          traceback.extract_tb(sys.exc_info()[2])))
+            log.warning("Unable to close file: %s due to %s at %s" % (
+                self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2])))
 
     def runLinux(self):
         """The steps required to handle a frame under linux"""
@@ -325,8 +321,8 @@ class FrameAttendantThread(threading.Thread):
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog)
         except:
-            log.critical("Failed subprocess.Popen: Due to: \n%s" % \
-                         ''.join(traceback.format_exception(*sys.exc_info())))
+            log.critical("Failed subprocess.Popen: Due to: \n%s" % ''.join(
+                traceback.format_exception(*sys.exc_info())))
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
@@ -451,22 +447,20 @@ class FrameAttendantThread(threading.Thread):
                             msg = e
 
                         if not os.access(runFrame.log_dir, os.F_OK):
-                            err = "Unable to see log directory: %s, mkdir " \
-                                  "failed with: %s" % (runFrame.log_dir, msg)
+                            err = "Unable to see log directory: %s, mkdir failed with: %s" % (
+                                runFrame.log_dir, msg)
                             raise RuntimeError, err
 
                     if not os.access(runFrame.log_dir, os.W_OK):
-                        err = "Unable to write to log directory %s" % \
-                              runFrame.log_dir
+                        err = "Unable to write to log directory %s" % runFrame.log_dir
                         raise RuntimeError, err
 
                     try:
                         # Rotate any old logs to a max of MAX_LOG_FILES:
                         if os.path.isfile(runFrame.log_dir_file):
                             rotateCount = 1
-                            while os.path.isfile("%s.%s" % (runFrame.log_dir_file,
-                                                            rotateCount)) \
-                                  and rotateCount < rqconstants.MAX_LOG_FILES:
+                            while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
+                                   and rotateCount < rqconstants.MAX_LOG_FILES):
                                 rotateCount += 1
                             os.rename(runFrame.log_dir_file,
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
@@ -503,9 +497,9 @@ class FrameAttendantThread(threading.Thread):
                     self.runUnknown()
 
             except Exception, e:
-                log.critical("Failed launchFrame: For %s due to: \n%s" % \
-                             (runFrame.frame_id,
-                              ''.join(traceback.format_exception(*sys.exc_info()))))
+                log.critical("Failed launchFrame: For %s due to: \n%s" % (
+                    runFrame.frame_id,
+                    ''.join(traceback.format_exception(*sys.exc_info()))))
                 # Notifies the cuebot that there was an error launching
                 self.frameInfo.exitStatus = rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
                 # Delay keeps the cuebot from spamming failing booking requests
@@ -689,10 +683,10 @@ class RqCore:
         self.__threadLock.acquire()
         try:
             self.cores.booked_cores -= reqRelease
-            maxRelease = self.cores.total_cores -\
-                         self.cores.locked_cores -\
-                         self.cores.idle_cores -\
-                         self.cores.booked_cores
+            maxRelease = (self.cores.total_cores -
+                          self.cores.locked_cores -
+                          self.cores.idle_cores -
+                          self.cores.booked_cores)
 
             if maxRelease > 0:
                 self.cores.idle_cores += min(maxRelease, reqRelease)
@@ -762,8 +756,7 @@ class RqCore:
             raise CoreReservationFailureException(err)
 
         if self.__cache.has_key(runFrame.frame_id):
-            err = "Not launching, frame is already running on this proc %s" % \
-                                                                runFrame.frame_id
+            err = "Not launching, frame is already running on this proc %s" % runFrame.frame_id
             log.critical(err)
             raise DuplicateFrameViolationException(err)
 
@@ -947,8 +940,7 @@ class RqCore:
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or \
-           self.machine.state != host_pb2.UP:
+        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
@@ -978,8 +970,7 @@ class RqCore:
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or \
-           self.machine.state != host_pb2.UP:
+        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
