@@ -153,10 +153,18 @@ class Cuebot:
             except Exception:
                 logger.warning('Could not establish grpc channel with {}.'.format(connect_str))
                 continue
-            atexit.register(Cuebot.RpcChannel.close)
+            atexit.register(Cuebot.closeChannel)
             return None
         raise CueException('No grpc connection could be established. ' +
                            'Please check configured cuebot hosts.')
+
+    @staticmethod
+    def closeChannel():
+        """Close the gRPC channel, delete it and reset it to None."""
+        if Cuebot.RpcChannel is not None:
+            Cuebot.RpcChannel.close()
+            del Cuebot.RpcChannel
+            Cuebot.RpcChannel = None
 
     @staticmethod
     def setFacility(facility):
