@@ -66,11 +66,12 @@ class Machine:
         """Machine class initialization
         @type   rqCore: RqCore
         @param  rqCore: Main RQD Object, used to access frames and nimby states
-        @type  coreInfo: RqdIce.CoreDetail
+        @type  coreInfo: report_pb2.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
         """
         self.__rqCore = rqCore
         self.__coreInfo = coreInfo
+        self.__tasksets = set()
 
         if platform.system() == 'Linux':
             self.__vmstat = rqswap.VmStat()
@@ -105,7 +106,7 @@ class Machine:
         """Returns False if nimby should not unlock due to resource limits"""
         if not self.isNimbySafeToRunJobs():
             return False
-        if self.getLoadAvg() / self.__coreInfo.totalCores > rqconstants.MAXIMUM_LOAD:
+        if self.getLoadAvg() / self.__coreInfo.total_cores > rqconstants.MAXIMUM_LOAD:
             return False
         return True
 
@@ -395,7 +396,7 @@ class Machine:
             self.__renderHost.tags.append("32bit")
         elif os.uname()[-1] == "x86_64":
             self.__renderHost.tags.append("64bit")
-        self.__renderHost.tags.append(os.uname()[2].replace(".EL.spi","").replace("smp",""))
+        self.__renderHost.tags.append(os.uname()[2].replace(".EL.spi", "").replace("smp", ""))
 
     def testInitMachineStats(self, pathCpuInfo):
         self.__initMachineStats(pathCpuInfo=pathCpuInfo)
@@ -643,7 +644,7 @@ class Machine:
         for x in range(reservedCores / 100):
             core = self.__tasksets.pop()
             tasksets.append(str(core))
-            tasksets.append(str(core + self.__coreInfo.totalCores / 100))
+            tasksets.append(str(core + self.__coreInfo.total_cores / 100))
 
         log.debug('Taskset: Reserving cores - %s' % ','.join(tasksets))
 
@@ -662,6 +663,6 @@ class Machine:
 
         log.debug('Taskset: Releasing cores - %s' % reservedHT)
         for core in reservedHT.split(','):
-            if int(core) < self.__coreInfo.totalCores / 100:
+            if int(core) < self.__coreInfo.total_cores / 100:
                 self.__tasksets.add(int(core))
 

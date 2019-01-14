@@ -3,7 +3,7 @@
 # RQD3:    Start/stop rqd3 services
 #
 # chkconfig:    345 98 02
-# description:  RQD for spicue3
+# description:  RQD for opencue
 #
 
 # Source function library.

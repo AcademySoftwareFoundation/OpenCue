@@ -54,7 +54,7 @@ CUEBOT_PORT = "9018"
 # If the hostname is blank then the facility ice server will be queried
 # Multiple hosts can be listed as space delimited
 # TODO: Make driven by a config file b/110168575
-# CUEBOT_HOSTNAME = "cue3bot1 cue3bot2 cue3bot3"
+# CUEBOT_HOSTNAME = "cuebot1 cuebot2 cuebot3"
 if 'CUEBOT_HOSTNAME' in os.environ:
   CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
 else:
@@ -71,9 +71,9 @@ FACILITY_ICE_NAMESERVER = "FacilityStatic" \
 
 # GRPC VALUES
 RQD_GRPC_MAX_WORKERS = 10
-RQD_GRPC_PORT = 50051
+RQD_GRPC_PORT = 8444
 RQD_GRPC_SLEEP = 60 * 60 *24
-CUEBOT_GRPC_PORT = 8444
+CUEBOT_GRPC_PORT = 8443
 
 # RQD behavior:
 RSS_UPDATE_INTERVAL = 10

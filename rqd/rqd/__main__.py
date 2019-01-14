@@ -73,7 +73,7 @@ in /etc/rqd3/rqd3.conf:
 OVERRIDE_CORES = 2
 OVERRIDE_PROCS = 3
 OVERRIDE_MEMORY = 1000000
-OVERRIDE_CUEBOT = cue3bot1 cue3bot2 cue3bot3
+OVERRIDE_CUEBOT = cuebot1 cuebot2 cuebot3
 # True will start nimby, False will keep nimby from starting
 OVERRIDE_NIMBY = False
 # True will check and report gpu memory if cuda capable
@@ -85,11 +85,12 @@ SVN: $Id$
 """
 
 
-import sys
 import getopt
+import logging as log
 import os
 import platform
-import logging as log
+import socket
+import sys
 from logging.handlers import SysLogHandler
 
 
@@ -103,9 +104,9 @@ def setupLogging():
     fileLevel     = log.WARNING # Equal to or greater than the consoleLevel
 
     log.basicConfig(level=consoleLevel, format=consoleFormat)
-    if platform.system() == 'Linux':
+    try:
         logfile = SysLogHandler(address='/dev/log')
-    else:
+    except socket.error:
         logfile = SysLogHandler()
     logfile.setLevel(fileLevel)
     logfile.setFormatter(log.Formatter(fileFormat))
