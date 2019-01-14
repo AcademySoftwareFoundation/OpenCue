@@ -25,6 +25,7 @@
 #  https://api.github.com/authorizations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -65,14 +66,13 @@ def _get_release(release_tag):
             release_tag, response.status_code, response.text))
 
 
-def _create_release(release_tag):
+def _create_release(release_tag, build_metadata):
   response = requests.post(
       '%s/repos/%s/releases' % (GITHUB_API, REPO),
       headers={'Authorization': 'token %s' % os.environ['GITHUB_TOKEN']},
       json={
           'tag_name': release_tag,
-          # TODO: pull from metadata artifact
-          'target_commitish': 'master',
+          'target_commitish': build_metadata['git_commit'],
           'name': release_tag,
           # TODO(bcipriano) Construct changelog from commits since the last release.
           'body': 'OpenCue %s' % release_tag,
@@ -153,15 +153,23 @@ def main():
   if not release_artifacts:
     raise Exception('No release artifacts were found')
 
+  if 'build_metadata.json' not in release_artifacts:
+    raise Exception('Build metadata was not found alongside build artifacts')
+
+  with open(os.path.join(tmpdir, 'build_metadata.json')) as fp:
+    build_metadata = json.load(fp)
+
   release_tag = 'v%s' % args.build_id
   if _release_exists(release_tag):
     print 'Found release %s' % release_tag
     release = _get_release(release_tag)
   else:
     print 'Creating new release %s...' % release_tag
-    release = _create_release(release_tag)
+    release = _create_release(release_tag, build_metadata)
 
   for release_artifact in release_artifacts:
+    if release_artifact == 'build_metadata.json':
+      continue
     _upload_artifact(os.path.join(tmpdir, release_artifact), release)
 
   shutil.rmtree(tmpdir)
