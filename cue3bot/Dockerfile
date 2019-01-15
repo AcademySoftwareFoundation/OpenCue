@@ -68,16 +68,17 @@ FROM base
 ARG CUEBOT_GRPC_CUE_PORT=8443
 ARG CUEBOT_GRPC_RQD_PORT=8444
 
-WORKDIR /opt/cue3
+WORKDIR /opt/opencue
 
 COPY --from=package /src/cue3bot/build/libs/cuebot-*-all.jar ./
 
 RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
 
-# TODO(cipriano) Implement a new GRPC-based health check. (b/120441749)
+# TODO(bcipriano) Implement a new GRPC-based health check.
+# https://github.com/imageworks/OpenCue/issues/73
 # HEALTHCHECK --start-period=30s --timeout=5s CMD python check_ice.py localhost CueStatic 9019
 
-VOLUME ["/opt/cue3/logs"]
+VOLUME ["/opt/opencue/logs"]
 
 # RQD server
 EXPOSE 9018
@@ -89,5 +90,5 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 EXPOSE $grpc_cue_port
 EXPOSE $grpc_rqd_port
 
-ENTRYPOINT ["java", "-jar", "/opt/cue3/cuebot-latest.jar"]
+ENTRYPOINT ["java", "-jar", "/opt/opencue/cuebot-latest.jar"]
 

@@ -47,7 +47,7 @@ RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
 # -----------------
 FROM opencue/pycue:${upstream_version}
 
-WORKDIR /opt/cue3
+WORKDIR /opt/opencue
 
 COPY --from=package /src/cuegui-*-all.tar.gz ./
 

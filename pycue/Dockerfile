@@ -61,7 +61,7 @@ RUN versioned_name="pycue-$(cat ./VERSION)-all" \
 # -----------------
 FROM base
 
-WORKDIR /opt/cue3
+WORKDIR /opt/opencue
 
 COPY --from=package /src/pycue-*-all.tar.gz ./
 
