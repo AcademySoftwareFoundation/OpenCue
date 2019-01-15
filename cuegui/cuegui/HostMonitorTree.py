@@ -194,7 +194,7 @@ class HostMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: The column clicked on"""
         host = item.rpcObject
-        if col == COMMENT_COLUMN and Utils.isHost(host) and host.data.hasComment:
+        if col == COMMENT_COLUMN and Utils.isHost(host) and host.data.has_comment:
             self.__menuActions.hosts().viewComments([host])
 
     def clearFilters(self):
@@ -265,6 +265,7 @@ class HostWidgetItem(AbstractWidgetItem):
 
     def __init__(self, object, parent):
         if not self.__initialized:
+            Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
@@ -294,27 +295,27 @@ class HostWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.BackgroundRole:
             if not self.rpcObject.data.state == Cue3.api.host_pb2.UP:
                 return self.__dyingColor
-            if self.rpcObject.data.lockState == Cue3.api.host_pb2.LOCKED:
+            if self.rpcObject.data.lock_state == Cue3.api.host_pb2.LOCKED:
                 return self.__pausedColor
             return self.__backgroundColor
 
         elif role == QtCore.Qt.DecorationRole:
-            if col == COMMENT_COLUMN and self.rpcObject.data.hasComment:
+            if col == COMMENT_COLUMN and self.rpcObject.data.has_comment:
                 return self.__commentIcon
 
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
         elif role == QtCore.Qt.UserRole + 1:
-            return [self.rpcObject.data.totalSwap - self.rpcObject.data.freeSwap,
-                    self.rpcObject.data.totalSwap]
+            return [self.rpcObject.data.total_swap - self.rpcObject.data.free_swap,
+                    self.rpcObject.data.total_swap]
 
         elif role == QtCore.Qt.UserRole + 2:
-            return [self.rpcObject.data.totalMemory - self.rpcObject.data.freeMemory,
-                    self.rpcObject.data.totalMemory]
+            return [self.rpcObject.data.total_memory - self.rpcObject.data.free_memory,
+                    self.rpcObject.data.total_memory]
 
         elif role == QtCore.Qt.UserRole + 3:
-            return [self.rpcObject.data.totalGpu - self.rpcObject.data.freeGpu,
-                    self.rpcObject.data.totalGpu]
+            return [self.rpcObject.data.total_gpu - self.rpcObject.data.free_gpu,
+                    self.rpcObject.data.total_gpu]
 
         return Constants.QVARIANT_NULL
