@@ -48,7 +48,7 @@ LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
 class FrameMonitorTree(AbstractTreeWidget):
 
-    job_changed = QtCore.Signal(int, int)
+    job_changed = QtCore.Signal()
     handle_filter_layers_byLayer = QtCore.Signal(list)
 
     def __init__(self, parent):
@@ -313,7 +313,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.removeAllItems()
         self.__sortByColumnLoad()
         self._lastUpdate = 0
-        self.job_changed.emit(1, 5000)
+        self.job_changed.emit()
 
     def getJob(self):
         """Returns the current job
