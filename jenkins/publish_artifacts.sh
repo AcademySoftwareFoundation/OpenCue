@@ -8,18 +8,19 @@ fi
 build_id=$1
 artifact_directory=$2
 
-# TODO re-enable these changes, once the vars are used
-# if [[ -z "${CUE_PUBLISH_BUCKET}" ]]; then
-#   echo "CUE_PUBLISH_BUCKET must be defined"
-#   exit 1
-# fi
+if [[ -z "${CUE_PUBLISH_BUCKET}" ]]; then
+  echo "CUE_PUBLISH_BUCKET must be defined"
+  exit 1
+fi
 
-# if [[ -z "${CUE_PUBLISH_PROJECT}" ]]; then
-#   echo "CUE_PUBLISH_PROJECT must be defined"
-#   exit 1
-# fi
+gsutil -m cp \
+  "${artifact_directory}/build_metadata.json" \
+  "${artifact_directory}/cuebot-${build_id}-all.jar" \
+  "${artifact_directory}/rqd-${build_id}-all.tar.gz" \
+  "${artifact_directory}/pycue-${build_id}-all.tar.gz" \
+  "${artifact_directory}/cuegui-${build_id}-all.tar.gz" \
+  "gs://${CUE_PUBLISH_BUCKET}/${build_id}/"
 
-# TODO publish JAR to GCS
-# TODO publish RQD, pycue, cuegui tarballs to GCS
-# TODO publish images to GCR
+# TODO(bcipriano) Publish Docker images to DockerHub.
+# https://github.com/imageworks/OpenCue/issues/105
 
