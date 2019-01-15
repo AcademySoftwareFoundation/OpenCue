@@ -21,7 +21,7 @@ import traceback
 
 import output
 import util
-from Manifest import Cue3
+from Manifest import opencue
 
 TEST_SERVERS = []
 
@@ -31,7 +31,7 @@ class __NullHandler(logging.Handler):
         pass
 
 
-logger = logging.getLogger("cue3.tools")
+logger = logging.getLogger("opencue.tools")
 logger.addHandler(__NullHandler())
 
 __ALL__ = ["testServer",
@@ -66,17 +66,17 @@ def handleCommonArgs(args):
     logger.debug(args)
     if args.unit_test:
         util.enableDebugLogging()
-        Cue3.Cuebot.setHosts(testServers())
+        opencue.Cuebot.setHosts(testServers())
         logger.info("running unit tests")
         logger.info("setting up test servers")
     if args.verbose:
         util.enableDebugLogging()
     if args.server:
-        logger.debug("setting cue3 host servers to %s" % args.server)
-        Cue3.Cuebot.setHosts(args.server)
+        logger.debug("setting opencue host servers to %s" % args.server)
+        opencue.Cuebot.setHosts(args.server)
     if args.facility:
         logger.debug("setting facility to %s" % args.facility)
-        Cue3.Cuebot.setFacility(args.facility)
+        opencue.Cuebot.setFacility(args.facility)
     if args.force:
         pass
 
@@ -145,24 +145,24 @@ def setCommonQueryArgs(parser):
 
 def handleCommonQueryArgs(args):
     if args.lh:
-        output.displayHosts(Cue3.search.HostSearch.byMatch(args.query))
+        output.displayHosts(opencue.search.HostSearch.byMatch(args.query))
         return True
     elif args.lj:
-        for job in Cue3.search.JobSearch.byMatch(args.query):
+        for job in opencue.search.JobSearch.byMatch(args.query):
             print job.data.name
         return True
     elif args.lji:
-        output.displayJobs(Cue3.search.JobSearch.byMatch(args.query))
+        output.displayJobs(opencue.search.JobSearch.byMatch(args.query))
         return True
     elif args.la:
-        output.displayAllocations(Cue3.api.getAllocations())
+        output.displayAllocations(opencue.api.getAllocations())
         return True
     elif args.lb:
         for show in resolveShowNames(args.lb):
             output.displaySubscriptions(show.getSubscriptions(), show.data.name)
         return True
     elif args.ls:
-        output.displayShows(Cue3.api.getShows())
+        output.displayShows(opencue.api.getShows())
         return True
     return False
 
@@ -184,25 +184,26 @@ def handleFloatCriterion(mixed, convert=None):
         return float(convert(float(val)))
 
     criterions = [
-        Cue3.api.criterion_pb2.GreaterThanFloatSearchCriterion,
-        Cue3.api.criterion_pb2.LessThanFloatSearchCriterion,
-        Cue3.api.criterion_pb2.InRangeFloatSearchCriterion]
+        opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion,
+        opencue.api.criterion_pb2.LessThanFloatSearchCriterion,
+        opencue.api.criterion_pb2.InRangeFloatSearchCriterion]
 
     if isinstance(mixed, (float, int)):
-        result = Cue3.api.criterion_pb2.GreaterThanFloatSearchCriterion(value=_convert(mixed))
+        result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(value=_convert(mixed))
     elif isinstance(mixed, str):
         if mixed.startswith("gt"):
-            result = Cue3.api.criterion_pb2.GreaterThanFloatSearchCriterion(
+            result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
                 value=_convert(mixed[2:]))
         elif mixed.startswith("lt"):
-            result = Cue3.api.criterion_pb2.LessThanFloatSearchCriterion(value=_convert(mixed[2:]))
+            result = opencue.api.criterion_pb2.LessThanFloatSearchCriterion(
+                value=_convert(mixed[2:]))
         elif mixed.find("-") > -1:
             min_value, max_value = mixed.split("-", 1)
-            result = Cue3.api.criterion_pb2.InRangeFloatSearchCriterion(min=_convert(min_value),
-                                                                        max=_convert(max_value))
+            result = opencue.api.criterion_pb2.InRangeFloatSearchCriterion(min=_convert(min_value),
+                                                                           max=_convert(max_value))
         else:
             try:
-                result = Cue3.api.criterion_pb2.GreaterThanFloatSearchCriterion(
+                result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
                     value=_convert(mixed))
             except ValueError:
                 raise Exception("invalid float search input value: " + str(mixed))
@@ -233,26 +234,26 @@ def handleIntCriterion(mixed, convert=None):
         return int(convert(float(val)))
 
     criterions = [
-        Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion,
-        Cue3.api.criterion_pb2.LessThanIntegerSearchCriterion,
-        Cue3.api.criterion_pb2.InRangeIntegerSearchCriterion]
+        opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion,
+        opencue.api.criterion_pb2.LessThanIntegerSearchCriterion,
+        opencue.api.criterion_pb2.InRangeIntegerSearchCriterion]
 
     if isinstance(mixed, (float, int)):
-        result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=_convert(mixed))
+        result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=_convert(mixed))
     elif isinstance(mixed, str):
         if mixed.startswith("gt"):
-            result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+            result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                 value=_convert(mixed[2:]))
         elif mixed.startswith("lt"):
-            result = Cue3.api.criterion_pb2.LessThanIntegerSearchCriterion(
+            result = opencue.api.criterion_pb2.LessThanIntegerSearchCriterion(
                 value=_convert(mixed[2:]))
         elif mixed.find("-") > -1:
             min_value, max_value = mixed.split("-", 1)
-            result = Cue3.api.criterion_pb2.InRangeIntegerSearchCriterion(
+            result = opencue.api.criterion_pb2.InRangeIntegerSearchCriterion(
                 min=_convert(min_value), max=_convert(max_value))
         else:
             try:
-                result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+                result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                     value=_convert(mixed))
             except ValueError:
                 raise Exception("invalid int search input value: " + str(mixed))
@@ -267,7 +268,7 @@ def handleIntCriterion(mixed, convert=None):
 
 
 def resolveJobNames(names):
-    items = Cue3.search.JobSearch.byName(names)
+    items = opencue.search.JobSearch.byName(names)
     logger.debug("found %d of %d supplied jobs" % (len(items), len(names)))
     if len(names) != len(items) and len(items):
         logger.warn("Unable to match all job names with running jobs on the cue.")
@@ -283,7 +284,7 @@ def resolveJobNames(names):
 def resolveHostNames(names=None, substr=None):
     items = []
     if names:
-        items = Cue3.search.HostSearch.byName(names)
+        items = opencue.search.HostSearch.byName(names)
         logger.debug("found %d of %d supplied hosts" % (len(items), len(names)))
         if len(names) != len(items) and len(items):
             logger.warn("Unable to match all host names with valid hosts on the cue.")
@@ -292,7 +293,7 @@ def resolveHostNames(names=None, substr=None):
             logger.warn("Operations NOT executed for %s" % set(names).difference([
                 i.data.name for i in items]))
     elif substr:
-        items = Cue3.search.HostSearch.byMatch(substr)
+        items = opencue.search.HostSearch.byMatch(substr)
         logger.debug("matched %d hosts using patterns %s" % (len(items), substr))
     if not items:
         raise ValueError("no valid hosts")
@@ -303,8 +304,8 @@ def resolveShowNames(names):
     items = []
     try:
         for name in names:
-            items.append(Cue3.api.findShow(name))
-    except Cue3.CueException:
+            items.append(opencue.api.findShow(name))
+    except opencue.CueException:
         pass
     logger.debug("found %d of %d supplied shows" % (len(items), len(names)))
     if len(names) != len(items) and len(items):
@@ -381,9 +382,9 @@ class AllocUtil(object):
 
     @staticmethod
     def transferHosts(src, dst):
-        hosts = Cue3.proxy(src).getHosts()
+        hosts = opencue.proxy(src).getHosts()
         logger.debug("transferring %d hosts from %s to %s" %
-                     (len(hosts), Cue3.rep(src), Cue3.rep(dst)))
+                     (len(hosts), opencue.rep(src), opencue.rep(dst)))
         dst.proxy.reparentHosts(hosts)
 
 
@@ -396,19 +397,19 @@ class DependUtil(object):
     def dropAllDepends(job, layer=None, frame=None):
         if frame:
             logger.debug("dropping all depends on: %s/%04d-%s" % (job, layer, frame))
-            depend_er_frame = Cue3.api.findFrame(job, layer, frame)
+            depend_er_frame = opencue.api.findFrame(job, layer, frame)
             for depend in depend_er_frame.getWhatThisDependsOn():
                 depend.proxy.satisfy()
         elif layer:
             logger.debug("dropping all depends on: %s/%s" % (job, layer))
-            depend_er_layer = Cue3.api.findLayer(job, layer)
+            depend_er_layer = opencue.api.findLayer(job, layer)
             for depend in depend_er_layer.getWhatThisDependsOn():
                 depend.proxy.satisfy()
         else:
             logger.debug("dropping all depends on: %s" % job)
-            depend_er_job = Cue3.api.findJob(job)
+            depend_er_job = opencue.api.findJob(job)
             for depend in depend_er_job.getWhatThisDependsOn():
-                logger.debug("dropping depend %s %s" % (depend.data.type, Cue3.id(depend)))
+                logger.debug("dropping depend %s %s" % (depend.data.type, opencue.id(depend)))
                 depend.proxy.satisfy()
 
 
@@ -434,43 +435,43 @@ class Convert(object):
     @staticmethod
     def strToMatchSubject(val):
         try:
-            return getattr(Cue3.api.filter_pb2, str(val).upper())
+            return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
             raise ValueError("invalid match subject: %s" % val.upper())
 
     @staticmethod
     def strToMatchType(val):
         try:
-            return getattr(Cue3.api.filter_pb2, str(val).upper())
+            return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
             raise ValueError("invalid match type: %s" % val.upper())
 
     @staticmethod
     def strToActionType(val):
         try:
-            return getattr(Cue3.api.filter_pb2, str(val).upper())
+            return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
             raise ValueError("invalid action type: %s" % val.upper())
 
     @staticmethod
     def strToFrameState(val):
         try:
-            return getattr(Cue3.api.job_pb2, str(val).upper())
+            return getattr(opencue.api.job_pb2, str(val).upper())
         except Exception:
             raise ValueError("invalid frame state: %s" % val.upper())
 
     @staticmethod
     def strToHardwareState(val):
         try:
-            return getattr(Cue3.api.host_pb2, str(val.upper()))
+            return getattr(opencue.api.host_pb2, str(val.upper()))
         except Exception:
             raise ValueError("invalid hardware state: %s" % val.upper())
 
     @staticmethod
     def strToThreadMode(val):
-        """Converts the given value to Cue3.api.host_pb2.ThreadMode enumerated value."""
+        """Converts the given value to opencue.api.host_pb2.ThreadMode enumerated value."""
         try:
-            return getattr(Cue3.api.host_pb2, str(val.upper()))
+            return getattr(opencue.api.host_pb2, str(val.upper()))
         except Exception:
             raise ValueError("invalid thread mode: %s" % val.upper())
 
@@ -482,7 +483,7 @@ class ActionUtil(object):
 
     @staticmethod
     def factory(actionType, value):
-        a = Cue3.api.filter_pb2.Action()
+        a = opencue.api.filter_pb2.Action()
         a.type = Convert.strToActionType(actionType)
         ActionUtil.setValue(a, value)
         return a
@@ -505,30 +506,30 @@ class ActionUtil(object):
 
     @staticmethod
     def setValue(act, value):
-        if act.type == Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP:
-            act.groupValue = Cue3.proxy(value)
-            act.valueType = Cue3.api.filter_pb2.GROUP_TYPE
+        if act.type == opencue.api.filter_pb2.MOVE_JOB_TO_GROUP:
+            act.groupValue = opencue.proxy(value)
+            act.valueType = opencue.api.filter_pb2.GROUP_TYPE
 
-        elif act.type == Cue3.api.filter_pb2.PAUSE_JOB:
+        elif act.type == opencue.api.filter_pb2.PAUSE_JOB:
             act.booleanValue = value
-            act.valueType = Cue3.api.filter_pb2.BOOLEAN_TYPE
+            act.valueType = opencue.api.filter_pb2.BOOLEAN_TYPE
 
-        elif act.type in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,
-                          Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY):
+        elif act.type in (opencue.api.filter_pb2.SET_JOB_PRIORITY,
+                          opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY):
             act.integerValue = int(value)
-            act.valueType = Cue3.api.filter_pb2.INTEGER_TYPE
+            act.valueType = opencue.api.filter_pb2.INTEGER_TYPE
 
-        elif act.type in (Cue3.api.filter_pb2.SET_JOB_MIN_CORES,
-                          Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
-                          Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+        elif act.type in (opencue.api.filter_pb2.SET_JOB_MIN_CORES,
+                          opencue.api.filter_pb2.SET_JOB_MAX_CORES,
+                          opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
             act.floatValue = float(value)
-            act.valueType = Cue3.api.filter_pb2.FLOAT_TYPE
+            act.valueType = opencue.api.filter_pb2.FLOAT_TYPE
 
-        elif act.type == Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
+        elif act.type == opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
             act.stringValue = value
-            act.valueType = Cue3.api.filter_pb2.STRING_TYPE
+            act.valueType = opencue.api.filter_pb2.STRING_TYPE
 
-        elif act.type == Cue3.api.filter_pb2.STOP_PROCESSING:
-            act.valueType = Cue3.api.filter_pb2.NONE_TYPE
+        elif act.type == opencue.api.filter_pb2.STOP_PROCESSING:
+            act.valueType = opencue.api.filter_pb2.NONE_TYPE
         else:
             raise TypeError("invalid action type: %s" % act.type)

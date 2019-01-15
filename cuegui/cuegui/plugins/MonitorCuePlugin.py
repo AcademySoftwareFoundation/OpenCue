@@ -19,7 +19,7 @@ import weakref
 
 from PySide2 import QtGui, QtCore, QtWidgets
 
-import Cue3
+import opencue
 import cuegui
 
 
@@ -28,7 +28,7 @@ logger = cuegui.Logger.getLogger(__file__)
 PLUGIN_NAME = "Monitor Cue"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An improved tree listing of shows, groups and jobs"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
@@ -166,7 +166,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget):
         self.__showMenuActions = {}
 
         try:
-            shows = sorted([show.name() for show in Cue3.api.getActiveShows()])
+            shows = sorted([show.name() for show in opencue.api.getActiveShows()])
         except Exception, e:
             logger.critical(e)
             shows = []

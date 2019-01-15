@@ -14,7 +14,7 @@
 
 
 import os
-import Cue3
+import opencue
 
 import argparse
 import output

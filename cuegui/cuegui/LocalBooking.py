@@ -17,12 +17,12 @@ import time
 from socket import gethostname
 
 import Utils
-from Manifest import QtCore, QtWidgets, Cue3, os
+from Manifest import QtCore, QtWidgets, opencue, os
 
 
 class LocalBookingWidget(QtWidgets.QWidget):
     """
-    A widget for creating Cue3 RenderParitions, otherwise know
+    A widget for creating opencue RenderParitions, otherwise know
     as local core booking.
     """
 
@@ -31,7 +31,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
     def __init__(self, target, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
-        # Can either be a Cue3 job, layer, or frame.
+        # Can either be a opencue job, layer, or frame.
         self.__target = target
         self.__parent = parent
 
@@ -45,9 +45,9 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__lba_group = QtWidgets.QGroupBox("Settings", self)
 
         try:
-            owner = Cue3.api.getOwner(os.environ["USER"])
+            owner = opencue.api.getOwner(os.environ["USER"])
             for host in owner.getHosts():
-                if host.data.lockState != Cue3.api.host_pb2.OPEN:
+                if host.data.lockState != opencue.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
         except Exception, e:
             pass
@@ -187,7 +187,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         hostname = str(hostname)
         if not hostname:
             return
-        host = Cue3.api.findHost(str(hostname))
+        host = opencue.api.findHost(str(hostname))
         try:
             rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
             
@@ -214,23 +214,23 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         show_name = os.environ.get("SHOW", "pipe")
         try:
-            _show = Cue3.api.findShow(show_name)
+            _show = opencue.api.findShow(show_name)
         except Exception, e:
             msg = QtWidgets.QMessageBox(self)
-            msg.setText("Error %s, please setshot and rerun cuetopia3", e)
+            msg.setText("Error %s, please setshot and rerun cuetopia", e)
             msg.exec_()
             return
 
         user = os.environ["USER"]
         try:
-            owner = Cue3.api.getOwner(user)
-        except Cue3.EntityNotFoundException, e:
+            owner = opencue.api.getOwner(user)
+        except opencue.EntityNotFoundException, e:
             # Owner does not exist
             owner = _show.createOwner(user)
  
         hostname = gethostname()
         try:
-            host = Cue3.api.findHost(hostname.rsplit(".",2)[0])
+            host = opencue.api.findHost(hostname.rsplit(".",2)[0])
             owner.takeOwnership(host.data.name)
             self.__select_host.addItem(host.data.name)
             self.__lba_group.setDisabled(False)
@@ -284,7 +284,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         try:
             self.__btn_clear.setText("Clearing....")
             self.__btn_clear.setDisabled(True)
-            host = Cue3.api.findHost(str(hostname))
+            host = opencue.api.findHost(str(hostname))
 
             rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
             if rp:
@@ -309,7 +309,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         if self.__hasError():
             return
 
-        host = Cue3.api.findHost(str(self.__select_host.currentText()))
+        host = opencue.api.findHost(str(self.__select_host.currentText()))
         rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
         if rp:
             # A render partition already exists on this hosts and user is modifying

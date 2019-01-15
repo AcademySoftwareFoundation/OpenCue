@@ -18,7 +18,7 @@ import cuegui
 PLUGIN_NAME = "Shows"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to shows"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "ShowsDockWidget"
 
 class ShowsDockWidget(cuegui.AbstractDockWidget):

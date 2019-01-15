@@ -36,5 +36,5 @@ class __NullHandler(logging.Handler):
         pass
 
 
-__logger = logging.getLogger("cue3")
+__logger = logging.getLogger("opencue")
 __logger.addHandler(__NullHandler())

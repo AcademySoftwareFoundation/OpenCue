@@ -16,7 +16,7 @@
 """
 A monitored job list based on AbstractTreeWidget
 """
-from Manifest import os, sys, QtCore, QtGui, QtWidgets, Cue3
+from Manifest import os, sys, QtCore, QtGui, QtWidgets, opencue
 
 import time
 
@@ -43,7 +43,7 @@ def displayState(job):
     @param job: The job to check the status of
     @rtype:  string
     @return: The status of the job for display"""
-    if job.data.state == Cue3.api.job_pb2.FINISHED:
+    if job.data.state == opencue.api.job_pb2.FINISHED:
         return "Finished"
     if job.data.is_paused:
         return "Paused"
@@ -352,7 +352,7 @@ class JobMonitorTree(AbstractTreeWidget):
             monitored_proxies = []
             for item in self._items.values():
                 objectKey = Utils.getObjectKey(item.rpcObject)
-                if item.rpcObject.data.state == Cue3.api.job_pb2.FINISHED:
+                if item.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
                     # Reuse the old object if job is finished
                     jobs[objectKey] = item.rpcObject
                 else:
@@ -361,7 +361,7 @@ class JobMonitorTree(AbstractTreeWidget):
 
             if self.__loadMine:
                 # This auto-loads all the users jobs
-                for job in Cue3.api.getJobs(user=[Utils.getUsername()]):
+                for job in opencue.api.getJobs(user=[Utils.getUsername()]):
                     objectKey = Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
@@ -371,7 +371,7 @@ class JobMonitorTree(AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in Cue3.api.getJobs(id=monitored_proxies, all=True):
+                for job in opencue.api.getJobs(id=monitored_proxies, all=True):
                     objectKey = Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
@@ -469,7 +469,7 @@ class JobWidgetItem(AbstractWidgetItem):
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
-            if self.rpcObject.data.state == Cue3.api.job_pb2.FINISHED:
+            if self.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
                 return self.__finishedColor
             elif self.rpcObject.data.is_paused:
                 return self.__pausedColor

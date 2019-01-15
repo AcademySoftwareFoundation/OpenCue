@@ -16,7 +16,7 @@
 """
 
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, opencue
 
 import Logger
 import Utils

@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtWidgets, Cue3
+from Manifest import QtCore, QtWidgets, opencue
 
 
 class SubscriptionCreator(QtWidgets.QWidget):
@@ -26,8 +26,8 @@ class SubscriptionCreator(QtWidgets.QWidget):
             except Exception:
                 show_name = str(show)
 
-        self.__shows = Cue3.api.getShows()
-        self.__allocs = Cue3.api.getAllocations()
+        self.__shows = opencue.api.getShows()
+        self.__allocs = opencue.api.getAllocations()
 
         layout = QtWidgets.QFormLayout(self)
 

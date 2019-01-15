@@ -20,7 +20,7 @@ job to another job.
 import os
 import re
 import time
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 import Utils
 
 
@@ -44,7 +44,7 @@ class ShowCombo(QtWidgets.QComboBox):
 
     def refresh(self):
         self.clear()
-        shows = Cue3.api.getActiveShows()
+        shows = opencue.api.getActiveShows()
         shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         for show in shows:
@@ -77,7 +77,7 @@ class AllocFilter(QtWidgets.QPushButton):
         """
         Refresh the full list of allocations.
         """
-        allocs = Cue3.api.getAllocations()
+        allocs = opencue.api.getAllocations()
         allocs.sort(lambda x,y: cmp(x.data.name, y.data.name))
 
         self.__menu.clear()
@@ -134,7 +134,7 @@ class JobBox(QtWidgets.QLineEdit):
         self.refresh()
 
     def refresh(self):
-        slist = Cue3.api.getJobNames()
+        slist = opencue.api.getJobNames()
         slist.sort()
 
         self.__c = QtWidgets.QCompleter(slist, self)
@@ -164,7 +164,7 @@ class GroupFilter(QtWidgets.QPushButton):
             if show:
                 return show
         except:
-            return Cue3.api.findShow(show.name())
+            return opencue.api.findShow(show.name())
 
     def showChanged(self, show):
         self.__show = self.__loadShow(show)
@@ -172,13 +172,13 @@ class GroupFilter(QtWidgets.QPushButton):
     def __populate_menu(self):
         self.__menu.clear()
         for group in self.__show.getGroups():
-            if Cue3.id(group) in self.__actions:
-                self.__menu.addAction(self.__actions[Cue3.id(group)])
+            if opencue.id(group) in self.__actions:
+                self.__menu.addAction(self.__actions[opencue.id(group)])
             else:
                 action = QtWidgets.QAction(self)
                 action.setText(group.data.name)
                 action.setCheckable(True)
-                self.__actions[Cue3.id(group)] = action
+                self.__actions[opencue.id(group)] = action
                 self.__menu.addAction(action)
 
     def getChecked(self):
@@ -193,7 +193,7 @@ class RedirectControls(QtWidgets.QWidget):
     """
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
-        self.__current_show = Cue3.api.findShow(os.getenv("SHOW","pipe"))
+        self.__current_show = opencue.api.findShow(os.getenv("SHOW", "pipe"))
 
         self.__show_combo = ShowCombo(self.__current_show.data.name, self)
         self.__job_box = JobBox(self)
@@ -284,12 +284,12 @@ class RedirectControls(QtWidgets.QWidget):
         return self.__config
 
     def showChanged(self, show):
-        self.__current_show = Cue3.api.findShow(str(show))
+        self.__current_show = opencue.api.findShow(str(show))
         self.__include_group_btn.showChanged(self.__current_show)
 
     def detect(self, name=None):
         try:
-            job = Cue3.api.findJob(str(self.__job_box.text()))
+            job = opencue.api.findJob(str(self.__job_box.text()))
         except:
             return
 
@@ -393,7 +393,7 @@ class RedirectWidget(QtWidgets.QWidget):
 
         @return: A dictionary with the allocation neames are the keys and the
                  selected procs are the values.
-        @rtype: dict<str:L{Cue3.wrappers.proc.Proc}>
+        @rtype: dict<str:L{opencue.wrappers.proc.Proc}>
         '''
 
         procs_by_alloc = {}
@@ -423,7 +423,7 @@ class RedirectWidget(QtWidgets.QWidget):
         to another, based on user response to the warning message
 
         @param procs: The procs to redirect
-        @type procs: L{Cue3.wrappers.proc.Proc}
+        @type procs: L{opencue.wrappers.proc.Proc}
 
         @param target_show: The name of the target show
         @type target_show: str
@@ -460,7 +460,7 @@ class RedirectWidget(QtWidgets.QWidget):
         @type alloc: str
 
         @param procs: The procs to be redirected
-        @type procs: L{Cue3.wrappers.proc.Proc}
+        @type procs: L{opencue.wrappers.proc.Proc}
 
         @param show: The name of the target show
         @type show: str
@@ -476,7 +476,7 @@ class RedirectWidget(QtWidgets.QWidget):
         if wc_ok < 0:
             return True
 
-        show_obj = Cue3.api.findShow(show)
+        show_obj = opencue.api.findShow(show)
         show_subs = dict((s.data.name.rstrip('.%s' % show), s)
                          for s in show_obj.getSubscriptions()
                          if s.data.allocationName in alloc)
@@ -532,8 +532,8 @@ class RedirectWidget(QtWidgets.QWidget):
             return
         job = None
         try:
-            job = Cue3.api.findJob(job_name)
-        except Cue3.EntityNotFoundException:  # Target job finished, exit
+            job = opencue.api.findJob(job_name)
+        except opencue.EntityNotFoundException:  # Target job finished, exit
             self.__warn_and_stop('The job you\'re trying to redirect to '
                                  'appears to be no longer in the cue!')
             return
@@ -590,7 +590,7 @@ class RedirectWidget(QtWidgets.QWidget):
 
         show = self.__controls.getShow()
         alloc = self.__controls.getAllocFilter()
-        procs = Cue3.api.getProcs(show=show.data.name, alloc=alloc.getSelected())
+        procs = opencue.api.getProcs(show=show.data.name, alloc=alloc.getSelected())
 
         progress = QtWidgets.QProgressDialog("Searching","Cancel", 0,
                                          self.__controls.getLimit(), self)
@@ -628,7 +628,7 @@ class RedirectWidget(QtWidgets.QWidget):
 
             name = proc.data.name.split("/")[0]
             if name not in hosts:
-                cue_host = Cue3.api.findHost(name)
+                cue_host = opencue.api.findHost(name)
                 hosts[name] = {
                                "host": cue_host,
                                "procs":[],

@@ -16,7 +16,7 @@
 """
 A confirmation dialog
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, Cue3
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import Utils
 

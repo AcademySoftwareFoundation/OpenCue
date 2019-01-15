@@ -15,7 +15,7 @@
 
 import Constants
 import Utils
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 from TagsWidget import TagsWidget
 
 
@@ -96,7 +96,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
     """
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.__layers = [Cue3.getLayer(Cue3.id(l)) for l in layers]
+        self.__layers = [opencue.getLayer(opencue.id(l)) for l in layers]
 
         self.setWindowTitle("Layer Properties")
 
@@ -137,7 +137,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_cores.setSingleStep(1)
 
         ## Disable this for everything except commander.
-        if QtGui.qApp.applicationName() != "CueCommander3":
+        if QtGui.qApp.applicationName() != "CueCommander":
             self.__core.setDisabled(True)
 
         # Threads
@@ -351,7 +351,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
         try:
             for layer in self.__layers:
                 layer.setTags(tags)
-        except Cue3.CueException, e:
+        except opencue.CueException, e:
             warning = QtWidgets.QMessageBox(self)
             warning.setText("Error applying layer tags.")
             warning.setDetailedText("%s" % e)

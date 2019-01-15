@@ -1,9 +1,0 @@
-## Cue3
-
-cuebot.facility_default: lax
-cuebot.facility:
-    lax:
-        - cue3bot1.spimageworks.com:9019
-        - cue3bot2.spimageworks.com:9019
-        - cue3bot3.spimageworks.com:9019
-cuebot.timeout: 10000

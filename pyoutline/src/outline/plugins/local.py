@@ -59,13 +59,13 @@ def setup_local_threads(option, opt, value, parser, *args, **kwargs):
     USE_LOCAL_THREADS = value
 
 def deed_local_machine():
-    import Cue3
+    import opencue
 
     user = os.environ.get("USER")
-    show = Cue3.findShow(os.environ.get("SHOW", "pipe"))
+    show = opencue.findShow(os.environ.get("SHOW", "pipe"))
     try:
-        owner = Cue3.getOwner(user)
-    except Cue3.CueException, e:
+        owner = opencue.getOwner(user)
+    except opencue.CueException, e:
         owner = show.createOwner(user)
 
     owner.takeOwnership(gethostname())

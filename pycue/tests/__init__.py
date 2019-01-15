@@ -15,5 +15,5 @@
 
 
 """
-Cue3 api test
+opencue api test
 """

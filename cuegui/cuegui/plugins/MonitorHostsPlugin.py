@@ -21,7 +21,7 @@ import cuegui
 PLUGIN_NAME = "Monitor Hosts"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to hosts and procs"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "HostMonitorDockWidget"
 
 

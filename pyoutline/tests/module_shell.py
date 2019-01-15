@@ -26,9 +26,9 @@ import outline
 from outline import cuerun
 from outline.modules.shell import Shell, ShellSequence, ShellScript
 
-from outline.backend import cue3
+from outline.backend import cue
 
-import Cue3
+import opencue
 
 class ShellModuleTest(unittest.TestCase):
 
@@ -61,9 +61,9 @@ class ShellModuleTest(unittest.TestCase):
         self.assertEquals(10, job.stats.waitingFrames)
         self.assertEquals(10, job.stats.pendingFrames)
 
-        cue3.test(job)
+        cue.test(job)
 
-        job = Cue3.getJob(job)
+        job = opencue.getJob(job)
         self.assertEquals(0, job.stats.waitingFrames)
         self.assertEquals(10, job.stats.succeededFrames)
 

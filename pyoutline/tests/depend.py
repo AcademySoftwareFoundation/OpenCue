@@ -26,7 +26,7 @@ import outline
 
 from outline.modules.shell import Shell, ShellSequence
 from outline.depend import DependType
-from outline.backend import cue3
+from outline.backend import cue
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -43,7 +43,7 @@ class DependTest(unittest.TestCase):
         job = outline.cuerun.launch(ol, range="1", pause=True)
 
         self.assertEquals(1, job.stats.dependFrames)
-        cue3.test(job)
+        cue.test(job)
 
     def testShortHandDepend(self):
 
@@ -55,7 +55,7 @@ class DependTest(unittest.TestCase):
         job = outline.cuerun.launch(ol, range="1", pause=True)
 
         self.assertEquals(1, job.stats.dependFrames)
-        cue3.test(job)
+        cue.test(job)
 
     def testAnyFrameDepend(self):
 
@@ -67,7 +67,7 @@ class DependTest(unittest.TestCase):
         job = outline.cuerun.launch(ol, pause=True)
 
         self.assertEquals(1, job.stats.dependFrames)
-        cue3.test(job)
+        cue.test(job)
 
 if __name__ == '__main__':
     unittest.main()

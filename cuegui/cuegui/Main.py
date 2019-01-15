@@ -48,11 +48,11 @@ class CueGuiApplication(QtWidgets.QApplication):
 
 
 def cuetopia(argv):
-    startup("Cuetopia3", Constants.VERSION, argv)
+    startup("Cuetopia", Constants.VERSION, argv)
 
 
 def cuecommander(argv):
-    startup("CueCommander3", Constants.VERSION, argv)
+    startup("CueCommander", Constants.VERSION, argv)
 
 
 def startup(app_name, app_version, argv):

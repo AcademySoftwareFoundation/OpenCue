@@ -16,7 +16,7 @@
 import re
 
 from AbstractDialog import AbstractDialog
-from Manifest import QtCore, QtWidgets, Cue3
+from Manifest import QtCore, QtWidgets, opencue
 
 
 class UnbookDialog(AbstractDialog):
@@ -28,7 +28,7 @@ class UnbookDialog(AbstractDialog):
 
         __descriptionLabel = QtWidgets.QLabel("Unbook and optionally kill the matching frames from the following jobs:", self)
 
-        self.__show = Cue3.api.findShow(jobs[0].data.name.split("-")[0])
+        self.__show = opencue.api.findShow(jobs[0].data.name.split("-")[0])
         self.__jobs = [job.data.name for job in jobs if job.data.name.startswith(self.__show.data.name)]
         self.__subscriptions = [sub.data.name.split(".")[1] for sub in self.__show.getSubscriptions()]
 
@@ -142,21 +142,25 @@ class UnbookDialog(AbstractDialog):
             return int(convert(float(val)))
 
         if isinstance(mixed, (float, int)):
-            result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(_convert(mixed))
+            result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(_convert(mixed))
         elif isinstance(mixed, str):
             if mixed.startswith("gt"):
-                result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(_convert(mixed[2:]))
+                result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+                    _convert(mixed[2:]))
             elif mixed.startswith("lt"):
-                result = Cue3.api.criterion_pb2.LessThanIntegerSearchCriterion(_convert(mixed[2:]))
+                result = opencue.api.criterion_pb2.LessThanIntegerSearchCriterion(
+                    _convert(mixed[2:]))
             elif mixed.find("-") > -1:
                 min,max = mixed.split("-", 1)
-                result = Cue3.api.criterion_pb2.InRangeIntegerSearchCriterion(_convert(min), _convert(max))
+                result = opencue.api.criterion_pb2.InRangeIntegerSearchCriterion(
+                    _convert(min), _convert(max))
             else:
                 try:
-                    result = Cue3.api.criterion_pb2.GreaterThanIntegerSearchCriterion(_convert(mixed))
+                    result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+                        _convert(mixed))
                 except ValueError:
                     raise Exception("invalid int search input value: " + str(mixed))
-        elif issubclass(mixed.__class__, Cue3.api.criterion_pb2.IntegerSearchCriterion):
+        elif issubclass(mixed.__class__, opencue.api.criterion_pb2.IntegerSearchCriterion):
             result = mixed
         elif not mixed:
             return []
@@ -169,7 +173,7 @@ class UnbookDialog(AbstractDialog):
         if not self.__jobs:
             self.close()
 
-        procSearch = Cue3.search.ProcSearch()
+        procSearch = opencue.search.ProcSearch()
         procSearch.maxResults = [int(self.__amount.value())]
         procSearch.jobs = self.__jobs
         procSearch.allocs = [str(checkedBox.text()) for checkedBox in self.__matrix.checkedBoxes()]
@@ -184,7 +188,7 @@ class UnbookDialog(AbstractDialog):
             # Select the show to redirect to
             title = "Select show"
             body = "Redirect to what show?"
-            shows = dict([(show.data.name, show) for show in Cue3.api.getActiveShows()])
+            shows = dict([(show.data.name, show) for show in opencue.api.getActiveShows()])
             items = [self.__jobs[0].split("-")[0]] + sorted(shows.keys())
             (show, choice) = QtWidgets.QInputDialog.getItem(self,
                                                             title,
@@ -211,7 +215,8 @@ class UnbookDialog(AbstractDialog):
 
             job = group = None
             if redirectTo == "Job":
-                jobs = dict([(job.data.name, job) for job in Cue3.api.getJobs(show=[show.data.name])])
+                jobs = dict([(job.data.name, job) for job in opencue.api.getJobs(
+                    show=[show.data.name])])
                 dialog = SelectItemsWithSearchDialog(self,
                                                      "Redirect to which job?",
                                                      jobs.keys(),
@@ -238,7 +243,7 @@ class UnbookDialog(AbstractDialog):
                 group = groups[str(group)]
 
             if job or group:
-                procs = Cue3.api.getProcs(procSearch)
+                procs = opencue.api.getProcs(procSearch)
                 kill = self.__kill.isChecked()
                 amount = 0
 
@@ -262,7 +267,7 @@ class UnbookDialog(AbstractDialog):
                 if dialog.result():
                     self.close()
             else:
-                amount = Cue3.api.unbookProcs(procSearch, False)
+                amount = opencue.api.unbookProcs(procSearch, False)
                 self.__informationBox("Unbooked frames",
                                       "Number of frames unbooked: %d" % amount)
                 self.close()
@@ -367,7 +372,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         self.setWindowTitle("Unbook and kill frames?")
 
         self.__procSearch = procSearch
-        self.__procs = Cue3.api.getProcs(procSearch)
+        self.__procs = opencue.api.getProcs(procSearch)
         self.__amount = len(self.__procs)
 
         if self.__amount == 1:

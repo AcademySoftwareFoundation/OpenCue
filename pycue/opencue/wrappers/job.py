@@ -15,9 +15,9 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: job.py - Cue3 Library implementation of a job
+Module: job.py - opencue Library implementation of a job
 
 """
 
@@ -27,9 +27,9 @@ import time
 import depend
 import frame
 import layer
-from Cue3 import Cuebot
-from Cue3.compiled_proto import comment_pb2
-from Cue3.compiled_proto import job_pb2
+from opencue import Cuebot
+from opencue.compiled_proto import comment_pb2
+from opencue.compiled_proto import job_pb2
 from ..search import FrameSearch
 
 
@@ -205,9 +205,9 @@ class Job(object):
 
     def dropDepends(self, target):
         """Drops the desired dependency target:
-        Cue3.DependTarget.AnyTarget
-        Cue3.DependTarget.External
-        Cue3.DependTarget.Internal
+        opencue.DependTarget.AnyTarget
+        opencue.DependTarget.External
+        opencue.DependTarget.Internal
         @type  target: DependTarget
         @param target: The desired dependency target to drop"""
         return self.stub.DropDepends(job_pb2.JobDropDependsRequest(job=self.data, target=target),
@@ -514,7 +514,7 @@ class Job(object):
 
     def frameStateTotals(self):
         """Returns a dictionary of frame states and the number of frames in each
-        state. The states are available from Cue3.FrameState.*
+        state. The states are available from opencue.FrameState.*
         @rtype: dict
         @return: total number of frames in each state"""
         if not hasattr(self, "__frameStateTotals"):

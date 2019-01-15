@@ -14,12 +14,12 @@
 
 
 """
-Cue3 group module
+opencue group module
 """
 
 import job
-from Cue3 import Cuebot
-from Cue3.compiled_proto import job_pb2
+from opencue import Cuebot
+from opencue.compiled_proto import job_pb2
 
 
 class Group(object):

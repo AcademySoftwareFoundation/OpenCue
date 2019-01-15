@@ -17,7 +17,7 @@ import time
 import os
 
 import cuegui
-import Cue3
+import opencue
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -194,11 +194,11 @@ class LayerAttributes(AbstractAttributes):
 
     @staticmethod
     def preload(rpcObject):
-        return {"depends": Cue3.wrappers.layer.Layer(rpcObject).getWhatThisDependsOn()}
+        return {"depends": opencue.wrappers.layer.Layer(rpcObject).getWhatThisDependsOn()}
 
     def dataSource(self, layer, preload):
         d = {
-                "id": Cue3.util.id(layer),
+                "id": opencue.util.id(layer),
                 "layer": layer.data.name,
                 "services": layer.data.services,
                 "type": str(layer.data.type),
@@ -261,12 +261,12 @@ class JobAttributes(AbstractAttributes):
 
     @staticmethod
     def preload(rpcObject):
-        return {"depends": Cue3.wrappers.job.Job(rpcObject).getWhatThisDependsOn()}
+        return {"depends": opencue.wrappers.job.Job(rpcObject).getWhatThisDependsOn()}
 
     def dataSource(self, job, preload):
         d = {
             "job": job.data.name,
-            "id": Cue3.util.id(job),
+            "id": opencue.util.id(job),
             "facility": job.data.facility,
             "os": job.data.os,
             "show": job.data.show,
@@ -340,7 +340,7 @@ class HostAttributes(AbstractAttributes):
 
     def dataSource(self, host, preload):
         return {"hostname": host.data.name,
-                "id": Cue3.util.id(host),
+                "id": opencue.util.id(host),
                 "alloc": host.data.allocName,
                 "os": host.data.os,
                 "nimby": str(host.data.nimbyEnabled),

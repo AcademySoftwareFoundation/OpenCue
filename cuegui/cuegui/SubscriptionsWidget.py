@@ -17,7 +17,7 @@ import Constants
 import Utils
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 from MenuActions import MenuActions
 from ShowDialog import ShowDialog
 
@@ -61,7 +61,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def changeFacility(self):
         try:
-            self.__shows = dict([(show.name(), show) for show in Cue3.api.getActiveShows()])
+            self.__shows = dict([(show.name(), show) for show in opencue.api.getActiveShows()])
         except Exception, e:
             self.__shows = {}
         self.__comboShows.clear()
@@ -111,11 +111,11 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.__monitorSubscriptions._update()
 
     def selectedObjects(self):
-        return [Cue3.api.findShow(self.__show.name())]
+        return [opencue.api.findShow(self.__show.name())]
 
     def __showProperties(self):
         if self.__show:
-            dialog = ShowDialog(Cue3.api.findShow(self.__show.name()), self)
+            dialog = ShowDialog(opencue.api.findShow(self.__show.name()), self)
             dialog.exec_()
         else:
             self.__comboShows.showPopup()
@@ -175,7 +175,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
                 self.__show = show
             elif isinstance(show, str):
                 try:
-                    self.__show = Cue3.api.findShow(show)
+                    self.__show = opencue.api.findShow(show)
                 except:
                     pass
             self._update()

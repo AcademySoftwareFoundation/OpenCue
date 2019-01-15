@@ -45,9 +45,9 @@ Examples:
 import os
 import sys
 import logging
-import Cue3
+import opencue
 
-logger = logging.getLogger("cue3.tools.cuedepend")
+logger = logging.getLogger("opencue.tools.cuedepend")
 
 ERR_INVALID_ON_JOB = "Error, a dependency of this type requires a valid job name to depend on.  See -on-job."
 ERR_INVALID_ON_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -on-layer."
@@ -135,8 +135,8 @@ def createHardDepend(job, onjob):
     depends = []
 
     logger.debug("creating hard depend from %s to %s" % (job, onjob))
-    onLayers = Cue3.api.findJob(onjob).getLayers()
-    for depend_er_layer in Cue3.api.findJob(job).getLayers():
+    onLayers = opencue.api.findJob(onjob).getLayers()
+    for depend_er_layer in opencue.api.findJob(job).getLayers():
             for depend_on_layer in onLayers:
                 if depend_er_layer.data.type == depend_on_layer.data.type:
                     depends.append(depend_er_layer.createFrameByFrameDependency(depend_on_layer,
@@ -156,8 +156,8 @@ def createJobOnJobDepend(job, onjob):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
 
     logger.debug("creating joj depend from %s to %s" % (job, onjob))
-    depend_er_job = Cue3.api.findJob(job)
-    return depend_er_job.createDependencyOnJob(Cue3.api.findJob(onjob))
+    depend_er_job = opencue.api.findJob(job)
+    return depend_er_job.createDependencyOnJob(opencue.api.findJob(onjob))
 
 def createJobOnLayerDepend(job, onjob, onlayer):
     """Creates a job on layer dependency
@@ -174,8 +174,8 @@ def createJobOnLayerDepend(job, onjob, onlayer):
     __is_valid(onlayer, ERR_INVALID_ON_LAYER)
 
     logger.debug("creating jol depend from %s to %s/%s" % (job, onjob, onlayer))
-    depend_er_job = Cue3.api.findJob(job)
-    depend_on_layer = Cue3.api.findLayer(onjob, onlayer)
+    depend_er_job = opencue.api.findJob(job)
+    depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_job.createDependencyOnLayer(depend_on_layer)
 
 def createJobOnFrameDepend(job, onjob, onlayer, onframe):
@@ -197,8 +197,8 @@ def createJobOnFrameDepend(job, onjob, onlayer, onframe):
 
     logger.debug("creating jof depend from %s to %s/%s-%04d"
                  % (job, onjob, onlayer, onframe))
-    depend_er_job = Cue3.findJob(job)
-    depend_on_frame = Cue3.findFrame(onjob, onlayer, onframe)
+    depend_er_job = opencue.findJob(job)
+    depend_on_frame = opencue.findFrame(onjob, onlayer, onframe)
     return depend_er_job.createDependencyOnFrame(depend_on_frame)
 
 def createLayerOnJobDepend(job, layer, onjob):
@@ -217,8 +217,8 @@ def createLayerOnJobDepend(job, layer, onjob):
     __is_valid(onjob, ERR_INVALID_ON_JOB)
 
     logger.debug("creating loj depend from %s/%s to %s" % (job, layer, onjob))
-    depend_er_layer = Cue3.api.findLayer(job, layer)
-    return depend_er_layer.createDependencyOnJob(Cue3.api.findJob(onjob))
+    depend_er_layer = opencue.api.findLayer(job, layer)
+    return depend_er_layer.createDependencyOnJob(opencue.api.findJob(onjob))
 
 def createLayerOnLayerDepend(job, layer, onjob, onlayer):
     """Creates a layer on layer dependency
@@ -240,8 +240,8 @@ def createLayerOnLayerDepend(job, layer, onjob, onlayer):
 
     logger.debug("creating lol depend from %s/%s to %s/%s"
                  % (job, layer, onjob, onlayer))
-    depend_er_layer = Cue3.api.findLayer(job,layer)
-    depend_on_layer = Cue3.api.findLayer(onjob, onlayer)
+    depend_er_layer = opencue.api.findLayer(job,layer)
+    depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_layer.createDependencyOnLayer(depend_on_layer)
 
 def createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe):
@@ -267,8 +267,8 @@ def createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe):
 
     logger.debug("creating lof depend from %s/%s to %s/%s-%04d"
                  % (job, layer, onjob, onlayer, onframe))
-    depend_er_layer = Cue3.api.findLayer(job,layer)
-    depend_on_frame = Cue3.api.findFrame(onjob, onlayer, onframe)
+    depend_er_layer = opencue.api.findLayer(job,layer)
+    depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_layer.createDependencyOnFrame(depend_on_frame)
 
 def createFrameOnJobDepend(job, layer, frame, onjob):
@@ -291,8 +291,8 @@ def createFrameOnJobDepend(job, layer, frame, onjob):
 
     logger.debug("creating foj depend from %s/%s-%04d to %s"
                  % (job, layer, frame, onjob))
-    depend_er_frame = Cue3.api.findFrame(job, layer, frame)
-    depend_on_job = Cue3.api.findJob(onjob)
+    depend_er_frame = opencue.api.findFrame(job, layer, frame)
+    depend_on_job = opencue.api.findJob(onjob)
     return depend_er_frame.createDependencyOnJob(depend_on_job)
 
 def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
@@ -317,8 +317,8 @@ def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
 
     logger.debug("creating fol depend from %s/%s-%04d to %s/%s"
                  % (job, layer, frame, onjob, onlayer))
-    depend_er_frame = Cue3.api.findFrame(job, layer, frame)
-    depend_on_layer = Cue3.api.findLayer(onjob, onlayer)
+    depend_er_frame = opencue.api.findFrame(job, layer, frame)
+    depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_frame.createDependencyOnLayer(depend_on_layer)
 
 def createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe):
@@ -347,8 +347,8 @@ def createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe):
 
     logger.debug("creating fof depend from %s/%s-%04d to %s/%s-%04d"
                  % (job, layer, frame, onjob, onlayer,onframe))
-    depend_er_frame = Cue3.api.findFrame(job, layer, frame)
-    depend_on_frame = Cue3.api.findFrame(onjob, onlayer, onframe)
+    depend_er_frame = opencue.api.findFrame(job, layer, frame)
+    depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_frame.createDependencyOnFrame(depend_on_frame)
 
 def createFrameByFrameDepend(job, layer, onjob, onlayer):
@@ -372,8 +372,8 @@ def createFrameByFrameDepend(job, layer, onjob, onlayer):
     logger.debug("creating fbf depend from %s/%s to %s/%s"
                  % (job, layer, onjob, onlayer))
 
-    depend_er_layer = Cue3.api.findLayer(job, layer)
-    depend_on_layer = Cue3.api.findLayer(onjob, onlayer)
+    depend_er_layer = opencue.api.findLayer(job, layer)
+    depend_on_layer = opencue.api.findLayer(onjob, onlayer)
     return depend_er_layer.createFrameByFrameDependency(depend_on_layer, False)
 
 def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
@@ -399,8 +399,8 @@ def createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe):
 
     logger.debug("creating los depend from %s/%s to %s/%s-%04d"
                  % (job, layer, onjob, onlayer, onframe))
-    depend_er_layer = Cue3.api.findLayer(job,layer)
-    depend_on_frame = Cue3.api.findFrame(onjob, onlayer, onframe)
+    depend_er_layer = opencue.api.findLayer(job,layer)
+    depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
 
     # if createSimDependencyOnFrame existed, we would use it here:
     #return depend_er_layer.createSimDependencyOnFrame(depend_on_frame)
@@ -414,5 +414,5 @@ def dropDepend(id):
     """deactivates a dependency by GUID
     @type id: string
     @param id: the GUID of the dependency"""
-    Cue3.api.getDepend(id).satisfy()
+    opencue.api.getDepend(id).satisfy()
 

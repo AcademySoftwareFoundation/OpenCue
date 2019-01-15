@@ -16,7 +16,7 @@
 """
 All windows are an instance of this MainWindow.
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, Cue3, CueConfig
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue, CueConfig
 
 import sys
 
@@ -86,7 +86,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.statusBar().showMessage(str(message), delay)
 
     def displayAbout(self):
-        msg = self.app_name + "\n\nA Cue3 tool\n\n"
+        msg = self.app_name + "\n\nA opencue tool\n\n"
         msg += "Qt:\n%s\n\n" % QtCore.qVersion()
         msg += "Python:\n%s\n\n" % sys.version
         QtWidgets.QMessageBox.about(self, "About", msg)
@@ -144,7 +144,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         for facility in self.__actions_facility.itervalues():
             if facility.isChecked():
-                Cue3.Cuebot.setFacility(str(facility.text()))
+                opencue.Cuebot.setFacility(str(facility.text()))
                 QtGui.qApp.facility_changed.emit()
                 return
 

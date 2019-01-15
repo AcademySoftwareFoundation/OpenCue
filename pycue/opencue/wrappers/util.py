@@ -15,9 +15,9 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: util.py - Cue3 Library utility
+Module: util.py - opencue Library utility
 
 """
 

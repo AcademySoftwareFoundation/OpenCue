@@ -14,7 +14,7 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 Module: util.py
 """
 
@@ -24,10 +24,10 @@ from functools import wraps
 
 import exception
 import grpc
-from Cue3 import Cuebot
+from opencue import Cuebot
 from google.protobuf.pyext._message import RepeatedCompositeContainer
 
-logger = logging.getLogger('cue3')
+logger = logging.getLogger('opencue')
 
 
 def grpcExceptionParser(grpcFunc):
@@ -57,8 +57,8 @@ def grpcExceptionParser(grpcFunc):
 
 def id(value):
     """extract(entity)
-    extracts a string unique ID from a Cue3 entity or
-    list of Cue3 entities.
+    extracts a string unique ID from a opencue entity or
+    list of opencue entities.
     """
     def _extract(item):
         try:
@@ -96,7 +96,7 @@ def proxy(item, cls=None):
 
 def rep(entity):
     """rep(entity)
-    Extracts a string repesentation of a Cue3 entity"""
+    Extracts a string repesentation of a opencue entity"""
     try:
         return entity.name
     except:

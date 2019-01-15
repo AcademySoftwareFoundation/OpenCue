@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 
 class GraphSubscriptionsWidget(QtWidgets.QWidget):
@@ -25,7 +25,7 @@ class GraphSubscriptionsWidget(QtWidgets.QWidget):
         self.__brush.setColor(self.__color)
         self.__brush.setStyle(QtCore.Qt.SolidPattern)
 
-        self.__show = Cue3.api.findShow("clo")
+        self.__show = opencue.api.findShow("clo")
         self.__history = [0]*100
         self.__line = 575
         self.__max = max(self.__line * 1.2, 80)

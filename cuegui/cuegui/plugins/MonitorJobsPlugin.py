@@ -19,7 +19,7 @@ import weakref
 import cuegui
 from PySide2 import QtGui, QtCore, QtWidgets
 
-import Cue3
+import opencue
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -75,13 +75,13 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
         self.raise_()
 
     def getJobIds(self):
-        return map(Cue3.id, self.jobMonitor.getJobProxies())
+        return map(opencue.id, self.jobMonitor.getJobProxies())
 
     def restoreJobIds(self, jobIds):
         for jobId in jobIds:
             try:
                 self.jobMonitor.addJob(jobId)
-            except Cue3.EntityNotFoundException, e:
+            except opencue.EntityNotFoundException, e:
                 logger.warning("Unable to load previously loaded job since "
                                "it was moved to the historical "
                                "database: %s" % jobId)
@@ -101,7 +101,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
                 for jobId in settings[1]:
                     try:
                         self.jobMonitor.addJob(jobId)
-                    except Cue3.EntityNotFoundException, e:
+                    except opencue.EntityNotFoundException, e:
                         logger.warning("Unable to load previously loaded job since"
                                        "it was moved to the historical "
                                        "database: %s" % jobId)
@@ -133,11 +133,11 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
             self.jobMonitor.addJob(substring)
         elif re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
             # If show and shot is provided, load all finished jobs
-            for job in Cue3.api.getJobs(substr=[substring], include_finished=True):
+            for job in opencue.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
         else:
             # Otherwise, just load current matching jobs
-            for job in Cue3.api.getJobs(regex=[substring]):
+            for job in opencue.api.getJobs(regex=[substring]):
                 self.jobMonitor.addJob(job)
 
     def _buttonSetup(self, layout):

@@ -18,22 +18,22 @@ from math import ceil
 import Constants
 import Utils
 
-from Manifest import Cue3, QtCore, QtGui, QtWidgets
+from Manifest import opencue, QtCore, QtGui, QtWidgets
 
-RGB_FRAME_STATE = {Cue3.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
-                   Cue3.api.job_pb2.RUNNING: QtGui.QColor(200, 200, 55),
-                   Cue3.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
-                   Cue3.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
-                   Cue3.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
-                   Cue3.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0)}
+RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
+                   opencue.api.job_pb2.RUNNING: QtGui.QColor(200, 200, 55),
+                   opencue.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
+                   opencue.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
+                   opencue.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
+                   opencue.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0)}
 
 # This controls display order
-FRAME_STATES = (Cue3.api.job_pb2.SUCCEEDED,
-                Cue3.api.job_pb2.RUNNING,
-                Cue3.api.job_pb2.WAITING,
-                Cue3.api.job_pb2.DEPEND,
-                Cue3.api.job_pb2.DEAD,
-                Cue3.api.job_pb2.EATEN)
+FRAME_STATES = (opencue.api.job_pb2.SUCCEEDED,
+                opencue.api.job_pb2.RUNNING,
+                opencue.api.job_pb2.WAITING,
+                opencue.api.job_pb2.DEPEND,
+                opencue.api.job_pb2.DEAD,
+                opencue.api.job_pb2.EATEN)
 
 NO_PEN = QtGui.QPen(QtCore.Qt.NoPen)
 NO_BRUSH = QtGui.QBrush(QtCore.Qt.NoBrush)
@@ -169,20 +169,24 @@ class JobBookingBarDelegate(AbstractDelegate):
                         ratio = rect.width() / float(jobRunning + jobWaiting)
 
                         if jobWaiting:
-                            painter.fillRect(rect.adjusted(0, 2, 0, -2),
-                                             RGB_FRAME_STATE[Cue3.api.job_pb2.FrameState.Waiting])
+                            painter.fillRect(
+                                rect.adjusted(0, 2, 0, -2),
+                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Waiting])
 
                         if jobRunning:
-                            painter.fillRect(rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
-                                             RGB_FRAME_STATE[Cue3.api.job_pb2.FrameState.Running])
+                            painter.fillRect(
+                                rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
+                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Running])
 
                         painter.setPen(QtCore.Qt.blue)
                         x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
-                        painter.drawLine(x, option.rect.y(), x, option.rect.y() + option.rect.height())
+                        painter.drawLine(x, option.rect.y(), x,
+                                         option.rect.y() + option.rect.height())
 
                         painter.setPen(QtCore.Qt.red)
                         x = min(rect.x() + ratio * jobMax, option.rect.right() - 6)
-                        painter.drawLine(x, option.rect.y(), x, option.rect.y() + option.rect.height())
+                        painter.drawLine(x, option.rect.y(), x,
+                                         option.rect.y() + option.rect.height())
 
                     except ZeroDivisionError:
                         pass
@@ -238,7 +242,7 @@ class JobProgressBarDelegate(AbstractDelegate):
                     self._drawProgressBar(painter,
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
-                    if state == Cue3.api.job_pb2.FINISHED:
+                    if state == opencue.api.job_pb2.FINISHED:
                         painter.setPen(QtCore.Qt.black)
                         painter.drawText(option.rect, 0, "Finished")
                     elif paused:

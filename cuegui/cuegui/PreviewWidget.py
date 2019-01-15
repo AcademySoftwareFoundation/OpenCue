@@ -22,7 +22,7 @@ import xml.etree.ElementTree as Et
 
 import Utils
 
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 class PreviewProcessorDialog(QtWidgets.QDialog):
     def __init__(self, job, frame, aovs=False, parent=None):

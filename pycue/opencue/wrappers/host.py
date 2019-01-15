@@ -15,17 +15,17 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: host.py - Cue3 Library implementation of a host
+Module: host.py - opencue Library implementation of a host
 
 """
 
 import os
 import time
-from Cue3 import Cuebot
-from Cue3.compiled_proto import comment_pb2
-from Cue3.compiled_proto import host_pb2
+from opencue import Cuebot
+from opencue.compiled_proto import comment_pb2
+from opencue.compiled_proto import host_pb2
 
 import comment
 import proc
@@ -349,14 +349,14 @@ class Host(object):
 
     def state(self):
         """
-        @rtype: Cue3.HardwareState
+        @rtype: opencue.HardwareState
         @return: the state of the host
         """
         return self.data.state
 
     def lockState(self):
         """
-        @rtype: Cue3.LockState
+        @rtype: opencue.LockState
         @return: the lock state of the host
         """
         return self.data.lock_state

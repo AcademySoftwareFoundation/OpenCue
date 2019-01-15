@@ -20,7 +20,7 @@ from PySide2 import QtGui, QtCore
 PLUGIN_NAME = "Services"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to services"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "ServicesDockWidget"
 
 

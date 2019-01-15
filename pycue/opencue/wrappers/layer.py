@@ -15,14 +15,14 @@
 
 
 """
-Cue3 layer module
+opencue layer module
 
-implementation of a layer in cue3
+implementation of a layer in opencue
 """
 
 import depend
-from Cue3.compiled_proto import job_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import job_pb2
+from opencue.cuebot import Cuebot
 from ..search import FrameSearch
 
 
@@ -87,7 +87,7 @@ class Layer(object):
 
     def getWhatDependsOnThis(self):
         """Gets a list of dependencies that depend directly on this layer
-        @rtype:  list<Cue3.depend.Depend>
+        @rtype:  list<opencue.depend.Depend>
         @return: List of dependencies that depend directly on this layer"""
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
@@ -96,7 +96,7 @@ class Layer(object):
 
     def getWhatThisDependsOn(self):
         """Get a list of dependencies that this layer depends on
-        @rtype:  list<Cue3.depend.Depend>
+        @rtype:  list<opencue.depend.Depend>
         @return: List of dependences that this layer depends on"""
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
@@ -107,7 +107,7 @@ class Layer(object):
         """Create and return a layer on job dependency
         @type  job: Job
         @param job: the job you want this job to depend on
-        @rtype:  Cue3.depend.Depend
+        @rtype:  opencue.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnJob(
             job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job),
@@ -118,7 +118,7 @@ class Layer(object):
         """Create and return a layer on layer dependency
         @type  layer: Layer
         @param layer: the layer you want this layer to depend on
-        @rtype:  Cue3.depend.Depend
+        @rtype:  opencue.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnLayer(
             job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer),
@@ -129,7 +129,7 @@ class Layer(object):
         """Create and return a layer on frame dependency
         @type  frame: Frame
         @param frame: the frame you want this layer to depend on
-        @rtype:  Cue3.depend.Depend
+        @rtype:  opencue.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnFrame(
             job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame),
@@ -140,7 +140,7 @@ class Layer(object):
         """Create and return a frame by frame frame dependency
         @param layer: the layer you want this layer to depend on
         @type  layer: Layer
-        @rtype:  Cue3.depend.Depend
+        @rtype:  opencue.depend.Depend
         @return: the new dependency"""
         # anyframe is hard coded right now, this option should be moved
         # to LayerOnLayer for better efficiency.
@@ -165,7 +165,7 @@ class Layer(object):
         """Reorders the specified frame range on this layer.
         @type  range: string
         @param range: The frame range to reorder
-        @type  order: Cue3.Order
+        @type  order: opencue.Order
         @param order: First, Last or Reverse"""
         self.stub.ReorderFrames(
             job_pb2.LayerReorderFramesRequest(layer=self.data, range=range, order=order),
@@ -239,7 +239,7 @@ class Layer(object):
 
     def type(self):
         """Returns the type of layer. Ex: Pre, Post, Render
-        @rtype:  Cue3.LayerType
+        @rtype:  opencue.LayerType
         @return: Type of layer"""
         return self.data.type
 

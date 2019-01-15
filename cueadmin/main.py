@@ -18,16 +18,16 @@ import sys
 
 import common
 
-Cue3 = common.Cue3
+opencue = common.opencue
 
-logger = logging.getLogger("cue3.tools.cueadmin")
+logger = logging.getLogger("opencue.tools.cueadmin")
 
 OS_LIST = []
 
 
 def main(argv):
 
-    parser = common.getCommonParser(description="Cueadmin Cue3 Administrator Tool",
+    parser = common.getCommonParser(description="Cueadmin OpenCue Administrator Tool",
                                     formatter_class=common.argparse.RawDescriptionHelpFormatter,
                                     conflict_handler='resolve')
     query = common.setCommonQueryArgs(parser)
@@ -157,7 +157,7 @@ def main(argv):
     host.add_argument("-repair", action="store_true", help="Sets hosts into the repair state.")
     host.add_argument("-fixed", action="store_true", help="Sets hosts into Up state.")
     host.add_argument("-thread", action="store", help="Set the host's thread mode.",
-                      choices=[mode.lower() for mode in Cue3.api.host_pb2.ThreadMode.keys()])
+                      choices=[mode.lower() for mode in opencue.api.host_pb2.ThreadMode.keys()])
     host.add_argument("-os", action="store", help="Set the host's operating system.",
                       choices=OS_LIST)
 
@@ -193,7 +193,7 @@ def handleArgs(args):
         if not args.host:
             args.host = []
 
-        procs = Cue3.search.ProcSearch().byOptions(
+        procs = opencue.search.ProcSearch().byOptions(
             show=args.lp,
             host=args.host,
             limit=args.limit,
@@ -211,21 +211,21 @@ def handleArgs(args):
 
     elif args.lh:
         states = [common.Convert.strToHardwareState(s) for s in args.state]
-        common.output.displayHosts(Cue3.api.getHosts(match=args.query, state=states,
-                                                     alloc=args.alloc))
+        common.output.displayHosts(opencue.api.getHosts(match=args.query, state=states,
+                                                        alloc=args.alloc))
         return
 
     elif args.lba:
-        allocation = Cue3.api.findAllocation(args.lba)
+        allocation = opencue.api.findAllocation(args.lba)
         common.output.displaySubscriptions(allocation.getSubscriptions(), "All Shows")
         return
 
     elif isinstance(args.lv, (list,)):
         if args.lv:
-            show = Cue3.api.findShow(args.lv[0])
+            show = opencue.api.findShow(args.lv[0])
             common.output.displayServices(show.getServiceOverrides())
         else:
-            common.output.displayServices(Cue3.api.getDefaultServices())
+            common.output.displayServices(opencue.api.getDefaultServices())
         return
     #
     # Gather hosts if -host - hostmatch was specified
@@ -244,7 +244,7 @@ def handleArgs(args):
                        args.force, createAllocation, fac, name, tag)
 
     elif args.delete_alloc:
-        allocation = Cue3.api.findAllocation(args.delete_alloc)
+        allocation = opencue.api.findAllocation(args.delete_alloc)
         common.confirm("Delete allocation %s" % args.delete_alloc, args.force,
                        allocation.delete)
 
@@ -257,50 +257,50 @@ def handleArgs(args):
             raise Exception(msg)
 
         common.confirm("Rename allocation from %s to %s" % (old, new),
-                       args.force, Cue3.api.findAllocation(old).setName, new)
+                       args.force, opencue.api.findAllocation(old).setName, new)
 
     elif args.transfer:
-        src = Cue3.api.findAllocation(args.transfer[0])
-        dst = Cue3.api.findAllocation(args.transfer[1])
+        src = opencue.api.findAllocation(args.transfer[0])
+        dst = opencue.api.findAllocation(args.transfer[1])
         common.confirm("Transfer hosts from from %s to %s" % (src.data.name, dst.data.name),
                        args.force, common.AllocUtil.transferHosts, src, dst)
 
     elif args.tag_alloc:
         alloc, tag = args.tag_alloc
         common.confirm("Re-tag allocation %s with %s" % (alloc, tag),
-                       args.force, Cue3.api.findAllocation(alloc).setTag, tag)
+                       args.force, opencue.api.findAllocation(alloc).setTag, tag)
     #
     # Shows
     #
     elif args.create_show:
         common.confirm("Create new show %s" % args.create_show,
-                       args.force, Cue3.api.createShow, args.create_show)
+                       args.force, opencue.api.createShow, args.create_show)
     elif args.delete_show:
         common.confirm("Delete show %s" % args.delete_show,
-                       args.force, Cue3.api.findShow(args.delete_show).delete)
+                       args.force, opencue.api.findShow(args.delete_show).delete)
 
     elif args.disable_show:
         common.confirm("Disable show %s" % args.disable_show,
-                       args.force, Cue3.api.findShow(args.disable_show).setActive, False)
+                       args.force, opencue.api.findShow(args.disable_show).setActive, False)
 
     elif args.enable_show:
         common.confirm("Enable show %s" % args.enable_show,
-                       args.force, Cue3.api.findShow(args.enable_show).setActive, True)
+                       args.force, opencue.api.findShow(args.enable_show).setActive, True)
 
     elif args.dispatching:
-        show = Cue3.api.findShow(args.dispatching[0])
+        show = opencue.api.findShow(args.dispatching[0])
         enabled = common.Convert.stringToBoolean(args.dispatching[1])
         if not enabled:
-            common.confirm("Disable dispatching on %s" % Cue3.rep(show),
+            common.confirm("Disable dispatching on %s" % opencue.rep(show),
                            args.force, show.enableDispatching, enabled)
         else:
             show.enableDispatching(True)
 
     elif args.booking:
-        show = Cue3.api.findShow(args.booking[0])
+        show = opencue.api.findShow(args.booking[0])
         enabled = common.Convert.stringToBoolean(args.booking[1])
         if not enabled:
-            common.confirm("Disable booking on %s" % Cue3.rep(show),
+            common.confirm("Disable booking on %s" % opencue.rep(show),
                            args.force, show.enableBooking, False)
         else:
             show.enableBooking(True)
@@ -308,13 +308,13 @@ def handleArgs(args):
     elif args.default_min_cores:
         common.confirm("Set the default min cores to: %s" %
                        args.default_min_cores[1], args.force,
-                       Cue3.api.findShow(args.default_min_cores[0]).setDefaultMinCores,
+                       opencue.api.findShow(args.default_min_cores[0]).setDefaultMinCores,
                        float(int(args.default_min_cores[1])))
 
     elif args.default_max_cores:
         common.confirm("Set the default max cores to: %s" %
                        args.default_max_cores[1], args.force,
-                       Cue3.api.findShow(args.default_max_cores[0]).setDefaultMaxCores,
+                       opencue.api.findShow(args.default_max_cores[0]).setDefaultMaxCores,
                        float(int(args.default_max_cores[1])))
     #
     # Hosts are handled a bit differently than the rest
@@ -327,14 +327,14 @@ def handleArgs(args):
         if not hosts:
             raise ValueError(host_error_msg)
         for host in hosts:
-            logger.debug("locking host: %s" % Cue3.rep(host))
+            logger.debug("locking host: %s" % opencue.rep(host))
             host.lock()
 
     elif args.unlock:
         if not hosts:
             raise ValueError(host_error_msg)
         for host in hosts:
-            logger.debug("unlocking host: %s" % Cue3.rep(host))
+            logger.debug("unlocking host: %s" % opencue.rep(host))
             host.unlock()
 
     elif args.move:
@@ -343,11 +343,11 @@ def handleArgs(args):
 
         def moveHosts(hosts_, dst_):
             for host_ in hosts_:
-                logger.debug("moving %s to %s" % (Cue3.rep(host_), Cue3.rep(dst_)))
+                logger.debug("moving %s to %s" % (opencue.rep(host_), opencue.rep(dst_)))
                 host.setAllocation(dst_.data)
 
         common.confirm("Move %d hosts to %s" % (len(hosts), args.move),
-                       args.force, moveHosts, hosts, Cue3.api.findAllocation(args.move))
+                       args.force, moveHosts, hosts, opencue.api.findAllocation(args.move))
 
     # No Test coverage, takes up to a minute for
     # a host to report back in.
@@ -374,7 +374,7 @@ def handleArgs(args):
 
         def safeReboot(hosts_):
             for host_ in hosts_:
-                logger.debug("locking host and rebooting when idle %s" % Cue3.rep(host_))
+                logger.debug("locking host and rebooting when idle %s" % opencue.rep(host_))
                 host_.rebootWhenIdle()
 
         common.confirm("Lock and reboot %d hosts when idle" % len(hosts),
@@ -411,7 +411,7 @@ def handleArgs(args):
         def setRepairState(hosts_):
             for host_ in hosts_:
                 logger.debug("setting host into the repair state %s" % host_.data.name)
-                host_.setHardwareState(Cue3.api.host_pb2.REPAIR)
+                host_.setHardwareState(opencue.api.host_pb2.REPAIR)
 
         common.confirm("Set %d hosts into the Repair state?" % len(hosts),
                        args.force, setRepairState, hosts)
@@ -423,15 +423,15 @@ def handleArgs(args):
         def setUpState(hosts_):
             for host_ in hosts_:
                 logger.debug("setting host into the repair state %s" % host_.data.name)
-                host_.setHardwareState(Cue3.api.host_pb2.UP)
+                host_.setHardwareState(opencue.api.host_pb2.UP)
 
         common.confirm("Set %d hosts into the Up state?" % len(hosts),
                        args.force, setUpState, hosts)
 
     elif args.create_sub:
-        show = Cue3.api.findShow(args.create_sub[0])
-        alloc = Cue3.api.findAllocation(args.create_sub[1])
-        common.confirm("Create subscription for %s on %s" % (Cue3.rep(show), Cue3.rep(alloc)),
+        show = opencue.api.findShow(args.create_sub[0])
+        alloc = opencue.api.findAllocation(args.create_sub[1])
+        common.confirm("Create subscription for %s on %s" % (opencue.rep(show), opencue.rep(alloc)),
                        args.force, show.createSubscription,
                        alloc.data, float(args.create_sub[2]), float(args.create_sub[3]))
 
@@ -439,15 +439,15 @@ def handleArgs(args):
         sub_name = "%s.%s" % (args.delete_sub[1], args.delete_sub[0])
         common.confirm("Delete %s's subscription to %s" %
                        (args.delete_sub[0], args.delete_sub[1]),
-                       args.force, Cue3.api.findSubscription(sub_name).delete)
+                       args.force, opencue.api.findSubscription(sub_name).delete)
 
     elif args.size:
         sub_name = "%s.%s" % (args.size[1], args.size[0])
-        Cue3.api.findSubscription(sub_name).setSize(float(args.size[2]))
+        opencue.api.findSubscription(sub_name).setSize(float(args.size[2]))
 
     elif args.burst:
         sub_name = "%s.%s" % (args.burst[1], args.burst[0])
-        sub = Cue3.api.findSubscription(sub_name)
+        sub = opencue.api.findSubscription(sub_name)
         burst = args.burst[2]
         if burst.find("%") !=-1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
@@ -459,8 +459,8 @@ def handleArgs(args):
 
 def createAllocation(fac, name, tag):
     """Create a new allocation with the given name and tag."""
-    facility = Cue3.api.getFacility(fac)
-    alloc = Cue3.api.createAllocation(name, tag, facility)
+    facility = opencue.api.getFacility(fac)
+    alloc = opencue.api.createAllocation(name, tag, facility)
     print "Created allocation: %s" % alloc.data.name
 
 

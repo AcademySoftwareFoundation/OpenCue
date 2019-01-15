@@ -19,7 +19,7 @@ import unittest
 
 # All tests modules support an optional <username> and <version> argument
 # This load a specific /net/soft_scratch/users/<username>/spimport/v<version>
-# Otherwise it imports Cue3 from /shots/spi/home/python2.4/common/
+# Otherwise it imports opencue from /shots/spi/home/python2.4/common/
 
 if len(sys.argv) > 1:
     if sys.argv[1].find("-h") != -1:
@@ -39,8 +39,8 @@ if options:
 
     os.environ["SPIMPORT_PACKAGES"] = "/net/soft_scratch/users/%s/spimport" % name
     import SpImport
-    Cue3 = SpImport.Package("Cue3", int(version))
-    Cue3.Cuebot.setHosts(["cue3test01"])
-    print "Setting test proxy: %s" % Cue3.Cuebot.Proxy
+    opencue = SpImport.Package("opencue", int(version))
+    opencue.Cuebot.setHosts(["cuetest01"])
+    print "Setting test proxy: %s" % opencue.Cuebot.Proxy
 else:
-    import Cue3
+    import opencue

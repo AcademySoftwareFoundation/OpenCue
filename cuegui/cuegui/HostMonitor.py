@@ -16,7 +16,7 @@
 import Logger
 import Utils
 from HostMonitorTree import HostMonitorTree
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 
 log = Logger.getLogger(__file__)
@@ -107,7 +107,8 @@ class HostMonitor(QtWidgets.QWidget):
 # Menu to filter by allocation
 # ==============================================================================
     def __filterAllocationSetup(self, layout):
-        self.__filterAllocationList = sorted([alloc.name() for alloc in Cue3.api.getAllocations()])
+        self.__filterAllocationList = sorted(
+            [alloc.name() for alloc in opencue.api.getAllocations()])
 
         btn = QtWidgets.QPushButton("Filter Allocation")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -170,7 +171,8 @@ class HostMonitor(QtWidgets.QWidget):
 # ==============================================================================
     def __filterHardwareStateSetup(self, layout):
         self.__filterHardwareStateList = sorted(
-            [state for state in dir(Cue3.api.host_pb2.HardwareState) if not state.startswith("_")])
+            [state for state in dir(
+                opencue.api.host_pb2.HardwareState) if not state.startswith("_")])
 
         btn = QtWidgets.QPushButton("Filter HardwareState")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -215,17 +217,17 @@ class HostMonitor(QtWidgets.QWidget):
             for item in self.__filterHardwareStateButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __hostSearch.states.remove(getattr(Cue3.api.host_pb2.HardwareState,
+                        __hostSearch.states.remove(getattr(opencue.api.host_pb2.HardwareState,
                                                            str(item.text())))
                     item.setChecked(False)
         else:
             states = __hostSearch.options.get('states', [])
             if action.isChecked():
                 __hostSearch.options['states'] = states.append(
-                    getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
+                    getattr(opencue.api.host_pb2.HardwareState, str(action.text())))
             elif states is not None:
                 __hostSearch.options['states'] = states.remove(
-                    getattr(Cue3.api.host_pb2.HardwareState, str(action.text())))
+                    getattr(opencue.api.host_pb2.HardwareState, str(action.text())))
             else:
                 __hostSearch.options['states'] = []
 

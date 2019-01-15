@@ -18,7 +18,7 @@ from copy import deepcopy
 
 import Logger
 from FrameMonitorTree import FrameMonitorTree
-from Manifest import QtCore, QtWidgets, Cue3, FileSequence
+from Manifest import QtCore, QtWidgets, opencue, FileSequence
 
 log = Logger.getLogger(__file__)
 
@@ -123,7 +123,7 @@ class FrameMonitor(QtWidgets.QWidget):
             self.frameRangeSelection.setFrameRange(["%s" % _min,"%s" % _max])
 
     def _frameRangeSelectionFilterHandle(self, start, end):
-        self.frameMonitorTree.frameSearch = Cue3.search.FrameSearch.criteriaFromOptions(
+        self.frameMonitorTree.frameSearch = opencue.search.FrameSearch.criteriaFromOptions(
             range="%s-%s" % (start, end))
         self.frameMonitorTree.updateRequest()
 
@@ -456,13 +456,13 @@ class FrameMonitor(QtWidgets.QWidget):
             for item in self._filterStatusButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __state = getattr(Cue3.job_pb2.FrameState, str(item.text()))
+                        __state = getattr(opencue.job_pb2.FrameState, str(item.text()))
                         __frameSearch.states.remove(__state)
                     item.setChecked(False)
         else:
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
-            __state = getattr(Cue3.job_pb2.FrameState, str(action.text()))
+            __state = getattr(opencue.job_pb2.FrameState, str(action.text()))
             if action.isChecked():
                 __frameSearch.states.append(__state)
             else:

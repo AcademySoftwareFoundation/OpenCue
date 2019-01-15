@@ -16,7 +16,7 @@
 import Constants
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 from MenuActions import MenuActions
 
 
@@ -70,7 +70,7 @@ class ShowsWidget(AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            return Cue3.api.getActiveShows()
+            return opencue.api.getActiveShows()
         except Exception, e:
             log.critical(e)
             return []

@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtWidgets, Cue3
+from Manifest import os, QtCore, QtWidgets, opencue
 
 import Logger
 logger = Logger.getLogger(__file__)
