@@ -3,7 +3,7 @@
 set -e
 
 # Wait for networking to be fully up.
-# TODO(cipriano) Improve this check.
+# TODO(bcipriano) Improve this check.
 sleep 30
 
 MOUNT_POINT="/root/jenkins_home"

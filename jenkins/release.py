@@ -75,6 +75,7 @@ def _create_release(release_tag, build_metadata):
           'target_commitish': build_metadata['git_commit'],
           'name': release_tag,
           # TODO(bcipriano) Construct changelog from commits since the last release.
+          # https://github.com/imageworks/OpenCue/issues/106
           'body': 'OpenCue %s' % release_tag,
           'draft': False,
           'prerelease': False,

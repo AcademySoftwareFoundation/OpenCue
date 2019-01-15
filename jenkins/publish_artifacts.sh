@@ -22,4 +22,5 @@ gsutil -m cp \
   "gs://${CUE_PUBLISH_BUCKET}/${build_id}/"
 
 # TODO(bcipriano) Publish Docker images to DockerHub.
+# https://github.com/imageworks/OpenCue/issues/105
 
