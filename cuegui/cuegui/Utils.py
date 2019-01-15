@@ -363,7 +363,7 @@ def getResourceConfig(path=None):
 ################################################################################
 
 def getFrameLogFile(job, frame):
-    return os.path.join(job.data.logDir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
+    return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
 
 
 def getFrameLLU(job, frame):

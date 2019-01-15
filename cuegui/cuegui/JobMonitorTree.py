@@ -434,6 +434,7 @@ class JobWidgetItem(AbstractWidgetItem):
     __userColor = None
     def __init__(self, object, parent, created):
         if not self.__initialized:
+            Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")

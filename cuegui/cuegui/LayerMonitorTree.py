@@ -26,8 +26,8 @@ from AbstractWidgetItem import *
 
 
 def displayRange(layer):
-    if layer.data.chunkSize != 1:
-        return '%s chunked %s' % (layer.data.range, layer.data.chunkSize)
+    if layer.data.chunk_size != 1:
+        return '%s chunked %s' % (layer.data.range, layer.data.chunk_size)
     return layer.data.range
 
 

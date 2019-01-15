@@ -57,8 +57,8 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         self.startColumnsForType(Constants.TYPE_FRAME)
         self.addColumn("Order", 60, id=1,
-                       data=lambda job, frame: frame.data.dispatchOrder,
-                       sort=lambda job, frame: frame.data.dispatchOrder,
+                       data=lambda job, frame: frame.data.dispatch_order,
+                       sort=lambda job, frame: frame.data.dispatch_order,
                        tip="The order the frame will be rendered in for it's layer if resources "
                            "are available.")
         self.addColumn("Frame", 70, id=2,
@@ -66,7 +66,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                        sort=lambda job, frame: frame.data.number,
                        tip="The number of the frame.")
         self.addColumn("Layer", 250, id=3,
-                       data=lambda job, frame: frame.data.layerName,
+                       data=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
                        data=lambda job, frame: str(frame.data.state),
@@ -82,11 +82,11 @@ class FrameMonitorTree(AbstractTreeWidget):
                        sort=lambda job, frame: (self.getCores(frame)),
                        tip="The number of cores a frame is using")
         self.addColumn("Host", 120, id=6,
-                       data=lambda job, frame: frame.data.lastResource,
+                       data=lambda job, frame: frame.data.last_resource,
                        tip="The last or current resource that the frame used or is using.")
         self.addColumn("Retries", 55, id=7,
-                       data=lambda job, frame: frame.data.retryCount,
-                       sort=lambda job, frame: frame.data.retryCount,
+                       data=lambda job, frame: frame.data.retry_count,
+                       sort=lambda job, frame: frame.data.retry_count,
                        tip="The number of times that each frame has had to retry.")
         self.addColumn("_CheckpointEnabled", 20, id=8,
                        data=lambda job, frame: "",
@@ -95,25 +95,25 @@ class FrameMonitorTree(AbstractTreeWidget):
                        tip="A green check mark here indicates the frame has written out at least "
                            "1 checkpoint segment.")
         self.addColumn("CheckP", 55, id=9,
-                       data=lambda job, frame: frame.data.checkpointCount,
-                       sort=lambda job, frame: frame.data.checkpointCount,
+                       data=lambda job, frame: frame.data.checkpoint_count,
+                       sort=lambda job, frame: frame.data.checkpoint_count,
                        tip="The number of times a frame has been checkpointed.")
         self.addColumn("Runtime", 70, id=10,
                        data=lambda job, frame: (Utils.secondsToHMMSS(
-                           frame.data.startTime and
-                           frame.data.stopTime and
-                           frame.data.stopTime - frame.data.startTime or
-                           frame.data.startTime and
-                           frame.data.stopTime != frame.data.startTime and
-                           time.time() - frame.data.startTime or
+                           frame.data.start_time and
+                           frame.data.stop_time and
+                           frame.data.stop_time - frame.data.start_time or
+                           frame.data.start_time and
+                           frame.data.stop_time != frame.data.start_time and
+                           time.time() - frame.data.start_time or
                            0)),
                        sort=lambda job, frame: (
-                               frame.data.startTime and
-                               frame.data.stopTime and
-                               frame.data.stopTime - frame.data.startTime or
-                               frame.data.startTime and
-                               frame.data.stopTime != frame.data.startTime and
-                               time.time() - frame.data.startTime or
+                               frame.data.start_time and
+                               frame.data.stop_time and
+                               frame.data.stop_time - frame.data.start_time or
+                               frame.data.start_time and
+                               frame.data.stop_time != frame.data.start_time and
+                               time.time() - frame.data.start_time or
                                0),
                        tip="The amount of HOURS:MINUTES:SECONDS that the frame\n"
                            "has run for or last ran for.\n")
@@ -132,10 +132,10 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         self.addColumn("Memory", 60, id=12,
                        data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
-                                                Utils.memoryToString(frame.data.usedMemory) or
-                                                Utils.memoryToString(frame.data.maxRss)),
+                                                Utils.memoryToString(frame.data.used_memory) or
+                                                Utils.memoryToString(frame.data.max_rss)),
                        sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
-                                                frame.data.usedMemory or frame.data.maxRss),
+                                                frame.data.used_memory or frame.data.max_rss),
                        tip="If a frame is running:\n"
                            "\t The amount of memory currently used by the frame.\n"
                            "If a frame is not running:\n"
@@ -150,10 +150,10 @@ class FrameMonitorTree(AbstractTreeWidget):
                        tip="Hours:Minutes:Seconds remaining.")
 
         self.addColumn("Start Time", 100, id=14,
-                       data=lambda job, frame: (self.getTimeString(frame.data.startTime) or ""),
+                       data=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        tip="The time the frame was started or retried.")
         self.addColumn("Stop Time", 100, id=15,
-                       data=lambda job, frame: (self.getTimeString(frame.data.stopTime) or ""),
+                       data=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
         self.addColumn("Last Line", 0, id=16,
@@ -213,7 +213,7 @@ class FrameMonitorTree(AbstractTreeWidget):
     def getCores(self, frame, format=False):
         cores = None
 
-        m = re.search(".*\/(\d+\.?\d*)", frame.data.lastResource)
+        m = re.search(".*\/(\d+\.?\d*)", frame.data.last_resource)
         if m:
             cores = float(m.group(1))
 
@@ -394,7 +394,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         try:
             if self.__job:
                 self.__lastUpdateTime = int(time.time())
-                return self.__job.getFrames(self.frameSearch)
+                return self.__job.getFrames()
             return []
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -413,13 +413,13 @@ class FrameMonitorTree(AbstractTreeWidget):
         try:
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
             # Once the updatedFrames include the proxy instead of the id, this can be removed
-            for frame in updated_data.updatedFrames:
+            for frame in updated_data.updated_frames.updated_frames:
                 frame = Cue3.util.proxy(frame.id, "Frame")
-            logger.info("Frame Updates: %s" % len(updated_data.updatedFrames))
+            logger.info("Frame Updates: %s" % len(updated_data.updated_frames))
             self.__lastUpdateTime = updated_data.serverTime
             self.__jobState = updated_data.state
 
-            updatedFrames = updated_data.updatedFrames
+            updatedFrames = updated_data.updated_frames
 
         except Cue3.EntityNotFoundException, e:
             self.setJobObj(None)
@@ -499,7 +499,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.__menuActions.frames().addAction(menu, "view")
 
         if count == 1:
-            if self.selectedObjects()[0].data.retryCount >= 1:
+            if self.selectedObjects()[0].data.retry_count >= 1:
                 self.__menuActions.frames().addAction(menu, "viewLastLog")
 
         if count >= 3:
@@ -584,7 +584,7 @@ class FrameWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.ForegroundRole:
             if col == STATUS_COLUMN:
                 return self.__foregroundColorBlack
-            elif col == PROC_COLUMN and self.rpcObject.data.lastResource.startswith(LOCALRESOURCE):
+            elif col == PROC_COLUMN and self.rpcObject.data.last_resource.startswith(LOCALRESOURCE):
                 return self.__foregroundColorGreen
             else:
                 return self.__foregroundColor
@@ -593,7 +593,7 @@ class FrameWidgetItem(AbstractWidgetItem):
             return self.__rgbFrameState[self.rpcObject.data.state]
 
         elif role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
-            if self.rpcObject.data.checkpointState == Cue3.api.job_pb2.ENABLED:
+            if self.rpcObject.data.checkpoint_state == Cue3.api.job_pb2.ENABLED:
                 return QtGui.QIcon(":markdone.png")
         elif role == QtCore.Qt.TextAlignmentRole:
             if col == STATUS_COLUMN:

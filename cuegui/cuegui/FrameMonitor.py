@@ -123,7 +123,8 @@ class FrameMonitor(QtWidgets.QWidget):
             self.frameRangeSelection.setFrameRange(["%s" % _min,"%s" % _max])
 
     def _frameRangeSelectionFilterHandle(self, start, end):
-        self.frameMonitorTree.frameSearch.setOptions(range="%s-%s" % (start, end))
+        self.frameMonitorTree.frameSearch = Cue3.search.FrameSearch.criteriaFromOptions(
+            range="%s-%s" % (start, end))
         self.frameMonitorTree.updateRequest()
 
 # ==============================================================================

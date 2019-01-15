@@ -467,15 +467,15 @@ class Machine:
             __numProcs = 1
             __totalCores = rqconstants.CORE_VALUE
 
-        if not rqconstants.OVERRIDE_MEMORY is None:
+        if rqconstants.OVERRIDE_MEMORY is not None:
             log.warning("Manually overriding the total memory")
             self.__renderHost.total_mem = rqconstants.OVERRIDE_MEMORY
 
-        if not rqconstants.OVERRIDE_CORES is None:
+        if rqconstants.OVERRIDE_CORES is not None:
             log.warning("Manually overriding the number of reported cores")
             __totalCores = rqconstants.OVERRIDE_CORES * rqconstants.CORE_VALUE
 
-        if not rqconstants.OVERRIDE_PROCS is None:
+        if rqconstants.OVERRIDE_PROCS is not None:
             log.warning("Manually overriding the number of reported procs")
             __numProcs = rqconstants.OVERRIDE_PROCS
 
@@ -560,6 +560,8 @@ class Machine:
                     freeSwapMem = int(line.split()[1])
                 elif line.startswith("Cached"):
                     cachedMem = int(line.split()[1])
+                elif line.startswith("MemTotal"):
+                    self.__renderHost.total_mem =int(line.split()[1])
             meminfoFile.close()
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
@@ -574,7 +576,7 @@ class Machine:
             stats = self.getWindowsMemory()
             self.__renderHost.free_mcp = TEMP_DEFAULT
             self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
-            self.__renderHost.free_mem = int(stats.ullAvailPhys /1024)
+            self.__renderHost.free_mem = int(stats.ullAvailPhys / 1024)
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
@@ -665,4 +667,3 @@ class Machine:
         for core in reservedHT.split(','):
             if int(core) < self.__coreInfo.total_cores / 100:
                 self.__tasksets.add(int(core))
-
