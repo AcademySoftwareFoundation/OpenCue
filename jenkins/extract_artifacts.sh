@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <BUILD_ID> <ARTIFACT_DIRECTORY>"
   exit 1
