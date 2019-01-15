@@ -25,6 +25,8 @@ import os
 import time
 
 import depend
+import frame
+import layer
 from Cue3 import Cuebot
 from Cue3.compiled_proto import comment_pb2
 from Cue3.compiled_proto import job_pb2
@@ -128,7 +130,7 @@ class Job(object):
         @return: List of layers"""
         response = self.stub.GetLayers(job_pb2.JobGetLayersRequest(job=self.data),
                                        timeout=Cuebot.Timeout)
-        return [layer.Layer(layer) for layer in response.layers]
+        return [layer.Layer(lyr) for lyr in response.layers.layers]
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
@@ -140,7 +142,7 @@ class Job(object):
         criteria = FrameSearch.criteriaFromOptions(**options)
         response = self.stub.GetFrames(job_pb2.JobGetFramesRequest(job=self.data, req=criteria),
                                        timeout=Cuebot.Timeout)
-        return [frame.Frame(frame) for frame in response.frames]
+        return [frame.Frame(frm) for frm in response.frames.frames]
 
     def getUpdatedFrames(self, lastCheck, layers=None):
         """Returns a list of updated state information for frames that have
