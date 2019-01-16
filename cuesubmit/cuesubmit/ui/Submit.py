@@ -271,9 +271,38 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.settingsWidget.dataChanged.connect(self.jobDataChanged)
         self.settingsLayout.addWidget(self.settingsWidget)
 
+    def errorInJobData(self, message):
+        Widgets.messageBox(message, title="Error in Job Data", parent=self).show()
+        return False
+
+    def validate(self, jobData):
+        if not jobData.get('name'):
+            message = 'ERROR: Cannot submit without a Job name.'
+            return self.errorInJobData(message)
+        layers = jobData.get('layers')
+        if not layers:
+            message = 'ERROR: Job has no layers.'
+            return self.errorInJobData(message)
+
+        for layer in layers:
+            if not layer.name:
+                message = 'ERROR: Please ensure all layers have a name.'
+                return self.errorInJobData(message)
+            if not layer.layerRange:
+                message = 'ERROR: Please ensure all layers have a frame range.'
+                return self.errorInJobData(message)
+            if not layer.cmd:
+                message = 'ERROR: Please ensure all layers have a command to run.'
+                return self.errorInJobData(message)
+        return True
+
+
     def submit(self):
         """Submit action to submit a job."""
-        jobs = Submission.submitJob(self.getJobData())
+        jobData = self.getJobData()
+        if not self.validate(jobData):
+            return
+        jobs = Submission.submitJob(jobData)
         message = "Submitted Job to OpenCue."
         for job in jobs:
             message += "\nJob ID: {}\nJob Name: {}".format(job.id(), job.name())

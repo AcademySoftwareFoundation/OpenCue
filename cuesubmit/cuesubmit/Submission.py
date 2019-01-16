@@ -27,10 +27,24 @@ def buildMayaCmd(layerData):
     if not mayaFile:
         raise ValueError('No Maya File provided. Cannot submit job.')
     renderCommand = '{renderCmd} -r file -s {frameToken} -e {frameToken}'.format(
-        renderCmd=Constants.RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
+        renderCmd=Constants.MAYA_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
     if camera:
         renderCommand += ' -cam {}'.format(camera)
     renderCommand += ' {}'.format(mayaFile)
+    return renderCommand
+
+
+def buildNukeCmd(layerData):
+    """From a layer, build a Nuke Render command."""
+    writeNodes = layerData.get('writeNodes')
+    nukeFile = layerData.get('nukeFile')
+    if not nukeFile:
+        raise ValueError('No Nuke File provided. Cannot submit job.')
+    renderCommand = '{renderCmd} -F {frameToken} '.format(
+        renderCmd=Constants.NUKE_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
+    if writeNodes:
+        renderCommand += '-X {} '.format(writeNodes)
+    renderCommand += '-x {}'.format(nukeFile)
     return renderCommand
 
 
@@ -57,7 +71,8 @@ def buildMayaLayer(layerData):
 
 
 def buildNukeLayer(layerData):
-    return buildLayer(layerData, layerData.cmd)
+    nukeCmd = buildNukeCmd(layerData)
+    return buildLayer(layerData, nukeCmd)
 
 
 def buildShellLayer(layerData):

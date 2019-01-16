@@ -29,7 +29,7 @@ class JobTypes(object):
     SETTINGS_MAP = {
         SHELL: SettingsWidgets.ShellSettings,
         MAYA: SettingsWidgets.BaseMayaSettings,
-        NUKE: SettingsWidgets.ShellSettings
+        NUKE: SettingsWidgets.BaseNukeSettings
     }
 
     def __init__(self):
