@@ -39,7 +39,7 @@ def buildNukeCmd(layerData):
     writeNodes = layerData.get('writeNodes')
     nukeFile = layerData.get('nukeFile')
     if not nukeFile:
-        raise ValueError('No Nuke File provided. Cannot submit job.')
+        raise ValueError('No Nuke file provided. Cannot submit job.')
     renderCommand = '{renderCmd} -F {frameToken} '.format(
         renderCmd=Constants.NUKE_RENDER_CMD, frameToken=Constants.FRAME_TOKEN)
     if writeNodes:

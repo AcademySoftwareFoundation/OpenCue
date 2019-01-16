@@ -14,7 +14,6 @@
 
 import argparse
 import logging
-import sys
 
 from PySide2 import QtCore, QtWidgets
 
@@ -44,11 +43,11 @@ class NukeJobTypes(JobTypes.JobTypes):
         super(NukeJobTypes, self).__init__()
 
 
-class CueSubmitMainWindow(QtWidgets.QMainWindow):
-    """Main Window object for the standalone submission"""
+class CueSubmitNukeWindow(QtWidgets.QMainWindow):
+    """Main Window object for the Nuke submission"""
 
     def __init__(self, name, filename=None, writeNodes=None):
-        super(CueSubmitMainWindow, self).__init__()
+        super(CueSubmitNukeWindow, self).__init__()
         self.setWindowFlags(QtCore.Qt.Window)
         self.setProperty('saveWindowPref', True)
         self.submitWidget = Submit.CueSubmitWidget(
@@ -64,12 +63,12 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
         self.setMinimumWidth(650)
 
 
-class CueNukeSubmitApp(QtWidgets.QApplication):
+class CueSubmitNukeApp(QtWidgets.QApplication):
     """Application object for the Nuke submitter. Runs outside of Nuke."""
 
     def __init__(self, nukeFile, writeNodes):
-        super(CueNukeSubmitApp, self).__init__()
-        self.mainWindow = CueSubmitMainWindow(NUKE_WINDOW_TITLE, filename=nukeFile,
+        super(CueSubmitNukeApp, self).__init__()
+        self.mainWindow = CueSubmitNukeWindow(NUKE_WINDOW_TITLE, filename=nukeFile,
                                               writeNodes=writeNodes)
 
     def startup(self):
@@ -86,10 +85,9 @@ def main(nukeFile, writeNodes):
     @type: writeNodes: list<string>
     @param: List of Write nodes to execute. Empty means execute all.
     """
-    app = CueNukeSubmitApp(nukeFile, writeNodes)
+    app = CueSubmitNukeApp(nukeFile, writeNodes)
     app.startup()
     app.exec_()
-
 
 
 def parseArgs():

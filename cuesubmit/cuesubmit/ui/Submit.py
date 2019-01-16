@@ -277,8 +277,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def validate(self, jobData):
         if not jobData.get('name'):
-            message = 'ERROR: Cannot submit without a Job name.'
+            message = 'ERROR: Cannot submit without a job name.'
             return self.errorInJobData(message)
+
         layers = jobData.get('layers')
         if not layers:
             message = 'ERROR: Job has no layers.'
@@ -295,7 +296,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
                 message = 'ERROR: Please ensure all layers have a command to run.'
                 return self.errorInJobData(message)
         return True
-
 
     def submit(self):
         """Submit action to submit a job."""

@@ -19,9 +19,8 @@ import nuke
 
 """CueNukeSubmitLauncher.py
 Nuke uses an older version of gRPC for the Frame Server. 
-This requires us to run the OpenCue submission plugin from a Python session outside of Nuke.j
-While not ideal, this script allows us to gather up Nuke info and feed it to the submission GUI, 
-NUKE_SUBMIT_UI_PY.
+This requires us to run the OpenCue submission plugin from a Python session outside of Nuke.
+While not ideal, this script allows us to gather up Nuke info and feed it to the submission GUI.
 """
 
 NUKE_SUBMIT_UI_PY = 'CueNukeSubmit.py'
@@ -68,5 +67,4 @@ def launchSubmitter():
 
 
 class CueNukeFileException(Exception):
-    def __init__(self, *args, **kwargs):
-        super(CueNukeFileException, self).__init__(*args, **kwargs)
+    pass
