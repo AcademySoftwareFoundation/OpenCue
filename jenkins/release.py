@@ -12,7 +12,7 @@
 #
 # curl \
 #  -u 'username' \
-#  -d '{"scopes":["repo"], "note":"Publishing an OpenCue release"}' \
+#  -d '{"scopes":["repo"], "note":"OpenCue release script"}' \
 #  https://api.github.com/authorizations
 #
 # If you use multi-factor authentication you can provide that via a header
@@ -21,7 +21,7 @@
 # curl \
 #  -u 'username' \
 #  -H 'X-GitHub-OTP: 000000' \
-#  -d '{"scopes":["repo"], "note":"Publishing an OpenCue release"}' \
+#  -d '{"scopes":["repo"], "note":"OpenCue release script"}' \
 #  https://api.github.com/authorizations
 
 import argparse
@@ -107,7 +107,7 @@ def _upload_artifact(artifact_file, release):
             'Authorization': 'token %s' % os.environ['GITHUB_TOKEN'],
             'Content-Type': content_type,
         },
-        data={os.path.basename(artifact_file): open(artifact_file).read()})
+        data=open(artifact_file).read())
     if response.status_code not in (200, 201):
       raise Exception(
           'Failed to upload release artifact %s. Code [%d], error: [%s]' % (
@@ -142,6 +142,7 @@ def main():
       raise Exception('Environment var %s is required and was not found' % req_env_var)
 
   tmpdir = tempfile.mkdtemp()
+  print 'Using temp directory %s' % tmpdir
 
   print 'Collecting build artifacts from GCS...'
   cmd = [
