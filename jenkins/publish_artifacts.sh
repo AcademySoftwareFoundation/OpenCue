@@ -1,5 +1,12 @@
 #!/bin/sh
 
+current_branch="$(git branch --remote --verbose --no-abbrev --contains | sed -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+
+if [ ! "$current_branch" = "master" ]; then
+  print "Current branch is \"${current_branch}\", not master. Skipping"
+  exit 0
+fi
+
 if [ "$#" -ne 2 ]; then
   echo "Usage: $0 <BUILD_ID> <ARTIFACT_DIRECTORY>"
   exit 1
@@ -13,6 +20,11 @@ if [[ -z "${CUE_PUBLISH_BUCKET}" ]]; then
   exit 1
 fi
 
+if [[ -z "${CUE_PUBLISH_PROJECT}" ]]; then
+  echo "CUE_PUBLISH_PROJECT must be defined"
+  exit 1
+fi
+
 gsutil -m cp \
   "${artifact_directory}/build_metadata.json" \
   "${artifact_directory}/cuebot-${build_id}-all.jar" \
@@ -21,6 +33,8 @@ gsutil -m cp \
   "${artifact_directory}/cuegui-${build_id}-all.tar.gz" \
   "gs://${CUE_PUBLISH_BUCKET}/${build_id}/"
 
-# TODO(bcipriano) Publish Docker images to DockerHub.
-# https://github.com/imageworks/OpenCue/issues/105
+for component in cuebot rqd pycue cuegui; do
+  docker tag opencue/${component}:${build_id} gcr.io/${CUE_PUBLISH_PROJECT}/opencue-${component}:${build_id}
+  docker push gcr.io/${CUE_PUBLISH_PROJECT}/opencue-${component}:${build_id}
+done
 
