@@ -42,7 +42,7 @@ public interface DepartmentManager {
 
     /**
      * Creates a new render point configurtion.  A render point configuration
-     * maps a OpenCue department to a Track-It task and priorizes shots based
+     * maps an OpenCue department to a Track-It task and priorizes shots based
      * frame and final date info.
      *
      * @param renderPoint
