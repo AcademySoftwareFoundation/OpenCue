@@ -45,21 +45,16 @@ class SplashWindow(object):
 
         image = None
         for tag in splashTags:
-            if image == None:
-                splashImage = os.path.join(resource_path, "images",
-                                           "splash.%s.png" % tag)
-                if not image and os.path.isfile(splashImage):
-                    try:
-                        image = splashImage and QtGui.QImage(splashImage)
-                    except StandardError, e:
-                        print "EEEE1:", e
-                        image = None
+            splashImage = os.path.join(resource_path,
+                                       "splash.%s.png" % tag)
+            image = self._generateSplashFromImage(splashImage)
+            if image is not None:
+                break
 
-        if not image:
+        if image is None:
             try:
                 image = self._GenerateMissingSplash(app_name)
             except StandardError, e:
-                print "EEEE2:", e
                 return None
 
         try:
@@ -67,6 +62,14 @@ class SplashWindow(object):
         except StandardError:
             pass
         return image
+
+    def _generateSplashFromImage(self, imagePath):
+        if os.path.isfile(imagePath):
+            try:
+                return imagePath and QtGui.QImage(imagePath)
+            except StandardError:
+                pass
+        return None
 
     def _GenerateMissingSplash(self, app_name):
         image = QtGui.QImage(self.WIDTH, self.HEIGHT, QtGui.QImage.Format_RGB32)
