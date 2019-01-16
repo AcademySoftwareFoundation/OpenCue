@@ -16,7 +16,7 @@
 """
 Displays the email dialog when emailing an artist.
 """
-from Manifest import os, time, QtCore, QtGui, QtWidgets, Cue3
+from Manifest import os, time, QtCore, QtGui, QtWidgets, opencue
 
 import pwd
 import Logger
@@ -35,7 +35,7 @@ class EmailDialog(QtWidgets.QDialog):
         QtWidgets.QDialog.__init__(self, parent)
 
         try:
-            self.__frames = job.getFrames(state=[Cue3.api.job_pb2.DEAD])
+            self.__frames = job.getFrames(state=[opencue.api.job_pb2.DEAD])
         except:
             self.__frames = []
 

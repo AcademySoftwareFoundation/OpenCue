@@ -15,17 +15,17 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: frame.py - Cue3 Library implementation of a frame
+Module: frame.py - opencue Library implementation of a frame
 
 """
 
 import time
 
 import depend
-from Cue3 import Cuebot
-from Cue3.compiled_proto import job_pb2
+from opencue import Cuebot
+from opencue.compiled_proto import job_pb2
 
 
 class Frame(object):
@@ -194,7 +194,7 @@ class Frame(object):
 
     def state(self): # call it status?
         """Returns the state of the frame
-        @rtype:  Cue3.FrameState
+        @rtype:  opencue.FrameState
         @return: Frame state"""
         return self.data.state
 

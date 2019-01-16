@@ -2,8 +2,8 @@
 " Syntax highlighting:
 " ===================
 
-if filereadable(expand("~/.cuetopia3/rqlog.vim"))
-    source ~/.cuetopia3/rqlog.vim
+if filereadable(expand("~/.cuetopia/rqlog.vim"))
+    source ~/.cuetopia/rqlog.vim
 else
     source ./rqlog.vim
 endif

@@ -2,9 +2,9 @@
 Introduction:
 ~~~~~~~~~~~~~
 
-Cue3 is the render farm management software used at Imageworks. It allows users
+OpenCue is the render farm management software used at Imageworks. It allows users
 to submit jobs to a configurable dispatch queue that allocates the necessary
-computational resources. Cue3 has been in use at Imageworks since 2007.
+computational resources. OpenCue has been in use at Imageworks since 2007.
 
 Basic Queue Vocabulary:
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -36,7 +36,7 @@ finish for the second job to begin.
 Hard Dependency - a frame to frame dependency (only the corresponding
 frames need to finish).
 
-cuetopia3 - A graphical user interface to monitor and interact with
+CueGui - A graphical user interface to monitor and interact with
 Jobs, Layers and Frames.
 
 Outline Script - A powerful tool for submitting jobs to the queue. Outline

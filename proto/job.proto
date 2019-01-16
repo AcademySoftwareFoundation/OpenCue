@@ -276,7 +276,7 @@ service LayerInterface {
     // Eat the Frames of this Layer
     rpc EatFrames(LayerEatFramesRequest) returns (LayerEatFramesResponse);
 
-    // When disabled, This will stop Cue3 from lowering the amount of memory required for a given layer.
+    // When disabled, This will stop Cuebot from lowering the amount of memory required for a given layer.
     rpc EnableMemoryOptimizer(LayerEnableMemoryOptimizerRequest) returns (LayerEnableMemoryOptimizerResponse);
 
     // Finds a layer in a pending job based the job and layer name
@@ -305,7 +305,7 @@ service LayerInterface {
     // Mark the frames of this layer done
     rpc  MarkdoneFrames(LayerMarkdoneFramesRequest) returns (LayerMarkdoneFramesResponse);
 
-    // Register an output with the given layer.  The output paths are sent in the Cue3 email.
+    // Register an output with the given layer.  The output paths are sent in the opencue email.
     rpc RegisterOutputPath(LayerRegisterOutputPathRequest) returns (LayerRegisterOutputPathResponse);
 
     //Reorders the specified frame range on this job.
@@ -600,7 +600,7 @@ message Layer {
     LayerType type = 12;
     // An array of services that are being run on all frames within this layer.
     repeated string services = 13;
-    // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cue3 from lowering memory.
+    // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cuebot from lowering memory.
     bool memory_optimizer_enabled = 14;
     LayerStats layer_stats = 15;
     string parent_id = 16;

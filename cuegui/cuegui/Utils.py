@@ -29,7 +29,7 @@ from yaml.scanner import ScannerError
 import Logger
 from ConfirmationDialog import ConfirmationDialog
 from Constants import DEFAULT_INI_PATH
-from Manifest import QtCore, QtGui, Cue3, QtWidgets
+from Manifest import QtCore, QtGui, opencue, QtWidgets
 
 logger = Logger.getLogger(__file__)
 
@@ -234,11 +234,11 @@ def findJob(job):
     if not isinstance(job, str):
         return None
     if isStringId(job):
-        return Cue3.api.getJob(job)
+        return opencue.api.getJob(job)
     if not re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", job, re.IGNORECASE):
         return None
     try:
-        return Cue3.api.findJob(job)
+        return opencue.api.findJob(job)
     except Exception, e:
         logger.warning("Error loading job: %s" % job)
         logger.debug("Error loading job: %s\n%s" % (job, e))
@@ -512,7 +512,7 @@ def startDrag(dragSource, dropActions, objects):
 
     mimeDataAdd(mimeData,
                 "application/x-job-ids",
-                [Cue3.id(object) for object in objects if isJob(object)])
+                [opencue.id(object) for object in objects if isJob(object)])
 
     mimeDataAdd(mimeData,
                 "application/x-group-names",
@@ -520,7 +520,7 @@ def startDrag(dragSource, dropActions, objects):
 
     mimeDataAdd(mimeData,
                 "application/x-group-ids",
-                [Cue3.id(object) for object in objects if isGroup(object)])
+                [opencue.id(object) for object in objects if isGroup(object)])
 
     mimeDataAdd(mimeData,
                 "application/x-host-names",
@@ -528,7 +528,7 @@ def startDrag(dragSource, dropActions, objects):
 
     mimeDataAdd(mimeData,
                 "application/x-host-ids",
-                [Cue3.id(object) for object in objects if isHost(object)])
+                [opencue.id(object) for object in objects if isHost(object)])
 
     drag = QtGui.QDrag(dragSource)
     drag.setMimeData(mimeData)

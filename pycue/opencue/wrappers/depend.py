@@ -15,14 +15,14 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: depend.py - Cue3 Library implementation of a allocation
+Module: depend.py - opencue Library implementation of a allocation
 """
 
 
-from Cue3.compiled_proto import depend_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import depend_pb2
+from opencue.cuebot import Cuebot
 
 
 class Depend(object):

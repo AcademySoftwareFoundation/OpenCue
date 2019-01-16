@@ -15,14 +15,14 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: show.py - Cue3 Library implementation of a show
+Module: show.py - opencue Library implementation of a show
 
 """
 
-from Cue3.compiled_proto import show_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import show_pb2
+from opencue.cuebot import Cuebot
 
 import filter
 import group
@@ -184,7 +184,7 @@ class Show(object):
 
     def getRootGroup(self):
         """Get the root group for the show
-        @rtype: Cue3.wrappers.group.Group
+        @rtype: opencue.wrappers.group.Group
         @return: Group wrapper of the root group
         """
         response = self.stub.GetRootGroup(show_pb2.ShowGetRootGroupRequest(

@@ -2,7 +2,7 @@
 " Syntax highlighting:
 " ===================
 
-" This will override it if you have one: ~/.cuetopia3/cjlog.vim
+" This will override it if you have one: ~/.cuetopia/cjlog.vim
 
 " Syntax documentation:
 " http://vimdoc.sourceforge.net/htmldoc/syntax.html#syntax

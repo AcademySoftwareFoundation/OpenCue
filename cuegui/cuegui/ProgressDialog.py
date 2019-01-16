@@ -16,7 +16,7 @@
 """
 A progress dialog that accepts a list of work units and displays the progress.
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, Cue3
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import Utils
 

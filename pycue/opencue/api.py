@@ -15,28 +15,28 @@
 
 
 """
-The Cue3 Static API.  This is exported into the package namespace.
+The opencue Static API.  This is exported into the package namespace.
 
-Project: Cue3 Library
+Project: opencue Library
 """
 
 import search
 import util
-from Cue3.compiled_proto import comment_pb2
-from Cue3.compiled_proto import criterion_pb2
-from Cue3.compiled_proto import cue_pb2
-from Cue3.compiled_proto import department_pb2
-from Cue3.compiled_proto import depend_pb2
-from Cue3.compiled_proto import facility_pb2
-from Cue3.compiled_proto import filter_pb2
-from Cue3.compiled_proto import host_pb2
-from Cue3.compiled_proto import job_pb2
-from Cue3.compiled_proto import renderPartition_pb2
-from Cue3.compiled_proto import report_pb2
-from Cue3.compiled_proto import service_pb2
-from Cue3.compiled_proto import show_pb2
-from Cue3.compiled_proto import subscription_pb2
-from Cue3.compiled_proto import task_pb2
+from opencue.compiled_proto import comment_pb2
+from opencue.compiled_proto import criterion_pb2
+from opencue.compiled_proto import cue_pb2
+from opencue.compiled_proto import department_pb2
+from opencue.compiled_proto import depend_pb2
+from opencue.compiled_proto import facility_pb2
+from opencue.compiled_proto import filter_pb2
+from opencue.compiled_proto import host_pb2
+from opencue.compiled_proto import job_pb2
+from opencue.compiled_proto import renderPartition_pb2
+from opencue.compiled_proto import report_pb2
+from opencue.compiled_proto import service_pb2
+from opencue.compiled_proto import show_pb2
+from opencue.compiled_proto import subscription_pb2
+from opencue.compiled_proto import task_pb2
 from cuebot import Cuebot
 from wrappers.allocation import Allocation
 from wrappers.comment import Comment
@@ -102,11 +102,11 @@ def createService(data):
 @util.grpcExceptionParser
 def getSystemStats():
     """Returns the system stats for a random
-    Cue3 server in the cluster.  This is used
-    mainly by admins for troubleshooting Cue3
+    opencue server in the cluster.  This is used
+    mainly by admins for troubleshooting opencue
     problems.
     @rtype: SystemStats
-    @return: a struct of Cue3 application information."""
+    @return: a struct of opencue application information."""
     return Cuebot.getStub('cue').GetSystemStats(
         cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout).stats
 

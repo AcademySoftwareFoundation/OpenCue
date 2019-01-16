@@ -19,10 +19,10 @@
 import sys, os, re, commands, time, optparse, shutil, subprocess
 from subprocess import *
 try:
-    from Manifest import Cue3
+    from Manifest import opencue
 except:
-    from psr.manifest.cue3 import Cue3
-#Cue3.loadWrappers()
+    from psr.manifest.opencue import opencue
+#opencue.loadWrappers()
 from operator import *
 from time import localtime, strftime
 import datetime
@@ -53,12 +53,12 @@ class FrameEtaGenerator(object):
         self.log_lines=0
          
     def GetFrameEta(self, job, frame):
-        self.log=Cue3.util.logPath(job, frame)
+        self.log = opencue.util.logPath(job, frame)
         if os.path.isfile(self.log):
             self.log_lines=len(open(self.log).readlines())
             buildTime = self.GetFrameBuildTime(frame)
         try:
-            layer = Cue3.api.findLayer(job.data.name, frame.data.layerName)
+            layer = opencue.api.findLayer(job.data.name, frame.data.layerName)
             if 'tango' in layer.data.services:
                 self.Tango(frame)
             elif 'svea' in layer.data.services:

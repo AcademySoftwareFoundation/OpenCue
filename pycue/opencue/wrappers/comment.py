@@ -15,14 +15,14 @@
 
 
 """
-Project: Cue3
+Project: opencue
 
 Module: comment.py - comment object
 
 """
 
-from Cue3.compiled_proto import comment_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import comment_pb2
+from opencue.cuebot import Cuebot
 
 
 class Comment(object):

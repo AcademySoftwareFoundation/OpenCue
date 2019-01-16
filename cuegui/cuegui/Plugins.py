@@ -22,7 +22,7 @@ PLUGIN_NAME        : The displayed name of the plugin.
 PLUGIN_CATEGORY    : The submenu that the plugin should be placed in.
 PLUGIN_DESCRIPTION : The description shown next to the plugin name.
 PLUGIN_REQUIRES    : (optional) The application name that the plugin requires
-                   : to load. ex. "CueCommander3"
+                   : to load. ex. "CueCommander"
 PLUGIN_PROVIDES    : The name of the class that the plugin provides.
 
 When a plugin is instantiated, a reference to the MainWindow is provided to the

@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, opencue
 
 from MenuActions import MenuActions
 import Utils
@@ -91,7 +91,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.addColumn("_CheckpointEnabled", 20, id=8,
                        data=lambda job, frame: "",
                        sort=lambda job, frame: (
-                               frame.data.checkpointState == Cue3.api.job_pb2.ENABLED),
+                               frame.data.checkpointState == opencue.api.job_pb2.ENABLED),
                        tip="A green check mark here indicates the frame has written out at least "
                            "1 checkpoint segment.")
         self.addColumn("CheckP", 55, id=9,
@@ -119,10 +119,10 @@ class FrameMonitorTree(AbstractTreeWidget):
                            "has run for or last ran for.\n")
 
         self.addColumn("LLU", 70, id=11,
-                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LLU] or ""),
-                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LLU] or ""),
                        tip="The amount of HOURS:MINUTES:SECONDS since the last\n"
@@ -131,10 +131,10 @@ class FrameMonitorTree(AbstractTreeWidget):
                            "frame for most types of jobs")
 
         self.addColumn("Memory", 60, id=12,
-                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 Utils.memoryToString(frame.data.used_memory) or
                                                 Utils.memoryToString(frame.data.max_rss)),
-                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 frame.data.used_memory or frame.data.max_rss),
                        tip="If a frame is running:\n"
                            "\t The amount of memory currently used by the frame.\n"
@@ -142,10 +142,10 @@ class FrameMonitorTree(AbstractTreeWidget):
                            "\t The most memory this frame has used at one time.")
 
         self.addColumn("Remain", 70, id=13,
-                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameEtaDataBuffer.getEtaFormatted(job, frame)
                                                 or ""),
-                       sort=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameEtaDataBuffer.getEta(job, frame) or -1),
                        tip="Hours:Minutes:Seconds remaining.")
 
@@ -157,12 +157,12 @@ class FrameMonitorTree(AbstractTreeWidget):
                        tip="The time that the frame finished or died.")
 
         self.addColumn("Last Line", 0, id=16,
-                       data=lambda job, frame: (frame.data.state == Cue3.api.job_pb2.RUNNING and
+                       data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
                        tip="The last line of a running frame's log file.")
 
-        self.frameSearch = Cue3.search.FrameSearch()
+        self.frameSearch = opencue.search.FrameSearch()
 
         self.__job = None
         self.__jobState = None
@@ -291,7 +291,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: Column number double clicked on"""
         frame = item.rpcObject
-        if frame.data.state == Cue3.api.job_pb2.RUNNING:
+        if frame.data.state == opencue.api.job_pb2.RUNNING:
             Utils.popupFrameTail(self.__job, frame)
         else:
             Utils.popupFrameView(self.__job, frame)
@@ -307,7 +307,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         """Sets the current job
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None"""
-        self.frameSearch = Cue3.search.FrameSearch()
+        self.frameSearch = opencue.search.FrameSearch()
         self.__job = job
         self.__jobState = None
         self.removeAllItems()
@@ -323,7 +323,7 @@ class FrameMonitorTree(AbstractTreeWidget):
 
     def clearFilters(self):
         self.clearSelection()
-        self.frameSearch = Cue3.search.FrameSearch()
+        self.frameSearch = opencue.search.FrameSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.updateRequest()
 
@@ -405,7 +405,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @return: The results from the cuebot"""
         logger.info("_getUpdateChanged")
         if not self.__job or \
-           (self.__jobState and self.__jobState == Cue3.api.job_pb2.FINISHED):
+           (self.__jobState and self.__jobState == opencue.api.job_pb2.FINISHED):
             logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
@@ -414,14 +414,14 @@ class FrameMonitorTree(AbstractTreeWidget):
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
             # Once the updatedFrames include the proxy instead of the id, this can be removed
             for frame in updated_data.updated_frames.updated_frames:
-                frame = Cue3.util.proxy(frame.id, "Frame")
+                frame = opencue.util.proxy(frame.id, "Frame")
             logger.info("Frame Updates: %s" % len(updated_data.updated_frames))
             self.__lastUpdateTime = updated_data.serverTime
             self.__jobState = updated_data.state
 
             updatedFrames = updated_data.updated_frames
 
-        except Cue3.EntityNotFoundException, e:
+        except opencue.EntityNotFoundException, e:
             self.setJobObj(None)
         except Exception, e:
             if hasattr(e, "message") and e.message.find("timestamp cannot be over a minute off") != -1:
@@ -509,7 +509,7 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         self.__menuActions.frames().addAction(menu, "useLocalCores")
 
-        if QtGui.qApp.applicationName() == "CueCommander3":
+        if QtGui.qApp.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(menu, "viewHost")
 
         depend_menu = QtGui.QMenu("&Dependencies",self)
@@ -593,7 +593,7 @@ class FrameWidgetItem(AbstractWidgetItem):
             return self.__rgbFrameState[self.rpcObject.data.state]
 
         elif role == QtCore.Qt.DecorationRole and col == CHECKPOINT_COLUMN:
-            if self.rpcObject.data.checkpoint_state == Cue3.api.job_pb2.ENABLED:
+            if self.rpcObject.data.checkpoint_state == opencue.api.job_pb2.ENABLED:
                 return QtGui.QIcon(":markdone.png")
         elif role == QtCore.Qt.TextAlignmentRole:
             if col == STATUS_COLUMN:

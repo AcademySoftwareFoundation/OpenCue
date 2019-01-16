@@ -15,14 +15,14 @@
 
 from PySide2 import QtGui, QtWidgets
 
-import Cue3
+import opencue
 import cuegui
 
 
 PLUGIN_NAME = "Allocations"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to allocations"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "AllocationsDockWidget"
 
 class AllocationsDockWidget(cuegui.AbstractDockWidget):
@@ -87,7 +87,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            return Cue3.api.getAllocations()
+            return opencue.api.getAllocations()
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []

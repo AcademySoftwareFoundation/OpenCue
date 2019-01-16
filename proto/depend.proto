@@ -52,7 +52,7 @@ enum DependTarget {
 
 // -------- Primary Message Types --------
 
-// The Depend object repesents a unique dependency on the Cue3 server.
+// The Depend object repesents a unique dependency on the Cuebot server.
 message Depend {
     // Id for the depend
     string id = 1;

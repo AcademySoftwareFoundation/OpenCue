@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, Cue3
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import Constants
 import Logger
@@ -62,7 +62,7 @@ class ProcMonitorTree(AbstractTreeWidget):
                        data=lambda proc: proc.data.job_name ,
                        tip="The job that this proc is running on.")
 
-        self.procSearch = Cue3.search.ProcSearch()
+        self.procSearch = opencue.search.ProcSearch()
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -111,7 +111,7 @@ class ProcMonitorTree(AbstractTreeWidget):
 
     def clearFilters(self):
         self.clearSelection()
-        self.procSearch = Cue3.search.ProcSearch()
+        self.procSearch = opencue.search.ProcSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.removeAllItems()
 
@@ -134,7 +134,7 @@ class ProcMonitorTree(AbstractTreeWidget):
                not self.procSearch.options.durationRange:
                 return []
 
-            return Cue3.api.getProcs(self.procSearch)
+            return opencue.api.getProcs(self.procSearch)
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []

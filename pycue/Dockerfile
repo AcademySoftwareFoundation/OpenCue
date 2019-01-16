@@ -22,13 +22,13 @@ COPY VERSION ./
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
-COPY pycue/Cue3 ./pycue/Cue3
+COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
 
 RUN python -m grpc_tools.protoc \
   -I=./proto \
-  --python_out=./pycue/Cue3/compiled_proto \
-  --grpc_python_out=./pycue/Cue3/compiled_proto \
+  --python_out=./pycue/opencue/compiled_proto \
+  --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
 # TODO(cipriano) Lint the code here. (b/121159562)

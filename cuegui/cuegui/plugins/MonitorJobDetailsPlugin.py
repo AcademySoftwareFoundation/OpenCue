@@ -15,7 +15,7 @@
 
 from PySide2 import QtGui, QtCore, QtWidgets
 
-import Cue3
+import opencue
 import cuegui
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -84,7 +84,7 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget):
             self.__setJob(jobName)
 
     def __setJob(self, job = None):
-        if cuegui.Utils.isJob(job) and self.__job and Cue3.id(job) == Cue3.id(self.__job):
+        if cuegui.Utils.isJob(job) and self.__job and opencue.id(job) == opencue.id(self.__job):
             return
 
         new_job = cuegui.Utils.findJob(job)

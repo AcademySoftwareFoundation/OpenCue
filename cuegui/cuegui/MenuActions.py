@@ -25,9 +25,9 @@ import glob
 import urllib2
 import subprocess
 
-from Manifest import QtCore, QtGui, QtWidgets, Cue3, FileSequence
+from Manifest import QtCore, QtGui, QtWidgets, opencue, FileSequence
 
-import Cue3.compiled_proto.job_pb2
+import opencue.compiled_proto.job_pb2
 import Action
 import Utils
 import Logger
@@ -223,7 +223,7 @@ class JobActions(AbstractActions):
                                                            0, 50000, 0)
             if choice:
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).setMinCores(float(value))
+                    opencue.wrappers.job.Job(job).setMinCores(float(value))
                     job.setMinCores(float(value))
                 self._update()
 
@@ -240,7 +240,7 @@ class JobActions(AbstractActions):
                                                            0, 50000, 0)
             if choice:
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).setMaxCores(float(value))
+                    opencue.wrappers.job.Job(job).setMaxCores(float(value))
                 self._update()
 
     setPriority_info = ["Set Priority...", None, "configure"]
@@ -256,7 +256,7 @@ class JobActions(AbstractActions):
                                                             0, 1000000, 1)
             if choice:
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).setPriority(int(value))
+                    opencue.wrappers.job.Job(job).setPriority(int(value))
                 self._update()
 
     setMaxRetries_info = ["Set Max Retries...", None, "configure"]
@@ -270,7 +270,7 @@ class JobActions(AbstractActions):
                                                             0, 0, 10, 1)
             if choice:
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).setMaxRetries(int(value))
+                    opencue.wrappers.job.Job(job).setMaxRetries(int(value))
                 self._update()
 
     pause_info = ["&Pause", None, "pause"]
@@ -279,7 +279,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                Cue3.wrappers.job.Job(job.data).pause()
+                opencue.wrappers.job.Job(job.data).pause()
             self._update()
 
     resume_info = ["&Unpause", None, "unpause"]
@@ -288,7 +288,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                Cue3.wrappers.job.Job(job).resume()
+                opencue.wrappers.job.Job(job).resume()
             self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -299,7 +299,7 @@ class JobActions(AbstractActions):
                                       "Are you sure you want to kill these jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).kill()
+                    opencue.wrappers.job.Job(job).kill()
                 self._update()
 
     eatDead_info = ["Eat dead frames", None, "eat"]
@@ -310,8 +310,8 @@ class JobActions(AbstractActions):
                                       "Eat all DEAD frames in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).eatFrames(
-                        state=Cue3.compiled_proto.job_pb2.FrameState.DEAD)
+                    opencue.wrappers.job.Job(job).eatFrames(
+                        state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
                 self._update()
 
     autoEatOn_info = ["Enable auto eating", None, "eat"]
@@ -319,9 +319,9 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                jobObj = Cue3.wrappers.job.Job(job)
+                jobObj = opencue.wrappers.job.Job(job)
                 jobObj.setAutoEat(True)
-                jobObj.eatFrames(state=Cue3.compiled_proto.job_pb2.FrameState.DEAD)
+                jobObj.eatFrames(state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
             self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
@@ -329,7 +329,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                Cue3.wrappers.job.Job(job).setAutoEat(False)
+                opencue.wrappers.job.Job(job).setAutoEat(False)
             self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
@@ -340,8 +340,8 @@ class JobActions(AbstractActions):
                                       "Retry all DEAD frames in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    Cue3.wrappers.job.Job(job).retryFrames(
-                        state=Cue3.compiled_proto.job_pb2.FrameState.DEAD)
+                    opencue.wrappers.job.Job(job).retryFrames(
+                        state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
                 self._update()
 
     dropExternalDependencies_info = ["Drop External Dependencies", None, "kill"]
@@ -352,7 +352,7 @@ class JobActions(AbstractActions):
                                       "Drop all external dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.dropDepends(Cue3.api.depend_pb2.EXTERNAL)
+                    job.dropDepends(opencue.api.depend_pb2.EXTERNAL)
                 self._update()
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
@@ -363,7 +363,7 @@ class JobActions(AbstractActions):
                                       "Drop all internal dependencies in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.dropDepends(Cue3.api.depend_pb2.INTERNAL)
+                    job.dropDepends(opencue.api.depend_pb2.INTERNAL)
                 self._update()
 
     viewComments_info = ["Comments...", None, "comment"]
@@ -402,7 +402,7 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What order should the range %s take?" % range
-        items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
+        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -412,7 +412,7 @@ class JobActions(AbstractActions):
         if not choice: return
 
         self.cuebotCall(__job.reorderFrames, "Reorder Frames Failed",
-                        range, getattr(Cue3.Order, str(order)))
+                        range, getattr(opencue.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
     def stagger(self, rpcObjects=None):
@@ -453,16 +453,17 @@ class JobActions(AbstractActions):
             return
 
         title = "Send jobs to group"
-        groups = dict([(group.data.name, group) for group in Cue3.api.findShow(jobs[0].data.show).getGroups()])
+        groups = dict([(group.data.name, group) for group in opencue.api.findShow(
+            jobs[0].data.show).getGroups()])
         body = "What group should these jobs move to?\n" + \
                "\n".join([job.data.name for job in jobs])
 
         (group, choice) = QtWidgets.QInputDialog.getItem(self._caller,
-                                                     title,
-                                                     body,
-                                                     sorted(groups.keys()),
-                                                     0,
-                                                     False)
+                                                         title,
+                                                         body,
+                                                         sorted(groups.keys()),
+                                                         0,
+                                                         False)
         if not choice:
             return
 
@@ -471,8 +472,8 @@ class JobActions(AbstractActions):
 
 
     useLocalCores_info = ["Use local cores...",
-                             "Set a single job to use the local desktop cores",
-                             "configure"]
+                          "Set a single job to use the local desktop cores",
+                          "configure"]
 
     def useLocalCores(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
@@ -625,8 +626,9 @@ class LayerActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry all DEAD frames in selected layers?",
                                       [layer.data.name for layer in layers]):
-                frameSearch = Cue3.search.FrameSearch(layer=[layer.data.name for layer in layers],
-                                                      state=[Cue3.api.job_pb2.DEAD])
+                frameSearch = opencue.search.FrameSearch(
+                    layer=[layer.data.name for layer in layers],
+                    state=[opencue.api.job_pb2.DEAD])
                 layer.parent.retryFrames(frameSearch)
                 self._update()
 
@@ -673,7 +675,7 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         body = "What order should the range %s take?" % range
-        items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
+        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -684,7 +686,7 @@ class LayerActions(AbstractActions):
 
         for layer in layers:
             self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
-                            range, getattr(Cue3.Order, str(order)))
+                            range, getattr(opencue.Order, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
     def stagger(self, rpcObjects=None):
@@ -781,7 +783,7 @@ class FrameActions(AbstractActions):
         hosts = list(set([frame.data.lastResource.split("/")[0] for frame in frames if frame.data.lastResource]))
         if hosts:
             QtGui.qApp.view_hosts.emit(hosts)
-            QtGui.qApp.single_click.emit(Cue3.api.findHost(hosts[0]))
+            QtGui.qApp.single_click.emit(opencue.api.findHost(hosts[0]))
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
     def getWhatThisDependsOn(self, rpcObjects=None):
@@ -811,7 +813,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry selected frames?",
                                       names):
-                frameSearch = Cue3.search.FrameSearch(name=names)
+                frameSearch = opencue.search.FrameSearch(name=names)
                 job.retryFrames(frameSearch)
                 self._update()
 
@@ -845,7 +847,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Eat selected frames?",
                                       names):
-                frameSearch = Cue3.search.FrameSearch(name=names)
+                frameSearch = opencue.search.FrameSearch(name=names)
                 self._getSource().eatFrames(frameSearch)
                 self._update()
 
@@ -856,7 +858,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Kill selected frames?",
                                       names):
-                frameSearch = Cue3.search.FrameSearch(name=names)
+                frameSearch = opencue.search.FrameSearch(name=names)
                 self._getSource().killFrames(frameSearch)
                 self._update()
 
@@ -868,7 +870,7 @@ class FrameActions(AbstractActions):
                                       "Mark selected frames as waiting?\n"
                                       "(Ignores all of the frames's dependencies once)",
                                       names):
-                frameSearch = Cue3.search.FrameSearch(name=names)
+                frameSearch = opencue.search.FrameSearch(name=names)
                 self._getSource().markAsWaiting(frameSearch)
                 self._update()
 
@@ -882,7 +884,7 @@ class FrameActions(AbstractActions):
                                       "(Drops all of the frame's dependencies)",
                                       names):
                 for frame in frames:
-                    frame.dropDepends(Cue3.api.depend_pb2.ANY_TARGET)
+                    frame.dropDepends(opencue.api.depend_pb2.ANY_TARGET)
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -900,7 +902,7 @@ class FrameActions(AbstractActions):
                                       "Mark done all selected frames?\n"
                                       "(Drops any dependencies that are waiting on these frames)",
                                       frameNames):
-                frameSearch = Cue3.search.FrameSearch(name=frameNames)
+                frameSearch = opencue.search.FrameSearch(name=frameNames)
                 self._getSource().markDoneFrames(frameSearch)
                 self._update()
 
@@ -913,7 +915,7 @@ class FrameActions(AbstractActions):
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
-        items = [order for order in dir(Cue3.Order) if not order.startswith("_")]
+        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -938,7 +940,7 @@ class FrameActions(AbstractActions):
                 self.cuebotCall(layerProxy.reorderFrames,
                                 "Reorder Frames Failed",
                                 str(fs),
-                                getattr(Cue3.Order, str(order)))
+                                getattr(opencue.Order, str(order)))
 
     copyLogFileName_info = ["Copy log file name", None, "configure"]
     def copyLogFileName(self, rpcObjects=None):
@@ -967,7 +969,8 @@ class FrameActions(AbstractActions):
 
                 if len(frames) == 1:
                     # Since only a single frame selected, check if layer is only one frame
-                    layer = Cue3.api.findLayer(self._getSource().data.name, frames[0].data.layerName)
+                    layer = opencue.api.findLayer(self._getSource().data.name,
+                                                  frames[0].data.layerName)
                     if layer.data.layer_stats.totalFrames == 1:
                         # Single frame selected of single frame layer, mark done and eat it all
                         print 'single frame layer found'
@@ -977,7 +980,7 @@ class FrameActions(AbstractActions):
                         self._update()
                         return
 
-                frameSearch = Cue3.search.FrameSearch(name=frameNames)
+                frameSearch = opencue.search.FrameSearch(name=frameNames)
                 self._getSource().eatFrames(frameSearch)
                 self._getSource().markDoneFrames(frameSearch)
 
@@ -1024,7 +1027,7 @@ class RootGroupActions(AbstractActions):
     def properties(self, rpcObjects=None):
         rootgroups = self._getOnlyRootGroupObjects(rpcObjects)
         if rootgroups:
-            ShowDialog(Cue3.api.findShow(rootgroups[0].data.name), self._caller).show()
+            ShowDialog(opencue.api.findShow(rootgroups[0].data.name), self._caller).show()
 
     groupProperties_info  = ["Group Properties...", None, "view"]
     def groupProperties(self, rpcObjects=None):
@@ -1070,20 +1073,20 @@ class RootGroupActions(AbstractActions):
     def viewFilters(self, rpcObjects=None):
         from FilterDialog import FilterDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
-            FilterDialog(Cue3.api.findShow(rootgroup.data.name), self._caller).show()
+            FilterDialog(opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
     taskProperties_info = ["Task Properties...", None, "view"]
     def taskProperties(self, rpcObjects=None):
         from TasksDialog import TasksDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
-            TasksDialog(Cue3.api.findShow(rootgroup.data.name), self._caller).show()
+            TasksDialog(opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
 
     serviceProperties_info = ["Service Properies...", None, "view"]
     def serviceProperties(self, rpcObjects=None):
         from TasksDialog import TasksDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
-            ServiceDialog(Cue3.api.findShow(rootgroup.data.name), self._caller).exec_()
+            ServiceDialog(opencue.api.findShow(rootgroup.data.name), self._caller).exec_()
 
 
 class GroupActions(AbstractActions):
@@ -1232,7 +1235,7 @@ class HostActions(AbstractActions):
     def delete(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         title = "Confirm"
-        body = "Delete selected hosts?\n\nThis should only be done\nby cue3 administrators!"
+        body = "Delete selected hosts?\n\nThis should only be done\nby opencue administrators!"
         if Utils.questionBoxYesNo(self._caller,
                                   title,
                                   body,
@@ -1250,7 +1253,9 @@ class HostActions(AbstractActions):
     def rebootWhenIdle(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         title = "Confirm"
-        body = "Send request to lock the machine and reboot it when idle?\n\nThis should only be done\nby cue3 administrators!"
+        body = ("Send request to lock the machine and reboot it when idle?\n\n" +
+                "This should only be done\n" +
+                "by opencue administrators!")
         if Utils.questionBoxYesNo(self._caller,
                                   title,
                                   body,
@@ -1318,7 +1323,7 @@ class HostActions(AbstractActions):
     def changeAllocation(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
-            allocations = dict([(alloc.data.name, alloc) for alloc in Cue3.api.getAllocations()])
+            allocations = dict([(alloc.data.name, alloc) for alloc in opencue.api.getAllocations()])
             title = "Move host to allocation"
             body = "What allocation should the host(s) be moved to?"
             (allocationName, choice) = QtWidgets.QInputDialog.getItem(self._caller,
@@ -1336,7 +1341,7 @@ class HostActions(AbstractActions):
     setRepair_info = ["Set Repair State", None, "configure"]
     def setRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
-        repair = Cue3.api.host_pb2.REPAIR
+        repair = opencue.api.host_pb2.REPAIR
         for host in hosts:
             if host.data.state != repair:
                 host.setHardwareState(repair)
@@ -1345,8 +1350,8 @@ class HostActions(AbstractActions):
     clearRepair_info = ["Clear Repair State", None, "configure"]
     def clearRepair(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
-        repair = Cue3.api.host_pb2.REPAIR
-        down = Cue3.api.host_pb2.DOWN
+        repair = opencue.api.host_pb2.REPAIR
+        down = opencue.api.host_pb2.DOWN
         for host in hosts:
             if host.data.state == repair:
                 host.setHardwareState(down)
@@ -1361,7 +1366,7 @@ class ProcActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in list(set([proc.data.jobName for proc in self._getOnlyProcObjects(rpcObjects)])):
             try:
-                QtGui.qApp.view_object.emit(Cue3.api.findJob(job))
+                QtGui.qApp.view_object.emit(opencue.api.findJob(job))
             except Exception, e:
                 logger.warning("Unable to load: %s" % job)
 

@@ -13,10 +13,9 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 import os
-import time
 import pickle
 
 import Utils
@@ -29,15 +28,16 @@ PREDEFINED_COMMENT_DELETE = "> Delete predefined comment"
 SAVE_EDIT = "Save Changes"
 SAVE_NEW = "Save New Comment"
 
+
 class CommentListDialog(QtWidgets.QDialog):
     """A dialog to display a comment list"""
-    def __init__(self, source, parent = None):
+    def __init__(self, source, parent=None):
         """Initialize the dialog
         @type  source: Job or Host
         @param source: The source to get the comments from
         @type  parent: QWidget
         @param parent: The dialog's parent"""
-        QtWidgets.QDialog.__init__(self,parent)
+        QtWidgets.QDialog.__init__(self, parent)
         self.__source = source
 
         self.__labelTitle = QtWidgets.QLabel(self.__source.data.name, self)
@@ -95,7 +95,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.refreshComments()
         self.__macroLoad()
 
-    def __textEdited(self, text = None):
+    def __textEdited(self, text=None):
         """Called when the text boxes are modified, enables the save button"""
         self.__btnSave.setEnabled(True)
 
@@ -117,7 +117,7 @@ class CommentListDialog(QtWidgets.QDialog):
         else:
             # If saving a modified comment
             if self.__treeSubjects.currentItem():
-                comment =  self.__treeSubjects.currentItem().getInstance()
+                comment = self.__treeSubjects.currentItem().getInstance()
                 comment.setSubject(str(self.__textSubject.text()))
                 comment.setMessage(str(self.__textMessage.toPlainText()))
                 self.__treeSubjects.currentItem().getInstance().save()
@@ -274,16 +274,17 @@ class CommentListDialog(QtWidgets.QDialog):
         return (str(result[0]), result[1])
 
     def __addComment(self, subject, message):
-        c = Cue3.Entity.CommentData()
-        c.user = os.getenv("USER","unknown")
+        c = opencue.Entity.CommentData()
+        c.user = os.getenv("USER", "unknown")
         c.subject = str(subject)
         c.message = str(message) or " "
         c.timestamp = 0
         self.__source.addComment(c)
 
+
 class CommentMacroDialog(QtWidgets.QDialog):
     """A dialog for adding or modifying macro comments"""
-    def __init__(self, name = "", subject = "", message = "", parent = None):
+    def __init__(self, name="", subject="", message="", parent=None):
         """Initializes the new/edit comment dialog
         @type  name: str
         @param name: The name of the macro
@@ -340,13 +341,16 @@ class CommentMacroDialog(QtWidgets.QDialog):
                 str(self.__textSubject.text()),
                 str(self.__textMessage.toPlainText()))
 
+
 class Comment(QtWidgets.QTreeWidgetItem):
     """A widget to represent an item in the comment list"""
     def __init__(self, comment):
-        QtWidgets.QTreeWidgetItem.__init__(self,
-                                       QtCore.QStringList([comment.subject(),
-                                                           comment.user(),
-                                                           Utils.dateToMMDDHHMM(comment.timestamp())]))
+        QtWidgets.QTreeWidgetItem.__init__(
+            self,
+            QtCore.QStringList([
+                comment.subject(),
+                comment.user(),
+                Utils.dateToMMDDHHMM(comment.timestamp())]))
         self.__comment = comment
 
     def getInstance(self):

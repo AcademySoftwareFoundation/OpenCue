@@ -18,9 +18,9 @@
 
 import os
 import sys
-import Cue3
+import opencue
 
-job = Cue3.findJob(os.environ.get('CUE_JOB', ''))
+job = opencue.findJob(os.environ.get('CUE_JOB', ''))
 
 job.pause()
 
@@ -30,9 +30,9 @@ MESSAGE = 'Eat the frame from the wait_on_artist_to_qc layer to allow the job to
 for layer in job.getLayers():
     if layer.data.name == 'wait_on_artist_to_qc':
         if not [comment for comment in job.getComments() if comment.data.subject == SUBJECT]:
-            comment = Cue3.CommentData(user='monitor',
-                                       subject=SUBJECT,
-                                       message=MESSAGE)
+            comment = opencue.CommentData(user='monitor',
+                                          subject=SUBJECT,
+                                          message=MESSAGE)
             job.addComment(comment)
         layer.retryFrames()
         sys.exit()

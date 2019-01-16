@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-from Manifest import Cue3, QtCore, QtWidgets
+from Manifest import opencue, QtCore, QtWidgets
 
 
 class GroupDialog(QtWidgets.QDialog):
@@ -26,7 +26,7 @@ class GroupDialog(QtWidgets.QDialog):
         __modify = modifyGroup is not None
 
         try:
-            self._departments = Cue3.api.getDepartmentNames()
+            self._departments = opencue.api.getDepartmentNames()
         except Exception, e:
             self._departments = ["Unknown"]
 
@@ -166,7 +166,7 @@ class GroupDialog(QtWidgets.QDialog):
 
 class ModifyGroupDialog(GroupDialog):
     def __init__(self, modifyGroup, parent=None):
-        modifyGroup = Cue3.api.getGroup(modifyGroup)
+        modifyGroup = opencue.api.getGroup(modifyGroup)
         defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
                     "message": "Modifying the group %s" % modifyGroup.data.name,
                     "name": modifyGroup.data.name,

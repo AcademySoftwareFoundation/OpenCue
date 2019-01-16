@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Cue3 integration module."""
+"""OpenCue integration module."""
 
 import logging
 import os
@@ -22,7 +22,7 @@ import time
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
 
-import Cue3
+import opencue
 
 import versions
 from outline import config, util, OutlineException
@@ -30,7 +30,7 @@ from outline.depend import DependType
 from outline.manifest import FileSequence
 
 
-logger = logging.getLogger("outline.backend.cue3")
+logger = logging.getLogger("outline.backend.cue")
 
 __all__ = ["launch",
            "serialize"]
@@ -64,9 +64,9 @@ def build_command(launcher, layer):
     if layer.get_arg("wrapper"):
         wrapper = layer.get_arg("wrapper")
     elif layer.get_arg("setshot", True):
-        wrapper = "%s/cue3_wrap_frame" % config.get("outline", "wrapper_dir")
+        wrapper = "%s/opencue_wrap_frame" % config.get("outline", "wrapper_dir")
     else:
-        wrapper = "%s/cue3_wrap_frame_no_ss" % config.get("outline", "wrapper_dir")
+        wrapper = "%s/opencue_wrap_frame_no_ss" % config.get("outline", "wrapper_dir")
 
     command.append(wrapper)
     command.append(config.get("outline", "user_dir"))
@@ -93,15 +93,15 @@ def launch(launcher):
     @type launcher: L{OutlineLauncher}
     @param launcher: The OutlineLauncher to launch.
 
-    @rtype: Cue3.Entity.Job
-    @return: The Cue3 job that was launched.
+    @rtype: opencue.Entity.Job
+    @return: The opencue job that was launched.
     """
 
     if launcher.get("server"):
-        Cue3.Cuebot.setHosts([launcher.get("server")])
-        logger.info("cue3bot host set to: %s" % launcher.get("server"))
+        opencue.Cuebot.setHosts([launcher.get("server")])
+        logger.info("cuebot host set to: %s" % launcher.get("server"))
 
-    jobs = Cue3.api.launchSpecAndWait(launcher.serialize())
+    jobs = opencue.api.launchSpecAndWait(launcher.serialize())
 
     if launcher.get("wait"):
         wait(jobs[0])
@@ -117,7 +117,7 @@ def test(job):
     when the given job completes, or throws an L{OutlineException}
     if the job fails in any way.
 
-    @type job: Cue3.Entity.Job
+    @type job: opencue.Entity.Job
     @param job: The job to test.
     """
     logging.basicConfig(level=logging.DEBUG)
@@ -129,16 +129,16 @@ def test(job):
     try:
         while True:
             try:
-                job = Cue3.api.getJob(job)
+                job = opencue.api.getJob(job)
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     msg = "Job test failed, dead or eaten frames on: %s"
                     raise OutlineException(msg % job.data.name)
-                if job.data.state == Cue3.api.job_pb2.FINISHED:
+                if job.data.state == opencue.api.job_pb2.FINISHED:
                     break
                 msg = "waiting on %s job to complete: %d/%d"
                 logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
                                     job.data.job_stats.total_frames))
-            except Cue3.CueException, ie:
+            except opencue.CueException, ie:
                 raise OutlineException("test for job %s failed: %s" %
                                        (job.data.name, ie))
             time.sleep(5)
@@ -150,21 +150,21 @@ def wait(job):
     """
     Wait for the given job to complete before returning.
 
-    @type job: Cue3.Entity.Job
+    @type job: opencue.Entity.Job
     @param job: The job to wait on.
     """
     while True:
         try:
-            if not Cue3.api.isJobPending(job.data.name):
+            if not opencue.api.isJobPending(job.data.name):
                 break
             msg = "waiting on %s job to complete: %d/%d"
             logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
                                 job.data.job_stats.total_frames))
-        except Cue3.CueException, ie:
-            msg = "Cue3 error waiting on job: %s, %s. Will continue to wait."
+        except opencue.CueException, ie:
+            msg = "opencue error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, ie)
         except Exception, e:
-            msg = "Cue3 error waiting on job: %s, %s. Will continue to wait."
+            msg = "opencue error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, e)
         time.sleep(5)
 
@@ -172,13 +172,13 @@ def wait(job):
 def serialize(launcher):
     """
     Serialize the outline part of the given L{OutlineLauncher} into a
-    Cue3 job specification.
+    opencue job specification.
 
     @type launcher: L{OutlineLauncher}
     @param launcher: The outline launcher being used to launch the job.
 
     @rtype: str
-    @return: A Cue3 job specification.
+    @return: A opencue job specification.
     """
     ol = launcher.get_outline()
 
@@ -225,7 +225,7 @@ def serialize(launcher):
         if not layer.get_arg("register"):
             continue
 
-        # Don't register child layers with Cue3.
+        # Don't register child layers with opencue.
         if layer.get_parent():
             continue
 
@@ -247,7 +247,7 @@ def serialize(launcher):
         sub_element(spec_layer, "range", str(frame_range))
         sub_element(spec_layer, "chunk", str(layer.get_chunk_size()))
 
-        # Cue3 specific options
+        # opencue specific options
         if layer.get_arg("threads"):
             sub_element(spec_layer, "cores", "%0.1f" % (layer.get_arg("threads")))
 

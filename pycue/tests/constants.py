@@ -20,8 +20,8 @@
 import os
 import re
 
-from Cue3.compiled_proto import job_pb2
-from Manifest import Cue3
+from opencue.compiled_proto import job_pb2
+from Manifest import opencue
 
 USERNAME = os.getenv("USER")
 ID_LENGTH = 36
@@ -68,5 +68,5 @@ class Job:
     reservedMemoryKb = 0
     usedMemoryKb = 0
 
-job = Cue3
+job = opencue
 

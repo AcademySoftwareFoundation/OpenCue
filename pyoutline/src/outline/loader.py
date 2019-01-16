@@ -257,7 +257,7 @@ class Outline(object):
 
         #
         # A hash of environement variables that are passed up
-        # to cue3 and then set before each frame is run.
+        # to opencue and then set before each frame is run.
         # These are set "pre" setshot, so they can be used
         # to modify setshot behavior.
         #

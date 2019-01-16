@@ -24,9 +24,9 @@ from xml.etree import ElementTree as Et
 sys.path.insert(0,"../../src")
 import outline
 
-class Cue3BackendTest(unittest.TestCase):
+class CueBackendTest(unittest.TestCase):
     """
-    Tests to ensure that the Cue3 spec generator
+    Tests to ensure that the opencue spec generator
     is doing its job.
     """
     script = os.path.dirname(__file__) + "../scripts/shell.outline"
@@ -36,7 +36,7 @@ class Cue3BackendTest(unittest.TestCase):
         Check that the OL_TAG_OVERRIDE environment variable
         is handled properly.
         """
-        ol = outline.load_outline(Cue3BackendTest.script)
+        ol = outline.load_outline(CueBackendTest.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", ["foo", "man", "chu"])
         
@@ -54,7 +54,7 @@ class Cue3BackendTest(unittest.TestCase):
     def test_tags_as_list(self):
         """Check that tags passed in as a list."""
         
-        ol = outline.load_outline(Cue3BackendTest.script)
+        ol = outline.load_outline(CueBackendTest.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", ["foo", "man", "chu"])
             
@@ -66,7 +66,7 @@ class Cue3BackendTest(unittest.TestCase):
     def test_tags_as_string(self):
         """Check tags passed in as a string."""
         
-        ol = outline.load_outline(Cue3BackendTest.script)
+        ol = outline.load_outline(CueBackendTest.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", "foo | man | chu")
             
@@ -79,7 +79,7 @@ class Cue3BackendTest(unittest.TestCase):
         """
         Check that the os flag is handled properly.
         """
-        ol = outline.load_outline(Cue3BackendTest.script)
+        ol = outline.load_outline(CueBackendTest.script)
         l = outline.cuerun.OutlineLauncher(ol, os="awesome")
         
         root = Et.fromstring(l.serialize())
@@ -93,7 +93,7 @@ class Cue3BackendTest(unittest.TestCase):
         """
         try:
             os.environ["OL_OS"] = "radical"
-            ol = outline.load_outline(Cue3BackendTest.script)
+            ol = outline.load_outline(CueBackendTest.script)
             l = outline.cuerun.OutlineLauncher(ol)
             root = Et.fromstring(l.serialize())
             self.assertEquals("radical", 

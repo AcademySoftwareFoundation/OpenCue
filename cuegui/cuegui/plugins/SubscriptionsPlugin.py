@@ -20,7 +20,7 @@ from PySide2 import QtCore, QtWidgets
 PLUGIN_NAME = "Subscriptions"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "An administrator interface to subscriptions"
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "SubscriptionDockWidget"
 
 

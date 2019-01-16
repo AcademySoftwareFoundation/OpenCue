@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, opencue
 
 import Constants
 import Logger
@@ -129,7 +129,7 @@ class HostMonitorTree(AbstractTreeWidget):
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
 
-        self.hostSearch = Cue3.search.HostSearch()
+        self.hostSearch = opencue.search.HostSearch()
 
         AbstractTreeWidget.__init__(self, parent)
 
@@ -199,7 +199,7 @@ class HostMonitorTree(AbstractTreeWidget):
 
     def clearFilters(self):
         self.clearSelection()
-        self.hostSearch = Cue3.search.HostSearch()
+        self.hostSearch = opencue.search.HostSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
         self.removeAllItems()
 
@@ -211,7 +211,7 @@ class HostMonitorTree(AbstractTreeWidget):
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
-            hosts = Cue3.api.getHosts(**self.hostSearch.options)
+            hosts = opencue.api.getHosts(**self.hostSearch.options)
             # Sorting by name here incase that makes displaying it faster
             hosts.sort(key=lambda host: host.data.name)
             return hosts
@@ -293,9 +293,9 @@ class HostWidgetItem(AbstractWidgetItem):
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole:
-            if not self.rpcObject.data.state == Cue3.api.host_pb2.UP:
+            if not self.rpcObject.data.state == opencue.api.host_pb2.UP:
                 return self.__dyingColor
-            if self.rpcObject.data.lock_state == Cue3.api.host_pb2.LOCKED:
+            if self.rpcObject.data.lock_state == opencue.api.host_pb2.LOCKED:
                 return self.__pausedColor
             return self.__backgroundColor
 

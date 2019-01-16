@@ -18,7 +18,7 @@ Application constants.
 """
 import os
 
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 VERSION = "1.3.0"
 
@@ -43,7 +43,7 @@ MEMORY_WARNING_LEVEL = 5242880
 RESOURCE_PATH = os.path.dirname(__file__) + "/images"
 DEFAULT_INI_PATH = os.path.dirname(__file__) + "/config"
 
-DEFAULT_YAML = os.path.join(DEFAULT_INI_PATH, 'cue3.yaml')
+DEFAULT_YAML = os.path.join(DEFAULT_INI_PATH, 'opencue.yaml')
 
 DEFAULT_PLUGIN_PATHS = [os.path.dirname(__file__) + "/plugins"]
 
@@ -72,14 +72,14 @@ QVARIANT_GREY = QtGui.QColor(QtCore.Qt.gray)
 ALLOWED_TAGS = ("general", "desktop", "playblast", "util", "preprocess", "wan", "cuda", "splathw",
                 'naiad', 'massive')
 
-RGB_FRAME_STATE = {Cue3.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
-                   Cue3.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
-                   Cue3.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
-                   Cue3.api.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
-                   Cue3.api.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
-                   Cue3.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
-                   Cue3.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
-                   Cue3.api.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
+RGB_FRAME_STATE = {opencue.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
+                   opencue.api.job_pb2.DEPEND: QtGui.QColor(160, 32, 240),
+                   opencue.api.job_pb2.EATEN: QtGui.QColor(150, 0, 0),
+                   opencue.api.job_pb2.RUNNING:  QtGui.QColor(200, 200, 55),
+                   opencue.api.job_pb2.SETUP: QtGui.QColor(160, 32, 240),
+                   opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
+                   opencue.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
+                   opencue.api.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
 QVARIANT_FRAME_STATE = \
     dict((key, RGB_FRAME_STATE[key]) for key in RGB_FRAME_STATE.keys())
 

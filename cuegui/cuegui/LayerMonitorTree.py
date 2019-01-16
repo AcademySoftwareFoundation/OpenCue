@@ -16,7 +16,7 @@
 """
 A layer list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, Cue3
+from Manifest import os, QtCore, QtGui, opencue
 
 import Utils
 import Constants
@@ -174,7 +174,7 @@ class LayerMonitorTree(AbstractTreeWidget):
         if self.__job:
             try:
                 return self.__job.getLayers()
-            except Cue3.exceptions.EntityNotFoundException:
+            except opencue.exceptions.EntityNotFoundException:
                 self.setJob(None)
                 return []
         return []

@@ -17,7 +17,7 @@
 
 import Constants
 import Utils
-from Manifest import Cue3, QtCore, QtWidgets
+from Manifest import opencue, QtCore, QtWidgets
 from TagsWidget import TagsWidget
 
 
@@ -136,7 +136,7 @@ class ServiceForm(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
-        data = Cue3.api.service_pb2.Service()
+        data = opencue.api.service_pb2.Service()
         data.name = str(self.name.text())
         data.threadable = self.threadable.isChecked()
         data.min_cores = self.min_cores.value()
@@ -199,12 +199,12 @@ class ServiceManager(QtWidgets.QWidget):
         if self.__show:
             self.__selected = self.__show.getServiceOverride(str(item.text()))
         else:
-            self.__selected = Cue3.api.getService(str(item.text()))
+            self.__selected = opencue.api.getService(str(item.text()))
         self.__form.setService(self.__selected)
 
     def saved(self, data):
         """
-        Save a service to Cue3.
+        Save a service to opencue.
         """
         if not self.__show:
             msg = QtWidgets.QMessageBox()
@@ -219,7 +219,7 @@ class ServiceManager(QtWidgets.QWidget):
             if self.__show:
                 self.__show.createServiceOverride(data)
             else:
-                Cue3.api.createService(data)
+                opencue.api.createService(data)
         else:
             self.__selected.update(data)
 
@@ -245,7 +245,7 @@ class ServiceManager(QtWidgets.QWidget):
         self.__service_list.clear()
         try:
             if not self.__show:
-                self.__services = Cue3.api.getDefaultServices()
+                self.__services = opencue.api.getDefaultServices()
             else:
                 self.__services = self.__show.getServiceOverrides()
         except Exception, e:

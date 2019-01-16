@@ -15,9 +15,9 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: proc.py - Cue3 Library implementation of a proc
+Module: proc.py - opencue Library implementation of a proc
 
 """
 
@@ -25,8 +25,8 @@ import frame
 import host
 import job
 import layer
-from Cue3.compiled_proto import host_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import host_pb2
+from opencue.cuebot import Cuebot
 
 
 class Proc(object):

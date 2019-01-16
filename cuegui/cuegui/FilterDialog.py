@@ -19,7 +19,7 @@ Handles the dialog to display/modify a show's filters, matchers and actions
 import re
 
 import Logger
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 logger = Logger.getLogger(__file__)
 
@@ -29,10 +29,10 @@ from MenuActions import MenuActions
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
 from TextEditDialog import TextEditDialog
-from Cue3.compiled_proto.filter_pb2 import ActionType
-from Cue3.compiled_proto.filter_pb2 import FilterType
-from Cue3.compiled_proto.filter_pb2 import MatchSubject
-from Cue3.compiled_proto.filter_pb2 import MatchType
+from opencue.compiled_proto.filter_pb2 import ActionType
+from opencue.compiled_proto.filter_pb2 import FilterType
+from opencue.compiled_proto.filter_pb2 import MatchSubject
+from opencue.compiled_proto.filter_pb2 import MatchType
 
 
 MATCHSUBJECT = [match for match in dir(MatchSubject)
@@ -250,7 +250,10 @@ class MatcherMonitorTree(AbstractTreeWidget):
         if not choice:
             return
 
-        self.addObject(self.__filter.createMatcher(getattr(Cue3.api.filter_pb2, str(matchSubject)), getattr(Cue3.api.filter_pb2, str(matchType)), str(input)))
+        self.addObject(self.__filter.createMatcher(
+            getattr(opencue.api.filter_pb2, str(matchSubject)),
+            getattr(opencue.api.filter_pb2, str(matchType)),
+            str(input)))
 
     def deleteAllMatchers(self):
         """Prompts the user and then deletes all matchers"""
@@ -339,7 +342,7 @@ class ActionMonitorTree(AbstractTreeWidget):
         self.groupIds = {}
         for group in show.getGroups():
             self.groupNames[group.data.name] = group
-            self.groupIds[Cue3.util.id(group)] = group
+            self.groupIds[opencue.util.id(group)] = group
 
         # Used to build right click context menus
         self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
@@ -377,45 +380,96 @@ class ActionMonitorTree(AbstractTreeWidget):
     def createAction(self):
         """Prompts the user to create a new action"""
         if self.__filter:
-            (actionType, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Please select the type of action to add:", [addSpaces(action) for action in ACTIONTYPE], 0, False)
+            (actionType, choice) = QtWidgets.QInputDialog.getItem(
+                self, "Create Action", "Please select the type of action to add:",
+                [addSpaces(action) for action in ACTIONTYPE], 0, False)
             if choice:
                 value = None
-                actionType = getattr(Cue3.api.filter_pb2, str(actionType).replace(" ", ""))
+                actionType = getattr(opencue.api.filter_pb2, str(actionType).replace(" ", ""))
 
                 # Give the proper prompt for the desired action type
-                if actionType in (Cue3.api.filter_pb2.PAUSE_JOB,):
-                    (value, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Should the job be paused or unpaused?", PAUSETYPE, 0, False)
+                if actionType in (opencue.api.filter_pb2.PAUSE_JOB,):
+                    (value, choice) = QtWidgets.QInputDialog.getItem(
+                        self,
+                        "Create Action",
+                        "Should the job be paused or unpaused?",
+                        PAUSETYPE,
+                        0,
+                        False)
                     value = PAUSETYPE.index(str(value)) == 0
 
-                elif actionType in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
-                                    Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
-                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 2)
+                elif actionType in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
+                                    opencue.api.filter_pb2.SET_JOB_MIN_CORES):
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(
+                        self,
+                        "Create Action",
+                        "What value should this property be set to?",
+                        0,
+                        0,
+                        50000,
+                        2)
                     value = float(value)
 
-                elif actionType in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
-                    (value, choice) = QtWidgets.QInputDialog.getInteger(self, "Create Action","What value should this property be set to?", 0, 0, 50000, 1)
+                elif actionType in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
+                    (value, choice) = QtWidgets.QInputDialog.getInteger(
+                        self,
+                        "Create Action",
+                        "What value should this property be set to?",
+                        0,
+                        0,
+                        50000,
+                        1)
 
-                elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
-                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action", "How much memory (in GB) should each render layer require?", 4.0, 0.1, 47.0, 2)
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(
+                        self,
+                        "Create Action",
+                        "How much memory (in GB) should each render layer require?",
+                        4.0,
+                        0.1,
+                        47.0,
+                        2)
                     value = int(value * 1048576)
 
-                elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,):
-                    (value, choice) = QtWidgets.QInputDialog.getDouble(self, "Create Action", "How many cores should every render layer require?", 1, .1, 100, 2)
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,):
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(
+                        self,
+                        "Create Action",
+                        "How many cores should every render layer require?",
+                        1,
+                        0.1,
+                        100,
+                        2)
                     value = float(value)
 
-                elif actionType in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
-                    (value, choice) = QtWidgets.QInputDialog.getText(self, "Create Action", "What tags should all render layers be set to?")
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+                    (value, choice) = QtWidgets.QInputDialog.getText(
+                        self,
+                        "Create Action",
+                        "What tags should all render layers be set to?")
                     value = str(value)
 
-                elif actionType in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+                elif actionType in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                     groups = {}
                     for group in self.__show.getGroups():
                         groups[group.name()] = group
-                    (group, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "What group should it move to?", groups.keys(), 0, False)
+                    (group, choice) = QtWidgets.QInputDialog.getItem(
+                        self,
+                        "Create Action",
+                        "What group should it move to?",
+                        groups.keys(),
+                        0,
+                        False)
                     value = groups[str(group)]
 
-                elif actionType in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
-                    (value, choice) = QtWidgets.QInputDialog.getItem(self, "Create Action", "Should the memory optimizer be enabled or disabled?", MEMOPTTYPE, 0, False)
+                elif actionType in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+                    (value, choice) = QtWidgets.QInputDialog.getItem(
+                        self,
+                        "Create Action",
+                        "Should the memory optimizer be enabled or disabled?",
+                        MEMOPTTYPE,
+                        0,
+                        False)
                     value = MEMOPTTYPE.index(str(value)) == 0
 
                 if choice:
@@ -451,7 +505,7 @@ class FilterWidgetItem(AbstractWidgetItem):
         self.updateWidgets()
 
     def setType(self, text):
-        self.rpcObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setType(getattr(opencue.api.filter_pb2, str(text)))
 
     def setEnabled(self, value):
         self.rpcObject.setEnabled(bool(value))
@@ -502,10 +556,10 @@ class MatcherWidgetItem(AbstractWidgetItem):
         self.updateWidgets()
 
     def setType(self, text):
-        self.rpcObject.setType(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setType(getattr(opencue.api.filter_pb2, str(text)))
 
     def setSubject(self, text):
-        self.rpcObject.setSubject(getattr(Cue3.api.filter_pb2, str(text)))
+        self.rpcObject.setSubject(getattr(opencue.api.filter_pb2, str(text)))
 
     def setInput(self):
         text = str(self.__widgets["input"].text())
@@ -588,30 +642,30 @@ class ActionWidgetItem(AbstractWidgetItem):
         widget = self.__widgets["ActionValue"]
 
         # Get the proper value from the widget
-        if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+        if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
             value = PAUSETYPE.index(str(value)) == 0
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
             value = widget.value()
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
             value = int(widget.value() * 1048576)
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
-                                     Cue3.api.filter_pb2.SET_JOB_MIN_CORES,
-                                     Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_JOB_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
             value = float(widget.value())
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
             value = str(widget.text())
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
             group = self.treeWidget().groupNames[str(value)]
             if self.rpcObject.value() != group:
                 self.rpcObject.setTypeAndValue(self.rpcObject.type(), group)
             return
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
             value = MEMOPTTYPE.index(str(value)) == 0
 
         # Set the new value
@@ -623,41 +677,41 @@ class ActionWidgetItem(AbstractWidgetItem):
             widget = None
 
             # Create the proper widget depending on the action type
-            if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+            if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(PAUSETYPE)
                 widget.currentIndexChanged.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
                 widget = NoWheelSpinBox(self.parent())
                 widget.setMaximum(99999)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
-                                         Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
+                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
-                                         Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
+                                           opencue.api.filter_pb2.SET_JOB_MIN_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(0)
                 widget.setSingleStep(1)
                 widget.setMaximum(1000)
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
                 widget = QtWidgets.QLineEdit("", self.parent())
                 widget.editingFinished.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(self.treeWidget().groupNames.keys())
                 widget.currentIndexChanged.connect(self.__setValue)
 
-            elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+            elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(MEMOPTTYPE)
                 widget.currentIndexChanged.connect(self.__setValue)
@@ -673,29 +727,29 @@ class ActionWidgetItem(AbstractWidgetItem):
 
         # Update the widget with the current value
 
-        if self.rpcObject.type() in (Cue3.api.filter_pb2.PAUSE_JOB,):
+        if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
             self.__widgets["ActionValue"].setCurrentIndex(int(not self.rpcObject.value()))
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_JOB_PRIORITY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
             self.__widgets["ActionValue"].setValue(self.rpcObject.value())
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
             self.__widgets["ActionValue"].setValue(float(self.rpcObject.value()) / 1048576)
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
             self.__widgets["ActionValue"].setText(self.rpcObject.value())
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
-                                     Cue3.api.filter_pb2.SET_JOB_MAX_CORES,
-                                     Cue3.api.filter_pb2.SET_JOB_MIN_CORES):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
+                                       opencue.api.filter_pb2.SET_JOB_MAX_CORES,
+                                       opencue.api.filter_pb2.SET_JOB_MIN_CORES):
             self.__widgets["ActionValue"].setValue(float(str(self.rpcObject.value())))
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.MOVE_JOB_TO_GROUP,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
             name = self.treeWidget().groupIds[self.rpcObject.value()].name()
             index = self.treeWidget().groupNames.keys().index(name)
             self.__widgets["ActionValue"].setCurrentIndex(index)
 
-        elif self.rpcObject.type() in (Cue3.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
             self.__widgets["ActionValue"].setCurrentIndex(int(not self.rpcObject.value()))
 
 class NoWheelComboBox(QtWidgets.QComboBox):

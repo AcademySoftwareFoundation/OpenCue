@@ -39,7 +39,6 @@ setup(
     ],
     packages=find_packages(exclude=['tests']),
     package_data={
-        'Cue3': ['default.yaml'],
+        'opencue': ['default.yaml'],
     },
 )
-

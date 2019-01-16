@@ -22,7 +22,7 @@ import Utils
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
 from ItemDelegate import JobThinProgressBarDelegate
-from Manifest import QtCore, QtGui, QtWidgets, Cue3
+from Manifest import QtCore, QtGui, QtWidgets, opencue
 from MenuActions import MenuActions
 
 logger = Logger.getLogger(__file__)
@@ -258,14 +258,14 @@ class CueJobMonitorTree(AbstractTreeWidget):
                         item.rpcObject.reparentJobs(job_ids)
                         # If no exception, then move was allowed, so do it locally:
                         for id_ in job_ids:
-                            proxy = Utils.getObjectKey(Cue3.util.proxy(id_, "Job"))
+                            proxy = Utils.getObjectKey(opencue.util.proxy(id_, "Job"))
                             self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     if group_ids:
                         item.rpcObject.reparentGroups(group_ids)
                         # If no exception, then move was allowed, so do it locally:
                         for id_ in group_ids:
-                            proxy = Utils.getObjectKey(Cue3.util.proxy(id_, "Group"))
+                            proxy = Utils.getObjectKey(opencue.util.proxy(id_, "Group"))
                             self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     self.updateSoon()
@@ -279,7 +279,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         show = str(show)
         if show not in self.__shows:
             try:
-                self.__shows[show] = Cue3.api.findShow(show)
+                self.__shows[show] = opencue.api.findShow(show)
             except:
                 logger.warning("This show does not exist: %s" % show)
             if update:
@@ -332,7 +332,8 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
         try:
-            nestedShows = [Cue3.wrappers.show.Show(show.data).getJobWhiteboard() for show in self.getShows()]
+            nestedShows = [opencue.wrappers.show.Show(show.data).getJobWhiteboard()
+                           for show in self.getShows()]
             allIds = set(self.__getNestedIds(nestedShows))
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -721,13 +722,13 @@ class JobWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
                 self._cache["FST"] = {
-                    Cue3.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
-                    Cue3.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
-                    Cue3.job_pb2.FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
-                    Cue3.job_pb2.FrameState.Running: self.rpcObject.job_stats.running_frames,
-                    Cue3.job_pb2.FrameState.Setup: 0,
-                    Cue3.job_pb2.FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
-                    Cue3.job_pb2.FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
+                    opencue.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
+                    opencue.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
+                    opencue.job_pb2.FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
+                    opencue.job_pb2.FrameState.Running: self.rpcObject.job_stats.running_frames,
+                    opencue.job_pb2.FrameState.Setup: 0,
+                    opencue.job_pb2.FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
+                    opencue.job_pb2.FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
                 }
             return self._cache.get("FST", Constants.QVARIANT_NULL)
 

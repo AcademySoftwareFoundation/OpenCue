@@ -21,9 +21,9 @@ allocation module
 import host
 import subscription
 
-from Cue3.compiled_proto import facility_pb2
-from Cue3.compiled_proto import host_pb2
-from Cue3.cuebot import Cuebot
+from opencue.compiled_proto import facility_pb2
+from opencue.compiled_proto import host_pb2
+from opencue.cuebot import Cuebot
 
 
 class Allocation(object):

@@ -8,7 +8,7 @@
     <h1>PyOutline Development</h1>
     <h2>Introduction</h2>
         <p>
-        PyOutline is a work flow engine that logically separates large processes or programs into small chunks which can be executed across many systems or CPUs in parallel, most commonly on a render farm. The main role played by PyOutline is as a glue library which binds an application like Katana or Maya to our render farm software, Cue3. It can also be used for ad-hoc command execution.
+        PyOutline is a work flow engine that logically separates large processes or programs into small chunks which can be executed across many systems or CPUs in parallel, most commonly on a render farm. The main role played by PyOutline is as a glue library which binds an application like Katana or Maya to our render farm software, OpenCue. It can also be used for ad-hoc command execution.
     </p>
     <p>
         For example, lets say you had the command:
@@ -138,7 +138,7 @@
         The Frame class represents a single
         <a href="#FrameDef">Frame</a>
         . All subclasses of Frame
-        <b>will always result in a single frame onCue3 the cue regardless of the frame range the outline is launched with</b> 
+        <b>will always result in a single frame on OpenCue the cue regardless of the frame range the outline is launched with</b>
         . Some subclasses of frame are PreProcess, PostProcess, PostCommand, and ShellCommand.
     </p>
     <pre>
@@ -275,7 +275,7 @@
     </pre>
     <h4>Constructor</h4>
     <p>
-        The module constructor is executed upon object creation. In your constructor you should initialize all object specific properties. In general your constructor should be pretty small. Be careful not to set Cue3 or job specific data in your constructor.
+        The module constructor is executed upon object creation. In your constructor you should initialize all object specific properties. In general your constructor should be pretty small. Be careful not to set Opencue or job specific data in your constructor.
     </p>
     <p>At typical constructor would be:</p>
     <pre>
@@ -440,13 +440,13 @@
         <li>
             CUE_FRAME - The frame name, example: "1090-io_bakef3d1_part_4_preprocess"
         </li>
-        <li>CUE_FRAME_ID - The frame guid from cue3</li>
+        <li>CUE_FRAME_ID - The frame guid from opencue</li>
         <li>CUE_IFRAME - The frame number</li>
         <li>CUE_JOB - The job name</li>
-        <li>CUE_JOB_ID - The job guid from cue3</li>
-        <li>CUE_FRAME_ID - The frame guid from cue3</li>
+        <li>CUE_JOB_ID - The job guid from opencue</li>
+        <li>CUE_FRAME_ID - The frame guid from opencue</li>
         <li>CUE_LAYER - The layer name</li>
-        <li>CUE_LAYER_ID - The layer guid from cue3</li>
+        <li>CUE_LAYER_ID - The layer guid from opencue</li>
         <li>CUE_LOG_PATH - The path to the file directory</li>
         <li>CUE_MEMORY - Amount of memory in KB assigned to the frame</li>
         <li>CUE_RANGE - The full frame range of the layer</li>

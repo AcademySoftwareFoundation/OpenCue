@@ -14,9 +14,9 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: exception.py - Provides Cue3 access to exceptions
+Module: exception.py - Provides opencue access to exceptions
 """
 
 

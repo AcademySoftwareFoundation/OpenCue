@@ -52,7 +52,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
     def __init__(self, parent):
         """Standard method to display a list or tree using QTreeWidget
 
-        columnInfoByType is a dictionary of lists keyed to Cue3.Constants.TYPE_*
+        columnInfoByType is a dictionary of lists keyed to opencue.Constants.TYPE_*
         Each value is a list of lists that each define a column.
         [<column name>, <width>, <lambda function>, <function name for sorting>,
         <column delegate class>]
@@ -261,7 +261,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Adds or updates an rpcObject in the list using the _createItem function
         and object.proxy as the key. Used when user is adding an item but will
         not want to wait for an update.
-        @type  paramA: Cue3 object
+        @type  paramA: opencue object
         @param paramA: Object that provides .proxy"""
         self._itemsLock.lockForWrite()
         try:

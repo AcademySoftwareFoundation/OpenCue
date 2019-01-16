@@ -20,7 +20,7 @@ import cuegui
 PLUGIN_NAME = "Redirect"
 PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "Redirect procs from one job to another."
-PLUGIN_REQUIRES = "CueCommander3"
+PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "RedirectWidget"
 
 class RedirectWidget(cuegui.AbstractDockWidget):

@@ -16,7 +16,7 @@
 import time
 
 import common
-from Manifest import Cue3
+from Manifest import opencue
 
 
 def displayProcs(procs):
@@ -143,7 +143,7 @@ def displaySubscriptions(subscriptions, show):
 
 def displayDepend(depend):
         print "-"
-        print "Unique ID: %s" % Cue3.id(depend)
+        print "Unique ID: %s" % opencue.id(depend)
         print "Type: %s" % depend.data.type
         print "Internal: %s" % depend.data.target
         print "Active: %s" % depend.data.active
@@ -169,7 +169,7 @@ def displayDepends(depends, active_only=False):
 
 
 def displayGroups(show):
-    print "Groups for %s" % Cue3.rep(show)
+    print "Groups for %s" % opencue.rep(show)
     grp_format = "%-32s %-12s %8s %8s %8s %8s %8s %8s %8s %6s"
     print grp_format % ("Name", "Dept", "DefPri", "DefMin", "DefMax", "MaxC", "MinC", "Booked",
                         "Cores", "Jobs")
@@ -252,7 +252,7 @@ def displayNames(items):
     @type  items: list<>
     @param items: All objects must have a .name parameter"""
     for item in items:
-        print Cue3.rep(item)
+        print opencue.rep(item)
 
 
 def displayLayers(job, layers):

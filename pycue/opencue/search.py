@@ -47,12 +47,12 @@ for job in JobSearch.byUser(["chambers","jwelborn"]):
 
 import logging
 
-from Cue3.compiled_proto import criterion_pb2
-from Cue3.compiled_proto import host_pb2
-from Cue3.compiled_proto import job_pb2
+from opencue.compiled_proto import criterion_pb2
+from opencue.compiled_proto import host_pb2
+from opencue.compiled_proto import job_pb2
 from cuebot import Cuebot
 
-logger = logging.getLogger("cue3")
+logger = logging.getLogger("opencue")
 
 __all__ = ["BaseSearch",
            "ProcSearch",
@@ -74,7 +74,7 @@ class BaseSearch(object):
 
 
 class ProcSearch(BaseSearch):
-    """See: help(Cue3.getProcs)"""
+    """See: help(opencue.getProcs)"""
     def __init__(self, **options):
         super(ProcSearch, self).__init__(**options)
 

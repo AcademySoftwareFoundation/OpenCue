@@ -13,12 +13,12 @@
 #  limitations under the License.
 
 
-"""Utility functions for Cue3Tools"""
+"""Utility functions for OpenCueTools"""
 import logging
 import sys
 import time
 
-from Manifest import Cue3
+from Manifest import opencue
 
 __ALL__ = ["enableDebugLogging",
            "promptYesNo",
@@ -26,8 +26,8 @@ __ALL__ = ["enableDebugLogging",
 
 
 def enableDebugLogging():
-    """enables debug logging for cue3 and cue3 tools"""
-    logger = logging.getLogger("cue3")
+    """enables debug logging for opencue and opencue tools"""
+    logger = logging.getLogger("opencue")
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
     console.setFormatter(logging.Formatter("%(levelname)s %(name)s %(message)s"))
@@ -70,7 +70,7 @@ def waitOnJobName(jobName, maxWaitForLaunch=None):
     time.sleep(4)
     while True:
         try:
-            isPending = Cue3.api.isJobPending(jobName.lower())
+            isPending = opencue.api.isJobPending(jobName.lower())
             isLocated = isLocated or isPending
 
             if isLocated:
@@ -82,7 +82,7 @@ def waitOnJobName(jobName, maxWaitForLaunch=None):
                 waited += delay
                 if maxWaitForLaunch and waited >= maxWaitForLaunch:
                     return False
-        except Cue3.CueException, e:
+        except opencue.CueException, e:
             print >>sys.stderr, "Error: %s" % e
         except Exception, e:
             print >>sys.stderr, "Error: %s" % e

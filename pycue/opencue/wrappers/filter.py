@@ -15,23 +15,23 @@
 
 
 """
-Project: Cue3 Library
+Project: opencue Library
 
-Module: filter.py - Cue3 Library implementation of spank filter
+Module: filter.py - opencue Library implementation of spank filter
 
 """
 
-from Cue3 import Cuebot
-from Cue3.compiled_proto import filter_pb2
-from Cue3.compiled_proto import job_pb2
-from Cue3.compiled_proto.filter_pb2 import Action as ActionData
-from Cue3.compiled_proto.filter_pb2 import ActionType
-from Cue3.compiled_proto.filter_pb2 import ActionValueType
-from Cue3.compiled_proto.filter_pb2 import Filter as FilterData
-from Cue3.compiled_proto.filter_pb2 import FilterType
-from Cue3.compiled_proto.filter_pb2 import MatchSubject
-from Cue3.compiled_proto.filter_pb2 import MatchType
-from Cue3.compiled_proto.filter_pb2 import Matcher as MatcherData
+from opencue import Cuebot
+from opencue.compiled_proto import filter_pb2
+from opencue.compiled_proto import job_pb2
+from opencue.compiled_proto.filter_pb2 import Action as ActionData
+from opencue.compiled_proto.filter_pb2 import ActionType
+from opencue.compiled_proto.filter_pb2 import ActionValueType
+from opencue.compiled_proto.filter_pb2 import Filter as FilterData
+from opencue.compiled_proto.filter_pb2 import FilterType
+from opencue.compiled_proto.filter_pb2 import MatchSubject
+from opencue.compiled_proto.filter_pb2 import MatchType
+from opencue.compiled_proto.filter_pb2 import Matcher as MatcherData
 
 __all__ = ["Filter", "Action", "Matcher",
            "FilterData", "ActionData", "MatcherData",
@@ -52,9 +52,9 @@ class Filter(object):
 
     def createMatcher(self, subject, matchType, query):
         """Creates a matcher for this filter
-        @type  subject: Cue3.MatchSubject.*
+        @type  subject: opencue.MatchSubject.*
         @param subject: The job attribute to match
-        @type  matchType: Cue3.MatchType.*
+        @type  matchType: opencue.MatchType.*
         @param matchType: The type of match to perform
         @type  query: string
         @param query: The value to match
@@ -71,7 +71,7 @@ class Filter(object):
 
     def createAction(self, actionType, value):
         """Creates an action for this filter.
-        @type  actionType: Cue3.ActionType.*
+        @type  actionType: opencue.ActionType.*
         @param actionType: The action to perform
         @type  value: Group or str, or int or bool
         @param value: Value relevant to the type selected
