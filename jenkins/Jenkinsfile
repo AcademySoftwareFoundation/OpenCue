@@ -11,7 +11,7 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cuebot/Dockerfile ."
                 sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build --target build -t opencue/pycue-build:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
@@ -19,7 +19,7 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh "docker build --target test -t opencue/cuebot-test:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build --target test -t opencue/cuebot-test:${env.BUILD_ID} -f cuebot/Dockerfile ."
                 sh "docker build --target test -t opencue/rqd-test:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build --target test -t opencue/pycue-test:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build --target test -t opencue/cuegui-test:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
@@ -27,7 +27,7 @@ pipeline {
         }
         stage('Package') {
             steps {
-                sh "docker build -t opencue/cuebot:${env.BUILD_ID} -f cue3bot/Dockerfile ."
+                sh "docker build -t opencue/cuebot:${env.BUILD_ID} -f cuebot/Dockerfile ."
                 sh "docker build -t opencue/rqd:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build -t opencue/pycue:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
