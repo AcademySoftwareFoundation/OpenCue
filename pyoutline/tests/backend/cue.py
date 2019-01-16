@@ -54,7 +54,7 @@ class CueBackendTest(unittest.TestCase):
     def test_tags_as_list(self):
         """Check that tags passed in as a list."""
         
-        ol = outline.load_outline(Cu3BackendTest.script)
+        ol = outline.load_outline(CueBackendTest.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", ["foo", "man", "chu"])
             

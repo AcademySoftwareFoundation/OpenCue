@@ -36,7 +36,7 @@ finish for the second job to begin.
 Hard Dependency - a frame to frame dependency (only the corresponding
 frames need to finish).
 
-cuetopia - A graphical user interface to monitor and interact with
+CueGui - A graphical user interface to monitor and interact with
 Jobs, Layers and Frames.
 
 Outline Script - A powerful tool for submitting jobs to the queue. Outline

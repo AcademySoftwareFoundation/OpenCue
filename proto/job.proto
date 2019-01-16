@@ -276,7 +276,7 @@ service LayerInterface {
     // Eat the Frames of this Layer
     rpc EatFrames(LayerEatFramesRequest) returns (LayerEatFramesResponse);
 
-    // When disabled, This will stop Cuebopt from lowering the amount of memory required for a given layer.
+    // When disabled, This will stop Cuebot from lowering the amount of memory required for a given layer.
     rpc EnableMemoryOptimizer(LayerEnableMemoryOptimizerRequest) returns (LayerEnableMemoryOptimizerResponse);
 
     // Finds a layer in a pending job based the job and layer name

@@ -15,7 +15,7 @@
 #  limitations under the License.
 
 
-from Manifest import opencue as cue
+from Manifest import opencue
 from Manifest import unittest
 
 
@@ -25,31 +25,31 @@ class ProxyTests(unittest.TestCase):
     def testProxyUniqueId(self):
         """convert a string and class name to proxy"""
         id = "A0000000-0000-0000-0000-000000000000"
-        self.assertEquals(str(cue.proxy(id, "Group")),
+        self.assertEquals(str(opencue.proxy(id, "Group")),
                           "manageGroup/%s -t -e 1.0:tcp -h localhost -p 9019 -t 10000" % id)
 
     def testProxyUniqueIdArray(self):
         """convert a list of strings and a class name to a proxy"""
         ids = ["A0000000-0000-0000-0000-000000000000","B0000000-0000-0000-0000-000000000000"]
-        self.assertTrue(len(cue.proxy(ids, "Group")), 2)
+        self.assertTrue(len(opencue.proxy(ids, "Group")), 2)
 
     def testProxyEntity(self):
         """convert an entity to a proxy"""
-        job = cue.api.getJobs()[0]
-        self.assertEquals(job, cue.proxy(job))
+        job = opencue.api.getJobs()[0]
+        self.assertEquals(job, opencue.proxy(job))
 
     def testProxyEntityList(self):
         """convert a list of entities to a list of proxies"""
-        jobs = cue.api.getJobs()
-        self.assertEquals(len(jobs), len(cue.proxy(jobs, 'Job')))
-        proxies = cue.proxy(jobs)
+        jobs = opencue.api.getJobs()
+        self.assertEquals(len(jobs), len(opencue.proxy(jobs, 'Job')))
+        proxies = opencue.proxy(jobs)
         for i in range(0, len(proxies)):
             self.assertEqual(proxies[i], jobs[i])
 
     def testProxyProxyList(self):
         """convert a list of proxies to a list of proxies"""
-        proxiesA = [job.proxy for job in cue.api.getJobs()]
-        proxiesB = cue.proxy(proxiesA)
+        proxiesA = [job.proxy for job in opencue.api.getJobs()]
+        proxiesB = opencue.proxy(proxiesA)
         self.assertEquals(len(proxiesA), len(proxiesB))
         for i in range(0, len(proxiesA)):
             self.assertEqual(proxiesA[i], proxiesB[i])
@@ -59,12 +59,12 @@ class IdTests(unittest.TestCase):
     """id() takes an entity and returns the unique id"""
 
     def testIdOnEntity(self):
-        job = cue.api.getJobs()[0]
-        self.assertEquals(job.name, cue.id(job))
+        job = opencue.api.getJobs()[0]
+        self.assertEquals(job.name, opencue.id(job))
 
     def testIdOnEntityList(self):
-        jobs = cue.api.getJobs()
-        ids = cue.id(jobs)
+        jobs = opencue.api.getJobs()
+        ids = opencue.id(jobs)
         self.assertEquals(len(jobs), len(ids))
         for i in range(0,len(jobs)):
             self.assertEquals(jobs[i].name, ids[i])

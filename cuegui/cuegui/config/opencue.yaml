@@ -5,5 +5,5 @@ cuebot.facility:
     lax:
         - cuebot1.spimageworks.com:9019
         - cuebot2.spimageworks.com:9019
-        - cuetbot3.spimageworks.com:9019
+        - cuebot3.spimageworks.com:9019
 cuebot.timeout: 10000

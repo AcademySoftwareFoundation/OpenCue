@@ -20,7 +20,7 @@ import sys
 import unittest
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
-import opencue as cue
+import opencue
 
 TEST_SHOW_NAME = "pipe"
 TEST_GROUP_NAME = "pipe"
@@ -37,104 +37,104 @@ TEST_SUB_NAME = "pipe.General"
 class ShowTests(unittest.TestCase):
 
     def testGetShows(self):
-        cue.api.getShows()
+        opencue.api.getShows()
 
     def testFindShow(self):
-        cue.api.findShow(TEST_SHOW_NAME)
+        opencue.api.findShow(TEST_SHOW_NAME)
 
     def testCreateShow(self):
         try:
-            s = cue.api.findShow("cue")
-            cue.api.deleteShow(s.id())
-        except cue.EntityNotFoundException:
+            s = opencue.api.findShow("cue")
+            opencue.api.deleteShow(s.id())
+        except opencue.EntityNotFoundException:
             pass
         finally:
-            s = cue.api.createShow("cue")
-            cue.api.deleteShow(s.id())
+            s = opencue.api.createShow("cue")
+            opencue.api.deleteShow(s.id())
 
 
 class GroupTests(unittest.TestCase):
 
     def testFindGroup(self):
-        cue.api.findGroup(TEST_SHOW_NAME, TEST_GROUP_NAME)
+        opencue.api.findGroup(TEST_SHOW_NAME, TEST_GROUP_NAME)
 
     def testGetGroup(self):
-        cue.api.getGroup(TEST_GROUP_ID)
+        opencue.api.getGroup(TEST_GROUP_ID)
 
 
 class JobTests(unittest.TestCase):
 
     def testIsJobPending(self):
-        self.assertFalse(cue.api.isJobPending("notpending"))
+        self.assertFalse(opencue.api.isJobPending("notpending"))
 
     def testFindJob(self):
-        self.assertRaises(cue.EntityNotFoundException, cue.api.findJob, "notfound")
-        cue.api.findJob(TEST_JOB_NAME)
+        self.assertRaises(opencue.EntityNotFoundException, opencue.api.findJob, "notfound")
+        opencue.api.findJob(TEST_JOB_NAME)
 
     def testGetJobs(self):
-        self.assertTrue(len(cue.api.getJobs(show=[TEST_SHOW_NAME], all=True)) > 0)
-        self.assertTrue(len(cue.api.getJobs(name=[TEST_JOB_NAME], show=[TEST_SHOW_NAME])) == 1)
+        self.assertTrue(len(opencue.api.getJobs(show=[TEST_SHOW_NAME], all=True)) > 0)
+        self.assertTrue(len(opencue.api.getJobs(name=[TEST_JOB_NAME], show=[TEST_SHOW_NAME])) == 1)
 
     def testGetJob(self):
-        job1 = cue.api.findJob(TEST_JOB_NAME)
-        job2 = cue.api.getJob(cue.id(job1))
+        job1 = opencue.api.findJob(TEST_JOB_NAME)
+        job2 = opencue.api.getJob(opencue.id(job1))
 
     def testGetJobNames(self):
-        self.assertTrue(len(cue.api.getJobNames(show=[TEST_SHOW_NAME])) > 0)
+        self.assertTrue(len(opencue.api.getJobNames(show=[TEST_SHOW_NAME])) > 0)
 
 
 class LayerTests(unittest.TestCase):
 
     def testFindLayer(self):
-        cue.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
+        opencue.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
 
     def testGetLayer(self):
-        layer1 = cue.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
-        layer2 = cue.api.getLayer(cue.id(layer1))
+        layer1 = opencue.api.findLayer(TEST_JOB_NAME, TEST_LAYER_NAME)
+        layer2 = opencue.api.getLayer(opencue.id(layer1))
 
 
 class FrameTests(unittest.TestCase):
 
     def testFindFrame(self):
-        cue.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
+        opencue.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
 
     def testGetFrame(self):
-        frame1 = cue.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
-        frame2 = cue.api.getFrame(cue.id(frame1))
+        frame1 = opencue.api.findFrame(TEST_JOB_NAME, TEST_LAYER_NAME, 1)
+        frame2 = opencue.api.getFrame(opencue.id(frame1))
         self.assertEqual(frame1.number(), frame2.number())
 
     def testGetFrames(self):
-        self.assertTrue(cue.api.getFrames(TEST_JOB_NAME, range="1-5") > 0)
+        self.assertTrue(opencue.api.getFrames(TEST_JOB_NAME, range="1-5") > 0)
 
 
 class SubscriptionTests(unittest.TestCase):
 
     def testFindSubscription(self):
-        cue.api.findSubscription(TEST_SUB_NAME)
+        opencue.api.findSubscription(TEST_SUB_NAME)
 
     def testGetSubscription(self):
-        sub1 = cue.api.findSubscription(TEST_SUB_NAME)
-        sub2 = cue.api.getSubscription(cue.id(sub1))
-        self.assertEqual(cue.id(sub1), cue.id(sub2))
+        sub1 = opencue.api.findSubscription(TEST_SUB_NAME)
+        sub2 = opencue.api.getSubscription(opencue.id(sub1))
+        self.assertEqual(opencue.id(sub1), opencue.id(sub2))
 
 
 class HostTests(unittest.TestCase):
 
     def testGetHosts(self):
-        self.assertTrue(len(cue.api.getHosts(name=[TEST_HOST_NAME])) == 1)
+        self.assertTrue(len(opencue.api.getHosts(name=[TEST_HOST_NAME])) == 1)
 
     # this is failing all the time
     # def testGetHostWhiteboard(self):
-    #     cue.get_host_whiteboard()
+    #     opencue.get_host_whiteboard()
 
     def testFindHost(self):
-        h = cue.api.findHost(TEST_HOST_NAME)
+        h = opencue.api.findHost(TEST_HOST_NAME)
         self.assertEquals(h.name(), TEST_HOST_NAME)
 
     def testGetHost(self):
-        h = cue.api.findHost(TEST_HOST_NAME)
+        h = opencue.api.findHost(TEST_HOST_NAME)
         self.assertEquals(h.name(), TEST_HOST_NAME)
-        h2 = cue.api.getHost(cue.id(h))
+        h2 = opencue.api.getHost(opencue.id(h))
         self.assertEquals(h.name(), h2.name())
 
 
