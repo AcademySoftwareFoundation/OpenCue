@@ -1,4 +1,3 @@
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,14 +15,6 @@
 
 """
 Constants.
-
-Project: RQD
-
-Module: rqcore.py
-
-Contact: Middle-Tier
-
-SVN: $Id$
 """
 
 
@@ -40,34 +31,18 @@ if platform.system() == 'Linux':
 
 import rqutil
 
-# This value is replaced during rpm build to look like:
-# VERSION = '20171128-bc7c070a'
+# NOTE: Some of these values can be overridden by CONFIG_FILE; see below.
+
 VERSION = 'dev'
 
-RQD_LOCAL_PATH = "/usr/local/spi/rqd3"
-
-# ICE connection information:
-STRING_FROM_CUEBOT = "RqdStatic"
-STRING_TO_CUEBOT = "RqdReportStatic"
-CUEBOT_PORT = "9018"
-
-# If the hostname is blank then the facility ice server will be queried
-# Multiple hosts can be listed as space delimited
-# TODO: Make driven by a config file b/110168575
-# CUEBOT_HOSTNAME = "cuebot1 cuebot2 cuebot3"
 if 'CUEBOT_HOSTNAME' in os.environ:
   CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
 else:
-  CUEBOT_HOSTNAME = "localhost"
+  CUEBOT_HOSTNAME = 'localhost'
 
-RQD_PORT = "10021"
-RQD_HOST = "localhost"
+RQD_PORT = '10021'
+RQD_HOST = 'localhost'
 RQD_TIMEOUT = 10000
-
-FACILITY_ICE_NAMESERVER = "FacilityStatic" \
-                          ":tcp -h ice-ns1 -p 30000 -t 2000" \
-                          ":tcp -h ice-ns2 -p 30000 -t 2000"
-
 
 # GRPC VALUES
 RQD_GRPC_MAX_WORKERS = 10
@@ -116,9 +91,9 @@ PATH_MEMINFO = "/proc/meminfo"
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
-CONFIG_FILE = "/etc/rqd3/rqd3.conf"
-if "-c" in sys.argv:
-    CONFIG_FILE = sys.argv[sys.argv.index("-c") + 1]
+CONFIG_FILE = '/etc/opencue/rqd.conf'
+if '-c' in sys.argv:
+    CONFIG_FILE = sys.argv[sys.argv.index('-c') + 1]
 
 OVERRIDE_CORES = None # number of cores. ex: None or 8
 OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
