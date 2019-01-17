@@ -14,10 +14,10 @@ save yourself a lot of time by asking first.
 
 How do you talk to us? There are several ways to get in touch:
 
-* [opencue-dev](https://groups.google.com/group/opencue-dev)
+* [opencue-dev](https://groups.google.com/group/opencue-dev):
 This is a development focused mail list.
 
-* [opencue-users](https://groups.google.com/group/opencue-users)
+* [opencue-users](https://groups.google.com/group/opencue-users):
 This is an end-user oriented mail list.
 
 * [GitHub Issues](https://github.com/imageworks/OpenCue/issues):
@@ -88,8 +88,7 @@ if you're unfamiliar with this concept.
 
 The development cycle for a code change should follow this protocol:
 
-1. Create a topic branch in your local repository, following the naming format
-"feature/<your-feature>" or "bugfix/<your-fix>".
+1. Create a topic branch in your local repository.
 
 2. Make changes, compile, and test thoroughly. Code style should match existing
 style and conventions, and changes should be focused on the topic the pull
@@ -100,11 +99,11 @@ with a separate pull request.
 
 4. Create a Github pull request from your topic branch.
 
-5. All pull requests trigger CI builds on [Travis CI](https://travis-ci.org/)
-for Linux and Mac OS and [AppVeyor](https://www.appveyor.com/) for Windows.
-These builds verify that code compiles and all unit tests succeed. CI build
-status is displayed on the GitHub PR page, and changes will only be considered
-for merging after all builds have succeeded.
+5. All pull requests trigger Jenkins builds which build and test the potential
+result of your PR merged with the current `master` branch. These builds verify
+that code compiles and all unit tests succeed. CI build status is displayed on
+the GitHub PR page, and changes will only be considered for merging after all
+builds have succeeded.
 
 6. Pull requests will be reviewed by project Committers and Contributors,
 who may discuss, offer constructive feedback, request changes, or approve
