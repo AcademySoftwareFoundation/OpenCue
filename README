@@ -1,55 +1,34 @@
+# OpenCue
 
-Introduction:
-~~~~~~~~~~~~~
+- [Introduction](#Introduction)
+- [OpenCue features](#OpenCue-features)
+- [Learn more](#Learn-more)
 
-OpenCue is the render farm management software used at Imageworks. It allows users
-to submit jobs to a configurable dispatch queue that allocates the necessary
-computational resources. OpenCue has been in use at Imageworks since 2007.
+## Introduction
 
-Basic Queue Vocabulary:
-~~~~~~~~~~~~~~~~~~~~~~~
+OpenCue is an open source render management system. You can use OpenCue in
+visual effects and animation production to break down complex jobs into
+individual tasks. You can submit jobs to a configurable dispatch queue that
+allocates the necessary computational resources.
 
-Queue - The renderfarm as used to actively process a large number of render
-jobs using define priorities.
+## OpenCue features
 
-Cue - A nickname for the entire queuing system. The base name of the
-SPI render queue tools. Thus "cuetopia3", "cuerun", "cueman3", etc.
+OpenCue provides features to manage rendering management at scale:
 
-Cores - The processing units that make up a render machine. A machine
-known as a "dub" contains 8 cpu cores.
+- Sony Imageworks in-house render manager used on hundreds of films.
+- Highly-scalable architecture supporting numerous concurrent machines.
+- Tagging systems allow you to allocate specific jobs to specific machine
+  types.
+- Jobs are process on a central render farm and don't rely on the artist's
+  workstation.
+- Native multi-threading that supports Katana, Prman, and Arnold.
+- Support for multi facility, on-premisses, cloud, and hybrid deployments.
+- You can split a host into a large number of procs, each with their own
+  reserved core and memory requirements.
+- Integrated automated booking.
+- No limit on the number of procs a job can have.
 
-Procs - Old terminology from cue2 where it use to refer to a single
-core of a machine. Typically a proc refers to a running frame.
+## Learn more
 
-Job - Any script sent to the queue to be processed on remote cores.
-
-Layers - The sub-jobs in an outline script job.
-
-Frames - An individual command contained in a layer.
-
-Dependent Job - a job which will not run until the frames of
-another job are completed.
-
-Soft Dependency - when all the frames of the first job need to
-finish for the second job to begin.
-
-Hard Dependency - a frame to frame dependency (only the corresponding
-frames need to finish).
-
-CueGui - A graphical user interface to monitor and interact with
-Jobs, Layers and Frames.
-
-Outline Script - A powerful tool for submitting jobs to the queue. Outline
-scripts can batch what would be multiple job submissions into a single job,
-setting up dependencies and/or running in parallel. Outline scripts can
-submit almost any type of job to the cue - maya, katana, even shell commands.
-
-pycuerun - The command used to submit outline scripts to the queue.
-booked - When machine resources are assigned to a job causing a
-frame to start running.
-
-Note:
-~~~~~
-
-This project is missing some components that we couldn't open source and is not
-yet expected to build. But stay tuned for more information and development.
+For more infromation on installing, using, and administering OpenCue, see
+the [Wiki](https://github.com/imageworks/OpenCue/wiki)
