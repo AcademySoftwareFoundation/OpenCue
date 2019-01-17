@@ -45,7 +45,7 @@ FROM build as package
 RUN cp requirements.txt VERSION pyoutline/
 
 RUN versioned_name="pyoutline-$(cat ./VERSION)-all" \
-  && mv pycue $versioned_name \
+  && mv pyoutline $versioned_name \
   && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
