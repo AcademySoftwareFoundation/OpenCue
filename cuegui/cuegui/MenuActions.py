@@ -309,7 +309,7 @@ class JobActions(AbstractActions):
                                       "Eat all DEAD frames in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.eatFrames(state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
+                    job.eatFrames(state=opencue.compiled_proto.job_pb2.DEAD)
                 self._update()
 
     autoEatOn_info = ["Enable auto eating", None, "eat"]
@@ -318,7 +318,7 @@ class JobActions(AbstractActions):
         if jobs:
             for job in jobs:
                 job.setAutoEat(True)
-                job.eatFrames(state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
+                job.eatFrames(state=opencue.compiled_proto.job_pb2.DEAD)
             self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
