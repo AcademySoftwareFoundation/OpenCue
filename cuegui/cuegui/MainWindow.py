@@ -16,7 +16,7 @@
 """
 All windows are an instance of this MainWindow.
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue, CueConfig
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import sys
 
@@ -113,8 +113,9 @@ class MainWindow(QtWidgets.QMainWindow):
         menu.setFont(Constants.STANDARD_FONT)
         menu.triggered.connect(self.__facilityMenuHandle)
 
-        self.facility_default = CueConfig.get("cuebot.facility_default")
-        self.facility_dict = CueConfig.get("cuebot.facility")
+        cue_config = opencue.Cuebot.getConfig()
+        self.facility_default = cue_config.get("cuebot.facility_default")
+        self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
             self.__actions_facility[facility] = QtWidgets.QAction(facility, menu)

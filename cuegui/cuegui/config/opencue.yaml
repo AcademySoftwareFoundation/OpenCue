@@ -1,9 +1,0 @@
-## OpenCue
-
-cuebot.facility_default: cloud
-cuebot.facility:
-    cloud:
-        - cuebot1.example.com:8443
-        - cuebot2.example.com:8443
-        - cuebot3.example.com:8443
-cuebot.timeout: 10000

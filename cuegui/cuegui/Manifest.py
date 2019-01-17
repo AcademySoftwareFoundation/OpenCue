@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-## imports the libary's default configurtion
 import os
 import sys
 import time
@@ -25,9 +24,4 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-
 import FileSequence
-
-import Constants
-import yaml
-CueConfig = yaml.load(open(Constants.DEFAULT_YAML).read())

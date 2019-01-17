@@ -62,13 +62,13 @@ if os.path.exists(fcnf):
 
 
 class Cuebot:
-    """Used to manage the conncection to the cuebot.  Normally the connection
-       to the cuebot is made automatically as needed so you don't have to explicitly
+    """Used to manage the connection to the Cuebot.  Normally the connection
+       to the Cuebot is made automatically as needed so you don't have to explicitly
        call Cuebot.connect().
 
        If you need to change the host(s) in which the library is connecting to,
        you have a couple options.  You can set it programmatically with
-       Cuebot.setHosts or set the CUEBOT_HOSTS environement varaible
+       Cuebot.setHosts or set the CUEBOT_HOSTS environment variable
        to a comma delimited list of host names."""
     RpcChannel = None
     Hosts = []
@@ -226,3 +226,7 @@ class Cuebot:
 
         service = cls.getService(name)
         return service(Cuebot.RpcChannel)
+
+    @staticmethod
+    def getConfig():
+        return config
