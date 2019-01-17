@@ -90,11 +90,11 @@ class FrameMonitor(QtWidgets.QWidget):
         layout.addWidget(widget)
         widget.selectionChanged.connect(self._frameRangeSelectionFilterHandle)
         self.frameRangeSelection = widget
-        #self.frameMonitorTree.job_changed.connect(self._frameRangeSelectionFilterHandle)
+        self.frameMonitorTree.job_changed.connect(self._frameRangeSelectionFilterUpdate)
 
     def _frameRangeSelectionFilterUpdate(self):
         if not self.frameMonitorTree.getJob():
-            self.frameRangeSelection.setFrameRange(["1","10000"])
+            self.frameRangeSelection.setFrameRange(["1", "10000"])
         else:
             layers = self.frameMonitorTree.getJob().getLayers()
 
@@ -104,16 +104,16 @@ class FrameMonitor(QtWidgets.QWidget):
             for layer in layers:
                 seq = FileSequence.FrameSet(layer.range())
                 seq.normalize()
-
+                frameList = seq.getAll()
                 if _min is not None:
-                    _min = min(_min, int(seq[0]))
+                    _min = min(_min, int(frameList[0]))
                 else:
-                    _min = int(seq[0])
+                    _min = int(frameList[0])
 
                 if _max is not None:
-                    _max = max(_max, int(seq[-1]))
+                    _max = max(_max, int(frameList[-1]))
                 else:
-                    _max = int(seq[-1])
+                    _max = int(frameList[-1])
 
             if _min == _max:
                 _max += 1
