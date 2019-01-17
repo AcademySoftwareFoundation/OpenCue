@@ -58,8 +58,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.setWindowTitle("Comments")
         self.resize(600, 300)
         self.__btnNew.setDefault(True)
-        self.__treeSubjects.setHeaderLabels(
-                                QtCore.QStringList(["Subject", "User", "Date"]))
+        self.__treeSubjects.setHeaderLabels(["Subject", "User", "Date"])
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__labelTitle)
@@ -146,7 +145,7 @@ class CommentListDialog(QtWidgets.QDialog):
         if self.__treeSubjects.selectedItems():
             item = self.__treeSubjects.selectedItems()[0]
 
-            if item.getInstance().user() != Utils.getUsername():
+            if item.getInstance().user != Utils.getUsername():
                 self.__textSubject.setReadOnly(True)
                 self.__textMessage.setReadOnly(True)
             else:
@@ -274,12 +273,7 @@ class CommentListDialog(QtWidgets.QDialog):
         return (str(result[0]), result[1])
 
     def __addComment(self, subject, message):
-        c = opencue.Entity.CommentData()
-        c.user = os.getenv("USER", "unknown")
-        c.subject = str(subject)
-        c.message = str(message) or " "
-        c.timestamp = 0
-        self.__source.addComment(c)
+        self.__source.addComment(str(subject), str(message) or " ")
 
 
 class CommentMacroDialog(QtWidgets.QDialog):
@@ -347,10 +341,9 @@ class Comment(QtWidgets.QTreeWidgetItem):
     def __init__(self, comment):
         QtWidgets.QTreeWidgetItem.__init__(
             self,
-            QtCore.QStringList([
-                comment.subject(),
-                comment.user(),
-                Utils.dateToMMDDHHMM(comment.timestamp())]))
+            [comment.subject(),
+             comment.user(),
+             Utils.dateToMMDDHHMM(comment.timestamp())])
         self.__comment = comment
 
     def getInstance(self):

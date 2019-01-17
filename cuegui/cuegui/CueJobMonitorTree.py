@@ -60,49 +60,49 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            "Purple \t if all remaining frames depend on something\n"
                            "Yellow \t if the maxRss is over %sKb" % Constants.MEMORY_WARNING_LEVEL)
         self.addColumn("_Comment", 20, id=2,
-                       sort=lambda job:(job.data.hasComment),
+                       sort=lambda job:(job.data.has_comment),
                        tip="A comment icon will appear if a job has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("_Autoeat", 20, id=3,
-                       sort=lambda job:(job.data.autoEat),
+                       sort=lambda job:(job.data.auto_eat),
                        tip="If the job has auto eating enabled, a pac-man icon\n"
                            "will appear here and all frames that become dead will\n"
                            "automatically be eaten.")
         self.addColumn("Run", 38, id=3,
-                       data=lambda job:(job.stats.runningFrames),
-                       sort=lambda job:(job.stats.runningFrames),
+                       data=lambda job:(job.stats.running_frames),
+                       sort=lambda job:(job.stats.running_frames),
                        tip="The number of running frames.")
         self.addColumn("Cores", 55, id=4,
-                       data=lambda job:("%.02f" % job.stats.reservedCores),
-                       sort=lambda job:(job.stats.reservedCores),
+                       data=lambda job:("%.02f" % job.stats.reserved_cores),
+                       sort=lambda job:(job.stats.reserved_cores),
                        tip="The number of reserved cores.")
         self.addColumn("Wait", 45, id=5,
-                       data=lambda job:(job.stats.waitingFrames),
-                       sort=lambda job:(job.stats.waitingFrames),
+                       data=lambda job:(job.stats.waiting_frames),
+                       sort=lambda job:(job.stats.waiting_frames),
                        tip="The number of waiting frames.")
         self.addColumn("Depend", 55, id=6,
-                       data=lambda job:(job.stats.dependFrames),
-                       sort=lambda job:(job.stats.dependFrames),
+                       data=lambda job:(job.stats.depend_frames),
+                       sort=lambda job:(job.stats.depend_frames),
                        tip="The number of dependent frames.")
         self.addColumn("Total", 50, id=7,
-                       data=lambda job:(job.stats.totalFrames),
-                       sort=lambda job:(job.stats.totalFrames),
+                       data=lambda job:(job.stats.total_frames),
+                       sort=lambda job:(job.stats.total_frames),
                        tip="The total number of frames.")
 #        self.addColumn("_Booking Bar", 150, id=8, default=False,
 #                       delegate=JobBookingBarDelegate)
         self.addColumn("Min", 38, id=9,
-                       data=lambda job:("%.0f" % job.data.minCores),
-                       sort=lambda job:(job.data.minCores),
+                       data=lambda job:("%.0f" % job.data.min_cores),
+                       sort=lambda job:(job.data.min_cores),
                        tip="The minimum number of running cores that the cuebot\n"
                            "will try to maintain.")
         self.addColumn("Max", 38, id=10,
-                       data=lambda job:("%.0f" % job.data.maxCores),
-                       sort=lambda job:(job.data.maxCores),
+                       data=lambda job:("%.0f" % job.data.max_cores),
+                       sort=lambda job:(job.data.max_cores),
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job:(Utils.secondsToHHHMM(time.time() - job.data.startTime)),
-                       sort=lambda job:(time.time() - job.data.startTime),
+                       data=lambda job:(Utils.secondsToHHHMM(time.time() - job.data.start_time)),
+                       sort=lambda job:(time.time() - job.data.start_time),
                        tip="The HOURS:MINUTES since the job was launched.")
         self.addColumn("Pri", 30, id=12,
                        data=lambda job:(job.data.priority),
@@ -185,8 +185,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
-                                                       QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -196,7 +195,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: The column clicked on"""
         job = item.rpcObject
-        if col == COLUMN_COMMENT and Utils.isJob(job) and job.data.hasComment:
+        if col == COLUMN_COMMENT and Utils.isJob(job) and job.data.has_comment:
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
@@ -558,6 +557,8 @@ class RootGroupWidgetItem(AbstractWidgetItem):
     __initialized = False
     def __init__(self, object, parent):
         if not self.__initialized:
+            if Style.ColorTheme is None:
+                Style.init()
             self.__class__.__initialized = True
             self.__class__.__icon = QtGui.QIcon(":show.png")
             self.__class__.__foregroundColor = Style.ColorTheme.COLOR_SHOW_FOREGROUND

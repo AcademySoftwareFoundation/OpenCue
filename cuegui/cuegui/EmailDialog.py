@@ -61,12 +61,15 @@ class EmailDialog(QtWidgets.QDialog):
         """Adds frame data to email body
         @type  job: job
         @param job: The job to email about"""
-        if job.stats.deadFrames:
+        if job.data.job_stats.dead_frames:
             self.__email.appendToBody("\nFrames:")
             i_total_render_time = 0
             i_total_retries = 0
             for frame in self.__frames:
-                self.__email.appendToBody("%s\t%s\tRuntime: %s\tRetries: %d" % (frame.data.name, frame.state(), Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
+                self.__email.appendToBody("%s\t%s\tRuntime: %s\tRetries: %d" % (
+                    frame.data.name,
+                    frame.state(),
+                    Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
                 i_total_render_time += frame.retries() * frame.runTime()
                 i_total_retries += frame.retries()
             try:
@@ -144,6 +147,7 @@ class LogViewWidget(QtWidgets.QWidget):
 class EmailWidget(QtWidgets.QWidget):
 
     send = QtCore.Signal()
+    cancel = QtCore.Signal()
 
     def __init__(self, job, format, parent=None):
         QtWidgets.QWidget.__init__(self)

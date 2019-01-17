@@ -1,9 +1,9 @@
 ## OpenCue
 
-cuebot.facility_default: lax
+cuebot.facility_default: cloud
 cuebot.facility:
-    lax:
-        - cuebot1.spimageworks.com:9019
-        - cuebot2.spimageworks.com:9019
-        - cuebot3.spimageworks.com:9019
+    cloud:
+        - cuebot1.example.com:8443
+        - cuebot2.default.com:8443
+        - cuebot3.default.com:8443
 cuebot.timeout: 10000

@@ -90,7 +90,7 @@ class FrameMonitor(QtWidgets.QWidget):
         layout.addWidget(widget)
         widget.selectionChanged.connect(self._frameRangeSelectionFilterHandle)
         self.frameRangeSelection = widget
-        self.frameMonitorTree.job_changed.connect(self._frameRangeSelectionFilterHandle)
+        #self.frameMonitorTree.job_changed.connect(self._frameRangeSelectionFilterHandle)
 
     def _frameRangeSelectionFilterUpdate(self):
         if not self.frameMonitorTree.getJob():
