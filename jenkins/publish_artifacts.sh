@@ -30,12 +30,13 @@ gsutil -m cp \
   "${artifact_directory}/cuebot-${build_id}-all.jar" \
   "${artifact_directory}/rqd-${build_id}-all.tar.gz" \
   "${artifact_directory}/pycue-${build_id}-all.tar.gz" \
+  "${artifact_directory}/pyoutline-${build_id}-all.tar.gz" \
   "${artifact_directory}/cuegui-${build_id}-all.tar.gz" \
   "gs://${CUE_PUBLISH_BUCKET}/${build_id}/"
 
 gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://gcr.io
 
-for component in cuebot rqd pycue cuegui; do
+for component in cuebot rqd pycue pyoutline cuegui; do
   docker tag opencue/${component}:${build_id} gcr.io/${CUE_PUBLISH_PROJECT}/opencue-${component}:${build_id}
   docker push gcr.io/${CUE_PUBLISH_PROJECT}/opencue-${component}:${build_id}
 done
