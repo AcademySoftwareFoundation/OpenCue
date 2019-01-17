@@ -33,8 +33,9 @@ gcloud auth configure-docker --quiet
 docker pull gcr.io/${PROJECT_ID}/opencue-jenkins:${IMAGE_TAG}
 docker run -td \
   --publish $server_port \
-  --env JENKINS_OPTS="$jenkins_opts" \
   --env CUE_PUBLISH_BUCKET="${PUBLISH_BUCKET}" \
+  --env CUE_PUBLISH_PROJECT="${PROJECT_ID}" \
+  --env JENKINS_OPTS="$jenkins_opts" \
   --volume ${MOUNT_POINT}:/var/jenkins_home \
   --volume /var/run/docker.sock:/var/run/docker.sock \
   gcr.io/${PROJECT_ID}/opencue-jenkins:${IMAGE_TAG}
