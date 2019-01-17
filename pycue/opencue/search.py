@@ -277,7 +277,7 @@ def _setOptions(criteria, options):
         elif k == "user":
             criteria.users.extend(v)
         elif k == "state":
-            criteria.states.extend(v)
+            criteria.states.frame_states.extend(v)
         elif k == "layer":
             criteria.layers.extend(v)
         elif k == "alloc":

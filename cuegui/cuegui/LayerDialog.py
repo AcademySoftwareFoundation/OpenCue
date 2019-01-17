@@ -96,7 +96,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
     """
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.__layers = [opencue.getLayer(opencue.id(l)) for l in layers]
+        self.__layers = [opencue.api.getLayer(opencue.id(l)) for l in layers]
 
         self.setWindowTitle("Layer Properties")
 
@@ -171,7 +171,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         # Setup signals
         self.__mem.slider.valueChanged.connect(self.__translateToMemSpinbox)
         self.__mem.spinner.valueChanged.connect(self.__translateToMemSlider)
-        self.__gpu.slisder.valueChanged.connect(self.__translateToGpuSpinbox)
+        self.__gpu.slider.valueChanged.connect(self.__translateToGpuSpinbox)
         self.__gpu.spinner.valueChanged.connect(self.__translateToGpuSlider)
         self.__buttons.accepted.connect(self.verify)
         self.__buttons.rejected.connect(self.reject)
@@ -271,31 +271,31 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
     def getMaxMemory(self):
         result = 0
         for layer in self.__layers:
-            if layer.data.minMemory > result:
-                result = layer.data.minMemory
+            if layer.data.min_memory > result:
+                result = layer.data.min_memory
         return result
 
     def getMaxGpu(self):
-        return max([layer.data.minGpu / self.gpu_tick_kb for layer in self.__layers])
+        return max([layer.data.min_gpu / self.gpu_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
         result = 0
         for layer in self.__layers:
-            if layer.data.minCores > result:
-                result = layer.data.minCores
+            if layer.data.min_cores > result:
+                result = layer.data.min_cores
         return result
 
     def getMaxCores(self):
         result = 0
         for layer in self.__layers:
-            if layer.data.maxCores > result:
-                result = layer.data.maxCores
+            if layer.data.max_cores > result:
+                result = layer.data.max_cores
         return result
 
     def getThreading(self):
         result = False
         for layer in self.__layers:
-            if layer.data.isThreadable:
+            if layer.data.is_threadable:
                 result = True
                 break
         return result
@@ -303,7 +303,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
     def getMemoryOptSetting(self):
         result = False
         for layer in self.__layers:
-            if layer.data.memoryOptimzerEnabled:
+            if layer.data.memory_optimizer_enabled:
                 result = True
                 break
         return result
