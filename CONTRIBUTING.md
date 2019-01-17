@@ -1,43 +1,65 @@
-Contributing to OpenCue
-===========================
+# Contributing to OpenCue
 
 Code contributions to OpenCue are welcome! Please review this document to get
 a briefing on our process.
 
+## Get Connected
 
-Mail List
----------
+The first thing to do, before anything else, is talk to us! Whether you're
+reporting an issue, requesting or implementing a feature, or just asking a
+question; please don’t hesitate to reach out to project maintainers or the
+community as a whole. This is an important first step because your issue,
+feature, or the question may have been solved or discussed already, and you’ll
+save yourself a lot of time by asking first.
 
-Contributors should be reading the opencue-dev mail list:
+How do you talk to us? There are several ways to get in touch:
 
 * [opencue-dev](https://groups.google.com/group/opencue-dev)
+This is a development focused mail list.
 
-You can sign up for the mail list on your own using the link above.
+* [opencue-users](https://groups.google.com/group/opencue-users)
+This is an end-user oriented mail list.
 
+* [GitHub Issues](https://github.com/imageworks/OpenCue/issues):
+GitHub **issues** are a great place to start a conversation! Issues aren’t
+restricted to bugs; we happily welcome feature requests and other suggestions
+submitted as issues. The only conversations we would direct away from issues are
+questions in the form of “How do I do X”. Please direct these to the opencue-dev
+or opencue-users mail lists, and consider contributing what you've learned to
+our docs if appropriate!
 
-Bug Reports and Issue Tracking
-------------------------------
+## Getting Started
 
-We use GitHub's issue tracking system for bugs and enhancements:
-https://github.com/imageworks/OpenCue/issues
+So you’ve broken the ice and chatted with us, and it turns out you’ve found a
+gnarly bug that you have a beautiful solution for. Wonderful!
 
-**If you are merely asking a question ("how do I...")**, please do not file an
-issue, but instead ask the question on the [OpenCue developer mail
-list](http://groups.google.com/group/opencue-dev).
+From here on out we’ll be using a significant amount of Git and GitHub based
+terminology. If you’re unfamiliar with these tools or their lingo, please look
+at the [GitHub Glossary](https://help.github.com/articles/github-glossary/) or
+browse [GitHub Help](https://help.github.com/). It can be a bit confusing at
+first, but feel free to reach out if you need assistance.
 
-If you are submitting a bug report, please be sure to note which version of
-OpenCue you are using, which component of OpenCue you're having problems with,
-and on what platform. Please give an account of
+The first requirement for contributing is to have a GitHub account. This is
+needed in order to push changes to the upstream repository. After setting up
+your account you should then **fork** the OpenCue repository to your
+account. This creates a copy of the repository under your user namespace and
+serves as the “home base” for your development branches, from which you will
+submit **pull requests** to the upstream repository to be merged.
 
-* what you tried
-* what happened
-* what you expected to happen instead
+You will also need Git installed on your local development machine. If you need
+setup assistance, please see the official
+[Git Documentation](https://git-scm.com/doc).
 
-with enough detail that others can reproduce the problem.
+Once your Git environment is operational, the next step is to locally
+**clone** your forked OpenCue repository, and add a **remote** pointing to
+the upstream OpenCue repository. These topics are covered in
+[Cloning a repository](https://help.github.com/articles/cloning-a-repository/)
+and
+[Configuring a remote for a fork](https://help.github.com/articles/configuring-a-remote-for-a-fork/),
+but again, if you need assistance feel free to reach out on the ocio-dev mail
+list.
 
-
-Contributor License Agreement (CLA) and Intellectual Property
--------------------------------------------------------------
+## Contributor License Agreement (CLA) and Intellectual Property
 
 To protect the project -- and the contributors! -- we do require a
 Contributor License Agreement (CLA) for anybody submitting changes.
@@ -58,40 +80,85 @@ opensource@imageworks.com
 Our CLA's are based on those used by Apache and many other open source
 projects.
 
+## Development and Pull Requests
 
-Pull Requests and Code Review
------------------------------
+Contributions should be submitted as Github pull requests. See
+[Creating a pull request](https://help.github.com/articles/creating-a-pull-request/)
+if you're unfamiliar with this concept.
 
-The best way to submit changes is via GitHub Pull Request. GitHub has a
-[Pull Request Howto](https://help.github.com/articles/using-pull-requests/).
+The development cycle for a code change should follow this protocol:
 
-All code must be formally reviewed before being merged into the official
-repository. The protocol is like this:
+1. Create a topic branch in your local repository, following the naming format
+"feature/<your-feature>" or "bugfix/<your-fix>".
 
-1. Get a GitHub account, fork imageworks/OpenCue to create your
-own repository on GitHub, and then clone it to get a repository on your
-local machine.
+2. Make changes, compile, and test thoroughly. Code style should match existing
+style and conventions, and changes should be focused on the topic the pull
+request will be addressing. Make unrelated changes in a separate topic branch
+with a separate pull request.
 
-2. Edit, compile, and test your changes. The Dockerfiles included with each
-component can be helpful in creating an environment in which to do this.
+3. Push commits to your fork.
 
-3. Push your changes to your fork (each unrelated pull request to a separate
-"topic branch", please).
+4. Create a Github pull request from your topic branch.
 
-4. Make a "pull request" on GitHub for your patch.
+5. All pull requests trigger CI builds on [Travis CI](https://travis-ci.org/)
+for Linux and Mac OS and [AppVeyor](https://www.appveyor.com/) for Windows.
+These builds verify that code compiles and all unit tests succeed. CI build
+status is displayed on the GitHub PR page, and changes will only be considered
+for merging after all builds have succeeded.
 
-5. If your patch will induce a major compatibility break, or has a design
-component that deserves extended discussion or debate among the wider OpenCue
-community, then it may be prudent to email opencue-dev pointing everybody to
-the pull request URL and discussing any issues you think are important.
+6. Pull requests will be reviewed by project Committers and Contributors,
+who may discuss, offer constructive feedback, request changes, or approve
+the work.
 
-6. The reviewer will look over the code and critique on the "comments" area,
-or discuss in email. Reviewers may ask for changes, explain problems they
-found, congratulate the author on a clever solution, etc. But until somebody
-says "LGTM" (looks good to me), the code should not be committed. Sometimes
-this takes a few rounds of give and take. Please don't take it hard if your
-first try is not accepted. It happens to all of us.
+7. Upon receiving the required number of Committer approvals (as outlined
+in [Required Approvals](#required-approvals)), a Committer other than the PR
+contributor may squash and merge changes into the master branch.
 
-7. After approval, one of the senior developers (with commit approval to the
-official main repository) will merge your fixes into the master branch.
+## Required Approvals
+
+Modifications of the contents of the OpenCue repository are made on a
+collaborative basis. Anyone with a GitHub account may propose a modification via
+pull request and it will be considered by the project Committers.
+
+Pull requests must meet a minimum number of Committer approvals prior to being
+merged. Rather than having a hard rule for all PRs, the requirement is based on
+the complexity and risk of the proposed changes, factoring in the length of
+time the PR has been open to discussion. The following guidelines outline the
+project's established approval rules for merging:
+
+* Core design decisions, large new features, or anything that might be perceived
+as changing the overall direction of the project should be discussed at length
+in the mail list before any PR is submitted, in order to: solicit feedback, try
+to get as much consensus as possible, and alert all the stakeholders to be on
+the lookout for the eventual PR when it appears.
+
+* Small changes (bug fixes, docs, tests, cleanups) can be approved and merged by
+a single Committer.
+
+* Big changes that can alter behavior, add major features, or present a high
+degree of risk should be signed off by TWO Committers, ideally one of whom
+should be the "owner" for that section of the codebase (if a specific owner
+has been designated). If the person submitting the PR is him/herself the "owner"
+of that section of the codebase, then only one additional Committer approval is
+sufficient. But in either case, a 48 hour minimum is helpful to give everybody a
+chance to see it, unless it's a critical emergency fix (which would probably put
+it in the previous "small fix" category, rather than a "big feature").
+
+* Escape valve: big changes can nonetheless be merged by a single Committer if
+the PR has been open for over two weeks without any unaddressed objections from
+other Committers. At some point, we have to assume that the people who know and
+care are monitoring the PRs and that an extended period without objections is
+really assent.
+
+Approval must be from Committers who are not authors of the change. If one or
+more Committers oppose a proposed change, then the change cannot be accepted
+unless:
+
+* Discussions and/or additional changes result in no Committers objecting to the
+change. Previously-objecting Committers do not necessarily have to sign-off on
+the change, but they should not be opposed to it.
+
+* The change is escalated to the TSC and the TSC votes to approve the change.
+This should only happen if disagreements between Committers cannot be resolved
+through discussion.
 
