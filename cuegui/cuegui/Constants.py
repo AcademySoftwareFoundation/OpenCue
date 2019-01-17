@@ -43,8 +43,6 @@ MEMORY_WARNING_LEVEL = 5242880
 RESOURCE_PATH = os.path.dirname(__file__) + "/images"
 DEFAULT_INI_PATH = os.path.dirname(__file__) + "/config"
 
-DEFAULT_YAML = os.path.join(DEFAULT_INI_PATH, 'opencue.yaml')
-
 DEFAULT_PLUGIN_PATHS = [os.path.dirname(__file__) + "/plugins"]
 
 LOGGER_FORMAT = "%(levelname)-9s %(module)-10s %(message)s"
