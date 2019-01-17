@@ -22,7 +22,8 @@ UP_KEY = 16777235
 DOWN_KEY = 16777237
 TAB_KEY = 16777217
 
-RENDER_CMD = 'Render'
+MAYA_RENDER_CMD = 'Render'
+NUKE_RENDER_CMD = 'nuke'
 FRAME_TOKEN = '#IFRAME#'
 
 DIR_PATH = os.path.dirname(__file__)
