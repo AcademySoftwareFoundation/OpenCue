@@ -3,7 +3,7 @@
 current_branch="$(git branch --remote --verbose --no-abbrev --contains | sed -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
 
 if [ ! "$current_branch" = "master" ]; then
-  print "Current branch is \"${current_branch}\", not master. Skipping"
+  echo "Current branch is \"${current_branch}\", not master. Skipping"
   exit 0
 fi
 
