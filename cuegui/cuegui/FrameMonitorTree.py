@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, opencue
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 from MenuActions import MenuActions
 import Utils
@@ -91,7 +91,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.addColumn("_CheckpointEnabled", 20, id=8,
                        data=lambda job, frame: "",
                        sort=lambda job, frame: (
-                               frame.data.checkpointState == opencue.api.job_pb2.ENABLED),
+                               frame.data.checkpoint_state == opencue.api.job_pb2.ENABLED),
                        tip="A green check mark here indicates the frame has written out at least "
                            "1 checkpoint segment.")
         self.addColumn("CheckP", 55, id=9,
@@ -266,8 +266,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param col: Column number single clicked on"""
         selected = [frame.data.name for frame in self.selectedObjects() if Utils.isFrame(frame)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
-                                                       QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
     def __itemSingleClickedViewLog(self, item, col):
         """Called when an item is clicked on. Views the log file contents
@@ -415,8 +414,8 @@ class FrameMonitorTree(AbstractTreeWidget):
             # Once the updatedFrames include the proxy instead of the id, this can be removed
             for frame in updated_data.updated_frames.updated_frames:
                 frame = opencue.util.proxy(frame.id, "Frame")
-            logger.info("Frame Updates: %s" % len(updated_data.updated_frames))
-            self.__lastUpdateTime = updated_data.serverTime
+            logger.info("Frame Updates: %s" % len(updated_data.updated_frames.updated_frames))
+            self.__lastUpdateTime = updated_data.server_time
             self.__jobState = updated_data.state
 
             updatedFrames = updated_data.updated_frames
@@ -469,15 +468,14 @@ class FrameMonitorTree(AbstractTreeWidget):
             else:
                 self._itemsLock.lockForWrite()
                 try:
-                    for rpcObject in rpcObjects:
+                    for updatedFrame in rpcObjects.updated_frames:
                         # If id already exists, update it
-                        objectKey = Utils.getObjectKey(rpcObject)
-                        if objectKey in self._items:
-                            frame = self._items[objectKey].rpcObject
+                        if updatedFrame.id in self._items:
+                            frame = self._items[updatedFrame.id].rpcObject
 
-                            for item in dir(rpcObject):
+                            for item in dir(updatedFrame.id):
                                 if not item.startswith("__") and item != "id":
-                                    setattr(frame.data, item, getattr(rpcObject, item))
+                                    setattr(frame.data, item, getattr(updatedFrame, item))
                 finally:
                     self._itemsLock.unlock()
 
@@ -491,7 +489,7 @@ class FrameMonitorTree(AbstractTreeWidget):
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         count = len(self.selectedItems())
 
@@ -512,7 +510,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         if QtGui.qApp.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(menu, "viewHost")
 
-        depend_menu = QtGui.QMenu("&Dependencies",self)
+        depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.frames().addAction(depend_menu, "viewDepends")
         self.__menuActions.frames().addAction(depend_menu, "dependWizard")
         self.__menuActions.frames().addAction(depend_menu, "getWhatThisDependsOn")

@@ -223,7 +223,6 @@ class JobActions(AbstractActions):
                                                            0, 50000, 0)
             if choice:
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).setMinCores(float(value))
                     job.setMinCores(float(value))
                 self._update()
 
@@ -240,7 +239,7 @@ class JobActions(AbstractActions):
                                                            0, 50000, 0)
             if choice:
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).setMaxCores(float(value))
+                    job.setMaxCores(float(value))
                 self._update()
 
     setPriority_info = ["Set Priority...", None, "configure"]
@@ -250,13 +249,13 @@ class JobActions(AbstractActions):
             current = max([job.data.priority for job in jobs])
             title = "Set Priority"
             body = "Please enter the new priority value:"
-            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             current,
                                                             0, 1000000, 1)
             if choice:
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).setPriority(int(value))
+                    job.setPriority(int(value))
                 self._update()
 
     setMaxRetries_info = ["Set Max Retries...", None, "configure"]
@@ -265,12 +264,12 @@ class JobActions(AbstractActions):
         if jobs:
             title = "Set Max Retries"
             body = "Please enter the number of retries that a frame should be allowed before it becomes dead:"
-            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             0, 0, 10, 1)
             if choice:
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).setMaxRetries(int(value))
+                    job.setMaxRetries(int(value))
                 self._update()
 
     pause_info = ["&Pause", None, "pause"]
@@ -279,7 +278,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                opencue.wrappers.job.Job(job.data).pause()
+                job.pause()
             self._update()
 
     resume_info = ["&Unpause", None, "unpause"]
@@ -288,7 +287,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                opencue.wrappers.job.Job(job).resume()
+                job.resume()
             self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -299,7 +298,7 @@ class JobActions(AbstractActions):
                                       "Are you sure you want to kill these jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).kill()
+                    job.kill()
                 self._update()
 
     eatDead_info = ["Eat dead frames", None, "eat"]
@@ -310,8 +309,7 @@ class JobActions(AbstractActions):
                                       "Eat all DEAD frames in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).eatFrames(
-                        state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
+                    job.eatFrames(state=opencue.compiled_proto.job_pb2.DEAD)
                 self._update()
 
     autoEatOn_info = ["Enable auto eating", None, "eat"]
@@ -319,9 +317,8 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                jobObj = opencue.wrappers.job.Job(job)
-                jobObj.setAutoEat(True)
-                jobObj.eatFrames(state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
+                job.setAutoEat(True)
+                job.eatFrames(state=opencue.compiled_proto.job_pb2.DEAD)
             self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
@@ -329,7 +326,7 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             for job in jobs:
-                opencue.wrappers.job.Job(job).setAutoEat(False)
+                job.setAutoEat(False)
             self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
@@ -340,8 +337,8 @@ class JobActions(AbstractActions):
                                       "Retry all DEAD frames in selected jobs?",
                                       [job.data.name for job in jobs]):
                 for job in jobs:
-                    opencue.wrappers.job.Job(job).retryFrames(
-                        state=opencue.compiled_proto.job_pb2.FrameState.DEAD)
+                    job.retryFrames(
+                        state=[opencue.compiled_proto.job_pb2.DEAD])
                 self._update()
 
     dropExternalDependencies_info = ["Drop External Dependencies", None, "kill"]
@@ -428,7 +425,7 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
@@ -626,10 +623,8 @@ class LayerActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry all DEAD frames in selected layers?",
                                       [layer.data.name for layer in layers]):
-                frameSearch = opencue.search.FrameSearch(
-                    layer=[layer.data.name for layer in layers],
-                    state=[opencue.api.job_pb2.DEAD])
-                layer.parent.retryFrames(frameSearch)
+                layer.parent.retryFrames(layer=[layer.data.name for layer in layers],
+                                         state=[opencue.api.job_pb2.DEAD])
                 self._update()
 
     markdone_info = ["Mark done", None, "markdone"]
@@ -705,7 +700,7 @@ class LayerActions(AbstractActions):
         if not choice: return
 
         body = "What increment should the range %s be staggered?" % range
-        (increment, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
+        (increment, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             1,
                                                             1, 100000, 1)
@@ -813,8 +808,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Retry selected frames?",
                                       names):
-                frameSearch = opencue.search.FrameSearch(name=names)
-                job.retryFrames(frameSearch)
+                job.retryFrames(name=names)
                 self._update()
 
     previewMain_info = ["Preview Main", None, "previewMain"]
@@ -858,8 +852,7 @@ class FrameActions(AbstractActions):
             if Utils.questionBoxYesNo(self._caller, "Confirm",
                                       "Kill selected frames?",
                                       names):
-                frameSearch = opencue.search.FrameSearch(name=names)
-                self._getSource().killFrames(frameSearch)
+                self._getSource().killFrames(name=names)
                 self._update()
 
     markAsWaiting_info = ["Mark as &waiting", None, "configure"]
@@ -1489,7 +1482,7 @@ class FilterActions(AbstractActions):
         if filters:
             title = "Set Filter Order"
             body = "Please enter the new filter order:"
-            (value, choice) = QtWidgets.QInputDialog.getInteger(self._caller,
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                             title, body,
                                                             filters[0].order(),
                                                             0, 50000, 1)

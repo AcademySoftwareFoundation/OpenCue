@@ -32,7 +32,7 @@ class ConfirmationDialog(QtWidgets.QDialog):
                       acted on
         @type  parent: QObject
         @param parent: The parent for this object"""
-        QtGui.QDialog.__init__(self, parent)
+        QtWidgets.QDialog.__init__(self, parent)
 
         __btn_accept = QtWidgets.QPushButton("Ok", self)
         __btn_cancel = QtWidgets.QPushButton("Cancel", self)

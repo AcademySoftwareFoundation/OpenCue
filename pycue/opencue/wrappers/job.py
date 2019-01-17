@@ -24,6 +24,7 @@ Module: job.py - opencue Library implementation of a job
 import os
 import time
 
+import comment
 import depend
 import frame
 import layer
@@ -130,7 +131,8 @@ class Job(object):
         @return: List of layers"""
         response = self.stub.GetLayers(job_pb2.JobGetLayersRequest(job=self.data),
                                        timeout=Cuebot.Timeout)
-        return [layer.Layer(lyr) for lyr in response.layers.layers]
+        layerSeq = response.layers
+        return [layer.Layer(lyr) for lyr in layerSeq.layers]
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the job.
@@ -142,7 +144,8 @@ class Job(object):
         criteria = FrameSearch.criteriaFromOptions(**options)
         response = self.stub.GetFrames(job_pb2.JobGetFramesRequest(job=self.data, req=criteria),
                                        timeout=Cuebot.Timeout)
-        return [frame.Frame(frm) for frm in response.frames.frames]
+        frameSeq = response.frames
+        return [frame.Frame(frm) for frm in frameSeq.frames]
 
     def getUpdatedFrames(self, lastCheck, layers=None):
         """Returns a list of updated state information for frames that have
@@ -183,7 +186,8 @@ class Job(object):
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.JobGetWhatDependsOnThisRequest(job=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(depend) for depend in response.depends]
+        dependSeq = response.depends
+        return [depend.Depend(depend) for depend in dependSeq.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this job depends on
@@ -192,7 +196,8 @@ class Job(object):
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.JobGetWhatThisDependsOnRequest(job=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(depend) for depend in response.depends]
+        dependSeq = response.depends
+        return [depend.Depend(depend) for depend in dependSeq.depends]
 
     def getDepends(self):
         """Returns a list of all depends this job is involved with
@@ -201,7 +206,8 @@ class Job(object):
         response = self.stub.GetDepends(
             job_pb2.JobGetDependsRequest(job=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(depend) for depend in response.depends]
+        dependSeq = response.depends
+        return [depend.Depend(depend) for depend in dependSeq.depends]
 
     def dropDepends(self, target):
         """Drops the desired dependency target:
@@ -275,7 +281,8 @@ class Job(object):
         """returns the jobs comments"""
         response = self.stub.GetComments(job_pb2.JobGetCommentsRequest(job=self.data),
                                          timeout=Cuebot.Timeout)
-        return [comment.Comment(comment) for comment in response.comments]
+        commentSeq = response.comments
+        return [comment.Comment(cmt) for cmt in commentSeq.comments]
 
     def setGroup(self, group):
         """Sets the job to a new group
