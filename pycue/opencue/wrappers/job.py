@@ -283,7 +283,6 @@ class Job(object):
                                          timeout=Cuebot.Timeout)
         commentSeq = response.comments
         return [comment.Comment(cmt) for cmt in commentSeq.comments]
-        #return [comment.Comment(comment) for comment in commentSeq.comments]
 
     def setGroup(self, group):
         """Sets the job to a new group
