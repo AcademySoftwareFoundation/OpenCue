@@ -9,12 +9,14 @@ cuebot.protocol: tcp
 cuebot.grpc_port: 8443
 cuebot.timeout: 10000
 
-cuebot.facility_default: lax
+cuebot.facility_default: cloud
 cuebot.facility:
     dev:
         - cuetest02-vm.example.com:8443
-    lax:
+    cloud:
         - cuebot1.example.com:8443
         - cuebot2.example.com:8443
         - cuebot3.example.com:8443
-
+    local:
+        - cuebot1-vm.maa.example.com:8443
+        - cuebot2-vm.maa.example.com:8443

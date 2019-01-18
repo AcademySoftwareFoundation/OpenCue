@@ -59,7 +59,7 @@ def get_launch_facility():
     return fac
 
 
-def launch(ol, **args):
+def launch(ol, use_pycuerun=True, **args):
     """
     A simple convinience method for launching an outline script with
     the most common options.  If you need additional options,
@@ -77,13 +77,16 @@ def launch(ol, **args):
 
     @type ol: L{Outline}
     @param ol: The outline file to launch.
+    @type use_pycuerun: bool
+    @param use_pycuerun: True will wrap the command using pycuerun
 
     @type args: keyword arguments
     @param args: A dictionary of keyword arguments that control launch
                  parameters.
     """
     launcher = OutlineLauncher(ol, **args)
-    return launcher.launch()
+    return launcher.launch(use_pycuerun)
+
 
 class OutlineLauncher(object):
     """
@@ -188,23 +191,26 @@ class OutlineLauncher(object):
 
         self.__outline.setup()
 
-    def launch(self):
+    def launch(self, use_pycuerun=True):
         """
         Launch the outline.  If the outline is not setup to launch
         it will be setup automatically.
         """
         if self.__outline.get_mode() < constants.OUTLINE_MODE_SETUP:
             self.setup()
-        return self.__get_backend_module().launch(self)
+        return self.__get_backend_module().launch(self, use_pycuerun=use_pycuerun)
 
-    def serialize(self):
+    def serialize(self, use_pycuerun=True):
         """
         Serialize and return the outline.  If the outline is not
         setup to launch it will be setup automatically.
         """
         if self.__outline.get_mode() < constants.OUTLINE_MODE_SETUP:
             self.setup()
-        return self.__get_backend_module().serialize(self)
+        if use_pycuerun:
+            return self.__get_backend_module().serialize(self)
+        else:
+            return self.__get_backend_module().serialize_simple(self)
 
     def __get_backend_module(self):
         if self.__backend == None:
