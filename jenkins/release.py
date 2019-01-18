@@ -44,7 +44,7 @@ import requests
 BUILD_ID_RE = re.compile('^\d+\.\d+\.\d+$')
 GITHUB_API = 'https://api.github.com'
 REPO = 'imageworks/OpenCue'
-DOCKER_IMAGES = ['cuebot', 'rqd', 'pycue', 'pyoutline', 'cuegui']
+DOCKER_IMAGES = ['cuebot', 'rqd', 'pycue', 'pyoutline', 'cuegui', 'cuesubmit']
 DOCKERHUB_ORG = 'opencue'
 
 
