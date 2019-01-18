@@ -16,7 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, opencue
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import Constants
 import Logger
@@ -183,8 +183,7 @@ class HostMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [host.data.name for host in self.selectedObjects() if Utils.isHost(host)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(",".join(selected),
-                                                       QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -233,7 +232,7 @@ class HostMonitorTree(AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
         self.__menuActions.hosts().addAction(menu, "viewComments")
         self.__menuActions.hosts().addAction(menu, "viewProc")
         self.__menuActions.hosts().addAction(menu, "hinv")

@@ -16,7 +16,7 @@
 """
 
 """
-from Manifest import os, QtCore, QtGui, opencue
+from Manifest import os, QtCore, QtWidgets, opencue
 
 import Logger
 import Utils
@@ -24,7 +24,7 @@ logger = Logger.getLogger(__file__)
 
 from DependMonitorTree import DependMonitorTree
 
-class DependDialog(QtGui.QDialog):
+class DependDialog(QtWidgets.QDialog):
     def __init__(self, object, parent=None):
         super(DependDialog, self).__init__(parent)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
@@ -42,7 +42,7 @@ class DependDialog(QtGui.QDialog):
 
         self.setWindowTitle(name)
 
-        self.hlayout = QtGui.QHBoxLayout(self)
+        self.hlayout = QtWidgets.QHBoxLayout(self)
 
         self._depend = DependMonitorTree(self, object)
         self.hlayout.addWidget(self._depend)

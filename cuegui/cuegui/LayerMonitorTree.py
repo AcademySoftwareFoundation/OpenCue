@@ -16,10 +16,8 @@
 """
 A layer list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, opencue
+from Manifest import os, QtCore, QtWidgets, opencue
 
-import Utils
-import Constants
 from MenuActions import MenuActions
 from AbstractTreeWidget import *
 from AbstractWidgetItem import *
@@ -183,10 +181,10 @@ class LayerMonitorTree(AbstractTreeWidget):
         """When right clicking on an item, this raises a context menu"""
         __selectedObjects = self.selectedObjects()
 
-        menu = QtGui.QMenu()
+        menu = QtWidgets.QMenu()
 
         self.__menuActions.layers().addAction(menu, "view")
-        depend_menu = QtGui.QMenu("&Dependencies", self)
+        depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.layers().addAction(depend_menu, "viewDepends")
         self.__menuActions.layers().addAction(depend_menu, "dependWizard")
         depend_menu.addSeparator()

@@ -115,7 +115,7 @@ class Host(object):
         @param allocation: An allocation object
         """
         self.stub.SetAllocation(
-            host_pb2.HostSetAllocationRequest(host=self.data, allocation_name=allocation.id),
+            host_pb2.HostSetAllocationRequest(host=self.data, allocation_name=allocation.id()),
             timeout=Cuebot.Timeout)
 
     def addComment(self, subject, message):
@@ -138,7 +138,8 @@ class Host(object):
         """returns the hosts comments"""
         response = self.stub.GetComments(host_pb2.HostGetCommentsRequest(host=self.data),
                                          timeout=Cuebot.Timeout)
-        return [comment.Comment(c) for c in response.comments]
+        commentSeq = response.comments
+        return [comment.Comment(c) for c in commentSeq.comments]
 
     def setHardwareState(self, state):
         """Sets the host's hardware state
