@@ -120,7 +120,7 @@ def __becomeRoot():
 
 def checkAndCreateUser(username):
     """Check to see if the provided user exists, if not attempt to create it."""
-    # TODO(gregdenton): Add Windows and Mac support here. (Issue #132)
+    # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
     try:
         pwd.getpwnam(username)
         return
