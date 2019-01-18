@@ -68,6 +68,8 @@ class FrameAttendantThread(threading.Thread):
         self.rqCore = rqCore
         self.frameId = runFrame.frame_id
         self.runFrame = runFrame
+        self.startTime = 0
+        self.endTime = 0
         self.frameInfo = frameInfo
         self._tempLocations = []
         self.rqlog = None
@@ -101,7 +103,7 @@ class FrameAttendantThread(threading.Thread):
             self.frameEnv[key] = self.runFrame.environment[key]
 
         # Add threads to use all assigned hyper-threading cores
-        if self.runFrame.attributes.has_key('CPU_LIST') and self.frameEnv.has_key('CUE_THREADS'):
+        if 'CPU_LIST' in self.runFrame.attributes and 'CUE_THREADS' in self.frameEnv:
             self.frameEnv['CUE_THREADS'] = str(max(
                 int(self.frameEnv['CUE_THREADS']),
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
@@ -134,11 +136,11 @@ class FrameAttendantThread(threading.Thread):
     def __writeHeader(self):
         """Writes the frame's log header"""
 
-        self.frameInfo.start_time = time.time()
+        self.startTime = time.time()
 
         try:
             print >> self.rqlog, "="*59
-            print >> self.rqlog, "RenderQ JobSpec     ", time.ctime(self.frameInfo.start_time), "\n"
+            print >> self.rqlog, "RenderQ JobSpec     ", time.ctime(self.startTime), "\n"
             print >> self.rqlog, "proxy               ", "RunningFrame/%s -t:tcp -h %s -p 10021" % (
                 self.runFrame.frame_id,
                 self.rqCore.machine.getHostname())
@@ -168,8 +170,8 @@ class FrameAttendantThread(threading.Thread):
     def __writeFooter(self):
         """Writes frame's log footer"""
 
-        self.frameInfo.endTime = time.time()
-        self.frameInfo.runTime = int(self.runFrame.end_time - self.runFrame.start_time)
+        self.endTime = time.time()
+        self.frameInfo.runTime = int(self.endTime - self.startTime)
         try:
             print >> self.rqlog, "\n", "="*59
             print >> self.rqlog, "RenderQ Job Complete\n"
@@ -178,10 +180,10 @@ class FrameAttendantThread(threading.Thread):
             if self.frameInfo.killMessage:
                 print >> self.rqlog, "%-20s%s" % ("killMessage", self.frameInfo.killMessage)
             print >> self.rqlog, "%-20s%s" % ("startTime",
-                                         time.ctime(self.runFrame.start_time))
+                                         time.ctime(self.startTime))
             print >> self.rqlog, "%-20s%s" % ("endTime",
-                                         time.ctime(self.runFrame.end_time))
-            print >> self.rqlog, "%-20s%s" % ("maxrss", self.frameInfo.max_rss)
+                                         time.ctime(self.endTime))
+            print >> self.rqlog, "%-20s%s" % ("maxrss", self.frameInfo.maxRss)
             print >> self.rqlog, "%-20s%s" % ("utime", self.frameInfo.utime)
             print >> self.rqlog, "%-20s%s" % ("stime", self.frameInfo.stime)
             print >> self.rqlog, "%-20s%s" % ("renderhost", self.rqCore.machine.getHostname())
@@ -194,8 +196,8 @@ class FrameAttendantThread(threading.Thread):
     def __sendFrameCompleteReport(self):
         """Send report to cuebot that frame has finished"""
         report = report_pb2.FrameCompleteReport()
-        report.host = self.rqCore.machine.getHostInfo()
-        report.frame = self.frameInfo.runningFrameInfo()
+        report.host.CopyFrom(self.rqCore.machine.getHostInfo())
+        report.frame.CopyFrom(self.frameInfo.runningFrameInfo())
 
         if self.frameInfo.exitStatus is None:
             report.exit_status = 1
@@ -240,6 +242,8 @@ class FrameAttendantThread(threading.Thread):
 
         self.__createEnvVariables()
         self.__writeHeader()
+        if rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
+            rqutil.checkAndCreateUser(runFrame.user_name)
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
                                              frameInfo.frameId,
@@ -250,7 +254,7 @@ class FrameAttendantThread(threading.Thread):
             tempCommand += ["/bin/nice"]
         tempCommand += ["/usr/bin/time", "-p", "-o", tempStatFile]
 
-        if runFrame.attributes.has_key('CPU_LIST'):
+        if 'CPU_LIST' in runFrame.attributes:
             tempCommand += ['taskset', '-c', runFrame.attributes['CPU_LIST']]
 
         rqutil.permissionsHigh()
@@ -266,7 +270,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog,
                                                        close_fds=True,
-                                                       preexec_fn = os.setsid)
+                                                       preexec_fn=os.setsid)
         finally:
             rqutil.permissionsLow()
 
@@ -539,7 +543,7 @@ class RqCore:
 
         self.network = Network(self)
         self.__threadLock = threading.Lock()
-        self.__cache = { }
+        self.__cache = {}
 
         self.shutdownThread = None
         self.updateRssThread = None

@@ -26,17 +26,18 @@ Contact: Middle-Tier
 SVN: $Id$
 """
 
-
-import os
-import grp
-import pwd
-import threading
-import platform
-import socket
+import crypt
 import functools
+import grp
+import os
+import platform
+import pwd
+import random
+import socket
+import subprocess
+import threading
 
 import rqconstants
-
 
 PERMISSIONS = threading.Lock()
 HIGH_PERMISSION_GROUPS = os.getgroups()
@@ -62,6 +63,7 @@ class Memoize(object):
             cache[key] = result
             return result
 
+
 def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
     if platform.system() == "Windows":
@@ -73,6 +75,7 @@ def permissionsHigh():
         os.setgroups(HIGH_PERMISSION_GROUPS)
     except Exception:
         pass
+
 
 def permissionsLow():
     """Sets the effective gid/uid to one with less permissions:
@@ -86,6 +89,7 @@ def permissionsLow():
     # This will be skipped on first start
     if PERMISSIONS.locked():
         PERMISSIONS.release()
+
 
 def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
@@ -102,6 +106,7 @@ def permissionsUser(uid, gid):
     os.setegid(gid)
     os.seteuid(uid)
 
+
 def __becomeRoot():
     """Sets the effective gid/uid to the initial privileged settings"""
     if os.getegid() != os.getgid() or os.getegid() != os.getuid():
@@ -112,14 +117,33 @@ def __becomeRoot():
         except Exception:
             pass
 
+
+def checkAndCreateUser(username):
+    """Check to see if the provided user exists, if not attempt to create it."""
+    try:
+        pwd.getpwnam(username)
+        return
+    except KeyError:
+        pwd = crypt.crypt(username, str(random.randint(1, 10000)))
+        subprocess.check_call("useradd -p {pwd} {username}".format(pwd=pwd, username=username))
+
+
+def getHostIp():
+    """Returns the machine's local ip address"""
+    return socket.gethostbyname(socket.gethostname())
+
+
 def getHostname():
     """Returns the machine's fully qualified domain name"""
     if platform.system() == "Linux":
-        # This may not work in windows/mac, need to test
-        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
+        if rqconstants.RQD_USE_IP_AS_HOSTNAME:
+            return getHostIp()
+        else:
+            # This may not work in windows/mac, need to test
+            return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     else:
         return socket.gethostname()
 
+
 if __name__ == "__main__":
     pass
-

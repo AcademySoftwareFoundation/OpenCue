@@ -3,7 +3,8 @@ FROM centos:7 as base
 RUN yum -y install \
   epel-release \
   gcc \
-  python-devel
+  python-devel \
+  time
 
 RUN yum -y install python-pip
 
@@ -72,6 +73,9 @@ WORKDIR /opt/opencue
 COPY --from=package /src/dist/rqd-*-all.tar.gz ./
 COPY --from=package /src/dist/install_and_run.sh ./
 RUN chmod +x ./install_and_run.sh
+
+# RQD gRPC server
+EXPOSE 8444
 
 ENTRYPOINT ["/opt/opencue/install_and_run.sh"]
 

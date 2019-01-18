@@ -97,17 +97,17 @@ class RunningFrame(object):
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
         runningFrameInfo = report_pb2.RunningFrameInfo(
-            resourceId=self.runFrame.resource_id,
-            jobId=self.runFrame.job_id,
-            jobName=self.runFrame.job_name,
-            frameId=self.runFrame.frame_id,
-            frameName=self.runFrame.frame_name,
-            layerId=self.runFrame.layer_id,
-            numCores=self.runFrame.num_cores,
-            startTime=self.runFrame.start_time,
-            maxRss=self.max_rss,
+            resource_id=self.runFrame.resource_id,
+            job_id=self.runFrame.job_id,
+            job_name=self.runFrame.job_name,
+            frame_id=self.runFrame.frame_id,
+            frame_name=self.runFrame.frame_name,
+            layer_id=self.runFrame.layer_id,
+            num_cores=self.runFrame.num_cores,
+            start_time=self.runFrame.start_time,
+            max_rss=self.maxRss,
             rss=self.rss,
-            maxVsize=self.max_vsize,
+            max_vsize=self.maxVsize,
             vsize=self.vsize,
             attributes=self.runFrame.attributes
         )
