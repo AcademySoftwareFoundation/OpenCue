@@ -20,6 +20,7 @@ import versions
 from outline.manifest import FileSequence
 from outline import config, util
 
+
 def build_command(ol, layer, frame):
     """
     Build and return a pycurun shell command for the given layer frame.
@@ -43,6 +44,7 @@ def build_command(ol, layer, frame):
 
     return command
 
+
 def launch(launcher):
     """
     Start the local dispatcher.
@@ -51,12 +53,22 @@ def launch(launcher):
     dispatcher.dispatch()
     return None
 
+
 def serialize(launcher):
     """
     Create a local dispatcher object.
 
     """
     return Dispatcher(launcher.get_outline())
+
+
+def serialize_simple(launcher):
+    """
+    For local we can call the regular serialize function.
+
+    """
+    return serialize(launcher)
+
 
 def build_frame_range(frame_range, chunk_size):
     """
@@ -76,6 +88,7 @@ def build_frame_range(frame_range, chunk_size):
     else:
         frames = list(FileSequence.FrameSet(frame_range))
     return frames
+
 
 class Dispatcher(object):
     def __init__(self, ol):

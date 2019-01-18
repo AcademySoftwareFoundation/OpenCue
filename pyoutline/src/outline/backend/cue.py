@@ -33,7 +33,8 @@ from outline.manifest import FileSequence
 logger = logging.getLogger("outline.backend.cue")
 
 __all__ = ["launch",
-           "serialize"]
+           "serialize",
+           "serialize_simple"]
 
 
 def build_command(launcher, layer):
@@ -86,7 +87,7 @@ def build_command(launcher, layer):
     return command
 
 
-def launch(launcher):
+def launch(launcher, use_pycuerun=True):
     """
     Launch the given L{OutlineLauncher}.
 
@@ -101,7 +102,7 @@ def launch(launcher):
         opencue.Cuebot.setHosts([launcher.get("server")])
         logger.info("cuebot host set to: %s" % launcher.get("server"))
 
-    jobs = opencue.api.launchSpecAndWait(launcher.serialize())
+    jobs = opencue.api.launchSpecAndWait(launcher.serialize(use_pycuerun=use_pycuerun))
 
     if launcher.get("wait"):
         wait(jobs[0])
@@ -170,6 +171,14 @@ def wait(job):
 
 
 def serialize(launcher):
+    return _serialize(launcher, usePycuerun=True)
+
+
+def serialize_simple(launcher):
+    return _serialize(launcher, usePycuerun=False)
+
+
+def _serialize(launcher, usePycuerun):
     """
     Serialize the outline part of the given L{OutlineLauncher} into a
     opencue job specification.
@@ -242,8 +251,11 @@ def serialize(launcher):
         spec_layer = Et.SubElement(layers, "layer",
                                    {"name": layer.get_name(),
                                     "type": layer.get_type()})
-        sub_element(spec_layer, "cmd",
-                    " ".join(build_command(launcher, layer)))
+        if usePycuerun:
+            sub_element(spec_layer, "cmd",
+                        " ".join(build_command(launcher, layer)))
+        else:
+            sub_element(spec_layer, "cmd", " ".join(layer.get_arg("command")))
         sub_element(spec_layer, "range", str(frame_range))
         sub_element(spec_layer, "chunk", str(layer.get_chunk_size()))
 

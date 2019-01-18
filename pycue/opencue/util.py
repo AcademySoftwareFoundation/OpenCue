@@ -108,6 +108,6 @@ def logPath(job, frame=None):
         Extracts the log path from a job or a job/frame
     """
     if frame:
-        return os.path.join(job.data.logDir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
+        return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
     else:
-        return job.data.logDir
+        return job.data.log_dir
