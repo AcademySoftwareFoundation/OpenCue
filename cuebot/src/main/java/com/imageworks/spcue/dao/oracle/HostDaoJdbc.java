@@ -657,7 +657,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         if (ipMatcher.matches()){
             hostName = fqdn;
         }
-        if (useLongNames) {
+        else if (useLongNames) {
             hostName = fqdn;
             Pattern domainPattern = Pattern.compile(
                 ".*(\\.(.*)\\.(co(m|.[a-z]{2})|biz|edu|info|net|org|cn|de|eu|nl))$");
