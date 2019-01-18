@@ -29,7 +29,7 @@ if sys.version_info[:2][1] < 5:
 try:
     os.environ["SHOW"]
 except:
-    raise Exception("You must be set the SHOW env var to use pyoutline.")
+    raise Exception("You must set the SHOW env var to use pyoutline.")
 
 from outline.config import config
 
