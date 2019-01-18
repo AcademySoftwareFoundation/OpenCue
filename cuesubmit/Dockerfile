@@ -37,7 +37,11 @@ RUN cd pycue && python setup.py install
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
+COPY pyoutline/bin ./pyoutline/bin
+COPY pyoutline/etc ./pyoutline/etc
+COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/src ./pyoutline/src
+
 RUN cd pyoutline && python setup.py install
 
 COPY cuesubmit/README.md ./cuesubmit/
@@ -46,6 +50,7 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 
 # TODO(bcipriano) Lint the code here.
 # https://github.com/imageworks/OpenCue/issues/78
+
 
 # -----------------
 # TEST

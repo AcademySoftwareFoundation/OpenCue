@@ -23,19 +23,9 @@ container_id=$(docker create opencue/cuebot:${build_id})
 docker cp $container_id:/opt/opencue/cuebot-${build_id}-all.jar "$artifact_directory/"
 docker rm $container_id
 
-container_id=$(docker create opencue/rqd:${build_id})
-docker cp $container_id:/opt/opencue/rqd-${build_id}-all.tar.gz "$artifact_directory/"
-docker rm $container_id
-
-container_id=$(docker create opencue/pycue:${build_id})
-docker cp $container_id:/opt/opencue/pycue-${build_id}-all.tar.gz "$artifact_directory/"
-docker rm $container_id
-
-container_id=$(docker create opencue/pyoutline:${build_id})
-docker cp $container_id:/opt/opencue/pyoutline-${build_id}-all.tar.gz "$artifact_directory/"
-docker rm $container_id
-
-container_id=$(docker create opencue/cuegui:${build_id})
-docker cp $container_id:/opt/opencue/cuegui-${build_id}-all.tar.gz "$artifact_directory/"
-docker rm $container_id
+for component in rqd pycue pyoutline cuegui cuesubmit; do
+  container_id=$(docker create opencue/${component}:${build_id})
+  docker cp $container_id:/opt/opencue/${component}-${build_id}-all.tar.gz "$artifact_directory/"
+  docker rm $container_id
+done
 
