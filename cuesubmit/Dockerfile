@@ -46,6 +46,7 @@ RUN cd pyoutline && python setup.py install
 
 COPY cuesubmit/README.md ./cuesubmit/
 COPY cuesubmit/setup.py ./cuesubmit/
+COPY cuesubmit/plugins ./cuesubmit/plugins
 COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 
 # TODO(bcipriano) Lint the code here.
