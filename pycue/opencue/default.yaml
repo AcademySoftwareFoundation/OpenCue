@@ -1,4 +1,4 @@
-# Default pycue config file
+# Default PyCue config file
 
 # Logger
 logger.format: "%(levelname)-9s %(module)-10s %(message)s"
@@ -20,4 +20,3 @@ cuebot.facility:
     local:
         - cuebot1-vm.maa.example.com:8443
         - cuebot2-vm.maa.example.com:8443
-

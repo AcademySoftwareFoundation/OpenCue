@@ -106,8 +106,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [proc.data.name for proc in self.selectedObjects() if Utils.isProc(proc)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(",".join(selected),
-                                                       QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
     def clearFilters(self):
         self.clearSelection()

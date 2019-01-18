@@ -37,7 +37,7 @@ class MayaJobTypes(JobTypes.JobTypes):
     SETTINGS_MAP = {
         SHELL: SettingsWidgets.ShellSettings,
         MAYA: SettingsWidgets.InMayaSettings,
-        NUKE: SettingsWidgets.ShellSettings
+        NUKE: SettingsWidgets.BaseNukeSettings
     }
 
     def __init__(self):

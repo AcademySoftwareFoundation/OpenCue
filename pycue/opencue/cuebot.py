@@ -52,24 +52,23 @@ __all__ = ["Cuebot"]
 
 logger = logging.getLogger("opencue")
 
+default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
+config = yaml.load(open(default_config).read())
+
 # check for facility specific configurations.
 fcnf = os.environ.get('OPENCUE_CONF', '')
-
 if os.path.exists(fcnf):
-    config = yaml.load(open(fcnf).read())
-else:
-    default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
-    config = yaml.load(open(default_config).read())
+    config.update(yaml.load(open(fcnf).read()))
 
 
 class Cuebot:
-    """Used to manage the conncection to the cuebot.  Normally the connection
-       to the cuebot is made automatically as needed so you don't have to explicitly
+    """Used to manage the connection to the Cuebot.  Normally the connection
+       to the Cuebot is made automatically as needed so you don't have to explicitly
        call Cuebot.connect().
 
        If you need to change the host(s) in which the library is connecting to,
        you have a couple options.  You can set it programmatically with
-       Cuebot.setHosts or set the CUEBOT_HOSTS environement varaible
+       Cuebot.setHosts or set the CUEBOT_HOSTS environment variable
        to a comma delimited list of host names."""
     RpcChannel = None
     Hosts = []
@@ -144,8 +143,10 @@ class Cuebot:
         """Sets the gRPC channel connection"""
         # gRPC must specify a single host.
         for host in Cuebot.Hosts:
-            hostname = host.split(':')[0]
-            connect_str = '%s:%s' % (hostname, config.get('cuebot.grpc_port', 8443))
+            if ':' in host:
+                connect_str = host
+            else:
+                connect_str = '%s:%s' % (host, config.get('cuebot.grpc_port', 8443))
             logger.debug('connecting to gRPC at %s', connect_str)
             # TODO(cipriano) Configure gRPC TLS.
             try:
@@ -225,3 +226,7 @@ class Cuebot:
 
         service = cls.getService(name)
         return service(Cuebot.RpcChannel)
+
+    @staticmethod
+    def getConfig():
+        return config

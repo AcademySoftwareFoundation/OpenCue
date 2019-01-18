@@ -62,7 +62,7 @@ def id(value):
     """
     def _extract(item):
         try:
-            return item.id
+            return item.id()
         except:
             pass
         return item

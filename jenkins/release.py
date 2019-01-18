@@ -23,6 +23,12 @@
 #  -H 'X-GitHub-OTP: 000000' \
 #  -d '{"scopes":["repo"], "note":"OpenCue release script"}' \
 #  https://api.github.com/authorizations
+#
+# This script ALSO pushes Docker images to Docker Hub as part of its release
+# process. For this to work you need your local Docker client to be logged
+# in as a user with access to the Docker hub org.
+#
+# docker login --username=$DOCKER_HUB_USER
 
 import argparse
 import json
@@ -38,6 +44,8 @@ import requests
 BUILD_ID_RE = re.compile('^\d+\.\d+\.\d+$')
 GITHUB_API = 'https://api.github.com'
 REPO = 'imageworks/OpenCue'
+DOCKER_IMAGES = ['cuebot', 'rqd', 'pycue', 'cuegui']
+DOCKERHUB_ORG = 'opencue'
 
 
 def _release_exists(release_tag):
@@ -126,6 +134,10 @@ def _artifact_exists(artifact_file, release):
   return any([asset['name'] == os.path.basename(artifact_file) for asset in asset_list])
 
 
+def _get_gcr_image_uri(image_name, build_id):
+  return 'gcr.io/%s/opencue-%s:%s' % (os.environ['CUE_PUBLISH_PROJECT'], image_name, build_id)
+
+
 def main():
   parser = argparse.ArgumentParser()
   parser.add_argument('--build_id', required=True, help='Build ID to release')
@@ -136,7 +148,7 @@ def main():
   if not BUILD_ID_RE.match(args.build_id):
     raise Exception('Invalid build ID %s' % args.build_id)
 
-  req_env_vars = ['GITHUB_TOKEN', 'CUE_PUBLISH_BUCKET']
+  req_env_vars = ['GITHUB_TOKEN', 'CUE_PUBLISH_BUCKET', 'CUE_PUBLISH_PROJECT']
   for req_env_var in req_env_vars:
     if req_env_var not in os.environ:
       raise Exception('Environment var %s is required and was not found' % req_env_var)
@@ -161,6 +173,12 @@ def main():
   with open(os.path.join(tmpdir, 'build_metadata.json')) as fp:
     build_metadata = json.load(fp)
 
+  print 'Collecting docker images from GCR...'
+  subprocess.check_call(['gcloud', 'auth', 'configure-docker', '--quiet'])
+  for docker_image in DOCKER_IMAGES:
+    cmd = ['docker', 'pull', _get_gcr_image_uri(docker_image, args.build_id)]
+    subprocess.check_call(cmd)
+
   release_tag = 'v%s' % args.build_id
   if _release_exists(release_tag):
     print 'Found release %s' % release_tag
@@ -173,6 +191,16 @@ def main():
     if release_artifact == 'build_metadata.json':
       continue
     _upload_artifact(os.path.join(tmpdir, release_artifact), release)
+
+  print 'Pushing Docker images to Docker hub...'
+  for docker_image in DOCKER_IMAGES:
+    dockerhub_uri = '%s/%s:%s' % (DOCKERHUB_ORG, docker_image, args.build_id)
+    cmds = [
+        ['docker', 'tag', _get_gcr_image_uri(docker_image, args.build_id), dockerhub_uri],
+        ['docker', 'push', dockerhub_uri],
+    ]
+    for cmd in cmds:
+      subprocess.check_call(cmd)
 
   shutil.rmtree(tmpdir)
 
