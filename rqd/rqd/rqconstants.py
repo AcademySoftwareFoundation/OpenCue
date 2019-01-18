@@ -18,18 +18,17 @@ Constants.
 """
 
 
-import os
-import sys
-import logging
-import traceback
 import commands
+import logging
+import os
 import platform
 import re
+import subprocess
+import sys
+import traceback
 
 if platform.system() == 'Linux':
     import pwd
-
-import rqutil
 
 # NOTE: Some of these values can be overridden by CONFIG_FILE; see below.
 
@@ -40,14 +39,13 @@ if 'CUEBOT_HOSTNAME' in os.environ:
 else:
   CUEBOT_HOSTNAME = 'localhost'
 
-RQD_PORT = '10021'
-RQD_HOST = 'localhost'
 RQD_TIMEOUT = 10000
+DEFAULT_FACILITY = 'cloud'
 
 # GRPC VALUES
 RQD_GRPC_MAX_WORKERS = 10
 RQD_GRPC_PORT = 8444
-RQD_GRPC_SLEEP = 60 * 60 *24
+RQD_GRPC_SLEEP = 60 * 60 * 24
 CUEBOT_GRPC_PORT = 8443
 
 # RQD behavior:
@@ -58,6 +56,8 @@ CORE_VALUE = 100
 LAUNCH_FRAME_USER_GID = 20
 RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
+RQD_USE_IP_AS_HOSTNAME = True
+RQD_CREATE_USER_IF_NOT_EXISTS = True
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -110,19 +110,34 @@ else:
     SU_ARGUEMENT = '-c'
 
 SP_OS = FACILITY = ''
+proc = None
+# Try to read facility and os from studio environment
 if os.path.isfile('/usr/local/stdenv/.cshrc'):
-    SP_OS, FACILITY = commands.getoutput("csh -c 'unsetenv SP_PATH ; setenv CONSOLE 1 ; setenv HOME / ; source /usr/local/stdenv/.cshrc ; echo $SP_OS $FACILITY'").split()[-2:]
+    proc = subprocess.Popen(
+        "csh -c 'unsetenv SP_PATH ; setenv CONSOLE 1 ; setenv HOME / ;"
+        " source /usr/local/stdenv/.cshrc ; echo $SP_OS $FACILITY'",
+        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 elif os.path.isfile('/etc/csh.cshrc'):
     # For maa on centos
-    SP_OS, FACILITY = commands.getoutput("csh -c 'source /etc/csh.cshrc ; echo $SP_OS $FACILITY'").split()[-2:]
+    proc = subprocess.Popen("csh -c 'source /etc/csh.cshrc ; echo $SP_OS $FACILITY'",
+                            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+# If we have a popen process and it has successfully been run,
+# get os and facility from result.
+if proc:
+    out, err = proc.communicate()
+    if proc.returncode == 0:
+        SP_OS, FACILITY = out.split()[-2:]
+
 if not 3 <= len(SP_OS) <= 10 or not re.match('^[A-Za-z0-9]*$', SP_OS):
     if SP_OS:
         logging.warning('SP_OS value of %s is out of allowed range' % SP_OS)
     SP_OS = platform.system()
+
 if len(FACILITY) != 3 or not re.match('^[A-Za-z0-9]*$', FACILITY):
     if FACILITY:
         logging.warning('FACILITY value of %s is out of allowed range' % FACILITY)
-    FACILITY = 'lax'
+    FACILITY = DEFAULT_FACILITY
 
 # maa is small so decrease the ping in interval
 if FACILITY == 'maa':

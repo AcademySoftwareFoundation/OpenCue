@@ -14,7 +14,7 @@ class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
     def LaunchFrame(self, request, context):
         """RPC call that launches the given frame"""
         log.info("Request received: launchFrame")
-        self.rqCore.launchFrame(request)
+        self.rqCore.launchFrame(request.run_frame)
         return rqd_pb2.RqdStaticLaunchFrameResponse()
 
     def ReportStatus(self, request, context):
@@ -26,12 +26,13 @@ class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
         """RPC call to return the frame info for the given frame id"""
         log.info("Request received: getRunningFrameStatus")
         frame = self.rqCore.getRunningFrame(request.frameId)
-        return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(running_frame_info=frame.runningFrameInfo())
+        return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
+            running_frame_info=frame.runningFrameInfo())
 
     def KillRunningFrame(self, request, context):
         """RPC call that kills the running frame with the given id"""
         log.info("Request received: killRunningFrame")
-        frame = self.rqCore.getRunningFrame(request.frameId)
+        frame = self.rqCore.getRunningFrame(request.frame_id)
         frame.kill()
         return rqd_pb2.RqdStaticKillRunningFrameResponse()
 
