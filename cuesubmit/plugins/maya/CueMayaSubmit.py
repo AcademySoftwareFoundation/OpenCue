@@ -12,12 +12,36 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
+import glob
 import logging
+import os
+import sys
 
 import maya.cmds as cmds
 import maya.utils
 from PySide2 import QtCore, QtWidgets
+
+# Path where all of the Cue Python libraries and their dependencies are installed.
+# The recommended workflow is for this to be a virtual environment, like:
+#   CUE_PYTHONPATH = '<path to virtualenv>/lib/python2.7/site-packages'
+if 'CUE_PYTHONPATH' in os.environ:
+  sys.path.insert(0, os.environ['CUE_PYTHONPATH'])
+  # OpenCue Python libraries are distributed wrapped in .egg directories; add
+  # those too.
+  for egg_dir in glob.glob(os.path.join(os.environ['CUE_PYTHONPATH'], '*.egg')):
+    sys.path.append(egg_dir)
+  # Maya has trouble importing google.protobuf due to not recognizing the google/
+  # directory as a proper module. Forcing creation of an __init__.py fixes this.
+  google_dir = os.path.join(os.environ['CUE_PYTHONPATH'], 'google')
+  if os.path.isdir(google_dir):
+    google_init = os.path.join(google_dir, '__init__.py')
+    if not os.path.exists(google_init):
+      open(google_init, 'a').close()
+
+# Infer the path to the current CueSubmit install and add that to the path as well,
+# since it might not be included in the same places as the library installs.
+sys.path.insert(0,
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))))
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
