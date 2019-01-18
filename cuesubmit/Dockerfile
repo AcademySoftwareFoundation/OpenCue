@@ -18,7 +18,9 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION ./
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
@@ -31,16 +33,24 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
+RUN cd pycue && python setup.py install
+
+COPY pyoutline/README.md ./pyoutline/
+COPY pyoutline/setup.py ./pyoutline/
+COPY pyoutline/src ./pyoutline/src
+RUN cd pyoutline && python setup.py install
+
+COPY cuesubmit/README.md ./cuesubmit/
+COPY cuesubmit/setup.py ./cuesubmit/
+COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
+
 # TODO(bcipriano) Lint the code here.
 # https://github.com/imageworks/OpenCue/issues/78
-
 
 # -----------------
 # TEST
 # -----------------
 FROM build as test
-
-COPY pycue/tests/ ./pycue/tests
 
 # TODO(bcipriano) Run unit tests.
 
@@ -50,10 +60,10 @@ COPY pycue/tests/ ./pycue/tests
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt VERSION pycue/
+RUN cp requirements.txt VERSION cuesubmit/
 
-RUN versioned_name="pycue-$(cat ./VERSION)-all" \
-  && mv pycue $versioned_name \
+RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
+  && mv cuesubmit $versioned_name \
   && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
 
@@ -64,5 +74,5 @@ FROM base
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/pycue-*-all.tar.gz ./
+COPY --from=package /src/cuesubmit-*-all.tar.gz ./
 
