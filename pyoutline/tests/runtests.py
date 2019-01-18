@@ -1,4 +1,4 @@
-#!/usr/local64/bin/python2.5
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -14,15 +14,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-
 import sys
 import unittest
 import logging
 
 # Core tests
-
 from layer import ChunkingTest, LayerTest, CompositeTest
 from loader import LoaderTest
 from session import SessionTest
@@ -47,7 +43,6 @@ def suite():
     return suite
 
 if __name__ == '__main__':
-
     if len(sys.argv) == 2:
         if sys.argv[1] == "-v":
             logging.basicConfig(level=logging.DEBUG)
