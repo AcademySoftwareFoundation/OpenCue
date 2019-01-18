@@ -32,7 +32,6 @@ class InMayaSettings(BaseSettingsWidget):
         super(InMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:', filename)
         self.cameraSelector = Widgets.CueSelectPulldown('Render Cameras', options=cameras)
-        self.commandTextBox = Widgets.CueLabelLineEdit()
         self.selectorLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
 
@@ -59,7 +58,6 @@ class BaseMayaSettings(BaseSettingsWidget):
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:')
-        self.commandTextBox = Widgets.CueLabelLineEdit()
         self.setupUi()
         self.setupConnections()
 
@@ -75,6 +73,58 @@ class BaseMayaSettings(BaseSettingsWidget):
     def getCommandData(self):
         return {
             'mayaFile': self.mayaFileInput.text(),
+        }
+
+
+class InNukeSettings(BaseSettingsWidget):
+    """Settings widget to be used when launching from within Nuke."""
+
+    def __init__(self, writeNodes=None, filename=None, parent=None, *args, **kwargs):
+        super(InNukeSettings, self).__init__(parent=parent)
+        self.fileInput = Widgets.CueLabelLineEdit('Nuke File:', filename)
+        self.writeNodeSelector = Widgets.CueSelectPulldown('Write Nodes:', emptyText='[All]',
+                                                           options=writeNodes)
+        self.selectorLayout = QtWidgets.QHBoxLayout()
+        self.setupUi()
+
+    def setupUi(self):
+        self.mainLayout.addWidget(self.fileInput)
+        self.selectorLayout.addWidget(self.writeNodeSelector)
+        self.selectorLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
+        self.mainLayout.addLayout(self.selectorLayout)
+
+    def setCommandData(self, commandData):
+        self.fileInput.setText(commandData.get('nukeFile', ''))
+        self.cameraSelector.setChecked(commandData.get('camera', '').split(','))
+
+    def getCommandData(self):
+        return {
+            'nukeFile': self.fileInput.text(),
+            'writeNodes': self.writeNodeSelector.text()
+        }
+
+
+class BaseNukeSettings(BaseSettingsWidget):
+    """Standard Nuke settings widget to be used from outside Nuke."""
+
+    def __init__(self, parent=None, *args, **kwargs):
+        super(BaseNukeSettings, self).__init__(parent=parent)
+        self.fileInput = Widgets.CueLabelLineEdit('Nuke File:')
+        self.setupUi()
+        self.setupConnections()
+
+    def setupUi(self):
+        self.mainLayout.addWidget(self.fileInput)
+
+    def setupConnections(self):
+        self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
+
+    def setCommandData(self, commandData):
+        self.fileInput.setText(commandData.get('nukeFile', ''))
+
+    def getCommandData(self):
+        return {
+            'nukeFile': self.fileInput.text(),
         }
 
 

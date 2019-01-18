@@ -17,8 +17,15 @@ from setuptools import setup
 
 rqd_dir = os.path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(rqd_dir, 'VERSION')) as fp:
-    version = fp.read().strip()
+version = 'unknown'
+possible_version_paths = [
+    os.path.join(rqd_dir, 'VERSION'),
+    os.path.join(os.path.dirname(rqd_dir), 'VERSION'),
+]
+for possible_version_path in possible_version_paths:
+    if os.path.exists(possible_version_path):
+        with open(possible_version_path) as fp:
+            version = fp.read().strip()
 
 with open(os.path.join(rqd_dir, 'README.md')) as fp:
     long_description = fp.read()

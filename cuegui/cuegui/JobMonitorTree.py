@@ -174,8 +174,7 @@ class JobMonitorTree(AbstractTreeWidget):
         @param col: The column clicked on"""
         selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
-                                                       QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -309,7 +308,7 @@ class JobMonitorTree(AbstractTreeWidget):
     def actionSetUserColor(self, color):
         """Set selected items to have provided background color"""
         for item in self.selectedItems():
-            objectKey = Utils.getObjectKey(item)
+            objectKey = Utils.getObjectKey(item.rpcObject)
             if color is None and objectKey in self.__userColors:
                 self.__userColors.pop(objectKey)
             elif color is not None:
@@ -434,7 +433,8 @@ class JobWidgetItem(AbstractWidgetItem):
     __userColor = None
     def __init__(self, object, parent, created):
         if not self.__initialized:
-            Style.init()
+            if Style.ColorTheme is None:
+                Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")

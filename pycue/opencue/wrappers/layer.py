@@ -33,7 +33,7 @@ class Layer(object):
 
     def kill(self):
         """Kill entire layer"""
-        return self.stub.Kill(job_pb2.LayerKillFramesRequest(layer=self.data),
+        return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data),
                               timeout=Cuebot.Timeout)
 
     def eat(self):
@@ -43,14 +43,22 @@ class Layer(object):
 
     def retry(self):
         """Retry entire layer"""
-        return self.stub.Retry(job_pb2.LayerRetryFramesRequest(layer=self.data),
-                               timeout=Cuebot.Timeout)
+        return self.stub.RetryFrames(job_pb2.LayerRetryFramesRequest(layer=self.data),
+                                     timeout=Cuebot.Timeout)
 
     def markdone(self):
         """Drops any dependency that requires this layer or requires any frame
         in the layer"""
         return self.stub.MarkdoneFrames(job_pb2.LayerMarkdoneFramesRequest(layer=self.data),
                                         timeout=Cuebot.Timeout)
+
+    def enableMemoryOptimizer(self, value):
+        """Set enableMemoryOptimizer to the value.
+        @type value: bool
+        @param value: boolean to enable/disable memory optimizer"""
+        return self.stub.EnableMemoryOptimizer(job_pb2.LayerEnableMemoryOptimizerRequest(
+            layer=self.data, value=value),
+            timeout=Cuebot.Timeout)
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the layer.
@@ -61,12 +69,27 @@ class Layer(object):
                                        timeout=Cuebot.Timeout)
         return [frame.Frame(frame) for frame in response.frames]
 
+    def getOutputPaths(self):
+        """Return the output paths for this layer.
+        @rtype: list<String>
+        @return: list of output paths"""
+        return self.stub.GetOutputPaths(job_pb2.LayerGetOutputPathsRequest(layer=self.data),
+                                        timeout=Cuebot.Timeout)
+
     def setTags(self, tags):
         """Sets the tags, TODO: update description of tag structure
         @type  tags: str
         @param tags: Layer tags"""
         return self.stub.SetTags(job_pb2.LayerSetTagsRequest(layer=self.data, tags=tags),
                                  timeout=Cuebot.Timeout)
+
+    def setMaxCores(self, cores):
+        """Sets the maximum number of cores that this layer requires.
+        @type  cores: float
+        @param cores: Core units, 100 reserves 1 core"""
+        return self.stub.SetMaxCores(
+            job_pb2.LayerSetMaxCoresRequest(layer=self.data, cores=cores/100.0),
+            timeout=Cuebot.Timeout)
 
     def setMinCores(self, cores):
         """Sets the minimum number of cores that this layer requires.
@@ -77,12 +100,28 @@ class Layer(object):
             job_pb2.LayerSetMinCoresRequest(layer=self.data, cores=cores/100.0),
             timeout=Cuebot.Timeout)
 
+    def setMinGpu(self, gpu):
+        """Sets the minimum number of gpu memory that this layer requires.
+        @type  gpu: int
+        @param gpu: gpu value"""
+        return self.stub.SetMinGpu(
+            job_pb2.LayerSetMinGpuRequest(layer=self.data, gpu=gpu),
+            timeout=Cuebot.Timeout)
+
     def setMinMemory(self, memory):
         """Sets the minimum amount of memory that this layer requires. in Kb
         @type  memory: int
         @param memory: Minimum Kb memory reserved by each frame"""
         return self.stub.SetMinMemory(
             job_pb2.LayerSetMinMemoryRequest(layer=self.data, memory=memory),
+            timeout=Cuebot.Timeout)
+
+    def setThreadable(self, threadable):
+        """Set enableMemoryOptimizer to the value.
+        @type threadable: bool
+        @param threadable: boolean to enable/disable threadable"""
+        return self.stub.SetThreadable(job_pb2.LayerSetThreadableRequest(
+            layer=self.data, threadable=threadable),
             timeout=Cuebot.Timeout)
 
     def getWhatDependsOnThis(self):
@@ -92,7 +131,8 @@ class Layer(object):
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(depend) for depend in response.depends]
+        dependSeq = response.depends
+        return [depend.Depend(depend) for depend in dependSeq.depends]
 
     def getWhatThisDependsOn(self):
         """Get a list of dependencies that this layer depends on
@@ -101,7 +141,8 @@ class Layer(object):
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(depend) for depend in response.depends]
+        dependSeq = response.depends
+        return [depend.Depend(depend) for depend in dependSeq.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a layer on job dependency
