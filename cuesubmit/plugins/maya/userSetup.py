@@ -12,12 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# import os
-
 import maya.mel
 import maya.utils
-
-# os.environ['CUE_PYTHONPATH'] = '/Users/cipriano/opencue/venv/lib/python2.7/site-packages'
 
 import CueMayaSubmit
 
