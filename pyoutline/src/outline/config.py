@@ -21,14 +21,14 @@ from ConfigParser import SafeConfigParser
 
 __all__ = ["config"]
 
-# Enter search paths for cfg files here
-config_search = [""]
-
 config_defaults = {"show": os.environ["SHOW"],
                    "shot": os.environ["SHOT"],
                    "user": os.environ["USER"]}
 
 config = SafeConfigParser(config_defaults)
-config.read(os.environ.get("OL_CONFIG", config_search))
 
+default_config_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+    'etc', 'outline.cfg')
 
+config.read(os.environ.get("OL_CONFIG", default_config_path))

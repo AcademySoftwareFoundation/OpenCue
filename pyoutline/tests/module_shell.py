@@ -68,7 +68,6 @@ class ShellModuleTest(unittest.TestCase):
         self.assertEquals(10, job.stats.succeededFrames)
 
     def testShellScript(self):
-        
         fp = open("test.sh", "w")
         fp.write("#!/bin/sh\n")
         fp.write("echo zoom zoom zoom")

@@ -31,6 +31,10 @@ container_id=$(docker create opencue/pycue:${build_id})
 docker cp $container_id:/opt/opencue/pycue-${build_id}-all.tar.gz "$artifact_directory/"
 docker rm $container_id
 
+container_id=$(docker create opencue/pyoutline:${build_id})
+docker cp $container_id:/opt/opencue/pyoutline-${build_id}-all.tar.gz "$artifact_directory/"
+docker rm $container_id
+
 container_id=$(docker create opencue/cuegui:${build_id})
 docker cp $container_id:/opt/opencue/cuegui-${build_id}-all.tar.gz "$artifact_directory/"
 docker rm $container_id
