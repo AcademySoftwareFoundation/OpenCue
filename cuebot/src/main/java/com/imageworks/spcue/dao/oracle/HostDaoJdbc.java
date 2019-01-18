@@ -652,6 +652,11 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
      */
     private String getHostNameFromFQDN(String fqdn, Boolean useLongNames) {
         String hostName;
+        Pattern ipPattern = Pattern.compile("^(?:[0-9]{1,3}\\.){3}[0-9]{1,3}$");
+        Matcher ipMatcher = ipPattern.matcher(fqdn);
+        if (ipMatcher.matches()){
+            hostName = fqdn;
+        }
         if (useLongNames) {
             hostName = fqdn;
             Pattern domainPattern = Pattern.compile(

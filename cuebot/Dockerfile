@@ -80,15 +80,10 @@ RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
 
 VOLUME ["/opt/opencue/logs"]
 
-# RQD server
-EXPOSE 9018
-EXPOSE 9019
-
 ENV grpc_cue_port ${CUEBOT_GRPC_CUE_PORT}
 ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 
 EXPOSE $grpc_cue_port
-EXPOSE $grpc_rqd_port
 
 ENTRYPOINT ["java", "-jar", "/opt/opencue/cuebot-latest.jar"]
 
