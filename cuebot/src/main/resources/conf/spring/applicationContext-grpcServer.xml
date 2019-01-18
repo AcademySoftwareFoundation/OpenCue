@@ -41,18 +41,5 @@
         </constructor-arg>
     </bean>
 
-    <bean id="rqdGrpcServer" class="com.imageworks.common.spring.remoting.GrpcServer" init-method="start" destroy-method="shutdown">
-        <constructor-arg index="0" type="java.lang.String">
-            <value>cueBotGrpc</value>
-        </constructor-arg>
-        <constructor-arg index="1" type="java.lang.String">
-            <value>${grpc.rqd_port}</value>
-        </constructor-arg>
-        <constructor-arg index="2">
-            <props>
-            </props>
-        </constructor-arg>
-    </bean>
-
 </beans>
 

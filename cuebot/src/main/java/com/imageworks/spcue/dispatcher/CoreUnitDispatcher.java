@@ -518,7 +518,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 DispatchSupport.bookingErrors.incrementAndGet();
                 String msg = "dispatchProcToJob failed booking proc " +
                     proc + " on job " + job;
-                logger.warn(msg);
+                logger.warn(msg, e);
                 dispatchSupport.unbookProc(proc);
                 dispatchSupport.clearFrame(frame);
 

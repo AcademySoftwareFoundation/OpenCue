@@ -190,7 +190,19 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         HostInterface host = hostDao.findHost(FQDN_HOST);
         HostEntity hostDetail2 = hostDao.getHostDetail(host);
         assertEquals(TEST_HOST_NEW, hostDetail2.name);
+    }
 
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostFQDN4() {
+        String TEST_HOST_NEW = "10.0.1.18";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
     }
 
     @Test
