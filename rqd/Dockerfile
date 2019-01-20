@@ -20,7 +20,9 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION ./
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
 COPY proto/ ./proto
 COPY rqd/deploy ./rqd/deploy
 COPY rqd/README.md ./rqd/
@@ -33,7 +35,8 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./rqd/rqd/compiled_proto \
   ./proto/*.proto
 
-# TODO(cipriano) Lint the code here. (b/121159562)
+# TODO(bcipriano) Lint the code here.
+# https://github.com/imageworks/OpenCue/issues/78
 
 
 # -----------------

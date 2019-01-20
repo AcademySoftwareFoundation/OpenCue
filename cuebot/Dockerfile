@@ -33,7 +33,8 @@ RUN chmod -R 777 .
 RUN adduser builduser
 RUN su -c "cd cuebot && ./gradlew build --stacktrace" builduser
 
-COPY VERSION ./
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 
 # -----------------

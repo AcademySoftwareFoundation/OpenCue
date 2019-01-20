@@ -1,25 +1,46 @@
-ARG upstream_version=latest
+FROM centos:7 as base
 
 # -----------------
 # BUILD
 # -----------------
-FROM opencue/pycue-build:${upstream_version} as build
-
-ARG upstream_version
+FROM base as build
 
 WORKDIR /src
 
-# If an upstream version was specified make sure it matches what's in the code.
-RUN test "${upstream_version}" == "latest" || test "${upstream_version}" = "$(cat ./VERSION)"
+RUN yum -y install \
+  epel-release \
+  gcc \
+  python-devel
 
-RUN cp VERSION pycue/
+RUN yum -y install python-pip
+
+COPY requirements.txt ./
+
+RUN pip install -r requirements.txt
+
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
+COPY proto/ ./proto
+COPY pycue/README.md ./pycue/
+COPY pycue/setup.py ./pycue/
+COPY pycue/opencue ./pycue/opencue
+COPY pycue/FileSequence ./pycue/FileSequence
+
+RUN python -m grpc_tools.protoc \
+  -I=./proto \
+  --python_out=./pycue/opencue/compiled_proto \
+  --grpc_python_out=./pycue/opencue/compiled_proto \
+  ./proto/*.proto
+
 RUN cd pycue && python setup.py install
 
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
 COPY cuegui/cuegui ./cuegui/cuegui
 
-# TODO(cipriano) Lint the code here. (b/121159562)
+# TODO(bcipriano) Lint the code here.
+# https://github.com/imageworks/OpenCue/issues/78
 
 
 # -----------------
@@ -27,7 +48,7 @@ COPY cuegui/cuegui ./cuegui/cuegui
 # -----------------
 FROM build as test
 
-# TODO(cipriano) Run unit tests.
+# TODO(bcipriano) Run unit tests.
 
 
 # -----------------
@@ -45,7 +66,7 @@ RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM opencue/pycue:${upstream_version}
+FROM base
 
 WORKDIR /opt/opencue
 
