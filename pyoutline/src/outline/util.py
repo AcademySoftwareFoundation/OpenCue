@@ -15,9 +15,14 @@
 
 """Common utility functions."""
 
+
+import getpass
 import os
 
-from outline.manifest import FileSequence
+import FileSequence
+
+from config import config
+
 
 def deaggregate_frame_set(frameset):
     """Deaggregates a FileSequence.FrameSet into its individual frames
@@ -85,11 +90,7 @@ def get_show():
     Raises an Exception if the shot environment is not found
     alluding to a setshot error.
     """
-    try:
-        return os.environ["SHOW"]
-    except:
-        raise Exception("SHOW environment variable was not found. \
-            Possible setshot error.")
+    return os.environ.get('SHOW', config.get('outline', 'default_show'))
 
 
 def get_shot():
@@ -98,11 +99,7 @@ def get_shot():
     Raises an Exception if the shot environment is not found
     alluding to a setshot error.
     """
-    try:
-        return os.environ["SHOT"]
-    except:
-        raise Exception("SHOT environment variable was not found. \
-            Possible setshot error.")
+    return os.environ.get('SHOT', config.get('outline', 'default_shot'))
 
 
 def get_user():
@@ -111,11 +108,8 @@ def get_user():
     Raises an Exception if the shot environment is not found
     alluding to a setshot error.
     """
-    try:
-        return os.environ["USER"]
-    except:
-        raise Exception("USER environment variable was not found. \
-            Possible setshot error.")
+    return os.environ.get('USER', getpass.getuser())
+
 
 def get_uid():
     """

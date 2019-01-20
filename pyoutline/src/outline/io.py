@@ -23,9 +23,11 @@ import tempfile
 import yaml
 import shlex
 
-from outline import util, config, current_outline
-from outline.exception import SessionException, ShellCommandFailureException, FileSpecException
-from outline.manifest import FileSequence
+import FileSequence
+
+from exception import FileSpecException
+from exception import ShellCommandFailureException
+
 
 logger = logging.getLogger("outline.io")
 

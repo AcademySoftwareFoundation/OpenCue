@@ -20,10 +20,19 @@ import sys
 import logging
 import tempfile
 
-from outline import LayerException, SessionException
-from outline import event, config, util, current_outline, io, constants
-from outline.manifest import FileSequence
-from outline.depend import Depend, DependType
+import FileSequence
+
+from config import config
+import constants
+from depend import Depend
+from depend import DependType
+import event
+from exception import LayerException
+from exception import SessionException
+import io
+from loader import current_outline
+import util
+
 
 __all__ = ["Layer",
            "Frame",

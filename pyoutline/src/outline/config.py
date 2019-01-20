@@ -21,11 +21,7 @@ from ConfigParser import SafeConfigParser
 
 __all__ = ["config"]
 
-config_defaults = {"show": os.environ["SHOW"],
-                   "shot": os.environ["SHOT"],
-                   "user": os.environ["USER"]}
-
-config = SafeConfigParser(config_defaults)
+config = SafeConfigParser()
 
 default_config_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
