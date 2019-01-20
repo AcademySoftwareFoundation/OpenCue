@@ -19,6 +19,7 @@ SCHEMA_DIRECTORY="$(pwd)/cuebot/src/main/resources/conf/ddl/postgres"
 docker pull postgres
 docker pull boxfuse/flyway
 docker run --rm --name $PG_CONTAINER -d -p $HOST_PORT:5432 postgres
+sleep 10
 docker exec -t --user=$DB_USER $PG_CONTAINER createdb $DB_NAME
 docker run --rm -v "${SCHEMA_DIRECTORY}/migrations:/flyway/sql" boxfuse/flyway -url=jdbc:postgresql://localhost:$HOST_PORT/$DB_NAME -user=$DB_USER migrate
 docker exec -t --user=$DB_USER $PG_CONTAINER pg_dump --no-privileges --no-owner -s cuebot_extract | tee "${ARTIFACT_DIRECTORY}/schema-${BUILD_ID}.sql"
