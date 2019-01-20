@@ -27,6 +27,8 @@ fi
 
 gsutil -m cp \
   "${artifact_directory}/build_metadata.json" \
+  "${artifact_directory}/schema-${build_id}.sql" \
+  "${artifact_directory}/demo_data-${build_id}.sql" \
   "${artifact_directory}/cuebot-${build_id}-all.jar" \
   "${artifact_directory}/rqd-${build_id}-all.tar.gz" \
   "${artifact_directory}/pycue-${build_id}-all.tar.gz" \

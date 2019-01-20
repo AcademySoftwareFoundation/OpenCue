@@ -38,6 +38,7 @@ pipeline {
                 sh "docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
                 sh "docker build -t opencue/cuesubmit:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
                 sh "jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build"
+                sh "jenkins/extract_schema.sh ${env.BUILD_ID} ./build"
             }
         }
         stage('Publish') {
@@ -54,6 +55,8 @@ pipeline {
             archiveArtifacts artifacts: 'build/pyoutline-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/cuesubmit-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/schema-*.sql', fingerprint: true
+            archiveArtifacts artifacts: 'build/demo_data-*.sql', fingerprint: true
         }
     }
 }
