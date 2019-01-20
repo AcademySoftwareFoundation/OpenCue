@@ -15,7 +15,7 @@ pipeline {
                 sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build --target build -t opencue/pycue-build:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build --target build -t opencue/pyoutline-build:${env.BUILD_ID} -f pyoutline/Dockerfile ."
-                sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
+                sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile ."
                 sh "docker build --target build -t opencue/cuesubmit-build:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
             }
         }
@@ -25,7 +25,7 @@ pipeline {
                 sh "docker build --target test -t opencue/rqd-test:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build --target test -t opencue/pycue-test:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build --target test -t opencue/pyoutline-test:${env.BUILD_ID} -f pyoutline/Dockerfile ."
-                sh "docker build --target test -t opencue/cuegui-test:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
+                sh "docker build --target test -t opencue/cuegui-test:${env.BUILD_ID} -f cuegui/Dockerfile ."
                 sh "docker build --target test -t opencue/cuesubmit-test:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
             }
         }
@@ -35,7 +35,7 @@ pipeline {
                 sh "docker build -t opencue/rqd:${env.BUILD_ID} -f rqd/Dockerfile ."
                 sh "docker build -t opencue/pycue:${env.BUILD_ID} -f pycue/Dockerfile ."
                 sh "docker build -t opencue/pyoutline:${env.BUILD_ID} -f pyoutline/Dockerfile ."
-                sh "docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile --build-arg=upstream_version=${env.BUILD_ID} ."
+                sh "docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile ."
                 sh "docker build -t opencue/cuesubmit:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
                 sh "jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build"
             }
