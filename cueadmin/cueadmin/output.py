@@ -15,8 +15,9 @@
 
 import time
 
+import opencue
+
 import common
-from Manifest import opencue
 
 
 def displayProcs(procs):
@@ -181,7 +182,7 @@ def displayGroups(show):
 
     def printGroup(group):
         name = "|%s+%-20s" % (
-            "".join(["  " for i in range(0, int(group.data.level))]), group.data.name)
+            "".join(["  " for _ in range(0, int(group.data.level))]), group.data.name)
         print grp_format % (name,
                             group.data.department,
                             enabled(group.data.default_job_priority),

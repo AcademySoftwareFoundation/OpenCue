@@ -16,10 +16,9 @@
 import logging
 import unittest
 
-import common
-import main
+import opencue
 
-opencue = common.opencue
+import common
 
 logger = logging.getLogger("opencue.cuetools")
 
@@ -41,7 +40,7 @@ class CueadminTests(unittest.TestCase):
         except opencue.EntityNotFoundException:
             pass
 
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertEqual(s.data.name, show)
         s.delete()
@@ -50,12 +49,12 @@ class CueadminTests(unittest.TestCase):
         show = "test_show"
         args = Parser.parse_args(["-delete-show", show, "-force"])
         try:
-            s = opencue.api.findShow(show)
+            opencue.api.findShow(show)
         except opencue.EntityNotFoundException:
-            s = opencue.api.createShow(show)
-        main.handleArgs(args)
+            opencue.api.createShow(show)
+        common.handleArgs(args)
         try:
-            s = opencue.api.findShow(show)
+            opencue.api.findShow(show)
             assert False
         except opencue.EntityNotFoundException:
             assert True
@@ -63,44 +62,44 @@ class CueadminTests(unittest.TestCase):
     def testEnableBooking(self):
         show = TEST_SHOW
         args = Parser.parse_args(["-booking", show, "off", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertFalse(s.data.booking_enabled)
         args = Parser.parse_args(["-booking", show, "on", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertTrue(s.data.booking_enabled)
 
     def testEnableDispatch(self):
         show = TEST_SHOW
         args = Parser.parse_args(["-dispatching", show, "off", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertFalse(s.data.dispatch_enabled)
         args = Parser.parse_args(["-dispatching", show, "on", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertTrue(s.data.dispatch_enabled)
 
     def testDefaultMinCores(self):
         show = TEST_SHOW
         args = Parser.parse_args(["-default-min-cores", show, "100", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertEquals(100, s.data.default_min_cores)
         args = Parser.parse_args(["-default-min-cores", show, "1", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertEquals(1, s.data.default_min_cores)
 
     def testDefaultMaxCores(self):
         show = TEST_SHOW
         args = Parser.parse_args(["-default-max-cores", show, "100", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertEquals(100, s.data.default_max_cores)
         args = Parser.parse_args(["-default-max-cores", show, "200", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findShow(show)
         self.assertEquals(200, s.data.default_max_cores)
 
@@ -114,7 +113,7 @@ class CueadminTests(unittest.TestCase):
             s.delete()
         except opencue.EntityNotFoundException:
             pass
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findAllocation(entity)
         self.assertEqual(s.data.name, entity)
         s.delete()
@@ -123,11 +122,11 @@ class CueadminTests(unittest.TestCase):
         entity = "{0}.test_alloc".format(TEST_FAC)
         args = Parser.parse_args(["-delete-alloc", entity, "-force"])
         try:
-            s = opencue.api.findAllocation(entity)
+            opencue.api.findAllocation(entity)
         except opencue.EntityNotFoundException:
             f = opencue.api.getFacility(TEST_FAC)
             f.proxy.createAllocation("test_alloc", "tulip")
-        main.handleArgs(args)
+        common.handleArgs(args)
         try:
             opencue.api.findAllocation(entity)
             assert False
@@ -146,7 +145,7 @@ class CueadminTests(unittest.TestCase):
         deleteAlloc(entity2)
 
         facility.createAllocation("test_alloc", "tulip")
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findAllocation(entity2)
         self.assertEqual(s.data.name, entity2)
         s.delete()
@@ -160,7 +159,7 @@ class CueadminTests(unittest.TestCase):
         deleteAlloc(entity)
 
         facility.createAllocation("test_alloc", entity)
-        main.handleArgs(args)
+        common.handleArgs(args)
         s = opencue.api.findAllocation(entity)
         self.assertEqual(s.data.tag, new_tag)
         s.delete()
@@ -176,18 +175,18 @@ class CueadminTests(unittest.TestCase):
 
         facility.createAllocation("talloc1", e1)
         facility.createAllocation("talloc2", e2)
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         opencue.api.findAllocation(e1).delete()
         opencue.api.findAllocation(e2).delete()
 
         # Need to make this test better to sure hosts are
-        # actually being transfered on the server.
+        # actually being transferred on the server.
 
     def testSetRepairStare(self):
         e = TEST_HOST
         args = Parser.parse_args(["-repair", "-host", e, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         self.assertEquals(opencue.api.findHost(e).data.state, opencue.api.host_pb2.REPAIR)
         opencue.api.findHost(e).setHardwareState(opencue.api.host_pb2.UP)
@@ -195,7 +194,7 @@ class CueadminTests(unittest.TestCase):
     def testLockHost(self):
         e = TEST_HOST
         args = Parser.parse_args(["-lock", "-host", e, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         self.assertEquals(opencue.api.findHost(e).data.lock_state, opencue.api.host_pb2.LOCKED)
         opencue.api.findHost(e).unlock()
@@ -203,7 +202,7 @@ class CueadminTests(unittest.TestCase):
     def testUnlockHost(self):
         e = TEST_HOST
         args = Parser.parse_args(["-unlock", "-host", e, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         self.assertEquals(opencue.api.findHost(e).data.lock_state, opencue.api.host_pb2.OPEN)
         opencue.api.findHost(e).unlock()
@@ -214,11 +213,11 @@ class CueadminTests(unittest.TestCase):
         back = opencue.api.findHost(e).data.alloc_name
 
         args = Parser.parse_args(["-move", dst, "-host", e, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         self.assertEquals(opencue.api.findHost(e).data.alloc_name, dst)
         args = Parser.parse_args(["-move", back, "-host", e, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
         self.assertEquals(opencue.api.findHost(e).data.alloc_name, back)
 
     def testCreateSub(self):
@@ -228,7 +227,7 @@ class CueadminTests(unittest.TestCase):
         deleteSub(r)
 
         args = Parser.parse_args(["-create-sub", h, a, "100", "110", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         s = opencue.api.findSubscription(r)
         self.assertEquals(s.data.show_name, h)
@@ -248,12 +247,12 @@ class CueadminTests(unittest.TestCase):
         show.createSubscription(opencue.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-delete-sub", h, a, "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         try:
             opencue.api.findSubscription(r)
             raise Exception("subscription should have been deleted")
-        except Exception:
+        except opencue.EntityNotFoundException:
             pass
 
     def testSetSize(self):
@@ -266,7 +265,7 @@ class CueadminTests(unittest.TestCase):
         show.createSubscription(opencue.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-size", h, a, "200", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         s = opencue.api.findSubscription(r)
         self.assertEquals(s.data.size, 200.0)
@@ -282,7 +281,7 @@ class CueadminTests(unittest.TestCase):
         show.createSubscription(opencue.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-burst", h, a, "200", "-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         s = opencue.api.findSubscription(r)
         self.assertEquals(s.data.burst, 200.0)
@@ -298,7 +297,7 @@ class CueadminTests(unittest.TestCase):
         show.createSubscription(opencue.api.findAllocation(a).data, 100.0, 110.0)
 
         args = Parser.parse_args(["-burst", h, a, "20%","-force"])
-        main.handleArgs(args)
+        common.handleArgs(args)
 
         s = opencue.api.findSubscription(r)
         self.assertEquals(s.data.burst, 120.0)
@@ -329,3 +328,4 @@ def run(parser):
     Parser = parser
     suite = unittest.TestLoader().loadTestsFromTestCase(CueadminTests)
     unittest.TextTestRunner(verbosity=2).run(suite)
+
