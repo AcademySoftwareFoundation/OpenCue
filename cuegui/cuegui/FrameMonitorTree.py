@@ -16,21 +16,25 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
-from MenuActions import MenuActions
-import Utils
-import Constants
-import Style
+
 import eta
 import re
 import datetime
 import glob
 
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+from opencue.compiled_proto import job_pb2
+
+from MenuActions import MenuActions
+import Utils
+import Constants
+import Style
 import Logger
 
 from AbstractTreeWidget import *
 from AbstractWidgetItem import *
+
 
 logger = Logger.getLogger(__file__)
 
@@ -408,7 +412,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
-        updatedFrames = []
+        updatedFrames = job_pb2.UpdatedFrameSeq()
         try:
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
             # Once the updatedFrames include the proxy instead of the id, this can be removed
