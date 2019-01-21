@@ -14,22 +14,28 @@
 
 
 """Outline launching and frame execution utlities."""
+
+
 import logging
 import os
-import sys
 import re
-
 from optparse import OptionParser, OptionGroup
 
-from outline.config import config
-from outline import load_outline, constants, util, Frame
-from outline.manifest import FileSequence
+import FileSequence
+
+from config import config
+import constants
+from layer import Frame
+from loader import load_outline
+import util
+
 
 logger = logging.getLogger("outline.cuerun")
 
 __all__ = ["OutlineLauncher",
            "CuerunOptionParser",
            "launch"]
+
 
 def execute_frame(script, layer, frame):
     """

@@ -13,12 +13,15 @@
 #  limitations under the License.
 
 
-"""Utility functions for OpenCueTools"""
+"""Utility functions for CueAdmin"""
+
+
 import logging
 import sys
 import time
 
-from Manifest import opencue
+import opencue
+
 
 __ALL__ = ["enableDebugLogging",
            "promptYesNo",
