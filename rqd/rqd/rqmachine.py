@@ -360,10 +360,9 @@ class Machine:
     @rqutil.Memoize
     def getPathEnv(self):
         """Returns the correct path environment for the given machine"""
-        if platform.system() == "Linux":
-            return "/usr/local/spi/bin:/usr/local/psoft/bin:/usr/sbin:" \
-                   "/usr/bsd:/usr/bin:/bin:/etc:/usr/etc:/usr/bin/X11"
-        return ""
+        if platform.system() == 'Linux':
+            return '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+        return ''
 
     @rqutil.Memoize
     def getTempPath(self):
