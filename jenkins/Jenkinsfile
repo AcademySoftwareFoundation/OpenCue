@@ -41,6 +41,7 @@ pipeline {
                 sh "docker build -t opencue/cuesubmit:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
                 sh "docker build -t opencue/cueadmin:${env.BUILD_ID} -f cueadmin/Dockerfile ."
                 sh "jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build"
+                sh "jenkins/extract_schema.sh ${env.BUILD_ID} ./build"
             }
         }
         stage('Publish') {
@@ -58,6 +59,8 @@ pipeline {
             archiveArtifacts artifacts: 'build/cuegui-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/cuesubmit-*-all.tar.gz', fingerprint: true
             archiveArtifacts artifacts: 'build/cueadmin-*-all.tar.gz', fingerprint: true
+            archiveArtifacts artifacts: 'build/schema-*.sql', fingerprint: true
+            archiveArtifacts artifacts: 'build/demo_data-*.sql', fingerprint: true
         }
     }
 }

@@ -105,6 +105,8 @@ def _upload_artifact(artifact_file, release):
       content_type = 'application/gzip'
     elif ext == '.jar':
       content_type = 'application/java-archive'
+    elif ext == '.sql':
+      content_type = 'application/sql'
     else:
       raise Exception('Artifact %s has an unknown file type' % os.path.basename(artifact_file))
     upload_url = release['upload_url'].replace(
