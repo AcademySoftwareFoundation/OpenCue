@@ -129,7 +129,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         super(LogTextEdit, self).mouseReleaseEvent(event)
         pos = event.pos()
         self.mousePressedSignal.emit(pos)
-        self.copy_selection(1)
+        self.copy_selection(QtGui.QClipboard.Selection)
 
     def scrollContentsBy(self, *args, **kwargs):
         """
@@ -144,8 +144,8 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         Copy (Ctrl + C) action. Stores the currently selected text in the
         clipboard.
 
-        @param mode: The QClipboard mode value (0 = GLOBAL
-                                                1 = Selection (middle-mouse))
+        @param mode: The QClipboard mode value (QtGui.QClipboard.Clipboard = GLOBAL
+                                                QtGui.QClipboard.Selection = Selection (middle-mouse))
         @type mode: int
         """
 
@@ -710,7 +710,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         format = QtGui.QTextCharFormat()
         self._highlight_cursor.setPosition(QtGui.QTextCursor.Start)
-        self._highlight_cursor.movePosition(QtGui.QTextCursor.End, 1)
+        self._highlight_cursor.movePosition(QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
         self._highlight_cursor.setCharFormat(format)
         self._highlight_cursor.clearSelection()
 

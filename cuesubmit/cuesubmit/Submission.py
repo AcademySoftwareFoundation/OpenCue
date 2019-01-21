@@ -22,8 +22,8 @@ from cuesubmit import JobTypes
 
 def buildMayaCmd(layerData):
     """From a layer, build a Maya Render command."""
-    camera = layerData.get('camera')
-    mayaFile = layerData.get('mayaFile')
+    camera = layerData.cmd.get('camera')
+    mayaFile = layerData.cmd.get('mayaFile')
     if not mayaFile:
         raise ValueError('No Maya File provided. Cannot submit job.')
     renderCommand = '{renderCmd} -r file -s {frameToken} -e {frameToken}'.format(
@@ -36,8 +36,8 @@ def buildMayaCmd(layerData):
 
 def buildNukeCmd(layerData):
     """From a layer, build a Nuke Render command."""
-    writeNodes = layerData.get('writeNodes')
-    nukeFile = layerData.get('nukeFile')
+    writeNodes = layerData.cmd.get('writeNodes')
+    nukeFile = layerData.cmd.get('nukeFile')
     if not nukeFile:
         raise ValueError('No Nuke file provided. Cannot submit job.')
     renderCommand = '{renderCmd} -F {frameToken} '.format(

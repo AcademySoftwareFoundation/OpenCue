@@ -23,8 +23,17 @@ __all__ = ["config"]
 
 config = SafeConfigParser()
 
-default_config_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-    'etc', 'outline.cfg')
+default_config_paths = [
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
+        'etc', 'outline.cfg'),
+    os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        'etc', 'outline.cfg'),
+]
+default_config_path = None
+for default_config_path in default_config_paths:
+    if os.path.exists(default_config_path):
+        break
 
 config.read(os.environ.get("OL_CONFIG", default_config_path))
