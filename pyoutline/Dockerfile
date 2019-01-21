@@ -18,7 +18,9 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION ./
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/src ./pyoutline/src

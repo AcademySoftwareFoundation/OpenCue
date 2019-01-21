@@ -18,7 +18,9 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION ./
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
