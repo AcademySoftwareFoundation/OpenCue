@@ -123,14 +123,14 @@ class ProcMonitorTree(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             # Refuse to update if no search criteria is defined
-            if not self.procSearch.options.max_results and \
-               not self.procSearch.options.hosts and \
-               not self.procSearch.options.jobs and \
-               not self.procSearch.options.layers and \
-               not self.procSearch.options.shows and \
-               not self.procSearch.options.allocs and \
-               not self.procSearch.options.memory_range and \
-               not self.procSearch.options.durationRange:
+            if not self.procSearch.options.get('max_results') and \
+               not self.procSearch.options.get('hosts') and \
+               not self.procSearch.options.get('jobs') and \
+               not self.procSearch.options.get('layers') and \
+               not self.procSearch.options.get('shows') and \
+               not self.procSearch.options.get('allocs') and \
+               not self.procSearch.options.get('memory_range') and \
+               not self.procSearch.options.get('durationRange'):
                 return []
 
             return opencue.api.getProcs(self.procSearch)
