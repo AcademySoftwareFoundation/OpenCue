@@ -15,21 +15,24 @@
 
 """Load and parse outline scripts."""
 
+
 import os
-import sys
-import traceback
 import logging
 import uuid
 import time
 import yaml
 import simplejson
 
-import outline.constants as constants
+import FileSequence
 
-from outline.session import Session, is_session_path
-from outline import util, OutlineException, SessionException
-from outline.manifest import FileSequence
-from outline.depend import parse_require_str
+import constants
+from depend import parse_require_str
+from exception import OutlineException
+from exception import SessionException
+from session import is_session_path
+from session import Session
+import util
+
 
 logger = logging.getLogger("outline.loader")
 
@@ -38,6 +41,7 @@ __all__ = ["Outline",
            "load_json",
            "parse_outline_script",
            "current_outline"]
+
 
 def load_outline(path):
     """
@@ -189,7 +193,7 @@ def quick_outline(layer):
     return ol
 
 class Outline(object):
-    """The outline class repesents a single outline script."""
+    """The outline class represents a single outline script."""
 
     # The current outline is maintained here so layers can
     # obtain it to register themselves when the script is

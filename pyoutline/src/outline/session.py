@@ -21,13 +21,16 @@ import shutil
 import yaml
 import uuid
 
-import outline.util as util
-from outline import config, SessionException
+from config import config
+from exception import SessionException
+import util
+
 
 __all__ = ["is_session_path",
            "Session"]
 
 logger = logging.getLogger("outline.session")
+
 
 def is_session_path(folder):
     """
@@ -96,8 +99,8 @@ class Session(object):
             # The base dir is where we copy the outline and
             # store session data.
             base_path = config.get("outline", "session_dir")
-            base_path = base_path % {"SHOW": os.environ["SHOW"],
-                                     "SHOT": os.environ["SHOT"]}
+            base_path = base_path % {"SHOW": util.get_show(),
+                                     "SHOT": util.get_shot()}
             base_path =  os.path.join(base_path, self.__name)
 
             # If the base dir doesn't exist, create it.  Be sure

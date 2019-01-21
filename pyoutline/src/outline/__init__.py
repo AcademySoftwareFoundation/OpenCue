@@ -18,33 +18,15 @@ be executed over a frame range.  Typically these shell
 commands would be executed in parallel on a render farm.
 """
 
-import os
-import sys
+# TODO(bcipriano) Clean up this file - get rid of wildcard imports
+# and don't collapse everything into the toplevel namespace like this.
 
-# PyOutline requires Python 2.5
-if sys.version_info[:2][1] < 5:
-    raise Exception("Pyoutline requires Python 2.5 or greater.")
-
-# Make sure we are in a setshot shell.
-try:
-    os.environ["SHOW"]
-except:
-    raise Exception("You must set the SHOW env var to use pyoutline.")
-
-from outline.config import config
-
-from outline.exception import *
-
-from outline.loader import *
-
-from outline.session import *
-
-from outline.executor import *
-
-import outline.io as io
-
-from outline.layer import *
-
-import outline.cuerun as cuerun
-
-from outline.plugins import PluginManager
+from config import config
+from exception import *
+from loader import *
+from session import *
+from executor import *
+import io
+from layer import *
+import cuerun
+from plugins import PluginManager
