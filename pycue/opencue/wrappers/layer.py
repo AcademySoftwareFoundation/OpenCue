@@ -191,7 +191,7 @@ class Layer(object):
             timeout=Cuebot.Timeout)
         return depend.Depend(response.depend)
 
-    # TODO: (gdenton b/119207889) - Determine if this is needed.
+    # TODO(gregdenton) Determine if this is needed. (Issue #71)
     # def unbookProcs(self, subs, number, kill=False):
     #     """Unbook procs off layer from specified subscriptions
     #     @type  subs: list<Subscription>

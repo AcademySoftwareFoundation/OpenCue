@@ -196,8 +196,8 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         JobDetail job = getJob1();
 
         // TODO: fix the fact you can book the same proc on multiple frames
-        // probably just need to make sure you can't update a proc's frame
-        // assignment unless the frame id is null.
+        //  probably just need to make sure you can't update a proc's frame
+        //  assignment unless the frame id is null.
 
         DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
         assertNotNull(frame);
@@ -226,8 +226,8 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         JobDetail job = getJob1();
 
         // TODO: fix the fact you can book the same proc on multiple frames
-        // probably just need to make sure you can't update a proc's frame
-        // assignment unless the frame id is null.
+        //  probably just need to make sure you can't update a proc's frame
+        //  assignment unless the frame id is null.
 
         List<DispatchFrame> frames =
             dispatcherDao.findNextDispatchFrames(job, host,10);

@@ -111,8 +111,8 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Transactional
     @Rollback(true)
     public void testFindShowDetailByHost() {
-        //TODO: Add code to setup a host and make the sow
-        // prefer the host, then check result again.
+        // TODO: Add code to setup a host and make the sow
+        //  prefer the host, then check result again.
         showDao.getShowDetail(createHost());
     }
 

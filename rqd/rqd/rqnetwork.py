@@ -199,7 +199,7 @@ class Network(object):
         self.grpcServer.serveForever()
 
     def __getReportStub(self):
-        # TODO(cipriano) Add support for the facility nameserver or drop this concept? (b/)
+        # TODO(bcipriano) Add support for the facility nameserver or drop this concept? (Issue #152)
         cuebotHostname = rqconstants.CUEBOT_HOSTNAME.split()[0]
         channel = grpc.insecure_channel('%s:%s' % (cuebotHostname, rqconstants.CUEBOT_GRPC_PORT))
         return report_pb2_grpc.RqdReportInterfaceStub(channel)

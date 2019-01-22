@@ -252,7 +252,7 @@ class Job(object):
             timeout=Cuebot.Timeout)
         return depend.Depend(response.depend)
 
-    # TODO: (gdenton - b/119207889) is this needed?
+    # TODO(gregdenton) Is this needed? (Issue #71)
     # def unbookProcs(self, subs, number, kill=False):
     #     """Unbook procs off job from specified allocations
     #     @type  subs: list<Subscription>

@@ -78,10 +78,10 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setBookingErrors(DispatchSupport.bookingErrors.get())
                 .setBookedProcs( DispatchSupport.bookedProcs.get())
 
-                // TODO: (gdenton) b/118845662 reimplement these with gRPC
-//                .setReqForData(IceServer.dataRequests.get())
-//                .setReqForFunction(IceServer.rpcRequests.get())
-//                .setReqErrors(IceServer.errors.get())
+                // TODO(gregdenton) Reimplement these with gRPC. (Issue #69)
+                //  .setReqForData(IceServer.dataRequests.get())
+                //  .setReqForFunction(IceServer.rpcRequests.get())
+                //  .setReqErrors(IceServer.errors.get())
 
                 .setUnbookedProcs(DispatchSupport.unbookedProcs.get())
                 .setPickedUpCores(DispatchSupport.pickedUpCoresCount.get())

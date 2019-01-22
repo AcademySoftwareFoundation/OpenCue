@@ -27,7 +27,7 @@ class FrameSet(object):
         self.frameList = self.parseFrameRange(frameRange)
 
     def __str__(self):
-        # TODO(cipriano) Make this smarter, group frame ranges and by step. (b/119317272)
+        # TODO(bcipriano) Make this smarter, group frame ranges and by step. (Issue #83)
         return ','.join([str(frame) for frame in self.frameList])
 
     def size(self):

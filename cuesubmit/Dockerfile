@@ -49,8 +49,7 @@ COPY cuesubmit/setup.py ./cuesubmit/
 COPY cuesubmit/plugins ./cuesubmit/plugins
 COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 
-# TODO(bcipriano) Lint the code here.
-# https://github.com/imageworks/OpenCue/issues/78
+# TODO(bcipriano) Lint the code here. (Issue #78)
 
 
 # -----------------
@@ -58,7 +57,7 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 # -----------------
 FROM build as test
 
-# TODO(bcipriano) Run unit tests.
+# TODO(bcipriano) Run unit tests. (Issue #149)
 
 
 # -----------------

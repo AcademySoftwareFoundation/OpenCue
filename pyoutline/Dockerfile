@@ -25,8 +25,7 @@ COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/src ./pyoutline/src
 
-# TODO(bcipriano) Lint the code here.
-# https://github.com/imageworks/OpenCue/issues/78
+# TODO(bcipriano) Lint the code here. (Issue #78)
 
 
 # -----------------
@@ -36,7 +35,7 @@ FROM build as test
 
 COPY pyoutline/tests/ ./pyoutline/tests
 
-# TODO(bcipriano) Run unit tests.
+# TODO(bcipriano) Run unit tests. (Issue #149)
 
 
 # -----------------

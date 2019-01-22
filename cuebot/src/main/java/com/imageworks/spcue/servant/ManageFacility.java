@@ -20,7 +20,7 @@ public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplB
 
     public ManageFacility() {}
 
-    // TODO(cipriano) Add error handling.
+    // TODO(bcipriano) Add error handling. (Issue #59)
 
     @Override
     public void create(FacilityCreateRequest request, StreamObserver<FacilityCreateResponse> responseObserver) {
