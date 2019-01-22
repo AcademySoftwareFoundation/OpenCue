@@ -24,7 +24,7 @@ PG_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{en
 docker exec -t --user=$DB_USER $PG_CONTAINER createdb $DB_NAME
 docker run --rm -v "${SCHEMA_DIRECTORY}/migrations:/flyway/sql" boxfuse/flyway \
     -url=jdbc:postgresql://$PG_IP/$DB_NAME -user=$DB_USER migrate
-docker exec -t --user=$DB_USER $PG_CONTAINER pg_dump --no-privileges --no-owner -s cuebot_extract \
+docker exec -t --user=$DB_USER $PG_CONTAINER pg_dump --no-privileges --no-owner -s $DB_NAME \
     | tee "${ARTIFACT_DIRECTORY}/schema-${BUILD_ID}.sql"
 
 # The demo data gets its own build artifact too.
