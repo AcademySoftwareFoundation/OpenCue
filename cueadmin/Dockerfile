@@ -39,8 +39,7 @@ COPY cueadmin/README.md ./cueadmin/
 COPY cueadmin/setup.py ./cueadmin/
 COPY cueadmin/cueadmin ./cueadmin/cueadmin
 
-# TODO(bcipriano) Lint the code here.
-# https://github.com/imageworks/OpenCue/issues/78
+# TODO(bcipriano) Lint the code here. (Issue #78)
 
 
 # -----------------
@@ -48,7 +47,7 @@ COPY cueadmin/cueadmin ./cueadmin/cueadmin
 # -----------------
 FROM build as test
 
-# TODO(bcipriano) Run unit tests.
+# TODO(bcipriano) Run unit tests. (Issue #149)
 
 
 # -----------------

@@ -35,8 +35,7 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./rqd/rqd/compiled_proto \
   ./proto/*.proto
 
-# TODO(bcipriano) Lint the code here.
-# https://github.com/imageworks/OpenCue/issues/78
+# TODO(bcipriano) Lint the code here. (Issue #78)
 
 
 # -----------------

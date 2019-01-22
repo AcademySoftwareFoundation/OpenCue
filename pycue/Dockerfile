@@ -33,8 +33,7 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
-# TODO(bcipriano) Lint the code here.
-# https://github.com/imageworks/OpenCue/issues/78
+# TODO(bcipriano) Lint the code here. (Issue #78)
 
 
 # -----------------
@@ -44,7 +43,7 @@ FROM build as test
 
 COPY pycue/tests/ ./pycue/tests
 
-# TODO(bcipriano) Run unit tests.
+# TODO(bcipriano) Run unit tests. (Issue #149)
 
 
 # -----------------

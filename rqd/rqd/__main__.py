@@ -97,7 +97,7 @@ from logging.handlers import SysLogHandler
 def setupLogging():
     """Sets up the logging for RQD.
        Logs to /var/log/messages"""
-    # TODO: These should be config based. b/110168575
+    # TODO(bcipriano) These should be config based. (Issue #72)
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
     consoleLevel  = log.DEBUG
     fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
@@ -149,7 +149,7 @@ def main():
             usage()
             sys.exit(0)
         if o in ["-d", "--daemon"]:
-            # TODO(cipriano) Background this
+            # TODO(bcipriano) Background the process. (Issue #153)
             pass
         if o in ["--nimbyoff"]:
             optNimbyOff = True

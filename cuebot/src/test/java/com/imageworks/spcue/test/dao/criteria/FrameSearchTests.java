@@ -250,5 +250,5 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         assertTrue(frames.stream().allMatch(frame -> frame.maxRss == CueUtil.GB * 5));
     }
 
-    // TODO(cipriano) Add filterByDurationRange and filterByChangeDate tests.
+    // TODO(bcipriano) Add filterByDurationRange and filterByChangeDate tests.
 }

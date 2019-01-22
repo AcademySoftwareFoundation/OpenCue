@@ -161,7 +161,7 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     public void testCheckRetries() {
         JobDetail job = launchJob();
         frameDao.checkRetries(frameDao.findFrame(job,"0001-pass_1"));
-        //TODO: check to see if it actually works
+        // TODO: check to see if it actually works
     }
 
     @Test

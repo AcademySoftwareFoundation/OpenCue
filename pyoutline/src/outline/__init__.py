@@ -19,7 +19,7 @@ commands would be executed in parallel on a render farm.
 """
 
 # TODO(bcipriano) Clean up this file - get rid of wildcard imports
-# and don't collapse everything into the toplevel namespace like this.
+#  and don't collapse everything into the toplevel namespace like this. (Issue #151)
 
 from config import config
 from exception import *

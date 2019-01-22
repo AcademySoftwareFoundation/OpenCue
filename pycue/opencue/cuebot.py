@@ -148,7 +148,7 @@ class Cuebot:
             else:
                 connect_str = '%s:%s' % (host, config.get('cuebot.grpc_port', 8443))
             logger.debug('connecting to gRPC at %s', connect_str)
-            # TODO(cipriano) Configure gRPC TLS.
+            # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
                 Cuebot.RpcChannel = grpc.insecure_channel(connect_str)
             except Exception:

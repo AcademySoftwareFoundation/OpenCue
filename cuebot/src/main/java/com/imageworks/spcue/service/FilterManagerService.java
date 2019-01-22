@@ -51,7 +51,7 @@ import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.Convert;
 
-//TODO: add filter caching
+// TODO: add filter caching
 
 /**
  * The filter manager handles all spank filtering and manipulation

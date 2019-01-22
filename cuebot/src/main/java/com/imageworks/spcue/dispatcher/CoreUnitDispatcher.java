@@ -128,7 +128,7 @@ public class CoreUnitDispatcher implements Dispatcher {
      * Keeps a map of unique job IDs that should be skipped
      * over for booking until the record has expired.
      */
-    // TODO: concurrentcyLevel(3) is likely too low given the number of dispatch threads
+    // TODO: concurrencyLevel(3) is likely too low given the number of dispatch threads
     private Cache<String, String> jobLock = CacheBuilder.newBuilder()
         .concurrencyLevel(3)
         .expireAfterWrite(JOB_LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS)

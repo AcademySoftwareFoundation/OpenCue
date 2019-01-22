@@ -81,8 +81,8 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-        // TODO(cipriano) Once this test is enabled this assert should be updated to use
-        // DAO objects instead of querying the db directly.
+        // TODO(bcipriano) Once this test is enabled this assert should be updated to use
+        //  DAO objects instead of querying the db directly.
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
                 "point.pk_dept=? AND point.pk_show=?",
@@ -107,8 +107,8 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-        // TODO(cipriano) Once this test is enabled these asserts should be updated to use
-        // DAO objects instead of querying the db directly.
+        // TODO(bcipriano) Once this test is enabled these asserts should be updated to use
+        //  DAO objects instead of querying the db directly.
 
         assertTrue(0 < jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
