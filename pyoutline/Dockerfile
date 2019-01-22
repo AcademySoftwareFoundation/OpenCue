@@ -23,6 +23,9 @@ RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
+COPY pyoutline/bin ./pyoutline/bin
+COPY pyoutline/etc ./pyoutline/etc
+COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/src ./pyoutline/src
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
