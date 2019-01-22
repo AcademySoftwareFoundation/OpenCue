@@ -58,7 +58,7 @@ class FrameEtaGenerator(object):
             self.log_lines=len(open(self.log).readlines())
             buildTime = self.GetFrameBuildTime(frame)
         try:
-            layer = opencue.api.findLayer(job.data.name, frame.data.layerName)
+            layer = opencue.api.findLayer(job.data.name, frame.data.layer_name)
             if 'tango' in layer.data.services:
                 self.Tango(frame)
             elif 'svea' in layer.data.services:
@@ -171,7 +171,7 @@ class FrameEtaGenerator(object):
 
 
     def GetFrameStartTime(self, frame):
-        key = (frame, frame.data.startTime)
+        key = (frame, frame.data.start_time)
         if key in self.startTimeCache:
             return self.startTimeCache[key]
         # read the logFile here for time
@@ -186,7 +186,7 @@ class FrameEtaGenerator(object):
         return result
 
     def GetFrameBuildTime(self, frame):
-        key = (frame, frame.data.startTime)
+        key = (frame, frame.data.start_time)
         if key in self.buildTimeCache:
             return self.buildTimeCache[key]
         # read the logFile here for time
