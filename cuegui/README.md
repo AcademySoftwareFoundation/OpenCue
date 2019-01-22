@@ -1,8 +1,8 @@
 # CueGUI
 
-Users use CueGUI to monitor and manage OpenCue jobs.
+Users run CueGUI to monitor and manage OpenCue jobs.
 
-Admins use CueGUI to:
+Admins run CueGUI to:
 
 - Troubleshoot jobs.
 - Assign render processors to jobs.
