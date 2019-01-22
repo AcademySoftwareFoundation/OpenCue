@@ -1,11 +1,25 @@
 # Cuebot
 
-Cuebot is the "brains" of OpenCue. It manages all jobs and job submissions, and
-distributes work to render nodes.
+Cuebot typically runs on a server and performs a variety of important OpenCue management
+tasks, including:
+
+- Managing OpenCue jobs and job submissions.
+- Distributing work to render nodes.
+- Responding to API requests from client-side tools such as CueGUI.
+
+A typical OpenCue deployment runs a single instance of Cuebot, which is shared by all users.
+
+## Deployment Instructions
+
+For instructions on deploying a Cuebot instance see
+[Deploying Cuebot](https://github.com/imageworks/OpenCue/wiki/Deploying-Cuebot) on the Wiki.
 
 ## Development Setup
 
-This covers setting up a development environment in IntelliJ.
+This section covers setting up a development environment in IntelliJ.
+
+NOTE: Only OpenCue developers will need to do this setup. If you just want to use Cuebot, follow
+[Deployment Instructions](#deployment-instructions).
 
 ### Import Project
 
