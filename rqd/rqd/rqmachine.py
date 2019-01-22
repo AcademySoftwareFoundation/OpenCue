@@ -595,7 +595,7 @@ class Machine:
         for frameKey in self.__rqCore.getFrameKeys():
             try:
                 info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
-                self.__hostReport.frames.append(info)
+                self.__hostReport.frames.extend([info])
             except KeyError:
                 pass
 
