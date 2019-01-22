@@ -349,6 +349,7 @@ public class DispatchSupportService implements DispatchSupport {
                 .setJobId(frame.jobId)
                 .setJobName(frame.jobName)
                 .setFrameId(frame.id)
+                .setFrameName(frame.name)
                 .setLayerId(frame.getLayerId())
                 .setResourceId(proc.getProcId())
                 .setNumCores(proc.coresReserved)

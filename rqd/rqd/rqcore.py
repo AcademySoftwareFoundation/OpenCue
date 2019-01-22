@@ -243,7 +243,9 @@ class FrameAttendantThread(threading.Thread):
         self.__createEnvVariables()
         self.__writeHeader()
         if rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
+            rqutil.permissionsHigh()
             rqutil.checkAndCreateUser(runFrame.user_name)
+            rqutil.permissionsLow()
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
                                              frameInfo.frameId,
@@ -421,11 +423,11 @@ class FrameAttendantThread(threading.Thread):
 
         try:
             runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
-                                               runFrame.job_name)
+                                                 runFrame.job_name)
             runFrame.frame_temp_dir = os.path.join(runFrame.job_temp_dir,
-                                                 runFrame.frame_name)
+                                                   runFrame.frame_name)
             runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
-                                                runFrame.frame_name)
+                                                 runFrame.frame_name)
             runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
 
             try: # Exception block for all exceptions
@@ -443,7 +445,7 @@ class FrameAttendantThread(threading.Thread):
                         # Attempting mkdir for missing logdir
                         msg = "No Error"
                         try:
-                            os.mkdir(runFrame.log_dir)
+                            os.makedirs(runFrame.log_dir)
                             os.chmod(runFrame.log_dir, 0777)
                         except Exception, e:
                             # This is expected to fail when called in abq

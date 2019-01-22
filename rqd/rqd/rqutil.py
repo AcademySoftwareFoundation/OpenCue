@@ -125,8 +125,11 @@ def checkAndCreateUser(username):
         pwd.getpwnam(username)
         return
     except KeyError:
-        pwd = crypt.crypt(username, str(random.randint(1, 10000)))
-        subprocess.check_call("useradd -p {pwd} {username}".format(pwd=pwd, username=username))
+        subprocess.check_call([
+            'useradd',
+            '-p', crypt.crypt(username, str(random.randint(1, 10000))),
+            username
+        ])
 
 
 def getHostIp():
