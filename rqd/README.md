@@ -1,11 +1,15 @@
 # RQD
 
-RQD is the client software that runs on all hosts that are doing work for an OpenCue deployment.
+RQD is a software client that runs on all hosts doing work for an OpenCue
+deployment.
 
-RQD's responsibilities include registering the host with the Cuebot, receiving instructions
-about what work to do and monitoring the worker processes it launches.
+RQD's responsibilities include:
 
-It uses GRPC to communicate with the Cuebot, as well as runs its own GRPC server which is called
-by the Cuebot's client to send instructions to RQD.
+- Registering the host with Cuebot.
+- Receiving instructions about what work to do.
+- Monitoring the worker processes it launches and reporting on results.
 
-To run RQD, see the included `Dockerfile`.
+RQD uses [gRPC](https://grpc.io/) to communicate with Cuebot. It also runs its
+own gRPC server, which is called by the Cuebot client to send instructions to
+RQD.
+

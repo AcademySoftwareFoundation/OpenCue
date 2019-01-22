@@ -1,5 +1,6 @@
 # OpenCue Python API
 
-The OpenCue Python API. This API is used by all other client-side components
-for Cuebot interaction, using GRPC for communication under the hood.
+PyCue is the OpenCue Python API. OpenCue client-side Python tools, such as
+CueGUI and CueAdmin, all use PyCue for communication with your OpenCue
+deployment.
 

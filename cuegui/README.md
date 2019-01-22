@@ -1,7 +1,10 @@
-# CueGui
+# CueGUI
 
-The OpenCue management GUI.
+Users use CueGUI to monitor and manage OpenCue jobs.
 
-This is a Python-based QT app through which you can view and manage your
-running jobs.
+Admins use CueGUI to:
+
+- Troubleshoot jobs.
+- Assign render processors to jobs.
+- Manage job priorities.
 
