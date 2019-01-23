@@ -196,9 +196,12 @@ def main():
   print 'Pushing Docker images to Docker hub...'
   for docker_image in DOCKER_IMAGES:
     dockerhub_uri = '%s/%s:%s' % (DOCKERHUB_ORG, docker_image, args.build_id)
+    dockerhub_uri_latest = '%s/%s:latest' % (DOCKERHUB_ORG, docker_image)
     cmds = [
         ['docker', 'tag', _get_gcr_image_uri(docker_image, args.build_id), dockerhub_uri],
+        ['docker', 'tag', dockerhub_uri, dockerhub_uri_latest],
         ['docker', 'push', dockerhub_uri],
+        ['docker', 'push', dockerhub_uri_latest],
     ]
     for cmd in cmds:
       subprocess.check_call(cmd)
