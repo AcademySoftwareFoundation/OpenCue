@@ -18,22 +18,17 @@ A frame list based on AbstractTreeWidget
 """
 
 
-import eta
-import re
 import datetime
 import glob
+import re
 
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 from opencue.compiled_proto import job_pb2
 
-from MenuActions import MenuActions
-import Utils
-import Constants
-import Style
-import Logger
-
+import eta
 from AbstractTreeWidget import *
 from AbstractWidgetItem import *
+from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+from MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)
@@ -73,7 +68,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                        data=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
-                       data=lambda job, frame: str(frame.data.state),
+                       data=lambda job, frame: self.getStateString(frame.data.state),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -225,6 +220,12 @@ class FrameMonitorTree(AbstractTreeWidget):
                 cores = "{:.2f}".format(cores)
 
         return cores
+
+    def getStateString(self, stateValue):
+        for stateData in job_pb2.FrameState.items():
+            if stateData[1] == stateValue:
+                return stateData[0]
+        return ""
 
     def getTimeString(self, timestamp):
         tstring = None
