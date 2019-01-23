@@ -68,7 +68,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                        data=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
-                       data=lambda job, frame: self.getStateString(frame.data.state),
+                       data=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -220,12 +220,6 @@ class FrameMonitorTree(AbstractTreeWidget):
                 cores = "{:.2f}".format(cores)
 
         return cores
-
-    def getStateString(self, stateValue):
-        for stateData in job_pb2.FrameState.items():
-            if stateData[1] == stateValue:
-                return stateData[0]
-        return ""
 
     def getTimeString(self, timestamp):
         tstring = None
