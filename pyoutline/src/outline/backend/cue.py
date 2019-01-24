@@ -195,7 +195,7 @@ def _serialize(launcher, usePycuerun):
     depends = Et.Element("depends")
 
     sub_element(root, "facility", launcher.get("facility"))
-    sub_element(root, "show", util.get_show())
+    sub_element(root, "show", launcher.get("show"))
     sub_element(root, "shot", launcher.get("shot"))
     user = launcher.get_flag("user")
     if not user:

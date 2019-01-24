@@ -81,7 +81,8 @@ def buildShellLayer(layerData):
 
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
-    outline = Outline(jobData['name'])
+    outline = Outline(jobData['name'], shot=jobData['shot'], show=jobData['show'],
+                      user=jobData['username'])
     for layerData in jobData['layers']:
         if layerData.layerType == JobTypes.JobTypes.MAYA:
             layer = buildMayaLayer(layerData)
