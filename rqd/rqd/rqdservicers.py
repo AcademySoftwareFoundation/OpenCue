@@ -1,6 +1,8 @@
 
 import logging as log
 
+import grpc
+
 from compiled_proto import rqd_pb2
 from compiled_proto import rqd_pb2_grpc
 
@@ -26,8 +28,15 @@ class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
         """RPC call to return the frame info for the given frame id"""
         log.info("Request received: getRunningFrameStatus")
         frame = self.rqCore.getRunningFrame(request.frameId)
-        return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
-            running_frame_info=frame.runningFrameInfo())
+        if frame:
+            return rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
+                running_frame_info=frame.runningFrameInfo())
+        else:
+            context.set_details(
+                "The requested frame was not found. frameId: {}".format(request.frameId))
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            return rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
+
 
     def KillRunningFrame(self, request, context):
         """RPC call that kills the running frame with the given id"""

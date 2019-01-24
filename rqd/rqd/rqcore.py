@@ -802,9 +802,10 @@ class RqCore:
     def getRunningFrame(self, frameId):
         try:
             return self.__cache[frameId]
-        except:
-            raise KeyError("frameId {} is not running on this"
-                           "machine".format(frameId))
+        except Exception:
+            log.info("frameId {} is not running on this"
+                     "machine".format(frameId))
+            return None
 
     def reportStatus(self, current=None):
         """Replies with hostReport"""
