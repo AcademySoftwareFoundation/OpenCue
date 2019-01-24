@@ -114,7 +114,9 @@ class OutlineLauncher(object):
                         "wait": False,
                         "test": False,
                         "server": False,
-                        "shot": util.get_shot(),
+                        "shot": self.__outline.get_shot(),
+                        "show": self.__outline.get_show(),
+                        "user": self.__outline.get_user(),
                         "dev": False,
                         "devuser": None,
                         "autoeat": False,
@@ -125,8 +127,8 @@ class OutlineLauncher(object):
                         "os": False,
                         "env": [],
                         "maxretries": config.get("outline", "maxretries"),
-                        "backend" : config.get("outline", "backend"),
-                        "facility" : get_launch_facility() }
+                        "backend": config.get("outline", "backend"),
+                        "facility": get_launch_facility()}
 
         self.__flags.update(args)
         self.__backend = None

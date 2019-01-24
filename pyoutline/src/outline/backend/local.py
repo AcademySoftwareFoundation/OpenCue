@@ -34,8 +34,8 @@ def build_command(ol, layer, frame):
     command = []
     command.append("%s/local_wrap_frame" % config.get("outline","wrapper_dir"))
     command.append(config.get("outline", "user_dir"))
-    command.append(util.get_show())
-    command.append(util.get_shot())
+    command.append(ol.get_show())
+    command.append(ol.get_shot())
     command.append("%s/pycuerun" % config.get("outline", "bin_dir"))
     command.append("%s -e  %d-%s" % (ol.get_path(),  frame, layer.get_name()))
     command.append(" -v %s" % versions.get_version("outline"))

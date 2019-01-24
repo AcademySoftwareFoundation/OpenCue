@@ -87,9 +87,9 @@ class Session(object):
 
         logger.info("Creating new session path.")
         try:
-            job_name = "%s-%s-%s_%s" % (util.get_show(),
-                                        util.get_shot(),
-                                        util.get_user(),
+            job_name = "%s-%s-%s_%s" % (self.__outline.get_show(),
+                                        self.__outline.get_shot(),
+                                        self.__outline.get_user(),
                                         self.__outline.get_name())
 
             # This is unique session name.  Its a combination
@@ -101,8 +101,8 @@ class Session(object):
             base_path = config.get("outline", "session_dir")
             base_path = base_path.format(
                 HOME=os.path.expanduser("~"),
-                SHOW=util.get_show(),
-                SHOT=util.get_shot())
+                SHOW=self.__outline.get_show(),
+                SHOT=self.__outline.get_shot())
             base_path =  os.path.join(base_path, self.__name)
 
             # If the base dir doesn't exist, create it.  Be sure
