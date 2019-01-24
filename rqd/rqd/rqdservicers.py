@@ -42,7 +42,8 @@ class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
         """RPC call that kills the running frame with the given id"""
         log.info("Request received: killRunningFrame")
         frame = self.rqCore.getRunningFrame(request.frame_id)
-        frame.kill()
+        if frame:
+            frame.kill()
         return rqd_pb2.RqdStaticKillRunningFrameResponse()
 
     def ShutdownRqdNow(self, request, context):
