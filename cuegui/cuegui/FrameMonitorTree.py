@@ -407,17 +407,12 @@ class FrameMonitorTree(AbstractTreeWidget):
             logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
-        updatedFrames = job_pb2.UpdatedFrameSeq()
+        updatedFrames = []
         try:
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
-            # Once the updatedFrames include the proxy instead of the id, this can be removed
-            for frame in updated_data.updated_frames.updated_frames:
-                frame = opencue.util.proxy(frame.id, "Frame")
-            logger.info("Frame Updates: %s" % len(updated_data.updated_frames.updated_frames))
             self.__lastUpdateTime = updated_data.server_time
             self.__jobState = updated_data.state
-
-            updatedFrames = updated_data.updated_frames
+            updatedFrames = updated_data.updated_frames.updated_frames
 
         except opencue.EntityNotFoundException, e:
             self.setJobObj(None)
@@ -467,14 +462,9 @@ class FrameMonitorTree(AbstractTreeWidget):
             else:
                 self._itemsLock.lockForWrite()
                 try:
-                    for updatedFrame in rpcObjects.updated_frames:
+                    for updatedFrame in rpcObjects:
                         # If id already exists, update it
-                        if updatedFrame.id in self._items:
-                            frame = self._items[updatedFrame.id].rpcObject
-
-                            for item in dir(updatedFrame.id):
-                                if not item.startswith("__") and item != "id":
-                                    setattr(frame.data, item, getattr(updatedFrame, item))
+                        self._updateFrame(updatedFrame)
                 finally:
                     self._itemsLock.unlock()
 
@@ -484,6 +474,16 @@ class FrameMonitorTree(AbstractTreeWidget):
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
 
+    def _updateFrame(self, updatedFrame):
+        """Update the frame object on a WidgetItem with the values from a UpdatedFrame object.
+        @type updatedFrame: job_pb2.UpdatedFrame
+        @param updatedFrame: UpdatedFrame to copy values from."""
+        logger.info("_updateFrame")
+        frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
+        if frameWidget:
+            for field in job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys():
+                if field != "id":
+                    setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
@@ -696,9 +696,12 @@ class FrameLogDataBuffer(object):
         try:
             if self.__queue:
                 (proxy, path) = self.__queue.popitem()
-                return (proxy,
-                        Utils.getLastLine(path),
-                        Utils.secondsToHHMMSS(time.time() - os.stat(path).st_mtime))
+                if os.path.exists(path):
+                    return (proxy,
+                            Utils.getLastLine(path),
+                            Utils.secondsToHHMMSS(time.time() - os.stat(path).st_mtime))
+                else:
+                    return None
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
 
