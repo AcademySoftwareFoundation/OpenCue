@@ -407,7 +407,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             logger.warning("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
-        updatedFrames = job_pb2.UpdatedFrameSeq()
+        updatedFrames = []
         try:
             updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
             self.__lastUpdateTime = updated_data.server_time
