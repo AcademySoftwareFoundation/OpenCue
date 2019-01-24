@@ -802,9 +802,8 @@ class RqCore:
     def getRunningFrame(self, frameId):
         try:
             return self.__cache[frameId]
-        except Exception:
-            log.info("frameId {} is not running on this"
-                     "machine".format(frameId))
+        except KeyError:
+            log.info("frameId {} is not running on this machine".format(frameId))
             return None
 
     def reportStatus(self, current=None):
