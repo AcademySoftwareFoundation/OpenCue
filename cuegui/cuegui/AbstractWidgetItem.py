@@ -78,10 +78,10 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
     def __lt__(self, other):
         """Custom sorting for columns that have a function defined for sorting"""
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
+        column = self.treeWidget().sortColumn()
         if sortLambda:
             try:
-                return sortLambda(self.rpcObject.name()) < sortLambda(other.rpcObject.name())
+                return sortLambda(self.rpcObject) > sortLambda(other.rpcObject)
             except:
-                return False
-        else:
-            return str(self) < str(other)
+                logger.warning("Sort failed on column {}, using text sort.".format(column))
+        return str(self.text(column)) > str(other.text(column))
