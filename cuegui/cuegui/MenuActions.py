@@ -299,6 +299,7 @@ class JobActions(AbstractActions):
                                       [job.data.name for job in jobs]):
                 for job in jobs:
                     job.kill()
+                    self.unmonitor(job)
                 self._update()
 
     eatDead_info = ["Eat dead frames", None, "eat"]
