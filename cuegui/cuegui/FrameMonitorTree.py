@@ -611,7 +611,7 @@ class FrameWidgetItem(AbstractWidgetItem):
             return sortLambda(self._source, self.rpcObject) < sortLambda(
                 other._source, other.rpcObject)
 
-        return QtGui.QTreeWidgetItem.__lt__(self, other)
+        return QtWidgets.QTreeWidgetItem.__lt__(self, other)
 
 class FrameLogDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
