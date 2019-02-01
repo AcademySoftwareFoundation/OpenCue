@@ -443,8 +443,7 @@ def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
         editor = os.getenv('EDITOR', DEFAULT_EDITOR).split()
-        JOB_LOG_CMD = QtGui.qApp.settings.value("LogEditor", editor)
-        job_log_cmd = JOB_LOG_CMD or editor
+        job_log_cmd = QtGui.qApp.settings.value("LogEditor", editor) or editor
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 
