@@ -442,9 +442,7 @@ def popupTail(file, facility=None):
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
-        editor = os.getenv('EDITOR')
-        if editor is None:
-            editor = DEFAULT_EDITOR
+        editor = os.getenv('EDITOR', DEFAULT_EDITOR)
         JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", editor))
         checkShellOut([JOB_LOG_CMD or editor, str(file)])
 
