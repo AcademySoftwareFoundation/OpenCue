@@ -135,8 +135,6 @@ class CreateServiceTests(unittest.TestCase):
 
     def testCreate(self):
         newService = self.service.create()
-        print self.service.maxCores(), newService.maxCores()
-        print newService
         self.assertTrue(newService.id())
         self.assertTrue(self.service.name() == newService.name())
         self.assertTrue(self.service.tags() == newService.tags())
