@@ -442,9 +442,11 @@ def popupTail(file, facility=None):
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
-        editor = os.getenv('EDITOR', DEFAULT_EDITOR)
-        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", editor))
-        checkShellOut([JOB_LOG_CMD or editor, str(file)])
+        editor = os.getenv('EDITOR', DEFAULT_EDITOR).split()
+        JOB_LOG_CMD = QtGui.qApp.settings.value("LogEditor", editor)
+        job_log_cmd = JOB_LOG_CMD or editor
+        job_log_cmd.append(str(file))
+        checkShellOut(job_log_cmd)
 
 
 def openURL(url):
