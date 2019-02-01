@@ -78,7 +78,7 @@ class Service(object):
     def name(self):
         """Returns the name of the service
         @rtype:  str
-        @return: Subscription name"""
+        @return: service name"""
         return self.data.name
 
     def setName(self, name):
