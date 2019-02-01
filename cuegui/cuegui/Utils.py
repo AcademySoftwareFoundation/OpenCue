@@ -266,13 +266,13 @@ def checkShellOut(cmdList):
                     code=e.returncode,
                     msg=e.output
                 )
-        showErrorMessageBox(text, title="ERROR!", detailedText=None)
+        showErrorMessageBox(text, title="ERROR Launching Log Editor!")
     except OSError, e:
         text = "Command '{cmd}' not found.\n" \
                "Please set the EDITOR environment variable to a valid " \
                "editor command. Or configure an editor command using the " \
                "Constants.DEFAULT_EDITOR variable.".format(cmd=cmdList[0])
-        showErrorMessageBox(text, title="ERROR!", detailedText=None)
+        showErrorMessageBox(text, title="ERROR Launching Log Editor!")
 
 
 def exceptionOutput(e):
