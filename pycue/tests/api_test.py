@@ -19,6 +19,8 @@ import os
 import sys
 import unittest
 
+import grpc
+
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 import opencue
 
@@ -105,6 +107,110 @@ class FrameTests(unittest.TestCase):
 
     def testGetFrames(self):
         self.assertTrue(opencue.api.getFrames(TEST_JOB_NAME, range="1-5") > 0)
+
+
+class CreateServiceTests(unittest.TestCase):
+
+    testName = 'unittestingcreate'
+    testTags = ['playblast', 'util']
+    testThreadable = False
+    testMinCores = 1000
+    testMaxCores = 2000
+
+    def setUp(self):
+        self.service = opencue.wrappers.service.Service()
+        self.service.setName(self.testName)
+        self.service.setTags(self.testTags)
+        self.service.setThreadable(self.testThreadable)
+        self.service.setMinCores(self.testMinCores)
+        self.service.setMaxCores(self.testMaxCores)
+        existing = opencue.wrappers.service.Service.getService(self.testName)
+        if existing:
+            existing.delete()
+
+    def tearDown(self):
+        existing = opencue.wrappers.service.Service.getService(self.testName)
+        if existing:
+            existing.delete()
+
+    def testCreate(self):
+        newService = self.service.create()
+        print self.service.maxCores(), newService.maxCores()
+        print newService
+        self.assertTrue(newService.id())
+        self.assertTrue(self.service.name() == newService.name())
+        self.assertTrue(self.service.tags() == newService.tags())
+        self.assertTrue(self.service.threadable() == newService.threadable())
+        self.assertTrue(self.service.minCores() == newService.minCores())
+        self.assertTrue(self.service.maxCores() == newService.maxCores())
+
+
+
+class DeleteServiceTests(unittest.TestCase):
+
+    testName = 'unittestingdelete'
+    testTags = ['playblast', 'util']
+    testThreadable = False
+    testMinCores = 1000
+    testMaxCores = 2000
+
+    def setUp(self):
+        self.service = opencue.wrappers.service.Service()
+        self.service.setName(self.testName)
+        self.service.setTags(self.testTags)
+        self.service.setThreadable(self.testThreadable)
+        self.service.setMinCores(self.testMinCores)
+        self.service.setMaxCores(self.testMaxCores)
+        self.service.create()
+
+    def tearDown(self):
+        existing = opencue.api.getService(self.testName)
+        if existing:
+            existing.delete()
+
+    def testDelete(self):
+        existing = opencue.api.getService(self.testName)
+        existing.delete()
+        self.assertIsNone(opencue.api.getService(self.testName))
+
+
+class ServiceTests(unittest.TestCase):
+
+    testName = 'unittesting'
+    testTags = ['playblast', 'util']
+    testThreadable = False
+    testMinCores = 1000
+    testMaxCores = 2000
+    testMinGpu = 10
+    testMinMemory = 4000
+
+    @classmethod
+    def setUpClass(cls):
+        service = opencue.wrappers.service.Service()
+        service.setName(cls.testName)
+        service.setTags(cls.testTags)
+        service.setThreadable(cls.testThreadable)
+        service.setMinCores(cls.testMinCores)
+        service.setMaxCores(cls.testMaxCores)
+        service.create()
+
+    @classmethod
+    def tearDownClass(cls):
+        service = opencue.wrappers.service.Service.getService(cls.testName)
+        if service:
+            service.delete()
+
+    def testGet(self):
+        service = opencue.api.getService(self.testName)
+        self.assertEqual(self.testName, service.name())
+
+    def testUpdate(self):
+        updatedTags = ['util']
+        service = opencue.api.getService(self.testName)
+        service.setTags(updatedTags)
+        service.update()
+        updated = opencue.api.getService(self.testName)
+        self.assertEqual(updatedTags, updated.tags())
 
 
 class SubscriptionTests(unittest.TestCase):

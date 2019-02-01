@@ -89,6 +89,8 @@ def getService(name):
 def createService(data):
     """
     Create the provided service and return it.
+    @type: Service
+    @param: service object to create
     @rtype Service
     """
     return Service(data).create()

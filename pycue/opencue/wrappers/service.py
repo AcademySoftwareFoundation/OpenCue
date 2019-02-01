@@ -21,6 +21,8 @@ Module: service.py - opencue Library implementation of a service
 
 """
 
+import grpc
+
 from opencue.compiled_proto import service_pb2
 from opencue.cuebot import Cuebot
 
@@ -52,9 +54,14 @@ class Service(object):
 
     @classmethod
     def getService(cls, name):
-        response = cls.stub.GetService(
-            service_pb2.ServiceGetServiceRequest(name=name),
-            timeout=Cuebot.Timeout)
+        try:
+            response = cls.stub.GetService(
+                service_pb2.ServiceGetServiceRequest(name=name),
+                timeout=Cuebot.Timeout)
+        except grpc.RpcError, e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
         return Service(response.service)
 
     def update(self):
