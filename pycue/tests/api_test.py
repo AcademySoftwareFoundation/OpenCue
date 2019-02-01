@@ -143,7 +143,6 @@ class CreateServiceTests(unittest.TestCase):
         self.assertTrue(self.service.maxCores() == newService.maxCores())
 
 
-
 class DeleteServiceTests(unittest.TestCase):
 
     testName = 'unittestingdelete'
