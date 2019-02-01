@@ -48,6 +48,7 @@ from wrappers.host import Host, NestedHost
 from wrappers.job import Job
 from wrappers.layer import Layer
 from wrappers.proc import Proc
+from wrappers.service import Service
 from wrappers.show import Show
 from wrappers.subscription import Subscription
 from wrappers.task import Task
@@ -72,31 +73,25 @@ def getDefaultServices():
     define the default application features.
     @rtype list<Service>
     """
-    response = Cuebot.getStub('service').GetDefaultServices(
-        service_pb2.ServiceGetDefaultServicesRequest(), timeout=Cuebot.Timeout)
-    return response.services.services
+    return Service.getDefaultServices()
 
 
 @util.grpcExceptionParser
 def getService(name):
     """
-    Return the default service list.  Services
-    define the default application features.
+    Return the service with the provided name
     @rtype Service
     """
-    return Cuebot.getStub('service').GetService(
-        service_pb2.ServiceGetServiceRequest(name=name), timeout=Cuebot.Timeout).service
+    return Service.getService(name)
 
 
 @util.grpcExceptionParser
 def createService(data):
     """
-    Return the default service list.  Services
-    define the default application features.
-    @rtype list<Service>
+    Create the provided service and return it.
+    @rtype Service
     """
-    return Cuebot.getStub('service').CreateService(
-        service_pb2.ServiceCreateServiceRequest(data=data), timeout=Cuebot.Timeout).service
+    return Service(data).create()
 
 
 @util.grpcExceptionParser
