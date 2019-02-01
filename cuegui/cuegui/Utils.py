@@ -19,6 +19,7 @@ Utility functions.
 import commands
 import os
 import re
+import subprocess
 import sys
 import time
 import traceback
@@ -249,6 +250,31 @@ def shellOut(cmd):
     os.system("%s &" % cmd)
 
 
+def checkShellOut(cmdList):
+    """Run the provided command and check it's results.
+    Display an error message if the command failed
+    @type: list<string>
+    @param: The command to run as a space separated list.
+    """
+    try:
+        subprocess.check_call(cmdList)
+    except subprocess.CalledProcessError, e:
+        text = 'Command {cmd} failed with returncode {code}. {msg}.\n' \
+               'Please check your EDITOR environment variable and the ' \
+               'Constants.DEFAULT_EDITOR variable.'.format(
+                    cmd=e.cmd,
+                    code=e.returncode,
+                    msg=e.output
+                )
+        showErrorMessageBox(text, title="ERROR!", detailedText=None)
+    except OSError, e:
+        text = "Command '{cmd}' not found.\n" \
+               "Please set the EDITOR environment variable to a valid " \
+               "editor command. Or configure an editor command using the " \
+               "Constants.DEFAULT_EDITOR variable.".format(cmd=cmdList[0])
+        showErrorMessageBox(text, title="ERROR!", detailedText=None)
+
+
 def exceptionOutput(e):
     """Returns formatted lines to pass to the logger
     @type  e: exception
@@ -416,8 +442,11 @@ def popupTail(file, facility=None):
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         from Constants import DEFAULT_EDITOR
-        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", DEFAULT_EDITOR))
-        shellOut("%s %s" % (JOB_LOG_CMD or DEFAULT_EDITOR, file))
+        editor = os.getenv('EDITOR')
+        if editor is None:
+            editor = DEFAULT_EDITOR
+        JOB_LOG_CMD = str(QtGui.qApp.settings.value("LogEditor", editor))
+        checkShellOut([JOB_LOG_CMD or editor, str(file)])
 
 
 def openURL(url):
