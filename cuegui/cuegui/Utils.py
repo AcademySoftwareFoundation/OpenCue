@@ -442,10 +442,10 @@ def popupTail(file, facility=None):
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
-        if QtGui.qApp.settings.contains('LogEditor'):
-            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
-        elif editor_from_env:
+        if editor_from_env:
             job_log_cmd = editor_from_env.split()
+        elif QtGui.qApp.settings.contains('LogEditor'):
+            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
         else:
             job_log_cmd = DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
