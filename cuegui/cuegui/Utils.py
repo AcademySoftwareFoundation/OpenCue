@@ -29,7 +29,7 @@ from yaml.scanner import ScannerError
 
 import Logger
 from ConfirmationDialog import ConfirmationDialog
-from Constants import DEFAULT_INI_PATH
+from Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
 from Manifest import QtCore, QtGui, opencue, QtWidgets
 
 logger = Logger.getLogger(__file__)
@@ -441,9 +441,13 @@ def popupTail(file, facility=None):
 
 def popupView(file, facility=None):
     if not popupWeb(file, facility):
-        from Constants import DEFAULT_EDITOR
-        editor = os.getenv('EDITOR', DEFAULT_EDITOR).split()
-        job_log_cmd = QtGui.qApp.settings.value("LogEditor", editor) or editor
+        editor_from_env = os.getenv('EDITOR')
+        if QtGui.qApp.settings.contains('LogEditor'):
+            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
+        elif editor_from_env:
+            job_log_cmd = editor_from_env.split()
+        else:
+            job_log_cmd = DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 
