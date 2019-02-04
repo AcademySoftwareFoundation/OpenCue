@@ -15,12 +15,11 @@
 #  limitations under the License.
 
 
-import os
-import sys
+import mock
 import unittest
 
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 import opencue
+
 
 TEST_SHOW_NAME = "pipe"
 TEST_GROUP_NAME = "pipe"
@@ -31,13 +30,18 @@ TEST_HOST_NAME = "wolf1001"
 TEST_SUB_NAME = "pipe.General"
 
 
-#
-#  These tests just need to call the API methods
-#
+class CuebotMock(object):
+    def getStub(self, stubName):
+        return None
+
+
 class ShowTests(unittest.TestCase):
 
     def testGetShows(self):
-        opencue.api.getShows()
+        with mock.patch('opencue.api.Cuebot', CuebotMock):
+            # mock Cuebot.getStub
+            # mock getStub.getShows()
+            opencue.api.getShows()
 
     def testFindShow(self):
         opencue.api.findShow(TEST_SHOW_NAME)

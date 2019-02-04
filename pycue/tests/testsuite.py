@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -17,13 +17,13 @@
 
 import unittest
 
-from api_test import FrameTests
-from api_test import GroupTests
-from api_test import HostTests
-from api_test import JobTests
-from api_test import LayerTests
-from api_test import ShowTests
-from api_test import SubscriptionTests
+from opencue.tests.api_test import FrameTests
+from opencue.tests.api_test import GroupTests
+from opencue.tests.api_test import HostTests
+from opencue.tests.api_test import JobTests
+from opencue.tests.api_test import LayerTests
+from opencue.tests.api_test import ShowTests
+from opencue.tests.api_test import SubscriptionTests
 from search_test import JobSearchTests
 from util_tests import IdTests
 from util_tests import ProxyTests
