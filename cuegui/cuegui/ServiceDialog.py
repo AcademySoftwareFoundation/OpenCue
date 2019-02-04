@@ -96,16 +96,16 @@ class ServiceForm(QtWidgets.QWidget):
         Update the form with data from the given service.
         """
         self.__buttons.setDisabled(False)
-        self.__service = service
+        self.__service = service.data
 
-        self.name.setText(service.name)
-        self.threadable.setChecked(service.threadable)
-        self.min_cores.setValue(service.min_cores)
-        self.max_cores.setValue(service.max_cores)
-        self.min_memory.setValue(service.min_memory / 1024)
-        self.min_gpu.setValue(service.min_gpu / 1024)
+        self.name.setText(self.__service.name)
+        self.threadable.setChecked(self.__service.threadable)
+        self.min_cores.setValue(self.__service.min_cores)
+        self.max_cores.setValue(self.__service.max_cores)
+        self.min_memory.setValue(self.__service.min_memory / 1024)
+        self.min_gpu.setValue(self.__service.min_gpu / 1024)
 
-        self._tags_w.set_tags(service.tags)
+        self._tags_w.set_tags(self.__service.tags)
 
     def new(self):
         """
@@ -252,9 +252,9 @@ class ServiceManager(QtWidgets.QWidget):
             return
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.name)
+            item = QtWidgets.QListWidgetItem(service.name())
             self.__service_list.addItem(item)
-            if service.name in selected:
+            if service.name() in selected:
                 item.setSelected(True)
 
         self.__service_list.sortItems()
