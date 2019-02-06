@@ -57,6 +57,8 @@ def buildLayer(layerData, command):
     """
     layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
                   threads=float(layerData.cores), range=str(layerData.layerRange))
+    if layerData.services:
+        layer.set_service(layerData.services[0])
     if layerData.dependType and layerData.dependsOn:
         if layerData.dependType == 'Layer':
             layer.depend_all(layerData.dependsOn)

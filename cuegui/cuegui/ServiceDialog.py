@@ -136,15 +136,16 @@ class ServiceForm(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
-        data = opencue.api.service_pb2.Service()
-        data.name = str(self.name.text())
-        data.threadable = self.threadable.isChecked()
-        data.min_cores = self.min_cores.value()
-        data.max_cores = self.max_cores.value()
-        data.min_memory = self.min_memory.value() * 1024
-        data.min_gpu = self.min_gpu.value() * 1024
+        data = opencue.wrappers.service.Service()
+        data.data.id = self.__service.id
+        data.setName(str(self.name.text()))
+        data.setThreadable(self.threadable.isChecked())
+        data.setMinCores(self.min_cores.value())
+        data.setMaxCores(self.max_cores.value())
+        data.setMinMemory(self.min_memory.value() * 1024)
+        data.setMinGpu(self.min_gpu.value() * 1024)
+        data.setTags(self._tags_w.get_tags())
 
-        data.tags.extend(self._tags_w.get_tags())
         self.saved.emit(data)
 
 
@@ -221,7 +222,7 @@ class ServiceManager(QtWidgets.QWidget):
             else:
                 opencue.api.createService(data)
         else:
-            self.__selected.update(data)
+            data.update()
 
         self.refresh()
         self.__new_service = False
