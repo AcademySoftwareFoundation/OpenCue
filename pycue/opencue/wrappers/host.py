@@ -59,7 +59,7 @@ class Host(object):
         """
         response = self.stub.GetProcs(host_pb2.HostGetProcsRequest(host=self.data),
                                       timeout=Cuebot.Timeout)
-        return [proc.Proc(p) for p in response.procs]
+        return [proc.Proc(p) for p in response.procs.procs]
 
     def getRenderPartitions(self):
         """Returns a list of render partitions associated with this host
