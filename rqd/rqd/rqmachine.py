@@ -592,6 +592,7 @@ class Machine:
         """Updates and returns the hostReport struct"""
         self.__hostReport.host.CopyFrom(self.getHostInfo())
 
+        self.__hostReport.ClearField('frames')
         for frameKey in self.__rqCore.getFrameKeys():
             try:
                 info = self.__rqCore.getFrame(frameKey).runningFrameInfo()
