@@ -90,29 +90,30 @@ def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
         logger.debug("assuming internal depend")
         onjob = job
 
-    if type in ("HardDepend", "hd"):
+    typeName = opencue.compiled_proto.depend_pb2.DependType.Name(type)
+    if typeName in ("HARD_DEPEND", "hd"):
         depend = createHardDepend(job, onjob)
-    elif type in ("JobOnJob","joj"):
+    elif typeName in ("JOB_ON_JOB", "joj"):
         depend = createJobOnJobDepend(job, onjob)
-    elif type in ("JobOnLayer","jol"):
+    elif typeName in ("JOB_ON_LAYER", "jol"):
         depend = createJobOnLayerDepend(job, onjob, onlayer)
-    elif type in ("JobOnFrame","jof"):
+    elif typeName in ("JOB_ON_FRAME", "jof"):
         depend = createJobOnFrameDepend(job, onjob, onlayer, onframe)
-    elif type in ("LayerOnJob","loj"):
+    elif typeName in ("LAYER_ON_JOB", "loj"):
         depend = createLayerOnJobDepend(job, layer, onjob)
-    elif type in ("LayerOnLayer","lol"):
+    elif typeName in ("LAYER_ON_LAYER", "lol"):
         depend = createLayerOnLayerDepend(job, layer, onjob, onlayer)
-    elif type in ("LayerOnFrame","lof"):
+    elif typeName in ("LAYER_ON_FRAME", "lof"):
         depend = createLayerOnFrameDepend(job, layer, onjob, onlayer, onframe)
-    elif type in ("FrameOnJob","foj"):
+    elif typeName in ("FRAME_ON_JOB", "foj"):
         depend = createFrameOnJobDepend(job, layer, frame, onjob)
-    elif type in ("FrameOnLayer","fol"):
+    elif typeName in ("FRAME_ON_LAYER", "fol"):
         depend = createFrameOnLayerDepend(job, layer, frame, onjob, onlayer)
-    elif type in ("FrameOnFrame","fof"):
+    elif typeName in ("FRAME_ON_FRAME", "fof"):
         depend = createFrameOnFrameDepend(job, layer, frame, onjob, onlayer, onframe)
-    elif type in ("FrameByFrame","fbf"):
+    elif typeName in ("FRAME_BY_FRAME", "fbf"):
         depend = createFrameByFrameDepend(job, layer, onjob, onlayer)
-    elif type in ("LayerOnSimFrame","los"):
+    elif typeName in ("LAYER_ON_SIM_FRAME", "los"):
         depend = createLayerOnSimFrameDepend(job, layer, onjob, onlayer, onframe)
     else:
         raise Exception("invalid dependency type: %s" % (type))
