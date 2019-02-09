@@ -24,6 +24,7 @@ import java.util.List;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.apache.log4j.Logger;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -149,7 +150,7 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
 
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
-
+    private static final Logger logger = Logger.getLogger(ManageJob.class);
     private Whiteboard whiteboard;
     private JobManager jobManager;
     private GroupManager groupManager;
@@ -245,31 +246,46 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     @Override
     public void launchSpecAndWait(JobLaunchSpecAndWaitRequest request,
                                   StreamObserver<JobLaunchSpecAndWaitResponse> responseObserver) {
-        JobSpec spec = jobLauncher.parse(request.getSpec());
-        jobLauncher.launch(spec);
-        JobSeq.Builder jobSeqBuilder = JobSeq.newBuilder();
-        for (BuildableJob j: spec.getJobs()) {
-            jobSeqBuilder.addJobs(whiteboard.findJob(j.detail.name));
+        try {
+            JobSpec spec = jobLauncher.parse(request.getSpec());
+            jobLauncher.launch(spec);
+            JobSeq.Builder jobSeqBuilder = JobSeq.newBuilder();
+            for (BuildableJob j : spec.getJobs()) {
+                jobSeqBuilder.addJobs(whiteboard.findJob(j.detail.name));
+            }
+            responseObserver.onNext(JobLaunchSpecAndWaitResponse.newBuilder()
+                    .setJobs(jobSeqBuilder.build())
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            logger.error("Failed to launch and add job.", e);
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to launch and add job: " + e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
         }
-
-        responseObserver.onNext(JobLaunchSpecAndWaitResponse.newBuilder()
-                .setJobs(jobSeqBuilder.build())
-                .build());
-        responseObserver.onCompleted();
     }
 
     @Override
     public void launchSpec(JobLaunchSpecRequest request, StreamObserver<JobLaunchSpecResponse> responseObserver) {
-        JobSpec spec = jobLauncher.parse(request.getSpec());
-        List<String> result = new ArrayList<String>(8);
-        for (BuildableJob j: spec.getJobs()) {
-            result.add(j.detail.name);
+        try {
+            JobSpec spec = jobLauncher.parse(request.getSpec());
+            List<String> result = new ArrayList<String>(8);
+            for (BuildableJob j : spec.getJobs()) {
+                result.add(j.detail.name);
+            }
+            jobLauncher.queueAndLaunch(spec);
+            responseObserver.onNext(JobLaunchSpecResponse.newBuilder()
+                    .addAllNames(result)
+                    .build());
+            responseObserver.onCompleted();
+        } catch (Exception e) {
+            logger.error("Failed to add job to launch queue.", e);
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to add job to launch queue: " + e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
         }
-        jobLauncher.queueAndLaunch(spec);
-        responseObserver.onNext(JobLaunchSpecResponse.newBuilder()
-                .addAllNames(result)
-                .build());
-        responseObserver.onCompleted();
     }
 
     @Override
