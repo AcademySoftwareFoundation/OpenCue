@@ -54,6 +54,8 @@ def buildLayer(layerData, command, lastLayer=None):
     @param layerData: layer data from the ui
     @type command: str
     @param command: command to run
+    @type lastLayer: pyoutline.layer.Layer
+    @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
     layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
                   threads=float(layerData.cores), range=str(layerData.layerRange))

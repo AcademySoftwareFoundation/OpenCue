@@ -56,8 +56,7 @@ class Frame(object):
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.FrameGetWhatDependsOnThisRequest(frame=self.data),
             timeout=Cuebot.Timeout)
-        dependSeq = response.depends
-        return [depend.Depend(dep) for dep in dependSeq.depends]
+        return [depend.Depend(dep) for dep in response.depends.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this frame depends on
@@ -66,8 +65,7 @@ class Frame(object):
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.FrameGetWhatThisDependsOnRequest(frame=self.data),
             timeout=Cuebot.Timeout)
-        dependSeq = response.depends
-        return [depend.Depend(dep) for dep in dependSeq.depends]
+        return [depend.Depend(dep) for dep in response.depends.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a frame on job dependency
