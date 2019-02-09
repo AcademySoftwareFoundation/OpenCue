@@ -109,7 +109,7 @@ public class EmailSupport {
         ByteArrayOutputStream os = null;
         try {
             // Try loading as classpath resource
-            is = EmailSupport.class.getResourceAsStream("/resources/" + path);
+            is = EmailSupport.class.getResourceAsStream("/public/" + path);
 
             // Try loading as file (sbt-pack layout)
             if (is == null) {
