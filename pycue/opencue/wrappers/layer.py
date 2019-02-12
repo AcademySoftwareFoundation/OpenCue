@@ -132,7 +132,7 @@ class Layer(object):
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(depend) for depend in dependSeq.depends]
+        return [depend.Depend(dep) for dep in dependSeq.depends]
 
     def getWhatThisDependsOn(self):
         """Get a list of dependencies that this layer depends on
@@ -142,7 +142,7 @@ class Layer(object):
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(depend) for depend in dependSeq.depends]
+        return [depend.Depend(dep) for dep in dependSeq.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a layer on job dependency

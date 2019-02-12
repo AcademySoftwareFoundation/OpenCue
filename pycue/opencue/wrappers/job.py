@@ -187,7 +187,7 @@ class Job(object):
             job_pb2.JobGetWhatDependsOnThisRequest(job=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(depend) for depend in dependSeq.depends]
+        return [depend.Depend(dep) for dep in dependSeq.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this job depends on
@@ -197,7 +197,7 @@ class Job(object):
             job_pb2.JobGetWhatThisDependsOnRequest(job=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(depend) for depend in dependSeq.depends]
+        return [depend.Depend(dep) for dep in dependSeq.depends]
 
     def getDepends(self):
         """Returns a list of all depends this job is involved with
@@ -207,7 +207,7 @@ class Job(object):
             job_pb2.JobGetDependsRequest(job=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(depend) for depend in dependSeq.depends]
+        return [depend.Depend(dep) for dep in dependSeq.depends]
 
     def dropDepends(self, target):
         """Drops the desired dependency target:

@@ -96,16 +96,16 @@ class ServiceForm(QtWidgets.QWidget):
         Update the form with data from the given service.
         """
         self.__buttons.setDisabled(False)
-        self.__service = service
+        self.__service = service.data
 
-        self.name.setText(service.name)
-        self.threadable.setChecked(service.threadable)
-        self.min_cores.setValue(service.min_cores)
-        self.max_cores.setValue(service.max_cores)
-        self.min_memory.setValue(service.min_memory / 1024)
-        self.min_gpu.setValue(service.min_gpu / 1024)
+        self.name.setText(self.__service.name)
+        self.threadable.setChecked(self.__service.threadable)
+        self.min_cores.setValue(self.__service.min_cores)
+        self.max_cores.setValue(self.__service.max_cores)
+        self.min_memory.setValue(self.__service.min_memory / 1024)
+        self.min_gpu.setValue(self.__service.min_gpu / 1024)
 
-        self._tags_w.set_tags(service.tags)
+        self._tags_w.set_tags(self.__service.tags)
 
     def new(self):
         """
@@ -136,15 +136,16 @@ class ServiceForm(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
-        data = opencue.api.service_pb2.Service()
-        data.name = str(self.name.text())
-        data.threadable = self.threadable.isChecked()
-        data.min_cores = self.min_cores.value()
-        data.max_cores = self.max_cores.value()
-        data.min_memory = self.min_memory.value() * 1024
-        data.min_gpu = self.min_gpu.value() * 1024
+        data = opencue.wrappers.service.Service()
+        data.data.id = self.__service.id
+        data.setName(str(self.name.text()))
+        data.setThreadable(self.threadable.isChecked())
+        data.setMinCores(self.min_cores.value())
+        data.setMaxCores(self.max_cores.value())
+        data.setMinMemory(self.min_memory.value() * 1024)
+        data.setMinGpu(self.min_gpu.value() * 1024)
+        data.setTags(self._tags_w.get_tags())
 
-        data.tags.extend(self._tags_w.get_tags())
         self.saved.emit(data)
 
 
@@ -221,7 +222,7 @@ class ServiceManager(QtWidgets.QWidget):
             else:
                 opencue.api.createService(data)
         else:
-            self.__selected.update(data)
+            data.update()
 
         self.refresh()
         self.__new_service = False
@@ -252,9 +253,9 @@ class ServiceManager(QtWidgets.QWidget):
             return
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.name)
+            item = QtWidgets.QListWidgetItem(service.name())
             self.__service_list.addItem(item)
-            if service.name in selected:
+            if service.name() in selected:
                 item.setSelected(True)
 
         self.__service_list.sortItems()

@@ -18,7 +18,7 @@ import opencue
 
 def getServices():
     """Return a list of service names from cuebot."""
-    return [service.name for service in opencue.api.getDefaultServices()]
+    return [service.name() for service in opencue.api.getDefaultServices()]
 
 
 def getShows():

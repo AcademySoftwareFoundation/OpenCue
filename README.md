@@ -3,6 +3,7 @@
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
+- [Contact us](#Contact-us)
 
 ## Introduction
 
@@ -32,3 +33,9 @@ OpenCue provides features to manage rendering management at scale:
 
 For more infromation on installing, using, and administering OpenCue, see
 the [Wiki](https://github.com/imageworks/OpenCue/wiki)
+
+## Contact us
+
+To join the OpenCue discussion forum for users and admins, join
+[the OpenCue users](https://groups.google.com/forum/#!forum/opencue-users)
+mailing list, or email the group directly at <opencue-users@googlegroups.com>.

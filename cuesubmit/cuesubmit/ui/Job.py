@@ -158,14 +158,6 @@ class CueJobWidget(QtWidgets.QWidget):
             layersData.append(data)
         return layersData
 
-    def getSelectedItem(self):
-        """Return the selected item from the tree.
-        @rtype: QStandardItem
-        @return: selected item from the job tree
-        """
-        currentIndex = self.table.selectionModel().currentIndex()
-        return self.model.itemFromIndex(currentIndex)
-
     def getCurrentRow(self):
         """Return the current selected row number.
         @rtype: int
@@ -176,6 +168,25 @@ class CueJobWidget(QtWidgets.QWidget):
             return item.row()
         else:
             return None
+
+    def getDependOnItem(self):
+        """Return the layer that the current layer depends on.
+        @rtype: QStandardItem
+        @return: the item from the job tree that the current layer depends on.
+        """
+        currentRow = self.getCurrentRow()
+        if currentRow == 0:
+            return None
+        else:
+            return self.jobRow.child(currentRow - 1, 0)
+
+    def getSelectedItem(self):
+        """Return the selected item from the tree.
+        @rtype: QStandardItem
+        @return: selected item from the job tree
+        """
+        currentIndex = self.table.selectionModel().currentIndex()
+        return self.model.itemFromIndex(currentIndex)
 
     def initLayers(self):
         """Initialize the job tree, adding an empty layer."""
@@ -228,7 +239,7 @@ class CueJobWidget(QtWidgets.QWidget):
         typeItem.setText(self.currentLayerData.layerType)
         rangeItem.setText(self.currentLayerData.layerRange)
         if self.currentLayerData.dependType:
-            dependOnItem = self.jobRow.child(currentRow - 1, 0)
+            dependOnItem = self.getDependOnItem()
             dependOnText = '{} ({})'.format(self.currentLayerData.dependType, dependOnItem.text())
         else:
             dependOnText = ''

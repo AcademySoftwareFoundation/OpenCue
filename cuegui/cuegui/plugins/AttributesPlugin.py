@@ -44,7 +44,8 @@ def getDependsForm(depends):
     depCount = 0
     for dep in depends:
         depCount = depCount + 1
-        name = "%s-%d" % (dep.data.type, depCount)
+        depType = opencue.compiled_proto.depend_pb2.DependType.Name(dep.data.type)
+        name = "%s-%d" % (depType, depCount)
         result[name] = {
             "__childOrder" :["active","onJob","onLayer","onFrame"],
             "active": str(dep.data.active),

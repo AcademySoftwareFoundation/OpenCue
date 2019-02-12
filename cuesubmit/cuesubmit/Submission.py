@@ -48,46 +48,53 @@ def buildNukeCmd(layerData):
     return renderCommand
 
 
-def buildLayer(layerData, command):
+def buildLayer(layerData, command, lastLayer=None):
     """Create a PyOutline Layer for the given layerData.
     @type layerData: ui.Layer.LayerData
     @param layerData: layer data from the ui
     @type command: str
     @param command: command to run
+    @type lastLayer: outline.layer.Layer
+    @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
     layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
                   threads=float(layerData.cores), range=str(layerData.layerRange))
-    if layerData.dependType and layerData.dependsOn:
+    if layerData.services:
+        layer.set_service(layerData.services[0])
+    if layerData.dependType and lastLayer:
         if layerData.dependType == 'Layer':
-            layer.depend_all(layerData.dependsOn)
+            layer.depend_all(lastLayer)
         else:
-            layer.depend_all(layerData.dependsOn)
+            layer.depend_on(lastLayer)
     return layer
 
 
-def buildMayaLayer(layerData):
+def buildMayaLayer(layerData, lastLayer):
     mayaCmd = buildMayaCmd(layerData)
-    return buildLayer(layerData, mayaCmd)
+    return buildLayer(layerData, mayaCmd, lastLayer)
 
 
-def buildNukeLayer(layerData):
+def buildNukeLayer(layerData, lastLayer):
     nukeCmd = buildNukeCmd(layerData)
-    return buildLayer(layerData, nukeCmd)
+    return buildLayer(layerData, nukeCmd, lastLayer)
 
 
-def buildShellLayer(layerData):
-    return buildLayer(layerData, layerData.cmd['commandTextBox'])
+def buildShellLayer(layerData, lastLayer):
+    return buildLayer(layerData, layerData.cmd['commandTextBox'], lastLayer)
 
 
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
-    outline = Outline(jobData['name'])
+    outline = Outline(jobData['name'], shot=jobData['shot'], show=jobData['show'],
+                      user=jobData['username'])
+    lastLayer = None
     for layerData in jobData['layers']:
         if layerData.layerType == JobTypes.JobTypes.MAYA:
-            layer = buildMayaLayer(layerData)
+            layer = buildMayaLayer(layerData, lastLayer)
         elif layerData.layerType == JobTypes.JobTypes.SHELL:
-            layer = buildShellLayer(layerData)
+            layer = buildShellLayer(layerData, lastLayer)
         elif layerData.layerType == JobTypes.JobTypes.NUKE:
-            layer = buildNukeLayer(layerData)
+            layer = buildNukeLayer(layerData, lastLayer)
         outline.add_layer(layer)
+        lastLayer = layer
     return cuerun.launch(outline, use_pycuerun=False)

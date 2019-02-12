@@ -22,7 +22,9 @@ package com.imageworks.spcue.servant;
 import java.util.LinkedHashSet;
 
 import com.google.common.collect.Sets;
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.grpc.service.Service;
@@ -51,6 +53,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         ServiceEntity service = new ServiceEntity();
         service.name = request.getData().getName();
         service.minCores = request.getData().getMinCores();
+        service.maxCores = request.getData().getMaxCores();
         service.minMemory = request.getData().getMinMemory();
         service.minGpu = request.getData().getMinGpu();
         service.tags = Sets.newLinkedHashSet(request.getData().getTagsList());
@@ -74,10 +77,17 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
     @Override
     public void getService(ServiceGetServiceRequest request,
                            StreamObserver<ServiceGetServiceResponse> responseObserver) {
-        responseObserver.onNext(ServiceGetServiceResponse.newBuilder()
-                .setService(whiteboard.getService(request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(ServiceGetServiceResponse.newBuilder()
+                    .setService(whiteboard.getService(request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

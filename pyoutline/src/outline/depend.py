@@ -32,11 +32,11 @@ class DependType(object):
        - PreviousFrame : Where each frame in one layer depend on
                          the previous frame of another layer.
     """
-    FrameByFrame = "FrameByFrame"
-    LayerOnLayer = "LayerOnLayer"
-    PreviousFrame = "PreviousFrame"
-    LayerOnSimFrame = "LayerOnSimFrame"
-    LayerOnAny = "LayerOnAny"
+    FrameByFrame = "FRAME_BY_FRAME"
+    LayerOnLayer = "LAYER_ON_LAYER"
+    PreviousFrame = "PREVIOUS_FRAME"
+    LayerOnSimFrame = "LAYER_ON_SIM_FRAME"
+    LayerOnAny = "LAYER_ON_ANY"
     
     # Short depend types used in require strings.
     all = LayerOnLayer

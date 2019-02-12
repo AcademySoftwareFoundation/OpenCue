@@ -201,7 +201,8 @@ class Outline(object):
     current = None
 
     def __init__(self, name=None, frame_range=None, path=None,
-                 serialize=True, name_unique=False, current=False):
+                 serialize=True, name_unique=False, current=False,
+                 shot=None, show=None, user=None):
         """
         @type  name: string
         @param name: A name for the outline instance.  This will become
@@ -220,6 +221,18 @@ class Outline(object):
         @param current: If true, all newly created layers are
                         automatically parented to this instance.
                         Default to false.
+        @type  shot: string
+        @param shot: The shot name for this outline instance. If a shot
+                     is not provided, it will be looked up using the
+                     util.get_shot function.
+        @type  show: string
+        @param show: The show name for this outline instance. If a show
+                     is not provided, it will be looked up using the
+                     util.get_show function.
+        @type  user: string
+        @param user: The user name for this outline instance. If a user
+                     name is not provided, it will be looked up using
+                     the util.get_user function.
         """
         object.__init__(self)
 
@@ -229,7 +242,7 @@ class Outline(object):
             Outline.current = self
 
         #
-        # The name of the outine. This is appeneded to
+        # The name of the outline. This is appended to
         # SHOW-SHOT-USER_ to form the basis of the job name.
         #
         self.__name = name
@@ -243,10 +256,25 @@ class Outline(object):
         self.set_frame_range(frame_range)
 
         #
+        # The shot name for the outline.
+        #
+        self.__shot = shot
+
+        #
+        # The show name for the outline.
+        #
+        self.__show = show
+
+        #
+        # The user name for the outline.
+        #
+        self.__user = user
+
+        #
         # A user-controlled hash of key value pairs that are
         # serialized with the outline data.
         #
-        self.__args = { }
+        self.__args = {}
 
         #
         # See contsants for the description of outline modes
@@ -403,8 +431,7 @@ class Outline(object):
         """
         logger.info("Setting up dependencies")
         for layer in self.get_layers():
-            ## Setup dependencies passed in via the layer's require
-            ## argument.
+            # Setup dependencies passed in via the layer's require argument.
             if layer.get_arg("require", False):
                 if not isinstance(layer.get_arg("require"), (tuple, list, set)):
                     require, dtype = parse_require_str(layer.get_arg("require"))
@@ -414,7 +441,7 @@ class Outline(object):
                         logger.warn("Invalid layer in depend %s, skipping" % require)
                         continue
                 else:
-                    ## Process the require argument.
+                    # Process the require argument.
                     for require in layer.get_arg("require"):
                         require, dtype = parse_require_str(require)
                         try:
@@ -443,7 +470,7 @@ class Outline(object):
         layer.after_init(self)
 
         try:
-            if getattr(layer,"get_children"):
+            if getattr(layer, "get_children"):
                 for child in layer.get_children():
                     child.set_outline(self)
                     child.after_init(self)
@@ -521,10 +548,55 @@ class Outline(object):
         if self.__session:
             return self.get_session().get_name().split("/")[0]
         else:
-            return "%s-%s-%s_%s" % (util.get_show(),
-                                    util.get_shot(),
-                                    util.get_user(),
+            return "%s-%s-%s_%s" % (self.get_show(),
+                                    self.get_shot(),
+                                    self.get_user(),
                                     self.get_name())
+
+    def get_shot(self):
+        """Return the shot for this outline."""
+        if self.__shot is None:
+            return util.get_shot()
+        else:
+            return self.__shot
+
+    def set_shot(self, shot):
+        """Set the shot name for this outline instance.
+
+        @type shot: string
+        @param shot: The name of shot to set.
+        """
+        self.__shot = shot
+
+    def get_show(self):
+        """Return the show for this outline."""
+        if self.__show is None:
+            return util.get_show()
+        else:
+            return self.__show
+
+    def set_show(self, show):
+        """Set the show name for this outline instance.
+
+        @type show: string
+        @param show: The name of show to set.
+        """
+        self.__show = show
+
+    def get_user(self):
+        """Return the user for this outline."""
+        if self.__user is None:
+            return util.get_user()
+        else:
+            return self.__user
+
+    def set_user(self, user):
+        """Set the user name for this outline instance.
+
+        @type user: string
+        @param user: The name of user to set.
+        """
+        self.__user = user
 
     def get_mode(self):
         """Return the current mode of this outline object.
@@ -536,7 +608,7 @@ class Outline(object):
 
     def set_mode(self, mode):
         """Set the current mode of the outline."""
-        if (mode < self.__mode):
+        if mode < self.__mode:
             raise OutlineException("You cannot go back to previous modes.")
         self.__mode = mode
 
@@ -575,7 +647,6 @@ class Outline(object):
 
         """
         return self.__frame_range
-
 
     def set_env(self, key, value, pre=False):
         """

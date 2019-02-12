@@ -13,24 +13,25 @@
 #  limitations under the License.
 
 
-from Manifest import os, QtCore, QtWidgets, opencue
+from opencue.compiled_proto import depend_pb2
 
-import Logger
-logger = Logger.getLogger(__file__)
-
-import Utils
 import Constants
-from MenuActions import MenuActions
+import Logger
+import Utils
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
+from Manifest import QtWidgets
+from MenuActions import MenuActions
+
+logger = Logger.getLogger(__file__)
 
 class DependMonitorTree(AbstractTreeWidget):
     def __init__(self, parent, object):
         self.startColumnsForType(Constants.TYPE_DEPEND)
         self.addColumn("Type", 130, id=1,
-                       data=lambda depend:(str(depend.type())))
+                       data=lambda depend: depend_pb2.DependType.Name(depend.type()))
         self.addColumn("Target", 60, id=2,
-                       data=lambda depend:(str(depend.target())))
+                       data=lambda depend: depend_pb2.DependTarget.Name(depend.target()))
         self.addColumn("Active", 50, id=3,
                        data=lambda depend:(depend.isActive()))
 #        self.addColumn("Job", 230, id=4,

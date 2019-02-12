@@ -36,7 +36,6 @@ dependencies {
     compile group: 'com.google.guava', name: 'guava', version: '12.0.1'
     compile group: 'com.sun.mail', name: 'mailapi', version: '1.5.4'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    compile group: 'com.zeroc', name: 'ice', version: '3.6.2'
     compile group: 'io.grpc', name: 'grpc-all', version: '1.14.0'
     compile group: 'org.apache.activemq', name: 'activemq-pool', version: activemqVersion
     compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
@@ -53,7 +52,6 @@ dependencies {
     protobuf fileTree("../proto/")
 
     testCompile group: 'junit', name: 'junit', version: '4.12'
-    testCompile group: 'com.novocode', name: 'junit-interface', version: '0.11'
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: springBootVersion
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.8.0'
     testCompile group: 'com.opentable.components', name: 'otj-pg-embedded', version: '0.12.1'

@@ -29,17 +29,17 @@ logger = Logger.getLogger(__file__)
 __all__ = ["DependWizard"]
 
 # These are the available types of dependencies
-JOJ = str(opencue.api.depend_pb2.JOB_ON_JOB)
-JOL = str(opencue.api.depend_pb2.JOB_ON_LAYER)
-JOF = str(opencue.api.depend_pb2.JOB_ON_FRAME)
-LOJ = str(opencue.api.depend_pb2.LAYER_ON_JOB)
-LOL = str(opencue.api.depend_pb2.LAYER_ON_LAYER)
-LOF = str(opencue.api.depend_pb2.LAYER_ON_FRAME)
-FOJ = str(opencue.api.depend_pb2.FRAME_ON_JOB)
-FOL = str(opencue.api.depend_pb2.FRAME_ON_LAYER)
-FOF = str(opencue.api.depend_pb2.FRAME_ON_FRAME)
-FBF = str(opencue.api.depend_pb2.FRAME_BY_FRAME)
-LOS = str(opencue.api.depend_pb2.LAYER_ON_SIM_FRAME)
+JOJ = opencue.api.depend_pb2.JOB_ON_JOB
+JOL = opencue.api.depend_pb2.JOB_ON_LAYER
+JOF = opencue.api.depend_pb2.JOB_ON_FRAME
+LOJ = opencue.api.depend_pb2.LAYER_ON_JOB
+LOL = opencue.api.depend_pb2.LAYER_ON_LAYER
+LOF = opencue.api.depend_pb2.LAYER_ON_FRAME
+FOJ = opencue.api.depend_pb2.FRAME_ON_JOB
+FOL = opencue.api.depend_pb2.FRAME_ON_LAYER
+FOF = opencue.api.depend_pb2.FRAME_ON_FRAME
+FBF = opencue.api.depend_pb2.FRAME_BY_FRAME
+LOS = opencue.api.depend_pb2.LAYER_ON_SIM_FRAME
 JFBF = "JobFrameByFrame"
 
 # This determines what order each page is displayed in
@@ -451,12 +451,12 @@ class PageSelectFrame(AbstractWizardPage):
         QtWidgets.QWizardPage.initializePage(self)
 
     def validatePage(self):
-        frames = str(self.field("frame").toString())
+        frames = str(self.field("frame"))
         if frames:
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
-                self.wizard().frames = map(int, fs)
+                self.wizard().frames = map(int, fs.getAll())
                 return True
             except Exception, e:
                 map(logger.warning, Utils.exceptionOutput(e))
@@ -614,12 +614,12 @@ class PageSelectOnFrame(AbstractWizardPage):
         QtWidgets.QWizardPage.initializePage(self)
 
     def validatePage(self):
-        frames = str(self.field("onFrame").toString())
+        frames = str(self.field("onFrame"))
         if frames:
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
-                self.wizard().onFrame = map(int, fs)
+                self.wizard().onFrame = map(int, fs.getAll())
                 return True
             except Exception, e:
                 map(logger.warning, Utils.exceptionOutput(e))
