@@ -93,6 +93,7 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))
                 .addService(applicationContext.getBean("manageSubscription", ManageSubscription.class))
                 .addService(applicationContext.getBean("manageTask", ManageTask.class))
+                .intercept(new CueServerInterceptor())
                 .build();
         server.start();
         logger.info("gRPC server started on " + this.name + " at port " + this.port + " !");
