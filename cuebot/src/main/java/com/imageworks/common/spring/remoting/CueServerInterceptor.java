@@ -32,7 +32,7 @@ public class CueServerInterceptor implements ServerInterceptor {
                 } catch (Exception e) {
                     logger.error("Caught an unexpected error.", e);
                     serverCall.close(Status.INTERNAL
-                            .withCause (e)
+                            .withCause(e)
                             .withDescription(e.toString() + "\n" + e.getMessage()),
                             new Metadata());
                 }
