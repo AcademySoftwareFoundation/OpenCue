@@ -755,7 +755,7 @@ message FrameFindFrameRequest {
 }
 
 message FrameFindFrameResponse {
-    Frame frame =1 ;
+    Frame frame = 1;
 }
 
 // GetFrame
