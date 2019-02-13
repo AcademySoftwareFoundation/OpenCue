@@ -41,13 +41,13 @@ def grpcExceptionParser(grpcFunc):
             if code == grpc.StatusCode.NOT_FOUND:
                 raise exception.EntityNotFoundException("Object does not exist. {}".format(details))
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise exception.EntityAlreadyExistsException("Object already exists.{}"
+                raise exception.EntityAlreadyExistsException("Object already exists. {}"
                                                              .format(details))
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise exception.DeadlineExceededException("Request deadline exceeded.{}"
+                raise exception.DeadlineExceededException("Request deadline exceeded. {}"
                                                           .format(details))
             elif code == grpc.StatusCode.INTERNAL:
-                raise exception.CueInternalErrorException("Server caught an internal exception.{}"
+                raise exception.CueInternalErrorException("Server caught an internal exception. {}"
                                                           .format(details))
             else:
                 raise exception.CueException("Encountered a server error. {code} : {details}"
