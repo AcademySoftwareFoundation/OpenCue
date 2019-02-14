@@ -49,3 +49,11 @@ def matchPositiveIntegers(value):
     if re.match('^[0-9]+$', value) and int(value) >= 1:
         return True
     return False
+
+
+def moreThan3Chars(value):
+    """String must contain at least 3 characters."""
+    if len(value) >= 3:
+        return True
+    return False
+
