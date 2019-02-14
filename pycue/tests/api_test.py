@@ -141,7 +141,8 @@ class JobTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testFindJob(self, getStubMock):
         stubMock = mock.Mock()
-        stubMock.FindJob.return_value = job_pb2.JobFindJobResponse(job=job_pb2.Job(name=TEST_JOB_NAME))
+        stubMock.FindJob.return_value = job_pb2.JobFindJobResponse(
+            job=job_pb2.Job(name=TEST_JOB_NAME))
         getStubMock.return_value = stubMock
 
         job = opencue.api.findJob(TEST_JOB_NAME)
