@@ -30,6 +30,9 @@ class FrameSet(object):
         # TODO(bcipriano) Make this smarter, group frame ranges and by step. (Issue #83)
         return ','.join([str(frame) for frame in self.frameList])
 
+    def __getitem__(self, key):
+        return self.frameList[key]
+
     def size(self):
         """Gets the number of frames contained in this sequence."""
         return len(self.frameList)
