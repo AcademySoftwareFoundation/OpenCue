@@ -43,7 +43,7 @@ FROM build as test
 
 COPY pycue/tests/ ./pycue/tests
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+RUN cd pycue && python setup.py test
 
 
 # -----------------
