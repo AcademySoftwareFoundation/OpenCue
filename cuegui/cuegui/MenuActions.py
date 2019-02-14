@@ -162,9 +162,9 @@ class AbstractActions(object):
         except Exception, e:
             print e
             QtWidgets.QMessageBox.critical(self._caller,
-                                       errorMessageTitle,
-                                       e.message,
-                                       QtWidgets.QMessageBox.Ok)
+                                           errorMessageTitle,
+                                           e.message,
+                                           QtWidgets.QMessageBox.Ok)
             return None
 
     def getText(self, title, body, default):
@@ -178,11 +178,11 @@ class AbstractActions(object):
         @rtype: tuple(str, bool)
         @return: (input, choice)"""
         (input, choice) = QtWidgets.QInputDialog.getText(self._caller,
-                                                     title,
-                                                     body,
-                                                     QtWidgets.QLineEdit.Normal,
-                                                     default)
-        return (str(input), choice)
+                                                         title,
+                                                         body,
+                                                         QtWidgets.QLineEdit.Normal,
+                                                         default)
+        return str(input), choice
 
 
 class JobActions(AbstractActions):
@@ -667,21 +667,23 @@ class LayerActions(AbstractActions):
             title = "Reorder layer %s" % __layer.data.name
 
         (range, choice) = self.getText(title, body, "%s-%s" % (__minRange, __maxRange))
-        if not choice: return
+        if not choice:
+            return
 
         body = "What order should the range %s take?" % range
-        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
+        items = opencue.compiled_proto.job_pb2.Order.keys()
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
                                                      0,
                                                      False)
-        if not choice: return
+        if not choice:
+            return
 
         for layer in layers:
             self.cuebotCall(layer.reorderFrames, "Reorder Frames Failed",
-                            range, getattr(opencue.Order, str(order)))
+                            range, getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
     def stagger(self, rpcObjects=None):
@@ -908,7 +910,7 @@ class FrameActions(AbstractActions):
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
-        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
+        items = opencue.compiled_proto.job_pb2.Order.keys()
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -922,7 +924,7 @@ class FrameActions(AbstractActions):
 
         # For each frame, store the number in the list for that layer
         for frame in frames:
-            __layersDict[frame.data.layerName][1].append(str(frame.data.number))
+            __layersDict[frame.data.layer_name][1].append(str(frame.data.number))
 
         # For each layer, join the frame range and reorder the frames
         for layer in __layersDict:
@@ -933,7 +935,7 @@ class FrameActions(AbstractActions):
                 self.cuebotCall(layerProxy.reorderFrames,
                                 "Reorder Frames Failed",
                                 str(fs),
-                                getattr(opencue.Order, str(order)))
+                                getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     copyLogFileName_info = ["Copy log file name", None, "configure"]
     def copyLogFileName(self, rpcObjects=None):

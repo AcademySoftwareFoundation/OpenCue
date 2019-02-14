@@ -339,7 +339,7 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         if items:
             # Scroll to the first item
-            self.scrollToItem(items[0], QtGui.QAbstractItemView.PositionAtTop)
+            self.scrollToItem(items[0], QtWidgets.QAbstractItemView.PositionAtTop)
 
     def _createItem(self, object):
         """Creates and returns the proper item"""
@@ -392,7 +392,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         try:
             if self.__job:
                 self.__lastUpdateTime = int(time.time())
-                return self.__job.getFrames()
+                return self.__job.getFrames(**self.frameSearch.options)
             return []
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
@@ -439,8 +439,9 @@ class FrameMonitorTree(AbstractTreeWidget):
             try:
                 self.clear()
                 self._items = {}
-                for rpcObject in rpcObjects:
-                    self._items[Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
+                if rpcObjects:
+                    for rpcObject in rpcObjects:
+                        self._items[Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
             finally:
                 self._itemsLock.unlock()
         except Exception, e:
