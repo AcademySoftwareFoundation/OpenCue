@@ -48,4 +48,5 @@ setup(
     package_data={
         'opencue': ['default.yaml'],
     },
+    test_suite='tests',
 )

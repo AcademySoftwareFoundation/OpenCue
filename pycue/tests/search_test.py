@@ -15,23 +15,32 @@
 #  limitations under the License.
 
 
-from Manifest import os, unittest, opencue
+import mock
+import unittest
 
-
-TEST_SHOW_NAME = "pipe"
-TEST_GROUP_NAME = "pipe"
-TEST_GROUP_ID = "A0000000-0000-0000-0000-000000000000"
-TEST_JOB_NAME = "pipe-dev.cue-chambers_shell_v6"
-TEST_LAYER_NAME = "depend_er"
-TEST_HOST_NAME = "genosis"
+import opencue
+from opencue.compiled_proto import job_pb2
 
 
 class JobSearchTests(unittest.TestCase):
 
-    def testByOptions(self):
-        job1 = opencue.search.JobSearch.byOptions(show=["pipe"], match=["v6"]).jobs.jobs[0]
-        job2 = opencue.search.JobSearch.byOptions(ids=[job1.id]).jobs.jobs[0]
-        self.assertTrue(job1.name, job2.name)
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testByOptions(self, getStubMock):
+        jobId = 'A0000000-0000-0000-0000-000000000000'
+        stubMock = mock.Mock()
+        getStubMock.return_value = stubMock
+
+        opencue.search.JobSearch.byOptions(show=['pipe'], match=['v6'])
+
+        stubMock.GetJobs.assert_called_with(
+            job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(shows=['pipe'], substr=['v6'])),
+            timeout=mock.ANY)
+
+        opencue.search.JobSearch.byOptions(id=[jobId])
+
+        stubMock.GetJobs.assert_called_with(
+            job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(ids=[jobId])),
+            timeout=mock.ANY)
 
 
 if __name__ == '__main__':

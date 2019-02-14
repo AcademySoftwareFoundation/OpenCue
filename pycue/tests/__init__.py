@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
-opencue api test
+PyCue Unit Tests
 """
