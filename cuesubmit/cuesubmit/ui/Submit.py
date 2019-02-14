@@ -15,7 +15,6 @@ from cuesubmit.ui import Job
 from cuesubmit.ui import Widgets
 
 
-
 class CueSubmitButtons(QtWidgets.QWidget):
     """Container widget that holds a cancel and submit button."""
 
@@ -296,41 +295,42 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def validate(self, jobData):
         errMessage = 'ERROR: Job not submitted!\n'
         if not self.jobNameInput.validateText():
-            errMessage += 'Invalid job name.'
-            return self.errorInJobData(errMessage)
+            return self.errorInJobData(errMessage + 'Invalid job name.')
         if not self.userNameInput.validateText():
-            errMessage += 'Invalid user name.'
-            return self.errorInJobData(errMessage)
+            return self.errorInJobData(errMessage + 'Invalid user name.')
         if not self.shotInput.validateText():
-            errMessage += 'Invalid shot name.'
-            return self.errorInJobData(errMessage)
+            return self.errorInJobData(errMessage + 'Invalid shot name.')
         if not self.layerNameInput.validateText():
-            errMessage += 'Invalid layer name.'
-            return self.errorInJobData(errMessage)
+            return self.errorInJobData(errMessage + 'Invalid layer name.')
 
         if not jobData.get('name'):
-            message = 'ERROR: Cannot submit without a job name.'
-            return self.errorInJobData(message)
+            return self.errorInJobData(errMessage + 'Cannot submit without a job name.')
 
         layers = jobData.get('layers')
         if not layers:
-            message = 'ERROR: Job has no layers.'
-            return self.errorInJobData(message)
+            return self.errorInJobData(errMessage + 'Job has no layers.')
 
         for layer in layers:
             if not layer.name:
-                message = 'ERROR: Please ensure all layers have a name.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage + 'Please ensure all layers have a name.')
             if not layer.layerRange:
-                message = 'ERROR: Please ensure all layers have a frame range.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage +
+                                           'Please ensure all layers have a frame range.')
             if not layer.cmd:
-                message = 'ERROR: Please ensure all layers have a command to run.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage +
+                                           'Please ensure all layers have a command to run.')
         return True
 
-    def updateSettingList(self, setting, value):
-        max_settings = 10
+    def updateSettingItem(self, setting, value, maxSettings=10):
+        """Update the QSettings list entry for the provided setting.
+        Keep around a history of the last `maxSettings` number of entries.
+        @type setting: str
+        @param setting: name of the setting to set
+        @type value: object
+        @param value: new object to add to settings
+        @type maxSettings: int
+        @param maxSettings: maximum number of items to keep a history of
+        """
         if not value:
             return
         values = self.settings.value(setting, [])
@@ -338,16 +338,20 @@ class CueSubmitWidget(QtWidgets.QWidget):
             index = values.index(value)
         else:
             index = -1
-        if len(values) == max_settings or index != -1:
+        if len(values) == maxSettings or index != -1:
             values.pop(index)
         values.insert(0, value)
         self.settings.setValue(setting, values)
 
     def saveSettings(self, jobData):
-        self.updateSettingList('submit/jobName', jobData.get('name'))
-        self.updateSettingList('submit/shotName', jobData.get('shot'))
+        """Update the QSettings with the values from the form.
+        @type jobData: dict
+        @param jobData: dictionary containing the job submission data.
+        """
+        self.updateSettingItem('submit/jobName', jobData.get('name'))
+        self.updateSettingItem('submit/shotName', jobData.get('shot'))
         for layer in jobData.get('layers'):
-            self.updateSettingList('submit/layerName', layer.name)
+            self.updateSettingItem('submit/layerName', layer.name)
 
     def submit(self):
         """Submit action to submit a job."""
