@@ -57,6 +57,16 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.mainLayout = QtWidgets.QVBoxLayout()
         self.mainLayout.addSpacing(0)
         self.mainLayout.setSpacing(0)
+        self.scrollArea = QtWidgets.QScrollArea(self)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.scrollableWidget = QtWidgets.QWidget(self.scrollArea)
+        self.scrollArea.setWidget(self.scrollableWidget)
+        self.scrollingLayout = QtWidgets.QVBoxLayout()
+        self.scrollingLayout.addSpacing(0)
+        self.scrollingLayout.setSpacing(0)
+        self.scrollableWidget.setLayout(self.scrollingLayout)
+        self.mainLayout.addWidget(self.scrollArea)
         self.jobInfoLayout = QtWidgets.QVBoxLayout()
         self.layerInfoLayout = QtWidgets.QVBoxLayout()
         self.submissionDetailsLayout = QtWidgets.QVBoxLayout()
@@ -151,8 +161,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def setupUi(self):
         self.setLayout(self.mainLayout)
-        self.mainLayout.addWidget(self.titleLogo)
-        self.mainLayout.addWidget(Widgets.CueLabelLine('Job Info'))
+        self.scrollingLayout.addWidget(self.titleLogo)
+        self.scrollingLayout.addWidget(Widgets.CueLabelLine('Job Info'))
         self.jobInfoLayout.addWidget(self.jobNameInput)
         self.jobInfoLayout.addWidget(self.userNameInput)
         self.showLayout.setHorizontalSpacing(20)
@@ -160,10 +170,10 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.showLayout.addWidget(self.showSelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
         self.showLayout.addWidget(self.shotInput, 0, 1, 1, 2)
         self.jobInfoLayout.addLayout(self.showLayout)
-        self.mainLayout.addLayout(self.jobInfoLayout)
+        self.scrollingLayout.addLayout(self.jobInfoLayout)
 
-        self.mainLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
-        self.mainLayout.addWidget(Widgets.CueLabelLine('Layer Info'))
+        self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
+        self.scrollingLayout.addWidget(Widgets.CueLabelLine('Layer Info'))
         self.layerInfoLayout.addWidget(self.layerNameInput)
         self.settingsLayout.addWidget(self.settingsWidget)
         self.layerInfoLayout.addLayout(self.settingsLayout)
@@ -180,14 +190,14 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout.addWidget(self.dependSelector)
         self.coresLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.coresLayout)
-        self.mainLayout.addLayout(self.layerInfoLayout)
+        self.scrollingLayout.addLayout(self.layerInfoLayout)
 
-        self.mainLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
-        self.mainLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
+        self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
+        self.scrollingLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
 
         self.submissionDetailsLayout.addWidget(self.jobTreeWidget)
         self.submissionDetailsLayout.addWidget(self.submitButtons)
-        self.mainLayout.addLayout(self.submissionDetailsLayout)
+        self.scrollingLayout.addLayout(self.submissionDetailsLayout)
 
     def dependencyChanged(self):
         """Action called when the dependency type is changed."""

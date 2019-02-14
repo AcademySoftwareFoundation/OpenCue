@@ -9,6 +9,16 @@ QWidget {
     color: rgb(200, 200, 200);
 }
 
+QScrollBar:vertical {
+    width: 14px;
+    margin: 12px 0 -12px 0;
+}
+
+QScrollBar::handle:vertical {
+    background: rgb(60, 70, 80);
+    margin: 0 0 24px 0;
+}
+
 QFrame[accessibleName="horizontalLine"] {
     color: black;
     border: 2px solid rgb(20, 30, 40);
