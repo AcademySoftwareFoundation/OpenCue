@@ -3,6 +3,7 @@ import getpass
 
 from PySide2 import QtCore, QtGui, QtWidgets
 
+import opencue
 from cuesubmit import Constants
 from cuesubmit import JobTypes
 from cuesubmit import Layer
@@ -51,6 +52,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def __init__(self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
         super(CueSubmitWidget, self).__init__(parent)
         self.skipDataChangedEvent = False
+        self.settings = QtCore.QSettings('opencue', 'cuesubmit')
         self.jobTypes = jobTypes
         self.primaryWidgetType = settingsWidgetType
         self.primaryWidgetArgs = {'args': args, 'kwargs': kwargs}
@@ -90,9 +92,10 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         self.jobNameInput = Widgets.CueLabelLineEdit(
             'Job Name:',
-            tooltip='Job names must be unique.',
-            completers=['foo', 'bar'],
-            validators=[Validators.matchNoSpecialCharactersOnly]
+            tooltip='Job names must be unique, have more than 3 characters, and contain no spaces.',
+            completers=self.settings.value('submit/jobName'),
+            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
+                        Validators.matchNoSpaces]
         )
         shows = Util.getShows()
         self.showSelector = Widgets.CueSelectPulldown(
@@ -100,12 +103,19 @@ class CueSubmitWidget(QtWidgets.QWidget):
             options=shows,
             multiselect=False,
             parent=self)
-        self.shotInput = Widgets.CueLabelLineEdit('Shot:')
+        self.shotInput = Widgets.CueLabelLineEdit(
+            'Shot:',
+            tooltip='Name of the shot associated with this submission.',
+            completers=self.settings.value('submit/shotName'),
+            validators=[Validators.matchNoSpecialCharactersOnly]
+        )
         self.layerNameInput = Widgets.CueLabelLineEdit(
             'Layer Name:',
-            tooltip='Name for this layer of the job',
-            validators=[Validators.matchNoSpecialCharactersOnly]
-
+            tooltip='Name for this layer of the job. Should be more than 3 characters, '
+                    'and contain no spaces.',
+            completers=self.settings.value('submit/layerName'),
+            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
+                        Validators.matchNoSpaces]
         )
         self.frameBox = Frame.FrameSpecWidget()
         jobTypes = self.jobTypes.types()
@@ -286,33 +296,79 @@ class CueSubmitWidget(QtWidgets.QWidget):
         return False
 
     def validate(self, jobData):
+        errMessage = 'ERROR: Job not submitted!\n'
+        if not self.jobNameInput.validateText():
+            return self.errorInJobData(errMessage + 'Invalid job name.')
+        if not self.userNameInput.validateText():
+            return self.errorInJobData(errMessage + 'Invalid user name.')
+        if not self.shotInput.validateText():
+            return self.errorInJobData(errMessage + 'Invalid shot name.')
+        if not self.layerNameInput.validateText():
+            return self.errorInJobData(errMessage + 'Invalid layer name.')
+
         if not jobData.get('name'):
-            message = 'ERROR: Cannot submit without a job name.'
-            return self.errorInJobData(message)
+            return self.errorInJobData(errMessage + 'Cannot submit without a job name.')
 
         layers = jobData.get('layers')
         if not layers:
-            message = 'ERROR: Job has no layers.'
-            return self.errorInJobData(message)
+            return self.errorInJobData(errMessage + 'Job has no layers.')
 
         for layer in layers:
             if not layer.name:
-                message = 'ERROR: Please ensure all layers have a name.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage + 'Please ensure all layers have a name.')
             if not layer.layerRange:
-                message = 'ERROR: Please ensure all layers have a frame range.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage +
+                                           'Please ensure all layers have a frame range.')
             if not layer.cmd:
-                message = 'ERROR: Please ensure all layers have a command to run.'
-                return self.errorInJobData(message)
+                return self.errorInJobData(errMessage +
+                                           'Please ensure all layers have a command to run.')
         return True
+
+    def updateSettingItem(self, setting, value, maxSettings=10):
+        """Update the QSettings list entry for the provided setting.
+        Keep around a history of the last `maxSettings` number of entries.
+        @type setting: str
+        @param setting: name of the setting to set
+        @type value: object
+        @param value: new object to add to settings
+        @type maxSettings: int
+        @param maxSettings: maximum number of items to keep a history of
+        """
+        if not value:
+            return
+        values = self.settings.value(setting, [])
+        if value in values:
+            index = values.index(value)
+        else:
+            index = -1
+        if len(values) == maxSettings or index != -1:
+            values.pop(index)
+        values.insert(0, value)
+        self.settings.setValue(setting, values)
+
+    def saveSettings(self, jobData):
+        """Update the QSettings with the values from the form.
+        @type jobData: dict
+        @param jobData: dictionary containing the job submission data.
+        """
+        self.updateSettingItem('submit/jobName', jobData.get('name'))
+        self.updateSettingItem('submit/shotName', jobData.get('shot'))
+        for layer in jobData.get('layers'):
+            self.updateSettingItem('submit/layerName', layer.name)
 
     def submit(self):
         """Submit action to submit a job."""
         jobData = self.getJobData()
         if not self.validate(jobData):
             return
-        jobs = Submission.submitJob(jobData)
+        self.saveSettings(jobData)
+        try:
+            jobs = Submission.submitJob(jobData)
+        except opencue.exception.CueException, e:
+            message = "Failed to submit job!\n" + e.message
+            Widgets.messageBox(message, title="Failed Job Submission", parent=self).show()
+            raise e
+
         message = "Submitted Job to OpenCue."
         for job in jobs:
             message += "\nJob ID: {}\nJob Name: {}".format(job.id(), job.name())

@@ -68,8 +68,10 @@ class CueLabelLineEdit(QtWidgets.QWidget):
         results = [i(self.lineEdit.text()) for i in self.validators]
         if all(results):
             self.label.setStyleSheet(Style.LABEL_TEXT)
+            return True
         else:
             self.label.setStyleSheet(Style.INVALID_TEXT)
+            return False
 
     def text(self):
         """Return the current text.
@@ -87,7 +89,7 @@ class CueLineEdit(QtWidgets.QLineEdit):
     def __init__(self, defaultText=None, completerStrings=None, parent=None):
         super(CueLineEdit, self).__init__(parent=parent)
         self.setText(defaultText)
-        self.index = 0
+        self.index = -1
         self.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding, QtWidgets.QSizePolicy.Fixed)
         self.completer = QtWidgets.QCompleter()
         try:
