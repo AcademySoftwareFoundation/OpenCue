@@ -13,19 +13,21 @@
 #  limitations under the License.
 
 
-
 """
 Project: opencue Library
 
 Module: frame.py - opencue Library implementation of a frame
-
 """
+
 
 import time
 
-import depend
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
+try:
+    import depend
+except ImportError:
+    from . import depend
 
 
 class Frame(object):

@@ -13,22 +13,24 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import logging
 
-from cuebot import Cuebot
+from .cuebot import Cuebot
 
 Cuebot.init()
 
-import api
-import wrappers
-import search
+from . import api
+from . import wrappers
+from . import search
 
-from exception import CueException
-from exception import EntityNotFoundException
-from util import id
-from util import logPath
-from util import proxy
-from util import rep
+from .exception import CueException
+from .exception import EntityNotFoundException
+from .util import id
+from .util import logPath
+from .util import proxy
+from .util import rep
 
 
 class __NullHandler(logging.Handler):

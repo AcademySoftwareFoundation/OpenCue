@@ -20,10 +20,14 @@ opencue layer module
 implementation of a layer in opencue
 """
 
-import depend
+
 from opencue.compiled_proto import job_pb2
 from opencue.cuebot import Cuebot
 from ..search import FrameSearch
+try:
+    import depend
+except ImportError:
+    from . import depend
 
 
 class Layer(object):

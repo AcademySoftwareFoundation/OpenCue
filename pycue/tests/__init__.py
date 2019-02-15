@@ -16,3 +16,8 @@
 """
 PyCue Unit Tests
 """
+
+from . import api_test
+from . import file_sequence
+from . import search_test
+from . import util_test

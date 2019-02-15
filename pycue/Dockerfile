@@ -33,6 +33,9 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
+# TODO sed the compiled protos to fix imports
+# sed -i 's/^\(import.*_pb2\)/from . \1/' opencue/compiled_proto/*.py
+
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
 

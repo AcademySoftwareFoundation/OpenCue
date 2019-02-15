@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
 Project: opencue Library
 
@@ -21,14 +20,19 @@ Module: host.py - opencue Library implementation of a host
 
 """
 
+
 import os
 import time
+
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import host_pb2
-
-import comment
-import proc
+try:
+    import comment
+    import proc
+except ImportError:
+    from . import comment
+    from . import proc
 
 
 class Host(object):

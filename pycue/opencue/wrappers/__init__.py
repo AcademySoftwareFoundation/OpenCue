@@ -11,21 +11,3 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-
-
-#ls -1 | sed 's/.py//' | awk '{print "import " $1}'
-import allocation
-import comment
-import depend
-import filter
-import frame
-import group
-import host
-import job
-import layer
-import proc
-import service
-import show
-import subscription
-import task

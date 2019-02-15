@@ -58,7 +58,7 @@ class Service(object):
             response = cls.stub.GetService(
                 service_pb2.ServiceGetServiceRequest(name=name),
                 timeout=Cuebot.Timeout)
-        except grpc.RpcError, e:
+        except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 return None
             raise e

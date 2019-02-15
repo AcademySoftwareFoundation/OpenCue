@@ -24,10 +24,14 @@ Module: show.py - opencue Library implementation of a show
 from opencue.compiled_proto import show_pb2
 from opencue.cuebot import Cuebot
 
-import filter
-import group
-import subscription
-
+try:
+    import filter
+    import group
+    import subscription
+except ImportError:
+    from . import filter
+    from . import group
+    from . import subscription
 
 class Show(object):
 

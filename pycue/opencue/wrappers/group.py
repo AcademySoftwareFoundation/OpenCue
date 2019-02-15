@@ -17,9 +17,13 @@
 opencue group module
 """
 
-import job
+
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
+try:
+    import job
+except ImportError:
+    from . import job
 
 
 class Group(object):

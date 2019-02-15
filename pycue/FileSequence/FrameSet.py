@@ -12,7 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from FrameRange import FrameRange
+
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import object
+from .FrameRange import FrameRange
 
 
 class FrameSet(object):

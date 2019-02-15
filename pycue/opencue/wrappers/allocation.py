@@ -13,18 +13,20 @@
 #  limitations under the License.
 
 
-
 """
 allocation module
 """
 
-import host
-import subscription
 
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.cuebot import Cuebot
-
+try:
+    import host
+    import subscription
+except ImportError:
+    from . import host
+    from . import subscription
 
 class Allocation(object):
 

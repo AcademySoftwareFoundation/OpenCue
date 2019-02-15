@@ -21,12 +21,18 @@ Module: proc.py - opencue Library implementation of a proc
 
 """
 
-import frame
-import host
-import job
-import layer
 from opencue.compiled_proto import host_pb2
 from opencue.cuebot import Cuebot
+try:
+    import frame
+    import host
+    import job
+    import layer
+except ImportError:
+    from . import frame
+    from . import host
+    from . import job
+    from . import layer
 
 
 class Proc(object):

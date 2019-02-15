@@ -24,14 +24,20 @@ Module: job.py - opencue Library implementation of a job
 import os
 import time
 
-import comment
-import depend
-import frame
-import layer
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import job_pb2
 from ..search import FrameSearch
+try:
+    import comment
+    import depend
+    import frame
+    import layer
+except ImportError:
+    from . import comment
+    from . import depend
+    from . import frame
+    from . import layer
 
 
 class Job(object):
