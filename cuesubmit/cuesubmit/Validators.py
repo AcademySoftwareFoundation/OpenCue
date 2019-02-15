@@ -39,7 +39,7 @@ def matchLettersOnly(value):
 
 def matchNoSpaces(value):
     """Match strings with no spaces."""
-    if re.match('^(.*\s+.*)+$', value):
+    if re.search('\s', value):
         return False
     return True
 
