@@ -92,9 +92,10 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         self.jobNameInput = Widgets.CueLabelLineEdit(
             'Job Name:',
-            tooltip='Job names must be unique.',
+            tooltip='Job names must be unique, have more than 3 characters, and contain no spaces.',
             completers=self.settings.value('submit/jobName'),
-            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars]
+            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
+                        Validators.matchNoSpaces]
         )
         shows = Util.getShows()
         self.showSelector = Widgets.CueSelectPulldown(
@@ -110,9 +111,11 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         self.layerNameInput = Widgets.CueLabelLineEdit(
             'Layer Name:',
-            tooltip='Name for this layer of the job',
+            tooltip='Name for this layer of the job. Should be more than 3 characters, '
+                    'and contain no spaces.',
             completers=self.settings.value('submit/layerName'),
-            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars]
+            validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
+                        Validators.matchNoSpaces]
         )
         self.frameBox = Frame.FrameSpecWidget()
         jobTypes = self.jobTypes.types()

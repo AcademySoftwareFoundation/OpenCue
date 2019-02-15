@@ -37,6 +37,13 @@ def matchLettersOnly(value):
     return False
 
 
+def matchNoSpaces(value):
+    """Match strings with no spaces."""
+    if ' ' in value:
+        return False
+    return True
+
+
 def matchNumbersOnly(value):
     """Match strings with numbers and '.' only."""
     if re.match('^[0-9.]+$', value):
@@ -56,4 +63,3 @@ def moreThan3Chars(value):
     if len(value) >= 3:
         return True
     return False
-
