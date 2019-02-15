@@ -204,7 +204,7 @@ class HostMonitor(QtWidgets.QWidget):
         menu = btn.menu()
         for action in menu.actions():
             action.setChecked(False)
-        self.hostMonitorTree.hostSearch.options['states'] = []
+        self.hostMonitorTree.hostSearch.options['state'] = []
 
     def __filterHardwareStateHandle(self, action):
         """Called when an option in the filter status menu is triggered.
