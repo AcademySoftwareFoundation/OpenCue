@@ -455,7 +455,7 @@ class FrameMonitor(QtWidgets.QWidget):
         @param action: Defines the menu item selected
         @type  action: QAction"""
         __frameSearch = self.frameMonitorTree.frameSearch
-        states = __frameSearch.options.get('states', [])
+        states = __frameSearch.options.get('state', [])
         if action.text() == "Clear":
             for item in self._filterStatusButton.menu().actions():
                 if item.isChecked():
@@ -472,7 +472,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 states.append(__state)
             else:
                 states.remove(__state)
-        __frameSearch.options['states'] = states
+        __frameSearch.options['state'] = states
 
         self._updatePageButtonState()
         self.frameMonitorTree.updateRequest()
