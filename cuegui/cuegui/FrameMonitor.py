@@ -361,7 +361,7 @@ class FrameMonitor(QtWidgets.QWidget):
         Tells the FrameMonitorTree widget what layers to filter by.
         @param action: Defines the menu item selected
         @type  action: QAction"""
-        layers = self.frameMonitorTree.frameSearch.options.get('layers', [])
+        layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
         if action.text() == "Clear":
             for item in self._filterLayersButton.menu().actions():
                 if item.isChecked():
@@ -374,7 +374,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 self.frameMonitorTree.frameSearch.page = self.page
             else:
                 layers.remove("%s" % action.text())
-        self.frameMonitorTree.frameSearch.options['layers'] = layers
+        self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
@@ -386,7 +386,7 @@ class FrameMonitor(QtWidgets.QWidget):
         layers provided by the signal.
         @param layer_list: A list of layers to filter by.
         @type  layer_list: list<string>"""
-        layers = self.frameMonitorTree.frameSearch.options.get('layers', [])
+        layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
         for item in self._filterLayersButton.menu().actions():
             # If item is checked and not in list: remove
             if item.isChecked() and not item.text() in layer_list:
@@ -398,7 +398,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 item.setChecked(True)
                 self.page = 1
                 self.frameMonitorTree.frameSearch.page = self.page
-        self.frameMonitorTree.frameSearch.options['layers'] = layers
+        self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
