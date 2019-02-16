@@ -162,7 +162,7 @@ class Cuebot:
     @staticmethod
     def closeChannel():
         """Close the gRPC channel, delete it and reset it to None."""
-        if Cuebot.RpcChannel is not None:
+        if Cuebot and Cuebot.RpcChannel is not None:
             Cuebot.RpcChannel.close()
             del Cuebot.RpcChannel
             Cuebot.RpcChannel = None

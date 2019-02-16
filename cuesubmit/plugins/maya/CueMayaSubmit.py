@@ -86,6 +86,7 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.submitWidget)
         self.setWindowTitle(name)
         self.setMinimumWidth(650)
+        self.resize(self.minimumWidth(), 1000)
 
 
 def getFilename():

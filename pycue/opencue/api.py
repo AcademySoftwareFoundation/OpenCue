@@ -163,7 +163,7 @@ def deleteShow(show_id):
      @param show_id: A show id to delete"""
     show = findShow(show_id)
     Cuebot.getStub('show').Delete(
-        show_pb2.ShowDeleteRequest(show=show), timeout=Cuebot.Timeout)
+        show_pb2.ShowDeleteRequest(show=show.data), timeout=Cuebot.Timeout)
 
 
 @util.grpcExceptionParser
@@ -475,7 +475,7 @@ def getHost(uniq):
     @rtype:  Host
     @return: A Host object"""
     return Host(Cuebot.getStub('host').GetHost(
-        host_pb2.HostGetHostsRequest(id=uniq), timeout=Cuebot.Timeout).host)
+        host_pb2.HostGetHostRequest(id=uniq), timeout=Cuebot.Timeout).host)
 
 
 #
