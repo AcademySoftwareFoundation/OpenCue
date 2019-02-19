@@ -120,11 +120,10 @@ class FrameMonitor(QtWidgets.QWidget):
 
             self.frameRangeSelection.default_select_size = 1000/len(layers)
 
-            self.frameRangeSelection.setFrameRange(["%s" % _min,"%s" % _max])
+            self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
 
     def _frameRangeSelectionFilterHandle(self, start, end):
-        self.frameMonitorTree.frameSearch = opencue.search.FrameSearch.criteriaFromOptions(
-            range="%s-%s" % (start, end))
+        self.frameMonitorTree.frameSearch.options['range'] = "%s-%s" % (start, end)
         self.frameMonitorTree.updateRequest()
 
 # ==============================================================================
@@ -362,18 +361,20 @@ class FrameMonitor(QtWidgets.QWidget):
         Tells the FrameMonitorTree widget what layers to filter by.
         @param action: Defines the menu item selected
         @type  action: QAction"""
+        layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
         if action.text() == "Clear":
             for item in self._filterLayersButton.menu().actions():
                 if item.isChecked():
-                    self.frameMonitorTree.frameSearch.layers.remove("%s" % item.text())
+                    layers.remove(item.text())
                     item.setChecked(False)
         else:
             if action.isChecked():
-                self.frameMonitorTree.frameSearch.layers.append("%s" % action.text())
+                layers.append(action.text())
                 self.page = 1
                 self.frameMonitorTree.frameSearch.page = self.page
             else:
-                self.frameMonitorTree.frameSearch.layers.remove("%s" % action.text())
+                layers.remove(action.text())
+        self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
@@ -385,17 +386,19 @@ class FrameMonitor(QtWidgets.QWidget):
         layers provided by the signal.
         @param layer_list: A list of layers to filter by.
         @type  layer_list: list<string>"""
+        layers = self.frameMonitorTree.frameSearch.options.get('layer', [])
         for item in self._filterLayersButton.menu().actions():
             # If item is checked and not in list: remove
             if item.isChecked() and not item.text() in layer_list:
-                self.frameMonitorTree.frameSearch.layers.remove(str(item.text()))
+                layers.remove(str(item.text()))
                 item.setChecked(False)
             # if item is not checked, and item is in list: add
             elif not item.isChecked() and item.text() in layer_list:
-                self.frameMonitorTree.frameSearch.layers.append(str(item.text()))
+                layers.append(str(item.text()))
                 item.setChecked(True)
                 self.page = 1
                 self.frameMonitorTree.frameSearch.page = self.page
+        self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
@@ -452,21 +455,24 @@ class FrameMonitor(QtWidgets.QWidget):
         @param action: Defines the menu item selected
         @type  action: QAction"""
         __frameSearch = self.frameMonitorTree.frameSearch
+        states = __frameSearch.options.get('state', [])
         if action.text() == "Clear":
             for item in self._filterStatusButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __state = getattr(opencue.job_pb2.FrameState, str(item.text()))
-                        __frameSearch.states.remove(__state)
+                        __state = getattr(opencue.compiled_proto.job_pb2,
+                                          str(item.text()).upper())
+                        states.remove(__state)
                     item.setChecked(False)
         else:
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
-            __state = getattr(opencue.job_pb2.FrameState, str(action.text()))
+            __state = getattr(opencue.compiled_proto.job_pb2, str(action.text()).upper())
             if action.isChecked():
-                __frameSearch.states.append(__state)
+                states.append(__state)
             else:
-                __frameSearch.states.remove(__state)
+                states.remove(__state)
+        __frameSearch.options['state'] = states
 
         self._updatePageButtonState()
         self.frameMonitorTree.updateRequest()
