@@ -120,7 +120,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
             self.frameRangeSelection.default_select_size = 1000/len(layers)
 
-            self.frameRangeSelection.setFrameRange(["%s" % _min,"%s" % _max])
+            self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
 
     def _frameRangeSelectionFilterHandle(self, start, end):
         self.frameMonitorTree.frameSearch.options['range'] = "%s-%s" % (start, end)
@@ -365,15 +365,15 @@ class FrameMonitor(QtWidgets.QWidget):
         if action.text() == "Clear":
             for item in self._filterLayersButton.menu().actions():
                 if item.isChecked():
-                    layers.remove("%s" % item.text())
+                    layers.remove(item.text())
                     item.setChecked(False)
         else:
             if action.isChecked():
-                layers.append("%s" % action.text())
+                layers.append(action.text())
                 self.page = 1
                 self.frameMonitorTree.frameSearch.page = self.page
             else:
-                layers.remove("%s" % action.text())
+                layers.remove(action.text())
         self.frameMonitorTree.frameSearch.options['layer'] = layers
 
         self.frameMonitorTree.updateRequest()
