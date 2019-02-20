@@ -40,13 +40,14 @@ def someWork(unit):
 def someWorkCallback(work, result):
     print result
 """
+from __future__ import absolute_import
 
 
 import os
 
 from PySide2 import QtCore
 
-import Logger
+from . import Logger
 
 
 logger = Logger.getLogger(__file__)

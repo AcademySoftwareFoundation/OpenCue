@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import os
 import time
 import urllib2
@@ -22,8 +24,8 @@ import xml.etree.ElementTree as Et
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import Logger
-import Utils
+from . import Logger
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

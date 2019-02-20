@@ -16,6 +16,7 @@
 """
 Displays the email dialog when emailing an artist.
 """
+from __future__ import absolute_import
 
 
 from email.MIMEText import MIMEText
@@ -29,9 +30,9 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Logger
-import Utils
-import Constants
+from . import Logger
+from . import Utils
+from . import Constants
 
 
 logger = Logger.getLogger(__file__)

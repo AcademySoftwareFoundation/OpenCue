@@ -16,6 +16,7 @@
 """
 Main entry point for the application.
 """
+from __future__ import absolute_import
 
 
 import os
@@ -24,11 +25,11 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Constants
-import Logger
-import Style
-from MainWindow import MainWindow
-from ThreadPool import ThreadPool
+from . import Constants
+from . import Logger
+from . import Style
+from .MainWindow import MainWindow
+from .ThreadPool import ThreadPool
 
 
 logger = Logger.getLogger(__file__)
@@ -65,7 +66,7 @@ def startup(app_name, app_version, argv):
     app = CueGuiApplication(argv)
 
     # Start splash screen
-    from SplashWindow import SplashWindow
+    from .SplashWindow import SplashWindow
     splash = SplashWindow(app, app_name, app_version, Constants.RESOURCE_PATH)
     # Display a splash message with: splash.msg("Message")
 

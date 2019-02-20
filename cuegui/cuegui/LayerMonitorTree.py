@@ -16,6 +16,7 @@
 """
 A layer list based on AbstractTreeWidget
 """
+from __future__ import absolute_import
 
 
 from PySide2 import QtCore
@@ -23,11 +24,11 @@ from PySide2 import QtWidgets
 
 from opencue.exception import EntityNotFoundException
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-import Constants
-from MenuActions import MenuActions
-import Utils
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from . import Constants
+from .MenuActions import MenuActions
+from . import Utils
 
 
 def displayRange(layer):

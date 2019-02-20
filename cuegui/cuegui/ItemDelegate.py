@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from math import ceil
 
 from PySide2 import QtCore
@@ -20,7 +22,7 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Constants
+from . import Constants
 
 
 RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),

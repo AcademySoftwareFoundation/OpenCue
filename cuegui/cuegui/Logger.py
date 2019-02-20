@@ -16,11 +16,12 @@
 """
 Allows the creation of a logger.
 """
+from __future__ import absolute_import
 
 
 import logging
 
-import Constants
+from . import Constants
 
 
 __loggerFormat = logging.Formatter(Constants.LOGGER_FORMAT)

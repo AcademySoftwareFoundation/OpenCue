@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import time
 import os
 from socket import gethostname
@@ -22,8 +24,8 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Logger
-import Utils
+from . import Logger
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

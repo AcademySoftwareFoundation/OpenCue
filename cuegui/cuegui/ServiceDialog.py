@@ -14,6 +14,7 @@
 
 
 """Service related widgets."""
+from __future__ import absolute_import
 
 
 from PySide2 import QtCore
@@ -21,9 +22,9 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-from TagsWidget import TagsWidget
-import Utils
+from . import Constants
+from .TagsWidget import TagsWidget
+from . import Utils
 
 
 class ServiceForm(QtWidgets.QWidget):

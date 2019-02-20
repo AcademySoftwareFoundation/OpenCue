@@ -16,6 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
+from __future__ import absolute_import
 
 
 import time
@@ -26,15 +27,15 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-import Logger
-import Style
-import Utils
+from . import Constants
+from . import Logger
+from . import Style
+from . import Utils
 
-from MenuActions import MenuActions
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
+from .MenuActions import MenuActions
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
 
 
 logger = Logger.getLogger(__file__)

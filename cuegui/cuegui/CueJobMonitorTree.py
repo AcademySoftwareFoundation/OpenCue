@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import time
 
 from PySide2 import QtCore
@@ -21,14 +23,14 @@ from PySide2 import QtWidgets
 
 import opencue
 from opencue.compiled_proto.job_pb2 import FrameState
-import Constants
-import Logger
-import Style
-import Utils
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import JobThinProgressBarDelegate
-from MenuActions import MenuActions
+from . import Constants
+from . import Logger
+from . import Style
+from . import Utils
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .ItemDelegate import JobThinProgressBarDelegate
+from .MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)

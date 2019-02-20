@@ -16,6 +16,7 @@
 """
 All windows are an instance of this MainWindow.
 """
+from __future__ import absolute_import
 
 
 import sys
@@ -26,10 +27,10 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-import Logger
-import Plugins
-import Utils
+from . import Constants
+from . import Logger
+from . import Plugins
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

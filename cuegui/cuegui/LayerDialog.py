@@ -13,14 +13,16 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Constants
-import Utils
-from TagsWidget import TagsWidget
+from . import Constants
+from . import Utils
+from .TagsWidget import TagsWidget
 
 
 def warning(msg, parent=None):

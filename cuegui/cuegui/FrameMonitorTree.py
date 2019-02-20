@@ -16,6 +16,7 @@
 """
 A frame list based on AbstractTreeWidget
 """
+from __future__ import absolute_import
 
 
 import datetime
@@ -31,15 +32,15 @@ from PySide2 import QtWidgets
 import opencue
 from opencue.compiled_proto import job_pb2
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from AbstractWidgetItem import SORT_LAMBDA
-import Constants
-import eta
-import Logger
-from MenuActions import MenuActions
-import Style
-import Utils
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .AbstractWidgetItem import SORT_LAMBDA
+from . import Constants
+from . import eta
+from . import Logger
+from .MenuActions import MenuActions
+from . import Style
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)
@@ -643,7 +644,7 @@ class FrameLogDataBuffer(object):
     # default to 0% if nothing found unless already a previous value
 
     def __init__(self):
-        from ThreadPool import ThreadPool
+        from .ThreadPool import ThreadPool
 
         self.__threadPool = ThreadPool(self.maxThreads, self.maxQueue)
         self.__currentJob = None
@@ -740,7 +741,7 @@ class FrameEtaDataBuffer(object):
 
 
     def __init__(self):
-        from ThreadPool import ThreadPool
+        from .ThreadPool import ThreadPool
 
         self.__threadPool = ThreadPool(self.maxThreads, self.maxQueue)
         self.__currentJob = None

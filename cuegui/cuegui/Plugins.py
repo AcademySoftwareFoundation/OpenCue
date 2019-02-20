@@ -41,6 +41,7 @@ pluginSaveState() : This should return any settings that the plugin would like
 pluginRestoreState(settings) : This will receive any settings that it previously
                              : returned from pluginSaveSettings()
 """
+from __future__ import absolute_import
 
 
 import os
@@ -52,9 +53,9 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
-import Constants
-import Utils
+from . import Logger
+from . import Constants
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

@@ -13,12 +13,14 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from DependMonitorTree import DependMonitorTree
-import Logger
-import Utils
+from .DependMonitorTree import DependMonitorTree
+from . import Logger
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

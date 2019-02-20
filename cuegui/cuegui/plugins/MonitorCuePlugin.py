@@ -167,7 +167,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget):
 
         try:
             shows = sorted([show.name() for show in opencue.api.getActiveShows()])
-        except Exception, e:
+        except Exception as e:
             logger.critical(e)
             shows = []
 

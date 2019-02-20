@@ -17,6 +17,7 @@
 An interface for redirecting resources from one
 job to another job.
 """
+from __future__ import absolute_import
 
 
 import os
@@ -29,7 +30,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Utils
+from . import Utils
 
 
 # The concept here is that there is a target job that needs

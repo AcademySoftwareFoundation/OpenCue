@@ -16,12 +16,13 @@
 """
 Extends QDockWidget to provide a standard setup
 """
+from __future__ import absolute_import
 
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from Plugins import Plugin
+from .Plugins import Plugin
 
 
 class AbstractDockWidget(Plugin, QtWidgets.QDockWidget):

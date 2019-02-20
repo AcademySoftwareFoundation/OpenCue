@@ -16,6 +16,7 @@
 """
 Handles the dialog to display/modify a show's filters, matchers and actions
 """
+from __future__ import absolute_import
 
 
 import re
@@ -25,13 +26,13 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Logger
-import Constants
-import Utils
-from MenuActions import MenuActions
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from TextEditDialog import TextEditDialog
+from . import Logger
+from . import Constants
+from . import Utils
+from .MenuActions import MenuActions
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .TextEditDialog import TextEditDialog
 from opencue.compiled_proto.filter_pb2 import ActionType
 from opencue.compiled_proto.filter_pb2 import FilterType
 from opencue.compiled_proto.filter_pb2 import MatchSubject

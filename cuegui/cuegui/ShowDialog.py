@@ -16,12 +16,13 @@
 """
 Displays the show dialog with show configuration options
 """
+from __future__ import absolute_import
 
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import Utils
+from . import Utils
 
 
 class ShowDialog(QtWidgets.QDialog):

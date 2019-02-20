@@ -267,7 +267,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
                                  height,
                                  QtCore.Qt.AlignRight,
                                  number)
-            block = block.next()
+            block = next(block)
             top = bottom
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1

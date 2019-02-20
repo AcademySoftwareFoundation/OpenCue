@@ -88,7 +88,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             return opencue.api.getAllocations()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 

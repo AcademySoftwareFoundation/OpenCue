@@ -16,6 +16,7 @@
 """
 Provides extended QTreeWidget functionality.
 """
+from __future__ import absolute_import
 
 
 import time
@@ -24,12 +25,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Utils
-import Constants
-import Logger
+from . import Utils
+from . import Constants
+from . import Logger
 
-from ItemDelegate import ItemDelegate
-from AbstractWidgetItem import AbstractWidgetItem
+from .ItemDelegate import ItemDelegate
+from .AbstractWidgetItem import AbstractWidgetItem
 
 
 logger = Logger.getLogger(__file__)

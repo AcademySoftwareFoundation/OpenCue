@@ -16,6 +16,7 @@
 """
 The dark widget color scheme used by image viewing applications.
 """
+from __future__ import absolute_import
 
 
 import platform
@@ -23,7 +24,7 @@ import platform
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Constants
+from . import Constants
 
 
 def init():

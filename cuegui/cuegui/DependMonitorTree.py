@@ -13,15 +13,17 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from PySide2 import QtWidgets
 
 from opencue.compiled_proto import depend_pb2
-import Constants
-import Logger
-import Utils
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from MenuActions import MenuActions
+from . import Constants
+from . import Logger
+from . import Utils
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)

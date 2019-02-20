@@ -81,7 +81,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
         for jobId in jobIds:
             try:
                 self.jobMonitor.addJob(jobId)
-            except opencue.EntityNotFoundException, e:
+            except opencue.EntityNotFoundException as e:
                 logger.warning("Unable to load previously loaded job since "
                                "it was moved to the historical "
                                "database: %s" % jobId)
@@ -101,7 +101,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
                 for jobId in settings[1]:
                     try:
                         self.jobMonitor.addJob(jobId)
-                    except opencue.EntityNotFoundException, e:
+                    except opencue.EntityNotFoundException as e:
                         logger.warning("Unable to load previously loaded job since"
                                        "it was moved to the historical "
                                        "database: %s" % jobId)

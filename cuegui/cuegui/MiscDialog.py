@@ -13,9 +13,11 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from PySide2 import QtWidgets
 
-from AbstractDialog import AbstractDialog
+from .AbstractDialog import AbstractDialog
 
 
 class RunLocalDialog(AbstractDialog):

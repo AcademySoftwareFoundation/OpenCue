@@ -16,6 +16,8 @@
 """
 Utility functions.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 
 import os
@@ -33,9 +35,9 @@ from yaml.scanner import ScannerError
 
 import opencue
 
-import Logger
-from ConfirmationDialog import ConfirmationDialog
-from Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
+from . import Logger
+from .ConfirmationDialog import ConfirmationDialog
+from .Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
 
 
 logger = Logger.getLogger(__file__)

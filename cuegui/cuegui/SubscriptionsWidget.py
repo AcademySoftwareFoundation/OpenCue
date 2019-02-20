@@ -13,18 +13,20 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import opencue
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-import Constants
-from MenuActions import MenuActions
-from ShowDialog import ShowDialog
-import Utils
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from . import Constants
+from .MenuActions import MenuActions
+from .ShowDialog import ShowDialog
+from . import Utils
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):

@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import re
 
 from PySide2 import QtCore
@@ -20,7 +22,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from AbstractDialog import AbstractDialog
+from .AbstractDialog import AbstractDialog
 
 
 class UnbookDialog(AbstractDialog):

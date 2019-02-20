@@ -61,12 +61,12 @@ class SplashWindow(object):
         if image is None:
             try:
                 image = self._GenerateMissingSplash(app_name)
-            except StandardError:
+            except Exception:
                 return None
 
         try:
             self._StampVersion(image, version)
-        except StandardError:
+        except Exception:
             pass
         return image
 
@@ -74,7 +74,7 @@ class SplashWindow(object):
         if os.path.isfile(imagePath):
             try:
                 return imagePath and QtGui.QImage(imagePath)
-            except StandardError:
+            except Exception:
                 pass
         return None
 

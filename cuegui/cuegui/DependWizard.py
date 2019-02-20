@@ -16,6 +16,7 @@
 """
 Wizard interface to setting up dependencies.
 """
+from __future__ import absolute_import
 
 
 import re
@@ -24,12 +25,12 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
-import Cuedepend
-import Logger
-import Utils
+from . import Cuedepend
+from . import Logger
+from . import Utils
 
 import FileSequence
-from ProgressDialog import ProgressDialog
+from .ProgressDialog import ProgressDialog
 
 
 logger = Logger.getLogger(__file__)

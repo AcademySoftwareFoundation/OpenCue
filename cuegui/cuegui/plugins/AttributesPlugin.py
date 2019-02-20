@@ -14,7 +14,6 @@
 
 
 import time
-import os
 
 import cuegui
 import opencue
@@ -132,7 +131,7 @@ class Attributes(QtWidgets.QWidget):
                 self.__load = None
                 work["preload"] = work["function"].preload(work["item"])
                 return work
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, cuegui.Utils.exceptionOutput(e))
 
     def __processResults(self, work, result):
@@ -152,7 +151,7 @@ class Attributes(QtWidgets.QWidget):
                 oldWidget = self.__stack.widget(0)
                 self.__stack.removeWidget(oldWidget)
                 oldWidget.setParent(QtWidgets.QWidget())
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, cuegui.Utils.exceptionOutput(e))
 
 

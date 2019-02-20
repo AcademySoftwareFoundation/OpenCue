@@ -16,6 +16,7 @@
 """
 A monitored job list based on AbstractTreeWidget
 """
+from __future__ import absolute_import
 
 
 import time
@@ -25,14 +26,14 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Utils
-import Constants
-import Style
-import Logger
-from MenuActions import MenuActions
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import JobProgressBarDelegate
+from . import Utils
+from . import Constants
+from . import Style
+from . import Logger
+from .MenuActions import MenuActions
+from .AbstractTreeWidget import AbstractTreeWidget
+from .AbstractWidgetItem import AbstractWidgetItem
+from .ItemDelegate import JobProgressBarDelegate
 
 
 logger = Logger.getLogger(__file__)

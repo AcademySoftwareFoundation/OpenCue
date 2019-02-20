@@ -15,9 +15,10 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
 import sys
 
-import Main
+from . import Main
 
 
 def main():

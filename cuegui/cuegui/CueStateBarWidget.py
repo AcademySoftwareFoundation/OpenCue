@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 import threading
 import time
 import weakref
@@ -21,7 +23,7 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
+from . import Logger
 
 
 logger = Logger.getLogger(__file__)

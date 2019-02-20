@@ -16,14 +16,15 @@
 """
 A progress dialog that accepts a list of work units and displays the progress.
 """
+from __future__ import absolute_import
 
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
-import Utils
+from . import Logger
+from . import Utils
 
 
 logger = Logger.getLogger(__file__)

@@ -13,13 +13,15 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Logger
-from HostMonitorTree import HostMonitorTree
+from . import Logger
+from .HostMonitorTree import HostMonitorTree
 
 
 log = Logger.getLogger(__file__)

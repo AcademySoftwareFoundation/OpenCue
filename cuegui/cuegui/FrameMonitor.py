@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+
 from copy import deepcopy
 import math
 
@@ -22,8 +24,8 @@ from PySide2 import QtWidgets
 from opencue.compiled_proto import job_pb2
 import FileSequence
 
-import Logger
-from FrameMonitorTree import FrameMonitorTree
+from . import Logger
+from .FrameMonitorTree import FrameMonitorTree
 
 
 log = Logger.getLogger(__file__)
@@ -91,7 +93,7 @@ class FrameMonitor(QtWidgets.QWidget):
 # Frame range bar to filter by frame range
 # ==============================================================================
     def _frameRangeSelectionFilterSetup(self, layout):
-        from FrameRangeSelection import FrameRangeSelectionWidget
+        from .FrameRangeSelection import FrameRangeSelectionWidget
         widget = FrameRangeSelectionWidget(self)
         layout.addWidget(widget)
         widget.selectionChanged.connect(self._frameRangeSelectionFilterHandle)
