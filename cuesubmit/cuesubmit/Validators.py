@@ -24,8 +24,8 @@ def matchLettersAndNumbersOnly(value):
 
 
 def matchNoSpecialCharactersOnly(value):
-    """Match strings containing letters, numbers, '-', and '_'"""
-    if re.match('^[a-zA-Z0-9.-_ ]+$', value):
+    """Match strings containing letters, numbers, '.', '-', and '_'"""
+    if re.match('^[a-zA-Z0-9.\-_\s]+$', value):
         return True
     return False
 
