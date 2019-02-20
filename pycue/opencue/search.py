@@ -266,7 +266,7 @@ def _setOptions(criteria, options):
             criteria.jobs.extend(v)
         elif k == "host" or (k == "name" and isinstance(criteria, host_pb2.HostSearchCriteria)):
             criteria.hosts.extend(v)
-        elif k == "frame" or (k == "name" and isinstance(criteria, job_pb2.FrameSearchCriteria)):
+        elif k == "frames" or (k == "name" and isinstance(criteria, job_pb2.FrameSearchCriteria)):
             criteria.frames.extend(v)
         elif k in("match", "substr"):
             criteria.substr.extend(v)
@@ -280,8 +280,10 @@ def _setOptions(criteria, options):
             criteria.shots.extend(v)
         elif k == "user":
             criteria.users.extend(v)
-        elif k == "state":
+        elif k == "state" and isinstance(criteria, job_pb2.FrameSearchCriteria):
             criteria.states.frame_states.extend(v)
+        elif k == "state" and isinstance(criteria, host_pb2.HostSearchCriteria):
+            criteria.states.state.extend(v)
         elif k == "layer":
             criteria.layers.extend(v)
         elif k == "alloc":

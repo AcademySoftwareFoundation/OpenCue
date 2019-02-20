@@ -16,6 +16,9 @@
 """
 A frame list based on AbstractTreeWidget
 """
+
+import time
+
 from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
 import Constants
@@ -124,16 +127,15 @@ class ProcMonitorTree(AbstractTreeWidget):
         try:
             # Refuse to update if no search criteria is defined
             if not self.procSearch.options.get('max_results') and \
-               not self.procSearch.options.get('hosts') and \
-               not self.procSearch.options.get('jobs') and \
-               not self.procSearch.options.get('layers') and \
-               not self.procSearch.options.get('shows') and \
-               not self.procSearch.options.get('allocs') and \
+               not self.procSearch.options.get('host') and \
+               not self.procSearch.options.get('job') and \
+               not self.procSearch.options.get('layer') and \
+               not self.procSearch.options.get('show') and \
+               not self.procSearch.options.get('alloc') and \
                not self.procSearch.options.get('memory_range') and \
                not self.procSearch.options.get('durationRange'):
                 return []
-
-            return opencue.api.getProcs(self.procSearch)
+            return opencue.api.getProcs(**self.procSearch.options)
         except Exception, e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []

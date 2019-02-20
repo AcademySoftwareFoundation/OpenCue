@@ -89,13 +89,13 @@ class ProcMonitor(QtWidgets.QWidget):
         hosts = str(self.__filterByHostName.text()).split()
         if hosts and hosts != self.__filterByHostNameLastInput:
             self.__filterByHostNameLastInput = hosts
-            self.procMonitorTree.procSearch.hosts = hosts
+            self.procMonitorTree.procSearch.options['host'] = hosts
             self.procMonitorTree.updateRequest()
 
     def __filterByHostNameClear(self):
         self.__filterByHostNameLastInput = ""
         self.__filterByHostName.setText("")
-        self.procMonitorTree.procSearch.hosts = []
+        self.procMonitorTree.procSearch.options['host'] = []
 
 # ==============================================================================
 # Checkbox to toggle auto-refresh
@@ -161,7 +161,7 @@ class ProcMonitor(QtWidgets.QWidget):
         QtGui.qApp.view_procs.connect(self.__viewProcsHandle)
 
     def __viewProcsHandle(self, hosts):
-        self.procMonitorTree.procSearch.hosts = hosts
+        self.procMonitorTree.procSearch.options['host'] = hosts
         self.procMonitorTree.updateRequest()
 
 # ==============================================================================
@@ -172,7 +172,8 @@ class ProcMonitor(QtWidgets.QWidget):
 
     def __hostDoubleClickedHandle(self, rpcObject):
         if Utils.isHost(rpcObject):
-            self.procMonitorTree.procSearch.hosts = [rpcObject.data.name]
+            self.procMonitorTree.procSearch.options['host'] = [rpcObject.data.name]
+            print self.procMonitorTree.procSearch.options
             self.procMonitorTree.updateRequest()
 
 # ==============================================================================
@@ -184,6 +185,6 @@ class ProcMonitor(QtWidgets.QWidget):
     def __viewHostsHandle(self, hosts):
         if hosts:
             self.__clearButtonHandle()
-            self.procMonitorTree.procSearch.hosts = hosts
+            self.procMonitorTree.procSearch.options['host'] = hosts
             self.__filterByHostName.setText(" ".join(hosts))
             self.procMonitorTree.updateRequest()

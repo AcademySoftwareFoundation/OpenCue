@@ -82,7 +82,7 @@ def startup(app_name, app_version, argv):
     Style.init()
 
     # If the config file does not exist, copy over the default
-    local = "%s%s.ini" % (os.getenv("HOME"), config_path)
+    local = settings.fileName()
     if not os.path.exists(local):
         default = os.path.join(Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
         print "Not found: %s\nCopying:   %s" % (local, default)
