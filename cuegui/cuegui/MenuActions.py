@@ -402,17 +402,19 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What order should the range %s take?" % range
-        items = [order for order in dir(opencue.Order) if not order.startswith("_")]
+        items = opencue.compiled_proto.job_pb2.Order.keys()
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
                                                      sorted(items),
                                                      0,
                                                      False)
-        if not choice: return
+        if not choice:
+            return
 
-        self.cuebotCall(__job.reorderFrames, "Reorder Frames Failed",
-                        range, getattr(opencue.Order, str(order)))
+        self.cuebotCall(
+            __job.reorderFrames, "Reorder Frames Failed",
+            range, getattr(opencue.compiled_proto.job_pb2, str(order)))
 
     stagger_info = ["Stagger Frames...", None, "configure"]
     def stagger(self, rpcObjects=None):
@@ -482,7 +484,7 @@ class JobActions(AbstractActions):
             dialog = LocalBookingDialog(job, self._caller)
             dialog.exec_()
 
-        copyLogFileDir_info = ["Copy log file directory", None, "configure"]
+    copyLogFileDir_info = ["Copy log file directory", None, "configure"]
     def copyLogFileDir(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
