@@ -15,10 +15,15 @@
 
 """Service related widgets."""
 
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import opencue
+
 import Constants
-import Utils
-from Manifest import opencue, QtCore, QtWidgets
 from TagsWidget import TagsWidget
+import Utils
 
 
 class ServiceForm(QtWidgets.QWidget):
@@ -249,7 +254,7 @@ class ServiceManager(QtWidgets.QWidget):
                 self.__services = opencue.api.getDefaultServices()
             else:
                 self.__services = self.__show.getServiceOverrides()
-        except Exception, e:
+        except Exception:
             return
 
         for service in self.__services:

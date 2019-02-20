@@ -13,20 +13,6 @@
 #  limitations under the License.
 
 
-import os
-import sys
-
-# This is a hack to allow plugins to work by replacing
-# the proprietary SPI import library
-path = os.path.realpath(os.path.dirname(__file__))
-mod = path.split('/')[-1]
-parent = os.path.dirname(path)
-sys.path.insert(0, parent)
-cuegui = __import__(mod)
-sys.modules['cuegui'] = cuegui
-
-from Manifest import *
-
 import Main
 
 from AbstractDockWidget import AbstractDockWidget

@@ -16,11 +16,18 @@
 """
 A layer list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtWidgets, opencue
 
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+from opencue.exception import EntityNotFoundException
+
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+import Constants
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
+import Utils
 
 
 def displayRange(layer):
@@ -172,7 +179,7 @@ class LayerMonitorTree(AbstractTreeWidget):
         if self.__job:
             try:
                 return self.__job.getLayers()
-            except opencue.exceptions.EntityNotFoundException:
+            except EntityNotFoundException:
                 self.setJob(None)
                 return []
         return []

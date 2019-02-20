@@ -16,7 +16,10 @@
 """
 A TextEdit dialog
 """
-from Manifest import QtCore, QtWidgets
+
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 
 class TextEditDialog(QtWidgets.QDialog):

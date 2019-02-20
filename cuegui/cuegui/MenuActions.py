@@ -16,16 +16,18 @@
 """
 Provides actions and functions for right click menu items.
 """
-import os
-import sys
-import time
-import commands
-import pexpect
-import glob
-import urllib2
-import subprocess
 
-from Manifest import QtCore, QtGui, QtWidgets, opencue, FileSequence
+
+import glob
+import subprocess
+import time
+
+import pexpect
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+import FileSequence
 
 import opencue.compiled_proto.job_pb2
 import Action
@@ -44,6 +46,7 @@ from LayerDialog import LayerTagsDialog, LayerPropertiesDialog
 from GroupDialog import NewGroupDialog, ModifyGroupDialog
 from UnbookDialog import UnbookDialog
 from ServiceDialog import ServiceDialog
+
 
 logger = Logger.getLogger(__file__)
 
@@ -159,8 +162,8 @@ class AbstractActions(object):
         @return: Returns any results from the callable or None on exception"""
         try:
             return callable(*args)
-        except Exception, e:
-            print e
+        except Exception as e:
+            logger.exception('Failed Cuebot call')
             QtWidgets.QMessageBox.critical(self._caller,
                                            errorMessageTitle,
                                            e.message,
@@ -786,10 +789,10 @@ class FrameActions(AbstractActions):
     def getWhatThisDependsOn(self, rpcObjects=None):
         frame = self._getOnlyFrameObjects(rpcObjects)[0]
 
-        print "type", "target", "anyFrame", "active", "dependErJob", "dependErLayer", "dependErFrame", "dependOnJob", "dependOnLayer", "dependOnFrame"
+        logger.info("type", "target", "anyFrame", "active", "dependErJob", "dependErLayer", "dependErFrame", "dependOnJob", "dependOnLayer", "dependOnFrame")
         for item in frame.getWhatThisDependsOn():
-            print item.data.type, item.data.target, item.data.anyFrame, item.data.active,
-            print "This:", item.data.dependErJob, item.data.dependErLayer, item.data.dependErFrame, "On:", item.data.dependOnJob, item.data.dependOnLayer, item.data.dependOnFrame
+            logger.info(item.data.type, item.data.target, item.data.anyFrame, item.data.active)
+            logger.info("This:", item.data.dependErJob, item.data.dependErLayer, item.data.dependErFrame, "On:", item.data.dependOnJob, item.data.dependOnLayer, item.data.dependOnFrame)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
@@ -800,7 +803,7 @@ class FrameActions(AbstractActions):
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
     def getWhatDependsOnThis(self, rpcObjects=None):
         frame = self._getOnlyFrameObjects(rpcObjects)[0]
-        print frame.getWhatDependsOnThis()
+        logger.info(frame.getWhatDependsOnThis())
 
     retry_info = ["&Retry", None, "retry"]
     def retry(self, rpcObjects=None):
@@ -821,9 +824,9 @@ class FrameActions(AbstractActions):
             d = PreviewWidget.PreviewProcessorDialog(job, frame, False)
             d.process()
             d.exec_()
-        except Exception, e:
+        except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
-                                       "Error displaying preview frames, %s" % e)
+                                           "Error displaying preview frames, %s" % e)
 
     previewAovs_info = ["Preview All", None, "previewAovs"]
     def previewAovs(self, rpcObjects=None):
@@ -833,9 +836,9 @@ class FrameActions(AbstractActions):
             d = PreviewWidget.PreviewProcessorDialog(job, frame, True)
             d.process()
             d.exec_()
-        except Exception, e:
+        except Exception as e:
             QtWidgets.QMessageBox.critical(None, "Preview Error",
-                                       "Error displaying preview frames, %s" % e)
+                                           "Error displaying preview frames, %s" % e)
     eat_info = ["&Eat", None, "eat"]
     def eat(self, rpcObjects=None):
         names = [frame.data.name for frame in self._getOnlyFrameObjects(rpcObjects)]
@@ -968,7 +971,6 @@ class FrameActions(AbstractActions):
                                                   frames[0].data.layerName)
                     if layer.data.layer_stats.totalFrames == 1:
                         # Single frame selected of single frame layer, mark done and eat it all
-                        print 'single frame layer found'
                         layer.eatFrames()
                         layer.markdoneFrames()
 
@@ -1041,7 +1043,7 @@ class RootGroupActions(AbstractActions):
             (name, choice) = self.getText(title, body, Utils.getUsername())
             if choice:
                 for rootgroup in rootgroups:
-                    print commands.getoutput("cuewho -s %s -who %s" % (rootgroup.data.name, name))
+                    logger.info(subprocess.check_output("cuewho -s %s -who %s" % (rootgroup.data.name, name)))
 
     showCuewho_info = ["Display Cuewho", None, "configure"]
     def showCuewho(self, rpcObjects=None):
@@ -1209,7 +1211,7 @@ class HostActions(AbstractActions):
                                               "%s hinv" % host.data.name,
                                               "\n".join(lines),
                                               QtWidgets.QMessageBox.Ok)
-            except Exception, e:
+            except Exception as e:
                 logger.warning("Failed to get host's hinv: %s" % e)
 
     lock_info = ["Lock Host", None, "lock"]
@@ -1362,7 +1364,7 @@ class ProcActions(AbstractActions):
         for job in list(set([proc.data.jobName for proc in self._getOnlyProcObjects(rpcObjects)])):
             try:
                 QtGui.qApp.view_object.emit(opencue.api.findJob(job))
-            except Exception, e:
+            except Exception:
                 logger.warning("Unable to load: %s" % job)
 
     kill_info = ["&Kill", None, "kill"]

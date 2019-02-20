@@ -13,12 +13,14 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, QtWidgets, opencue
-
-import os
 import pickle
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 import Utils
+
 
 PREDEFINED_COMMENT_HEADER = "Use a Predefined Comment:"
 PREDEFINED_COMMENT_ADD = "> Add predefined comment"

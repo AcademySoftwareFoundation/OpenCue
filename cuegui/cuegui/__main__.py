@@ -15,47 +15,9 @@
 #  limitations under the License.
 
 
-import os
 import sys
 
-from Manifest import *
-
 import Main
-
-from AbstractDockWidget import AbstractDockWidget
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-
-import ApplicationConfig
-import BugReportDialog
-import Comments
-import Constants
-import EmailDialog
-import ShowDialog
-import FrameRangeSelection
-import MiscDialog
-
-from MenuActions import MenuActions
-from HostMonitor import HostMonitor
-from HostMonitorTree import HostMonitorTree
-from ProcMonitor import ProcMonitor
-from ProcMonitorTree import ProcMonitorTree
-from CueJobMonitorTree import CueJobMonitorTree
-from JobMonitorTree import JobMonitorTree
-from LayerMonitorTree import LayerMonitorTree
-from FrameMonitor import FrameMonitor
-from FrameMonitorTree import FrameMonitorTree
-from SubscriptionsWidget import SubscriptionsWidget
-from ShowsWidget import ShowsWidget
-from GraphSubscriptionsWidget import GraphSubscriptionsWidget
-from CueStateBarWidget import CueStateBarWidget
-from Plugins import Plugin
-from Redirect import RedirectWidget
-from ServiceDialog import *
-
-import Style
-import ThreadPool
-import Utils
 
 
 def main():

@@ -20,18 +20,30 @@ A frame list based on AbstractTreeWidget
 
 import datetime
 import glob
+import os
 import re
+import time
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 from opencue.compiled_proto import job_pb2
 
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+from AbstractWidgetItem import SORT_LAMBDA
+import Constants
 import eta
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+import Logger
 from MenuActions import MenuActions
+import Style
+import Utils
 
 
 logger = Logger.getLogger(__file__)
+
 
 QCOLOR_BLACK = QtGui.QColor(QtCore.Qt.black)
 QCOLOR_GREEN = QtGui.QColor(QtCore.Qt.green)
@@ -237,7 +249,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             if items:
                 self.dataChanged(self.indexFromItem(items[0], RUNTIME_COLUMN),
                                  self.indexFromItem(items[-1], LASTLINE_COLUMN))
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def __sortByColumnSave(self, logicalIndex, order):
@@ -394,7 +406,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 self.__lastUpdateTime = int(time.time())
                 return self.__job.getFrames(**self.frameSearch.options)
             return []
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def _getUpdateChanged(self):
@@ -414,9 +426,9 @@ class FrameMonitorTree(AbstractTreeWidget):
             self.__jobState = updated_data.state
             updatedFrames = updated_data.updated_frames.updated_frames
 
-        except opencue.EntityNotFoundException, e:
+        except opencue.EntityNotFoundException as e:
             self.setJobObj(None)
-        except Exception, e:
+        except Exception as e:
             if hasattr(e, "message") and e.message.find("timestamp cannot be over a minute off") != -1:
                 logger.warning("Forcing a full update due to: %s" % e.message)
                 return None
@@ -444,7 +456,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                         self._items[Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
             finally:
                 self._itemsLock.unlock()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def _processUpdateChanged(self, work, rpcObjects):
@@ -472,7 +484,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             logger.info("_processUpdateChanged calling redraw")
             self.redraw()
 
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def _updateFrame(self, updatedFrame):
@@ -689,7 +701,7 @@ class FrameLogDataBuffer(object):
                                         "getting data for %s" % self.__class__)
                 # Since nothing is updated yet, return an empty string
                 return (self.__defaultLine, self.__defaultLLU)
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def __doWork(self):
@@ -703,7 +715,7 @@ class FrameLogDataBuffer(object):
                             Utils.secondsToHHMMSS(time.time() - os.stat(path).st_mtime))
                 else:
                     return None
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
     def __saveWork(self, work, results):
@@ -714,10 +726,10 @@ class FrameLogDataBuffer(object):
                 __cached[self.__TIME] = time.time()
                 __cached[self.__LINE] = results[1]
                 __cached[self.__LLU] = results[2]
-        except KeyError, e:
+        except KeyError as e:
             # Could happen while switching jobs with work in the queue
             pass
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
 
 class FrameEtaDataBuffer(object):
@@ -772,7 +784,7 @@ class FrameEtaDataBuffer(object):
                 self.__threadPool.queue(self.__doWork, self.__saveWork,
                                         "getting data for %s" % self.__class__, frameKey, job, frame)
                 # Since nothing is updated yet, return a default
-        except Exception, e:
+        except Exception as e:
             self.__cache[frameKey] = [__now,
                                          None]
             map(logger.warning, Utils.exceptionOutput(e))
@@ -783,7 +795,7 @@ class FrameEtaDataBuffer(object):
         """Pops work from the queue and returns the proxy and last log line"""
         try:
             return (proxy, eta.ETASeconds(job, frame))
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return (proxy, self.__defaultETA)
 
@@ -794,8 +806,8 @@ class FrameEtaDataBuffer(object):
                 __cached = self.__cache[results[0]]
                 __cached[self.__TIME] = time.time()
                 __cached[self.__ETA] = results[1]
-        except KeyError, e:
+        except KeyError as e:
             # Could happen while switching jobs with work in the queue
             pass
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))

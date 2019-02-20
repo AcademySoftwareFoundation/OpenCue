@@ -13,7 +13,10 @@
 #  limitations under the License.
 
 
-from Manifest import opencue, QtCore, QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import opencue
 
 
 class GroupDialog(QtWidgets.QDialog):
@@ -27,7 +30,7 @@ class GroupDialog(QtWidgets.QDialog):
 
         try:
             self._departments = opencue.api.getDepartmentNames()
-        except Exception, e:
+        except Exception as e:
             self._departments = ["Unknown"]
 
         __title = defaults["title"]

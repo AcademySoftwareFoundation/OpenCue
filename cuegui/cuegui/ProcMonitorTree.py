@@ -17,18 +17,22 @@
 A frame list based on AbstractTreeWidget
 """
 
+
 import time
 
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
-import Constants
-import Logger
-import Style
-import Utils
+import opencue
 
-from MenuActions import MenuActions
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
+import Constants
+import Logger
+from MenuActions import MenuActions
+import Utils
+
 
 logger = Logger.getLogger(__file__)
 
@@ -89,9 +93,8 @@ class ProcMonitorTree(AbstractTreeWidget):
             self._update()
             return
 
-        if self.enableRefresh and \
-           self.ticksWithoutUpdate <= self.updateInterval + 1 and \
-           self.ticksWithoutUpdate >= 0:
+        if (self.enableRefresh and
+                self.updateInterval + 1 >= self.ticksWithoutUpdate >= 0):
             self.ticksWithoutUpdate += 1
 
     def facilityChanged(self):
@@ -136,7 +139,7 @@ class ProcMonitorTree(AbstractTreeWidget):
                not self.procSearch.options.get('durationRange'):
                 return []
             return opencue.api.getProcs(**self.procSearch.options)
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 

@@ -14,10 +14,20 @@
 
 
 import time
+import os
 from socket import gethostname
 
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import opencue
+
+import Logger
 import Utils
-from Manifest import QtCore, QtWidgets, opencue, os
+
+
+logger = Logger.getLogger(__file__)
+
 
 
 class LocalBookingWidget(QtWidgets.QWidget):
@@ -49,7 +59,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             for host in owner.getHosts():
                 if host.data.lockState != opencue.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
-        except Exception, e:
+        except Exception:
             pass
 
         self.__deed_button = None
@@ -207,15 +217,15 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__num_threads.setRange(1, host.data.idleCores)
                 self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__num_threads.setRange(1, host.data.idleCores)
-        except Exception, e:
-            print "Failed to get RenderParition information, %s" % e
+        except Exception as e:
+            map(logger.warning, Utils.exceptionOutput(e))
 
     def deedLocalhost(self):
 
         show_name = os.environ.get("SHOW", "pipe")
         try:
             _show = opencue.api.findShow(show_name)
-        except Exception, e:
+        except Exception as e:
             msg = QtWidgets.QMessageBox(self)
             msg.setText("Error %s, please setshot and rerun cuetopia", e)
             msg.exec_()
@@ -224,7 +234,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         user = os.environ["USER"]
         try:
             owner = opencue.api.getOwner(user)
-        except opencue.EntityNotFoundException, e:
+        except opencue.EntityNotFoundException as e:
             # Owner does not exist
             owner = _show.createOwner(user)
  
@@ -243,7 +253,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__msg_widget = None
             self.hosts_changed.emit()
 
-        except Exception, e:
+        except Exception as e:
             msg = QtWidgets.QMessageBox(self)
             msg.setText("Unable to determine your machine's hostname. " +
                         "It is not setup properly for local booking")
@@ -302,8 +312,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
                         break
             self.__host_changed(hostname)
 
-        except Exception,e:
-            print "Error clearing host: %s" % e
+        except Exception as e:
+            map(logger.warning, Utils.exceptionOutput(e))
 
     def bookCurrentHost(self):
         if self.__hasError():
@@ -359,11 +369,11 @@ class LocalBookingDialog(QtWidgets.QDialog):
         try:
             self.__booking.bookCurrentHost()
             self.close()
-        except Exception, e:
+        except Exception as e:
             msg = QtWidgets.QMessageBox(self)
-            msg.setText("Failed to book local cores.  \
-There were no pending frames that met your criteria.  Be sure to double check \
-if your allocating enough memory and that your job has waiting frames.")
+            msg.setText('Failed to book local cores. There were no pending frames that met your '
+                        'criteria.  Be sure to double check if your allocating enough memory and '
+                        'that your job has waiting frames.')
             msg.setDetailedText(str(e))
             msg.exec_()
 

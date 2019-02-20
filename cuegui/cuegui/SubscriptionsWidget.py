@@ -13,13 +13,18 @@
 #  limitations under the License.
 
 
-import Constants
-import Utils
+import opencue
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
-from Manifest import QtCore, QtGui, QtWidgets, opencue
+import Constants
 from MenuActions import MenuActions
 from ShowDialog import ShowDialog
+import Utils
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):
@@ -62,7 +67,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
     def changeFacility(self):
         try:
             self.__shows = dict([(show.name(), show) for show in opencue.api.getActiveShows()])
-        except Exception, e:
+        except Exception:
             self.__shows = {}
         self.__comboShows.clear()
         self.__comboShows.addItems(["Select Show:"] +
