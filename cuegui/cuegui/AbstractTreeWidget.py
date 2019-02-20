@@ -16,18 +16,24 @@
 """
 Provides extended QTreeWidget functionality.
 """
-import os
+
+
 import time
 
-from Manifest import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 import Utils
 import Constants
 import Logger
-logger = Logger.getLogger(__file__)
 
 from ItemDelegate import ItemDelegate
 from AbstractWidgetItem import AbstractWidgetItem
+
+
+logger = Logger.getLogger(__file__)
+
 
 COLUMN_NAME = 0
 COLUMN_WIDTH = 1
@@ -216,7 +222,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         try:
             try:
                 self.tick()
-            except Exception, e:
+            except Exception as e:
                 map(logger.warning, Utils.exceptionOutput(e))
         finally:
             self.ticksLock.unlock()
@@ -399,14 +405,14 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                 # This setDirtyRegion works but can give this error sometimes:
                 # "underlying C/C++ object has been deleted"
                 #self.setDirtyRegion(QtGui.QRegion(self.viewport().rect()))
-            except Exception, e:
+            except Exception as e:
                 map(logger.warning, Utils.exceptionOutput(e))
 
     def getColumnWidths(self):
         """Return the column widths
         @rtype: list<int>
         @return: A list of column widths"""
-        return [self.columnWidth(index) for index in xrange(self.columnCount())]
+        return [self.columnWidth(index) for index in range(self.columnCount())]
 
     def setColumnWidths(self, widths):
         """Set the column widths if thecorrect number are provided, but ignore

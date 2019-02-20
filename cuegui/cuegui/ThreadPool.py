@@ -41,8 +41,13 @@ def someWorkCallback(work, result):
     print result
 """
 
+
+import os
+
+from PySide2 import QtCore
+
 import Logger
-from Manifest import os, QtCore
+
 
 logger = Logger.getLogger(__file__)
 
@@ -153,8 +158,8 @@ class ThreadPool(QtCore.QObject):
                     if work[1]:
                         self.workComplete.emit(work, result)
                         del result
-                except Exception,e:
-                    logger.info("Error processing work:' %s ', %s" % (work[2],e))
+                except Exception as e:
+                    logger.info("Error processing work:' %s ', %s" % (work[2], e))
                 logger.info("Done:' %s '" % work[2])
             logger.debug("Thread Stopping")
 

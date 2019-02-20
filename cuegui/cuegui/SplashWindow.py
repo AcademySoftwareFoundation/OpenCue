@@ -13,9 +13,16 @@
 #  limitations under the License.
 
 
-from Manifest import os, time, QtCore, QtGui, QtWidgets
+import os
+import time
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 
 __all__ = ["SplashWindow"]
+
 
 class SplashWindow(object):
     def __init__(self, app, app_name, version, resource_path):
@@ -54,7 +61,7 @@ class SplashWindow(object):
         if image is None:
             try:
                 image = self._GenerateMissingSplash(app_name)
-            except StandardError, e:
+            except StandardError:
                 return None
 
         try:

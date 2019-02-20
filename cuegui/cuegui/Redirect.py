@@ -17,10 +17,18 @@
 An interface for redirecting resources from one
 job to another job.
 """
+
+
 import os
 import re
 import time
-from Manifest import QtCore, QtGui, QtWidgets, opencue
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+
 import Utils
 
 
@@ -31,7 +39,6 @@ import Utils
 #
 # The search will find all hosts that have frames running that can be
 # redirected to the target job.
-#
 
 class ShowCombo(QtWidgets.QComboBox):
     """
@@ -183,7 +190,7 @@ class GroupFilter(QtWidgets.QPushButton):
 
     def getChecked(self):
         return [str(action.text()) for action in
-                self.__actions.itervalues() if action.isChecked()]
+                self.__actions.values() if action.isChecked()]
 
 
 class RedirectControls(QtWidgets.QWidget):
@@ -555,7 +562,7 @@ class RedirectWidget(QtWidgets.QWidget):
             try:
                 host = entry["host"]
                 host.redirectToJob(procs, job)
-            except Exception, e:
+            except Exception as e:
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
             item.setEnabled(False)

@@ -13,7 +13,11 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtGui, QtWidgets, opencue
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 
 
 class GraphSubscriptionsWidget(QtWidgets.QWidget):

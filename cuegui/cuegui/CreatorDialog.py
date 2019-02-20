@@ -13,7 +13,9 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtWidgets, opencue
+from PySide2 import QtWidgets
+
+import opencue
 
 
 class SubscriptionCreator(QtWidgets.QWidget):
@@ -63,7 +65,7 @@ class SubscriptionCreator(QtWidgets.QWidget):
                                     float(self.burstBox.value()))
             # show.proxy.createSubscription(alloc.proxy,
             #     float(self.sizeBox.value()), float(self.burstBox.value()))
-        except Exception, e:
+        except Exception as e:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Create Subscription",

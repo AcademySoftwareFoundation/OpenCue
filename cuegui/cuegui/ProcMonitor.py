@@ -13,10 +13,14 @@
 #  limitations under the License.
 
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 import Logger
-import Utils
-from Manifest import QtCore, QtGui, QtWidgets
 from ProcMonitorTree import ProcMonitorTree
+import Utils
+
 
 log = Logger.getLogger(__file__)
 
@@ -173,7 +177,6 @@ class ProcMonitor(QtWidgets.QWidget):
     def __hostDoubleClickedHandle(self, rpcObject):
         if Utils.isHost(rpcObject):
             self.procMonitorTree.procSearch.options['host'] = [rpcObject.data.name]
-            print self.procMonitorTree.procSearch.options
             self.procMonitorTree.updateRequest()
 
 # ==============================================================================

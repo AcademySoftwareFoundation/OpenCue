@@ -16,11 +16,16 @@
 """
 A progress dialog that accepts a list of work units and displays the progress.
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
-import Utils
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 import Logger
+import Utils
+
+
 logger = Logger.getLogger(__file__)
 
 
@@ -114,7 +119,7 @@ class ProgressDialog(QtWidgets.QDialog):
         if work:
             try:
                 self.__function(*work)
-            except Exception, e:
+            except Exception as e:
                 logger.warning("Work unit returned exception:")
                 map(logger.warning, Utils.exceptionOutput(e))
 

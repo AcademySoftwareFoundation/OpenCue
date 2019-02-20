@@ -17,8 +17,11 @@
 Displays the show dialog with show configuration options
 """
 
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
 import Utils
-from Manifest import QtCore, QtWidgets
 
 
 class ShowDialog(QtWidgets.QDialog):

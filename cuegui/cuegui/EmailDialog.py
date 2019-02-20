@@ -16,16 +16,23 @@
 """
 Displays the email dialog when emailing an artist.
 """
-from Manifest import os, time, QtCore, QtGui, QtWidgets, opencue
 
-import pwd
-import Logger
-import smtplib
+
 from email.MIMEText import MIMEText
 from email.Header import Header
+import os
+import pwd
+import smtplib
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+import Logger
 import Utils
 import Constants
+
 
 logger = Logger.getLogger(__file__)
 
@@ -129,7 +136,7 @@ class LogViewWidget(QtWidgets.QWidget):
             self.__txt_log.appendPlainText("\n")
             fp.close()
 
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             logger.info("error loading frame: %s, %s" % (str_frame, e))
 

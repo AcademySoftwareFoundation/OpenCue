@@ -15,10 +15,13 @@
 
 from math import ceil
 
-import Constants
-import Utils
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
-from Manifest import opencue, QtCore, QtGui, QtWidgets
+import opencue
+import Constants
+
 
 RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
                    opencue.api.job_pb2.RUNNING: QtGui.QColor(200, 200, 55),
@@ -248,8 +251,7 @@ class JobProgressBarDelegate(AbstractDelegate):
                     elif paused:
                         painter.setPen(QtCore.Qt.blue)
                         painter.drawText(option.rect, 0, "Paused")
-                except Exception, e:
-                    print "Exception:", e
+                except Exception as e:
                     painter.setPen(QtCore.Qt.red)
                     painter.drawText(option.rect, 0, "Gui Error")
             finally:

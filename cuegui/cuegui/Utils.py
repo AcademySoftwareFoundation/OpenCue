@@ -16,7 +16,8 @@
 """
 Utility functions.
 """
-import commands
+
+
 import os
 import re
 import subprocess
@@ -24,13 +25,18 @@ import sys
 import time
 import traceback
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 import yaml
 from yaml.scanner import ScannerError
+
+import opencue
 
 import Logger
 from ConfirmationDialog import ConfirmationDialog
 from Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
-from Manifest import QtCore, QtGui, opencue, QtWidgets
+
 
 logger = Logger.getLogger(__file__)
 
@@ -177,7 +183,7 @@ def getCuewho(show):
     try:
         file = open("cuewho.who" % show, "r")
         return file.read()
-    except Exception, e:
+    except Exception as e:
         logger.warning("Failed to update cuewho: %s\n%s" % (show, e))
         return "Unknown"
 
@@ -198,14 +204,14 @@ def getExtension(username):
     try:
         # TODO: Replace this with a direct call to the phone util that the
         # phone widget uses once code is stable
-        results = commands.getoutput("phone %s" % username)
+        results = subprocess.check_output('phone %s' % username)
 
         for line in results.splitlines():
             if line.find('Extension') != -1 and len(line.split()) == 2:
                 return line.split()[-1]
         return "Unknown"
 
-    except Exception, e:
+    except Exception as e:
         logger.warning("Failed to update extension: %s\n%s" % (username, e))
         return ""
 
@@ -240,7 +246,7 @@ def findJob(job):
         return None
     try:
         return opencue.api.findJob(job)
-    except Exception, e:
+    except Exception as e:
         logger.warning("Error loading job: %s" % job)
         logger.debug("Error loading job: %s\n%s" % (job, e))
         return None
@@ -258,7 +264,7 @@ def checkShellOut(cmdList):
     """
     try:
         subprocess.check_call(cmdList)
-    except subprocess.CalledProcessError, e:
+    except subprocess.CalledProcessError as e:
         text = 'Command {cmd} failed with returncode {code}. {msg}.\n' \
                'Please check your EDITOR environment variable and the ' \
                'Constants.DEFAULT_EDITOR variable.'.format(
@@ -267,7 +273,7 @@ def checkShellOut(cmdList):
                     msg=e.output
                 )
         showErrorMessageBox(text, title="ERROR Launching Log Editor!")
-    except OSError, e:
+    except OSError:
         text = "Command '{cmd}' not found.\n" \
                "Please set the EDITOR environment variable to a valid " \
                "editor command. Or configure an editor command using the " \
@@ -291,7 +297,7 @@ def handleExceptions(function):
     def new(*args):
         try:
             return function(*args)
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, exceptionOutput(e))
     return new
 
@@ -526,7 +532,7 @@ def getOutputFromFrame(job, layer, frame):
         main_output = layer.getOutputPaths()[0]
         main_output = main_output.replace("#", "%04d" % frame.data.number)
         return [main_output]
-    except IndexError, e:
+    except IndexError:
         return []
 
 

@@ -17,9 +17,12 @@
 From katana
 """
 
+
 import math
 
-from Manifest import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 
 class FrameRangeSelectionWidget(QtWidgets.QWidget):
@@ -101,7 +104,8 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         return self.__startFrame
 
     def setStartTime(self, t, final = True):
-        if (self.__startFrame == t and self.__startFrameFinal == final): return
+        if self.__startFrame == t and self.__startFrameFinal == final:
+            return
         self.__startFrame = int(t)
         self.__startFrameFinal = final
 

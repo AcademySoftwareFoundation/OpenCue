@@ -13,9 +13,13 @@
 #  limitations under the License.
 
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 import Constants
 import Utils
-from Manifest import QtCore, QtGui, QtWidgets, opencue
 from TagsWidget import TagsWidget
 
 
@@ -351,7 +355,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
         try:
             for layer in self.__layers:
                 layer.setTags(tags)
-        except opencue.CueException, e:
+        except opencue.CueException as e:
             warning = QtWidgets.QMessageBox(self)
             warning.setText("Error applying layer tags.")
             warning.setDetailedText("%s" % e)

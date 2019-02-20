@@ -13,11 +13,17 @@
 #  limitations under the License.
 
 
-"""The dark widget color scheme used by image viewing applications.
 """
+The dark widget color scheme used by image viewing applications.
+"""
+
+
 import platform
+
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 import Constants
-from Manifest import QtGui, QtWidgets
 
 
 def init():

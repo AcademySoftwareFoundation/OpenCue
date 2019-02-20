@@ -13,7 +13,8 @@
 #  limitations under the License.
 
 
-from Manifest import QtWidgets
+from PySide2 import QtWidgets
+
 
 class BugReportWidget(QtWidgets.QWidget):
     def __init__(self, parent=None):

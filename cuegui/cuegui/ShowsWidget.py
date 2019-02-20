@@ -13,11 +13,20 @@
 #  limitations under the License.
 
 
-import Constants
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
-from Manifest import QtCore, QtGui, QtWidgets, opencue
+import Constants
+import Logger
 from MenuActions import MenuActions
+
+
+logger = Logger.getLogger(__file__)
 
 
 class ShowsWidget(AbstractTreeWidget):
@@ -71,8 +80,8 @@ class ShowsWidget(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             return opencue.api.getActiveShows()
-        except Exception, e:
-            log.critical(e)
+        except Exception as e:
+            logger.critical(e)
             return []
 
     def contextMenuEvent(self, e):

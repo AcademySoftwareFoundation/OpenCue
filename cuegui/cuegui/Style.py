@@ -15,7 +15,9 @@
 
 """a module for handling global style setup"""
 
-from Manifest import QtGui
+
+from PySide2 import QtGui
+
 
 DEFAULT_COLOR = "DarkPalette"
 DEFAULT_ICON = "crystal"
