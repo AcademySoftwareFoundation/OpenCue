@@ -16,9 +16,12 @@
 """
 A confirmation dialog
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
 
-import Utils
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 
 class ConfirmationDialog(QtWidgets.QDialog):
     def __init__(self, title, text, items = [], parent = None):

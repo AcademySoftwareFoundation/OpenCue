@@ -13,16 +13,16 @@
 #  limitations under the License.
 
 
-"""
-
-"""
-from Manifest import os, QtCore, QtWidgets, opencue
-
-import Logger
-import Utils
-logger = Logger.getLogger(__file__)
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from DependMonitorTree import DependMonitorTree
+import Logger
+import Utils
+
+
+logger = Logger.getLogger(__file__)
+
 
 class DependDialog(QtWidgets.QDialog):
     def __init__(self, object, parent=None):

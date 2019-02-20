@@ -16,13 +16,16 @@
 """
 Handles the dialog to display/modify a show's filters, matchers and actions
 """
+
+
 import re
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 import Logger
-from Manifest import QtCore, QtGui, QtWidgets, opencue
-
-logger = Logger.getLogger(__file__)
-
 import Constants
 import Utils
 from MenuActions import MenuActions
@@ -33,6 +36,9 @@ from opencue.compiled_proto.filter_pb2 import ActionType
 from opencue.compiled_proto.filter_pb2 import FilterType
 from opencue.compiled_proto.filter_pb2 import MatchSubject
 from opencue.compiled_proto.filter_pb2 import MatchType
+
+
+logger = Logger.getLogger(__file__)
 
 
 MATCHSUBJECT = [match for match in dir(MatchSubject)
@@ -159,7 +165,7 @@ class FilterMonitorTree(AbstractTreeWidget):
         """Returns the proper data from the cuebot"""
         try:
             return self.__show.getFilters()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 
@@ -217,7 +223,7 @@ class MatcherMonitorTree(AbstractTreeWidget):
         try:
             if self.__filter:
                 return self.__filter.getMatchers()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
         return []
 
@@ -364,7 +370,7 @@ class ActionMonitorTree(AbstractTreeWidget):
         try:
             if self.__filter:
                 return self.__filter.getActions()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
         return []
 

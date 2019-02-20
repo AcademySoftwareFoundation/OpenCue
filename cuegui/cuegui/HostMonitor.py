@@ -13,10 +13,13 @@
 #  limitations under the License.
 
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 import Logger
-import Utils
 from HostMonitorTree import HostMonitorTree
-from Manifest import QtCore, QtGui, QtWidgets, opencue
 
 
 log = Logger.getLogger(__file__)

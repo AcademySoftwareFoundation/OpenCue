@@ -16,14 +16,24 @@
 """
 All windows are an instance of this MainWindow.
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+
 
 import sys
 
-import Action
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+
+import Constants
+import Logger
 import Plugins
 import Utils
-import Constants
+
+
+logger = Logger.getLogger(__file__)
+
 
 class MainWindow(QtWidgets.QMainWindow):
     """The main window of the application. Multiple windows may exist."""
@@ -38,7 +48,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Setup variables
         self.qApp = QtGui.qApp
         self.settings = QtGui.qApp.settings
-        self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in xrange(2, 5)]
+        self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in range(2, 5)]
         self.app_name = app_name
         self.app_version = app_version
         if window_name:
@@ -132,7 +142,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # If all cues are unchecked, check default one
         if not action.isChecked():
             checked = False
-            for facility in self.__actions_facility.itervalues():
+            for facility in self.__actions_facility.values():
                 if facility.isChecked():
                     checked = True
             if not checked:
@@ -143,7 +153,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if facility != action.text():
                     self.__actions_facility[facility].setChecked(False)
 
-        for facility in self.__actions_facility.itervalues():
+        for facility in self.__actions_facility.values():
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
                 QtGui.qApp.facility_changed.emit()
@@ -389,7 +399,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __saveSettings(self):
         """Saves the windows settings"""
-        print "Saving: %s" % self.settings.fileName()
+        logger.info('Saving: %s' % self.settings.fileName())
 
         self.__plugins.saveState()
 

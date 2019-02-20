@@ -17,9 +17,12 @@
 Extends QDockWidget to provide a standard setup
 """
 
-from Manifest import os, QtCore, QtGui, QtWidgets
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 from Plugins import Plugin
+
 
 class AbstractDockWidget(Plugin, QtWidgets.QDockWidget):
 

@@ -15,23 +15,15 @@
 #  limitations under the License.
 
 
-
-import sys, os, re, commands, time, optparse, shutil, subprocess
-from subprocess import *
-try:
-    from Manifest import opencue
-except:
-    from psr.manifest.opencue import opencue
-#opencue.loadWrappers()
-from operator import *
-from time import localtime, strftime
 import datetime
-from datetime import timedelta
-import smtplib
-import xml.dom.minidom 
+import functools
 import linecache
-import string
-from itertools import islice
+import os
+import re
+import time
+import xml.dom.minidom
+
+import opencue
 
 
 ###############################################
@@ -222,15 +214,15 @@ class FrameEtaGenerator(object):
         seconds=(hour*3600) + (minute*60) + second
         return seconds
 
-############################################################################### 
-# Reads the SimRender XML to get the frame range
-############################################################################### 
-    def GetSimFrameRange(self,xml_loc):
+    ###############################################################################
+    # Reads the SimRender XML to get the frame range
+    ###############################################################################
+    def GetSimFrameRange(self, xml_loc):
         try:
             name = xml.dom.minidom.parse(xml_loc)
-        except: 
-            Error ("Unable to find xml file to parse at %s" %(xml_loc))
-        
+        except IOError:
+            raise IOError("Unable to find xml file to parse at %s" % xml_loc)
+
         global_tag = name.getElementsByTagName('SimGlobals')[0]
         start_frame = global_tag.getElementsByTagName('start')[0].childNodes[0].nodeValue
         end_frame = global_tag.getElementsByTagName('end')[0].childNodes[0].nodeValue

@@ -13,16 +13,17 @@
 #  limitations under the License.
 
 
-'''
+"""
 A Widget for displaying and editing Tags
-'''
+"""
 
 
 import re
 
-import Constants
+from PySide2 import QtWidgets
+
 from AbstractDialog import CheckBoxSelectionMatrix
-from Manifest import QtCore, QtWidgets
+import Constants
 
 
 class TagsWidget(QtWidgets.QWidget):

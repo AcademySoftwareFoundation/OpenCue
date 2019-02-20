@@ -41,15 +41,21 @@ pluginSaveState() : This should return any settings that the plugin would like
 pluginRestoreState(settings) : This will receive any settings that it previously
                              : returned from pluginSaveSettings()
 """
+
+
 import os
 import sys
 import traceback
 import pickle
 
-from Manifest import QtCore, QtGui, QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 import Logger
 import Constants
 import Utils
+
 
 logger = Logger.getLogger(__file__)
 
@@ -60,6 +66,7 @@ CATEGORY = "CATEGORY"
 SETTINGS_KEY = 0
 SETTINGS_GET = 1
 SETTINGS_SET = 2
+
 
 class Plugins(object):
     # Keyed to name. each is a dictionary with CLASS, DESCRIPTION and optionally CATEGORY
@@ -114,7 +121,7 @@ class Plugins(object):
                     m = __import__(module, globals(), locals(), [s_class])
                     m.init(self.mainWindow)
                     logger.info("plugin loaded %s" % module)
-                except Exception,e:
+                except Exception as e:
                     logger.warning("Failed to load plugin: %s" % s_class)
                     map(logger.warning, Utils.exceptionOutput(e))
 
@@ -145,7 +152,7 @@ class Plugins(object):
             try:
                 if hasattr(plugin[1], "pluginSaveState"):
                         opened.append("%s::%s" % (plugin[0], pickle.dumps(plugin[1].pluginSaveState())))
-            except Exception, e:
+            except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s" % (plugin[0], e))
         QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, opened)
 
@@ -171,7 +178,7 @@ class Plugins(object):
         @type  plugin_state: string"""
         try:
             plugin_class = self.__plugins[plugin_name][CLASS]
-        except KeyError, e:
+        except KeyError:
             logger.warning("Unable to launch previously open plugin, it no longer exists: %s" % plugin_name)
             return
 
@@ -179,7 +186,7 @@ class Plugins(object):
             plugin_instance = plugin_class(self.mainWindow)
             self.__running.append((plugin_name, plugin_instance))
             plugin_instance.closed.connect(self.__closePlugin, QtCore.Qt.QueuedConnection)
-        except Exception, e:
+        except Exception:
             logger.warning("Failed to load plugin module: %s\n%s" % (plugin_name,
                                                                      ''.join(traceback.format_exception(*sys.exc_info())) ))
             return
@@ -191,11 +198,11 @@ class Plugins(object):
                         state = pickle.loads(plugin_state)
                     else:
                         state = None
-                except Exception, e:
+                except Exception as e:
                     logger.warning("Failed to load state information stored as %s for %s, error was: %s" % (plugin_state, plugin_name, e))
                     state = None
                 plugin_instance.pluginRestoreState(state)
-            except Exception, e:
+            except Exception as e:
                 logger.warning("Error restoring plugin state for: %s" % plugin_name)
                 map(logger.warning, Utils.exceptionOutput(e))
 
@@ -246,7 +253,7 @@ class Plugins(object):
 
             self.__plugins[module.PLUGIN_NAME] = newPlugin
 
-        except Exception, e:
+        except Exception as e:
             logger.warning("Failed to load plugin %s\n%s" % (name,
                                                              ''.join(traceback.format_exception(*sys.exc_info())) ))
 

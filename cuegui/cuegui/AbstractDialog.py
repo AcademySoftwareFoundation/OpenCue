@@ -13,7 +13,8 @@
 #  limitations under the License.
 
 
-from Manifest import QtCore, QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 
 class AbstractDialog(QtWidgets.QDialog):

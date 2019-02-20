@@ -42,10 +42,13 @@ Examples:
   Drop all dependencies a job is waiting for
       cuedepend -drop-all -j pipe-dev.cue-chambers_comp_v1
 """
-import os
-import sys
+
+
 import logging
+
 import opencue
+from opencue.compiled_proto import depend_pb2
+
 
 logger = logging.getLogger("opencue.tools.cuedepend")
 
@@ -56,6 +59,7 @@ ERR_INVALID_ER_JOB = "Error, a dependency of this type requires a valid job name
 ERR_INVALID_ER_LAYER = "Error, a dependency of this type requires a valid layer name to depend on. See -layer."
 ERR_INVALID_ER_FRAME = "Error, a dependency of this type requries a valid frame name to depend on. See -frame."
 
+
 def __is_valid(value, error):
     """A couple sanity checks before.  The gRpc library takes
     care of everything else"""
@@ -63,6 +67,7 @@ def __is_valid(value, error):
         raise ValueError(error)
     if isinstance(value, str) and len(value) < 1:
          raise ValueError(error)
+
 
 def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
     """Creates a new dependency of the specified type.
@@ -90,7 +95,7 @@ def createDepend(type, job, layer, frame, onjob, onlayer, onframe):
         logger.debug("assuming internal depend")
         onjob = job
 
-    typeName = opencue.compiled_proto.depend_pb2.DependType.Name(type)
+    typeName = depend_pb2.DependType.Name(type)
     if typeName in ("HARD_DEPEND", "hd"):
         depend = createHardDepend(job, onjob)
     elif typeName in ("JOB_ON_JOB", "joj"):
@@ -198,8 +203,8 @@ def createJobOnFrameDepend(job, onjob, onlayer, onframe):
 
     logger.debug("creating jof depend from %s to %s/%s-%04d"
                  % (job, onjob, onlayer, onframe))
-    depend_er_job = opencue.findJob(job)
-    depend_on_frame = opencue.findFrame(onjob, onlayer, onframe)
+    depend_er_job = opencue.api.findJob(job)
+    depend_on_frame = opencue.api.findFrame(onjob, onlayer, onframe)
     return depend_er_job.createDependencyOnFrame(depend_on_frame)
 
 def createLayerOnJobDepend(job, layer, onjob):

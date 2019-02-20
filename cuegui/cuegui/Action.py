@@ -13,12 +13,15 @@
 #  limitations under the License.
 
 
-"""action.py
-
-    utility functions for creating QActions
 """
+utility functions for creating QActions
+"""
+
+
 import Constants
-from Manifest import QtGui, QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
 
 Actions = {}
 Groups = {}

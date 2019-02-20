@@ -16,14 +16,18 @@
 """
 Allows the creation of a logger.
 """
-import Constants
+
 
 import logging
+
+import Constants
+
 
 __loggerFormat = logging.Formatter(Constants.LOGGER_FORMAT)
 loggerStream = logging.StreamHandler()
 loggerStream.setLevel(getattr(logging, Constants.LOGGER_LEVEL))
 loggerStream.setFormatter(__loggerFormat)
+
 
 def getLogger(name):
     """Returns or creates and returns a logger of the given name.

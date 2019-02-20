@@ -16,13 +16,18 @@
 import os
 import time
 import urllib2
-import subprocess
 import tempfile
 import xml.etree.ElementTree as Et
 
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import Logger
 import Utils
 
-from Manifest import QtCore, QtGui, QtWidgets, opencue
+
+logger = Logger.getLogger(__file__)
+
 
 class PreviewProcessorDialog(QtWidgets.QDialog):
     def __init__(self, job, frame, aovs=False, parent=None):
@@ -132,5 +137,5 @@ class PreviewProcessorWatchThread(QtCore.QThread):
             time.sleep(1)
             if time.time() > self.__timeout + start_time:
                 self.timeout.emit()
-                print "Timed out waiting for preview server."
+                logger.warning('Timed out waiting for preview server.')
                 break

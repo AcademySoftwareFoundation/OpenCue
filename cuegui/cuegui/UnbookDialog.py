@@ -15,8 +15,12 @@
 
 import re
 
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import opencue
+
 from AbstractDialog import AbstractDialog
-from Manifest import QtCore, QtWidgets, opencue
 
 
 class UnbookDialog(AbstractDialog):
@@ -254,7 +258,7 @@ class UnbookDialog(AbstractDialog):
                         elif group:
                             proc.redirectToGroup(group, kill)
                         amount += 1
-                    except Exception, e:
+                    except Exception:
                         pass
                 self.__informationBox("Redirected procs",
                                       "Number of redirected procs: %d" % amount)
@@ -404,7 +408,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         for proc in self.__procs:
             try:
                 proc.kill()
-            except Exception, e:
+            except Exception:
                 pass
 
         if self.__amount == 1:

@@ -13,12 +13,18 @@
 #  limitations under the License.
 
 
-import math
 from copy import deepcopy
+import math
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+from opencue.compiled_proto import job_pb2
+import FileSequence
 
 import Logger
 from FrameMonitorTree import FrameMonitorTree
-from Manifest import QtCore, QtWidgets, opencue, FileSequence
+
 
 log = Logger.getLogger(__file__)
 
@@ -460,14 +466,13 @@ class FrameMonitor(QtWidgets.QWidget):
             for item in self._filterStatusButton.menu().actions():
                 if item.isChecked():
                     if item.text() != "Clear":
-                        __state = getattr(opencue.compiled_proto.job_pb2,
-                                          str(item.text()).upper())
+                        __state = getattr(job_pb2, str(item.text()).upper())
                         states.remove(__state)
                     item.setChecked(False)
         else:
             self.page = 1
             self.frameMonitorTree.frameSearch.page = self.page
-            __state = getattr(opencue.compiled_proto.job_pb2, str(action.text()).upper())
+            __state = getattr(job_pb2, str(action.text()).upper())
             if action.isChecked():
                 states.append(__state)
             else:

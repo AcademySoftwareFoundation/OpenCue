@@ -16,7 +16,15 @@
 """
 A frame list based on AbstractTreeWidget
 """
-from Manifest import os, QtCore, QtGui, QtWidgets, opencue
+
+
+import time
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
 
 import Constants
 import Logger
@@ -24,11 +32,10 @@ import Style
 import Utils
 
 from MenuActions import MenuActions
-from AbstractTreeWidget import *
-from AbstractWidgetItem import *
-from ItemDelegate import HostSwapBarDelegate, HostMemBarDelegate, HostGpuBarDelegate
+from AbstractTreeWidget import AbstractTreeWidget
+from AbstractWidgetItem import AbstractWidgetItem
+from ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
 
-import time
 
 logger = Logger.getLogger(__file__)
 
@@ -157,9 +164,7 @@ class HostMonitorTree(AbstractTreeWidget):
             self._update()
             return
 
-        if self.enableRefresh and \
-           self.ticksWithoutUpdate <= self.updateInterval + 1 and \
-           self.ticksWithoutUpdate >= 0:
+        if self.enableRefresh and self.updateInterval + 1 >= self.ticksWithoutUpdate >= 0:
             self.ticksWithoutUpdate += 1
 
     def updateSoon(self):
@@ -214,7 +219,7 @@ class HostMonitorTree(AbstractTreeWidget):
             # Sorting by name here incase that makes displaying it faster
             hosts.sort(key=lambda host: host.data.name)
             return hosts
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 

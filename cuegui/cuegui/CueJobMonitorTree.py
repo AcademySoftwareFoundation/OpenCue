@@ -15,6 +15,12 @@
 
 import time
 
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
+
+import opencue
+from opencue.compiled_proto.job_pb2 import FrameState
 import Constants
 import Logger
 import Style
@@ -22,8 +28,8 @@ import Utils
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
 from ItemDelegate import JobThinProgressBarDelegate
-from Manifest import QtCore, QtGui, QtWidgets, opencue
 from MenuActions import MenuActions
+
 
 logger = Logger.getLogger(__file__)
 
@@ -33,12 +39,14 @@ COLUMN_MAXRSS = 13
 
 FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
 
+
 def getEta(stats):
     if stats.runningFrames:
         remaining = (((stats.pendingFrames - 1) * stats.avgFrameSec) + stats.highFrameSec)
         if remaining:
             return Utils.secondsToHHHMM(remaining / stats.runningFrames)
     return "-"
+
 
 class CueJobMonitorTree(AbstractTreeWidget):
 
@@ -334,7 +342,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
             nestedShows = [opencue.wrappers.show.Show(show.data).getJobWhiteboard()
                            for show in self.getShows()]
             allIds = set(self.__getNestedIds(nestedShows))
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return None
 
@@ -723,13 +731,13 @@ class JobWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
                 self._cache["FST"] = {
-                    opencue.job_pb2.FrameState.Dead: self.rpcObject.job_stats.dead_frames,
-                    opencue.job_pb2.FrameState.Depend: self.rpcObject.job_stats.depend_frames,
-                    opencue.job_pb2.FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
-                    opencue.job_pb2.FrameState.Running: self.rpcObject.job_stats.running_frames,
-                    opencue.job_pb2.FrameState.Setup: 0,
-                    opencue.job_pb2.FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
-                    opencue.job_pb2.FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
+                    FrameState.Dead: self.rpcObject.job_stats.dead_frames,
+                    FrameState.Depend: self.rpcObject.job_stats.depend_frames,
+                    FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
+                    FrameState.Running: self.rpcObject.job_stats.running_frames,
+                    FrameState.Setup: 0,
+                    FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
+                    FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
                 }
             return self._cache.get("FST", Constants.QVARIANT_NULL)
 

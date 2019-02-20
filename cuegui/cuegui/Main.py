@@ -16,14 +16,20 @@
 """
 Main entry point for the application.
 """
+
+
 import os
+
+from PySide2 import QtCore
+from PySide2 import QtGui
+from PySide2 import QtWidgets
 
 import Constants
 import Logger
 import Style
 from MainWindow import MainWindow
-from Manifest import QtCore, QtGui, QtWidgets
 from ThreadPool import ThreadPool
+
 
 logger = Logger.getLogger(__file__)
 
@@ -85,15 +91,15 @@ def startup(app_name, app_version, argv):
     local = settings.fileName()
     if not os.path.exists(local):
         default = os.path.join(Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
-        print "Not found: %s\nCopying:   %s" % (local, default)
+        logger.warning('Not found: %s\nCopying:   %s' % (local, default))
         try:
             os.mkdir(os.path.dirname(local))
-        except Exception, e:
+        except Exception as e:
             logger.debug(e)
         try:
             import shutil
             shutil.copy2(default, local)
-        except Exception, e:
+        except Exception as e:
             logger.debug(e)
         settings.sync()
 

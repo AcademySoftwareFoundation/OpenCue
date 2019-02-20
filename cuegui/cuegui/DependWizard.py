@@ -16,13 +16,21 @@
 """
 Wizard interface to setting up dependencies.
 """
+
+
 import re
 
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import opencue
 import Cuedepend
 import Logger
 import Utils
-from Manifest import QtCore, QtWidgets, opencue, FileSequence
+
+import FileSequence
 from ProgressDialog import ProgressDialog
+
 
 logger = Logger.getLogger(__file__)
 
@@ -120,7 +128,7 @@ class DependWizard(QtWidgets.QWizard):
             show = self.jobs[0].data.name.split('-')[0]
             self.onJobOptions = [name for name in sorted(opencue.api.getJobNames())
                                  if name.startswith(show)]
-        except Exception, e:
+        except Exception as e:
             logger.critical("Failed getting list of jobs")
             map(logger.critical, Utils.exceptionOutput(e))
 
@@ -458,7 +466,7 @@ class PageSelectFrame(AbstractWizardPage):
                 fs.normalize()
                 self.wizard().frames = map(int, fs.getAll())
                 return True
-            except Exception, e:
+            except Exception as e:
                 map(logger.warning, Utils.exceptionOutput(e))
         return False
 
@@ -621,7 +629,7 @@ class PageSelectOnFrame(AbstractWizardPage):
                 fs.normalize()
                 self.wizard().onFrame = map(int, fs.getAll())
                 return True
-            except Exception, e:
+            except Exception as e:
                 map(logger.warning, Utils.exceptionOutput(e))
         return False
 

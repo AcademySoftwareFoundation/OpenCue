@@ -13,8 +13,9 @@
 #  limitations under the License.
 
 
+from PySide2 import QtWidgets
+
 from AbstractDialog import AbstractDialog
-from Manifest import QtWidgets
 
 
 class RunLocalDialog(AbstractDialog):
@@ -50,4 +51,4 @@ class RunLocalDialog(AbstractDialog):
         layout.addWidget(self.__buttons)
 
     def results(self):
-        return (self.__amountSpinBox.value(), self.__localOnlyCheckBox.isChecked())
+        return self.__amountSpinBox.value(), self.__localOnlyCheckBox.isChecked()

@@ -16,15 +16,20 @@
 """
 Handles the dialog to display/modify a show's tasks
 """
-import Logger
-from Manifest import QtCore, QtWidgets
 
-logger = Logger.getLogger(__file__)
 
-import Utils
-from MenuActions import MenuActions
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
+import Constants
+import Logger
+from MenuActions import MenuActions
+import Utils
+
+
+logger = Logger.getLogger(__file__)
 
 MANAGED_CORES_PREFIX = "Minimum Cores: "
 
@@ -178,7 +183,7 @@ class TaskMonitorTree(AbstractTreeWidget):
                 return self.__department.getTasks()
             else:
                 return []
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 

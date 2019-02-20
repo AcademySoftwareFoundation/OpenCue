@@ -13,17 +13,19 @@
 #  limitations under the License.
 
 
-from opencue.compiled_proto import depend_pb2
+from PySide2 import QtWidgets
 
+from opencue.compiled_proto import depend_pb2
 import Constants
 import Logger
 import Utils
 from AbstractTreeWidget import AbstractTreeWidget
 from AbstractWidgetItem import AbstractWidgetItem
-from Manifest import QtWidgets
 from MenuActions import MenuActions
 
+
 logger = Logger.getLogger(__file__)
+
 
 class DependMonitorTree(AbstractTreeWidget):
     def __init__(self, parent, object):
@@ -66,7 +68,7 @@ class DependMonitorTree(AbstractTreeWidget):
             if hasattr(self.rpcObject, "getDepends"):
                 return self.rpcObject.getDepends()
             return self.rpcObject.getWhatThisDependsOn()
-        except Exception, e:
+        except Exception as e:
             map(logger.warning, Utils.exceptionOutput(e))
             return []
 

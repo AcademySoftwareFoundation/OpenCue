@@ -16,13 +16,16 @@
 """
 Provides extended QWidgetItem functionality.
 """
-from Manifest import os, sys, time, QtCore, QtGui, QtWidgets
+
+
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 import Constants
 import Style
 
-import traceback
 import Logger
+
 
 logger = Logger.getLogger(__file__)
 
@@ -30,6 +33,7 @@ NAME = 0
 WIDTH = 1
 DISPLAY_LAMBDA = 2
 SORT_LAMBDA = 3
+
 
 class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
     def __init__(self, itemType, object, parent, source=None):
