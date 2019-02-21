@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+from builtins import str
 import pickle
 
 from PySide2 import QtCore
@@ -228,7 +229,7 @@ class CommentListDialog(QtWidgets.QDialog):
         elif selection == PREDEFINED_COMMENT_ADD:
             commentMacroDialog = CommentMacroDialog("", "", "", self)
             if commentMacroDialog.exec_():
-                (name, subject, message) = commentMacroDialog.values()
+                (name, subject, message) = list(commentMacroDialog.values())
                 self.__macroList[name] = [subject, message]
                 self.__macroSave()
                 self.__macroRefresh()
@@ -250,7 +251,7 @@ class CommentListDialog(QtWidgets.QDialog):
                                                             self.__macroList[comment][1],
                                                             self)
                     if commentMacroDialog.exec_():
-                        (name, subject, message) = commentMacroDialog.values()
+                        (name, subject, message) = list(commentMacroDialog.values())
 
                         if name != comment:
                             del self.__macroList[comment]
@@ -323,9 +324,9 @@ class CommentMacroDialog(QtWidgets.QDialog):
 
     def __save(self):
         """Validates and then exits from the dialog in success"""
-        if self.values()[0] != "" and \
-           self.values()[1] != "" and \
-           self.values()[0] not in (PREDEFINED_COMMENT_HEADER,
+        if list(self.values())[0] != "" and \
+           list(self.values())[1] != "" and \
+           list(self.values())[0] not in (PREDEFINED_COMMENT_HEADER,
                                     PREDEFINED_COMMENT_ADD,
                                     PREDEFINED_COMMENT_EDIT,
                                     PREDEFINED_COMMENT_DELETE):

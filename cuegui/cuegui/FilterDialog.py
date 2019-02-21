@@ -19,6 +19,8 @@ Handles the dialog to display/modify a show's filters, matchers and actions
 from __future__ import absolute_import
 
 
+from builtins import map
+from builtins import str
 import re
 
 from PySide2 import QtCore
@@ -167,7 +169,7 @@ class FilterMonitorTree(AbstractTreeWidget):
         try:
             return self.__show.getFilters()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
@@ -225,7 +227,7 @@ class MatcherMonitorTree(AbstractTreeWidget):
             if self.__filter:
                 return self.__filter.getMatchers()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
         return []
 
     def __getMatcherSubjectDialog(self):
@@ -272,7 +274,7 @@ class MatcherMonitorTree(AbstractTreeWidget):
             if result == QtWidgets.QMessageBox.Yes:
                 self._itemsLock.lockForWrite()
                 try:
-                    for item in self._items.values():
+                    for item in list(self._items.values()):
                         item.rpcObject.delete()
                 finally:
                     self._itemsLock.unlock()
@@ -372,7 +374,7 @@ class ActionMonitorTree(AbstractTreeWidget):
             if self.__filter:
                 return self.__filter.getActions()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
         return []
 
     def contextMenuEvent(self, e):
@@ -464,7 +466,7 @@ class ActionMonitorTree(AbstractTreeWidget):
                         self,
                         "Create Action",
                         "What group should it move to?",
-                        groups.keys(),
+                        list(groups.keys()),
                         0,
                         False)
                     value = groups[str(group)]
@@ -492,7 +494,7 @@ class ActionMonitorTree(AbstractTreeWidget):
             if result == QtWidgets.QMessageBox.Yes:
                 self._itemsLock.lockForWrite()
                 try:
-                    for item in self._items.values():
+                    for item in list(self._items.values()):
                         item.rpcObject.delete()
                 finally:
                     self._itemsLock.unlock()
@@ -715,7 +717,7 @@ class ActionWidgetItem(AbstractWidgetItem):
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                 widget = NoWheelComboBox(self.parent())
-                widget.addItems(self.treeWidget().groupNames.keys())
+                widget.addItems(list(self.treeWidget().groupNames.keys()))
                 widget.currentIndexChanged.connect(self.__setValue)
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
@@ -753,7 +755,7 @@ class ActionWidgetItem(AbstractWidgetItem):
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
             name = self.treeWidget().groupIds[self.rpcObject.value()].name()
-            index = self.treeWidget().groupNames.keys().index(name)
+            index = list(self.treeWidget().groupNames.keys()).index(name)
             self.__widgets["ActionValue"].setCurrentIndex(index)
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):

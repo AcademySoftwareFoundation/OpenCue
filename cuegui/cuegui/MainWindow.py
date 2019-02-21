@@ -16,9 +16,13 @@
 """
 All windows are an instance of this MainWindow.
 """
+
+
 from __future__ import absolute_import
 
 
+from builtins import str
+from builtins import range
 import sys
 
 from PySide2 import QtCore
@@ -87,7 +91,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def displayStartupNotice(self):
         import time
         now = int(time.time())
-        lastView = self.settings.value("LastNotice", 0)
+        lastView = int(self.settings.value("LastNotice", 0))
         if lastView < Constants.STARTUP_NOTICE_DATE:
             QtWidgets.QMessageBox.information(self, "Notice", Constants.STARTUP_NOTICE_MSG,
                                               QtWidgets.QMessageBox.Ok)
@@ -143,7 +147,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # If all cues are unchecked, check default one
         if not action.isChecked():
             checked = False
-            for facility in self.__actions_facility.values():
+            for facility in list(self.__actions_facility.values()):
                 if facility.isChecked():
                     checked = True
             if not checked:
@@ -154,7 +158,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if facility != action.text():
                     self.__actions_facility[facility].setChecked(False)
 
-        for facility in self.__actions_facility.values():
+        for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
                 QtGui.qApp.facility_changed.emit()

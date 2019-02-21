@@ -16,6 +16,8 @@
 """a module for handling global style setup"""
 
 
+import importlib
+
 from PySide2 import QtGui
 
 
@@ -32,7 +34,7 @@ Font = None
 def loadColorTheme(name):
     """changes the running color scheme of the app"""
     global ColorTheme
-    ColorTheme = __import__("%s" % name, globals(), locals())
+    ColorTheme = importlib.import_module('.%s' % name, package='cuegui')
     ColorTheme.init()
 
 
@@ -40,8 +42,7 @@ def setIconTheme(name):
     """stes the icon theme for the app, not sure if this
     can be changed on the fly yet"""
     global IconTheme
-    module = "images.%s.icons_rcc" % name
-    IconTheme = __import__(module,  globals(), locals())
+    IconTheme = importlib.import_module('.icons_rcc', package='cuegui.images.%s' % name)
 
 
 def setFont(font):

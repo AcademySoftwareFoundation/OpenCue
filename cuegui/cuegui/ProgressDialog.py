@@ -19,6 +19,8 @@ A progress dialog that accepts a list of work units and displays the progress.
 from __future__ import absolute_import
 
 
+from builtins import map
+from builtins import range
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
@@ -122,7 +124,7 @@ class ProgressDialog(QtWidgets.QDialog):
                 self.__function(*work)
             except Exception as e:
                 logger.warning("Work unit returned exception:")
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def __doneWork(self, work, result):
         """Called when a work unit is done, updates progress, exits if done

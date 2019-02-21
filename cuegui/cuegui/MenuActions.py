@@ -17,8 +17,13 @@
 Provides actions and functions for right click menu items.
 """
 from __future__ import absolute_import
+from __future__ import division
 
 
+from builtins import filter
+from builtins import str
+from past.utils import old_div
+from builtins import object
 import glob
 import subprocess
 import time
@@ -26,6 +31,7 @@ import time
 import pexpect
 from PySide2 import QtGui
 from PySide2 import QtWidgets
+import six
 
 import opencue
 import FileSequence
@@ -74,31 +80,31 @@ class AbstractActions(object):
         return self.__selectedRpcObjects()
 
     def _getOnlyJobObjects(self, rpcObjects):
-        return filter(Utils.isJob, self._getSelected(rpcObjects))
+        return list(filter(Utils.isJob, self._getSelected(rpcObjects)))
 
     def _getOnlyLayerObjects(self, rpcObjects):
-        return filter(Utils.isLayer, self._getSelected(rpcObjects))
+        return list(filter(Utils.isLayer, self._getSelected(rpcObjects)))
 
     def _getOnlyFrameObjects(self, rpcObjects):
-        return filter(Utils.isFrame, self._getSelected(rpcObjects))
+        return list(filter(Utils.isFrame, self._getSelected(rpcObjects)))
 
     def _getOnlyShowObjects(self, rpcObjects):
-        return filter(Utils.isShow, self._getSelected(rpcObjects))
+        return list(filter(Utils.isShow, self._getSelected(rpcObjects)))
 
     def _getOnlyRootGroupObjects(self, rpcObjects):
-        return filter(Utils.isRootGroup, self._getSelected(rpcObjects))
+        return list(filter(Utils.isRootGroup, self._getSelected(rpcObjects)))
 
     def _getOnlyGroupObjects(self, rpcObjects):
-        return filter(Utils.isGroup, self._getSelected(rpcObjects))
+        return list(filter(Utils.isGroup, self._getSelected(rpcObjects)))
 
     def _getOnlyHostObjects(self, rpcObjects):
-        return filter(Utils.isHost, self._getSelected(rpcObjects))
+        return list(filter(Utils.isHost, self._getSelected(rpcObjects)))
 
     def _getOnlyProcObjects(self, rpcObjects):
-        return filter(Utils.isProc, self._getSelected(rpcObjects))
+        return list(filter(Utils.isProc, self._getSelected(rpcObjects)))
 
     def _getOnlyTaskObjects(self, rpcObjects):
-        return filter(Utils.isTask, self._getSelected(rpcObjects))
+        return list(filter(Utils.isTask, self._getSelected(rpcObjects)))
 
     def createAction(self, menu, title, tip = None, callback = None, icon = None):
         if not tip:
@@ -141,7 +147,7 @@ class AbstractActions(object):
 
             if not callback:
                 callback = actionName
-            if isinstance(callback, str):
+            if isinstance(callback, six.string_types):
                 callback = getattr(self, callback)
 
             action.triggered.connect(callback)
@@ -403,7 +409,7 @@ class JobActions(AbstractActions):
         if not choice: return
 
         body = "What order should the range %s take?" % range
-        items = opencue.compiled_proto.job_pb2.Order.keys()
+        items = list(opencue.compiled_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -550,7 +556,7 @@ class LayerActions(AbstractActions):
     def setMinMemoryKb(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            current = max([layer.data.minMemory / 1048576 for layer in layers])
+            current = max([old_div(layer.data.minMemory, 1048576) for layer in layers])
             title = "Set minimum amount of memory required"
             body = "Please enter the new minimum amount of memory in GB that frames in the selected layer(s) should require:"
             (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
@@ -559,7 +565,7 @@ class LayerActions(AbstractActions):
                                                            0.01, 64.0, 1)
             if choice:
                 for layer in layers:
-                    layer.setMinMemory(long(value * 1048576))
+                    layer.setMinMemory(int(value * 1048576))
                 self._update()
 
     useLocalCores_info = ["Use local cores...",
@@ -677,7 +683,7 @@ class LayerActions(AbstractActions):
             return
 
         body = "What order should the range %s take?" % range
-        items = opencue.compiled_proto.job_pb2.Order.keys()
+        items = list(opencue.compiled_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,
@@ -916,7 +922,7 @@ class FrameActions(AbstractActions):
 
         title = "Reorder %s" % __job.data.name
         body = "How should these frames be reordered?"
-        items = opencue.compiled_proto.job_pb2.Order.keys()
+        items = list(opencue.compiled_proto.job_pb2.Order.keys())
         (order, choice) = QtWidgets.QInputDialog.getItem(self._caller,
                                                      title,
                                                      body,

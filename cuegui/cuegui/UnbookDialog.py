@@ -15,6 +15,9 @@
 
 from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
+from builtins import object
 import re
 
 from PySide2 import QtCore
@@ -225,7 +228,7 @@ class UnbookDialog(AbstractDialog):
                     show=[show.data.name])])
                 dialog = SelectItemsWithSearchDialog(self,
                                                      "Redirect to which job?",
-                                                     jobs.keys(),
+                                                     list(jobs.keys()),
                                                      QtWidgets.QAbstractItemView.SingleSelection)
                 dialog.exec_()
                 selected = dialog.selected()

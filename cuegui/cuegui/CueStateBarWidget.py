@@ -14,7 +14,9 @@
 
 
 from __future__ import absolute_import
+from __future__ import division
 
+from past.utils import old_div
 import threading
 import time
 import weakref
@@ -76,7 +78,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         docLength = scrollBar.maximum() + scrollBar.pageStep()
         pos = yPos * docLength/float(self.height())
 
-        scrollBar.setValue(int(pos - scrollBar.pageStep()/2))
+        scrollBar.setValue(int(pos - old_div(scrollBar.pageStep(),2)))
 
     def paintEvent(self, event):
         """Called when the widget is being redrawn

@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 
+from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 

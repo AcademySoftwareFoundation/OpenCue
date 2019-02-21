@@ -18,8 +18,12 @@ Utility functions.
 """
 from __future__ import print_function
 from __future__ import absolute_import
+from __future__ import division
 
 
+from builtins import str
+from builtins import map
+from past.utils import old_div
 import os
 import re
 import subprocess
@@ -300,7 +304,7 @@ def handleExceptions(function):
         try:
             return function(*args)
         except Exception as e:
-            map(logger.warning, exceptionOutput(e))
+            list(map(logger.warning, exceptionOutput(e)))
     return new
 
 
@@ -363,7 +367,7 @@ def memoryToString(kmem, unit = None):
     if unit == "K" or not unit and kmem < k:
         return "%dK" % kmem
     if unit == "M" or not unit and kmem < pow(k,2):
-        return "%dM" % (kmem / k)
+        return "%dM" % (old_div(kmem, k))
     if unit == "G" or not unit and kmem < pow(k,3):
         return "%.01fG" % (float(kmem) / pow(k,2))
 

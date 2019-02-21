@@ -19,6 +19,7 @@ A frame list based on AbstractTreeWidget
 from __future__ import absolute_import
 
 
+from builtins import map
 import time
 
 from PySide2 import QtCore
@@ -141,7 +142,7 @@ class ProcMonitorTree(AbstractTreeWidget):
                 return []
             return opencue.api.getProcs(**self.procSearch.options)
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return []
 
     def _createItem(self, object, parent = None):

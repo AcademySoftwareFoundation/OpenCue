@@ -17,8 +17,12 @@
 Provides extended QTreeWidget functionality.
 """
 from __future__ import absolute_import
+from __future__ import division
 
 
+from builtins import map
+from builtins import range
+from past.utils import old_div
 import time
 
 from PySide2 import QtCore
@@ -224,7 +228,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             try:
                 self.tick()
             except Exception as e:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
         finally:
             self.ticksLock.unlock()
 
@@ -393,7 +397,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
         if hasattr(self, "ticksWithoutUpdate"):
             self.ticksWithoutUpdate = self.updateInterval - \
-                                      Constants.AFTER_ACTION_UPDATE_DELAY / 1000
+                                      old_div(Constants.AFTER_ACTION_UPDATE_DELAY, 1000)
         else:
             QtCore.QTimer.singleShot(Constants.AFTER_ACTION_UPDATE_DELAY,
                                      self.updateRequest)
@@ -407,7 +411,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                 # "underlying C/C++ object has been deleted"
                 #self.setDirtyRegion(QtGui.QRegion(self.viewport().rect()))
             except Exception as e:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def getColumnWidths(self):
         """Return the column widths

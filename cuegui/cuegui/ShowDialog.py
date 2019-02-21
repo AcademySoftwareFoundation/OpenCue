@@ -19,6 +19,7 @@ Displays the show dialog with show configuration options
 from __future__ import absolute_import
 
 
+from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 

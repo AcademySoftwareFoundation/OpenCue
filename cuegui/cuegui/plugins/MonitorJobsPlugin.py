@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from builtins import str
+from builtins import map
 import re
 import weakref
 
@@ -75,7 +77,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
         self.raise_()
 
     def getJobIds(self):
-        return map(opencue.id, self.jobMonitor.getJobProxies())
+        return list(map(opencue.id, self.jobMonitor.getJobProxies()))
 
     def restoreJobIds(self, jobIds):
         for jobId in jobIds:

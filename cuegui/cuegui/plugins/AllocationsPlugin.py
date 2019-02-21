@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 
+from builtins import map
 from PySide2 import QtGui, QtWidgets
 
 import opencue
@@ -89,7 +90,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
         try:
             return opencue.api.getAllocations()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):

@@ -19,6 +19,9 @@ A frame list based on AbstractTreeWidget
 from __future__ import absolute_import
 
 
+from builtins import str
+from builtins import map
+from builtins import object
 import datetime
 import glob
 import os
@@ -251,7 +254,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 self.dataChanged(self.indexFromItem(items[0], RUNTIME_COLUMN),
                                  self.indexFromItem(items[-1], LASTLINE_COLUMN))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def __sortByColumnSave(self, logicalIndex, order):
         """Stores the new sort order with the current job's id
@@ -408,7 +411,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 return self.__job.getFrames(**self.frameSearch.options)
             return []
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def _getUpdateChanged(self):
         """Returns the updated data from the cuebot
@@ -434,7 +437,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 logger.warning("Forcing a full update due to: %s" % e.message)
                 return None
             else:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
 
         logger.info(" - %s" % self.__class__)
         return updatedFrames
@@ -458,7 +461,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             finally:
                 self._itemsLock.unlock()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def _processUpdateChanged(self, work, rpcObjects):
         """Update existing TreeWidgetItems if an item already exists for the rpcObject.
@@ -486,7 +489,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             self.redraw()
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def _updateFrame(self, updatedFrame):
         """Update the frame object on a WidgetItem with the values from a UpdatedFrame object.
@@ -495,7 +498,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         logger.info("_updateFrame")
         frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
         if frameWidget:
-            for field in job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys():
+            for field in list(job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys()):
                 if field != "id":
                     setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
@@ -555,7 +558,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         results = {}
         for frame in self.selectedObjects():
             results[frame.layer()] = True
-        self.handle_filter_layers_byLayer[str].emit(results.keys())
+        self.handle_filter_layers_byLayer[str].emit(list(results.keys()))
 
 class FrameWidgetItem(AbstractWidgetItem):
     __initialized = False
@@ -703,7 +706,7 @@ class FrameLogDataBuffer(object):
                 # Since nothing is updated yet, return an empty string
                 return (self.__defaultLine, self.__defaultLLU)
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def __doWork(self):
         """Pops work from the queue and returns the proxy and last log line"""
@@ -717,7 +720,7 @@ class FrameLogDataBuffer(object):
                 else:
                     return None
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def __saveWork(self, work, results):
         """Stores the resulting last log line to the cache with the proxy key"""
@@ -731,7 +734,7 @@ class FrameLogDataBuffer(object):
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
 class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
@@ -788,7 +791,7 @@ class FrameEtaDataBuffer(object):
         except Exception as e:
             self.__cache[frameKey] = [__now,
                                          None]
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
 
         return self.__defaultETA
 
@@ -797,7 +800,7 @@ class FrameEtaDataBuffer(object):
         try:
             return (proxy, eta.ETASeconds(job, frame))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return (proxy, self.__defaultETA)
 
     def __saveWork(self, work, results):
@@ -811,4 +814,4 @@ class FrameEtaDataBuffer(object):
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))

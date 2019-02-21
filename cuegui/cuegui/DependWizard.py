@@ -19,6 +19,9 @@ Wizard interface to setting up dependencies.
 from __future__ import absolute_import
 
 
+from builtins import map
+from builtins import str
+from builtins import range
 import re
 
 from PySide2 import QtCore
@@ -131,7 +134,7 @@ class DependWizard(QtWidgets.QWizard):
                                  if name.startswith(show)]
         except Exception as e:
             logger.critical("Failed getting list of jobs")
-            map(logger.critical, Utils.exceptionOutput(e))
+            list(map(logger.critical, Utils.exceptionOutput(e)))
 
 ################################################################################
 
@@ -465,10 +468,10 @@ class PageSelectFrame(AbstractWizardPage):
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
-                self.wizard().frames = map(int, fs.getAll())
+                self.wizard().frames = list(map(int, fs.getAll()))
                 return True
             except Exception as e:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
         return False
 
     def nextId(self):
@@ -628,10 +631,10 @@ class PageSelectOnFrame(AbstractWizardPage):
             try:
                 fs = FileSequence.FrameSet(frames)
                 fs.normalize()
-                self.wizard().onFrame = map(int, fs.getAll())
+                self.wizard().onFrame = list(map(int, fs.getAll()))
                 return True
             except Exception as e:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
         return False
 
     def nextId(self):

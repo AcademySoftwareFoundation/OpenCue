@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 
+from builtins import str
 import os
 import re
 import weakref

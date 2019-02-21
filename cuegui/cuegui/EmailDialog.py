@@ -19,8 +19,14 @@ Displays the email dialog when emailing an artist.
 from __future__ import absolute_import
 
 
-from email.MIMEText import MIMEText
-from email.Header import Header
+from builtins import str
+from builtins import map
+try:
+    from email.MIMEText import MIMEText
+    from email.Header import Header
+except ImportError:
+    from email.mime.text import MIMEText
+    from email.header import Header
 import os
 import pwd
 import smtplib
@@ -138,7 +144,7 @@ class LogViewWidget(QtWidgets.QWidget):
             fp.close()
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             logger.info("error loading frame: %s, %s" % (str_frame, e))
 
     def findEvent(self):

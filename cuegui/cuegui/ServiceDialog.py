@@ -15,8 +15,12 @@
 
 """Service related widgets."""
 from __future__ import absolute_import
+from __future__ import division
 
 
+from builtins import str
+from builtins import range
+from past.utils import old_div
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -108,8 +112,8 @@ class ServiceForm(QtWidgets.QWidget):
         self.threadable.setChecked(self.__service.threadable)
         self.min_cores.setValue(self.__service.min_cores)
         self.max_cores.setValue(self.__service.max_cores)
-        self.min_memory.setValue(self.__service.min_memory / 1024)
-        self.min_gpu.setValue(self.__service.min_gpu / 1024)
+        self.min_memory.setValue(old_div(self.__service.min_memory, 1024))
+        self.min_gpu.setValue(old_div(self.__service.min_gpu, 1024))
 
         self._tags_w.set_tags(self.__service.tags)
 

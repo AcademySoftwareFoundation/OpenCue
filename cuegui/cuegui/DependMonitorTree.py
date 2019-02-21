@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+from builtins import map
 from PySide2 import QtWidgets
 
 from opencue.compiled_proto import depend_pb2
@@ -71,7 +72,7 @@ class DependMonitorTree(AbstractTreeWidget):
                 return self.rpcObject.getDepends()
             return self.rpcObject.getWhatThisDependsOn()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):

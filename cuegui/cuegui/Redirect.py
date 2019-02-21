@@ -20,6 +20,9 @@ job to another job.
 from __future__ import absolute_import
 
 
+from past.builtins import cmp
+from builtins import str
+from builtins import range
 import os
 import re
 import time
@@ -191,7 +194,7 @@ class GroupFilter(QtWidgets.QPushButton):
 
     def getChecked(self):
         return [str(action.text()) for action in
-                self.__actions.values() if action.isChecked()]
+                list(self.__actions.values()) if action.isChecked()]
 
 
 class RedirectControls(QtWidgets.QWidget):
@@ -549,7 +552,7 @@ class RedirectWidget(QtWidgets.QWidget):
         # Gather Selected Procs
         procs_by_alloc = self.__get_selected_procs_by_alloc(selected_items)
         show_name = job.show()
-        for alloc, procs in procs_by_alloc.items():
+        for alloc, procs in list(procs_by_alloc.items()):
             if not self.__is_cross_show_safe(procs, show_name):  # Cross-show
                 return
             if not self.__is_burst_safe(alloc, procs, show_name):  # At burst

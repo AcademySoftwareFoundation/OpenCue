@@ -15,6 +15,9 @@
 #  limitations under the License.
 
 
+from __future__ import division
+from builtins import object
+from past.utils import old_div
 import datetime
 import functools
 import linecache
@@ -101,7 +104,7 @@ class FrameEtaGenerator(object):
             self.percents.append((0,0))
             self.percents=sorted(self.percents, reverse=True)
             if len(self.percents) > 1:
-                self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(100/(self.percents[0][0]-self.percents[-1][0]))
+                self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(old_div(100,(self.percents[0][0]-self.percents[-1][0])))
             
     def Svea(self, frame):
         if os.path.isfile(self.log):
@@ -114,7 +117,7 @@ class FrameEtaGenerator(object):
                         line=line.split(' ')
                         current=float(line[16])
                         total=float(line[18].split('\n')[0])
-                        percent=float(current/total) * 100
+                        percent=float(old_div(current,total)) * 100
                         self.percents.append((percent,time_on_log))
                         if len(self.percents) > 1:
                             break
@@ -122,9 +125,9 @@ class FrameEtaGenerator(object):
                         pass
             if len(self.percents) > 1:
                 self.percents=sorted(self.percents, reverse=True)
-                self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(100/(self.percents[0][0]-self.percents[-1][0]))
+                self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(old_div(100,(self.percents[0][0]-self.percents[-1][0])))
                 self.time_passed=self.percents[0][1]
-                self.time_left=self.total_completion*((100-self.percents[0][0])/100)
+                self.time_left=self.total_completion*(old_div((100-self.percents[0][0]),100))
             else:
                 self.percents.append((0,0))
 
@@ -155,9 +158,9 @@ class FrameEtaGenerator(object):
                 else:
                     if self.percents[0][0]==self.percents[-1][0]:
                         self.percents[-1]=(self.percents[0][0]-5,self.scene_build_seconds)
-                    self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(100/(self.percents[0][0]-self.percents[-1][0]))
+                    self.total_completion=(self.percents[0][1]-self.percents[-1][1])*(old_div(100,(self.percents[0][0]-self.percents[-1][0])))
                 time_passed=self.percents[0][1]
-                self.time_left=self.total_completion*((100-self.percents[0][0])/100)
+                self.time_left=self.total_completion*(old_div((100-self.percents[0][0]),100))
             else:
                 self.percents.append((0,0))
 

@@ -19,6 +19,7 @@ A Widget for displaying and editing Tags
 from __future__ import absolute_import
 
 
+from builtins import str
 import re
 
 from PySide2 import QtWidgets

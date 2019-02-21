@@ -19,6 +19,8 @@ Handles the dialog to display/modify a show's tasks
 from __future__ import absolute_import
 
 
+from builtins import map
+from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -185,7 +187,7 @@ class TaskMonitorTree(AbstractTreeWidget):
             else:
                 return []
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):

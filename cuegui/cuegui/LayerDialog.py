@@ -14,7 +14,9 @@
 
 
 from __future__ import absolute_import
+from __future__ import division
 
+from past.utils import old_div
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
@@ -160,7 +162,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         ## GPU Memory
         self.__gpu = SlideSpinner(self)
         self.__gpu.slider.setMinimumWidth(200)
-        self.__gpu.slider.setRange(self.gpu_min_kb, self.gpu_max_kb / self.gpu_tick_kb)
+        self.__gpu.slider.setRange(self.gpu_min_kb, old_div(self.gpu_max_kb, self.gpu_tick_kb))
         self.__gpu.slider.setTickInterval(1)
         self.__gpu.slider.setSingleStep(1)
         self.__gpu.slider.setPageStep(1)
@@ -282,7 +284,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def getMaxGpu(self):
-        return max([layer.data.min_gpu / self.gpu_tick_kb for layer in self.__layers])
+        return max([old_div(layer.data.min_gpu, self.gpu_tick_kb) for layer in self.__layers])
 
     def getMinCores(self):
         result = 0
@@ -324,7 +326,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__gpu.spinner.setValue(float(value * self.gpu_tick_kb) / 1024.0 / 1024.0)
 
     def __translateToGpuSlider(self, value):
-        self.__gpu.slider.setValue(int(value * 1024.0 * 1024.0) / self.gpu_tick_kb)
+        self.__gpu.slider.setValue(old_div(int(value * 1024.0 * 1024.0), self.gpu_tick_kb))
 
 
 class LayerTagsWidget(QtWidgets.QWidget):

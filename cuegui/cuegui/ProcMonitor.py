@@ -15,6 +15,7 @@
 
 from __future__ import absolute_import
 
+from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets

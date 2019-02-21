@@ -15,9 +15,11 @@
 
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
 import os
 import time
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import tempfile
 import xml.etree.ElementTree as Et
 
@@ -59,7 +61,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         if self.__aovs:
             aovs = "/aovs"
  
-        playlist = urllib2.urlopen("http://%s:%d%s" % (http_host, http_port, aovs)).read()
+        playlist = urllib.request.urlopen("http://%s:%d%s" % (http_host, http_port, aovs)).read()
         for element in Et.fromstring(playlist).findall("page/edit/element"):
             items.append(element.text)
 

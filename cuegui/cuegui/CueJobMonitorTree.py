@@ -14,7 +14,11 @@
 
 
 from __future__ import absolute_import
+from __future__ import division
 
+from builtins import str
+from builtins import map
+from past.utils import old_div
 import time
 
 from PySide2 import QtCore
@@ -46,7 +50,7 @@ def getEta(stats):
     if stats.runningFrames:
         remaining = (((stats.pendingFrames - 1) * stats.avgFrameSec) + stats.highFrameSec)
         if remaining:
-            return Utils.secondsToHHHMM(remaining / stats.runningFrames)
+            return Utils.secondsToHHHMM(old_div(remaining, stats.runningFrames))
     return "-"
 
 
@@ -318,16 +322,16 @@ class CueJobMonitorTree(AbstractTreeWidget):
         """Returns a list of monitored show objects
         @rtype:  list<show>
         @return: List of monitored show objects"""
-        return self.__shows.values()
+        return list(self.__shows.values())
 
     def getShowNames(self):
         """Returns a list of monitored shows
         @rtype:  list<str>
         @return: List of monitored shows"""
-        return self.__shows.keys()
+        return list(self.__shows.keys())
 
     def __getCollapsed(self):
-        return [item.rpcObject for item in self._items.values() if not item.isExpanded()]
+        return [item.rpcObject for item in list(self._items.values()) if not item.isExpanded()]
 
     def __setCollapsed(self, collapsed):
         self.expandAll()
@@ -345,7 +349,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            for show in self.getShows()]
             allIds = set(self.__getNestedIds(nestedShows))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return None
 
         return [nestedShows, allIds]

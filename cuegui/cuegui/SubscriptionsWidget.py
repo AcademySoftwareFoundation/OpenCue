@@ -14,7 +14,10 @@
 
 
 from __future__ import absolute_import
+from __future__ import division
 
+from builtins import str
+from past.utils import old_div
 import opencue
 
 from PySide2 import QtCore
@@ -147,10 +150,10 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
                        data=lambda sub: sub.data.allocation_name)
         self.addColumn("Usage", 70, id=2,
                        data=lambda sub: (sub.data.size and
-                                         ("%.2f%%" % (sub.data.reserved_cores/sub.data.size * 100))
+                                         ("%.2f%%" % (old_div(sub.data.reserved_cores,sub.data.size * 100)))
                                          or 0),
                        sort=lambda sub: (sub.data.size and
-                                         sub.data.reserved_cores/sub.data.size or 0))
+                                         old_div(sub.data.reserved_cores,sub.data.size) or 0))
         self.addColumn("Size", 70, id=3,
                        data=lambda sub: sub.data.size,
                        sort=lambda sub: sub.data.size)

@@ -44,6 +44,9 @@ pluginRestoreState(settings) : This will receive any settings that it previously
 from __future__ import absolute_import
 
 
+from builtins import str
+from builtins import map
+from builtins import object
 import os
 import sys
 import traceback
@@ -124,7 +127,7 @@ class Plugins(object):
                     logger.info("plugin loaded %s" % module)
                 except Exception as e:
                     logger.warning("Failed to load plugin: %s" % s_class)
-                    map(logger.warning, Utils.exceptionOutput(e))
+                    list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def __closePlugin(self, object):
         """When a running plugin is closed, this is called and the running
@@ -196,7 +199,10 @@ class Plugins(object):
             try:
                 try:
                     if plugin_state:
-                        state = pickle.loads(plugin_state)
+                        try:
+                            state = pickle.loads(bytes(plugin_state, encoding='latin1'))
+                        except TypeError:
+                            state = pickle.loads(plugin_state)
                     else:
                         state = None
                 except Exception as e:
@@ -205,7 +211,7 @@ class Plugins(object):
                 plugin_instance.pluginRestoreState(state)
             except Exception as e:
                 logger.warning("Error restoring plugin state for: %s" % plugin_name)
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, Utils.exceptionOutput(e)))
 
     def loadPluginPath(self, plugin_dir):
         """This will load all plugin modules located in the path provided
@@ -267,7 +273,7 @@ class Plugins(object):
         # Create the submenus (ordered)
         submenus = {}
         menu_locations = {"root": []}
-        for category in set([plugin[CATEGORY] for plugin in self.__plugins.values()
+        for category in set([plugin[CATEGORY] for plugin in list(self.__plugins.values())
                              if CATEGORY in plugin]):
             submenus[category] = QtWidgets.QMenu(category, menu)
             menu.addMenu(submenus[category])

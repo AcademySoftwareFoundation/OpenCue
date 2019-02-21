@@ -19,6 +19,7 @@ A monitored job list based on AbstractTreeWidget
 from __future__ import absolute_import
 
 
+from builtins import map
 import time
 
 from PySide2 import QtCore
@@ -228,7 +229,7 @@ class JobMonitorTree(AbstractTreeWidget):
             self.ticksLock.unlock()
 
     def getJobProxies(self):
-        return self._items.keys()
+        return list(self._items.keys())
 
     def _removeItem(self, item):
         """Removes an item from the TreeWidget without locking
@@ -241,7 +242,7 @@ class JobMonitorTree(AbstractTreeWidget):
     def removeAllItems(self):
         """Notifies the other widgets of each item being unmonitored, then calls
         the the AbstractTreeWidget.removeAllItems like normal"""
-        for proxy in self._items.keys():
+        for proxy in list(self._items.keys()):
             QtGui.qApp.unmonitor.emit(proxy)
             if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
@@ -356,7 +357,7 @@ class JobMonitorTree(AbstractTreeWidget):
 
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
-            for item in self._items.values():
+            for item in list(self._items.values()):
                 objectKey = Utils.getObjectKey(item.rpcObject)
                 if item.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
                     # Reuse the old object if job is finished
@@ -372,7 +373,7 @@ class JobMonitorTree(AbstractTreeWidget):
                     jobs[objectKey] = job
 
                 # Prune the users jobs from the remaining proxies to update
-                for proxy, job in jobs.items():
+                for proxy, job in list(jobs.items()):
                     if proxy in monitored_proxies:
                         monitored_proxies.remove(proxy)
 
@@ -382,7 +383,7 @@ class JobMonitorTree(AbstractTreeWidget):
                     jobs[objectKey] = job
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
             return None
 
         return jobs
@@ -394,7 +395,7 @@ class JobMonitorTree(AbstractTreeWidget):
         self._itemsLock.lockForWrite()
 
         # include rpcObjects from self._items that are not in jobObjects
-        for proxy, item in self._items.items():
+        for proxy, item in list(self._items.items()):
             if not proxy in jobObjects:
                 jobObjects[proxy] = item.rpcObject
 
@@ -403,13 +404,13 @@ class JobMonitorTree(AbstractTreeWidget):
             scrolled = self.verticalScrollBar().value()
 
             # Store the creation time for the current item
-            for item in self._items.values():
+            for item in list(self._items.values()):
                 self.__jobTimeLoaded[Utils.getObjectKey(item.rpcObject)] = item.created
 
             self._items = {}
             self.clear()
 
-            for proxy, job in jobObjects.items():
+            for proxy, job in list(jobObjects.items()):
                 self._items[proxy] = JobWidgetItem(job,
                                                    self.invisibleRootItem(),
                                                    self.__jobTimeLoaded.get(proxy, None))
@@ -419,7 +420,7 @@ class JobMonitorTree(AbstractTreeWidget):
             self.verticalScrollBar().setValue(scrolled)
             [self._items[key].setSelected(True) for key in selectedKeys if key in self._items]
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, Utils.exceptionOutput(e)))
         finally:
             self._itemsLock.unlock()
 

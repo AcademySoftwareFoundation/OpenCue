@@ -1,3 +1,4 @@
+from __future__ import division
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,6 +14,10 @@
 #  limitations under the License.
 
 
+from builtins import next
+from builtins import str
+from builtins import range
+from past.utils import old_div
 import os
 import re
 import string
@@ -252,12 +257,13 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
         painter = QtGui.QPainter(self._line_num_area)
         block = self.firstVisibleBlock()
+        block_it = block.iterator()
         block_number = block.blockNumber()
         block_geo = self.blockBoundingGeometry(block)
         top = block_geo.translated(self.contentOffset()).top()
         bottom = top + self.blockBoundingRect(block).height()
         height = self.fontMetrics().height()
-        while block.isValid() and (top <= event.rect().bottom()):
+        while not block_it.atEnd() and block.isValid() and (top <= event.rect().bottom()):
             if block.isVisible() and (bottom >= event.rect().top()):
                 number = str(block_number + 1)
                 painter.setPen(QtGui.QColor(QtCore.Qt.yellow).lighter(30))
@@ -267,7 +273,8 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
                                  height,
                                  QtCore.Qt.AlignRight,
                                  number)
-            block = next(block)
+            block = block_it.fragment()
+            block_it += 1
             top = bottom
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1
@@ -796,7 +803,7 @@ class LogViewWidget(QtWidgets.QWidget):
             if log_size > 5 * 1e6:
                 content = ('Log file size (%0.1f MB) exceeds the size '
                            'threshold (5.0 MB).'
-                           % float(log_size/(1024 * 1024)))
+                           % float(old_div(log_size,(1024 * 1024))))
             elif not self._new_log and os.path.exists(self._log_file):
                 log_mtime = os.path.getmtime(self._log_file)
                 if log_mtime > self._log_mtime:
@@ -818,7 +825,7 @@ class LogViewWidget(QtWidgets.QWidget):
         # Update the content in the gui (if necessary)
         current_text = (self._content_box.toPlainText() or '')
         new_text = content.lstrip(str(current_text))
-        filter(lambda x: x in PRINTABLE, new_text)
+        [x for x in new_text if x in PRINTABLE]
         if new_text:
             if self._new_log:
                 self._content_box.setPlainText(content)

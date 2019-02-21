@@ -13,6 +13,8 @@
 #  limitations under the License.
 
 
+from builtins import map
+from builtins import str
 import time
 
 import cuegui
@@ -132,7 +134,7 @@ class Attributes(QtWidgets.QWidget):
                 work["preload"] = work["function"].preload(work["item"])
                 return work
         except Exception as e:
-            map(logger.warning, cuegui.Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __processResults(self, work, result):
         """Unpacks the worker thread results and calls function to create widget"""
@@ -152,7 +154,7 @@ class Attributes(QtWidgets.QWidget):
                 self.__stack.removeWidget(oldWidget)
                 oldWidget.setParent(QtWidgets.QWidget())
         except Exception as e:
-            map(logger.warning, cuegui.Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
 
 class AbstractAttributes(QtWidgets.QTreeWidget):
@@ -162,11 +164,11 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
         def addData(parent, value):
             if isinstance(value, dict):
                 if "__childOrder" in value:
-                    full_keys = [k for k in value.keys() if k != "__childOrder"]
+                    full_keys = [k for k in list(value.keys()) if k != "__childOrder"]
                     keys = value.get("__childOrder", full_keys)
                     keys = keys + list(set(full_keys).difference(set(keys)))
                 else:
-                    keys = value.keys()
+                    keys = list(value.keys())
 
                 for key in keys:
                     child = QtWidgets.QTreeWidgetItem([str(key)])
