@@ -18,6 +18,9 @@ Project: opencue Library
 
 Module: exception.py - Provides opencue access to exceptions
 """
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 
 class CueException(Exception):

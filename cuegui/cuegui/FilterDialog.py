@@ -17,6 +17,8 @@
 Handles the dialog to display/modify a show's filters, matchers and actions
 """
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 
 from builtins import map

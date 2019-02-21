@@ -14,6 +14,9 @@
 
 
 """a module for handling global style setup"""
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 
 import importlib

@@ -20,6 +20,8 @@ The opencue Static API.  This is exported into the package namespace.
 Project: opencue Library
 """
 from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from . import search
 from . import util
