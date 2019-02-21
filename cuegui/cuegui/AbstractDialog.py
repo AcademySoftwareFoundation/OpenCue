@@ -1,4 +1,3 @@
-from __future__ import division
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,8 +13,9 @@ from __future__ import division
 #  limitations under the License.
 
 
+from __future__ import division
 from builtins import str
-from past.utils import old_div
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -60,7 +60,7 @@ class CheckBoxSelectionMatrix(QtWidgets.QWidget):
             box = QtWidgets.QCheckBox(item, self.__group)
             box.setChecked(item in checkedOptions)
             self.__checkBoxes.append(box)
-            self.__group_layout.addWidget(box, old_div(index, 2), index % 2)
+            self.__group_layout.addWidget(box, index // 2, index % 2)
 
         self.__group.setLayout(self.__group_layout)
         layout.addWidget(self.__group)
