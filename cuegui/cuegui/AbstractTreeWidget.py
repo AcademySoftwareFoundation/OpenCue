@@ -16,14 +16,14 @@
 """
 Provides extended QTreeWidget functionality.
 """
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from builtins import map
 from builtins import range
-from past.utils import old_div
 import time
 
 from PySide2 import QtCore
@@ -398,7 +398,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
         if hasattr(self, "ticksWithoutUpdate"):
             self.ticksWithoutUpdate = self.updateInterval - \
-                                      old_div(Constants.AFTER_ACTION_UPDATE_DELAY, 1000)
+                                      Constants.AFTER_ACTION_UPDATE_DELAY // 1000
         else:
             QtCore.QTimer.singleShot(Constants.AFTER_ACTION_UPDATE_DELAY,
                                      self.updateRequest)

@@ -19,7 +19,6 @@ from __future__ import print_function
 
 from builtins import str
 from builtins import map
-from past.utils import old_div
 import time
 
 from PySide2 import QtCore
@@ -51,7 +50,7 @@ def getEta(stats):
     if stats.runningFrames:
         remaining = (((stats.pendingFrames - 1) * stats.avgFrameSec) + stats.highFrameSec)
         if remaining:
-            return Utils.secondsToHHHMM(old_div(remaining, stats.runningFrames))
+            return Utils.secondsToHHHMM(remaining // stats.runningFrames)
     return "-"
 
 
