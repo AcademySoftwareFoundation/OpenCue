@@ -28,7 +28,12 @@ except ImportError:
     from email.mime.text import MIMEText
     from email.header import Header
 import os
-import pwd
+# pwd is not available on Windows.
+# TODO(bcipriano) Clean this up.
+try:
+    import pwd
+except ImportError:
+    pass
 import smtplib
 
 from PySide2 import QtCore
@@ -168,6 +173,13 @@ class EmailWidget(QtWidgets.QWidget):
 
         self.__job = job
 
+        # Temporary workaround when pwd library is not available (i.e. Windows).
+        # TODO(bcipriano) Clean this up.
+        if 'pwd' in globals():
+            user_name = pwd.getpwnam(job.username()).pw_gecos
+        else:
+            user_name = job.username()
+
         __default_from = "%s-pst@%s" % (job.show(), Constants.EMAIL_DOMAIN)
         __default_to = "%s@%s" % (job.username(), Constants.EMAIL_DOMAIN)
         __default_cc = "%s-pst@%s" % (job.show(), Constants.EMAIL_DOMAIN)
@@ -175,7 +187,7 @@ class EmailWidget(QtWidgets.QWidget):
         __default_subject = "%s%s" % (Constants.EMAIL_SUBJECT_PREFIX, job.data.name)
         __default_body = "%s%s%s" % (Constants.EMAIL_BODY_PREFIX, job.data.name,
                                      Constants.EMAIL_BODY_SUFFIX)
-        __default_body += "Hi %s,\n\n" % pwd.getpwnam(job.username()).pw_gecos
+        __default_body += "Hi %s,\n\n" % user_name
 
         self.__btnSend = QtWidgets.QPushButton("Send", self)
         self.__btnCancel = QtWidgets.QPushButton("Cancel", self)

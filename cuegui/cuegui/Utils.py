@@ -198,11 +198,14 @@ def getUsername():
     """Returns the username that this process is running under"""
     global __USERNAME
     if not __USERNAME:
-        import pwd
         try:
-            __USERNAME = pwd.getpwuid(os.getuid()).pw_name
-        except KeyError:
-            __USERNAME = str(os.getuid())
+            import pwd
+            try:
+                __USERNAME = pwd.getpwuid(os.getuid()).pw_name
+            except KeyError:
+                __USERNAME = str(os.getuid())
+        except ImportError:
+            __USERNAME = os.getlogin()
     return __USERNAME
 
 
