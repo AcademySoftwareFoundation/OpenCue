@@ -16,10 +16,11 @@
 """
 Displays the email dialog when emailing an artist.
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from builtins import str
 from builtins import map
@@ -31,7 +32,8 @@ except ImportError:
     from email.header import Header
 import os
 # pwd is not available on Windows.
-# TODO(bcipriano) Clean this up.
+# TODO(bcipriano) Remove this, not needed once user info can come directly from Cuebot.
+#  (https://github.com/imageworks/OpenCue/issues/218)
 try:
     import pwd
 except ImportError:
@@ -176,7 +178,8 @@ class EmailWidget(QtWidgets.QWidget):
         self.__job = job
 
         # Temporary workaround when pwd library is not available (i.e. Windows).
-        # TODO(bcipriano) Clean this up.
+        # TODO(bcipriano) Pull this info directly from Cuebot.
+        #  (https://github.com/imageworks/OpenCue/issues/218)
         if 'pwd' in globals():
             user_name = pwd.getpwnam(job.username()).pw_gecos
         else:

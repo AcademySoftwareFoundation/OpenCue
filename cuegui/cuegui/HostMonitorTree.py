@@ -16,14 +16,14 @@
 """
 A frame list based on AbstractTreeWidget
 """
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-
 from builtins import map
 from builtins import str
-from past.utils import old_div
 import time
 
 from PySide2 import QtCore
@@ -60,8 +60,8 @@ class HostMonitorTree(AbstractTreeWidget):
                        tip="A comment icon will appear if a host has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("Load %", 55, id=3,
-                       data=lambda host: ("%3.0f%%" % (old_div(host.data.load, host.data.cores))),
-                       sort=lambda host: (old_div(host.data.load, host.data.cores)),
+                       data=lambda host: ("%3.0f%%" % (host.data.load / host.data.cores)),
+                       sort=lambda host: (host.data.load / host.data.cores),
                        tip="The host load average compared to the number of cores\n"
                            "as a percent. Meaning a load of 8 on an 8 core machine\n"
                            "will show 100%. A percentage much over 100% is an\n"

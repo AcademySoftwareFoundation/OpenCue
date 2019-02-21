@@ -16,14 +16,14 @@
 """
 Utility functions.
 """
+
+
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
-
 from builtins import str
 from builtins import map
-from past.utils import old_div
 import os
 import re
 import subprocess
@@ -370,7 +370,7 @@ def memoryToString(kmem, unit = None):
     if unit == "K" or not unit and kmem < k:
         return "%dK" % kmem
     if unit == "M" or not unit and kmem < pow(k,2):
-        return "%dM" % (old_div(kmem, k))
+        return "%dM" % (kmem // k)
     if unit == "G" or not unit and kmem < pow(k,3):
         return "%.01fG" % (float(kmem) / pow(k,2))
 

@@ -20,7 +20,6 @@ from __future__ import print_function
 from builtins import map
 from builtins import str
 from builtins import range
-from past.utils import old_div
 import time
 import os
 from socket import gethostname
@@ -214,16 +213,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__stack.setCurrentIndex(1)
                 self.__btn_clear.setText("Clear")
                 self.__btn_clear.setDisabled(False)
-                self.__run_cores.setRange(1, int(host.data.idleCores) + old_div(rp.maxCores, 100))
-                self.__run_cores.setValue(old_div(rp.maxCores, 100))
-                self.__run_mem.setRange(1, int(old_div(host.data.totalMemory, 1024 / 1024)))
-                self.__run_mem.setValue(int(old_div(rp.maxMemory, 1024 / 1024)))
+                self.__run_cores.setRange(1, int(host.data.idleCores) + rp.maxCores // 100)
+                self.__run_cores.setValue(rp.maxCores // 100)
+                self.__run_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
+                self.__run_mem.setValue(int(rp.maxMemory / 1024 / 1024))
 
             else:
                 self.__stack.setCurrentIndex(0)
                 self.__num_frames.setRange(1, host.data.idleCores)
                 self.__num_threads.setRange(1, host.data.idleCores)
-                self.__num_mem.setRange(1, int(old_div(host.data.totalMemory, 1024 / 1024)))
+                self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__num_threads.setRange(1, host.data.idleCores)
         except Exception as e:
             list(map(logger.warning, Utils.exceptionOutput(e)))

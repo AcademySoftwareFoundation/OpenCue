@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +12,6 @@ from __future__ import absolute_import
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
 # -*- coding: utf-8 -*-
 
 # Resource object code
@@ -25,9 +21,15 @@ from __future__ import absolute_import
 #
 # WARNING! All changes made in this file will be lost!
 
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 from PySide2 import QtCore
 
-qt_resource_data = "\
+
+qt_resource_data = b"\
 \x00\x00\x03\x34\
 \x89\
 \x50\x4e\x47\x0d\x0a\x1a\x0a\x00\x00\x00\x0d\x49\x48\x44\x52\x00\
@@ -14277,7 +14279,7 @@ qt_resource_data = "\
 \x5f\x00\x00\x00\x00\x49\x45\x4e\x44\xae\x42\x60\x82\
 "
 
-qt_resource_name = "\
+qt_resource_name = b"\
 \x00\x11\
 \x01\x09\x06\x67\
 \x00\x73\
@@ -14353,7 +14355,7 @@ qt_resource_name = "\
 \x00\x74\x00\x6f\x00\x63\x00\x6b\x00\x2d\x00\x72\x00\x65\x00\x74\x00\x72\x00\x79\x00\x2e\x00\x70\x00\x6e\x00\x67\
 "
 
-qt_resource_struct = "\
+qt_resource_struct = b"\
 \x00\x00\x00\x00\x00\x02\x00\x00\x00\x11\x00\x00\x00\x01\
 \x00\x00\x02\x42\x00\x00\x00\x00\x00\x01\x00\x03\x74\x8d\
 \x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\

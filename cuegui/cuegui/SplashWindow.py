@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,8 +13,11 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+
 from builtins import object
-from past.utils import old_div
 import os
 import time
 
@@ -88,7 +88,7 @@ class SplashWindow(object):
         painter = QtGui.QPainter(image)
         painter.fillRect(image.rect(), QtGui.QBrush(QtGui.QColor(50, 50, 50)))
         font = QtGui.QFont("serif",
-                           min((old_div(self.WIDTH, len(app_name)))*1.4, 250), 75, True)
+                           min(self.WIDTH / len(app_name) * 1.4, 250), 75, True)
         painter.setFont(font)
         painter.setPen(QtGui.QColor(80, 80, 80))
         painter.drawText(30, image.height() - 60, app_name)

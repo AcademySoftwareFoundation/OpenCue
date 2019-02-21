@@ -1,6 +1,3 @@
-from __future__ import division
-from __future__ import print_function
-from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +13,12 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
-from builtins import next
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+
 from builtins import str
 from builtins import range
-from past.utils import old_div
 import os
 import re
 import string
@@ -27,6 +26,7 @@ import time
 import cuegui
 
 from PySide2 import QtGui, QtCore, QtWidgets
+
 
 PLUGIN_NAME = 'LogView'
 PLUGIN_CATEGORY = 'Other'
@@ -805,7 +805,7 @@ class LogViewWidget(QtWidgets.QWidget):
             if log_size > 5 * 1e6:
                 content = ('Log file size (%0.1f MB) exceeds the size '
                            'threshold (5.0 MB).'
-                           % float(old_div(log_size,(1024 * 1024))))
+                           % float(log_size / (1024 * 1024)))
             elif not self._new_log and os.path.exists(self._log_file):
                 log_mtime = os.path.getmtime(self._log_file)
                 if log_mtime > self._log_mtime:

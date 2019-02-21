@@ -18,7 +18,6 @@ from __future__ import division
 from __future__ import print_function
 
 from builtins import str
-from past.utils import old_div
 from copy import deepcopy
 import math
 
@@ -130,7 +129,7 @@ class FrameMonitor(QtWidgets.QWidget):
             if _min == _max:
                 _max += 1
 
-            self.frameRangeSelection.default_select_size = old_div(1000,len(layers))
+            self.frameRangeSelection.default_select_size = 1000 // len(layers)
 
             self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
 

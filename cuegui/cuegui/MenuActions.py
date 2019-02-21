@@ -16,6 +16,8 @@
 """
 Provides actions and functions for right click menu items.
 """
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -23,7 +25,6 @@ from __future__ import print_function
 
 from builtins import filter
 from builtins import str
-from past.utils import old_div
 from builtins import object
 import glob
 import subprocess
@@ -557,13 +558,11 @@ class LayerActions(AbstractActions):
     def setMinMemoryKb(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            current = max([old_div(layer.data.minMemory, 1048576) for layer in layers])
+            current = max([layer.data.minMemory / 1048576 for layer in layers])
             title = "Set minimum amount of memory required"
             body = "Please enter the new minimum amount of memory in GB that frames in the selected layer(s) should require:"
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
-                                                           title, body,
-                                                           current,
-                                                           0.01, 64.0, 1)
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current, 0.01, 64.0, 1)
             if choice:
                 for layer in layers:
                     layer.setMinMemory(int(value * 1048576))
