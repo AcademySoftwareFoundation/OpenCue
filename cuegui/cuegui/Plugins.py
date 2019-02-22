@@ -45,6 +45,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import json
 
 from builtins import str
 from builtins import map
@@ -72,6 +73,11 @@ CATEGORY = "CATEGORY"
 SETTINGS_KEY = 0
 SETTINGS_GET = 1
 SETTINGS_SET = 2
+
+try:
+    JSON_EXCEPTION_CLASS = json.decoder.JSONDecodeError
+except AttributeError:
+    JSON_EXCEPTION_CLASS = ValueError
 
 
 class Plugins(object):
@@ -157,7 +163,7 @@ class Plugins(object):
         for plugin in self.__running:
             try:
                 if hasattr(plugin[1], "pluginSaveState"):
-                        opened.append("%s::%s" % (plugin[0], pickle.dumps(plugin[1].pluginSaveState())))
+                    opened.append("%s::%s" % (plugin[0], json.dumps(plugin[1].pluginSaveState())))
             except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s" % (plugin[0], e))
         QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, opened)
@@ -201,10 +207,17 @@ class Plugins(object):
             try:
                 try:
                     if plugin_state:
+                        # Earlier versions of CueGUI saved data via pickle; fall back to that if
+                        # valid JSON is not found.
                         try:
-                            state = pickle.loads(bytes(plugin_state, encoding='latin1'))
-                        except TypeError:
-                            state = pickle.loads(plugin_state)
+                            state = json.loads(plugin_state)
+                        except JSON_EXCEPTION_CLASS:
+                            # Python 2 doesn't support the same bytes() options, but that's ok
+                            # because the pickled data is already in the format we need.
+                            try:
+                                state = pickle.loads(bytes(plugin_state, encoding='latin1'))
+                            except TypeError:
+                                state = pickle.loads(plugin_state)
                     else:
                         state = None
                 except Exception as e:
