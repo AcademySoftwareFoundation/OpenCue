@@ -27,14 +27,15 @@ from PySide2 import QtWidgets
 
 import opencue
 from opencue.compiled_proto.job_pb2 import FrameState
-from . import Constants
-from . import Logger
-from . import Style
-from . import Utils
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from .ItemDelegate import JobThinProgressBarDelegate
-from .MenuActions import MenuActions
+
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Style
+from cuegui import Utils
+from cuegui.AbstractTreeWidget import AbstractTreeWidget
+from cuegui.AbstractWidgetItem import AbstractWidgetItem
+from cuegui.ItemDelegate import JobThinProgressBarDelegate
+from cuegui.MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)

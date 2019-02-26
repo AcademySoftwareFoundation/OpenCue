@@ -18,13 +18,15 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-from . import Logger
-from .HostMonitorTree import HostMonitorTree
+
+from cuegui import Logger
+from cuegui.HostMonitorTree import HostMonitorTree
 
 
 log = Logger.getLogger(__file__)

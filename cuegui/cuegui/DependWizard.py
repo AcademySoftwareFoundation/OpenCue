@@ -16,10 +16,11 @@
 """
 Wizard interface to setting up dependencies.
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from builtins import map
 from builtins import str
@@ -29,13 +30,13 @@ import re
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import opencue
-from . import Cuedepend
-from . import Logger
-from . import Utils
-
 import FileSequence
-from .ProgressDialog import ProgressDialog
+import opencue
+
+from cuegui import Cuedepend
+from cuegui import Logger
+from cuegui import Utils
+from cuegui.ProgressDialog import ProgressDialog
 
 
 logger = Logger.getLogger(__file__)

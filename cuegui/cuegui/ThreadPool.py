@@ -40,17 +40,18 @@ def someWork(unit):
 def someWorkCallback(work, result):
     print result
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from builtins import range
 import os
 
 from PySide2 import QtCore
 
-from . import Logger
+from cuegui import Logger
 
 
 logger = Logger.getLogger(__file__)

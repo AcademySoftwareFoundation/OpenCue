@@ -32,15 +32,15 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from . import Constants
-from . import Logger
-from . import Style
-from . import Utils
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Style
+from cuegui import Utils
 
-from .MenuActions import MenuActions
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from .ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
+from cuegui.MenuActions import MenuActions
+from cuegui.AbstractTreeWidget import AbstractTreeWidget
+from cuegui.AbstractWidgetItem import AbstractWidgetItem
+from cuegui.ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
 
 
 logger = Logger.getLogger(__file__)

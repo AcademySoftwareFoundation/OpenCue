@@ -18,13 +18,14 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from . import Logger
-from .ProcMonitorTree import ProcMonitorTree
-from . import Utils
+from cuegui import Logger
+from cuegui import Utils
+from cuegui.ProcMonitorTree import ProcMonitorTree
 
 
 log = Logger.getLogger(__file__)

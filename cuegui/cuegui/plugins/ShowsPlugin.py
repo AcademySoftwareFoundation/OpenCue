@@ -17,7 +17,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import cuegui
+import cuegui.AbstractDockWidget
+import cuegui.ShowsWidget
 
 
 PLUGIN_NAME = "Shows"
@@ -27,12 +28,12 @@ PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "ShowsDockWidget"
 
 
-class ShowsDockWidget(cuegui.AbstractDockWidget):
+class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
         cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__showsWidget = cuegui.ShowsWidget(self)
+        self.__showsWidget = cuegui.ShowsWidget.ShowsWidget(self)
 
         self.layout().addWidget(self.__showsWidget)
 

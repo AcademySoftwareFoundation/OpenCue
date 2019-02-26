@@ -25,7 +25,7 @@ from __future__ import division
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from .Plugins import Plugin
+from cuegui.Plugins import Plugin
 
 
 class AbstractDockWidget(Plugin, QtWidgets.QDockWidget):

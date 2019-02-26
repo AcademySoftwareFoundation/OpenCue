@@ -20,7 +20,8 @@ from __future__ import absolute_import
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import cuegui
+import cuegui.AbstractDockWidget
+import cuegui.SubscriptionsWidget
 
 
 PLUGIN_NAME = "Subscriptions"
@@ -30,15 +31,15 @@ PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "SubscriptionDockWidget"
 
 
-class SubscriptionDockWidget(cuegui.AbstractDockWidget):
+class SubscriptionDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Horizontal)
         self.layout().addWidget(self.__splitter)
 
-        self.__subscriptionsWidget = cuegui.SubscriptionsWidget(self)
+        self.__subscriptionsWidget = cuegui.SubscriptionsWidget.SubscriptionsWidget(self)
         #self.__graphSubscriptionsWidget = cuegui.GraphSubscriptionsWidget(self)
 
         self.__splitter.addWidget(self.__subscriptionsWidget)

@@ -33,10 +33,10 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from . import Constants
-from . import Logger
-from . import Plugins
-from . import Utils
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Plugins
+from cuegui import Utils
 
 
 logger = Logger.getLogger(__file__)

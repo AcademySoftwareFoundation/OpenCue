@@ -21,21 +21,30 @@ from builtins import map
 from builtins import str
 import time
 
-import cuegui
+from PySide2 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
 import opencue
+import opencue.compiled_proto
+
+import cuegui.AbstractDockWidget
+import cuegui.Logger
+import cuegui.Utils
+
 
 logger = cuegui.Logger.getLogger(__file__)
-
-from PySide2 import QtGui, QtCore, QtWidgets
 
 PLUGIN_NAME = "Attributes"
 PLUGIN_CATEGORY = "Other"
 PLUGIN_DESCRIPTION = "Displays entity attributes"
 PLUGIN_PROVIDES = "AttributesPlugin"
 
-class AttributesPlugin(cuegui.AbstractDockWidget):
+
+class AttributesPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(
+            self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__attributes = Attributes(self)
         self.layout().addWidget(self.__attributes)
 

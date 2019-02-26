@@ -17,7 +17,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import cuegui
+import cuegui.AbstractDockWidget
+import cuegui.Redirect
 
 
 PLUGIN_NAME = "Redirect"
@@ -26,7 +27,8 @@ PLUGIN_DESCRIPTION = "Redirect procs from one job to another."
 PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "RedirectWidget"
 
-class RedirectWidget(cuegui.AbstractDockWidget):
+
+class RedirectWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
-        self.layout().addWidget(cuegui.RedirectWidget(self))
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        self.layout().addWidget(cuegui.Redirect.RedirectWidget(self))

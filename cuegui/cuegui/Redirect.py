@@ -17,10 +17,11 @@
 An interface for redirecting resources from one
 job to another job.
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from past.builtins import cmp
 from builtins import str
@@ -35,7 +36,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from . import Utils
+from cuegui import Utils
 
 
 # The concept here is that there is a target job that needs

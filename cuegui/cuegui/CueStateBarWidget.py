@@ -25,7 +25,7 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from . import Logger
+from cuegui import Logger
 
 
 logger = Logger.getLogger(__file__)

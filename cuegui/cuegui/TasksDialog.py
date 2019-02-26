@@ -16,22 +16,24 @@
 """
 Handles the dialog to display/modify a show's tasks
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
 from builtins import map
 from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from . import Constants
-from . import Logger
-from .MenuActions import MenuActions
-from . import Utils
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Utils
+from cuegui.AbstractTreeWidget import AbstractTreeWidget
+from cuegui.AbstractWidgetItem import AbstractWidgetItem
+from cuegui.MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)

@@ -16,18 +16,19 @@
 """
 A Widget for displaying and editing Tags
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from builtins import str
 import re
 
 from PySide2 import QtWidgets
 
-from .AbstractDialog import CheckBoxSelectionMatrix
-from . import Constants
+from cuegui import Constants
+from cuegui.AbstractDialog import CheckBoxSelectionMatrix
 
 
 class TagsWidget(QtWidgets.QWidget):

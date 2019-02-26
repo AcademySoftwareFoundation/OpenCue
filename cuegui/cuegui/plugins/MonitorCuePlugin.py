@@ -28,16 +28,16 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import AbstractDockWidget
-from cuegui import Action
-from cuegui import Constants
-from cuegui import CueJobMonitorTree
-from cuegui import CueStateBarWidget
-from cuegui import Logger
-from cuegui import Utils
+import cuegui.AbstractDockWidget
+import cuegui.Action
+import cuegui.Constants
+import cuegui.CueJobMonitorTree
+import cuegui.CueStateBarWidget
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Monitor Cue"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -46,12 +46,12 @@ PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
-class MonitorCueDockWidget(AbstractDockWidget):
+class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__monitorCue = CueJobMonitorTree(self)
+        self.__monitorCue = cuegui.CueJobMonitorTree.CueJobMonitorTree(self)
         self.__toolbar = QtWidgets.QToolBar(self)
         self.__showMenuSetup()
         self.__expandAllSetup()
@@ -88,7 +88,7 @@ class MonitorCueDockWidget(AbstractDockWidget):
 
     def __cueStateBarSetup(self, layout):
         if QtGui.qApp.settings.value("CueStateBar", False):
-            self.__cueStateBar = CueStateBarWidget(self.__monitorCue, self)
+            self.__cueStateBar = cuegui.CueStateBarWidget.CueStateBarWidget(self.__monitorCue, self)
             layout.addWidget(self.__cueStateBar)
 
     def __expandAllSetup(self):
@@ -159,7 +159,7 @@ class MonitorCueDockWidget(AbstractDockWidget):
         self.__showMenu = QtWidgets.QMenu(self)
         self.__showMenuBtn.setMenu(self.__showMenu)
         self.__showMenuBtn.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__showMenu.setFont(Constants.STANDARD_FONT)
+        self.__showMenu.setFont(cuegui.Constants.STANDARD_FONT)
         self.__showMenu.triggered.connect(self.__showMenuHandle)
         QtGui.qApp.facility_changed.connect(self.__showMenuUpdate)
 
@@ -263,7 +263,7 @@ class MonitorCueDockWidget(AbstractDockWidget):
                                           QtWidgets.QAbstractItemView.PositionAtTop)
 
     def __selectJobsHandleMine(self):
-        self.__selectJobsHandle("-%s_" % Utils.getUsername())
+        self.__selectJobsHandle("-%s_" % cuegui.Utils.getUsername())
 
 ################################################################################
 # Displays the last selected job name in a text box
@@ -273,7 +273,7 @@ class MonitorCueDockWidget(AbstractDockWidget):
         self.__jobSelectedLineEdit = QtWidgets.QLineEdit()
         self.__jobSelectedLineEdit.setMaximumWidth(300)
         self.__jobSelectedLineEdit.setFocusPolicy(QtCore.Qt.NoFocus)
-        self.__jobSelectedLineEdit.setFont(Constants.STANDARD_FONT)
+        self.__jobSelectedLineEdit.setFont(cuegui.Constants.STANDARD_FONT)
         self.__toolbar.addWidget(self.__jobSelectedLineEdit)
         self.__monitorCue.single_click.connect(self.__jobSelectedHandle)
 
@@ -296,7 +296,7 @@ class MonitorCueDockWidget(AbstractDockWidget):
         """Called on plugin start with any previously saved state.
         @param settings: Last state of the plugin instance
         @type  settings: any"""
-        AbstractDockWidget.pluginRestoreState(self, settings)
+        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
 
         self.__monitorCue._update()
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
@@ -308,7 +308,7 @@ class JobSelectEditBox(QtWidgets.QLineEdit):
         QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
-        self.setFont(Constants.STANDARD_FONT)
+        self.setFont(cuegui.Constants.STANDARD_FONT)
         self.setFixedWidth(200)
         self.setMaxLength(100)
 
@@ -318,12 +318,12 @@ class JobSelectEditBox(QtWidgets.QLineEdit):
         @param event: Click QEvent"""
         menu = QtWidgets.QMenu(self)
 
-        menu.addAction(Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                             "Select matching jobs (Enter)",
                                             "Select matching jobs",
                                             self._actionSelect))
 
-        menu.addAction(Action.create(self,
+        menu.addAction(cuegui.Action.create(self,
                                             "Clear",
                                             "Clear text",
                                             self.actionClear))

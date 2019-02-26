@@ -39,9 +39,9 @@ from yaml.scanner import ScannerError
 
 import opencue
 
-from . import Logger
-from .ConfirmationDialog import ConfirmationDialog
-from .Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
+from cuegui import Logger
+from cuegui.ConfirmationDialog import ConfirmationDialog
+from cuegui.Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
 
 
 logger = Logger.getLogger(__file__)

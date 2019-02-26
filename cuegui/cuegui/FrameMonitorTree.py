@@ -16,10 +16,11 @@
 """
 A frame list based on AbstractTreeWidget
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 from builtins import str
 from builtins import map
@@ -37,15 +38,15 @@ from PySide2 import QtWidgets
 import opencue
 from opencue.compiled_proto import job_pb2
 
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from .AbstractWidgetItem import SORT_LAMBDA
-from . import Constants
-from . import eta
-from . import Logger
-from .MenuActions import MenuActions
-from . import Style
-from . import Utils
+from cuegui import Constants
+from cuegui import eta
+from cuegui import Logger
+from cuegui import Style
+from cuegui import Utils
+from cuegui.AbstractTreeWidget import AbstractTreeWidget
+from cuegui.AbstractWidgetItem import AbstractWidgetItem
+from cuegui.AbstractWidgetItem import SORT_LAMBDA
+from cuegui.MenuActions import MenuActions
 
 
 logger = Logger.getLogger(__file__)

@@ -45,9 +45,10 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-from . import Logger
-from . import Utils
-from . import Constants
+
+from cuegui import Logger
+from cuegui import Utils
+from cuegui import Constants
 
 
 logger = Logger.getLogger(__file__)

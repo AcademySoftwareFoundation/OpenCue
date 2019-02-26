@@ -27,7 +27,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from .AbstractDialog import AbstractDialog
+from cuegui.AbstractDialog import AbstractDialog
 
 
 class UnbookDialog(AbstractDialog):

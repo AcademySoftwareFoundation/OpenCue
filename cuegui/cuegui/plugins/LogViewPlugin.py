@@ -23,9 +23,12 @@ import os
 import re
 import string
 import time
-import cuegui
 
-from PySide2 import QtGui, QtCore, QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import cuegui.AbstractDockWidget
 
 
 PLUGIN_NAME = 'LogView'
@@ -843,7 +846,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._scrollbar_value = self._log_scrollbar.value()
 
 
-class LogViewPlugin(cuegui.AbstractDockWidget):
+class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
     """
     Plugin for displaying the log file content for the selected frame with
     the ability to perform regex-based search
@@ -856,6 +859,7 @@ class LogViewPlugin(cuegui.AbstractDockWidget):
         @param parent: The parent widget
         @type parent: QtWidgets.QWidget or None
         """
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(
+            self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__logview_widget = LogViewWidget(self)
         self.layout().addWidget(self.__logview_widget)

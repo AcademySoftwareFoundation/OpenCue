@@ -24,11 +24,11 @@ import math
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from opencue.compiled_proto import job_pb2
 import FileSequence
+from opencue.compiled_proto import job_pb2
 
-from . import Logger
-from .FrameMonitorTree import FrameMonitorTree
+from cuegui import Logger
+from cuegui.FrameMonitorTree import FrameMonitorTree
 
 
 log = Logger.getLogger(__file__)

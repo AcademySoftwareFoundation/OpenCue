@@ -35,29 +35,28 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 import six
 
-import opencue
 import FileSequence
-
+import opencue
 import opencue.compiled_proto.job_pb2
-from . import Action
-from . import Utils
-from . import Logger
-from . import Constants
-from . import CreatorDialog
-from . import PreviewWidget
 
-from .DependDialog import DependDialog
-from .DependWizard import DependWizard
-from .EmailDialog import EmailDialog
-from .FilterDialog import FilterDialog
-from .LocalBooking import LocalBookingDialog
-from .Comments import CommentListDialog
-from .ShowDialog import ShowDialog
-from .LayerDialog import LayerTagsDialog, LayerPropertiesDialog
-from .GroupDialog import NewGroupDialog, ModifyGroupDialog
-from .UnbookDialog import UnbookDialog
-from .ServiceDialog import ServiceDialog
-from .TasksDialog import TasksDialog
+from cuegui import Action
+from cuegui import Utils
+from cuegui import Logger
+from cuegui import Constants
+from cuegui import CreatorDialog
+from cuegui import PreviewWidget
+from cuegui.DependDialog import DependDialog
+from cuegui.DependWizard import DependWizard
+from cuegui.EmailDialog import EmailDialog
+from cuegui.FilterDialog import FilterDialog
+from cuegui.LocalBooking import LocalBookingDialog
+from cuegui.Comments import CommentListDialog
+from cuegui.ShowDialog import ShowDialog
+from cuegui.LayerDialog import LayerTagsDialog, LayerPropertiesDialog
+from cuegui.GroupDialog import NewGroupDialog, ModifyGroupDialog
+from cuegui.UnbookDialog import UnbookDialog
+from cuegui.ServiceDialog import ServiceDialog
+from cuegui.TasksDialog import TasksDialog
 
 
 logger = Logger.getLogger(__file__)

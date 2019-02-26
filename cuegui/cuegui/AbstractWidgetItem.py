@@ -23,13 +23,13 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from . import Constants
-from . import Style
-
-from . import Logger
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Style
 
 
 logger = Logger.getLogger(__file__)

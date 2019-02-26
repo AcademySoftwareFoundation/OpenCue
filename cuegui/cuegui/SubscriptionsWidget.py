@@ -25,12 +25,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from . import Constants
-from .MenuActions import MenuActions
-from .ShowDialog import ShowDialog
-from . import Utils
+from cuegui import Constants
+from cuegui import Utils
+from cuegui.AbstractTreeWidget import AbstractTreeWidget
+from cuegui.AbstractWidgetItem import AbstractWidgetItem
+from cuegui.MenuActions import MenuActions
+from cuegui.ShowDialog import ShowDialog
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):

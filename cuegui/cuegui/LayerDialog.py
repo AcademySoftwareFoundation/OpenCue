@@ -22,9 +22,10 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-from . import Constants
-from . import Utils
-from .TagsWidget import TagsWidget
+
+from cuegui import Constants
+from cuegui import Utils
+from cuegui.TagsWidget import TagsWidget
 
 
 def warning(msg, parent=None):

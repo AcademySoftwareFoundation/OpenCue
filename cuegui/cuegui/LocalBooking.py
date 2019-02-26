@@ -29,8 +29,8 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from . import Logger
-from . import Utils
+from cuegui import Logger
+from cuegui import Utils
 
 
 logger = Logger.getLogger(__file__)

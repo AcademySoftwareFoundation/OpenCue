@@ -18,23 +18,25 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import map
+
 from PySide2 import QtWidgets
 
 from opencue.compiled_proto import depend_pb2
-from . import Constants
-from . import Logger
-from . import Utils
-from .AbstractTreeWidget import AbstractTreeWidget
-from .AbstractWidgetItem import AbstractWidgetItem
-from .MenuActions import MenuActions
+
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
-class DependMonitorTree(AbstractTreeWidget):
+class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent, object):
-        self.startColumnsForType(Constants.TYPE_DEPEND)
+        self.startColumnsForType(cuegui.Constants.TYPE_DEPEND)
         self.addColumn("Type", 130, id=1,
                        data=lambda depend: depend_pb2.DependType.Name(depend.type()))
         self.addColumn("Target", 60, id=2,
@@ -56,10 +58,11 @@ class DependMonitorTree(AbstractTreeWidget):
 
         self.rpcObject = object
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.setUpdateInterval(60)
 
@@ -74,7 +77,7 @@ class DependMonitorTree(AbstractTreeWidget):
                 return self.rpcObject.getDepends()
             return self.rpcObject.getWhatThisDependsOn()
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
@@ -89,6 +92,7 @@ class DependMonitorTree(AbstractTreeWidget):
 
 ################################################################################
 
-class DependWidgetItem(AbstractWidgetItem):
+class DependWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_DEPEND, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_DEPEND, object, parent)

@@ -22,7 +22,13 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
-import cuegui
+
+import cuegui.AbstractDockWidget
+import cuegui.FrameMonitor
+import cuegui.LayerMonitorTree
+import cuegui.Logger
+import cuegui.Utils
+
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -31,18 +37,19 @@ PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitor a job's layers and frames"
 PLUGIN_PROVIDES = "MonitorLayerFramesDockWidget"
 
-class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget):
+
+class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds a display that can monitor the layers and frames of a job."""
     def __init__(self, parent):
         """Creates the dock widget and docks it to the parent.
         @param parent: The main window to dock to
         @type  parent: QMainWindow"""
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__job = None
 
-        self.__monitorLayers = cuegui.LayerMonitorTree(self)
-        self.__monitorFrames = cuegui.FrameMonitor(self)
+        self.__monitorLayers = cuegui.LayerMonitorTree.LayerMonitorTree(self)
+        self.__monitorFrames = cuegui.FrameMonitor.FrameMonitor(self)
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.setAcceptDrops(True)

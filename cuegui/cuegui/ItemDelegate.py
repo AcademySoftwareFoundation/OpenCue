@@ -26,7 +26,8 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-from . import Constants
+
+from cuegui import Constants
 
 
 RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),

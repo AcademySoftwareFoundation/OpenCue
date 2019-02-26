@@ -27,7 +27,13 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
-import cuegui
+
+import cuegui.AbstractDockWidget
+import cuegui.Action
+import cuegui.Constants
+import cuegui.JobMonitorTree
+import cuegui.Logger
+import cuegui.Utils
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -38,15 +44,15 @@ PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 
 
-class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
+class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
 
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.jobMonitor = cuegui.JobMonitorTree(self)
+        self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
         self.__toolbar = QtWidgets.QToolBar(self)
         self._regexLoadJobsSetup(self.__toolbar)
@@ -100,7 +106,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget):
         @param settings: Last state of the plugin instance
         @type  settings: any"""
         if isinstance(settings, dict):
-            cuegui.AbstractDockWidget.pluginRestoreState(self, settings)
+            cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
 
         elif settings:
             # old method that needs to go away

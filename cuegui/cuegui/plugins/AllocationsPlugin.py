@@ -18,11 +18,21 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import map
+
 from PySide2 import QtGui, QtWidgets
 
 import opencue
-import cuegui
 
+import cuegui.AbstractDockWidget
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Utils
+
+
+logger = cuegui.Logger.getLogger(__file__)
 
 PLUGIN_NAME = "Allocations"
 PLUGIN_CATEGORY = "Cuecommander"
@@ -30,10 +40,10 @@ PLUGIN_DESCRIPTION = "An administrator interface to allocations"
 PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "AllocationsDockWidget"
 
-class AllocationsDockWidget(cuegui.AbstractDockWidget):
+class AllocationsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
         self.__monitorAllocations = MonitorAllocations(self)
         self.layout().addWidget(self.__monitorAllocations)
@@ -71,13 +81,14 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
         #self.addColumn("Nimby", 40, id=6,
         #               data=lambda alloc:(alloc.totalNimbyLockedHosts()))
 
-        cuegui.AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = cuegui.MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.setAcceptDrops(True)
-        self.setDropIndicatorShown(True);
+        self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
@@ -94,7 +105,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
         try:
             return opencue.api.getAllocations()
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
@@ -121,6 +132,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget):
                 item.rpcObject.reparentHosts(hostIds)
                 self.updateSoon()
 
-class AllocationWidgetItem(cuegui.AbstractWidgetItem):
+class AllocationWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        cuegui.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_ALLOC, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_ALLOC, object, parent)

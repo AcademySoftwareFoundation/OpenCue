@@ -16,16 +16,18 @@
 """
 Displays the show dialog with show configuration options
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
 from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from . import Utils
+from cuegui import Utils
 
 
 class ShowDialog(QtWidgets.QDialog):

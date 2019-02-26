@@ -28,12 +28,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from . import Constants
-from . import Logger
-from . import Style
-from .MainWindow import MainWindow
-from .SplashWindow import SplashWindow
-from .ThreadPool import ThreadPool
+from cuegui import Constants
+from cuegui import Logger
+from cuegui import Style
+from cuegui.MainWindow import MainWindow
+from cuegui.SplashWindow import SplashWindow
+from cuegui.ThreadPool import ThreadPool
 
 
 logger = Logger.getLogger(__file__)

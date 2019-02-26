@@ -20,9 +20,9 @@ from __future__ import division
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from .DependMonitorTree import DependMonitorTree
-from . import Logger
-from . import Utils
+from cuegui import Logger
+from cuegui import Utils
+from cuegui.DependMonitorTree import DependMonitorTree
 
 
 logger = Logger.getLogger(__file__)

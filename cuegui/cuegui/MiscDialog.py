@@ -19,7 +19,7 @@ from __future__ import division
 
 from PySide2 import QtWidgets
 
-from .AbstractDialog import AbstractDialog
+from cuegui.AbstractDialog import AbstractDialog
 
 
 class RunLocalDialog(AbstractDialog):

@@ -16,19 +16,21 @@
 """
 A progress dialog that accepts a list of work units and displays the progress.
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
 from builtins import map
 from builtins import range
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from . import Logger
-from . import Utils
+from cuegui import Logger
+from cuegui import Utils
 
 
 logger = Logger.getLogger(__file__)

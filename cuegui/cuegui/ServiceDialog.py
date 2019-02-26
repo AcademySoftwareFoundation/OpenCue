@@ -28,9 +28,9 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from . import Constants
-from .TagsWidget import TagsWidget
-from . import Utils
+from cuegui import Constants
+from cuegui import Utils
+from cuegui.TagsWidget import TagsWidget
 
 
 class ServiceForm(QtWidgets.QWidget):
