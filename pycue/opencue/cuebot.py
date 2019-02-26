@@ -170,7 +170,7 @@ class Cuebot:
     @staticmethod
     def resetChannel():
         """Close and reopen the gRPC channel.
-        This should be called whenever facility of host is changed
+        This should be called whenever facility or host is changed.
         """
         Cuebot.closeChannel()
         Cuebot.setChannel()
