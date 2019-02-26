@@ -168,6 +168,14 @@ class Cuebot:
             Cuebot.RpcChannel = None
 
     @staticmethod
+    def resetChannel():
+        """Close and reopen the gRPC channel.
+        This should be called whenever facility of host is changed
+        """
+        Cuebot.closeChannel()
+        Cuebot.setChannel()
+
+    @staticmethod
     def setFacility(facility):
         """Sets the facility to connect to. If an unknown facility is provided,
         it will fall back to the one listed in cuebot.facility_default
@@ -191,6 +199,7 @@ class Cuebot:
             hosts = [hosts]
         logger.debug("setting new server hosts to: %s" % hosts)
         Cuebot.Hosts = hosts
+        Cuebot.resetChannel()
 
     @staticmethod
     def setTimeout(timeout):
@@ -199,7 +208,7 @@ class Cuebot:
         @type timeout: int
         """
         logger.debug("setting new server timeout to: %d" % timeout)
-        Cuebot.Timeout =  timeout
+        Cuebot.Timeout = timeout
 
     @classmethod
     def getProto(cls, name):
