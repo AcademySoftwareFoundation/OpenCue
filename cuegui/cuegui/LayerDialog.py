@@ -23,9 +23,9 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import Constants
-from cuegui import Utils
-from cuegui.TagsWidget import TagsWidget
+import cuegui.Constants
+import cuegui.TagsWidget
+import cuegui.Utils
 
 
 def warning(msg, parent=None):
@@ -234,7 +234,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         @rtype: dict<str:str>
         '''
         if not hasattr(self, '__config'):
-            self.__config = Utils.getResourceConfig()
+            self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
     def verify(self):
@@ -344,7 +344,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
                 currentTags.add(tag)
         layout = QtWidgets.QVBoxLayout(self)
         custom_layout = QtWidgets.QHBoxLayout()
-        self._tags_widget = TagsWidget(allowed_tags=Constants.ALLOWED_TAGS)
+        self._tags_widget = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
         self._tags_widget.set_tags(currentTags)
         custom_layout.addWidget(self._tags_widget)
         layout.addLayout(custom_layout)

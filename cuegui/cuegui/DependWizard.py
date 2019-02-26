@@ -33,13 +33,13 @@ from PySide2 import QtWidgets
 import FileSequence
 import opencue
 
-from cuegui import Cuedepend
-from cuegui import Logger
-from cuegui import Utils
-from cuegui.ProgressDialog import ProgressDialog
+import cuegui.Cuedepend
+import cuegui.Logger
+import cuegui.Utils
+import cuegui.ProgressDialog
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 __all__ = ["DependWizard"]
 
@@ -137,7 +137,7 @@ class DependWizard(QtWidgets.QWizard):
                                  if name.startswith(show)]
         except Exception as e:
             logger.critical("Failed getting list of jobs")
-            list(map(logger.critical, Utils.exceptionOutput(e)))
+            list(map(logger.critical, cuegui.Utils.exceptionOutput(e)))
 
 ################################################################################
 
@@ -474,7 +474,7 @@ class PageSelectFrame(AbstractWizardPage):
                 self.wizard().frames = list(map(int, fs.getAll()))
                 return True
             except Exception as e:
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         return False
 
     def nextId(self):
@@ -637,7 +637,7 @@ class PageSelectOnFrame(AbstractWizardPage):
                 self.wizard().onFrame = list(map(int, fs.getAll()))
                 return True
             except Exception as e:
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         return False
 
     def nextId(self):
@@ -701,13 +701,14 @@ class PageConfirmation(AbstractWizardPage):
                             if layer.data.type == onLayer.data.type:
                                 self.__addDependWork(layer, onLayer)
 
-            ProgressDialog("Setting up Hard Depend",
-                           self.__createFrameByFrameDepend,
-                           self.work,
-                           2,
-                           PROGRESS_TITLE,
-                           PROGRESS_TEXT,
-                           self.parent())
+            cuegui.ProgressDialog.ProgressDialog(
+                "Setting up Hard Depend",
+                self.__createFrameByFrameDepend,
+                self.work,
+                2,
+                PROGRESS_TITLE,
+                PROGRESS_TEXT,
+                self.parent())
             return True
 
         elif frames:
@@ -736,13 +737,14 @@ class PageConfirmation(AbstractWizardPage):
                         for onFrame in onFrames:
                             self.__addDependWork(self.wizard().dependType, job, None, None, onJob, onLayer, onFrame)
 
-        ProgressDialog("Setting up dependencies",
-                       Cuedepend.createDepend,
-                       self.work,
-                       2,
-                       PROGRESS_TITLE,
-                       PROGRESS_TEXT,
-                       self.parent())
+        cuegui.ProgressDialog.ProgressDialog(
+            "Setting up dependencies",
+            cuegui.Cuedepend.createDepend,
+            self.work,
+            2,
+            PROGRESS_TITLE,
+            PROGRESS_TEXT,
+            self.parent())
         return True
 
     def __addDependWork(self, *args):

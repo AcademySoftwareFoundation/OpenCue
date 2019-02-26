@@ -27,12 +27,12 @@ from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from cuegui import Constants
-from cuegui import Logger
-from cuegui import Style
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.Style
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 NAME = 0
 WIDTH = 1
@@ -75,14 +75,14 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
             return self.column_info[col][DISPLAY_LAMBDA](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
-            if Style.ColorTheme is None:
-                Style.init()
-            return Style.ColorTheme.COLOR_JOB_FOREGROUND
+            if cuegui.Style.ColorTheme is None:
+                cuegui.Style.init()
+            return cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         elif role == QtCore.Qt.UserRole:
             return self.type()
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL
 
     def __lt__(self, other):
         """Custom sorting for columns that have a function defined for sorting"""

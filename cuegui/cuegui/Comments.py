@@ -24,7 +24,7 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Utils
+import cuegui.Utils
 
 
 PREDEFINED_COMMENT_HEADER = "Use a Predefined Comment:"
@@ -107,7 +107,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __close(self):
         if self.__btnSave.isEnabled():
-            if Utils.questionBoxYesNo(self,
+            if cuegui.Utils.questionBoxYesNo(self,
                                       "Save Changes?",
                                       "Do you want to save your changes?"):
                 self.__saveComment()
@@ -152,7 +152,7 @@ class CommentListDialog(QtWidgets.QDialog):
         if self.__treeSubjects.selectedItems():
             item = self.__treeSubjects.selectedItems()[0]
 
-            if item.getInstance().user != Utils.getUsername():
+            if item.getInstance().user != cuegui.Utils.getUsername():
                 self.__textSubject.setReadOnly(True)
                 self.__textMessage.setReadOnly(True)
             else:
@@ -172,7 +172,7 @@ class CommentListDialog(QtWidgets.QDialog):
         """Deletes the currently selected comment"""
         if not self.__treeSubjects.selectedItems():
             return
-        if Utils.questionBoxYesNo(self,
+        if cuegui.Utils.questionBoxYesNo(self,
                                   "Confirm Delete",
                                   "Delete the selected comment?"):
             for item in self.__treeSubjects.selectedItems():
@@ -350,7 +350,7 @@ class Comment(QtWidgets.QTreeWidgetItem):
             self,
             [comment.subject(),
              comment.user(),
-             Utils.dateToMMDDHHMM(comment.timestamp())])
+             cuegui.Utils.dateToMMDDHHMM(comment.timestamp())])
         self.__comment = comment
 
     def getInstance(self):

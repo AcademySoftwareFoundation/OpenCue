@@ -46,12 +46,12 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import Logger
-from cuegui import Utils
-from cuegui import Constants
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class EmailDialog(QtWidgets.QDialog):
@@ -93,7 +93,7 @@ class EmailDialog(QtWidgets.QDialog):
                 self.__email.appendToBody("%s\t%s\tRuntime: %s\tRetries: %d" % (
                     frame.data.name,
                     frame.state(),
-                    Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
+                    cuegui.Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
                 i_total_render_time += frame.retries() * frame.runTime()
                 i_total_retries += frame.retries()
             try:
@@ -141,7 +141,7 @@ class LogViewWidget(QtWidgets.QWidget):
     def switchLogEvent(self, str_frame):
         try:
             self.__txt_log.clear()
-            log_file_path = Utils.getFrameLogFile(self.__job, self.__getFrame(str_frame))
+            log_file_path = cuegui.Utils.getFrameLogFile(self.__job, self.__getFrame(str_frame))
             fp = open(log_file_path,"r")
             if os.path.getsize(log_file_path) > 1242880:
                 fp.seek(0, 2)
@@ -154,7 +154,7 @@ class LogViewWidget(QtWidgets.QWidget):
             fp.close()
 
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             logger.info("error loading frame: %s, %s" % (str_frame, e))
 
     def findEvent(self):
@@ -186,13 +186,13 @@ class EmailWidget(QtWidgets.QWidget):
         else:
             user_name = job.username()
 
-        __default_from = "%s-pst@%s" % (job.show(), Constants.EMAIL_DOMAIN)
-        __default_to = "%s@%s" % (job.username(), Constants.EMAIL_DOMAIN)
-        __default_cc = "%s-pst@%s" % (job.show(), Constants.EMAIL_DOMAIN)
+        __default_from = "%s-pst@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN)
+        __default_to = "%s@%s" % (job.username(), cuegui.Constants.EMAIL_DOMAIN)
+        __default_cc = "%s-pst@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN)
         __default_bcc = ""
-        __default_subject = "%s%s" % (Constants.EMAIL_SUBJECT_PREFIX, job.data.name)
-        __default_body = "%s%s%s" % (Constants.EMAIL_BODY_PREFIX, job.data.name,
-                                     Constants.EMAIL_BODY_SUFFIX)
+        __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, job.data.name)
+        __default_body = "%s%s%s" % (cuegui.Constants.EMAIL_BODY_PREFIX, job.data.name,
+                                     cuegui.Constants.EMAIL_BODY_SUFFIX)
         __default_body += "Hi %s,\n\n" % user_name
 
         self.__btnSend = QtWidgets.QPushButton("Send", self)

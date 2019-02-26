@@ -51,10 +51,10 @@ import os
 
 from PySide2 import QtCore
 
-from cuegui import Logger
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 def systemCpuCount():

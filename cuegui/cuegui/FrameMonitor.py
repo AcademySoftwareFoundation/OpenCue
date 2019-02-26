@@ -27,11 +27,11 @@ from PySide2 import QtWidgets
 import FileSequence
 from opencue.compiled_proto import job_pb2
 
-from cuegui import Logger
-from cuegui.FrameMonitorTree import FrameMonitorTree
+import cuegui.FrameMonitorTree
+import cuegui.Logger
 
 
-log = Logger.getLogger(__file__)
+log = cuegui.Logger.getLogger(__file__)
 
 
 class FrameMonitor(QtWidgets.QWidget):
@@ -42,7 +42,7 @@ class FrameMonitor(QtWidgets.QWidget):
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.frameMonitorTree = FrameMonitorTree(self)
+        self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self)
         self.page = self.frameMonitorTree.frameSearch.page
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()

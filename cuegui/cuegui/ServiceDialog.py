@@ -28,9 +28,9 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import Constants
-from cuegui import Utils
-from cuegui.TagsWidget import TagsWidget
+import cuegui.Constants
+import cuegui.TagsWidget
+import cuegui.Utils
 
 
 class ServiceForm(QtWidgets.QWidget):
@@ -88,7 +88,7 @@ class ServiceForm(QtWidgets.QWidget):
 
         self.__buttons.accepted.connect(self.save)
 
-        self._tags_w = TagsWidget(allowed_tags=Constants.ALLOWED_TAGS)
+        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
         layout.addWidget(self._tags_w, 6, 0, 1, 2)
 
     def _cfg(self):
@@ -100,7 +100,7 @@ class ServiceForm(QtWidgets.QWidget):
         @rtype: dict<str:str>
         """
         if not hasattr(self, '__config'):
-            self.__config = Utils.getResourceConfig()
+            self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
     def setService(self, service):

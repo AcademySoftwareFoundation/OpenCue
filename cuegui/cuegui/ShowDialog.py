@@ -27,7 +27,7 @@ from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from cuegui import Utils
+import cuegui.Utils
 
 
 class ShowDialog(QtWidgets.QDialog):
@@ -152,7 +152,7 @@ class ShowDialog(QtWidgets.QDialog):
     def __closeDialog(self):
         """Prompts to allow the user to save changes before exit"""
         if self.__btnSave.isEnabled():
-            if Utils.questionBoxYesNo(self, "Save Changes?",
+            if cuegui.Utils.questionBoxYesNo(self, "Save Changes?",
                                       "Do you want to save your changes?"):
                 self.__saveChanges()
         self.accept()

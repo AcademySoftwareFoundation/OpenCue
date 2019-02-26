@@ -25,12 +25,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Constants
-from cuegui import Utils
-from cuegui.AbstractTreeWidget import AbstractTreeWidget
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
-from cuegui.MenuActions import MenuActions
-from cuegui.ShowDialog import ShowDialog
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.MenuActions
+import cuegui.ShowDialog
+import cuegui.Utils
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):
@@ -64,9 +64,8 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         QtGui.qApp.view_object.connect(self.setShow)
         QtGui.qApp.facility_changed.connect(self.changeFacility)
 
-        self.__menuActions = MenuActions(self,
-                                         self.updateSoon,
-                                         self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.changeFacility()
 
@@ -86,7 +85,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         @param show: The show to monitor"""
         if isinstance(show, int):
             show = str(self.__comboShows.currentText())
-        if Utils.isShow(show):
+        if cuegui.Utils.isShow(show):
             if self.__show and self.__show.name() == show.name():
                 return
             self.__show = show
@@ -126,7 +125,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def __showProperties(self):
         if self.__show:
-            dialog = ShowDialog(opencue.api.findShow(self.__show.name()), self)
+            dialog = cuegui.ShowDialog.ShowDialog(opencue.api.findShow(self.__show.name()), self)
             dialog.exec_()
         else:
             self.__comboShows.showPopup()
@@ -143,10 +142,10 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.__monitorSubscriptions.setColumnVisibility(settings)
 
 
-class SubscriptionsTreeWidget(AbstractTreeWidget):
+class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
-        self.startColumnsForType(Constants.TYPE_SUB)
+        self.startColumnsForType(cuegui.Constants.TYPE_SUB)
         self.addColumn("Alloc", 160, id=1,
                        data=lambda sub: sub.data.allocation_name)
         self.addColumn("Usage", 70, id=2,
@@ -165,15 +164,13 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
                        data=lambda sub: ("%.2f" % sub.data.reserved_cores),
                        sort=lambda sub: sub.data.reserved_cores)
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.__show = None
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self,
-                                         self.updateSoon,
-                                         self.selectedObjects,
-                                         self.getShow)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getShow)
 
         self.setUpdateInterval(30)
 
@@ -182,7 +179,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
         try:
             if not show:
                 self.__show = None
-            elif Utils.isShow(show):
+            elif cuegui.Utils.isShow(show):
                 self.__show = show
             elif isinstance(show, str):
                 try:
@@ -221,6 +218,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
 
 
-class SubscriptionWidgetItem(AbstractWidgetItem):
+class SubscriptionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_SUB, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_SUB, object, parent)

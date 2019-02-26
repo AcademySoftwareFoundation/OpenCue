@@ -28,15 +28,15 @@ from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from cuegui import Constants
-from cuegui import Logger
-from cuegui import Utils
-from cuegui.AbstractTreeWidget import AbstractTreeWidget
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
-from cuegui.MenuActions import MenuActions
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 MANAGED_CORES_PREFIX = "Minimum Cores: "
 
@@ -126,7 +126,7 @@ class TasksDialog(QtWidgets.QDialog):
                     __department.enableTiManaged(str(tiTask), managedCores)
 
         if __department.data.tiManaged and not checked:
-            if Utils.questionBoxYesNo(self,
+            if cuegui.Utils.questionBoxYesNo(self,
                                       "Confirm",
                                       "Disable management of the %s department?" % __department.data.name):
                 __department.disableTiManaged()
@@ -145,9 +145,9 @@ class TasksDialog(QtWidgets.QDialog):
     def refresh(self):
         self.__tasks.updateRequest()
 
-class TaskMonitorTree(AbstractTreeWidget):
+class TaskMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, department, parent):
-        self.startColumnsForType(Constants.TYPE_TASK)
+        self.startColumnsForType(cuegui.Constants.TYPE_TASK)
         self.addColumn("Shot", 100, id=1,
                        data=lambda task:(task.data.shot))
         self.addColumn("Department", 100, id=2,
@@ -157,12 +157,13 @@ class TaskMonitorTree(AbstractTreeWidget):
         self.addColumn("Adjust Cores", 100, id=4,
                        data=lambda task:(task.data.adjustCores))
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.setSortingEnabled(False)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
         self.setDepartment(department)
 
@@ -180,7 +181,7 @@ class TaskMonitorTree(AbstractTreeWidget):
     def _update(self):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
-        AbstractTreeWidget._update(self)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._update(self)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def _getUpdate(self):
@@ -191,7 +192,7 @@ class TaskMonitorTree(AbstractTreeWidget):
             else:
                 return []
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
@@ -226,6 +227,7 @@ class TaskMonitorTree(AbstractTreeWidget):
                     self.__department.addTask(str(shot), float(minCores))
                     self._update()
 
-class TaskWidgetItem(AbstractWidgetItem):
+class TaskWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_TASK, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_TASK, object, parent)

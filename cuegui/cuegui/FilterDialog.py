@@ -36,27 +36,23 @@ from opencue.compiled_proto.filter_pb2 import FilterType
 from opencue.compiled_proto.filter_pb2 import MatchSubject
 from opencue.compiled_proto.filter_pb2 import MatchType
 
-from cuegui import Logger
-from cuegui import Constants
-from cuegui import Utils
-from cuegui.MenuActions import MenuActions
-from cuegui.AbstractTreeWidget import AbstractTreeWidget
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
-from cuegui.TextEditDialog import TextEditDialog
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.TextEditDialog
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
-
-MATCHSUBJECT = [match for match in dir(MatchSubject)
-                if type(getattr(MatchSubject, match)) == MatchSubject]
-DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index("Shot")
-MATCHTYPE = [match for match in dir(MatchType) if type(getattr(MatchType, match)) == MatchType]
-DEFAULT_MATCHTYPE = MATCHTYPE.index("Is")
-ACTIONTYPE = [action for action in dir(ActionType)
-              if type(getattr(ActionType, action)) == ActionType]
-FILTERTYPE = [filter_ for filter_ in dir(FilterType)
-              if type(getattr(FilterType, filter_)) == FilterType]
+MATCHSUBJECT = MatchSubject.keys()
+DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index('SHOT')
+MATCHTYPE = MatchType.keys()
+DEFAULT_MATCHTYPE = MATCHTYPE.index('IS')
+ACTIONTYPE = ActionType.keys()
+FILTERTYPE = FilterType.keys()
 PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
 
@@ -136,9 +132,9 @@ class FilterDialog(QtWidgets.QDialog):
         self.__matchers.setObject(filter)
         self.__actions.setObject(filter)
 
-class FilterMonitorTree(AbstractTreeWidget):
+class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, show, parent):
-        self.startColumnsForType(Constants.TYPE_FILTER)
+        self.startColumnsForType(cuegui.Constants.TYPE_FILTER)
         self.addColumn("Order", 100, id=1,
                        data=lambda filter:(filter.data.order),
                        sort=lambda filter:(filter.data.order))
@@ -149,13 +145,14 @@ class FilterMonitorTree(AbstractTreeWidget):
 
         self.__show = show
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.hideColumn(0)
         self.setSortingEnabled(False)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
 
     def _createItem(self, object):
@@ -165,7 +162,7 @@ class FilterMonitorTree(AbstractTreeWidget):
     def _update(self):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
-        AbstractTreeWidget._update(self)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._update(self)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def _getUpdate(self):
@@ -173,7 +170,7 @@ class FilterMonitorTree(AbstractTreeWidget):
         try:
             return self.__show.getFilters()
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
@@ -192,9 +189,9 @@ class FilterMonitorTree(AbstractTreeWidget):
 
         menu.exec_(e.globalPos())
 
-class MatcherMonitorTree(AbstractTreeWidget):
+class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, filter, parent):
-        self.startColumnsForType(Constants.TYPE_MATCHER)
+        self.startColumnsForType(cuegui.Constants.TYPE_MATCHER)
         self.addColumn("Matcher Subject", 130, id=1,
                        data=lambda matcher:(matcher.subject()))
         self.addColumn("Type", 130, id=2,
@@ -205,10 +202,11 @@ class MatcherMonitorTree(AbstractTreeWidget):
 
         self.__filter = filter
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
 
     def setObject(self, object):
@@ -231,18 +229,18 @@ class MatcherMonitorTree(AbstractTreeWidget):
             if self.__filter:
                 return self.__filter.getMatchers()
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         return []
 
     def __getMatcherSubjectDialog(self):
         return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
-                                          "Please select the type of item to match",
-                                          MATCHSUBJECT, DEFAULT_MATCHSUBJECT, False)
+                                              "Please select the type of item to match",
+                                              MatchSubject.keys(), DEFAULT_MATCHSUBJECT, False)
 
     def __getMatcherTypeDialog(self):
         return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
-                                          "Please select the type of match to perform",
-                                          MATCHTYPE, DEFAULT_MATCHTYPE, False)
+                                              "Please select the type of match to perform",
+                                              MatchSubject.keys(), DEFAULT_MATCHTYPE, False)
 
     def createMatcher(self):
         """Prompts the user to create a new Matcher"""
@@ -306,9 +304,8 @@ class MatcherMonitorTree(AbstractTreeWidget):
         if not choice:
             return
 
-        dialog = TextEditDialog(title,
-                                "Paste in a list, I will try to clean it up first.",
-                                "", self)
+        dialog = cuegui.TextEditDialog.TextEditDialog(
+            title, "Paste in a list, I will try to clean it up first.", "", self)
         if not dialog.exec_():
             return
 
@@ -317,9 +314,10 @@ class MatcherMonitorTree(AbstractTreeWidget):
         if not shots:
             return
 
-        if Utils.questionBoxYesNo(self, "%s?" % title,
-                                  "Are these correct?\nMatching: \"%s %s\"" % (matchSubject, matchType),
-                                  shots):
+        if cuegui.Utils.questionBoxYesNo(
+                self, "%s?" % title,
+                "Are these correct?\nMatching: \"%s %s\"" % (matchSubject, matchType),
+                shots):
             if deleteExisting:
                 oldMatchers = self.__filter.getMatchers()
             else:
@@ -338,9 +336,10 @@ class MatcherMonitorTree(AbstractTreeWidget):
     def __parseShotList(self, text):
         return [line.split()[0].strip().lower() for line in str(text).splitlines() if line.split()]
 
-class ActionMonitorTree(AbstractTreeWidget):
+
+class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, show, filter, parent):
-        self.startColumnsForType(Constants.TYPE_ACTION)
+        self.startColumnsForType(cuegui.Constants.TYPE_ACTION)
         self.addColumn("Action Type", 210, id=1,
                        data=lambda action:(addSpaces(str(action.type()))))
         self.addColumn("", 180, id=2)
@@ -349,7 +348,7 @@ class ActionMonitorTree(AbstractTreeWidget):
         self.__show = show
         self.__filter = filter
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.groupNames = {}
         self.groupIds = {}
@@ -358,7 +357,8 @@ class ActionMonitorTree(AbstractTreeWidget):
             self.groupIds[opencue.util.id(group)] = group
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
         self._timer.stop()
 
     def setObject(self, object):
@@ -378,7 +378,7 @@ class ActionMonitorTree(AbstractTreeWidget):
             if self.__filter:
                 return self.__filter.getActions()
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         return []
 
     def contextMenuEvent(self, e):
@@ -506,15 +506,16 @@ class ActionMonitorTree(AbstractTreeWidget):
 
 ################################################################################
 
-class FilterWidgetItem(AbstractWidgetItem):
+class FilterWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
         self.__widgets = {}
-        AbstractWidgetItem.__init__(self, Constants.TYPE_FILTER, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_FILTER, object, parent)
         self.updateWidgets()
 
     def update(self, object = None, parent = None):
         """Adds a call to updateWidgets()"""
-        AbstractWidgetItem.update(self, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, object, parent)
         self.updateWidgets()
 
     def setType(self, text):
@@ -557,15 +558,16 @@ class FilterWidgetItem(AbstractWidgetItem):
             state = QtCore.Qt.Unchecked
         self.__widgets["enabled"].setCheckState(state)
 
-class MatcherWidgetItem(AbstractWidgetItem):
+class MatcherWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
         self.__widgets = {}
-        AbstractWidgetItem.__init__(self, Constants.TYPE_MATCHER, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_MATCHER, object, parent)
         self.updateWidgets()
 
     def update(self, object = None, parent = None):
         """Adds a call to updateWidgets()"""
-        AbstractWidgetItem.update(self, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, object, parent)
         self.updateWidgets()
 
     def setType(self, text):
@@ -626,15 +628,16 @@ class MatcherWidgetItem(AbstractWidgetItem):
            not self.__widgets["input"].isModified():
             self.__widgets["input"].setText(self.rpcObject.input())
 
-class ActionWidgetItem(AbstractWidgetItem):
+class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
         self.__widgets = {}
-        AbstractWidgetItem.__init__(self, Constants.TYPE_ACTION, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_ACTION, object, parent)
         self.updateWidgets()
 
     def update(self, object = None, parent = None):
         """Adds a call to updateWidgets()"""
-        AbstractWidgetItem.update(self, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, object, parent)
         self.updateWidgets()
 
     def delete(self, checked = False):

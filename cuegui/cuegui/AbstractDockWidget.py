@@ -25,17 +25,17 @@ from __future__ import division
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from cuegui.Plugins import Plugin
+import cuegui.Plugins
 
 
-class AbstractDockWidget(Plugin, QtWidgets.QDockWidget):
+class AbstractDockWidget(cuegui.Plugins.Plugin, QtWidgets.QDockWidget):
 
     closed = QtCore.Signal(object)
     enabled = QtCore.Signal()
 
     def __init__(self, parent, name, area = QtCore.Qt.LeftDockWidgetArea):
         QtWidgets.QDockWidget.__init__(self, name, parent)
-        Plugin.__init__(self)
+        cuegui.Plugins.Plugin.__init__(self)
 
         self.parent = parent
 

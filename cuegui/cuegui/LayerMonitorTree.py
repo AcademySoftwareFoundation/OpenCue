@@ -27,11 +27,11 @@ from PySide2 import QtWidgets
 
 from opencue.exception import EntityNotFoundException
 
-from cuegui import Constants
-from cuegui import Utils
-from cuegui.AbstractTreeWidget import AbstractTreeWidget
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
-from cuegui.MenuActions import MenuActions
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.MenuActions
+import cuegui.Utils
 
 
 def displayRange(layer):
@@ -40,12 +40,12 @@ def displayRange(layer):
     return layer.data.range
 
 
-class LayerMonitorTree(AbstractTreeWidget):
+class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     handle_filter_layers_byLayer = QtCore.Signal(list)
 
     def __init__(self, parent):
-        self.startColumnsForType(Constants.TYPE_LAYER)
+        self.startColumnsForType(cuegui.Constants.TYPE_LAYER)
         self.addColumn("dispatchOrder", 0, id=1,
                        data=lambda layer: layer.data.dispatch_order,
                        sort=lambda layer: layer.data.dispatch_order)
@@ -64,20 +64,20 @@ class LayerMonitorTree(AbstractTreeWidget):
                        tip="The number of cores that the frames in this layer\n"
                            "will reserve as a minimum.")
         self.addColumn("Memory", 60, id=6,
-                       data=lambda layer: Utils.memoryToString(layer.data.min_memory),
+                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
                        tip="The amount of memory that each frame in this layer\n"
                            "will reserve for its use. If the frame begins to use\n"
                            "more memory than this, the cuebot will increase this\n"
                            "number.")
         self.addColumn("Gpu", 40, id=7,
-                       data=lambda layer: Utils.memoryToString(layer.data.min_gpu),
+                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_gpu),
                        sort=lambda layer: layer.data.min_gpu,
                        tip="The amount of gpu memory each frame in this layer\n"
                            "will reserve for its use. Note that we may not have\n"
                            "machines as much gpu memory as you request.")
         self.addColumn("MaxRss", 60, id=8,
-                       data=lambda layer: Utils.memoryToString(layer.data.layer_stats.max_rss),
+                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.layer_stats.max_rss),
                        sort=lambda layer: layer.data.layer_stats.max_rss,
                        tip="Maximum amount of memory used by any frame in\n"
                            "this layer at any time since the job was launched.")
@@ -110,7 +110,7 @@ class LayerMonitorTree(AbstractTreeWidget):
                        sort=lambda layer: layer.data.layer_stats.dead_frames,
                        tip="Total number of dead frames in this layer.")
         self.addColumn("Avg", 65, id=16,
-                       data=lambda layer: Utils.secondsToHHMMSS(layer.data.layer_stats.avg_frame_sec),
+                       data=lambda layer: cuegui.Utils.secondsToHHMMSS(layer.data.layer_stats.avg_frame_sec),
                        sort=lambda layer: layer.data.layer_stats.avg_frame_sec,
                        tip="Average number of HOURS:MINUTES:SECONDS per frame\n"
                            "in this layer.")
@@ -119,12 +119,13 @@ class LayerMonitorTree(AbstractTreeWidget):
                        tip="The tags define what resources may be booked on\n"
                            "frames in this layer.")
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__job = None
 
         self.disableUpdate = False
@@ -159,7 +160,7 @@ class LayerMonitorTree(AbstractTreeWidget):
         @type  job: job, string, None"""
         if job is None:
             return self.__setJob(None)
-        job = Utils.findJob(job)
+        job = cuegui.Utils.findJob(job)
         if job:
             self.__load = job
 
@@ -224,6 +225,7 @@ class LayerMonitorTree(AbstractTreeWidget):
     def __itemDoubleClickedFilterLayer(self, item, col):
         self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
 
-class LayerWidgetItem(AbstractWidgetItem):
+class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_LAYER, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_LAYER, object, parent)

@@ -25,13 +25,13 @@ from __future__ import division
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Constants
+import cuegui.Constants
 
 
 Actions = {}
 Groups = {}
 
-ICON_PATH = "%s/images" % Constants.RESOURCE_PATH
+ICON_PATH = "%s/images" % cuegui.Constants.RESOURCE_PATH
 
 
 def create(parent, text, tip, callback=None, icon=None):

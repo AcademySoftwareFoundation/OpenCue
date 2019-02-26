@@ -25,10 +25,10 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Logger
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueStateBarWidget(QtWidgets.QWidget):

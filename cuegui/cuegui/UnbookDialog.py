@@ -27,12 +27,12 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui.AbstractDialog import AbstractDialog
+import cuegui.AbstractDialog
 
 
-class UnbookDialog(AbstractDialog):
+class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
     def __init__(self, jobs, parent=None):
-        AbstractDialog.__init__(self, parent)
+        cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
 
         self.setWindowTitle("Unbook matching frames")
@@ -290,10 +290,10 @@ class UnbookDialog(AbstractDialog):
                                           QtWidgets.QMessageBox.Ok)
 
 
-class SelectItemsWithSearchDialog(AbstractDialog):
+class SelectItemsWithSearchDialog(cuegui.AbstractDialog.AbstractDialog):
     def __init__(self, parent, header, items,
                  selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
-        AbstractDialog.__init__(self, parent)
+        cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
 
         QtWidgets.QVBoxLayout(self)
 

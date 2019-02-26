@@ -39,12 +39,12 @@ from yaml.scanner import ScannerError
 
 import opencue
 
-from cuegui import Logger
-from cuegui.ConfirmationDialog import ConfirmationDialog
-from cuegui.Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
+import cuegui.ConfirmationDialog
+import cuegui.Constants
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 __USERNAME = None
 
@@ -60,7 +60,7 @@ def questionBoxYesNo(parent, title, text, items = []):
     @type  items: list<string>
     @param items: Optional, a list of items, such as job names that will be
                   acted on"""
-    return ConfirmationDialog(title, text, items, parent).exec_() == 1
+    return cuegui.ConfirmationDialog.ConfirmationDialog(title, text, items, parent).exec_() == 1
 
 
 def countObjectTypes(objects):
@@ -389,7 +389,7 @@ def getResourceConfig(path=None):
 
     config = {}
     if not path:
-        path = '{}/cue_resources.yaml'.format(DEFAULT_INI_PATH)
+        path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
     try:
         with open(path, 'r') as f:
             config = yaml.load(f)
@@ -462,7 +462,7 @@ def popupView(file, facility=None):
         elif QtGui.qApp.settings.contains('LogEditor'):
             job_log_cmd = QtGui.qApp.settings.value("LogEditor")
         else:
-            job_log_cmd = DEFAULT_EDITOR.split()
+            job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 

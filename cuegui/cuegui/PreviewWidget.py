@@ -28,11 +28,11 @@ import xml.etree.ElementTree as Et
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from cuegui import Logger
-from cuegui import Utils
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class PreviewProcessorDialog(QtWidgets.QDialog):
@@ -100,7 +100,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         return name
 
     def __findHttpPort(self):
-        log = Utils.getFrameLogFile(self.__job, self.__frame)
+        log = cuegui.Utils.getFrameLogFile(self.__job, self.__frame)
         fp = open(log, "r")
         try:
             counter = 0

@@ -29,12 +29,11 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import Logger
-from cuegui import Utils
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
-
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class LocalBookingWidget(QtWidgets.QWidget):
@@ -188,11 +187,11 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.resize(400, 400)
 
     def getTargetJobName(self):
-        if Utils.isJob(self.__target):
+        if cuegui.Utils.isJob(self.__target):
             return self.__target.data.name
-        elif Utils.isLayer(self.__target):
+        elif cuegui.Utils.isLayer(self.__target):
             return self.__target.name
-        elif Utils.isFrame(self.__target):
+        elif cuegui.Utils.isFrame(self.__target):
             return self.__parent.getJob().data.name
         else:
             return ''
@@ -225,7 +224,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__num_threads.setRange(1, host.data.idleCores)
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def deedLocalhost(self):
 
@@ -320,7 +319,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__host_changed(hostname)
 
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def bookCurrentHost(self):
         if self.__hasError():

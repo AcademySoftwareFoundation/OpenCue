@@ -31,20 +31,20 @@ from PySide2 import QtWidgets
 
 import opencue
 
-from cuegui import Constants
-from cuegui import Logger
-from cuegui import Utils
-from cuegui.AbstractTreeWidget import AbstractTreeWidget
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
-from cuegui.MenuActions import MenuActions
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
-class ProcMonitorTree(AbstractTreeWidget):
+class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
-        self.startColumnsForType(Constants.TYPE_PROC)
+        self.startColumnsForType(cuegui.Constants.TYPE_PROC)
         self.addColumn("Name", 150, id=1,
                        data=lambda proc: proc.data.name,
                        tip="Name of the running proc.")
@@ -52,16 +52,16 @@ class ProcMonitorTree(AbstractTreeWidget):
                        data=lambda proc: ("%.2f" % proc.data.reserved_cores),
                        tip="The number of cores reserved.")
         self.addColumn("Mem Reserved", 100, id=3,
-                       data=lambda proc: Utils.memoryToString(proc.data.reserved_memory),
+                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_memory),
                        tip="The amount of memory reserved.")
         self.addColumn("Mem Used", 100, id=4,
-                       data=lambda proc: Utils.memoryToString(proc.data.used_memory),
+                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.used_memory),
                        tip="The amount of memory used.")
         self.addColumn("GPU Used", 100, id=5,
-                       data=lambda proc: Utils.memoryToString(proc.data.reserved_gpu),
+                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_gpu),
                        tip="The amount of gpu memory used.")
         self.addColumn("Age", 60, id=6,
-                       data=lambda proc: Utils.secondsToHHHMM(time.time() - proc.data.dispatch_time),
+                       data=lambda proc: cuegui.Utils.secondsToHHHMM(time.time() - proc.data.dispatch_time),
                        tip="The age of the running frame.")
         self.addColumn("Unbooked", 80, id=7,
                        data=lambda proc: proc.data.unbooked,
@@ -76,10 +76,11 @@ class ProcMonitorTree(AbstractTreeWidget):
 
         self.procSearch = opencue.search.ProcSearch()
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.itemClicked.connect(self.__itemSingleClickedCopy)
 
@@ -115,7 +116,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [proc.data.name for proc in self.selectedObjects() if Utils.isProc(proc)]
+        selected = [proc.data.name for proc in self.selectedObjects() if cuegui.Utils.isProc(proc)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
@@ -145,7 +146,7 @@ class ProcMonitorTree(AbstractTreeWidget):
                 return []
             return opencue.api.getProcs(**self.procSearch.options)
         except Exception as e:
-            list(map(logger.warning, Utils.exceptionOutput(e)))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def _createItem(self, object, parent = None):
@@ -170,6 +171,7 @@ class ProcMonitorTree(AbstractTreeWidget):
         menu.exec_(e.globalPos())
 
 
-class ProcWidgetItem(AbstractWidgetItem):
+class ProcWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_PROC, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_PROC, object, parent)

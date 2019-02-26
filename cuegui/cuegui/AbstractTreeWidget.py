@@ -30,14 +30,14 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Utils
-from cuegui import Constants
-from cuegui import Logger
-from cuegui.ItemDelegate import ItemDelegate
-from cuegui.AbstractWidgetItem import AbstractWidgetItem
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.ItemDelegate
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 COLUMN_NAME = 0
@@ -92,7 +92,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.header().setStretchLastSection(True)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
-        self.setItemDelegate(ItemDelegate(self))
+        self.setItemDelegate(cuegui.ItemDelegate.ItemDelegate(self))
 
         self.__setupColumns()
 
@@ -228,7 +228,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             try:
                 self.tick()
             except Exception as e:
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         finally:
             self.ticksLock.unlock()
 
@@ -277,7 +277,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self._itemsLock.lockForWrite()
         try:
             # If id already exists, update it
-            objectKey = Utils.getObjectKey(rpcObject)
+            objectKey = cuegui.Utils.getObjectKey(rpcObject)
             if objectKey in self._items:
                 self._items[objectKey].update(rpcObject)
             # If id does not exist, create it
@@ -302,7 +302,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param item: A tree widget item or the string with the id of the item"""
         if item in self._items:
             item = self._items[item]
-        elif not isinstance(item, AbstractWidgetItem):
+        elif not isinstance(item, cuegui.AbstractWidgetItem.AbstractWidgetItem):
             # if the parent was already deleted, then this one was too
             return
 
@@ -348,7 +348,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         since last updated and the user has not scrolled recently if
         self._limitUpdatesDuringScrollSetup() was called in the TreeWidget
         object init"""
-        if time.time() - self._lastUpdate > Constants.MINIMUM_UPDATE_INTERVAL:
+        if time.time() - self._lastUpdate > cuegui.Constants.MINIMUM_UPDATE_INTERVAL:
             if self.__limitUpdatesDuringScrollAllowUpdate():
                 self._update()
 
@@ -397,9 +397,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
         if hasattr(self, "ticksWithoutUpdate"):
             self.ticksWithoutUpdate = self.updateInterval - \
-                                      Constants.AFTER_ACTION_UPDATE_DELAY // 1000
+                                      cuegui.Constants.AFTER_ACTION_UPDATE_DELAY // 1000
         else:
-            QtCore.QTimer.singleShot(Constants.AFTER_ACTION_UPDATE_DELAY,
+            QtCore.QTimer.singleShot(cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
                                      self.updateRequest)
 
     def redraw(self):
@@ -411,7 +411,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                 # "underlying C/C++ object has been deleted"
                 #self.setDirtyRegion(QtGui.QRegion(self.viewport().rect()))
             except Exception as e:
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def getColumnWidths(self):
         """Return the column widths

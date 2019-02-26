@@ -61,12 +61,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from cuegui import Logger
-from cuegui import Constants
-from cuegui import Utils
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 CLASS = "CLASS"
 DESCRIPTION = "DESCRIPTION"
@@ -100,7 +100,7 @@ class Plugins(object):
 
         # Load plugin paths from the config file
         __pluginPaths = QtGui.qApp.settings.value("Plugin_Paths", [])
-        for path in Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
+        for path in cuegui.Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
 
         # Load plugins explicitly listed in the config file
@@ -137,7 +137,7 @@ class Plugins(object):
                     logger.info("plugin loaded %s" % module)
                 except Exception as e:
                     logger.warning("Failed to load plugin: %s" % s_class)
-                    list(map(logger.warning, Utils.exceptionOutput(e)))
+                    list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __closePlugin(self, object):
         """When a running plugin is closed, this is called and the running
@@ -228,7 +228,7 @@ class Plugins(object):
                 plugin_instance.pluginRestoreState(state)
             except Exception as e:
                 logger.warning("Error restoring plugin state for: %s" % plugin_name)
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def loadPluginPath(self, plugin_dir):
         """This will load all plugin modules located in the path provided

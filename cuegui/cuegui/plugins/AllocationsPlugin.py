@@ -56,7 +56,7 @@ class AllocationsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 # Allocations
 ################################################################################
 
-class MonitorAllocations(cuegui.AbstractTreeWidget):
+class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_ALLOC)
         self.addColumn("Name", 150, id=1,
