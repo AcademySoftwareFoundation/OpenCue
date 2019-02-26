@@ -16,10 +16,11 @@
 """
 Main entry point for the application.
 """
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 
 import os
 
@@ -31,6 +32,7 @@ from . import Constants
 from . import Logger
 from . import Style
 from .MainWindow import MainWindow
+from .SplashWindow import SplashWindow
 from .ThreadPool import ThreadPool
 
 
@@ -68,9 +70,7 @@ def startup(app_name, app_version, argv):
     app = CueGuiApplication(argv)
 
     # Start splash screen
-    from .SplashWindow import SplashWindow
     splash = SplashWindow(app, app_name, app_version, Constants.RESOURCE_PATH)
-    # Display a splash message with: splash.msg("Message")
 
     # Allow ctrl-c to kill the application
     import signal

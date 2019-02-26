@@ -46,8 +46,10 @@ from . import Constants
 from . import CreatorDialog
 from . import PreviewWidget
 
+from .DependDialog import DependDialog
 from .DependWizard import DependWizard
 from .EmailDialog import EmailDialog
+from .FilterDialog import FilterDialog
 from .LocalBooking import LocalBookingDialog
 from .Comments import CommentListDialog
 from .ShowDialog import ShowDialog
@@ -55,6 +57,7 @@ from .LayerDialog import LayerTagsDialog, LayerPropertiesDialog
 from .GroupDialog import NewGroupDialog, ModifyGroupDialog
 from .UnbookDialog import UnbookDialog
 from .ServiceDialog import ServiceDialog
+from .TasksDialog import TasksDialog
 
 
 logger = Logger.getLogger(__file__)
@@ -213,7 +216,7 @@ class JobActions(AbstractActions):
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
-        from .DependDialog import DependDialog
+
         DependDialog(jobs[0], self._caller).show()
 
     emailArtist_info = ["Email Artist...", None, "mail"]
@@ -535,7 +538,6 @@ class LayerActions(AbstractActions):
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
-        from .DependDialog import DependDialog
         DependDialog(layers[0], self._caller).show()
 
     setMinCores_info = ["Set Minimum Cores", "Set the number of cores required for this layer", "configure"]
@@ -806,7 +808,6 @@ class FrameActions(AbstractActions):
     viewDepends_info = ["&View Dependencies...", None, "log"]
     def viewDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
-        from .DependDialog import DependDialog
         DependDialog(frames[0], self._caller).show()
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
@@ -1020,7 +1021,6 @@ class ShowActions(AbstractActions):
     viewTasks_info = ["View Tasks...", None, "view"]
     def viewTasks(self, rpcObjects=None):
         shows = self._getOnlyShowObjects(rpcObjects)
-        from .TasksDialog import TasksDialog
         for show in shows:
             TasksDialog(show, self._caller).show()
 
@@ -1077,20 +1077,17 @@ class RootGroupActions(AbstractActions):
 
     viewFilters_info = ["View Filters...", None, "view"]
     def viewFilters(self, rpcObjects=None):
-        from .FilterDialog import FilterDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
             FilterDialog(opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
     taskProperties_info = ["Task Properties...", None, "view"]
     def taskProperties(self, rpcObjects=None):
-        from .TasksDialog import TasksDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
             TasksDialog(opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
 
     serviceProperties_info = ["Service Properies...", None, "view"]
     def serviceProperties(self, rpcObjects=None):
-        from .TasksDialog import TasksDialog
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
             ServiceDialog(opencue.api.findShow(rootgroup.data.name), self._caller).exec_()
 
