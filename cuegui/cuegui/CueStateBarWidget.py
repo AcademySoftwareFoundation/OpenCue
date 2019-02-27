@@ -13,6 +13,10 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import threading
 import time
 import weakref
@@ -21,10 +25,10 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueStateBarWidget(QtWidgets.QWidget):
@@ -74,7 +78,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         docLength = scrollBar.maximum() + scrollBar.pageStep()
         pos = yPos * docLength/float(self.height())
 
-        scrollBar.setValue(int(pos - scrollBar.pageStep()/2))
+        scrollBar.setValue(int(pos - scrollBar.pageStep() / 2))
 
     def paintEvent(self, event):
         """Called when the widget is being redrawn

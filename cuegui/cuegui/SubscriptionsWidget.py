@@ -13,18 +13,24 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import str
+
 import opencue
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-import Constants
-from MenuActions import MenuActions
-from ShowDialog import ShowDialog
-import Utils
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.MenuActions
+import cuegui.ShowDialog
+import cuegui.Utils
 
 
 class SubscriptionsWidget(QtWidgets.QWidget):
@@ -58,9 +64,8 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         QtGui.qApp.view_object.connect(self.setShow)
         QtGui.qApp.facility_changed.connect(self.changeFacility)
 
-        self.__menuActions = MenuActions(self,
-                                         self.updateSoon,
-                                         self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.changeFacility()
 
@@ -80,7 +85,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         @param show: The show to monitor"""
         if isinstance(show, int):
             show = str(self.__comboShows.currentText())
-        if Utils.isShow(show):
+        if cuegui.Utils.isShow(show):
             if self.__show and self.__show.name() == show.name():
                 return
             self.__show = show
@@ -120,7 +125,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def __showProperties(self):
         if self.__show:
-            dialog = ShowDialog(opencue.api.findShow(self.__show.name()), self)
+            dialog = cuegui.ShowDialog.ShowDialog(opencue.api.findShow(self.__show.name()), self)
             dialog.exec_()
         else:
             self.__comboShows.showPopup()
@@ -137,18 +142,18 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.__monitorSubscriptions.setColumnVisibility(settings)
 
 
-class SubscriptionsTreeWidget(AbstractTreeWidget):
+class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
-        self.startColumnsForType(Constants.TYPE_SUB)
+        self.startColumnsForType(cuegui.Constants.TYPE_SUB)
         self.addColumn("Alloc", 160, id=1,
                        data=lambda sub: sub.data.allocation_name)
         self.addColumn("Usage", 70, id=2,
                        data=lambda sub: (sub.data.size and
-                                         ("%.2f%%" % (sub.data.reserved_cores/sub.data.size * 100))
+                                         ("%.2f%%" % (sub.data.reserved_cores / sub.data.size * 100))
                                          or 0),
                        sort=lambda sub: (sub.data.size and
-                                         sub.data.reserved_cores/sub.data.size or 0))
+                                         sub.data.reserved_cores / sub.data.size or 0))
         self.addColumn("Size", 70, id=3,
                        data=lambda sub: sub.data.size,
                        sort=lambda sub: sub.data.size)
@@ -159,15 +164,13 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
                        data=lambda sub: ("%.2f" % sub.data.reserved_cores),
                        sort=lambda sub: sub.data.reserved_cores)
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.__show = None
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self,
-                                         self.updateSoon,
-                                         self.selectedObjects,
-                                         self.getShow)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getShow)
 
         self.setUpdateInterval(30)
 
@@ -176,7 +179,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
         try:
             if not show:
                 self.__show = None
-            elif Utils.isShow(show):
+            elif cuegui.Utils.isShow(show):
                 self.__show = show
             elif isinstance(show, str):
                 try:
@@ -215,6 +218,7 @@ class SubscriptionsTreeWidget(AbstractTreeWidget):
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
 
 
-class SubscriptionWidgetItem(AbstractWidgetItem):
+class SubscriptionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_SUB, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_SUB, object, parent)

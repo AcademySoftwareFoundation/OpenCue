@@ -18,6 +18,13 @@ Utility functions.
 """
 
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+
+from builtins import str
+from builtins import map
+import getpass
 import os
 import re
 import subprocess
@@ -33,12 +40,12 @@ from yaml.scanner import ScannerError
 
 import opencue
 
-import Logger
-from ConfirmationDialog import ConfirmationDialog
-from Constants import DEFAULT_EDITOR, DEFAULT_INI_PATH
+import cuegui.ConfirmationDialog
+import cuegui.Constants
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 __USERNAME = None
 
@@ -54,7 +61,7 @@ def questionBoxYesNo(parent, title, text, items = []):
     @type  items: list<string>
     @param items: Optional, a list of items, such as job names that will be
                   acted on"""
-    return ConfirmationDialog(title, text, items, parent).exec_() == 1
+    return cuegui.ConfirmationDialog.ConfirmationDialog(title, text, items, parent).exec_() == 1
 
 
 def countObjectTypes(objects):
@@ -192,11 +199,7 @@ def getUsername():
     """Returns the username that this process is running under"""
     global __USERNAME
     if not __USERNAME:
-        import pwd
-        try:
-            __USERNAME = pwd.getpwuid(os.getuid()).pw_name
-        except KeyError:
-            __USERNAME = str(os.getuid())
+        __USERNAME = getpass.getuser()
     return __USERNAME
 
 
@@ -298,7 +301,7 @@ def handleExceptions(function):
         try:
             return function(*args)
         except Exception as e:
-            map(logger.warning, exceptionOutput(e))
+            list(map(logger.warning, exceptionOutput(e)))
     return new
 
 
@@ -361,7 +364,7 @@ def memoryToString(kmem, unit = None):
     if unit == "K" or not unit and kmem < k:
         return "%dK" % kmem
     if unit == "M" or not unit and kmem < pow(k,2):
-        return "%dM" % (kmem / k)
+        return "%dM" % (kmem // k)
     if unit == "G" or not unit and kmem < pow(k,3):
         return "%.01fG" % (float(kmem) / pow(k,2))
 
@@ -380,7 +383,7 @@ def getResourceConfig(path=None):
 
     config = {}
     if not path:
-        path = '{}/cue_resources.yaml'.format(DEFAULT_INI_PATH)
+        path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
     try:
         with open(path, 'r') as f:
             config = yaml.load(f)
@@ -453,7 +456,7 @@ def popupView(file, facility=None):
         elif QtGui.qApp.settings.contains('LogEditor'):
             job_log_cmd = QtGui.qApp.settings.value("LogEditor")
         else:
-            job_log_cmd = DEFAULT_EDITOR.split()
+            job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 

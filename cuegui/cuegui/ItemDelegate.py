@@ -13,6 +13,12 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+from builtins import range
 from math import ceil
 
 from PySide2 import QtCore
@@ -20,7 +26,8 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Constants
+
+import cuegui.Constants
 
 
 RGB_FRAME_STATE = {opencue.api.job_pb2.SUCCEEDED: QtGui.QColor(55, 200, 55),
@@ -151,7 +158,7 @@ class JobBookingBarDelegate(AbstractDelegate):
 
     def paint(self, painter, option, index):
         # Only if job
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB and \
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB and \
            option.rect.width() > 30:
                 # This itemFromIndex could cause problems
                 # I need: minCores, maxCores, totalRunning, totalWaiting
@@ -209,7 +216,7 @@ class JobThinProgressBarDelegate(AbstractDelegate):
 
     def paint(self, painter, option, index):
         # Only if job
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB:
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
             painter.save()
             try:
@@ -233,7 +240,7 @@ class JobProgressBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_JOB:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB:
             # This is a lot of data calls to build this one item
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
             state = index.data(QtCore.Qt.UserRole + 2)
@@ -266,7 +273,7 @@ class HostSwapBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
                                      *index.data(QtCore.Qt.UserRole + 1))
         else:
@@ -278,7 +285,7 @@ class HostMemBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
                                      *index.data(QtCore.Qt.UserRole + 2))
         else:
@@ -290,7 +297,7 @@ class HostGpuBarDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
             self._paintDifferenceBar(painter, option, index,
                                      *index.data(QtCore.Qt.UserRole + 3))
         else:
@@ -316,7 +323,7 @@ class HostHistoryDelegate(AbstractDelegate):
         self.__brush.setStyle(QtCore.Qt.SolidPattern)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == Constants.TYPE_HOST:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_HOST:
             hostItem = self.parent().itemFromIndex(index)
             host = hostItem.rpcObject
 

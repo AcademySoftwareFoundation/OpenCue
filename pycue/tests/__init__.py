@@ -16,3 +16,11 @@
 """
 PyCue Unit Tests
 """
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from . import api_test
+from . import file_sequence
+from . import search_test
+from . import util_test

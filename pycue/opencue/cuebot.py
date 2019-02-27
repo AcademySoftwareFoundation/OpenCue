@@ -12,6 +12,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import object
 import atexit
 import grpc
 import logging
@@ -61,7 +67,7 @@ if os.path.exists(fcnf):
     config.update(yaml.load(open(fcnf).read()))
 
 
-class Cuebot:
+class Cuebot(object):
     """Used to manage the connection to the Cuebot.  Normally the connection
        to the Cuebot is made automatically as needed so you don't have to explicitly
        call Cuebot.connect().
@@ -179,7 +185,7 @@ class Cuebot:
         it will fall back to the one listed in cuebot.facility_default
         @type  facility: str
         @param facility: a facility named in the config file"""
-        if facility not in config.get("cuebot.facility").keys():
+        if facility not in list(config.get("cuebot.facility").keys()):
             default = config.get("cuebot.facility_default")
             logger.warning("The facility '%s' does not exist, defaulting to %s"%
                            (facility, default))

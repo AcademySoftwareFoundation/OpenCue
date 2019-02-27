@@ -13,6 +13,12 @@
 #  limitations under the License.
 
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+
+from builtins import range
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
@@ -42,7 +48,7 @@ class GraphSubscriptionsWidget(QtWidgets.QWidget):
     def addNumber(self):
         for sub in self.__show.getSubscriptions():
             if sub.name() == "clo.General":
-                val = sub.runningCores()/100
+                val = sub.runningCores() / 100
                 self.__history.append(val)
                 self.__max = max(self.__max, val + 80)
 

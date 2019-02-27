@@ -13,20 +13,25 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import str
 from copy import deepcopy
 import math
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from opencue.compiled_proto import job_pb2
 import FileSequence
+from opencue.compiled_proto import job_pb2
 
-import Logger
-from FrameMonitorTree import FrameMonitorTree
+import cuegui.FrameMonitorTree
+import cuegui.Logger
 
 
-log = Logger.getLogger(__file__)
+log = cuegui.Logger.getLogger(__file__)
 
 
 class FrameMonitor(QtWidgets.QWidget):
@@ -37,7 +42,7 @@ class FrameMonitor(QtWidgets.QWidget):
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.frameMonitorTree = FrameMonitorTree(self)
+        self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self)
         self.page = self.frameMonitorTree.frameSearch.page
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()
@@ -91,7 +96,7 @@ class FrameMonitor(QtWidgets.QWidget):
 # Frame range bar to filter by frame range
 # ==============================================================================
     def _frameRangeSelectionFilterSetup(self, layout):
-        from FrameRangeSelection import FrameRangeSelectionWidget
+        from .FrameRangeSelection import FrameRangeSelectionWidget
         widget = FrameRangeSelectionWidget(self)
         layout.addWidget(widget)
         widget.selectionChanged.connect(self._frameRangeSelectionFilterHandle)
@@ -124,7 +129,7 @@ class FrameMonitor(QtWidgets.QWidget):
             if _min == _max:
                 _max += 1
 
-            self.frameRangeSelection.default_select_size = 1000/len(layers)
+            self.frameRangeSelection.default_select_size = 1000 // len(layers)
 
             self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
 

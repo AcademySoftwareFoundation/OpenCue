@@ -18,11 +18,17 @@ Project: opencue Library
 Module: util.py
 """
 
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
 import logging
 import os
 from functools import wraps
 
-import exception
+from . import exception
 import grpc
 from opencue import Cuebot
 from google.protobuf.pyext._message import RepeatedCompositeContainer

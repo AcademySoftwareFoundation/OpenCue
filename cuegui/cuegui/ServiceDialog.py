@@ -16,14 +16,21 @@
 """Service related widgets."""
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import str
+from builtins import range
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-from TagsWidget import TagsWidget
-import Utils
+import cuegui.Constants
+import cuegui.TagsWidget
+import cuegui.Utils
 
 
 class ServiceForm(QtWidgets.QWidget):
@@ -81,7 +88,7 @@ class ServiceForm(QtWidgets.QWidget):
 
         self.__buttons.accepted.connect(self.save)
 
-        self._tags_w = TagsWidget(allowed_tags=Constants.ALLOWED_TAGS)
+        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
         layout.addWidget(self._tags_w, 6, 0, 1, 2)
 
     def _cfg(self):
@@ -93,7 +100,7 @@ class ServiceForm(QtWidgets.QWidget):
         @rtype: dict<str:str>
         """
         if not hasattr(self, '__config'):
-            self.__config = Utils.getResourceConfig()
+            self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
     def setService(self, service):
@@ -107,8 +114,8 @@ class ServiceForm(QtWidgets.QWidget):
         self.threadable.setChecked(self.__service.threadable)
         self.min_cores.setValue(self.__service.min_cores)
         self.max_cores.setValue(self.__service.max_cores)
-        self.min_memory.setValue(self.__service.min_memory / 1024)
-        self.min_gpu.setValue(self.__service.min_gpu / 1024)
+        self.min_memory.setValue(self.__service.min_memory // 1024)
+        self.min_gpu.setValue(self.__service.min_gpu // 1024)
 
         self._tags_w.set_tags(self.__service.tags)
 

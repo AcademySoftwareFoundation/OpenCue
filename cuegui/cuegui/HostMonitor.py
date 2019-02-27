@@ -13,16 +13,23 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Logger
-from HostMonitorTree import HostMonitorTree
+
+import cuegui.HostMonitorTree
+import cuegui.Logger
 
 
-log = Logger.getLogger(__file__)
+log = cuegui.Logger.getLogger(__file__)
 
 FILTER_HEIGHT = 20
 
@@ -32,7 +39,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.hostMonitorTree = HostMonitorTree(self)
+        self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
 
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()

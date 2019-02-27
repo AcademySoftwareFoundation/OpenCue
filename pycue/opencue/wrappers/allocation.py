@@ -13,17 +13,16 @@
 #  limitations under the License.
 
 
-
 """
 allocation module
 """
 
-import host
-import subscription
 
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.cuebot import Cuebot
+import opencue.wrappers.host
+import opencue.wrappers.subscription
 
 
 class Allocation(object):
@@ -46,7 +45,7 @@ class Allocation(object):
         """
         hostSeq = self.stub.GetHosts(facility_pb2.AllocGetHostsRequest(allocation=self.data),
                                      timeout=Cuebot.Timeout).hosts
-        return [host.Host(h) for h in hostSeq.hosts]
+        return [opencue.wrappers.host.Host(h) for h in hostSeq.hosts]
 
     def getSubscriptions(self):
         """Get the subscriptions of this allocation.
@@ -56,7 +55,7 @@ class Allocation(object):
         subscriptionSeq = self.stub.GetSubscriptions(
             facility_pb2.AllocGetSubscriptionsRequest(allocation=self.data),
             timeout=Cuebot.Timeout).subscriptions
-        return [subscription.Subscription(sub) for sub in subscriptionSeq.subscriptions]
+        return [opencue.wrappers.subscription.Subscription(sub) for sub in subscriptionSeq.subscriptions]
 
     def reparentHosts(self, hosts):
         """Moves the given hosts to the allocation

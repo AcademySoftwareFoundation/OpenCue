@@ -13,9 +13,16 @@
 #  limitations under the License.
 
 
-from PySide2 import QtCore, QtWidgets
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
-import cuegui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
+import cuegui.AbstractDockWidget
+import cuegui.HostMonitor
+import cuegui.ProcMonitor
 
 
 PLUGIN_NAME = "Monitor Hosts"
@@ -25,13 +32,13 @@ PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "HostMonitorDockWidget"
 
 
-class HostMonitorDockWidget(cuegui.AbstractDockWidget):
+class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__monitorHosts = cuegui.HostMonitor(self)
-        self.__monitorProcs = cuegui.ProcMonitor(self)
+        self.__monitorHosts = cuegui.HostMonitor.HostMonitor(self)
+        self.__monitorProcs = cuegui.ProcMonitor.ProcMonitor(self)
         self.__splitter = QtWidgets.QSplitter(QtCore.Qt.Vertical)
 
         self.layout().addWidget(self.__splitter)

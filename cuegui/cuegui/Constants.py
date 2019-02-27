@@ -18,6 +18,10 @@ Application constants.
 """
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import os
 
 from PySide2 import QtCore
@@ -86,7 +90,7 @@ RGB_FRAME_STATE = {opencue.api.job_pb2.DEAD: QtGui.QColor(255, 0, 0),
                    opencue.api.job_pb2.WAITING: QtGui.QColor(135, 207, 235),
                    opencue.api.job_pb2.CHECKPOINT: QtGui.QColor(61, 98, 247)}
 QVARIANT_FRAME_STATE = \
-    dict((key, RGB_FRAME_STATE[key]) for key in RGB_FRAME_STATE.keys())
+    dict((key, RGB_FRAME_STATE[key]) for key in list(RGB_FRAME_STATE.keys()))
 
 TYPE_JOB = QtWidgets.QTreeWidgetItem.UserType + 1
 TYPE_LAYER = QtWidgets.QTreeWidgetItem.UserType + 2

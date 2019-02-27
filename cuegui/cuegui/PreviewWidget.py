@@ -13,20 +13,26 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+from future import standard_library
+standard_library.install_aliases()
+
 import os
 import time
-import urllib2
+import urllib.request, urllib.error, urllib.parse
 import tempfile
 import xml.etree.ElementTree as Et
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import Logger
-import Utils
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class PreviewProcessorDialog(QtWidgets.QDialog):
@@ -57,7 +63,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         if self.__aovs:
             aovs = "/aovs"
  
-        playlist = urllib2.urlopen("http://%s:%d%s" % (http_host, http_port, aovs)).read()
+        playlist = urllib.request.urlopen("http://%s:%d%s" % (http_host, http_port, aovs)).read()
         for element in Et.fromstring(playlist).findall("page/edit/element"):
             items.append(element.text)
 
@@ -94,7 +100,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         return name
 
     def __findHttpPort(self):
-        log = Utils.getFrameLogFile(self.__job, self.__frame)
+        log = cuegui.Utils.getFrameLogFile(self.__job, self.__frame)
         fp = open(log, "r")
         try:
             counter = 0

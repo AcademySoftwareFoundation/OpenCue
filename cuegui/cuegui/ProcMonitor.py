@@ -13,16 +13,22 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
-from ProcMonitorTree import ProcMonitorTree
-import Utils
+import cuegui.Logger
+import cuegui.ProcMonitorTree
+import cuegui.Utils
 
 
-log = Logger.getLogger(__file__)
+log = cuegui.Logger.getLogger(__file__)
 
 FILTER_HEIGHT = 20
 
@@ -32,7 +38,7 @@ class ProcMonitor(QtWidgets.QWidget):
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.procMonitorTree = ProcMonitorTree(self)
+        self.procMonitorTree = cuegui.ProcMonitorTree.ProcMonitorTree(self)
 
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()
@@ -175,7 +181,7 @@ class ProcMonitor(QtWidgets.QWidget):
         QtGui.qApp.view_object.connect(self.__hostDoubleClickedHandle)
 
     def __hostDoubleClickedHandle(self, rpcObject):
-        if Utils.isHost(rpcObject):
+        if cuegui.Utils.isHost(rpcObject):
             self.procMonitorTree.procSearch.options['host'] = [rpcObject.data.name]
             self.procMonitorTree.updateRequest()
 

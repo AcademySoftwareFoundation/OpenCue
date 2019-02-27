@@ -18,14 +18,18 @@ Allows the creation of a logger.
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import logging
 
-import Constants
+import cuegui.Constants
 
 
-__loggerFormat = logging.Formatter(Constants.LOGGER_FORMAT)
+__loggerFormat = logging.Formatter(cuegui.Constants.LOGGER_FORMAT)
 loggerStream = logging.StreamHandler()
-loggerStream.setLevel(getattr(logging, Constants.LOGGER_LEVEL))
+loggerStream.setLevel(getattr(logging, cuegui.Constants.LOGGER_LEVEL))
 loggerStream.setFormatter(__loggerFormat)
 
 

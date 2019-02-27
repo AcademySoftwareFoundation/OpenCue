@@ -20,10 +20,11 @@ opencue layer module
 implementation of a layer in opencue
 """
 
-import depend
+
 from opencue.compiled_proto import job_pb2
 from opencue.cuebot import Cuebot
-from ..search import FrameSearch
+import opencue.search
+import opencue.wrappers.depend
 
 
 class Layer(object):
@@ -64,7 +65,7 @@ class Layer(object):
         """Returns the list of up to 1000 frames from within the layer.
         @rtype:  list<Frame>
         @return: Sequence of Frame obejcts"""
-        criteria = FrameSearch.criteriaFromOptions(**options)
+        criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
         response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, r=criteria),
                                        timeout=Cuebot.Timeout)
         return [frame.Frame(frame) for frame in response.frames]
@@ -132,7 +133,7 @@ class Layer(object):
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(dep) for dep in dependSeq.depends]
+        return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
     def getWhatThisDependsOn(self):
         """Get a list of dependencies that this layer depends on
@@ -142,7 +143,7 @@ class Layer(object):
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
             timeout=Cuebot.Timeout)
         dependSeq = response.depends
-        return [depend.Depend(dep) for dep in dependSeq.depends]
+        return [opencue.wrappers.depend.Depend(dep) for dep in dependSeq.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a layer on job dependency
@@ -153,7 +154,7 @@ class Layer(object):
         response = self.stub.CreateDependOnJob(
             job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a layer on layer dependency
@@ -164,7 +165,7 @@ class Layer(object):
         response = self.stub.CreateDependOnLayer(
             job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a layer on frame dependency
@@ -175,7 +176,7 @@ class Layer(object):
         response = self.stub.CreateDependOnFrame(
             job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def createFrameByFrameDependency(self, layer):
         """Create and return a frame by frame frame dependency
@@ -189,7 +190,7 @@ class Layer(object):
             job_pb2.LayerCreateFrameByFrameDependRequest(
                 layer=self.data, depend_layer=layer, any_frame=False),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     # TODO(gregdenton) Determine if this is needed. (Issue #71)
     # def unbookProcs(self, subs, number, kill=False):

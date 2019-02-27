@@ -13,6 +13,12 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import str
+from builtins import map
 import time
 
 from PySide2 import QtCore
@@ -21,17 +27,18 @@ from PySide2 import QtWidgets
 
 import opencue
 from opencue.compiled_proto.job_pb2 import FrameState
-import Constants
-import Logger
-import Style
-import Utils
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import JobThinProgressBarDelegate
-from MenuActions import MenuActions
+
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.ItemDelegate
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Style
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
@@ -44,11 +51,11 @@ def getEta(stats):
     if stats.runningFrames:
         remaining = (((stats.pendingFrames - 1) * stats.avgFrameSec) + stats.highFrameSec)
         if remaining:
-            return Utils.secondsToHHHMM(remaining / stats.runningFrames)
+            return cuegui.Utils.secondsToHHHMM(remaining // stats.runningFrames)
     return "-"
 
 
-class CueJobMonitorTree(AbstractTreeWidget):
+class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     view_object = QtCore.Signal(object)
     single_click = QtCore.Signal(object)
@@ -57,7 +64,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
         self.__shows = {}
 
-        self.startColumnsForType(Constants.TYPE_JOB)
+        self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 550, id=1,
                        data=lambda job:(job.data.name),
                        tip="The name of the job: show-shot-user_uniqueName\n\n"
@@ -66,7 +73,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            "Red \t if it has dead frames\n"
                            "Green \t if it has no running frames with frames waiting\n"
                            "Purple \t if all remaining frames depend on something\n"
-                           "Yellow \t if the maxRss is over %sKb" % Constants.MEMORY_WARNING_LEVEL)
+                           "Yellow \t if the maxRss is over %sKb" % cuegui.Constants.MEMORY_WARNING_LEVEL)
         self.addColumn("_Comment", 20, id=2,
                        sort=lambda job:(job.data.has_comment),
                        tip="A comment icon will appear if a job has a comment. You\n"
@@ -109,7 +116,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job:(Utils.secondsToHHHMM(time.time() - job.data.start_time)),
+                       data=lambda job:(cuegui.Utils.secondsToHHHMM(time.time() - job.data.start_time)),
                        sort=lambda job:(time.time() - job.data.start_time),
                        tip="The HOURS:MINUTES since the job was launched.")
         self.addColumn("Pri", 30, id=12,
@@ -124,13 +131,13 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            "A very rough estimate of the number of HOURS:MINUTES\n"
                            "it will be before the entire job is done.")
         self.addColumn("MaxRss", 60, id=14,
-                       data=lambda job:(Utils.memoryToString(job.stats.maxRss)),
+                       data=lambda job:(cuegui.Utils.memoryToString(job.stats.maxRss)),
                        sort=lambda job:(job.stats.maxRss),
                        tip="The most memory used at one time by any single frame.")
         self.addColumn("_Blank", 20, id=15,
                        tip="Spacer")
         self.addColumn("Progress", 0, id=16,
-                       delegate=JobThinProgressBarDelegate,
+                       delegate=cuegui.ItemDelegate.JobThinProgressBarDelegate,
                        tip="A visual overview of the job progress.\n"
                            "Green \t is succeeded\n"
                            "Yellow \t is running\n"
@@ -138,7 +145,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            "Purple \t is waiting on a dependency\n"
                            "Light Blue \t is waiting to be booked")
 
-        for itemType in [Constants.TYPE_GROUP, Constants.TYPE_ROOTGROUP]:
+        for itemType in [cuegui.Constants.TYPE_GROUP, cuegui.Constants.TYPE_ROOTGROUP]:
             self.startColumnsForType(itemType)
             self.addColumn("", 0, id=1,
                            data=lambda group: group.name)
@@ -164,7 +171,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
             self.addColumn("", 0, id=16,
                            data=lambda group: (group.department != "Unknown" and group.department or ""))
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.setAnimated(False)
         self.setAcceptDrops(True)
@@ -173,7 +180,8 @@ class CueJobMonitorTree(AbstractTreeWidget):
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         QtGui.qApp.facility_changed.connect(self.removeAllShows)
         self.itemClicked.connect(self.__itemSingleClickedCopy)
@@ -191,7 +199,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
+        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
@@ -203,18 +211,18 @@ class CueJobMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: The column clicked on"""
         job = item.rpcObject
-        if col == COLUMN_COMMENT and Utils.isJob(job) and job.data.has_comment:
+        if col == COLUMN_COMMENT and cuegui.Utils.isJob(job) and job.data.has_comment:
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
         """Called when a drag begins"""
-        Utils.startDrag(self, dropActions, self.selectedObjects())
+        cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
-        Utils.dragEnterEvent(event)
+        cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
-        Utils.dragMoveEvent(event)
+        cuegui.Utils.dragMoveEvent(event)
 
         # Causes the list to scroll when dragging is over the top or bottom 20%
         ypos = event.answerRect().y()
@@ -237,20 +245,20 @@ class CueJobMonitorTree(AbstractTreeWidget):
     def dropEvent(self, event):
         item = self.itemAt(event.pos())
 
-        if item and item.type() in (Constants.TYPE_ROOTGROUP, Constants.TYPE_GROUP):
-            job_ids = Utils.dropEvent(event, "application/x-job-ids")
-            group_ids = Utils.dropEvent(event, "application/x-group-ids")
-            job_names = Utils.dropEvent(event, "application/x-job-names")
-            group_names = Utils.dropEvent(event, "application/x-group-names")
+        if item and item.type() in (cuegui.Constants.TYPE_ROOTGROUP, cuegui.Constants.TYPE_GROUP):
+            job_ids = cuegui.Utils.dropEvent(event, "application/x-job-ids")
+            group_ids = cuegui.Utils.dropEvent(event, "application/x-group-ids")
+            job_names = cuegui.Utils.dropEvent(event, "application/x-job-names")
+            group_names = cuegui.Utils.dropEvent(event, "application/x-group-names")
 
             if job_ids or group_ids:
                 body = ""
                 if group_ids:
-                    body += "Groups:\n" + "\n".join(Utils.dropEvent(event, "application/x-group-names"))
+                    body += "Groups:\n" + "\n".join(cuegui.Utils.dropEvent(event, "application/x-group-names"))
                 if group_ids and job_ids:
                     body += "\n\n"
                 if job_ids:
-                    body += "Jobs:\n" + "\n".join(Utils.dropEvent(event, "application/x-job-names"))
+                    body += "Jobs:\n" + "\n".join(cuegui.Utils.dropEvent(event, "application/x-job-names"))
 
                 result = QtWidgets.QMessageBox.question(
                     self,
@@ -265,14 +273,14 @@ class CueJobMonitorTree(AbstractTreeWidget):
                         item.rpcObject.reparentJobs(job_ids)
                         # If no exception, then move was allowed, so do it locally:
                         for id_ in job_ids:
-                            proxy = Utils.getObjectKey(opencue.util.proxy(id_, "Job"))
+                            proxy = cuegui.Utils.getObjectKey(opencue.util.proxy(id_, "Job"))
                             self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     if group_ids:
                         item.rpcObject.reparentGroups(group_ids)
                         # If no exception, then move was allowed, so do it locally:
                         for id_ in group_ids:
-                            proxy = Utils.getObjectKey(opencue.util.proxy(id_, "Group"))
+                            proxy = cuegui.Utils.getObjectKey(opencue.util.proxy(id_, "Group"))
                             self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     self.updateSoon()
@@ -316,16 +324,16 @@ class CueJobMonitorTree(AbstractTreeWidget):
         """Returns a list of monitored show objects
         @rtype:  list<show>
         @return: List of monitored show objects"""
-        return self.__shows.values()
+        return list(self.__shows.values())
 
     def getShowNames(self):
         """Returns a list of monitored shows
         @rtype:  list<str>
         @return: List of monitored shows"""
-        return self.__shows.keys()
+        return list(self.__shows.keys())
 
     def __getCollapsed(self):
-        return [item.rpcObject for item in self._items.values() if not item.isExpanded()]
+        return [item.rpcObject for item in list(self._items.values()) if not item.isExpanded()]
 
     def __setCollapsed(self, collapsed):
         self.expandAll()
@@ -343,7 +351,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                            for show in self.getShows()]
             allIds = set(self.__getNestedIds(nestedShows))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
 
         return [nestedShows, allIds]
@@ -429,7 +437,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
                 groupItem.update(group, parent)
 
             # If id does not exist, create it
-            elif Utils.isGroup(group):
+            elif cuegui.Utils.isGroup(group):
                 self._items[group.id] = groupItem = GroupWidgetItem(group, parent)
             else:
                 self._items[group.id] = groupItem = RootGroupWidgetItem(group, parent)
@@ -456,7 +464,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
         selectedObjects = self.selectedObjects()
-        counts = Utils.countObjectTypes(selectedObjects)
+        counts = cuegui.Utils.countObjectTypes(selectedObjects)
 
         menu = QtWidgets.QMenu()
         if counts["rootgroup"] > 0:
@@ -497,7 +505,7 @@ class CueJobMonitorTree(AbstractTreeWidget):
 
         if counts["job"] > 0:
 
-            jobTypes = Utils.countJobTypes(selectedObjects)
+            jobTypes = cuegui.Utils.countJobTypes(selectedObjects)
 
             self.__menuActions.jobs().addAction(menu, "view")
             self.__menuActions.jobs().addAction(menu, "emailArtist")
@@ -561,19 +569,20 @@ class CueJobMonitorTree(AbstractTreeWidget):
         """Resume selected jobs"""
         self.__menuActions.jobs().resume()
 
-class RootGroupWidgetItem(AbstractWidgetItem):
+class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __initialized = False
     def __init__(self, object, parent):
         if not self.__initialized:
-            if Style.ColorTheme is None:
-                Style.init()
+            if cuegui.Style.ColorTheme is None:
+                cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__icon = QtGui.QIcon(":show.png")
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_SHOW_FOREGROUND
-            self.__class__.__backgroundColor = Style.ColorTheme.COLOR_SHOW_BACKGROUND
-            self.__class__.__type = Constants.TYPE_ROOTGROUP
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_SHOW_FOREGROUND
+            self.__class__.__backgroundColor = cuegui.Style.ColorTheme.COLOR_SHOW_BACKGROUND
+            self.__class__.__type = cuegui.Constants.TYPE_ROOTGROUP
 
-        AbstractWidgetItem.__init__(self, Constants.TYPE_ROOTGROUP, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_ROOTGROUP, object, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -584,7 +593,7 @@ class RootGroupWidgetItem(AbstractWidgetItem):
         @rtype:  object
         @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -602,7 +611,7 @@ class RootGroupWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL
 
     def __lt__(self, other):
         """The shows are always ascending alphabetical"""
@@ -613,18 +622,19 @@ class RootGroupWidgetItem(AbstractWidgetItem):
     def __ne__(self, other):
         return other.rpcObject != self.rpcObject
 
-class GroupWidgetItem(AbstractWidgetItem):
+class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
     __initialized = False
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
             self.__class__.__icon = QtGui.QIcon(":group.png")
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_GROUP_FOREGROUND
-            self.__class__.__backgroundColor = Style.ColorTheme.COLOR_GROUP_BACKGROUND
-            self.__class__.__type = Constants.TYPE_GROUP
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_FOREGROUND
+            self.__class__.__backgroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_BACKGROUND
+            self.__class__.__type = cuegui.Constants.TYPE_GROUP
 
-        AbstractWidgetItem.__init__(self, Constants.TYPE_GROUP, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_GROUP, object, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -635,7 +645,7 @@ class GroupWidgetItem(AbstractWidgetItem):
         @rtype:  object
         @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.FontRole:
             return FONT_BOLD
@@ -652,7 +662,7 @@ class GroupWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL
 
     def __lt__(self, other):
         """Groups are always ascending alphabetical"""
@@ -663,7 +673,7 @@ class GroupWidgetItem(AbstractWidgetItem):
     def __ne__(self, other):
         return other.rpcObject != self.rpcObject
 
-class JobWidgetItem(AbstractWidgetItem):
+class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a job entry in the MonitorCue widget."""
     __initialized = False
     def __init__(self, object, parent):
@@ -672,18 +682,19 @@ class JobWidgetItem(AbstractWidgetItem):
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
-            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
-            self.__class__.__finishedColor = Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
-            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
-            self.__class__.__dependedColor = Style.ColorTheme.COLOR_JOB_DEPENDED
-            self.__class__.__noRunningColor = Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS
-            self.__class__.__highMemoryColor = Style.ColorTheme.COLOR_JOB_HIGH_MEMORY
-            self.__class__.__type = Constants.TYPE_JOB
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__finishedColor = cuegui.Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
+            self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__dependedColor = cuegui.Style.ColorTheme.COLOR_JOB_DEPENDED
+            self.__class__.__noRunningColor = cuegui.Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS
+            self.__class__.__highMemoryColor = cuegui.Style.ColorTheme.COLOR_JOB_HIGH_MEMORY
+            self.__class__.__type = cuegui.Constants.TYPE_JOB
 
         object.parent = None
 
-        AbstractWidgetItem.__init__(self, Constants.TYPE_JOB, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_JOB, object, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -696,15 +707,15 @@ class JobWidgetItem(AbstractWidgetItem):
         if role == QtCore.Qt.DisplayRole:
             if col not in self._cache:
                 self._cache[col] = \
-                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
-            return self._cache.get(col, Constants.QVARIANT_NULL)
+                    self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole:
             if col == COLUMN_MAXRSS and \
-               self.rpcObject.job_stats.max_rss > Constants.MEMORY_WARNING_LEVEL:
+               self.rpcObject.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
                     return self.__highMemoryColor
             if self.rpcObject.data.is_paused:
                 return self.__pausedColor
@@ -739,6 +750,6 @@ class JobWidgetItem(AbstractWidgetItem):
                     FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
                     FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
                 }
-            return self._cache.get("FST", Constants.QVARIANT_NULL)
+            return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL

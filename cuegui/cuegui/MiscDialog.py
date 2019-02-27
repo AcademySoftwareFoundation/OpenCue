@@ -13,14 +13,18 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from PySide2 import QtWidgets
 
-from AbstractDialog import AbstractDialog
+import cuegui.AbstractDialog
 
 
-class RunLocalDialog(AbstractDialog):
+class RunLocalDialog(cuegui.AbstractDialog.AbstractDialog):
     def __init__(self, job, parent=None):
-        AbstractDialog.__init__(self, parent)
+        cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
 
         title = "Use local desktop cores"

@@ -19,9 +19,12 @@ The opencue Static API.  This is exported into the package namespace.
 
 Project: opencue Library
 """
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
-import search
-import util
+from . import search
+from . import util
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import criterion_pb2
 from opencue.compiled_proto import cue_pb2
@@ -37,21 +40,21 @@ from opencue.compiled_proto import service_pb2
 from opencue.compiled_proto import show_pb2
 from opencue.compiled_proto import subscription_pb2
 from opencue.compiled_proto import task_pb2
-from cuebot import Cuebot
-from wrappers.allocation import Allocation
-from wrappers.comment import Comment
-from wrappers.depend import Depend
-from wrappers.filter import Filter
-from wrappers.frame import Frame
-from wrappers.group import Group
-from wrappers.host import Host, NestedHost
-from wrappers.job import Job
-from wrappers.layer import Layer
-from wrappers.proc import Proc
-from wrappers.service import Service
-from wrappers.show import Show
-from wrappers.subscription import Subscription
-from wrappers.task import Task
+from .cuebot import Cuebot
+from .wrappers.allocation import Allocation
+from .wrappers.comment import Comment
+from .wrappers.depend import Depend
+from .wrappers.filter import Filter
+from .wrappers.frame import Frame
+from .wrappers.group import Group
+from .wrappers.host import Host, NestedHost
+from .wrappers.job import Job
+from .wrappers.layer import Layer
+from .wrappers.proc import Proc
+from .wrappers.service import Service
+from .wrappers.show import Show
+from .wrappers.subscription import Subscription
+from .wrappers.task import Task
 
 
 __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, facility_pb2,

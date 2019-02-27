@@ -13,14 +13,28 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
 import os
 import re
 import weakref
 
-from PySide2 import QtGui, QtCore, QtWidgets
+from PySide2 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
 import opencue
-import cuegui
+
+import cuegui.AbstractDockWidget
+import cuegui.Action
+import cuegui.Constants
+import cuegui.CueJobMonitorTree
+import cuegui.CueStateBarWidget
+import cuegui.Logger
+import cuegui.Utils
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -32,12 +46,12 @@ PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
-class MonitorCueDockWidget(cuegui.AbstractDockWidget):
+class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__monitorCue = cuegui.CueJobMonitorTree(self)
+        self.__monitorCue = cuegui.CueJobMonitorTree.CueJobMonitorTree(self)
         self.__toolbar = QtWidgets.QToolBar(self)
         self.__showMenuSetup()
         self.__expandAllSetup()
@@ -74,7 +88,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget):
 
     def __cueStateBarSetup(self, layout):
         if QtGui.qApp.settings.value("CueStateBar", False):
-            self.__cueStateBar = cuegui.CueStateBarWidget(self.__monitorCue, self)
+            self.__cueStateBar = cuegui.CueStateBarWidget.CueStateBarWidget(self.__monitorCue, self)
             layout.addWidget(self.__cueStateBar)
 
     def __expandAllSetup(self):
@@ -167,7 +181,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget):
 
         try:
             shows = sorted([show.name() for show in opencue.api.getActiveShows()])
-        except Exception, e:
+        except Exception as e:
             logger.critical(e)
             shows = []
 
@@ -282,7 +296,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget):
         """Called on plugin start with any previously saved state.
         @param settings: Last state of the plugin instance
         @type  settings: any"""
-        cuegui.AbstractDockWidget.pluginRestoreState(self, settings)
+        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
 
         self.__monitorCue._update()
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)

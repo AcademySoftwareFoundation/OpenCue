@@ -18,20 +18,25 @@ Main entry point for the application.
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import os
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Constants
-import Logger
-import Style
-from MainWindow import MainWindow
-from ThreadPool import ThreadPool
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MainWindow
+import cuegui.SplashWindow
+import cuegui.Style
+import cuegui.ThreadPool
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueGuiApplication(QtWidgets.QApplication):
@@ -54,43 +59,42 @@ class CueGuiApplication(QtWidgets.QApplication):
 
 
 def cuetopia(argv):
-    startup("Cuetopia", Constants.VERSION, argv)
+    startup("Cuetopia", cuegui.Constants.VERSION, argv)
 
 
 def cuecommander(argv):
-    startup("CueCommander", Constants.VERSION, argv)
+    startup("CueCommander", cuegui.Constants.VERSION, argv)
 
 
 def startup(app_name, app_version, argv):
     app = CueGuiApplication(argv)
 
     # Start splash screen
-    from SplashWindow import SplashWindow
-    splash = SplashWindow(app, app_name, app_version, Constants.RESOURCE_PATH)
-    # Display a splash message with: splash.msg("Message")
+    splash = cuegui.SplashWindow.SplashWindow(
+        app, app_name, app_version, cuegui.Constants.RESOURCE_PATH)
 
     # Allow ctrl-c to kill the application
     import signal
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Load window icon
-    app.setWindowIcon(QtGui.QIcon('%s/images/windowIcon.png' % Constants.RESOURCE_PATH))
+    app.setWindowIcon(QtGui.QIcon('%s/images/windowIcon.png' % cuegui.Constants.RESOURCE_PATH))
 
     app.setApplicationName(app_name)
     app.lastWindowClosed.connect(app.quit)
 
-    QtGui.qApp.threadpool = ThreadPool(3)
+    QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3)
 
     config_path = "/.%s/config" % app_name.lower()
     settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
     QtGui.qApp.settings = settings
 
-    Style.init()
+    cuegui.Style.init()
 
     # If the config file does not exist, copy over the default
     local = settings.fileName()
     if not os.path.exists(local):
-        default = os.path.join(Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
+        default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
         logger.warning('Not found: %s\nCopying:   %s' % (local, default))
         try:
             os.mkdir(os.path.dirname(local))
@@ -103,7 +107,7 @@ def startup(app_name, app_version, argv):
             logger.debug(e)
         settings.sync()
 
-    mainWindow = MainWindow(app_name, app_version,  None)
+    mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
     mainWindow.displayStartupNotice()
     mainWindow.show()
 

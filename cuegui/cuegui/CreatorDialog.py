@@ -13,6 +13,13 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import zip
+
 from PySide2 import QtWidgets
 
 import opencue
@@ -55,8 +62,8 @@ class SubscriptionCreator(QtWidgets.QWidget):
 
     def create(self):
         try:
-            showMap = dict(zip([s.data.name for s in self.__shows], self.__shows))
-            allocMap = dict(zip([a.data.name for a in self.__allocs], self.__allocs))
+            showMap = dict(list(zip([s.data.name for s in self.__shows], self.__shows)))
+            allocMap = dict(list(zip([a.data.name for a in self.__allocs], self.__allocs)))
 
             show = showMap[str(self.showBox.currentText())]
             alloc = allocMap[str(self.allocBox.currentText())]

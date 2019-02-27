@@ -18,6 +18,13 @@ From katana
 """
 
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import map
+from builtins import range
 import math
 
 from PySide2 import QtCore
@@ -192,7 +199,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.__paintBackground(painter)
 
         # Put the baseline at 0, 0
-        painter.translate(0, self.height() / 2)
+        painter.translate(0, self.height() // 2)
         painter.setFont(self.__labelFont)
         self.__paintSelection(painter)
         self.__paintTickmarks(painter)
@@ -206,7 +213,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         self.update()
 
     def __getTickAreaExtent(self):
-        return QtCore.QRect(10, -self.height()/2, self.width() - self.__right_margin - 20, self.height())
+        return QtCore.QRect(10, -self.height() // 2, self.width() - self.__right_margin - 20, self.height())
 
     def __getTickArea(self, time):
         tickArea = self.__getTickAreaExtent()
@@ -238,11 +245,11 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         bgBrush = self.palette().window()
         painter.fillRect(0, 0, self.width() - self.__right_margin, self.height(), bgBrush)
         highlightBrush = QtGui.QBrush(QtGui.QColor(75, 75, 75))
-        painter.fillRect(0, self.height()/2, self.width() - self.__right_margin+5, self.height()/2,  highlightBrush)
+        painter.fillRect(0, self.height() // 2, self.width() - self.__right_margin+5, self.height() // 2,  highlightBrush)
 
     def __paintTickmarks(self, painter):
         tickExtent = self.__getTickAreaExtent()
-        tickHeight = tickExtent.height() / 8
+        tickHeight = tickExtent.height() // 8
 
         pen = QtGui.QPen(self.palette().window().color())
         painter.setPen(pen)
@@ -258,7 +265,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
     def __paintLabels(self, painter):
         tickExtent = self.__getTickAreaExtent()
-        labelHeight = tickExtent.height() / 3
+        labelHeight = tickExtent.height() // 3
         labelPeriod = self.__getLabelPeriod()
         if labelPeriod == 0: return
 
@@ -287,7 +294,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
         yPos = metric.ascent() + 1
         rightEdge = -10000
         width = metric.width(str(frames[-1]))
-        farEdge = self.__getTickArea(frames[-1]).right() - width / 2
+        farEdge = self.__getTickArea(frames[-1]).right() - width // 2
 
         farEdge -= 4
 
@@ -295,7 +302,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             xPos = self.__getTickArea(frame).left()
             frameString = str(frame)
             width = metric.width(frameString)
-            xPos = xPos - width / 2
+            xPos = xPos - width // 2
             if (xPos > rightEdge and xPos + width < farEdge) or frame is frames[-1]:
                 painter.drawText(xPos, yPos, frameString)
                 rightEdge = xPos + width + 4
@@ -310,7 +317,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(startFrame))
-        xPos = timeExtent.left() - metric.width(frameString) / 2
+        xPos = timeExtent.left() - metric.width(frameString) // 2
         yPos =  metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -324,7 +331,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(int(endFrame))
-        xPos = timeExtent.left() - metric.width(frameString) / 2
+        xPos = timeExtent.left() - metric.width(frameString) // 2
         yPos =  metric.ascent() + 1
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -343,7 +350,7 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
             painter.setPen(QtGui.QColor(128, 128, 128))
         metric = QtGui.QFontMetrics(painter.font())
         frameString = str(self.__floatTime)
-        xPos = timeExtent.left() - metric.width(frameString) / 2
+        xPos = timeExtent.left() - metric.width(frameString) // 2
         yPos =  timeExtent.top() + metric.ascent()
         painter.drawText(xPos, yPos, frameString)
         painter.setPen(oldPen)
@@ -354,5 +361,9 @@ class FrameRangeSelectionWidget(QtWidgets.QWidget):
 
         leftExtent = self.__getTickArea(selection[0])
         rightExtent = self.__getTickArea(selection[1] - 1)
-        selectionExtent = QtCore.QRect(leftExtent.left(), leftExtent.top(), rightExtent.right() - leftExtent.left() + 2, leftExtent.height()/2)
+        selectionExtent = QtCore.QRect(
+            leftExtent.left(),
+            leftExtent.top(),
+            rightExtent.right() - leftExtent.left() + 2,
+            leftExtent.height() // 2)
         painter.fillRect(selectionExtent, QtGui.QBrush(QtGui.QColor(75, 75, 75)))

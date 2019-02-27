@@ -44,13 +44,19 @@ for job in JobSearch.byUser(["chambers","jwelborn"]):
     job.proxy.kill()
 
 """
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
+from builtins import object
 import logging
+
+import six
 
 from opencue.compiled_proto import criterion_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
-from cuebot import Cuebot
+from .cuebot import Cuebot
 
 logger = logging.getLogger("opencue")
 
@@ -257,7 +263,7 @@ def _createCriterion(search, searchType, convert=None):
 
 def _setOptions(criteria, options):
 
-    for k, v in options.iteritems():
+    for k, v in options.items():
         if k == "job" or (k == "name" and isinstance(criteria, job_pb2.JobSearchCriteria)):
             criteria.jobs.extend(v)
         elif k == "host" or (k == "name" and isinstance(criteria, host_pb2.HostSearchCriteria)):
@@ -287,7 +293,7 @@ def _setOptions(criteria, options):
         elif k in ("range", "frames"):
             if not v:
                 continue
-            if isinstance(criteria.frame_range, unicode):
+            if isinstance(criteria.frame_range, six.string_types):
                 # Once FrameSearch.frameRange is not a string
                 # this can go away
                 criteria.frame_range = v
@@ -296,7 +302,7 @@ def _setOptions(criteria, options):
         elif k == "memory":
             if not v:
                 continue
-            if isinstance(criteria.memory_range, unicode):
+            if isinstance(criteria.memory_range, six.string_types):
                 # Once FrameSearch.memoryRange is not a string
                 # this can go away
                 criteria.memory_range = v
@@ -306,7 +312,7 @@ def _setOptions(criteria, options):
         elif k == "duration":
             if not v:
                 continue
-            if isinstance(criteria.duration_range, unicode):
+            if isinstance(criteria.duration_range, six.string_types):
                 # Once FrameSearch.durationRange is not a string
                 # this can go away
                 criteria.duration_range = v

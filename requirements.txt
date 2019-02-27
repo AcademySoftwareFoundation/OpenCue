@@ -1,11 +1,12 @@
 enum34==1.1.6
-futures==3.2.0
+future==0.17.1
+futures==3.2.0;python_version<"3.0"
 grpcio==1.16.0
 grpcio-tools==1.16.0
 mock==2.0.0
 pexpect==4.6.0
 PySide2==5.11.2
 psutil==5.4.7
-PyYAML==3.12
+PyYAML==3.13
 simplejson==3.16.0
 six==1.11.0
