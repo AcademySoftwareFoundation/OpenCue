@@ -20,9 +20,16 @@
 package com.imageworks.spcue.util;
 
 import java.io.File;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import com.imageworks.spcue.JobDetail;
 
+@Component
 public class JobLogUtil {
+
+    private static String jobLogRootDir;
 
     public static boolean createJobLogDirectory(String path) {
         File f = new File(path);
@@ -32,24 +39,41 @@ public class JobLogUtil {
     }
 
     public static boolean shotLogDirectoryExists(String show, String shot) {
-        return new File(String.format("/shots/%s/%s/logs", show, shot)).exists();
+        return new File(getJobLogDir(show, shot)).exists();
     }
 
     public static boolean jobLogDirectoryExists(JobDetail job) {
         return new File(job.logDir).exists();
     }
 
+    public static String getJobLogDir(String show, String shot) {
+        StringBuilder sb = new StringBuilder(512);
+        sb.append(jobLogRootDir);
+        sb.append("/");
+        sb.append(show);
+        sb.append("/");
+        sb.append(shot);
+        sb.append("/logs");
+        return sb.toString();
+    }
+
     public static String getJobLogPath(JobDetail job) {
         StringBuilder sb = new StringBuilder(512);
-        sb.append("/shots/");
-        sb.append(job.showName);
+        sb.append(getJobLogDir(job.showName, job.shot));
         sb.append("/");
-        sb.append(job.shot);
-        sb.append("/logs/");
         sb.append(job.name);
         sb.append("--");
         sb.append(job.id);
         return sb.toString();
+    }
+
+    public static String getJobLogRootDir() {
+        return jobLogRootDir;
+    }
+
+    @Value("${log.frameLogDirRoot}")
+    public void setJobLogRootDir(String logRootDir) {
+        jobLogRootDir = logRootDir;
     }
 }
 
