@@ -24,6 +24,7 @@ from __future__ import division
 
 from builtins import str
 from builtins import map
+import getpass
 import os
 import re
 import subprocess
@@ -198,14 +199,7 @@ def getUsername():
     """Returns the username that this process is running under"""
     global __USERNAME
     if not __USERNAME:
-        try:
-            import pwd
-            try:
-                __USERNAME = pwd.getpwuid(os.getuid()).pw_name
-            except KeyError:
-                __USERNAME = str(os.getuid())
-        except ImportError:
-            __USERNAME = os.getlogin()
+        __USERNAME = getpass.getuser()
     return __USERNAME
 
 
