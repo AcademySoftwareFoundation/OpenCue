@@ -27,12 +27,8 @@ import time
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import host_pb2
-try:
-    import comment
-    import proc
-except ImportError:
-    from . import comment
-    from . import proc
+import opencue.wrappers.comment
+import opencue.wrappers.proc
 
 
 class Host(object):
@@ -63,7 +59,7 @@ class Host(object):
         """
         response = self.stub.GetProcs(host_pb2.HostGetProcsRequest(host=self.data),
                                       timeout=Cuebot.Timeout)
-        return [proc.Proc(p) for p in response.procs.procs]
+        return [opencue.wrappers.proc.Proc(p) for p in response.procs.procs]
 
     def getRenderPartitions(self):
         """Returns a list of render partitions associated with this host
@@ -143,7 +139,7 @@ class Host(object):
         response = self.stub.GetComments(host_pb2.HostGetCommentsRequest(host=self.data),
                                          timeout=Cuebot.Timeout)
         commentSeq = response.comments
-        return [comment.Comment(c) for c in commentSeq.comments]
+        return [opencue.wrappers.comment.Comment(c) for c in commentSeq.comments]
 
     def setHardwareState(self, state):
         """Sets the host's hardware state

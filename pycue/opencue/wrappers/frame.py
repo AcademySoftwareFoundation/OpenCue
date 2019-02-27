@@ -24,10 +24,7 @@ import time
 
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
-try:
-    import depend
-except ImportError:
-    from . import depend
+import opencue.wrappers.depend
 
 
 class Frame(object):
@@ -58,7 +55,7 @@ class Frame(object):
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.FrameGetWhatDependsOnThisRequest(frame=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(dep) for dep in response.depends.depends]
+        return [opencue.wrappers.depend.Depend(dep) for dep in response.depends.depends]
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this frame depends on
@@ -67,7 +64,7 @@ class Frame(object):
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.FrameGetWhatThisDependsOnRequest(frame=self.data),
             timeout=Cuebot.Timeout)
-        return [depend.Depend(dep) for dep in response.depends.depends]
+        return [opencue.wrappers.depend.Depend(dep) for dep in response.depends.depends]
 
     def createDependencyOnJob(self, job):
         """Create and return a frame on job dependency
@@ -78,7 +75,7 @@ class Frame(object):
         response = self.stub.CreateDependencyOnJob(
             job_pb2.FrameCreateDependencyOnJobRequest(frame=self.data, job=job),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a frame on layer dependency
@@ -89,7 +86,7 @@ class Frame(object):
         response = self.stub.CreateDependencyOnLayer(
             job_pb2.FrameCreateDependencyOnLayerRequest(frame=self.data, layer=layer),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a frame on frame dependency
@@ -100,7 +97,7 @@ class Frame(object):
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data, depend_on_frame=frame),
             timeout=Cuebot.Timeout)
-        return depend.Depend(response.depend)
+        return opencue.wrappers.depend.Depend(response.depend)
 
     def markAsWaiting(self):
         """Mark the frame as waiting, similar to drop depends. The frame will be

@@ -23,16 +23,10 @@ Module: proc.py - opencue Library implementation of a proc
 
 from opencue.compiled_proto import host_pb2
 from opencue.cuebot import Cuebot
-try:
-    import frame
-    import host
-    import job
-    import layer
-except ImportError:
-    from . import frame
-    from . import host
-    from . import job
-    from . import layer
+import opencue.wrappers.frame
+import opencue.wrappers.host
+import opencue.wrappers.job
+import opencue.wrappers.layer
 
 
 class Proc(object):
@@ -60,7 +54,7 @@ class Proc(object):
         @return: The host this proc is allocated from."""
         response = self.stub.GetHost(host_pb2.ProcGetHostRequest(proc=self.data),
                                      timeout=Cuebot.Timeout)
-        return host.Host(response.host)
+        return opencue.wrappers.host.Host(response.host)
 
     def getFrame(self):
         """Return the frame this proc is running.
@@ -68,7 +62,7 @@ class Proc(object):
         @return: The fame this proc is running."""
         response = self.stub.GetFrame(host_pb2.ProcGetFrameRequest(proc=self.data),
                                       timeout=Cuebot.Timeout)
-        return frame.Frame(response.frame)
+        return opencue.wrappers.frame.Frame(response.frame)
 
     def getLayer(self):
         """Return the layer this proc is running.
@@ -76,7 +70,7 @@ class Proc(object):
         @return: The layer this proc is running."""
         response = self.stub.GetLayer(host_pb2.ProcGetLayerRequest(proc=self.data),
                                       timeout=Cuebot.Timeout)
-        return layer.Layer(response.layer)
+        return opencue.wrappers.layer.Layer(response.layer)
 
     def getJob(self):
         """Return the job this proc is running.
@@ -84,7 +78,7 @@ class Proc(object):
         @return: The job this proc is running."""
         response = self.stub.GetJob(host_pb2.ProcGetJobRequest(proc=self.data),
                                     timeout=Cuebot.Timeout)
-        return job.Job(response.job)
+        return opencue.wrappers.job.Job(response.job)
 
     def id(self):
         """Returns the id of the proc

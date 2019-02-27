@@ -20,10 +20,7 @@ opencue group module
 
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
-try:
-    import job
-except ImportError:
-    from . import job
+import opencue.wrappers.job
 
 
 class Group(object):
@@ -78,7 +75,7 @@ class Group(object):
         @return: List of jobs in this group"""
         response = self.stub.GetJobs(job_pb2.GroupGetJobsRequest(group=self.data),
                                      timeout=Cuebot.Timeout)
-        return [job.Job(j) for j in response.jobs]
+        return [opencue.wrappers.job.Job(j) for j in response.jobs]
 
     def reparentJobs(self, jobs):
         """Moves the given jobs into this group
