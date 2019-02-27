@@ -29,7 +29,7 @@ import com.imageworks.spcue.JobDetail;
 @Component
 public class JobLogUtil {
 
-    private static String jobLogRootDir;
+    public static String jobLogRootDir;
 
     public static boolean createJobLogDirectory(String path) {
         File f = new File(path);
