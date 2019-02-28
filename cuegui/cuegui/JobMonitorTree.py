@@ -126,7 +126,7 @@ class JobMonitorTree(AbstractTreeWidget):
                        tip="The time when the job was launched.")
         self.addColumn("Finished", 100, id=13,
                        data=lambda job: (job.data.stop_time > 0
-                                         and Utils.dateToMMDDHHMM(job.stop_time)
+                                         and Utils.dateToMMDDHHMM(job.data.stop_time)
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
@@ -363,7 +363,6 @@ class JobMonitorTree(AbstractTreeWidget):
                 else:
                     # Gather list of all other jobs to update
                     monitored_proxies.append(objectKey)
-
             if self.__loadMine:
                 # This auto-loads all the users jobs
                 for job in opencue.api.getJobs(user=[Utils.getUsername()]):
@@ -376,7 +375,8 @@ class JobMonitorTree(AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in opencue.api.getJobs(id=monitored_proxies, all=True):
+                for job in opencue.api.getJobs(id=[i.split('.')[-1] for i in monitored_proxies],
+                                               include_finished=True):
                     objectKey = Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
