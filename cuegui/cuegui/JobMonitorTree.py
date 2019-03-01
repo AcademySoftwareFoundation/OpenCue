@@ -384,8 +384,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in opencue.api.getJobs(id=[i.split('.')[-1] for i in monitored_proxies],
-                                               include_finished=True):
+                for job in opencue.api.getJobs(
+                        id=[proxyId.split('.')[-1] for proxyId in monitored_proxies],
+                        include_finished=True):
                     objectKey = cuegui.Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
