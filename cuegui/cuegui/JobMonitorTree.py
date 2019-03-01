@@ -371,6 +371,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 else:
                     # Gather list of all other jobs to update
                     monitored_proxies.append(objectKey)
+
             if self.__loadMine:
                 # This auto-loads all the users jobs
                 for job in opencue.api.getJobs(user=[cuegui.Utils.getUsername()]):
