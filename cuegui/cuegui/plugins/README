@@ -1,4 +1,0 @@
-There is no manifest or __init__.py in this directory
-Since they are plugins, they are treated like they exist
-outside of the application
-

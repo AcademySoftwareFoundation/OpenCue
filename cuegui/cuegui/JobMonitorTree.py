@@ -18,6 +18,12 @@ A monitored job list based on AbstractTreeWidget
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+
+from builtins import map
 import time
 
 from PySide2 import QtCore
@@ -25,17 +31,18 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-import Utils
-import Constants
-import Style
-import Logger
-from MenuActions import MenuActions
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import JobProgressBarDelegate
+
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.ItemDelegate
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Style
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 COLUMN_NAME = 0
 COLUMN_COMMENT = 1
@@ -62,12 +69,12 @@ def displayState(job):
     return "In Progress"
 
 
-class JobMonitorTree(AbstractTreeWidget):
+class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     __loadMine = True
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
-        self.startColumnsForType(Constants.TYPE_JOB)
+        self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 470, id=1,
                        data=lambda job: job.data.name,
                        tip="The name of the job: show-shot-user_uniqueName")
@@ -112,26 +119,26 @@ class JobMonitorTree(AbstractTreeWidget):
                        sort=lambda job: job.data.job_stats.waiting_frames,
                        tip="The number of waiting frames in each job,")
         self.addColumn("MaxRss", 55, id=10,
-                       data=lambda job: Utils.memoryToString(job.data.job_stats.max_rss),
+                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
                        sort=lambda job: job.data.job_stats.max_rss,
                        tip="The maximum memory used any single frame in each job.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job: (Utils.secondsToHHHMM((job.data.stop_time or
+                       data=lambda job: (cuegui.Utils.secondsToHHHMM((job.data.stop_time or
                                                                time.time()) - job.data.start_time)),
                        sort=lambda job: ((job.data.stop_time or time.time()) - job.data.start_time),
                        tip="The HOURS:MINUTES that the job has spent in the queue.")
         self.addColumn("Launched", 100, id=12,
-                       data=lambda job: Utils.dateToMMDDHHMM(job.data.start_time),
+                       data=lambda job: cuegui.Utils.dateToMMDDHHMM(job.data.start_time),
                        sort=lambda job: job.data.start_time,
                        tip="The time when the job was launched.")
         self.addColumn("Finished", 100, id=13,
                        data=lambda job: (job.data.stop_time > 0
-                                         and Utils.dateToMMDDHHMM(job.data.stop_time)
+                                         and cuegui.Utils.dateToMMDDHHMM(job.data.stop_time)
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
         self.addColumn("Progress", 0, id=14,
-                       delegate=JobProgressBarDelegate,
+                       delegate=cuegui.ItemDelegate.JobProgressBarDelegate,
                        tip="A visual overview of the progress of each job.\n"
                            "Green \t is succeeded\n"
                            "Yellow \t is running\n"
@@ -139,13 +146,14 @@ class JobMonitorTree(AbstractTreeWidget):
                            "Purple \t is waiting on a dependency\n"
                            "Light Blue \t is waiting to be booked")
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.__jobTimeLoaded = {}
         self.__userColors = {}
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.setAcceptDrops(True)
         self.setDropIndicatorShown(True)
@@ -178,7 +186,7 @@ class JobMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [job.data.name for job in self.selectedObjects() if Utils.isJob(job)]
+        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
@@ -194,16 +202,16 @@ class JobMonitorTree(AbstractTreeWidget):
             self.__menuActions.jobs().viewComments([job])
 
     def startDrag(self, dropActions):
-        Utils.startDrag(self, dropActions, self.selectedObjects())
+        cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
-        Utils.dragEnterEvent(event)
+        cuegui.Utils.dragEnterEvent(event)
 
     def dragMoveEvent(self, event):
-        Utils.dragMoveEvent(event)
+        cuegui.Utils.dragMoveEvent(event)
 
     def dropEvent(self, event):
-        for job_name in Utils.dropEvent(event):
+        for job_name in cuegui.Utils.dropEvent(event):
             self.addJob(job_name)
 
     def setLoadMine(self, value):
@@ -216,35 +224,35 @@ class JobMonitorTree(AbstractTreeWidget):
         """Adds a job to the list. With locking"
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None"""
-        newJobObj = Utils.findJob(job)
+        newJobObj = cuegui.Utils.findJob(job)
         self.ticksLock.lock()
         try:
             if newJobObj:
-                objectKey = Utils.getObjectKey(newJobObj)
+                objectKey = cuegui.Utils.getObjectKey(newJobObj)
                 self.__load[objectKey] = newJobObj
                 self.__jobTimeLoaded[objectKey] = time.time()
         finally:
             self.ticksLock.unlock()
 
     def getJobProxies(self):
-        return self._items.keys()
+        return list(self._items.keys())
 
     def _removeItem(self, item):
         """Removes an item from the TreeWidget without locking
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
         QtGui.qApp.unmonitor.emit(item.rpcObject)
-        AbstractTreeWidget._removeItem(self, item)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
 
     def removeAllItems(self):
         """Notifies the other widgets of each item being unmonitored, then calls
         the the AbstractTreeWidget.removeAllItems like normal"""
-        for proxy in self._items.keys():
+        for proxy in list(self._items.keys()):
             QtGui.qApp.unmonitor.emit(proxy)
             if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
-        AbstractTreeWidget.removeAllItems(self)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.removeAllItems(self)
 
     def removeFinishedItems(self):
         """Removes finished jobs"""
@@ -259,7 +267,7 @@ class JobMonitorTree(AbstractTreeWidget):
 
         __selectedObjects = self.selectedObjects()
         __count = len(__selectedObjects)
-        jobType = Utils.countJobTypes(__selectedObjects)
+        jobType = cuegui.Utils.countJobTypes(__selectedObjects)
 
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
@@ -314,7 +322,7 @@ class JobMonitorTree(AbstractTreeWidget):
     def actionSetUserColor(self, color):
         """Set selected items to have provided background color"""
         for item in self.selectedItems():
-            objectKey = Utils.getObjectKey(item.rpcObject)
+            objectKey = cuegui.Utils.getObjectKey(item.rpcObject)
             if color is None and objectKey in self.__userColors:
                 self.__userColors.pop(objectKey)
             elif color is not None:
@@ -355,8 +363,8 @@ class JobMonitorTree(AbstractTreeWidget):
 
             # TODO: When getJobs is fixed to allow MatchAny, this can be updated to use one call
             monitored_proxies = []
-            for item in self._items.values():
-                objectKey = Utils.getObjectKey(item.rpcObject)
+            for item in list(self._items.values()):
+                objectKey = cuegui.Utils.getObjectKey(item.rpcObject)
                 if item.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
                     # Reuse the old object if job is finished
                     jobs[objectKey] = item.rpcObject
@@ -365,23 +373,23 @@ class JobMonitorTree(AbstractTreeWidget):
                     monitored_proxies.append(objectKey)
             if self.__loadMine:
                 # This auto-loads all the users jobs
-                for job in opencue.api.getJobs(user=[Utils.getUsername()]):
-                    objectKey = Utils.getObjectKey(job)
+                for job in opencue.api.getJobs(user=[cuegui.Utils.getUsername()]):
+                    objectKey = cuegui.Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
                 # Prune the users jobs from the remaining proxies to update
-                for proxy, job in jobs.items():
+                for proxy, job in list(jobs.items()):
                     if proxy in monitored_proxies:
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
                 for job in opencue.api.getJobs(id=[i.split('.')[-1] for i in monitored_proxies],
                                                include_finished=True):
-                    objectKey = Utils.getObjectKey(job)
+                    objectKey = cuegui.Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
 
         return jobs
@@ -393,22 +401,22 @@ class JobMonitorTree(AbstractTreeWidget):
         self._itemsLock.lockForWrite()
 
         # include rpcObjects from self._items that are not in jobObjects
-        for proxy, item in self._items.items():
+        for proxy, item in list(self._items.items()):
             if not proxy in jobObjects:
                 jobObjects[proxy] = item.rpcObject
 
         try:
-            selectedKeys = [Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
+            selectedKeys = [cuegui.Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
             scrolled = self.verticalScrollBar().value()
 
             # Store the creation time for the current item
-            for item in self._items.values():
-                self.__jobTimeLoaded[Utils.getObjectKey(item.rpcObject)] = item.created
+            for item in list(self._items.values()):
+                self.__jobTimeLoaded[cuegui.Utils.getObjectKey(item.rpcObject)] = item.created
 
             self._items = {}
             self.clear()
 
-            for proxy, job in jobObjects.items():
+            for proxy, job in list(jobObjects.items()):
                 self._items[proxy] = JobWidgetItem(job,
                                                    self.invisibleRootItem(),
                                                    self.__jobTimeLoaded.get(proxy, None))
@@ -418,11 +426,11 @@ class JobMonitorTree(AbstractTreeWidget):
             self.verticalScrollBar().setValue(scrolled)
             [self._items[key].setSelected(True) for key in selectedKeys if key in self._items]
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         finally:
             self._itemsLock.unlock()
 
-class JobWidgetItem(AbstractWidgetItem):
+class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a job entry in the CueJobTreeWidget."""
     __initialized = False
     __commentIcon = None
@@ -439,34 +447,35 @@ class JobWidgetItem(AbstractWidgetItem):
     __userColor = None
     def __init__(self, object, parent, created):
         if not self.__initialized:
-            if Style.ColorTheme is None:
-                Style.init()
+            if cuegui.Style.ColorTheme is None:
+                cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
-            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
-            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
-            self.__class__.__finishedColor = Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__finishedColor = cuegui.Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND
             self.__class__.__newJobColor = QtGui.QColor(255, 255, 255)
             __font = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
             __font.setUnderline(True)
             self.__class__.__newJobFont = __font
             self.__class__.__centerAlign = QtCore.Qt.AlignCenter
-            self.__class__.__type = Constants.TYPE_JOB
+            self.__class__.__type = cuegui.Constants.TYPE_JOB
 
         # Keeps time when job was first loaded
         self.created = created or time.time()
 
-        AbstractWidgetItem.__init__(self, Constants.TYPE_JOB, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_JOB, object, parent)
 
     def setUserColor(self, color):
         self.__userColor = color
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
             if col == 0:
@@ -510,4 +519,4 @@ class JobWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole + 3:
             return self.rpcObject.isPaused()
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL

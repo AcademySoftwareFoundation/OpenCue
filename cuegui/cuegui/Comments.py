@@ -13,13 +13,18 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
 import pickle
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Utils
+import cuegui.Utils
 
 
 PREDEFINED_COMMENT_HEADER = "Use a Predefined Comment:"
@@ -102,7 +107,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __close(self):
         if self.__btnSave.isEnabled():
-            if Utils.questionBoxYesNo(self,
+            if cuegui.Utils.questionBoxYesNo(self,
                                       "Save Changes?",
                                       "Do you want to save your changes?"):
                 self.__saveComment()
@@ -147,7 +152,7 @@ class CommentListDialog(QtWidgets.QDialog):
         if self.__treeSubjects.selectedItems():
             item = self.__treeSubjects.selectedItems()[0]
 
-            if item.getInstance().user != Utils.getUsername():
+            if item.getInstance().user != cuegui.Utils.getUsername():
                 self.__textSubject.setReadOnly(True)
                 self.__textMessage.setReadOnly(True)
             else:
@@ -167,7 +172,7 @@ class CommentListDialog(QtWidgets.QDialog):
         """Deletes the currently selected comment"""
         if not self.__treeSubjects.selectedItems():
             return
-        if Utils.questionBoxYesNo(self,
+        if cuegui.Utils.questionBoxYesNo(self,
                                   "Confirm Delete",
                                   "Delete the selected comment?"):
             for item in self.__treeSubjects.selectedItems():
@@ -226,7 +231,7 @@ class CommentListDialog(QtWidgets.QDialog):
         elif selection == PREDEFINED_COMMENT_ADD:
             commentMacroDialog = CommentMacroDialog("", "", "", self)
             if commentMacroDialog.exec_():
-                (name, subject, message) = commentMacroDialog.values()
+                (name, subject, message) = list(commentMacroDialog.values())
                 self.__macroList[name] = [subject, message]
                 self.__macroSave()
                 self.__macroRefresh()
@@ -248,7 +253,7 @@ class CommentListDialog(QtWidgets.QDialog):
                                                             self.__macroList[comment][1],
                                                             self)
                     if commentMacroDialog.exec_():
-                        (name, subject, message) = commentMacroDialog.values()
+                        (name, subject, message) = list(commentMacroDialog.values())
 
                         if name != comment:
                             del self.__macroList[comment]
@@ -321,9 +326,9 @@ class CommentMacroDialog(QtWidgets.QDialog):
 
     def __save(self):
         """Validates and then exits from the dialog in success"""
-        if self.values()[0] != "" and \
-           self.values()[1] != "" and \
-           self.values()[0] not in (PREDEFINED_COMMENT_HEADER,
+        if list(self.values())[0] != "" and \
+           list(self.values())[1] != "" and \
+           list(self.values())[0] not in (PREDEFINED_COMMENT_HEADER,
                                     PREDEFINED_COMMENT_ADD,
                                     PREDEFINED_COMMENT_EDIT,
                                     PREDEFINED_COMMENT_DELETE):
@@ -345,7 +350,7 @@ class Comment(QtWidgets.QTreeWidgetItem):
             self,
             [comment.subject(),
              comment.user(),
-             Utils.dateToMMDDHHMM(comment.timestamp())])
+             cuegui.Utils.dateToMMDDHHMM(comment.timestamp())])
         self.__comment = comment
 
     def getInstance(self):

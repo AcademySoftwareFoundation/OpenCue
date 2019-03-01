@@ -18,6 +18,13 @@ A frame list based on AbstractTreeWidget
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+from builtins import map
+from builtins import object
 import datetime
 import glob
 import os
@@ -31,18 +38,17 @@ from PySide2 import QtWidgets
 import opencue
 from opencue.compiled_proto import job_pb2
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from AbstractWidgetItem import SORT_LAMBDA
-import Constants
-import eta
-import Logger
-from MenuActions import MenuActions
-import Style
-import Utils
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.eta
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Style
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 QCOLOR_BLACK = QtGui.QColor(QtCore.Qt.black)
@@ -57,7 +63,7 @@ LASTLINE_COLUMN = 15
 LOCALRESOURCE = "%s/" % os.getenv("HOST", "unknown").split(".")[0]
 
 
-class FrameMonitorTree(AbstractTreeWidget):
+class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     job_changed = QtCore.Signal()
     handle_filter_layers_byLayer = QtCore.Signal(list)
@@ -66,7 +72,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
 
-        self.startColumnsForType(Constants.TYPE_FRAME)
+        self.startColumnsForType(cuegui.Constants.TYPE_FRAME)
         self.addColumn("Order", 60, id=1,
                        data=lambda job, frame: frame.data.dispatch_order,
                        sort=lambda job, frame: frame.data.dispatch_order,
@@ -110,7 +116,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                        sort=lambda job, frame: frame.data.checkpoint_count,
                        tip="The number of times a frame has been checkpointed.")
         self.addColumn("Runtime", 70, id=10,
-                       data=lambda job, frame: (Utils.secondsToHMMSS(
+                       data=lambda job, frame: (cuegui.Utils.secondsToHMMSS(
                            frame.data.start_time and
                            frame.data.stop_time and
                            frame.data.stop_time - frame.data.start_time or
@@ -143,8 +149,8 @@ class FrameMonitorTree(AbstractTreeWidget):
 
         self.addColumn("Memory", 60, id=12,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
-                                                Utils.memoryToString(frame.data.used_memory) or
-                                                Utils.memoryToString(frame.data.max_rss)),
+                                                cuegui.Utils.memoryToString(frame.data.used_memory) or
+                                                cuegui.Utils.memoryToString(frame.data.max_rss)),
                        sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 frame.data.used_memory or frame.data.max_rss),
                        tip="If a frame is running:\n"
@@ -178,10 +184,11 @@ class FrameMonitorTree(AbstractTreeWidget):
         self.__job = None
         self.__jobState = None
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
 
         self.itemClicked.connect(self.__itemSingleClickedCopy)
@@ -250,7 +257,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 self.dataChanged(self.indexFromItem(items[0], RUNTIME_COLUMN),
                                  self.indexFromItem(items[-1], LASTLINE_COLUMN))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __sortByColumnSave(self, logicalIndex, order):
         """Stores the new sort order with the current job's id
@@ -259,12 +266,12 @@ class FrameMonitorTree(AbstractTreeWidget):
         @type  order: Qt::SortOrder
         @param order: The order to sort"""
         if self.__job:
-            self.__sortByColumnCache[Utils.getObjectKey(self.__job)] = (logicalIndex, order)
+            self.__sortByColumnCache[cuegui.Utils.getObjectKey(self.__job)] = (logicalIndex, order)
 
     def __sortByColumnLoad(self):
         """Loads the last used sort column and order for the current job, or
         uses default ascending dispatch order"""
-        key = self.__job and Utils.getObjectKey(self.__job) or None
+        key = self.__job and cuegui.Utils.getObjectKey(self.__job) or None
         settings = self.__sortByColumnCache.get(key, (0, QtCore.Qt.AscendingOrder))
         self.sortByColumn(settings[0], settings[1])
 
@@ -275,7 +282,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        selected = [frame.data.name for frame in self.selectedObjects() if Utils.isFrame(frame)]
+        selected = [frame.data.name for frame in self.selectedObjects() if cuegui.Utils.isFrame(frame)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(" ".join(selected))
 
@@ -285,7 +292,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
-        current_log_file = Utils.getFrameLogFile(self.__job, item.rpcObject)
+        current_log_file = cuegui.Utils.getFrameLogFile(self.__job, item.rpcObject)
         try:
             old_log_files = sorted(glob.glob('%s.*' % current_log_file),
                                    key=lambda l: int(l.split('rqlog.')[-1]),
@@ -302,14 +309,14 @@ class FrameMonitorTree(AbstractTreeWidget):
         @param col: Column number double clicked on"""
         frame = item.rpcObject
         if frame.data.state == opencue.api.job_pb2.RUNNING:
-            Utils.popupFrameTail(self.__job, frame)
+            cuegui.Utils.popupFrameTail(self.__job, frame)
         else:
-            Utils.popupFrameView(self.__job, frame)
+            cuegui.Utils.popupFrameView(self.__job, frame)
 
     def setJob(self, job):
         if job is None:
             return self.__setJob(None)
-        job = Utils.findJob(job)
+        job = cuegui.Utils.findJob(job)
         if job:
             self.__load = job
 
@@ -407,7 +414,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 return self.__job.getFrames(**self.frameSearch.options)
             return []
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def _getUpdateChanged(self):
         """Returns the updated data from the cuebot
@@ -433,7 +440,7 @@ class FrameMonitorTree(AbstractTreeWidget):
                 logger.warning("Forcing a full update due to: %s" % e.message)
                 return None
             else:
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
         logger.info(" - %s" % self.__class__)
         return updatedFrames
@@ -453,11 +460,11 @@ class FrameMonitorTree(AbstractTreeWidget):
                 self._items = {}
                 if rpcObjects:
                     for rpcObject in rpcObjects:
-                        self._items[Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
+                        self._items[cuegui.Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
             finally:
                 self._itemsLock.unlock()
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def _processUpdateChanged(self, work, rpcObjects):
         """Update existing TreeWidgetItems if an item already exists for the rpcObject.
@@ -485,7 +492,7 @@ class FrameMonitorTree(AbstractTreeWidget):
             self.redraw()
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def _updateFrame(self, updatedFrame):
         """Update the frame object on a WidgetItem with the values from a UpdatedFrame object.
@@ -494,7 +501,7 @@ class FrameMonitorTree(AbstractTreeWidget):
         logger.info("_updateFrame")
         frameWidget = self._items.get('Frame.{}'.format(updatedFrame.id))
         if frameWidget:
-            for field in job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys():
+            for field in list(job_pb2.UpdatedFrame.DESCRIPTOR.fields_by_name.keys()):
                 if field != "id":
                     setattr(frameWidget.rpcObject.data, field, getattr(updatedFrame, field))
 
@@ -554,24 +561,25 @@ class FrameMonitorTree(AbstractTreeWidget):
         results = {}
         for frame in self.selectedObjects():
             results[frame.layer()] = True
-        self.handle_filter_layers_byLayer[str].emit(results.keys())
+        self.handle_filter_layers_byLayer[str].emit(list(results.keys()))
 
-class FrameWidgetItem(AbstractWidgetItem):
+class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __initialized = False
     def __init__(self, object, parent, job):
         if not self.__initialized:
             self.__class__.__initialized = True
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__foregroundColorBlack = QCOLOR_BLACK
             self.__class__.__foregroundColorGreen = QCOLOR_GREEN
             self.__class__.__alignCenter = QtCore.Qt.AlignCenter
             self.__class__.__alignRight = QtCore.Qt.AlignRight
             self.__class__.__rgbFrameState = {}
-            for key in Constants.RGB_FRAME_STATE:
-                self.__class__.__rgbFrameState[key] = Constants.RGB_FRAME_STATE[key]
-            self.__class__.__type = Constants.TYPE_FRAME
-        AbstractWidgetItem.__init__(self, Constants.TYPE_FRAME, object, parent, job)
+            for key in cuegui.Constants.RGB_FRAME_STATE:
+                self.__class__.__rgbFrameState[key] = cuegui.Constants.RGB_FRAME_STATE[key]
+            self.__class__.__type = cuegui.Constants.TYPE_FRAME
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_FRAME, object, parent, job)
         self.__show = job.data.show
 
     def data(self, col, role):
@@ -583,7 +591,7 @@ class FrameWidgetItem(AbstractWidgetItem):
         @rtype:  object
         @return: The desired data"""
         if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][Constants.COLUMN_INFO_DISPLAY](
+            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](
                 self._source, self.rpcObject)
 
 #        if role == QtCore.Qt.DisplayRole:
@@ -615,11 +623,11 @@ class FrameWidgetItem(AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole:
             return self.__type
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL
 
     def __lt__(self, other):
         """Custom sorting for columns that have a function defined for sorting"""
-        sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
+        sortLambda = self.column_info[self.treeWidget().sortColumn()][cuegui.AbstractWidgetItem.SORT_LAMBDA]
         if sortLambda:
             return sortLambda(self._source, self.rpcObject) < sortLambda(
                 other._source, other.rpcObject)
@@ -643,7 +651,7 @@ class FrameLogDataBuffer(object):
     # default to 0% if nothing found unless already a previous value
 
     def __init__(self):
-        from ThreadPool import ThreadPool
+        from .ThreadPool import ThreadPool
 
         self.__threadPool = ThreadPool(self.maxThreads, self.maxQueue)
         self.__currentJob = None
@@ -664,7 +672,7 @@ class FrameLogDataBuffer(object):
         it"""
         try:
             __now = time.time()
-            jobKey = Utils.getObjectKey(job)
+            jobKey = cuegui.Utils.getObjectKey(job)
             if self.__currentJob != jobKey:
                 # New job so clear cache
                 self.__cache.clear()
@@ -676,7 +684,7 @@ class FrameLogDataBuffer(object):
                 self.__cache.clear()
                 self.__queue.clear()
 
-            frameKey = Utils.getObjectKey(frame)
+            frameKey = cuegui.Utils.getObjectKey(frame)
             if frameKey in self.__cache:
                 # Last line is cached
                 __cached = self.__cache[frameKey]
@@ -689,7 +697,7 @@ class FrameLogDataBuffer(object):
                 # Return the cached results anyway
                 return (__cached[self.__LINE], __cached[self.__LLU])
             else:
-                __path = Utils.getFrameLogFile(job, frame)
+                __path = cuegui.Utils.getFrameLogFile(job, frame)
                 # Cache a blank entry until it is filled in
                 self.__cache[frameKey] = [__now + 60,
                                              __path,
@@ -702,7 +710,7 @@ class FrameLogDataBuffer(object):
                 # Since nothing is updated yet, return an empty string
                 return (self.__defaultLine, self.__defaultLLU)
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __doWork(self):
         """Pops work from the queue and returns the proxy and last log line"""
@@ -711,12 +719,12 @@ class FrameLogDataBuffer(object):
                 (proxy, path) = self.__queue.popitem()
                 if os.path.exists(path):
                     return (proxy,
-                            Utils.getLastLine(path),
-                            Utils.secondsToHHMMSS(time.time() - os.stat(path).st_mtime))
+                            cuegui.Utils.getLastLine(path),
+                            cuegui.Utils.secondsToHHMMSS(time.time() - os.stat(path).st_mtime))
                 else:
                     return None
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __saveWork(self, work, results):
         """Stores the resulting last log line to the cache with the proxy key"""
@@ -730,7 +738,7 @@ class FrameLogDataBuffer(object):
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
 class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
@@ -740,7 +748,7 @@ class FrameEtaDataBuffer(object):
 
 
     def __init__(self):
-        from ThreadPool import ThreadPool
+        from .ThreadPool import ThreadPool
 
         self.__threadPool = ThreadPool(self.maxThreads, self.maxQueue)
         self.__currentJob = None
@@ -754,19 +762,19 @@ class FrameEtaDataBuffer(object):
     def getEtaFormatted(self, job, frame):
         result = self.getEta(job, frame)
         if result:
-            return Utils.secondsToHHMMSS(result)
+            return cuegui.Utils.secondsToHHMMSS(result)
         return False
 
     def getEta(self, job, frame):
         __now = time.time()
         try:
-            jobKey = Utils.getObjectKey(job)
+            jobKey = cuegui.Utils.getObjectKey(job)
             if self.__currentJob != jobKey:
                 # New job so clear cache
                 self.__cache.clear()
                 self.__currentJob = jobKey
 
-            frameKey = Utils.getObjectKey(frame)
+            frameKey = cuegui.Utils.getObjectKey(frame)
             if frameKey in self.__cache:
                 # Frame eta is cached
                 __cached = self.__cache[frameKey]
@@ -787,16 +795,16 @@ class FrameEtaDataBuffer(object):
         except Exception as e:
             self.__cache[frameKey] = [__now,
                                          None]
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
         return self.__defaultETA
 
     def __doWork(self, proxy, job, frame):
         """Pops work from the queue and returns the proxy and last log line"""
         try:
-            return (proxy, eta.ETASeconds(job, frame))
+            return (proxy, cuegui.eta.ETASeconds(job, frame))
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return (proxy, self.__defaultETA)
 
     def __saveWork(self, work, results):
@@ -810,4 +818,4 @@ class FrameEtaDataBuffer(object):
             # Could happen while switching jobs with work in the queue
             pass
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))

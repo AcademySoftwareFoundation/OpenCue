@@ -13,15 +13,19 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-from DependMonitorTree import DependMonitorTree
-import Logger
-import Utils
+import cuegui.DependMonitorTree
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class DependDialog(QtWidgets.QDialog):
@@ -33,18 +37,18 @@ class DependDialog(QtWidgets.QDialog):
         self.resize(1000, 600)
 
         name = "Dependencies for "
-        if Utils.isJob(object):
+        if cuegui.Utils.isJob(object):
             name +=  "Job: %s" % object.data.name
-        elif Utils.isLayer(object):
+        elif cuegui.Utils.isLayer(object):
             name +=  "Layer: %s" % object.data.name
-        elif Utils.isFrame(object):
+        elif cuegui.Utils.isFrame(object):
             name +=  "Frame: %s" % object.data.name
 
         self.setWindowTitle(name)
 
         self.hlayout = QtWidgets.QHBoxLayout(self)
 
-        self._depend = DependMonitorTree(self, object)
+        self._depend = cuegui.DependMonitorTree.DependMonitorTree(self, object)
         self.hlayout.addWidget(self._depend)
 
         self.setLayout(self.hlayout)

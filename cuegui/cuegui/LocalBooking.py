@@ -13,6 +13,13 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import map
+from builtins import str
+from builtins import range
 import time
 import os
 from socket import gethostname
@@ -22,12 +29,11 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Logger
-import Utils
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
-
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class LocalBookingWidget(QtWidgets.QWidget):
@@ -181,11 +187,11 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.resize(400, 400)
 
     def getTargetJobName(self):
-        if Utils.isJob(self.__target):
+        if cuegui.Utils.isJob(self.__target):
             return self.__target.data.name
-        elif Utils.isLayer(self.__target):
+        elif cuegui.Utils.isLayer(self.__target):
             return self.__target.name
-        elif Utils.isFrame(self.__target):
+        elif cuegui.Utils.isFrame(self.__target):
             return self.__parent.getJob().data.name
         else:
             return ''
@@ -206,8 +212,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__stack.setCurrentIndex(1)
                 self.__btn_clear.setText("Clear")
                 self.__btn_clear.setDisabled(False)
-                self.__run_cores.setRange(1, int(host.data.idleCores) + rp.maxCores / 100)
-                self.__run_cores.setValue(rp.maxCores / 100)
+                self.__run_cores.setRange(1, int(host.data.idleCores) + rp.maxCores // 100)
+                self.__run_cores.setValue(rp.maxCores // 100)
                 self.__run_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__run_mem.setValue(int(rp.maxMemory / 1024 / 1024))
 
@@ -218,7 +224,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__num_threads.setRange(1, host.data.idleCores)
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def deedLocalhost(self):
 
@@ -313,7 +319,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__host_changed(hostname)
 
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def bookCurrentHost(self):
         if self.__hasError():

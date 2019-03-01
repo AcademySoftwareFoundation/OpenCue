@@ -18,12 +18,17 @@ A Widget for displaying and editing Tags
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
 import re
 
 from PySide2 import QtWidgets
 
-from AbstractDialog import CheckBoxSelectionMatrix
-import Constants
+import cuegui.AbstractDialog
+import cuegui.Constants
 
 
 class TagsWidget(QtWidgets.QWidget):
@@ -49,11 +54,9 @@ class TagsWidget(QtWidgets.QWidget):
 
         # Standard Tags
         if not allowed_tags:
-            allowed_tags = Constants.ALLOWED_TAGS
-        self.standard_tags = CheckBoxSelectionMatrix('Tags',
-                                                     allowed_tags,
-                                                     [],
-                                                     self)
+            allowed_tags = cuegui.Constants.ALLOWED_TAGS
+        self.standard_tags = cuegui.AbstractDialog.CheckBoxSelectionMatrix(
+            'Tags', allowed_tags, [], self)
         layout.addWidget(self.standard_tags, 0, 0, 1, 2)
 
         # Custom Tags
@@ -103,7 +106,7 @@ class TagsWidget(QtWidgets.QWidget):
         """
 
         current_tags = tags or []
-        if set(current_tags).issubset(Constants.ALLOWED_TAGS):
+        if set(current_tags).issubset(cuegui.Constants.ALLOWED_TAGS):
             self.standard_tags.checkBoxes(current_tags)
             self.__enable_custom.setChecked(False)
             self.__disableCustom()

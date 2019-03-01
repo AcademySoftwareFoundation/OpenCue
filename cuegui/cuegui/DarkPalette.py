@@ -18,12 +18,16 @@ The dark widget color scheme used by image viewing applications.
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import platform
 
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Constants
+import cuegui.Constants
 
 
 def init():
@@ -34,11 +38,11 @@ def init():
     if platform.system() == 'Darwin':
         setDarkStyleSheet()
     else:
-        QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(Constants.COLOR_THEME))
+        QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
 
 
 def setDarkStyleSheet():
-    QtGui.qApp.setStyleSheet(open(Constants.DARK_STYLE_SHEET).read())
+    QtGui.qApp.setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():

@@ -13,6 +13,11 @@
 #  limitations under the License.
 
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from builtins import str
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -57,7 +62,7 @@ class CheckBoxSelectionMatrix(QtWidgets.QWidget):
             box = QtWidgets.QCheckBox(item, self.__group)
             box.setChecked(item in checkedOptions)
             self.__checkBoxes.append(box)
-            self.__group_layout.addWidget(box, index / 2, index % 2)
+            self.__group_layout.addWidget(box, index // 2, index % 2)
 
         self.__group.setLayout(self.__group_layout)
         layout.addWidget(self.__group)

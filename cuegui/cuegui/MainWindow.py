@@ -18,6 +18,13 @@ All windows are an instance of this MainWindow.
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+
+from builtins import str
+from builtins import range
 import sys
 
 from PySide2 import QtCore
@@ -26,13 +33,13 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-import Logger
-import Plugins
-import Utils
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.Plugins
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -73,7 +80,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__createMenus()
 
         # Setup plugins
-        self.__plugins = Plugins.Plugins(self, self.name)
+        self.__plugins = cuegui.Plugins.Plugins(self, self.name)
         self.__plugins.setupPluginMenu(self.PluginMenu)
 
         # Restore saved settings
@@ -86,9 +93,9 @@ class MainWindow(QtWidgets.QMainWindow):
     def displayStartupNotice(self):
         import time
         now = int(time.time())
-        lastView = self.settings.value("LastNotice", 0)
-        if lastView < Constants.STARTUP_NOTICE_DATE:
-            QtWidgets.QMessageBox.information(self, "Notice", Constants.STARTUP_NOTICE_MSG,
+        lastView = int(self.settings.value("LastNotice", 0))
+        if lastView < cuegui.Constants.STARTUP_NOTICE_DATE:
+            QtWidgets.QMessageBox.information(self, "Notice", cuegui.Constants.STARTUP_NOTICE_MSG,
                                               QtWidgets.QMessageBox.Ok)
         self.settings.setValue("LastNotice", now)
 
@@ -102,13 +109,13 @@ class MainWindow(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.about(self, "About", msg)
 
     def openSuggestionPage(self):
-        Utils.openURL(Constants.URL_SUGGESTION)
+        cuegui.Utils.openURL(cuegui.Constants.URL_SUGGESTION)
 
     def openBugPage(self):
-        Utils.openURL(Constants.URL_BUG)
+        cuegui.Utils.openURL(cuegui.Constants.URL_BUG)
 
     def openUserGuide(self):
-        Utils.openURL(Constants.URL_USERGUIDE)
+        cuegui.Utils.openURL(cuegui.Constants.URL_USERGUIDE)
 
 ################################################################################
 # Handles facility menu
@@ -120,7 +127,7 @@ class MainWindow(QtWidgets.QMainWindow):
         @return: The QMenu that the actions were added to
         @rtype:  QMenu"""
         self.__actions_facility = {}
-        menu.setFont(Constants.STANDARD_FONT)
+        menu.setFont(cuegui.Constants.STANDARD_FONT)
         menu.triggered.connect(self.__facilityMenuHandle)
 
         cue_config = opencue.Cuebot.getConfig()
@@ -142,7 +149,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # If all cues are unchecked, check default one
         if not action.isChecked():
             checked = False
-            for facility in self.__actions_facility.values():
+            for facility in list(self.__actions_facility.values()):
                 if facility.isChecked():
                     checked = True
             if not checked:
@@ -153,7 +160,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 if facility != action.text():
                     self.__actions_facility[facility].setChecked(False)
 
-        for facility in self.__actions_facility.values():
+        for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
                 QtGui.qApp.facility_changed.emit()
@@ -163,7 +170,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __createMenus(self):
         """Creates the menus at the top of the window"""
-        self.menuBar().setFont(Constants.STANDARD_FONT)
+        self.menuBar().setFont(cuegui.Constants.STANDARD_FONT)
 
         # Menu bar
         self.fileMenu = self.menuBar().addMenu("&File")

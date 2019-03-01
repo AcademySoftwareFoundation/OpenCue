@@ -18,6 +18,12 @@ A frame list based on AbstractTreeWidget
 """
 
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+from builtins import map
+from builtins import str
 import time
 
 from PySide2 import QtCore
@@ -26,26 +32,25 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Constants
-import Logger
-import Style
-import Utils
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.ItemDelegate
+import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Style
+import cuegui.Utils
 
-from MenuActions import MenuActions
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-from ItemDelegate import HostSwapBarDelegate, HostGpuBarDelegate
 
-
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 COMMENT_COLUMN = 1
 
 
-class HostMonitorTree(AbstractTreeWidget):
+class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
-        self.startColumnsForType(Constants.TYPE_HOST)
+        self.startColumnsForType(cuegui.Constants.TYPE_HOST)
         self.addColumn("Name", 150, id=1,
                        data=lambda host: host.data.name,
                        tip="The hostname.")
@@ -63,21 +68,21 @@ class HostMonitorTree(AbstractTreeWidget):
                            "reserved. If all cores are reserved and the percentage\n"
                            "is way below 100% then the cpu is underutilized.")
         self.addColumn("Swap", 60, id=4,
-                       data=lambda host: Utils.memoryToString(host.data.free_swap),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_swap),
                        sort=lambda host: host.data.free_swap,
-                       delegate=HostSwapBarDelegate,
+                       delegate=cuegui.ItemDelegate.HostSwapBarDelegate,
                        tip="The amount of used swap (red) vs available swap (green)")
         self.addColumn("Memory", 60, id=5,
-                       data=lambda host: Utils.memoryToString(host.data.free_memory),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_memory),
                        sort=lambda host: host.data.free_memory,
                        tip="The amount of used memory (red) vs available gpu memory (green)")
         self.addColumn("GPU", 60, id=6,
-                       data=lambda host: Utils.memoryToString(host.data.free_gpu),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu),
                        sort=lambda host: host.data.free_gpu,
-                       delegate=HostGpuBarDelegate,
+                       delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
         self.addColumn("freeMcp", 60, id=7,
-                       data=lambda host: Utils.memoryToString(host.data.free_mcp),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
                        sort=lambda host: host.data.free_mcp,
                        tip="The amount of free space in /mcp/")
         self.addColumn("Cores", 45, id=8,
@@ -90,21 +95,21 @@ class HostMonitorTree(AbstractTreeWidget):
                        sort=lambda host: host.data.idle_cores,
                        tip="The number of cores that are not reserved.")
         self.addColumn("Mem", 50, id=10,
-                       data=lambda host: Utils.memoryToString(host.data.memory),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.memory),
                        sort=lambda host: host.data.memory,
                        tip="The total amount of reservable memory.\n\n"
                            "On a frame it is the amount of memory reserved.")
         self.addColumn("Idle", 50, id=11,
-                       data=lambda host: Utils.memoryToString(host.data.idle_memory),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
                        sort=lambda host: host.data.idle_memory,
                        tip="The amount of unreserved memory.")
         self.addColumn("GPU", 50, id=12,
-                       data=lambda host: Utils.memoryToString(host.data.gpu),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.gpu),
                        sort=lambda host: host.data.gpu,
                        tip="The total amount of reservable gpu memory.\n\n"
                            "On a frame it is the amount of gpu memory reserved.")
         self.addColumn("Idle", 50, id=13,
-                       data=lambda host: Utils.memoryToString(host.data.idle_gpu),
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_gpu),
                        sort=lambda host: host.data.idle_gpu,
                        tip="The amount of unreserved gpu memory.")
         self.addColumn("Ping", 50, id=14,
@@ -138,10 +143,11 @@ class HostMonitorTree(AbstractTreeWidget):
 
         self.hostSearch = opencue.search.HostSearch()
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
@@ -170,7 +176,7 @@ class HostMonitorTree(AbstractTreeWidget):
     def updateSoon(self):
         """Returns immediately. Causes an update to happen
         Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
-        QtCore.QTimer.singleShot(Constants.AFTER_ACTION_UPDATE_DELAY,
+        QtCore.QTimer.singleShot(cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
                                  self.updateRequest)
 
     def facilityChanged(self):
@@ -186,7 +192,7 @@ class HostMonitorTree(AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [host.data.name for host in self.selectedObjects() if Utils.isHost(host)]
+        selected = [host.data.name for host in self.selectedObjects() if cuegui.Utils.isHost(host)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
@@ -198,7 +204,7 @@ class HostMonitorTree(AbstractTreeWidget):
         @type  col: int
         @param col: The column clicked on"""
         host = item.rpcObject
-        if col == COMMENT_COLUMN and Utils.isHost(host) and host.data.has_comment:
+        if col == COMMENT_COLUMN and cuegui.Utils.isHost(host) and host.data.has_comment:
             self.__menuActions.hosts().viewComments([host])
 
     def clearFilters(self):
@@ -220,7 +226,7 @@ class HostMonitorTree(AbstractTreeWidget):
             hosts.sort(key=lambda host: host.data.name)
             return hosts
         except Exception as e:
-            map(logger.warning, Utils.exceptionOutput(e))
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def _createItem(self, object, parent=None):
@@ -255,29 +261,30 @@ class HostMonitorTree(AbstractTreeWidget):
 
     def startDrag(self, dropActions):
         """Called when a drag begins"""
-        Utils.startDrag(self, dropActions, self.selectedObjects())
+        cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
 
     def dragEnterEvent(self, event):
-        Utils.dragEnterEvent(event, "application/x-host-ids")
+        cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
 
     def dragMoveEvent(self, event):
-        Utils.dragMoveEvent(event, "application/x-host-ids")
+        cuegui.Utils.dragMoveEvent(event, "application/x-host-ids")
 
 
-class HostWidgetItem(AbstractWidgetItem):
+class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __initialized = False
 
     def __init__(self, object, parent):
         if not self.__initialized:
-            Style.init()
+            cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            self.__class__.__foregroundColor = Style.ColorTheme.COLOR_JOB_FOREGROUND
-            self.__class__.__pausedColor = Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
-            self.__class__.__dyingColor = Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
-            self.__class__.__type = Constants.TYPE_HOST
-        AbstractWidgetItem.__init__(self, Constants.TYPE_HOST, object, parent)
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
+            self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
+            self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
+            self.__class__.__type = cuegui.Constants.TYPE_HOST
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_HOST, object, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -290,8 +297,8 @@ class HostWidgetItem(AbstractWidgetItem):
         if role == QtCore.Qt.DisplayRole:
             if col not in self._cache:
                 self._cache[col] = \
-                    self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
-            return self._cache.get(col, Constants.QVARIANT_NULL)
+                    self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
@@ -322,4 +329,4 @@ class HostWidgetItem(AbstractWidgetItem):
             return [self.rpcObject.data.total_gpu - self.rpcObject.data.free_gpu,
                     self.rpcObject.data.total_gpu]
 
-        return Constants.QVARIANT_NULL
+        return cuegui.Constants.QVARIANT_NULL

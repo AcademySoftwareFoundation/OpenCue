@@ -18,15 +18,20 @@ utility functions for creating QActions
 """
 
 
-import Constants
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from PySide2 import QtGui
 from PySide2 import QtWidgets
+
+import cuegui.Constants
 
 
 Actions = {}
 Groups = {}
 
-ICON_PATH = "%s/images" % Constants.RESOURCE_PATH
+ICON_PATH = "%s/images" % cuegui.Constants.RESOURCE_PATH
 
 
 def create(parent, text, tip, callback=None, icon=None):

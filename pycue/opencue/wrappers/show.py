@@ -23,10 +23,9 @@ Module: show.py - opencue Library implementation of a show
 
 from opencue.compiled_proto import show_pb2
 from opencue.cuebot import Cuebot
-
-import filter
-import group
-import subscription
+import opencue.wrappers.filter
+import opencue.wrappers.group
+import opencue.wrappers.subscription
 
 
 class Show(object):
@@ -60,7 +59,7 @@ class Show(object):
         response = self.stub.CreateSubscription(show_pb2.ShowCreateSubscriptionRequest(
             show=self.data, allocation_id=allocation.id, size=size, burst=burst),
             timeout=Cuebot.Timeout)
-        return subscription.Subscription(response.subscription)
+        return opencue.wrappers.subscription.Subscription(response.subscription)
 
     def delete(self):
         """Delete this show"""
@@ -85,14 +84,14 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         subscriptionSeq = response.subscriptions
-        return [subscription.Subscription(subs) for subs in subscriptionSeq.subscriptions]
+        return [opencue.wrappers.subscription.Subscription(subs) for subs in subscriptionSeq.subscriptions]
 
     def findSubscription(self, name):
         """Returns the matching subscription
         @rtype: Subscription
         @return: The matching subscription
         """
-        subscriptions = subscription.Subscription()
+        subscriptions = opencue.wrappers.subscription.Subscription()
         return subscriptions.find(name)
 
     def getFilters(self):
@@ -170,7 +169,7 @@ class Show(object):
             show=self.data),
             timeout=Cuebot.Timeout)
         groupSeq = response.groups
-        return [group.Group(grp) for grp in groupSeq.groups]
+        return [opencue.wrappers.group.Group(grp) for grp in groupSeq.groups]
 
     def getJobWhiteboard(self):
         """Get the whiteboard for the show
@@ -190,7 +189,7 @@ class Show(object):
         response = self.stub.GetRootGroup(show_pb2.ShowGetRootGroupRequest(
             show=self.data),
             timeout=Cuebot.Timeout)
-        return group.Group(response.group)
+        return opencue.wrappers.group.Group(response.group)
 
     def enableBooking(self, value):
         """Enable booking on the show

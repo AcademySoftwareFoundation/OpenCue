@@ -13,25 +13,29 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
 
-from AbstractTreeWidget import AbstractTreeWidget
-from AbstractWidgetItem import AbstractWidgetItem
-import Constants
-import Logger
-from MenuActions import MenuActions
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.MenuActions
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
-class ShowsWidget(AbstractTreeWidget):
+class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
-        self.startColumnsForType(Constants.TYPE_SHOW)
+        self.startColumnsForType(cuegui.Constants.TYPE_SHOW)
         self.addColumn("Show Name", 90, id=1,
                        data=lambda show: (show.data.name))
         self.addColumn("Cores Run", 80, id=2,
@@ -47,10 +51,11 @@ class ShowsWidget(AbstractTreeWidget):
                        data=lambda show: (show.data.show_stats.pending_jobs),
                        sort=lambda show: (show.data.show_stats.pending_jobs))
 
-        AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
-        self.__menuActions = MenuActions(self, self.updateSoon, self.selectedObjects)
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects)
 
         self.itemClicked.connect(self.__itemSingleClickedToDouble)
         QtGui.qApp.facility_changed.connect(self.__facilityChanged)
@@ -99,6 +104,7 @@ class ShowsWidget(AbstractTreeWidget):
             menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 
 
-class ShowWidgetItem(AbstractWidgetItem):
+class ShowWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
-        AbstractWidgetItem.__init__(self, Constants.TYPE_SHOW, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_SHOW, object, parent)

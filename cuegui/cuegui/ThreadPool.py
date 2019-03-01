@@ -42,14 +42,19 @@ def someWorkCallback(work, result):
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import range
 import os
 
 from PySide2 import QtCore
 
-import Logger
+import cuegui.Logger
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 
 def systemCpuCount():

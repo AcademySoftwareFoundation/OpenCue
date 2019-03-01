@@ -43,6 +43,15 @@ pluginRestoreState(settings) : This will receive any settings that it previously
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+import json
+
+from builtins import str
+from builtins import map
+from builtins import object
 import os
 import sys
 import traceback
@@ -52,12 +61,12 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import Logger
-import Constants
-import Utils
+import cuegui.Constants
+import cuegui.Logger
+import cuegui.Utils
 
 
-logger = Logger.getLogger(__file__)
+logger = cuegui.Logger.getLogger(__file__)
 
 CLASS = "CLASS"
 DESCRIPTION = "DESCRIPTION"
@@ -66,6 +75,11 @@ CATEGORY = "CATEGORY"
 SETTINGS_KEY = 0
 SETTINGS_GET = 1
 SETTINGS_SET = 2
+
+try:
+    JSON_EXCEPTION_CLASS = json.decoder.JSONDecodeError
+except AttributeError:
+    JSON_EXCEPTION_CLASS = ValueError
 
 
 class Plugins(object):
@@ -86,7 +100,7 @@ class Plugins(object):
 
         # Load plugin paths from the config file
         __pluginPaths = QtGui.qApp.settings.value("Plugin_Paths", [])
-        for path in Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
+        for path in cuegui.Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
 
         # Load plugins explicitly listed in the config file
@@ -123,7 +137,7 @@ class Plugins(object):
                     logger.info("plugin loaded %s" % module)
                 except Exception as e:
                     logger.warning("Failed to load plugin: %s" % s_class)
-                    map(logger.warning, Utils.exceptionOutput(e))
+                    list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __closePlugin(self, object):
         """When a running plugin is closed, this is called and the running
@@ -151,7 +165,7 @@ class Plugins(object):
         for plugin in self.__running:
             try:
                 if hasattr(plugin[1], "pluginSaveState"):
-                        opened.append("%s::%s" % (plugin[0], pickle.dumps(plugin[1].pluginSaveState())))
+                    opened.append("%s::%s" % (plugin[0], json.dumps(plugin[1].pluginSaveState())))
             except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s" % (plugin[0], e))
         QtGui.qApp.settings.setValue("%s/Plugins_Opened" % self.name, opened)
@@ -195,7 +209,17 @@ class Plugins(object):
             try:
                 try:
                     if plugin_state:
-                        state = pickle.loads(plugin_state)
+                        # Earlier versions of CueGUI saved data via pickle; fall back to that if
+                        # valid JSON is not found.
+                        try:
+                            state = json.loads(plugin_state)
+                        except JSON_EXCEPTION_CLASS:
+                            # Python 2 doesn't support the same bytes() options, but that's ok
+                            # because the pickled data is already in the format we need.
+                            try:
+                                state = pickle.loads(bytes(plugin_state, encoding='latin1'))
+                            except TypeError:
+                                state = pickle.loads(plugin_state)
                     else:
                         state = None
                 except Exception as e:
@@ -204,7 +228,7 @@ class Plugins(object):
                 plugin_instance.pluginRestoreState(state)
             except Exception as e:
                 logger.warning("Error restoring plugin state for: %s" % plugin_name)
-                map(logger.warning, Utils.exceptionOutput(e))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def loadPluginPath(self, plugin_dir):
         """This will load all plugin modules located in the path provided
@@ -266,7 +290,7 @@ class Plugins(object):
         # Create the submenus (ordered)
         submenus = {}
         menu_locations = {"root": []}
-        for category in set([plugin[CATEGORY] for plugin in self.__plugins.values()
+        for category in set([plugin[CATEGORY] for plugin in list(self.__plugins.values())
                              if CATEGORY in plugin]):
             submenus[category] = QtWidgets.QMenu(category, menu)
             menu.addMenu(submenus[category])

@@ -19,6 +19,13 @@ job to another job.
 """
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from past.builtins import cmp
+from builtins import str
+from builtins import range
 import os
 import re
 import time
@@ -29,7 +36,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
-import Utils
+import cuegui.Utils
 
 
 # The concept here is that there is a target job that needs
@@ -190,7 +197,7 @@ class GroupFilter(QtWidgets.QPushButton):
 
     def getChecked(self):
         return [str(action.text()) for action in
-                self.__actions.values() if action.isChecked()]
+                list(self.__actions.values()) if action.isChecked()]
 
 
 class RedirectControls(QtWidgets.QWidget):
@@ -287,7 +294,7 @@ class RedirectControls(QtWidgets.QWidget):
         @rtype: dict<str:str>
         '''
         if not hasattr(self, '__config'):
-            self.__config = Utils.getResourceConfig()
+            self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
     def showChanged(self, show):
@@ -449,7 +456,7 @@ class RedirectWidget(QtWidgets.QWidget):
                'in killing frames on other show/s.\nDo you have approval '
                'from (%s) to redirect cores from the following jobs?'
                % ', '.join([j.show().upper() for j in xshow_jobs]))
-        return Utils.questionBoxYesNo(parent=self,
+        return cuegui.Utils.questionBoxYesNo(parent=self,
                                       title="Cross-show Redirect!",
                                       text=msg,
                                       items=[j.name() for j
@@ -506,7 +513,7 @@ class RedirectWidget(QtWidgets.QWidget):
                    'that the target show will not be able to use. '
                    'Do you want to redirect anyway?'
                    % (alloc, status, int(procs_to_redirect), wasted_cores))
-            return Utils.questionBoxYesNo(parent=self,
+            return cuegui.Utils.questionBoxYesNo(parent=self,
                                           title=status.title(),
                                           text=msg)
         except TypeError:
@@ -548,7 +555,7 @@ class RedirectWidget(QtWidgets.QWidget):
         # Gather Selected Procs
         procs_by_alloc = self.__get_selected_procs_by_alloc(selected_items)
         show_name = job.show()
-        for alloc, procs in procs_by_alloc.items():
+        for alloc, procs in list(procs_by_alloc.items()):
             if not self.__is_cross_show_safe(procs, show_name):  # Cross-show
                 return
             if not self.__is_burst_safe(alloc, procs, show_name):  # At burst
@@ -678,13 +685,13 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__model.appendRow([checkbox,
                                QtGui.QStandardItem(str(entry["cores"])),
                                QtGui.QStandardItem("%0.2fGB" % (entry["mem"] / 1048576.0)),
-                               QtGui.QStandardItem(Utils.secondsToHHMMSS(rtime))])
+                               QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(rtime))])
 
         for proc in procs:
             checkbox.appendRow([QtGui.QStandardItem(proc.data.jobName),
                                 QtGui.QStandardItem(str(proc.data.reservedCores)),
                                 QtGui.QStandardItem("%0.2fGB" % (proc.data.reservedMemory / 1048576.0)),
-                                QtGui.QStandardItem(Utils.secondsToHHMMSS(time.time() -
+                                QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(time.time() -
                                                                           proc.data.dispatchTime)),
                                 QtGui.QStandardItem(proc.data.groupName),
                                 QtGui.QStandardItem(",".join(proc.data.services))])

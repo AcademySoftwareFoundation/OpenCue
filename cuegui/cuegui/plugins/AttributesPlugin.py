@@ -13,24 +13,38 @@
 #  limitations under the License.
 
 
-import time
-import os
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
-import cuegui
+from builtins import map
+from builtins import str
+import time
+
+from PySide2 import QtGui
+from PySide2 import QtCore
+from PySide2 import QtWidgets
+
 import opencue
+import opencue.compiled_proto
+
+import cuegui.AbstractDockWidget
+import cuegui.Logger
+import cuegui.Utils
+
 
 logger = cuegui.Logger.getLogger(__file__)
-
-from PySide2 import QtGui, QtCore, QtWidgets
 
 PLUGIN_NAME = "Attributes"
 PLUGIN_CATEGORY = "Other"
 PLUGIN_DESCRIPTION = "Displays entity attributes"
 PLUGIN_PROVIDES = "AttributesPlugin"
 
-class AttributesPlugin(cuegui.AbstractDockWidget):
+
+class AttributesPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
     def __init__(self, parent):
-        cuegui.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
+        cuegui.AbstractDockWidget.AbstractDockWidget.__init__(
+            self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__attributes = Attributes(self)
         self.layout().addWidget(self.__attributes)
 
@@ -132,8 +146,8 @@ class Attributes(QtWidgets.QWidget):
                 self.__load = None
                 work["preload"] = work["function"].preload(work["item"])
                 return work
-        except Exception, e:
-            map(logger.warning, cuegui.Utils.exceptionOutput(e))
+        except Exception as e:
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __processResults(self, work, result):
         """Unpacks the worker thread results and calls function to create widget"""
@@ -152,8 +166,8 @@ class Attributes(QtWidgets.QWidget):
                 oldWidget = self.__stack.widget(0)
                 self.__stack.removeWidget(oldWidget)
                 oldWidget.setParent(QtWidgets.QWidget())
-        except Exception, e:
-            map(logger.warning, cuegui.Utils.exceptionOutput(e))
+        except Exception as e:
+            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
 
 class AbstractAttributes(QtWidgets.QTreeWidget):
@@ -163,11 +177,11 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
         def addData(parent, value):
             if isinstance(value, dict):
                 if "__childOrder" in value:
-                    full_keys = [k for k in value.keys() if k != "__childOrder"]
+                    full_keys = [k for k in list(value.keys()) if k != "__childOrder"]
                     keys = value.get("__childOrder", full_keys)
                     keys = keys + list(set(full_keys).difference(set(keys)))
                 else:
-                    keys = value.keys()
+                    keys = list(value.keys())
 
                 for key in keys:
                     child = QtWidgets.QTreeWidgetItem([str(key)])

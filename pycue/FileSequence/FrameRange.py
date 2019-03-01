@@ -12,6 +12,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import range
+from builtins import object
 import re
 from collections import OrderedDict
 
@@ -126,7 +134,7 @@ class FrameRange(object):
 
     @staticmethod
     def getIntRange(start, end, step):
-        return range(start, end+(step/abs(step)), step)
+        return list(range(start, end+(step // abs(step)), step))
 
     @classmethod
     def getSteppedRange(cls, start, end, step, inverseStep):
@@ -141,7 +149,7 @@ class FrameRange(object):
     def getInterleavedRange(cls, start, end, step):
         cls.validateStepSign(start, end, step)
         interleavedFrames = OrderedDict()
-        incrValue = step / abs(step)
+        incrValue = step // abs(step)
         while abs(step) > 0:
             interleavedFrames.update([(frame, None) for frame in cls.getIntRange(start, end, step)])
             start += incrValue
