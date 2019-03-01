@@ -133,7 +133,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The time when the job was launched.")
         self.addColumn("Finished", 100, id=13,
                        data=lambda job: (job.data.stop_time > 0
-                                         and cuegui.Utils.dateToMMDDHHMM(job.stop_time)
+                                         and cuegui.Utils.dateToMMDDHHMM(job.data.stop_time)
                                          or ""),
                        sort=lambda job: job.data.stop_time,
                        tip="The time when the job ended.")
@@ -384,7 +384,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         monitored_proxies.remove(proxy)
 
             if monitored_proxies:
-                for job in opencue.api.getJobs(id=monitored_proxies, all=True):
+                for job in opencue.api.getJobs(
+                        id=[proxyId.split('.')[-1] for proxyId in monitored_proxies],
+                        include_finished=True):
                     objectKey = cuegui.Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
