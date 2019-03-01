@@ -22,6 +22,10 @@ import mock
 import unittest
 
 import opencue
+from opencue.compiled_proto import cue_pb2
+from opencue.compiled_proto import depend_pb2
+from opencue.compiled_proto import facility_pb2
+from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import service_pb2
@@ -36,6 +40,11 @@ TEST_JOB_NAME = 'pipe-dev.cue-chambers_shell_v6'
 TEST_LAYER_NAME = 'depend_er'
 TEST_HOST_NAME = 'wolf1001'
 TEST_SUB_NAME = 'pipe.General'
+TEST_FACILITY_NAME = 'arbitrary-facility-name'
+TEST_TAG = 'General'
+TEST_ALLOC_NAME = 'pipe.General'
+TEST_PROC_NAME = 'arbitrary-proc-name'
+
 
 
 class ShowTests(unittest.TestCase):
@@ -49,9 +58,8 @@ class ShowTests(unittest.TestCase):
 
         showList = opencue.api.getShows()
 
-        stubMock.GetShows.assert_called()
-        self.assertEqual(1, len(showList))
-        self.assertEqual(TEST_SHOW_NAME, showList[0].name())
+        stubMock.GetShows.assert_called_with(show_pb2.ShowGetShowsRequest(), timeout=mock.ANY)
+        self.assertEqual([TEST_SHOW_NAME], [show.name() for show in showList])
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testFindShow(self, getStubMock):
@@ -92,6 +100,22 @@ class ShowTests(unittest.TestCase):
 
         stubMock.Delete.assert_called_with(
             show_pb2.ShowDeleteRequest(show=showToDelete), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetActiveShows(self, getStubMock):
+        show1Name = 'first-show'
+        show2Name = 'second-show'
+        stubMock = mock.Mock()
+        stubMock.GetActiveShows.return_value = show_pb2.ShowGetActiveShowsResponse(
+            shows=show_pb2.ShowSeq(
+                shows=[show_pb2.Show(name=show1Name), show_pb2.Show(name=show2Name)]))
+        getStubMock.return_value = stubMock
+
+        showList = opencue.api.getActiveShows()
+
+        stubMock.GetActiveShows.assert_called_with(
+            show_pb2.ShowGetActiveShowsRequest(), timeout=mock.ANY)
+        self.assertEqual([show1Name, show2Name], [show.name() for show in showList])
 
 
 class GroupTests(unittest.TestCase):
@@ -205,6 +229,34 @@ class JobTests(unittest.TestCase):
                 r=job_pb2.JobSearchCriteria(shows=[TEST_SHOW_NAME])), timeout=mock.ANY)
         self.assertEqual(1, len(jobNames))
         self.assertEqual(TEST_JOB_NAME, jobNames[0])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testLaunchSpec(self, getStubMock):
+        spec = 'arbitrary-spec'
+        stubMock = mock.Mock()
+        stubMock.LaunchSpec.return_value = job_pb2.JobLaunchSpecResponse(
+            names=[TEST_JOB_NAME])
+        getStubMock.return_value = stubMock
+
+        jobNames = opencue.api.launchSpec(spec)
+
+        stubMock.LaunchSpec.assert_called_with(
+            job_pb2.JobLaunchSpecRequest(spec=spec), timeout=mock.ANY)
+        self.assertEqual([TEST_JOB_NAME], jobNames)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testLaunchSpecAndWait(self, getStubMock):
+        spec = 'arbitrary-spec'
+        stubMock = mock.Mock()
+        stubMock.LaunchSpecAndWait.return_value = job_pb2.JobLaunchSpecAndWaitResponse(
+            jobs=job_pb2.JobSeq(jobs=[job_pb2.Job(name=TEST_JOB_NAME)]))
+        getStubMock.return_value = stubMock
+
+        jobs = opencue.api.launchSpecAndWait(spec)
+
+        stubMock.LaunchSpecAndWait.assert_called_with(
+            job_pb2.JobLaunchSpecAndWaitRequest(spec=spec), timeout=mock.ANY)
+        self.assertEqual([TEST_JOB_NAME], [job.name() for job in jobs])
 
 
 class LayerTests(unittest.TestCase):
@@ -358,6 +410,20 @@ class ServiceTests(unittest.TestCase):
         stubMock.Update.assert_called_with(
             service_pb2.ServiceUpdateRequest(service=updatedService.data), timeout=mock.ANY)
 
+    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
+    def testGetDefault(self, stubMock):
+        service1 = 'service1'
+        service2 = 'service2'
+        stubMock.GetDefaultServices.return_value = service_pb2.ServiceGetDefaultServicesResponse(
+            services=service_pb2.ServiceSeq(
+                services=[service_pb2.Service(name=service1), service_pb2.Service(name=service2)]))
+
+        services = opencue.api.getDefaultServices()
+
+        stubMock.GetDefaultServices.assert_called_with(
+            service_pb2.ServiceGetDefaultServicesRequest(), timeout=mock.ANY)
+        self.assertEqual([service1, service2], [service.name() for service in services])
+
 
 class SubscriptionTests(unittest.TestCase):
 
@@ -432,6 +498,269 @@ class HostTests(unittest.TestCase):
         stubMock.GetHost.assert_called_with(
             host_pb2.HostGetHostRequest(id=arbitraryId), timeout=mock.ANY)
         self.assertEqual(arbitraryId, host.id())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetHostWhiteboard(self, getStubMock):
+        hostId1 = 'host-one'
+        hostId2 = 'host-two'
+        stubMock = mock.Mock()
+        stubMock.GetHostWhiteboard.return_value = host_pb2.HostGetHostWhiteboardResponse(
+            nested_hosts=host_pb2.NestedHostSeq(
+                nested_hosts=[host_pb2.NestedHost(id=hostId1), host_pb2.NestedHost(id=hostId2)]))
+        getStubMock.return_value = stubMock
+
+        hosts = opencue.api.getHostWhiteboard()
+
+        stubMock.GetHostWhiteboard.assert_called_with(
+            host_pb2.HostGetHostWhiteboardRequest(), timeout=mock.ANY)
+        self.assertEqual([hostId1, hostId2], [host.id() for host in hosts])
+
+
+class SystemTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetHost(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetSystemStats.return_value = cue_pb2.CueGetSystemStatsResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.getSystemStats()
+
+        stubMock.GetSystemStats.assert_called_with(
+            cue_pb2.CueGetSystemStatsRequest(), timeout=mock.ANY)
+
+class FacilityTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCreateFacility(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Create.return_value = facility_pb2.FacilityCreateResponse(
+            facility=facility_pb2.Facility(name=TEST_FACILITY_NAME))
+        getStubMock.return_value = stubMock
+
+        newFacility = opencue.api.createFacility(TEST_FACILITY_NAME)
+
+        stubMock.Create.assert_called_with(
+            facility_pb2.FacilityCreateRequest(name=TEST_FACILITY_NAME), timeout=mock.ANY)
+        self.assertEqual(TEST_FACILITY_NAME, newFacility.name)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetFacility(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Get.return_value = facility_pb2.FacilityGetResponse(
+            facility=facility_pb2.Facility(name=TEST_FACILITY_NAME))
+        getStubMock.return_value = stubMock
+
+        facility = opencue.api.getFacility(TEST_FACILITY_NAME)
+
+        stubMock.Get.assert_called_with(
+            facility_pb2.FacilityGetRequest(name=TEST_FACILITY_NAME), timeout=mock.ANY)
+        self.assertEqual(TEST_FACILITY_NAME, facility.name)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testRenameFacility(self, getStubMock):
+        facility = facility_pb2.Facility(name=TEST_FACILITY_NAME)
+        newName = 'new-name'
+        stubMock = mock.Mock()
+        stubMock.Rename.return_value = facility_pb2.FacilityRenameResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.renameFacility(facility, newName)
+
+        stubMock.Rename.assert_called_with(
+            facility_pb2.FacilityRenameRequest(facility=facility, new_name=newName),
+            timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testDeleteFacility(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Delete.return_value = facility_pb2.FacilityDeleteResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.deleteFacility(TEST_FACILITY_NAME)
+
+        stubMock.Delete.assert_called_with(
+            facility_pb2.FacilityDeleteRequest(name=TEST_FACILITY_NAME), timeout=mock.ANY)
+
+
+class DependTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetDepend(self, getStubMock):
+        arbitraryId = '00000000-0000-0000-0000-012345678980'
+        stubMock = mock.Mock()
+        stubMock.GetDepend.return_value = depend_pb2.DependGetDependResponse(
+            depend=depend_pb2.Depend(id=arbitraryId))
+        getStubMock.return_value = stubMock
+
+        depend = opencue.api.getDepend(arbitraryId)
+
+        stubMock.GetDepend.assert_called_with(
+            depend_pb2.DependGetDependRequest(id=arbitraryId), timeout=mock.ANY)
+        self.assertEqual(arbitraryId, depend.id())
+
+
+class OwnerTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetOwner(self, getStubMock):
+        ownerName = 'arbitrary-name'
+        stubMock = mock.Mock()
+        stubMock.GetOwner.return_value = host_pb2.OwnerGetOwnerResponse(
+            owner=host_pb2.Owner(name=ownerName))
+        getStubMock.return_value = stubMock
+
+        owner = opencue.api.getOwner(ownerName)
+
+        stubMock.GetOwner.assert_called_with(
+            host_pb2.OwnerGetOwnerRequest(name=ownerName), timeout=mock.ANY)
+        self.assertEqual(ownerName, owner.name)
+
+
+class FilterTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testFindFilter(self, getStubMock):
+        filterName = 'arbitrary-name'
+        stubMock = mock.Mock()
+        stubMock.FindFilter.return_value = filter_pb2.FilterFindFilterResponse(
+            filter=filter_pb2.Filter(name=filterName))
+        getStubMock.return_value = stubMock
+
+        filter = opencue.api.findFilter(TEST_SHOW_NAME, filterName)
+
+        stubMock.FindFilter.assert_called_with(
+            filter_pb2.FilterFindFilterRequest(show=TEST_SHOW_NAME, name=filterName),
+            timeout=mock.ANY)
+        self.assertEqual(filterName, filter.name())
+
+
+class AllocTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCreateAlloc(self, getStubMock):
+        facility = facility_pb2.Facility(name=TEST_FACILITY_NAME)
+        stubMock = mock.Mock()
+        stubMock.Create.return_value = facility_pb2.AllocCreateResponse(
+            allocation=facility_pb2.Allocation(name=TEST_ALLOC_NAME))
+        getStubMock.return_value = stubMock
+
+        alloc = opencue.api.createAllocation(TEST_ALLOC_NAME, TEST_TAG, facility)
+
+        stubMock.Create.assert_called_with(
+            facility_pb2.AllocCreateRequest(name=TEST_ALLOC_NAME, tag=TEST_TAG, facility=facility),
+            timeout=mock.ANY)
+        self.assertEqual(TEST_ALLOC_NAME, alloc.name())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetAllocs(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetAll.return_value = facility_pb2.AllocGetAllResponse(
+            allocations=facility_pb2.AllocationSeq(allocations=[facility_pb2.Allocation(name=TEST_ALLOC_NAME)]))
+        getStubMock.return_value = stubMock
+
+        allocs = opencue.api.getAllocations()
+
+        stubMock.GetAll.assert_called_with(
+            facility_pb2.AllocGetAllRequest(), timeout=mock.ANY)
+        self.assertEqual([TEST_ALLOC_NAME], [alloc.name() for alloc in allocs])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testFindAlloc(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Find.return_value = facility_pb2.AllocFindResponse(
+            allocation=facility_pb2.Allocation(name=TEST_ALLOC_NAME))
+        getStubMock.return_value = stubMock
+
+        alloc = opencue.api.findAllocation(TEST_ALLOC_NAME)
+
+        stubMock.Find.assert_called_with(
+            facility_pb2.AllocFindRequest(name=TEST_ALLOC_NAME), timeout=mock.ANY)
+        self.assertEqual(TEST_ALLOC_NAME, alloc.name())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetAlloc(self, getStubMock):
+        arbitraryId = '00000000-0000-0000-0000-012345678980'
+        stubMock = mock.Mock()
+        stubMock.Get.return_value = facility_pb2.AllocGetResponse(
+            allocation=facility_pb2.Allocation(id=arbitraryId))
+        getStubMock.return_value = stubMock
+
+        alloc = opencue.api.getAllocation(arbitraryId)
+
+        stubMock.Get.assert_called_with(
+            facility_pb2.AllocGetRequest(id=arbitraryId), timeout=mock.ANY)
+        self.assertEqual(arbitraryId, alloc.id())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testDeleteAlloc(self, getStubMock):
+        allocToDelete = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        stubMock = mock.Mock()
+        stubMock.Delete.return_value = facility_pb2.AllocDeleteResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.deleteAllocation(allocToDelete)
+
+        stubMock.Delete.assert_called_with(
+            facility_pb2.AllocDeleteRequest(allocation=allocToDelete), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testAllocSetBillable(self, getStubMock):
+        alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        isBillable = True
+        stubMock = mock.Mock()
+        stubMock.SetBillable.return_value = facility_pb2.AllocSetBillableResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.allocSetBillable(alloc, isBillable)
+
+        stubMock.SetBillable.assert_called_with(
+            facility_pb2.AllocSetBillableRequest(allocation=alloc, value=isBillable),
+            timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testAllocSetName(self, getStubMock):
+        alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        newName = 'arbitrary-name'
+        stubMock = mock.Mock()
+        stubMock.SetName.return_value = facility_pb2.AllocSetNameResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.allocSetName(alloc, newName)
+
+        stubMock.SetName.assert_called_with(
+            facility_pb2.AllocSetNameRequest(allocation=alloc, name=newName), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testAllocSetTag(self, getStubMock):
+        alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        newTag = 'arbitrary-tag'
+        stubMock = mock.Mock()
+        stubMock.SetTag.return_value = facility_pb2.AllocSetTagResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.allocSetTag(alloc, newTag)
+
+        stubMock.SetTag.assert_called_with(
+            facility_pb2.AllocSetTagRequest(allocation=alloc, tag=newTag), timeout=mock.ANY)
+
+
+class ProcTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetProcs(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetProcs.return_value = host_pb2.ProcGetProcsResponse(
+            procs=host_pb2.ProcSeq(procs=[host_pb2.Proc(name=TEST_PROC_NAME)]))
+        getStubMock.return_value = stubMock
+
+        procs = opencue.api.getProcs(show=[TEST_SHOW_NAME], alloc=[TEST_ALLOC_NAME])
+
+        stubMock.GetProcs.assert_called_with(
+            host_pb2.ProcGetProcsRequest(
+                r=host_pb2.ProcSearchCriteria(shows=[TEST_SHOW_NAME], allocs=[TEST_ALLOC_NAME])),
+            timeout=mock.ANY)
+        self.assertEqual([TEST_PROC_NAME], [proc.name() for proc in procs])
 
 
 if __name__ == '__main__':

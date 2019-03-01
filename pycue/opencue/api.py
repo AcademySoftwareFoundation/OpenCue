@@ -488,7 +488,7 @@ def getHost(uniq):
 def getOwner(id):
     """Return an Owner object from the id or name."""
     return Cuebot.getStub('owner').GetOwner(
-        host_pb2.OwnerGetOwnerRequest(name=id), timout=Cuebot.Timeout).owner
+        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner
 
 #
 # Filters
