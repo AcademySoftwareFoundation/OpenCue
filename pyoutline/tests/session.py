@@ -1,5 +1,3 @@
-#!/bin/env python2.5
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +13,10 @@
 #  limitations under the License.
 
 
-
-import sys
 import unittest
-import logging
 
-sys.path.append("../src")
 import outline
 
-logging.basicConfig(level=logging.INFO)
 
 class SessionTest(unittest.TestCase):
 
@@ -66,7 +59,8 @@ class SessionTest(unittest.TestCase):
          
         # Getting a file that doesn't exist should raise SessionException
         # Unless the new flag is passed in.
-	self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
+        self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
+
         path = layer.get_file("foo.bar", new=True)
         self.assertEquals("%s/foo.bar" % layer.get_path(), path)
 

@@ -1,5 +1,3 @@
-#!/usr/local64/bin/python2.5
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
