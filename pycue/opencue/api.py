@@ -146,6 +146,19 @@ def deleteFacility(name):
 
 
 #
+# Departments
+#
+@util.grpcExceptionParser
+def getDepartmentNames():
+    """Return a list of the known department names.
+    @rtype: list<str>
+    @return: a list of department names
+    """
+    return list(Cuebot.getStub('department').GetDepartmentNames(
+        department_pb2.DeptGetDepartmentNamesRequest(), timeout=Cuebot.Timeout).names)
+
+
+#
 # Shows
 #
 @util.grpcExceptionParser
