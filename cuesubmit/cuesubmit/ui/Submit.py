@@ -347,6 +347,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             return []
 
     def errorReadingSettings(self):
+        """Display an error message and clear the QSettings object."""
         if not self.clearMessageShown:
             Widgets.messageBox(
                 "Previous submission history cannot be read from the QSettings."
