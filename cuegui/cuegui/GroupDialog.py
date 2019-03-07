@@ -35,6 +35,7 @@ class GroupDialog(QtWidgets.QDialog):
         self._modifyGroup = modifyGroup
         __modify = modifyGroup is not None
 
+        self._departments = opencue.api.getDepartmentNames()
         try:
             self._departments = opencue.api.getDepartmentNames()
         except Exception as e:
@@ -110,14 +111,12 @@ class GroupDialog(QtWidgets.QDialog):
         self.layout().addWidget(check, row, 0)
         self.layout().addWidget(label, row, 1)
         self.layout().addWidget(inputWidget, row, 2)
-        check.clicked.connect(inputWidget.setEnabled)
-        check.clicked.connect(label.setEnabled)
+        check.stateChanged.connect(inputWidget.setEnabled)
+        check.stateChanged.connect(label.setEnabled)
         return (check, inputWidget)
 
     def __createButtons(self, buttons, row, width):
-        self.__buttons = QtWidgets.QDialogButtonBox(buttons,
-                                                QtCore.Qt.Horizontal,
-                                                self)
+        self.__buttons = QtWidgets.QDialogButtonBox(buttons, QtCore.Qt.Horizontal, self)
         self.layout().addWidget(self.__buttons, row, 1, 1, width)
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
@@ -141,27 +140,27 @@ class GroupDialog(QtWidgets.QDialog):
         self.__setValue(self._defaultJobPriorityCheck,
                         __group.setDefaultJobPriority,
                         int(self._defaultJobPriorityValue.value()),
-                        __group.data.defaultJobPriority, -1)
+                        __group.data.default_job_priority, -1)
 
         self.__setValue(self._defaultJobMinCoresCheck,
                         __group.setDefaultJobMinCores,
                         float(self._defaultJobMinCoresValue.value()),
-                        __group.data.defaultJobMinCores, float(-1))
+                        __group.data.default_job_min_cores, float(-1))
 
         self.__setValue(self._defaultJobMaxCoresCheck,
                         __group.setDefaultJobMaxCores,
                         float(self._defaultJobMaxCoresValue.value()),
-                        __group.data.defaultJobMaxCores, float(-1))
+                        __group.data.default_job_max_cores, float(-1))
 
         self.__setValue(self._minCoresCheck,
                         __group.setMinCores,
                         float(self._minCoresValue.value()),
-                        __group.data.minCores, float(0.0))
+                        __group.data.min_cores, float(0.0))
 
         self.__setValue(self._maxCoresCheck,
                         __group.setMaxCores,
                         float(self._maxCoresValue.value()),
-                        __group.data.maxCores, float(-1))
+                        __group.data.max_cores, float(-1))
 
         self.close()
 
@@ -176,22 +175,22 @@ class GroupDialog(QtWidgets.QDialog):
 
 class ModifyGroupDialog(GroupDialog):
     def __init__(self, modifyGroup, parent=None):
-        modifyGroup = opencue.api.getGroup(modifyGroup)
+        modifyGroup = opencue.api.getGroup(modifyGroup.id)
         defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
                     "message": "Modifying the group %s" % modifyGroup.data.name,
                     "name": modifyGroup.data.name,
                     "department": modifyGroup.data.department,
-                    "defaultJobPriority": modifyGroup.data.defaultJobPriority,
-                    "defaultJobMinCores": modifyGroup.data.defaultJobMinCores,
-                    "defaultJobMaxCores": modifyGroup.data.defaultJobMaxCores,
-                    "minCores": modifyGroup.data.minCores,
-                    "maxCores": modifyGroup.data.maxCores}
+                    "defaultJobPriority": modifyGroup.data.default_job_priority,
+                    "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
+                    "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
+                    "minCores": modifyGroup.data.min_cores,
+                    "maxCores": modifyGroup.data.max_cores}
         GroupDialog.__init__(self, None, modifyGroup, defaults, parent)
 
 class NewGroupDialog(GroupDialog):
     def __init__(self, parentGroup, parent=None):
         defaults = {"title": "Create New Group",
-                    "message": "Group to be created as a child of the group %s" % parentGroup.data.name,
+                    "message": "Group to be created as a child of the group %s" % parentGroup.name,
                     "name": "",
                     "department": "Unknown",
                     "defaultJobPriority": 0,
@@ -199,4 +198,4 @@ class NewGroupDialog(GroupDialog):
                     "defaultJobMaxCores": 1.0,
                     "minCores": 0.0,
                     "maxCores": 1.0}
-        GroupDialog.__init__(self, parentGroup, None, defaults, parent)
+        GroupDialog.__init__(self, opencue.wrappers.group.NestedGroup(parentGroup), None, defaults, parent)

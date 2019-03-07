@@ -43,8 +43,8 @@ logger = cuegui.Logger.getLogger(__file__)
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
 COLUMN_MAXRSS = 13
-
 FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
+UPDATE_INTERVAL = 22
 
 
 def getEta(stats):
@@ -66,7 +66,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 550, id=1,
-                       data=lambda job:(job.data.name),
+                       data=lambda job: job.data.name,
                        tip="The name of the job: show-shot-user_uniqueName\n\n"
                            "The color behind the job will change to:\n"
                            "Blue \t if it is paused\n"
@@ -75,64 +75,64 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "Purple \t if all remaining frames depend on something\n"
                            "Yellow \t if the maxRss is over %sKb" % cuegui.Constants.MEMORY_WARNING_LEVEL)
         self.addColumn("_Comment", 20, id=2,
-                       sort=lambda job:(job.data.has_comment),
+                       sort=lambda job: job.data.has_comment,
                        tip="A comment icon will appear if a job has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("_Autoeat", 20, id=3,
-                       sort=lambda job:(job.data.auto_eat),
+                       sort=lambda job: job.data.auto_eat,
                        tip="If the job has auto eating enabled, a pac-man icon\n"
                            "will appear here and all frames that become dead will\n"
                            "automatically be eaten.")
         self.addColumn("Run", 38, id=3,
-                       data=lambda job:(job.stats.running_frames),
-                       sort=lambda job:(job.stats.running_frames),
+                       data=lambda job: job.data.job_stats.running_frames,
+                       sort=lambda job: job.data.job_stats.running_frames,
                        tip="The number of running frames.")
         self.addColumn("Cores", 55, id=4,
-                       data=lambda job:("%.02f" % job.stats.reserved_cores),
-                       sort=lambda job:(job.stats.reserved_cores),
+                       data=lambda job: "%.02f" % job.data.job_stats.reserved_cores,
+                       sort=lambda job: job.data.job_stats.reserved_cores,
                        tip="The number of reserved cores.")
         self.addColumn("Wait", 45, id=5,
-                       data=lambda job:(job.stats.waiting_frames),
-                       sort=lambda job:(job.stats.waiting_frames),
+                       data=lambda job: job.data.job_stats.waiting_frames,
+                       sort=lambda job: job.data.job_stats.waiting_frames,
                        tip="The number of waiting frames.")
         self.addColumn("Depend", 55, id=6,
-                       data=lambda job:(job.stats.depend_frames),
-                       sort=lambda job:(job.stats.depend_frames),
+                       data=lambda job: job.data.job_stats.depend_frames,
+                       sort=lambda job: job.data.job_stats.depend_frames,
                        tip="The number of dependent frames.")
         self.addColumn("Total", 50, id=7,
-                       data=lambda job:(job.stats.total_frames),
-                       sort=lambda job:(job.stats.total_frames),
+                       data=lambda job: job.data.job_stats.total_frames,
+                       sort=lambda job: job.data.job_stats.total_frames,
                        tip="The total number of frames.")
 #        self.addColumn("_Booking Bar", 150, id=8, default=False,
 #                       delegate=JobBookingBarDelegate)
         self.addColumn("Min", 38, id=9,
-                       data=lambda job:("%.0f" % job.data.min_cores),
-                       sort=lambda job:(job.data.min_cores),
+                       data=lambda job: "%.0f" % job.data.min_cores,
+                       sort=lambda job: job.data.min_cores,
                        tip="The minimum number of running cores that the cuebot\n"
                            "will try to maintain.")
         self.addColumn("Max", 38, id=10,
-                       data=lambda job:("%.0f" % job.data.max_cores),
-                       sort=lambda job:(job.data.max_cores),
+                       data=lambda job: "%.0f" % job.data.max_cores,
+                       sort=lambda job: job.data.max_cores,
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job:(cuegui.Utils.secondsToHHHMM(time.time() - job.data.start_time)),
-                       sort=lambda job:(time.time() - job.data.start_time),
+                       data=lambda job: cuegui.Utils.secondsToHHHMM(time.time() - job.data.start_time),
+                       sort=lambda job: time.time() - job.data.start_time,
                        tip="The HOURS:MINUTES since the job was launched.")
         self.addColumn("Pri", 30, id=12,
-                       data=lambda job:(job.data.priority),
-                       sort=lambda job:(job.data.priority),
+                       data=lambda job: job.data.priority,
+                       sort=lambda job: job.data.priority,
                        tip="The job priority. The cuebot uses this as a suggestion\n"
                            "to determine what job needs the next available matching\n"
                            "resource.")
         self.addColumn("ETA", 65, id=13,
-                       data=lambda job:(""),
+                       data=lambda job: "",
                        tip="(Inacurate and disabled until a better solution exists)\n"
                            "A very rough estimate of the number of HOURS:MINUTES\n"
                            "it will be before the entire job is done.")
         self.addColumn("MaxRss", 60, id=14,
-                       data=lambda job:(cuegui.Utils.memoryToString(job.stats.maxRss)),
-                       sort=lambda job:(job.stats.maxRss),
+                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
+                       sort=lambda job: job.data.job_stats.max_rss,
                        tip="The most memory used at one time by any single frame.")
         self.addColumn("_Blank", 20, id=15,
                        tip="Spacer")
@@ -190,7 +190,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # Skip updates if the user is scrolling
         self._limitUpdatesDuringScrollSetup()
 
-        self.setUpdateInterval(22)
+        self.setUpdateInterval(UPDATE_INTERVAL)
 
     def __itemSingleClickedCopy(self, item, col):
         """Called when an item is clicked on. Copies selected object names to
@@ -360,8 +360,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Adds or updates jobs and groups. Removes those that do not get updated
         @type  work: from threadpool
         @param work: from threadpool
-        @type  nested_shows: [list<NestedGroup>, set(str)]
-        @param nested_shows: List that contains updated nested groups and a set
+        @type  results: [list<NestedGroup>, set(str)]
+        @param results: List that contains updated nested groups and a set
         of all updated item ids"""
         if results is None:
             return
@@ -394,6 +394,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 # Only updates
                 self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
                 self.redraw()
+        except Exception:
+            logger.warning("Failed to process update.", exc_info=True)
         finally:
             self._itemsLock.unlock()
 
@@ -447,7 +449,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__processUpdateHandleNested(groupItem, group.groups)
 
             # If group has jobs, update them
-            jobs = group.jobs
+            groupWrapper = opencue.api.getGroup(group.id)
+            jobs = groupWrapper.getJobs()
             if hasattr(jobs, 'nested_jobs'):
                 jobs = jobs.nested_jobs
             for job in jobs:
@@ -715,17 +718,17 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
         elif role == QtCore.Qt.BackgroundRole:
             if col == COLUMN_MAXRSS and \
-               self.rpcObject.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
+               self.rpcObject.data.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
                     return self.__highMemoryColor
             if self.rpcObject.data.is_paused:
                 return self.__pausedColor
-            if self.rpcObject.stats.dead_frames:
+            if self.rpcObject.data.job_stats.dead_frames:
                 return self.__dyingColor
-            if not self.rpcObject.job_stats.running_frames:
-                if not self.rpcObject.job_stats.waiting_frames and \
-                   self.rpcObject.job_stats.depend_frames:
+            if not self.rpcObject.data.job_stats.running_frames:
+                if not self.rpcObject.data.job_stats.waiting_frames and \
+                   self.rpcObject.data.job_stats.depend_frames:
                     return self.__dependedColor
-                if self.rpcObject.job_stats.waiting_frames and \
+                if self.rpcObject.data.job_stats.waiting_frames and \
                    time.time() - self.rpcObject.data.start_time > 30:
                     return self.__noRunningColor
             return self.__backgroundColor
@@ -742,13 +745,13 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
                 self._cache["FST"] = {
-                    FrameState.Dead: self.rpcObject.job_stats.dead_frames,
-                    FrameState.Depend: self.rpcObject.job_stats.depend_frames,
-                    FrameState.Eaten: self.rpcObject.job_stats.eaten_frames,
-                    FrameState.Running: self.rpcObject.job_stats.running_frames,
+                    FrameState.Dead: self.rpcObject.data.job_stats.dead_frames,
+                    FrameState.Depend: self.rpcObject.data.job_stats.depend_frames,
+                    FrameState.Eaten: self.rpcObject.data.job_stats.eaten_frames,
+                    FrameState.Running: self.rpcObject.data.job_stats.running_frames,
                     FrameState.Setup: 0,
-                    FrameState.Succeeded: self.rpcObject.job_stats.succeeded_frames,
-                    FrameState.Waiting: self.rpcObject.job_stats.waiting_frames
+                    FrameState.Succeeded: self.rpcObject.data.job_stats.succeeded_frames,
+                    FrameState.Waiting: self.rpcObject.data.job_stats.waiting_frames
                 }
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
