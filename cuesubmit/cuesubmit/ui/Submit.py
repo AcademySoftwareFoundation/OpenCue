@@ -343,15 +343,18 @@ class CueSubmitWidget(QtWidgets.QWidget):
         try:
             return [str(value) for value in self.getHistorySetting(setting) if value is not None]
         except Exception:
-            self.settings.clear()
-            if not self.clearMessageShown:
-                Widgets.messageBox(
-                    "Previous submission history cannot be read from the QSettings."
-                    "Clearing submission history.",
-                    title="Cannot Read History",
-                    parent=self).show()
-            self.clearMessageShown = True
+            self.errorReadingSettings()
             return []
+
+    def errorReadingSettings(self):
+        if not self.clearMessageShown:
+            Widgets.messageBox(
+                "Previous submission history cannot be read from the QSettings."
+                "Clearing submission history.",
+                title="Cannot Read History",
+                parent=self).show()
+        self.clearMessageShown = True
+        self.settings.clear()
 
     def getHistorySetting(self, setting):
         """Return a list of strings for the provided setting.
@@ -406,10 +409,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
             self.writeHistorySetting(setting, values)
         except Exception:
-            message = "Previous submission history cannot be read from the QSettings." \
-                      "Clearing submission history."
-            self.settings.clear()
-            Widgets.messageBox(message, title="Cannot Read History", parent=self).show()
+            self.errorReadingSettings()
 
     def saveSettings(self, jobData):
         """Update the QSettings with the values from the form.
