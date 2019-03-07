@@ -53,6 +53,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         super(CueSubmitWidget, self).__init__(parent)
         self.skipDataChangedEvent = False
         self.settings = QtCore.QSettings('opencue', 'cuesubmit')
+        self.clearMessageShown = False
         self.jobTypes = jobTypes
         self.primaryWidgetType = settingsWidgetType
         self.primaryWidgetArgs = {'args': args, 'kwargs': kwargs}
@@ -93,7 +94,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.jobNameInput = Widgets.CueLabelLineEdit(
             'Job Name:',
             tooltip='Job names must be unique, have more than 3 characters, and contain no spaces.',
-            completers=self.settings.value('submit/jobName'),
+            completers=self.getFilteredHistorySetting('submit/jobName'),
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
@@ -106,14 +107,14 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.shotInput = Widgets.CueLabelLineEdit(
             'Shot:',
             tooltip='Name of the shot associated with this submission.',
-            completers=self.settings.value('submit/shotName'),
+            completers=self.getFilteredHistorySetting('submit/shotName'),
             validators=[Validators.matchNoSpecialCharactersOnly]
         )
         self.layerNameInput = Widgets.CueLabelLineEdit(
             'Layer Name:',
             tooltip='Name for this layer of the job. Should be more than 3 characters, '
                     'and contain no spaces.',
-            completers=self.settings.value('submit/layerName'),
+            completers=self.getFilteredHistorySetting('submit/layerName'),
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
@@ -324,6 +325,63 @@ class CueSubmitWidget(QtWidgets.QWidget):
                                            'Please ensure all layers have a command to run.')
         return True
 
+    def updateCompleters(self):
+        """Update the line edit completers after submission."""
+        self.jobNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/jobName')
+        self.shotInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/shotName')
+        self.layerNameInput.lineEdit.completerStrings = self.getFilteredHistorySetting('submit/layerName')
+
+
+    def getFilteredHistorySetting(self, setting):
+        """Return a list of strings for the provided setting.
+        Filtering out any None objects.
+        @type setting: str
+        @param setting: name of setting to get
+        @rtype: list<str>
+        @return: A list of strings of setting values.
+        """
+        try:
+            print value.foo
+            return [str(value) for value in self.getHistorySetting(setting) if value is not None]
+        except Exception:
+            self.settings.clear()
+            if not self.clearMessageShown:
+                Widgets.messageBox(
+                    "Previous submission history cannot be read from the QSettings."
+                    "Clearing submission history.",
+                    title="Cannot Read History",
+                    parent=self).show()
+            self.clearMessageShown = True
+            return []
+
+    def getHistorySetting(self, setting):
+        """Return a list of strings for the provided setting.
+        @type setting: str
+        @param setting: name of setting to get
+        @rtype: list<str>
+        @return: A list of strings of setting values.
+        """
+        size = self.settings.beginReadArray('history')
+        previousValues = []
+        for settingIndex in range(size):
+            self.settings.setArrayIndex(settingIndex)
+            previousValues.append(self.settings.value(setting))
+        self.settings.endArray()
+        return previousValues
+
+    def writeHistorySetting(self, setting, values):
+        """Update the QSettings object for the provided setting with values.
+        @type setting: str
+        @param setting: name of settings to set
+        @type values: list<str>
+        @param values: values to set as settings
+        """
+        self.settings.beginWriteArray('history')
+        for settingIndex, savedValue in enumerate(values):
+            self.settings.setArrayIndex(settingIndex)
+            self.settings.setValue(setting, savedValue)
+        self.settings.endArray()
+
     def updateSettingItem(self, setting, value, maxSettings=10):
         """Update the QSettings list entry for the provided setting.
         Keep around a history of the last `maxSettings` number of entries.
@@ -334,17 +392,25 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @type maxSettings: int
         @param maxSettings: maximum number of items to keep a history of
         """
-        if not value:
-            return
-        values = self.settings.value(setting, [])
-        if value in values:
-            index = values.index(value)
-        else:
-            index = -1
-        if len(values) == maxSettings or index != -1:
-            values.pop(index)
-        values.insert(0, value)
-        self.settings.setValue(setting, values)
+        try:
+            if not value:
+                return
+            values = self.getHistorySetting(setting)
+
+            if value in values:
+                index = values.index(value)
+            else:
+                index = -1
+            if len(values) == maxSettings or index != -1:
+                values.pop(index)
+            values.insert(0, value)
+
+            self.writeHistorySetting(setting, values)
+        except Exception:
+            message = "Previous submission history cannot be read from the QSettings." \
+                      "Clearing submission history."
+            self.settings.clear()
+            Widgets.messageBox(message, title="Cannot Read History", parent=self).show()
 
     def saveSettings(self, jobData):
         """Update the QSettings with the values from the form.
@@ -361,7 +427,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
         jobData = self.getJobData()
         if not self.validate(jobData):
             return
+        self.clearMessageShown = False
         self.saveSettings(jobData)
+        self.updateCompleters()
         try:
             jobs = Submission.submitJob(jobData)
         except opencue.exception.CueException, e:
