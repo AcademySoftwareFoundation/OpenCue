@@ -341,7 +341,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @return: A list of strings of setting values.
         """
         try:
-            print value.foo
             return [str(value) for value in self.getHistorySetting(setting) if value is not None]
         except Exception:
             self.settings.clear()
