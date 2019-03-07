@@ -15,35 +15,29 @@
 #  limitations under the License.
 
 
-import os
-import sys
-import logging
 import unittest
 
-# Override the base outline config location.
-sys.path.insert(0,"../src")
 import outline
-
-from outline.modules.shell import Shell, ShellSequence
-from outline.depend import DependType
+from outline.modules.shell import Shell
 from outline.backend import cue
 
-logging.basicConfig(level=logging.DEBUG)
 
 class DependTest(unittest.TestCase):
 
     def testShell(self):
         """Test a simple shell command."""
+        layer1Name = 'bah1'
+        layer2Name = 'bah2'
+        layer1 = Shell(layer1Name, command=["/bin/ls"])
+        layer2 = Shell(layer2Name, command=["/bin/ls"])
 
         ol = outline.Outline(name="depend_test_v1")
-        ol.add_layer(Shell("bah1", command=["/bin/ls"]))
-        ol.add_layer(Shell("bah2", command=["/bin/ls"]))
-        ol.get_layer("bah1").depend_all("bah2")
+        ol.add_layer(layer1)
+        ol.add_layer(layer2)
+        ol.get_layer(layer1Name).depend_all(layer2Name)
 
-        job = outline.cuerun.launch(ol, range="1", pause=True)
-
-        self.assertEquals(1, job.stats.dependFrames)
-        cue.test(job)
+        d = ol.get_layer(layer1Name).get_depends()
+        self.assertEqual([layer2], ol.get_layer(layer1Name).get_depends())
 
     def testShortHandDepend(self):
 

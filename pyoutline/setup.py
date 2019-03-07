@@ -44,8 +44,7 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
     ],
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
+    packages=find_packages(exclude=['tests']),
     data_files=[
         ('bin', ['bin/cuerunbase.py', 'bin/pycuerun', 'bin/util_qc_job_layer.py']),
         ('etc', ['etc/outline.cfg']),

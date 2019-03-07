@@ -13,9 +13,13 @@
 #  limitations under the License.
 
 
+import os
 import unittest
 
 import outline
+
+
+SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
 
 
 class SessionTest(unittest.TestCase):
@@ -23,8 +27,8 @@ class SessionTest(unittest.TestCase):
     """Tests for outline.session"""
 
     def setUp(self):
-        path = "scripts/shell.outline"
-        self.ol = outline.load_outline(path)
+        self.script_path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        self.ol = outline.load_outline(self.script_path)
         self.ol.set_frame_range("1-10")
         self.ol.setup()
         self.session  = self.ol.get_session()
@@ -33,14 +37,14 @@ class SessionTest(unittest.TestCase):
         """Testing get/put file into outline."""
 
         # Put file into session proper.
-        path = self.session.put_file("scripts/shell.outline")
-        self.assertEquals(path, self.session.get_file("shell.outline"))
+        path = self.session.put_file(self.script_path)
+        self.assertEquals(path, self.session.get_file('shell.outline'))
 
     def test_put_file_rename(self):
         """Testing get/put file into outline."""
 
         # Put file into session proper.
-        path = self.session.put_file("scripts/shell.outline", rename="outline")
+        path = self.session.put_file(self.script_path, rename="outline")
         self.assertEquals(path, self.session.get_file("outline"))
 
     def test_put_file_to_layer(self):
@@ -48,7 +52,7 @@ class SessionTest(unittest.TestCase):
 
         # Put file into layer
         layer = self.ol.get_layer("cmd")
-        path = layer.put_file("scripts/shell.outline")
+        path = layer.put_file(self.script_path)
         self.assertEquals(path, layer.get_file("shell.outline"))
 
     def test_get_new_file_from_layer(self):
@@ -65,7 +69,7 @@ class SessionTest(unittest.TestCase):
         self.assertEquals("%s/foo.bar" % layer.get_path(), path)
 
         # If the file already exists, new should throw an exception
-        layer.put_file("scripts/shell.outline")
+        layer.put_file(self.script_path)
         self.assertRaises(outline.SessionException, layer.get_file, "shell.outline", new=True)
 
     def test_get_unchecked_file(self):

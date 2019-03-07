@@ -326,7 +326,7 @@ class Layer(object):
         """
         if t not in constants.LAYER_TYPES:
             raise LayerException("%s is not a valid layer type: %s" % (
-                                 t, constants.LAYER_TYPES))
+                t, constants.LAYER_TYPES))
         self.__type = t
 
     def get_outline(self):
