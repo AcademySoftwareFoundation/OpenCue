@@ -32,7 +32,7 @@ class Group(object):
     def createSubGroup(self, name):
         return Group(self.stub.CreateSubGroup(
             job_pb2.GroupCreateSubGroupRequest(group=self.data, name=name),
-            timeout=Cuebot.Timeout))
+            timeout=Cuebot.Timeout).group)
 
     def delete(self):
         self.stub.Delete(job_pb2.GroupDeleteRequest(group=self.data), timout=Cuebot.Timeout)
@@ -67,7 +67,7 @@ class Group(object):
     def getGroups(self):
         response = self.stub.GetGroups(job_pb2.GroupGetGroupsRequest(group=self.data),
                                        timeout=Cuebot.Timeout)
-        return [Group(g) for g in response.groups]
+        return [Group(g) for g in response.groups.groups]
 
     def getJobs(self):
         """Returns the jobs in this group
@@ -75,13 +75,13 @@ class Group(object):
         @return: List of jobs in this group"""
         response = self.stub.GetJobs(job_pb2.GroupGetJobsRequest(group=self.data),
                                      timeout=Cuebot.Timeout)
-        return [opencue.wrappers.job.Job(j) for j in response.jobs]
+        return [opencue.wrappers.job.Job(j) for j in response.jobs.jobs]
 
     def reparentJobs(self, jobs):
         """Moves the given jobs into this group
         @type  jobs: list<Job>
         @param jobs: The jobs to add to this group"""
-        jobSeq = job_pb2.JobSeq(jobs=jobs)
+        jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
         self.stub.ReparentJobs(job_pb2.GroupReparentJobsRequest(group=self.data, jobs=jobSeq),
                                timeout=Cuebot.Timeout)
 
@@ -179,6 +179,12 @@ class NestedGroup(Group):
         self.__children = []
         self.__children_init = False
 
+    def createSubGroup(self, name):
+        """Create a sub group"""
+        return Group(self.stub.CreateSubGroup(
+            job_pb2.GroupCreateSubGroupRequest(group=self.asGroup(), name=name),
+            timeout=Cuebot.Timeout).group)
+
     def children(self):
         """returns jobs and groups in a single array"""
         if not self.__children_init:
@@ -186,3 +192,18 @@ class NestedGroup(Group):
             self.__children.extend(self.jobs)
             self.__children_init = True
         return self.__children
+
+    def asGroup(self):
+        """returns a Group object from this NestedGroup"""
+        return job_pb2.Group(
+            id=self.data.id,
+            name=self.data.name,
+            department=self.data.department,
+            default_job_priority=self.data.default_job_priority,
+            default_job_min_cores=self.data.default_job_min_cores,
+            default_job_max_cores=self.data.default_job_max_cores,
+            min_cores=self.data.min_cores,
+            max_cores=self.data.max_cores,
+            level=self.data.level,
+            group_stats=self.data.stats,
+        )
