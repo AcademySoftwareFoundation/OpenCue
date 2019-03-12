@@ -131,7 +131,11 @@ class GroupDialog(QtWidgets.QDialog):
             __group = __modifyGroup
             __group.setName(__name)
         else:
+            print("PARENT GROUP")
+            print(self._parentGroup.data.name)
             __group = self._parentGroup.createSubGroup(__name)
+
+        print(__group.data)
 
         __department = str(self._departmentValue.currentText())
         if not __modifyGroup or __modifyGroup.data.department != __department:

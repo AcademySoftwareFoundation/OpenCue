@@ -1085,6 +1085,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setMaxCores(Convert.coreUnitsToCores(rs.getInt("int_max_cores")))
                         .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
                         .setLevel(rs.getInt("int_level"))
+                        .setParentId(SqlUtil.getString(rs, "pk_parent_folder"))
                         .setGroupStats(stats)
                         .build();
         }
