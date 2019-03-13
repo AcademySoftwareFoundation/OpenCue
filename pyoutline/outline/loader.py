@@ -76,7 +76,7 @@ def load_outline(path):
         # If the file is not .yaml, assume its a python script
         ol = Outline(path=path, current=True)
 
-    # If the script is inside of a ession
+    # If the script is inside of a session
     if is_session_path(path):
         ol.load_session()
 
@@ -628,12 +628,12 @@ class Outline(object):
         """Set the outline's frame set.  The frame set must be
         assigned before the outline can go into the setup phase.
 
-        @type   frame_range: str
+        @type   frame_range: str or list or set or tuple or FileSequence.FrameSet
         @param  frame_range: The frame range for this outline.
         """
-        if isinstance(frame_range, (FileSequence.FrameSet)):
+        if isinstance(frame_range, FileSequence.FrameSet):
             self.__frame_range = str(frame_range)
-        elif isinstance(range, (list, set, tuple)):
+        elif isinstance(frame_range, (list, set, tuple)):
             self.__frame_range = ",".join([str(frame) for
                                            frame in frame_range])
         else:

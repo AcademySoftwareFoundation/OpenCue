@@ -15,15 +15,16 @@
 #  limitations under the License.
 
 
-
-import sys
+import os
 import unittest
-import logging
 
-sys.path.insert(0,"../src")
-
+import FileSequence
 import outline
 from outline.modules.shell import Shell
+from test_utils import TemporarySessionDirectory
+
+SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
+
 
 class LoaderTest(unittest.TestCase):
 
@@ -31,11 +32,11 @@ class LoaderTest(unittest.TestCase):
         """
         Test to ensure a basic outline script parses.
         """
-        path = "scripts/shell.outline"
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         ol = outline.load_outline(path)
 
         # check to ensure the loader returns the correct type.
-        self.assertTrue(isinstance(ol,outline.Outline))
+        self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
         self.assertEquals(path, ol.get_path())
@@ -51,15 +52,16 @@ class LoaderTest(unittest.TestCase):
         """
         Test to ensure a serialized outline parses.
         """
-        ## Yaml likes to have the full path or else it refuses to parse.
-        path = "./scripts/yamlized.yaml"
-        ol = outline.load_outline(path)
+        filename = 'yamlized.yaml'
+        pathOnDisk = os.path.join(SCRIPTS_DIR, filename)
+        pathInYaml = './scripts/' + filename
+        ol = outline.load_outline(pathOnDisk)
 
         # check to ensure the loader returns the correct type.
-        self.assertTrue(isinstance(ol,outline.Outline))
+        self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
-        self.assertEquals(path, ol.get_path())
+        self.assertEquals(pathInYaml, ol.get_path())
 
         # Ensure the single event has been loaded
         self.assertEquals(1, len(ol.get_layers()))
@@ -68,94 +70,112 @@ class LoaderTest(unittest.TestCase):
         # the same as current_outline
         self.assertEquals(ol, outline.current_outline())
 
+
 class OutlineTest(unittest.TestCase):
 
     def setUp(self):
-        self.path = "scripts/shell.outline"
-        self.ol = outline.load_outline(self.path)
-
-    def tearDown(self):
-        """Remove the session directory that  gets created if it exists."""
-        try:
-            shutil.rmtree(self.ol.get_session().get_path())
-        except:
-            pass
+        self.path = os.path.join(SCRIPTS_DIR, 'shell.outline')
 
     def test_get_set_env(self):
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
 
-        self.ol.set_env("ENV_1", "a")
-        self.assertEquals(self.ol.get_env("ENV_1"), "a")
-        self.assertFalse(self.ol.get_env()["ENV_1"][1])
+            ol.set_env("ENV_1", "a")
+            ol.set_env("ENV_2", "b", True)
 
-        self.ol.set_env("ENV_2", "b", True)
-        self.assertEquals(self.ol.get_env("ENV_2"), "b")
-        self.assertTrue(self.ol.get_env()["ENV_2"][1])
+            self.assertEquals(ol.get_env("ENV_1"), "a")
+            self.assertFalse(ol.get_env()["ENV_1"][1])
+            self.assertEquals(ol.get_env("ENV_2"), "b")
+            self.assertTrue(ol.get_env()["ENV_2"][1])
 
     def test_add_get_remove_layer(self):
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
+            ol.add_layer(Shell("shell_command", cmd=["/bin/ls"]))
 
-        self.ol.add_layer(Shell("shell_command", cmd=["/bin/ls"]))
-        self.assertEquals(2, len(self.ol.get_layers()))
-        self.assertTrue(isinstance(self.ol.get_layer("shell_command"), Shell))
-        self.ol.remove_layer(self.ol.get_layer("shell_command"))
-        self.assertEquals(1, len(self.ol.get_layers()))
+            self.assertEquals(2, len(ol.get_layers()))
+            self.assertTrue(isinstance(ol.get_layer("shell_command"), Shell))
+
+            ol.remove_layer(ol.get_layer("shell_command"))
+
+            self.assertEquals(1, len(ol.get_layers()))
 
     def test_get_layers(self):
-        self.assertEquals(1, len(self.ol.get_layers()))
-        self.assertTrue(isinstance(self.ol.get_layers(),list))
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
+
+            self.assertEquals(1, len(ol.get_layers()))
+            self.assertTrue(isinstance(ol.get_layers(), list))
 
     def test_is_layer(self):
-        self.assertTrue(self.ol.is_layer("cmd"))
-        self.assertFalse(self.ol.is_layer("not_a_layer"))
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
+
+            self.assertTrue(ol.is_layer("cmd"))
+            self.assertFalse(ol.is_layer("not_a_layer"))
 
     def test_get_set_path(self):
-        path = "/tmp/foo.outline"
-        self.ol.set_path(path)
-        self.assertEquals(path, self.ol.get_path())
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
+            path = '/tmp/foo.outline'
+
+            ol.set_path(path)
+
+            self.assertEquals(path, ol.get_path())
 
     def test_get_set_name(self):
-        name = "foo_name"
-        self.ol.set_name(name)
-        self.assertEquals(name, self.ol.get_name())
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
+            name = 'foo_name'
+
+            ol.set_name(name)
+
+            self.assertEquals(name, ol.get_name())
 
     def test_get_session(self):
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
 
-        # The session is only available once the outline has been "setup"
-        # Attempting to obtain the session before setup raises an
-        # OutlineException because the session directory does not exist.
-        self.assertRaises(outline.OutlineException, self.ol.get_session)
-        self.ol.setup()
-        self.assertTrue(isinstance(self.ol.get_session(), outline.Session))
+            # The session is only available once the outline has been "setup"
+            # Attempting to obtain the session before setup raises an
+            # OutlineException because the session directory does not exist.
+            self.assertRaises(outline.OutlineException, ol.get_session)
+
+            ol.setup()
+
+            self.assertTrue(isinstance(ol.get_session(), outline.Session))
 
     def test_get_set_frame_range(self):
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
 
-        # Set frame range from string
-        self.ol.set_frame_range("1-10")
-        self.assertEquals("1-10", self.ol.get_frame_range())
+            # Set frame range from string
+            ol.set_frame_range('1-10')
+            self.assertEquals('1-10', ol.get_frame_range())
 
-        # Set frame range from sequence
-        self.ol.set_frame_range([1,2,3,4,5])
-        self.assertEquals("1,2,3,4,5", self.ol.get_frame_range())
+            # Set frame range from sequence
+            ol.set_frame_range([1, 2, 3, 4, 5])
+            self.assertEquals('1,2,3,4,5', ol.get_frame_range())
 
-        # Set frame range from FrameSet
-        from outline.manifest import FileSequence
-        self.ol.set_frame_range(FileSequence.FrameSet("5-10"))
-        self.assertEquals("5-10", self.ol.get_frame_range());
+            # Set frame range from FrameSet
+            ol.set_frame_range(FileSequence.FrameSet('5-10'))
+            self.assertEquals('5,6,7,8,9,10', ol.get_frame_range())
 
     def test_get_set_arg(self):
+        with TemporarySessionDirectory():
+            ol = outline.load_outline(self.path)
 
-        # Test normal get/set function
-        self.ol.set_arg("foo", 1)
-        self.assertEquals(1, self.ol.get_arg("foo"))
+            # Test normal get/set function
+            ol.set_arg('foo', 1)
+            self.assertEquals(1, ol.get_arg('foo'))
 
-        # Test the default argument
-        self.assertEquals("apple", self.ol.get_arg("foobar","apple"))
+            # Test the default argument
+            self.assertEquals('apple', ol.get_arg('foobar', 'apple'))
 
-        # Test to ensure the set value is returned if a default
-        # is passed.
-        self.ol.set_arg("swoob", 8008)
-        self.assertEquals(8008, self.ol.get_arg("swoob",2112))
-
-
+            # Test to ensure the set value is returned if a default
+            # is passed.
+            ol.set_arg('swoob', 8008)
+            self.assertEquals(8008, ol.get_arg('swoob', 2112))
 
 
 if __name__ == '__main__':

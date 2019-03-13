@@ -13,73 +13,100 @@
 #  limitations under the License.
 
 
-
-import sys
-import logging
+import mock
+import os
+import shutil
+import tempfile
 import unittest
 
-logging.basicConfig(level=logging.INFO)
-
+from FileSequence import FrameSet
 import outline
-from outline import cuerun
-from outline.modules.shell import Shell, ShellSequence, ShellScript
+from outline.loader import Outline
+from outline.modules.shell import Shell
+from outline.modules.shell import ShellSequence
+from outline.modules.shell import ShellScript
+from tests.test_utils import TemporarySessionDirectory
 
-from outline.backend import cue
-
-import opencue
 
 class ShellModuleTest(unittest.TestCase):
 
     """Shell Module Tests"""
 
-    def testShell(self):
+    @mock.patch('outline.layer.Layer.system')
+    def testShell(self, systemMock):
         """Test a simple shell command."""
 
-        ol = outline.Outline(name="shell_test_v1")
-        ol.add_layer(Shell("bah", command=["/bin/ls"]))
-        cuerun.launch(ol, range="1", test=True)
+        command = ['/bin/ls']
 
-    def testFailedShell(self):
-        """Test that a failed frame throws an OutlineException in test mode."""
+        shell = Shell('bah', command=command)
+        shell._execute(FrameSet('5-6'))
 
-        ol = outline.Outline(name="shell_test_v2", current=True)
-        ol.add_layer(Shell("bah", command=["/bin/lssdsdasdsd"]))
-        self.assertRaises(outline.OutlineException,
-                          cuerun.launch, ol, range="1", test=True)
+        systemMock.assert_has_calls([
+            mock.call(command, frame=5),
+            mock.call(command, frame=6),
+        ])
 
-    def testShellSequence(self):
+    @mock.patch('outline.layer.Layer.system')
+    def testShellSequence(self, systemMock):
         """Test a simple sequence of shell commands"""
 
-        commands = ["/bin/ls"] * 10
+        commandCount = 10
+        commands = ['/bin/echo %d' % (frame+1) for frame in range(commandCount)]
 
-        ol = outline.Outline(name="shell_sequence_test_v1", current=True)
-        ol.add_layer(ShellSequence("bah", commands=commands, cores=10, memory="512m"))
-        job = cuerun.launch(ol, pause=True)
+        shellSeq = ShellSequence('bah', commands=commands, cores=10, memory='512m')
+        shellSeq._execute(FrameSet('5-6'))
 
-        self.assertEquals(10, job.stats.waitingFrames)
-        self.assertEquals(10, job.stats.pendingFrames)
+        self.assertEqual('1-%d' % commandCount, shellSeq.get_frame_range())
+        systemMock.assert_has_calls([
+            mock.call('/bin/echo 5'),
+            mock.call('/bin/echo 6'),
+        ])
 
-        cue.test(job)
+    @mock.patch('outline.layer.Layer.system')
+    def testShellScript(self, systemMock):
+        """Test a custom shell script layer"""
 
-        job = opencue.getJob(job)
-        self.assertEquals(0, job.stats.waitingFrames)
-        self.assertEquals(10, job.stats.succeededFrames)
+        # The script will be copied into the session directory so we have to create a dummy
+        # session to use.
 
-    def testShellScript(self):
-        fp = open("test.sh", "w")
-        fp.write("#!/bin/sh\n")
-        fp.write("echo zoom zoom zoom")
-        fp.close()
+        layerName = 'arbitrary-layer'
 
-        ol = outline.Outline(name="shell_script_test_v1", current=True)
-        ol.add_layer(ShellScript("script", script="test.sh"))
-        cuerun.launch(ol, test=True)
+        with TemporarySessionDirectory(), tempfile.NamedTemporaryFile() as scriptFile:
 
-    def testShellToString(self):
+            scriptContents = '# !/bin/sh\necho zoom zoom zoom'
+
+            with open(scriptFile.name, 'w') as fp:
+                fp.write(scriptContents)
+
+            outln = Outline()
+            outln.setup()
+            expectedSessionPath = outln.get_session().put_file(
+                scriptFile.name, layer=layerName, rename='script')
+
+            shellScript = ShellScript(layerName, script=scriptFile.name)
+            shellScript.set_outline(outln)
+            shellScript._setup()
+            shellScript._execute(FrameSet('5-6'))
+
+            with open(expectedSessionPath) as fp:
+                sessionScriptContents = fp.read()
+
+            self.assertEqual(scriptContents, sessionScriptContents)
+            systemMock.assert_has_calls([mock.call(expectedSessionPath, frame=5)])
+
+    @mock.patch('outline.layer.Layer.system')
+    def testShellToString(self, systemMock):
         """Test a string shell command."""
-        ol = outline.Outline(name="string_test_v1")
-        ol.add_layer(Shell("string_test", command="/bin/ls -l ./"))
-        cuerun.launch(ol, range="1", test=True)
+
+        command = '/bin/ls -l ./'
+
+        shell = Shell('bah', command=command)
+        shell._execute(FrameSet('5-6'))
+
+        systemMock.assert_has_calls([
+            mock.call(command, frame=5),
+            mock.call(command, frame=6),
+        ])
 
 
 if __name__ == '__main__':
