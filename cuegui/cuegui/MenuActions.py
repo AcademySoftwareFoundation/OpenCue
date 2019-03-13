@@ -1122,7 +1122,7 @@ class GroupActions(AbstractActions):
                                              [group.name for group in groups]):
                 for group in groups:
                     self.cuebotCall(opencue.wrappers.group.Group(group).delete,
-                                    "Delete Group %s Failed" % group.name, )
+                                    "Delete Group %s Failed" % group.name)
 
 
 class SubscriptionActions(AbstractActions):
