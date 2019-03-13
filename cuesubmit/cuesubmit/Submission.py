@@ -57,8 +57,13 @@ def buildLayer(layerData, command, lastLayer=None):
     @type lastLayer: outline.layer.Layer
     @param lastLayer: layer that this new layer should be dependent on if dependType is set.
     """
+    if float(layerData.cores) >= 2:
+        threadable = True
+    else:
+        threadable = False
     layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
-                  threads=float(layerData.cores), range=str(layerData.layerRange))
+                  threads=float(layerData.cores), range=str(layerData.layerRange),
+                  threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
     if layerData.dependType and lastLayer:
