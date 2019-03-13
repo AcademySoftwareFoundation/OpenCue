@@ -53,11 +53,13 @@ Everything can throw SpiIce.SpiIceException
 
 
 from concurrent import futures
-import os
-import time
+from random import shuffle
+import atexit
 import logging as log
+import os
 import platform
 import subprocess
+import time
 
 import grpc
 
@@ -188,21 +190,35 @@ class GrpcServer(object):
 
 
 class Network(object):
-    """Handles ice communication"""
+    """Handles gRPC communication"""
     def __init__(self, rqCore):
         """Network class initialization"""
         self.rqCore = rqCore
         self.grpcServer = None
+        self.channel = None
 
     def start_grpc(self):
         self.grpcServer = GrpcServer(self.rqCore)
         self.grpcServer.serveForever()
 
-    def __getReportStub(self):
+    def closeChannel(self):
+        self.channel.close()
+        del self.channel
+        self.channel = None
+
+    def __getChannel(self):
         # TODO(bcipriano) Add support for the facility nameserver or drop this concept? (Issue #152)
-        cuebotHostname = rqconstants.CUEBOT_HOSTNAME.split()[0]
-        channel = grpc.insecure_channel('%s:%s' % (cuebotHostname, rqconstants.CUEBOT_GRPC_PORT))
-        return report_pb2_grpc.RqdReportInterfaceStub(channel)
+        if self.channel is None:
+            cuebots = rqconstants.CUEBOT_HOSTNAME.split()
+            shuffle(cuebots)
+            for cuebotHostname in cuebots:
+                self.channel = grpc.insecure_channel('%s:%s' % (cuebotHostname,
+                                                                rqconstants.CUEBOT_GRPC_PORT))
+            atexit.register(self.closeChannel)
+
+    def __getReportStub(self):
+        self.__getChannel()
+        return report_pb2_grpc.RqdReportInterfaceStub(self.channel)
 
     def reportRqdStartup(self, report):
         """Wraps the ability to send a startup report to rqd via grpc"""

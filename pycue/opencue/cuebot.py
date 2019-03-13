@@ -18,6 +18,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import object
+from random import shuffle
 import atexit
 import grpc
 import logging
@@ -147,8 +148,10 @@ class Cuebot(object):
     @staticmethod
     def setChannel():
         """Sets the gRPC channel connection"""
-        # gRPC must specify a single host.
-        for host in Cuebot.Hosts:
+        # gRPC must specify a single host. Randomize host list to balance load accross cuebots.
+        hosts = list(Cuebot.Hosts)
+        shuffle(hosts)
+        for host in hosts:
             if ':' in host:
                 connect_str = host
             else:
@@ -157,6 +160,9 @@ class Cuebot(object):
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
                 Cuebot.RpcChannel = grpc.insecure_channel(connect_str)
+                # Test the connection
+                Cuebot.getStub('cue').GetSystemStats(
+                    cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout)
             except Exception:
                 logger.warning('Could not establish grpc channel with {}.'.format(connect_str))
                 continue
