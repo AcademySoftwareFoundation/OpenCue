@@ -207,6 +207,7 @@ class Network(object):
         self.channel = None
 
     def __getChannel(self):
+        # TODO(bcipriano) Add support for the facility nameserver or drop this concept? (Issue #152)
         if self.channel is None:
             cuebots = rqconstants.CUEBOT_HOSTNAME.split()
             shuffle(cuebots)
@@ -216,7 +217,6 @@ class Network(object):
             atexit.register(self.closeChannel)
 
     def __getReportStub(self):
-        # TODO(bcipriano) Add support for the facility nameserver or drop this concept? (Issue #152)
         self.__getChannel()
         return report_pb2_grpc.RqdReportInterfaceStub(self.channel)
 
