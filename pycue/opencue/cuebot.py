@@ -149,9 +149,9 @@ class Cuebot(object):
     def setChannel():
         """Sets the gRPC channel connection"""
         # gRPC must specify a single host. Randomize host list to balance load accross cuebots.
-        cuebot_hosts = list(Cuebot.Hosts)
-        shuffle(cuebot_hosts)
-        for host in cuebot_hosts:
+        hosts = list(Cuebot.Hosts)
+        shuffle(hosts)
+        for host in hosts:
             if ':' in host:
                 connect_str = host
             else:
