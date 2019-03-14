@@ -154,9 +154,9 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         @Override
         public NestedGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
 
-            String group_id = rs.getString("pk_folder");
+            String groupId = rs.getString("pk_folder");
             NestedGroup group;
-            if (!groups.containsKey(group_id)) {
+            if (!groups.containsKey(groupId)) {
                 String parentGroup = rs.getString("pk_parent_folder");
                 NestedGroup.Builder groupBuilder = NestedGroup.newBuilder()
                         .setId(rs.getString("pk_folder"))
@@ -175,6 +175,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
                     parent = parentBuilder.setGroups(
                             parentBuilder.getGroupsBuilder().addNestedGroups(groupBuilder.build())).build();
+                    groups.put(parentGroup, parent);
                     groupBuilder.setParent(parent);
                     group = groupBuilder.build();
                 }
@@ -182,10 +183,10 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                     group = groupBuilder.build();
                     groups.put("root", group);
                 }
-                groups.put(group_id, group);
+                groups.put(groupId, group);
             }
             else {
-                group = groups.get(group_id);
+                group = groups.get(groupId);
             }
             if (rs.getString("pk_job") != null) {
                 NestedJob job = mapResultSetToJob(rs);
@@ -205,6 +206,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setJobs(group.getJobs().toBuilder().addNestedJobs(job).build())
                         .setStats(groupStats)
                         .build();
+                groups.put(groupId, group);
             }
             return group;
         }

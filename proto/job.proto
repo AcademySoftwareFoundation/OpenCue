@@ -505,7 +505,8 @@ message Group {
     float min_cores = 7;
     float max_cores = 8;
     int32 level = 9;
-    GroupStats group_stats = 10;
+    string parent_id = 10;
+    GroupStats group_stats = 11;
 }
 
 message GroupSeq {

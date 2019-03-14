@@ -35,7 +35,7 @@ class Group(object):
             timeout=Cuebot.Timeout).group)
 
     def delete(self):
-        self.stub.Delete(job_pb2.GroupDeleteRequest(group=self.data), timout=Cuebot.Timeout)
+        self.stub.Delete(job_pb2.GroupDeleteRequest(group=self.data), timeout=Cuebot.Timeout)
 
     def setName(self, name):
         self.stub.SetName(job_pb2.GroupSetNameRequest(group=self.data, name=name),
