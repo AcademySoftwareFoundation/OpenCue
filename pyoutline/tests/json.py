@@ -1,4 +1,4 @@
-#!/bin/env python2.5
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -15,35 +15,45 @@
 #  limitations under the License.
 
 
+import mock
 import os
-import sys
-import logging
 import unittest
 
-# Override the base outline config location.
-
-sys.path.insert(0,"../src")
 from outline import load_json
+from test_utils import TemporarySessionDirectory
 
-logging.basicConfig(level=logging.DEBUG)
+JSON_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'json')
+
 
 class JsonTest(unittest.TestCase):
 
     def testJson(self):
-        """Load in a json stirng"""
-        s = str('{"name": "test_job", "range": "1-10", "layers": \
-[{"name": "layer_1", "module": "outline.modules.shell.Shell", "command": ["/bin/ls"]}]}')
+        """Load in a json string"""
+        s = ('{'
+                 '"name": "test_job", '
+                 '"range": "1-10", '
+                 '"layers": [{'
+                    '"name": "layer_1", '
+                    '"module": "outline.modules.shell.Shell", '
+                    '"command": ["/bin/ls"]'
+                 '}]'
+             '}')
 
         ol = load_json(s)
-        self.assertEquals("test_job", ol.get_name())
-        self.assertEquals("1-10", ol.get_frame_range())
+        self.assertEquals('test_job', ol.get_name())
+        self.assertEquals('1-10', ol.get_frame_range())
 
-    def testJsonFile(self):
-        ""
-        ol = load_json(open("json/shell.outline").read())
-        ol.setup()
-        ol.get_layer("shell_layer").execute("1000")
+    @mock.patch('outline.layer.Layer.system')
+    def testJsonFile(self, systemMock):
+        """Load JSON from a file"""
+        with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
+            ol = load_json(fp.read())
+        with TemporarySessionDirectory():
+            ol.setup()
+            ol.get_layer('shell_layer').execute('1000')
+
+            systemMock.assert_has_calls([mock.call(['/bin/ls'], frame=1000)])
+
 
 if __name__ == '__main__':
     unittest.main()
-

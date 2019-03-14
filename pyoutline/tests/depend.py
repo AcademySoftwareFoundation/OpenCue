@@ -1,4 +1,4 @@
-#!/bin/env python2.5
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -18,6 +18,7 @@
 import unittest
 
 import outline
+from outline.depend import DependType
 from outline.modules.shell import Shell
 from outline.backend import cue
 
@@ -36,11 +37,12 @@ class DependTest(unittest.TestCase):
         ol.add_layer(layer2)
         ol.get_layer(layer1Name).depend_all(layer2Name)
 
-        d = ol.get_layer(layer1Name).get_depends()
-        self.assertEqual([layer2], ol.get_layer(layer1Name).get_depends())
+        depends = ol.get_layer(layer1Name).get_depends()
+        self.assertEqual(1, len(depends))
+        self.assertEqual(DependType.LayerOnLayer, depends[0].get_type())
+        self.assertEqual(layer2, depends[0].get_depend_on_layer())
 
     def testShortHandDepend(self):
-
         ol = outline.Outline(name="depend_test_v2")
         ol.add_layer(Shell("bah1", command=["/bin/ls"]))
         ol.add_layer(Shell("bah2", command=["/bin/ls"],
