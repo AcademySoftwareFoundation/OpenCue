@@ -11,15 +11,17 @@ pipeline {
         }
         stage('Build') {
             steps {
-                sh "echo $PWD"
-                sh "echo ${env.WORKSPACE}"
-                sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cuebot/Dockerfile ."
-                sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
-                sh "docker build --target build -t opencue/pycue-build:${env.BUILD_ID} -f pycue/Dockerfile ."
-                sh "docker build --target build -t opencue/pyoutline-build:${env.BUILD_ID} -f pyoutline/Dockerfile ."
-                sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile ."
-                sh "docker build --target build -t opencue/cuesubmit-build:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
-                sh "docker build --target build -t opencue/cueadmin-build:${env.BUILD_ID} -f cueadmin/Dockerfile ."
+                dir(env.WORKSPACE) {
+                  sh "echo $PWD"
+                  sh "echo ${env.WORKSPACE}"
+                  sh "docker build --target build -t opencue/cuebot-build:${env.BUILD_ID} -f cuebot/Dockerfile ."
+                  sh "docker build --target build -t opencue/rqd-build:${env.BUILD_ID} -f rqd/Dockerfile ."
+                  sh "docker build --target build -t opencue/pycue-build:${env.BUILD_ID} -f pycue/Dockerfile ."
+                  sh "docker build --target build -t opencue/pyoutline-build:${env.BUILD_ID} -f pyoutline/Dockerfile ."
+                  sh "docker build --target build -t opencue/cuegui-build:${env.BUILD_ID} -f cuegui/Dockerfile ."
+                  sh "docker build --target build -t opencue/cuesubmit-build:${env.BUILD_ID} -f cuesubmit/Dockerfile ."
+                  sh "docker build --target build -t opencue/cueadmin-build:${env.BUILD_ID} -f cueadmin/Dockerfile ."
+                }
             }
         }
         stage('Test') {
