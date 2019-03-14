@@ -20,7 +20,7 @@ import os
 import unittest
 
 from outline import load_json
-from test_utils import TemporarySessionDirectory
+from tests.test_utils import TemporarySessionDirectory
 
 JSON_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'json')
 

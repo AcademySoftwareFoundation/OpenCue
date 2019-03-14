@@ -107,7 +107,7 @@ class Layer(object):
         # after the parent layer.
         self.__children = []
 
-        # The default name of the sevice.
+        # The default name of the service.
         self.__service = self.__args.get("service", "shell")
 
         # The current frame number.

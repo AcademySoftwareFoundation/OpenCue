@@ -14,8 +14,6 @@
 
 
 import mock
-import os
-import shutil
 import tempfile
 import unittest
 
@@ -31,6 +29,9 @@ from tests.test_utils import TemporarySessionDirectory
 class ShellModuleTest(unittest.TestCase):
 
     """Shell Module Tests"""
+
+    def setUp(self):
+        outline.Outline.current = None
 
     @mock.patch('outline.layer.Layer.system')
     def testShell(self, systemMock):

@@ -21,7 +21,7 @@ import unittest
 import FileSequence
 import outline
 from outline.modules.shell import Shell
-from test_utils import TemporarySessionDirectory
+from tests.test_utils import TemporarySessionDirectory
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
 
