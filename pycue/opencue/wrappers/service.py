@@ -29,10 +29,9 @@ from opencue.cuebot import Cuebot
 
 class Service(object):
 
-    stub = Cuebot.getStub('service')
-
     def __init__(self, service=None):
         self.data = service or service_pb2.Service()
+        self.stub = Cuebot.getStub('service')
 
     def create(self):
         response = self.stub.CreateService(
@@ -45,17 +44,17 @@ class Service(object):
             service_pb2.ServiceDeleteRequest(service=self.data),
             timeout=Cuebot.Timeout)
 
-    @classmethod
-    def getDefaultServices(cls):
-        response = cls.stub.GetDefaultServices(
+    @staticmethod
+    def getDefaultServices():
+        response = Cuebot.getStub('service').GetDefaultServices(
             service_pb2.ServiceGetDefaultServicesRequest(),
             timeout=Cuebot.Timeout)
         return [Service(data) for data in response.services.services]
 
-    @classmethod
-    def getService(cls, name):
+    @staticmethod
+    def getService(name):
         try:
-            response = cls.stub.GetService(
+            response = Cuebot.getStub('service').GetService(
                 service_pb2.ServiceGetServiceRequest(name=name),
                 timeout=Cuebot.Timeout)
         except grpc.RpcError as e:

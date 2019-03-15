@@ -1,4 +1,4 @@
-#!/usr/local/bin/python
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -64,13 +64,17 @@ class ProxyTests(unittest.TestCase):
 class IdTests(unittest.TestCase):
     """id() takes an entity and returns the unique id"""
 
-    def testIdOnEntity(self):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testIdOnEntity(self, getStubMock):
+        del getStubMock
         arbitraryId = 'foo'
         job = Job(job_pb2.Job(id=arbitraryId))
 
         self.assertEquals(arbitraryId, opencue.id(job))
 
-    def testIdOnEntityList(self):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testIdOnEntityList(self, getStubMock):
+        del getStubMock
         arbitraryIds = ['foo', 'bar']
         jobs = [Job(job_pb2.Job(id=arbitraryIds[0])), Job(job_pb2.Job(id=arbitraryIds[1]))]
 

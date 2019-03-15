@@ -20,9 +20,6 @@ from __future__ import division
 import logging
 
 from .cuebot import Cuebot
-
-Cuebot.init()
-
 from . import api
 from . import wrappers
 from . import search
