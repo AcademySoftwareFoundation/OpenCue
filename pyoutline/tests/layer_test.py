@@ -283,7 +283,8 @@ class OutputRegistrationTest(unittest.TestCase):
     def setUp(self):
         outline.Outline.current = None
 
-    # TODO(bcipriano) Re-enable this test once FileSequence has a Python implementation.
+    # TODO(bcipriano) Re-enable this test once FileSequence has a Python
+    #  implementation. (Issue #242)
     def disabled__test_output_passing(self):
         """
         Test that output registered in a pre-process is serialized
