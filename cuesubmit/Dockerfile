@@ -40,7 +40,7 @@ COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/bin ./pyoutline/bin
 COPY pyoutline/etc ./pyoutline/etc
 COPY pyoutline/wrappers ./pyoutline/wrappers
-COPY pyoutline/src ./pyoutline/src
+COPY pyoutline/outline ./pyoutline/outline
 
 RUN cd pyoutline && python setup.py install
 

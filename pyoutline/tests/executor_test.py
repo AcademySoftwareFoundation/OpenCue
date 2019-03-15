@@ -1,4 +1,4 @@
-#!/bin/env python2.5
+#!/usr/bin/env python
 
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
@@ -15,16 +15,11 @@
 #  limitations under the License.
 
 
-import os
-import sys
-import logging
-import unittest
 import time
+import unittest
 
-sys.path.insert(0,"../src")
 from outline import TaskExecutor
 
-logging.basicConfig(level=logging.DEBUG)
 
 class TaskExecutorTest(unittest.TestCase):
 
@@ -40,6 +35,7 @@ class TaskExecutorTest(unittest.TestCase):
     def print_(self, msg):
         print "Test Message: %s" % msg
         time.sleep(1)
+
 
 if __name__ == '__main__':
     unittest.main()

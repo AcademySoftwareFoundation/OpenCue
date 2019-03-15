@@ -107,7 +107,7 @@ class Layer(object):
         # after the parent layer.
         self.__children = []
 
-        # The default name of the sevice.
+        # The default name of the service.
         self.__service = self.__args.get("service", "shell")
 
         # The current frame number.
@@ -326,7 +326,7 @@ class Layer(object):
         """
         if t not in constants.LAYER_TYPES:
             raise LayerException("%s is not a valid layer type: %s" % (
-                                 t, constants.LAYER_TYPES))
+                t, constants.LAYER_TYPES))
         self.__type = t
 
     def get_outline(self):

@@ -21,12 +21,26 @@ RUN pip install -r requirements.txt
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
+COPY proto/ ./proto
+COPY pycue/README.md ./pycue/
+COPY pycue/setup.py ./pycue/
+COPY pycue/opencue ./pycue/opencue
+COPY pycue/FileSequence ./pycue/FileSequence
+
+RUN python -m grpc_tools.protoc \
+  -I=./proto \
+  --python_out=./pycue/opencue/compiled_proto \
+  --grpc_python_out=./pycue/opencue/compiled_proto \
+  ./proto/*.proto
+
+RUN cd pycue && python setup.py install
+
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/bin ./pyoutline/bin
 COPY pyoutline/etc ./pyoutline/etc
 COPY pyoutline/wrappers ./pyoutline/wrappers
-COPY pyoutline/src ./pyoutline/src
+COPY pyoutline/outline ./pyoutline/outline
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
@@ -38,7 +52,7 @@ FROM build as test
 
 COPY pyoutline/tests/ ./pyoutline/tests
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+RUN cd pyoutline && python setup.py test
 
 
 # -----------------

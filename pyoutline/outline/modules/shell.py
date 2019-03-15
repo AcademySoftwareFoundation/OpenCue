@@ -14,11 +14,14 @@
 
 
 """Modules for executing arbitrary shell commands."""
+
+
 import logging
 import os
 
 from outline import util
 from outline.layer import Layer, Frame
+
 
 logger = logging.getLogger("outline.modules.shell")
 
@@ -29,9 +32,10 @@ __all__ = ["Shell",
            "shell",
            "PyEval"]
 
+
 class PyEval(Layer):
     """
-    Arbitary python code exection.
+    Arbitrary python code execution.
     """
     def __init__(self, name, code, **args):
         Layer.__init__(self, name, **args)
@@ -47,6 +51,7 @@ class PyEval(Layer):
 
     def _execute(self, frames):
         execfile(self.get_file("script"))
+
 
 class Shell(Layer):
     """

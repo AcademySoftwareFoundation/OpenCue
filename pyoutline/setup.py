@@ -44,11 +44,11 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
     ],
-    packages=find_packages(where='src'),
-    package_dir={'': 'src'},
+    packages=find_packages(exclude=['tests']),
     data_files=[
         ('bin', ['bin/cuerunbase.py', 'bin/pycuerun', 'bin/util_qc_job_layer.py']),
         ('etc', ['etc/outline.cfg']),
         ('wrappers', ['wrappers/cue3_wrap_frame', 'wrappers/cue3_wrap_frame_no_ss', 'wrappers/local_wrap_frame']),
     ],
+    test_suite='tests',
 )
