@@ -359,10 +359,12 @@ class ServiceTests(unittest.TestCase):
                 name=self.testName, threadable=self.testThreadable, min_cores=self.testMinCores,
                 max_cores=self.testMaxCores, tags=self.testTags)
 
-    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
-    def testCreate(self, stubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCreate(self, getStubMock):
+        stubMock = mock.Mock()
         stubMock.CreateService.return_value = service_pb2.ServiceCreateServiceResponse(
             service=self.service)
+        getStubMock.return_value = stubMock
 
         newService = opencue.api.createService(self.service)
 
@@ -375,21 +377,25 @@ class ServiceTests(unittest.TestCase):
         self.assertEqual(self.testMinCores, newService.minCores())
         self.assertEqual(self.testMaxCores, newService.maxCores())
 
-    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
-    def testDelete(self, stubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testDelete(self, getStubMock):
+        stubMock = mock.Mock()
         stubMock.GetService.return_value = service_pb2.ServiceGetServiceResponse(
             service=self.service)
         stubMock.Delete.return_value = service_pb2.ServiceDeleteResponse()
+        getStubMock.return_value = stubMock
 
         opencue.api.getService(self.testName).delete()
 
         stubMock.Delete.assert_called_with(
             service_pb2.ServiceDeleteRequest(service=self.service), timeout=mock.ANY)
 
-    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
-    def testGet(self, stubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGet(self, getStubMock):
+        stubMock = mock.Mock()
         stubMock.GetService.return_value = service_pb2.ServiceGetServiceResponse(
             service=self.service)
+        getStubMock.return_value = stubMock
 
         service = opencue.api.getService(self.testName)
 
@@ -397,11 +403,13 @@ class ServiceTests(unittest.TestCase):
             service_pb2.ServiceGetServiceRequest(name=self.testName), timeout=mock.ANY)
         self.assertEqual(self.testName, service.name())
 
-    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
-    def testUpdate(self, stubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testUpdate(self, getStubMock):
+        stubMock = mock.Mock()
         stubMock.GetService.return_value = service_pb2.ServiceGetServiceResponse(
             service=self.service)
         stubMock.Update.return_value = service_pb2.ServiceUpdateResponse()
+        getStubMock.return_value = stubMock
 
         updatedService = opencue.api.getService(self.testName)
         updatedService.setTags(['util'])
@@ -410,13 +418,15 @@ class ServiceTests(unittest.TestCase):
         stubMock.Update.assert_called_with(
             service_pb2.ServiceUpdateRequest(service=updatedService.data), timeout=mock.ANY)
 
-    @mock.patch.object(opencue.wrappers.service.Service, 'stub')
-    def testGetDefault(self, stubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetDefault(self, getStubMock):
+        stubMock = mock.Mock()
         service1 = 'service1'
         service2 = 'service2'
         stubMock.GetDefaultServices.return_value = service_pb2.ServiceGetDefaultServicesResponse(
             services=service_pb2.ServiceSeq(
                 services=[service_pb2.Service(name=service1), service_pb2.Service(name=service2)]))
+        getStubMock.return_value = stubMock
 
         services = opencue.api.getDefaultServices()
 

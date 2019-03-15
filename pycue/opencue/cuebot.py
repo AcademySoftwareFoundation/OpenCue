@@ -148,7 +148,7 @@ class Cuebot(object):
     @staticmethod
     def setChannel():
         """Sets the gRPC channel connection"""
-        # gRPC must specify a single host. Randomize host list to balance load accross cuebots.
+        # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
         for host in hosts:
@@ -241,7 +241,7 @@ class Cuebot(object):
         @param name: name of stub key for SERVICE_MAP
         @type name: str"""
         if Cuebot.RpcChannel is None:
-            raise AttributeError("Cuebot has not been initialized.")
+            cls.init()
 
         service = cls.getService(name)
         return service(Cuebot.RpcChannel)
