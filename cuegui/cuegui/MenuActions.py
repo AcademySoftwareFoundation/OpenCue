@@ -1119,8 +1119,10 @@ class GroupActions(AbstractActions):
         if groups:
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Delete selected groups?",
-                                             [group.name for group in groups]):
+                                             [group.name() for group in groups]):
                 for group in groups:
+                    if isinstance(group, opencue.wrappers.group.NestedGroup):
+                        group = group.asGroup()
                     self.cuebotCall(opencue.wrappers.group.Group(group).delete,
                                     "Delete Group %s Failed" % group.name)
 

@@ -576,3 +576,218 @@ class NestedJob(Job):
     def children(self):
         return self.__children
 
+    def kill(self):
+        """Kills the job"""
+        self.asJob().kill()
+
+    def pause(self):
+        """Pauses the job"""
+        self.asJob().pause()
+
+    def resume(self):
+        """Resumes the job"""
+        self.asJob().resume()
+
+    def killFrames(self, **request):
+        """Kills all frames that match the FrameSearch
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        self.asJob().killFrames(**request)
+
+    def eatFrames(self, **request):
+        """Eats all frames that match the FrameSearch
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        self.asJob().eatFrames(**request)
+
+    def retryFrames(self, **request):
+        """Retries all frames that match the FrameSearch
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        self.asJob().retryFrames(**request)
+
+    def markdoneFrames(self, **request):
+        """Drops any dependency that requires any frame that matches the
+        FrameSearch
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        self.asJob().markdoneFrames(**request)
+
+    def markAsWaiting(self, **request):
+        """Changes the matching frames from the depend state to the waiting state
+        @type  request: Dict
+        @param request: FrameSearch parameters"""
+        self.asJob().markAsWaiting(**request)
+
+    def setMinCores(self, minCores):
+        """Sets the minimum procs value
+        @type  minCores: int
+        @param minCores: New minimum cores value"""
+        self.asJob().setMinCores(minCores)
+
+    def setMaxCores(self, maxCores):
+        """Sets the maximum procs value
+        @type  maxCores: int
+        @param maxCores: New maximum cores value"""
+        self.asJob().setMaxCores(maxCores)
+
+    def setPriority(self, priority):
+        """Sets the priority number
+        @type  priority: int
+        @param priority: New priority number"""
+        self.asJob().setPriority(priority)
+
+    def setMaxRetries(self, maxRetries):
+        """Sets the number of retries before a frame goes dead
+        @type  maxRetries: int
+        @param maxRetries: New max retries"""
+        self.asJob().setMaxRetries(maxRetries)
+
+    def getLayers(self):
+        """Returns the list of layers
+        @rtype:  list<Layer>
+        @return: List of layers"""
+        return self.asJob().getLayers()
+
+    def getFrames(self, **options):
+        """Returns the list of up to 1000 frames from within the job.
+        frames = job.getFrames(show=["edu","beo"],user="jwelborn")
+        frames = job.getFrames(show="edu",shot="bs.012")
+        Allowed: offset, limit, states+, layers+. frameset, changedate
+        @rtype:  list<Frame>
+        @return: List of frames"""
+        return self.asJob().getFrames(**options)
+
+    def getUpdatedFrames(self, lastCheck, layers=None):
+        """Returns a list of updated state information for frames that have
+        changed since the last update time as well as the current state of the
+        job. If layer proxies are provided in the layers list, only frames from
+        those layers will be returned.
+        UpdatedFrameCheckResult:
+        CueIce::JobState state =
+        int updated =
+        UpdatedFrameSeq updatedFrames =
+        @type  lastCheck: int
+        @param lastCheck: Epoch when last updated
+        @type  layers: list<Layer>
+        @param layers: List of layers to check, empty list checks all
+        @rtype:  UpdatedFrameCheckResult
+        @return: Job state and a list of updatedFrames"""
+        return self.asJob().getUpdatedFrames(lastCheck, layers)
+
+    def setAutoEating(self, value):
+        """If set to true, any frames that would become dead, will become eaten
+        @type  value: bool
+        @param value: State of autoeat"""
+        self.asJob().setAutoEating(value)
+
+
+    def getWhatDependsOnThis(self):
+        """Returns a list of dependencies that depend directly on this job
+        @rtype:  list<Depend>
+        @return: List of dependencies that depend directly on this job"""
+        return self.asJob().getWhatDependsOnThis()
+
+    def getWhatThisDependsOn(self):
+        """Returns a list of dependencies that this job depends on
+        @rtype:  list<Depend>
+        @return: dependencies that this job depends on"""
+        return self.asJob().getWhatThisDependsOn()
+
+    def getDepends(self):
+        """Returns a list of all depends this job is involved with
+        @rtype:  list<Depend>
+        @return: all depends involved with this job"""
+        return self.asJob().getDepends()
+
+    def dropDepends(self, target):
+        """Drops the desired dependency target:
+        opencue.DependTarget.AnyTarget
+        opencue.DependTarget.External
+        opencue.DependTarget.Internal
+        @type  target: DependTarget
+        @param target: The desired dependency target to drop"""
+        return self.asJob().dropDepends(target)
+
+    def createDependencyOnJob(self, job):
+        """Create and return a job on job dependency
+        @type  job: Job
+        @param job: the job you want this job to depend on
+        @rtype:  Depend
+        @return: The new dependency"""
+        return self.asJob().createDependencyOnJOb(job)
+
+    def createDependencyOnLayer(self, layer):
+        """Create and return a job on layer dependency
+        @type  layer: Layer
+        @param layer: the layer you want this job to depend on
+        @rtype:  Depend
+        @return: the new dependency"""
+        return self.asJob().createDependencyOnLayer(layer)
+
+    def createDependencyOnFrame(self, frame):
+        """Create and return a job on frame dependency
+        @type  frame: Frame
+        @param frame: the frame you want this job to depend on
+        @rtype:  Depend
+        @return: the new dependency"""
+        return self.asJob().createDependencyOnFrame(frame)
+
+    def addComment(self, subject, message):
+        """Appends a comment to the job's comment list
+        @type  subject: str
+        @param subject: Subject data
+        @type  message: str
+        @param message: Message data"""
+        self.asJob().addComment(subject, message)
+
+    def getComments(self):
+        """returns the jobs comments"""
+        return self.asJob().getComments()
+
+    def setGroup(self, group):
+        """Sets the job to a new group
+        @type  group: Group
+        @param group: the group you want the job to be in."""
+        self.asJob().setGroup(group)
+
+    def reorderFrames(self, range, order):
+        """Reorders the specified frame range on this job.
+        @type  range: string
+        @param range: The frame range to reorder
+        @type  order: job_pb2.Order
+        @param order: First, Last or Reverse"""
+        self.asJob().reorderFrames(range, order)
+
+    def staggerFrames(self, range, stagger):
+        """Staggers the specified frame range on this job.
+        @type  range: string
+        @param range: The frame range to stagger
+        @type  stagger: int
+        @param stagger: The amount to stagger by"""
+        self.asJob().staggerFrames(range, stagger)
+
+    def asJob(self):
+        """returns a Job object from this NestedJob"""
+        return Job(job_pb2.Job(
+            id=self.data.id,
+            state=self.data.state,
+            name=self.data.name,
+            shot=self.data.shot,
+            show=self.data.show,
+            user=self.data.user,
+            group=self.data.group,
+            facility=self.data.facility,
+            os=self.data.os,
+            uid=self.data.uid,
+            priority=self.data.priority,
+            min_cores=self.data.min_cores,
+            max_cores=self.data.max_cores,
+            log_dir=self.data.log_dir,
+            is_paused=self.data.is_paused,
+            has_comment=self.data.has_comment,
+            auto_eat=self.data.auto_eat,
+            start_time=self.data.start_time,
+            stop_time=self.data.stop_time,
+            job_stats=self.data.stats
+        ))

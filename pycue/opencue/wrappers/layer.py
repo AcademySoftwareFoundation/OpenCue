@@ -66,7 +66,7 @@ class Layer(object):
         @rtype:  list<Frame>
         @return: Sequence of Frame obejcts"""
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
-        response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, r=criteria),
+        response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, s=criteria),
                                        timeout=Cuebot.Timeout)
         return [frame.Frame(frame) for frame in response.frames]
 
