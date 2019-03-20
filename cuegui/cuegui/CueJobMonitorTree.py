@@ -427,7 +427,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif group.data.parent.id:
                 self._items[group.id()] = groupItem = GroupWidgetItem(group, parent)
             else:
-                print(group.data.parent.id)
                 self._items[group.id()] = groupItem = RootGroupWidgetItem(group, parent)
 
             nestedGroups = [opencue.wrappers.group.NestedGroup(nestedGroup) for nestedGroup in group.data.groups.nested_groups]
