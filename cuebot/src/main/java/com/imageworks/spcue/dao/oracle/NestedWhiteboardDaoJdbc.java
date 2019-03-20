@@ -252,7 +252,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         mapper = updateConnections(mapper);
         jobCache.put(show.getShowId(), new CachedJobWhiteboardMapper(mapper));
         return mapper.groups.get(mapper.rootGroupID);
-
+    }
 
     private static final NestedJob mapResultSetToJob(ResultSet rs) throws SQLException {
         NestedJob.Builder jobBuilder = NestedJob.newBuilder()
