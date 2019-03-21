@@ -13,19 +13,20 @@
 #  limitations under the License.
 
 
-import os
-import sys
-import getopt
 import logging
-import traceback
+import os
 import signal
-import datetime
+import sys
+import traceback
 
 import versions
 
+
+logging.basicConfig()
 logger = logging.getLogger("cuerun")
 
 LOGGING_FORMAT = "[%(asctime)s %(levelname)s %(module)s]:   %(message)s"
+
 
 def enable_debug_logging():
     """Enable debug logging."""
@@ -38,6 +39,7 @@ def enable_verbose_logging():
     logging.basicConfig(level=logging.WARN,
                         format=LOGGING_FORMAT)
 
+
 def signal_handler(signum, frame):
     """
     Catch unexpected signals and dump as much info as possible.
@@ -49,6 +51,7 @@ def signal_handler(signum, frame):
     print frame.f_locals
     print frame.f_restricted
     traceback.print_exc(file=sys.stderr)
+
 
 def handle_core_arguments():
     """
@@ -113,7 +116,7 @@ class AbstractCuerun(object):
     def __init__(self):
         handle_core_arguments()
         self.__parser = None
-        self.__options = { }
+        self.__options = {}
         self.__args = []
 
         self.__setup_parser()
@@ -132,7 +135,7 @@ class AbstractCuerun(object):
         """Implemented by subclass."""
         pass
 
-    def handle_my_options(self):
+    def handle_my_options(self, parser, options, args):
         """Implemented by subclass."""
         pass
 
@@ -186,8 +189,8 @@ class AbstractCuerun(object):
             bin_dir = os.path.dirname(os.path.abspath(__file__))
             logger.debug("Overriding cuerun bin directory to %s" % bin_dir)
 
-            ## Overide the location of the bin dir to the one where
-            ## this script is located if we're in debug mode.
+            # Overide the location of the bin dir to the one where
+            # this script is located if we're in debug mode.
             config.set("outline", "bin_dir", bin_dir)
 
         self.__evh.emit(event.LaunchEvent(event.BEFORE_LAUNCH, self, outline=outline))
@@ -201,5 +204,3 @@ class AbstractCuerun(object):
             sys.stderr.write("outline failure, %s" % e)
             traceback.print_exc(file=sys.stderr)
             sys.exit(1)
-
-

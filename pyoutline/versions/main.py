@@ -16,8 +16,10 @@
 """
     Versions is a method for versioning python modules.
 """
+
 import os
 from session import Session, Settings
+
 
 __all__ = ["require",
            "unrequire",
@@ -27,8 +29,10 @@ __all__ = ["require",
            "get_session",
            "set_module_repos"]
 
+
 class VersionsException(Exception):
     pass
+
 
 def require(module, version="latest"):
     """
@@ -36,11 +40,13 @@ def require(module, version="latest"):
     """
     return get_session().require(module, version)
 
+
 def unrequire(module):
     """
     Removes the given module from the repository
     """
     return get_session().unrequire(module)
+
 
 def get_version(module, default="latest"):
     """
@@ -48,11 +54,13 @@ def get_version(module, default="latest"):
     """
     return get_session().get_version(module, default)
 
+
 def get_session():
     """
     Returns the singleton session instance.
     """
     return Session()
+
 
 def get_repos():
     """
@@ -60,18 +68,20 @@ def get_repos():
     """
     return Settings.repos_path
 
+
 def set_repos(path):
     """
     Set the versions repository path.
     """
     path = os.path.abspath(path)
     if path == Settings.repos_path:
-       return False
+        return False
     if os.path.exists(path):
         Settings.repos_path = path
         return True
     else:
-        raise VersionsException("Cannot set the repos path to a non existant directory. %s" % path)
+        raise VersionsException("Cannot set the repos path to a non existent directory. %s" % path)
+
 
 def set_module_repos(module, path):
     """
@@ -80,7 +90,4 @@ def set_module_repos(module, path):
     if os.path.exists(path):
         Settings.module_repos[module] = path
     else:
-        raise VersionsException("Cannot set the repos path to a non existant directory.")
-
-
-
+        raise VersionsException("Cannot set the repos path to a non existent directory.")

@@ -37,8 +37,3 @@ for layer in job.getLayers():
         layer.retryFrames()
         sys.exit()
 sys.exit(1)
-
-
-
-
-
