@@ -518,9 +518,9 @@ class FrameAttendantThread(threading.Thread):
 
             self.__sendFrameCompleteReport()
             time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
-            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL):
+            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL_SEC):
                 self.rqCore.onIntervalThread.cancel()
-                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL)
+                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL_SEC)
 
             log.info("Monitor frame ended for frameId=%s",
                      self.runFrame.frame_id)
@@ -556,7 +556,7 @@ class RqCore:
         self.updateRssThread = None
         self.onIntervalThread = None
         self.intervalStartTime = None
-        self.intervalSleepTime = rqconstants.RQD_MIN_PING_INTERVAL
+        self.intervalSleepTime = rqconstants.RQD_MIN_PING_INTERVAL_SEC
 
         self.__cluster = None
         self.__session = None
@@ -595,8 +595,8 @@ class RqCore:
            every interval"""
         if sleepTime is None:
             self.intervalSleepTime = random.randint(
-                rqconstants.RQD_MIN_PING_INTERVAL,
-                rqconstants.RQD_MAX_PING_INTERVAL)
+                rqconstants.RQD_MIN_PING_INTERVAL_SEC,
+                rqconstants.RQD_MAX_PING_INTERVAL_SEC)
         else:
             self.intervalSleepTime = sleepTime
         try:
