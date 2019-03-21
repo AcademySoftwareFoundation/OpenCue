@@ -13,27 +13,30 @@
 #  limitations under the License.
 
 
+import atexit
+import logging
 import os
 import shutil
 import sys
-import atexit
 import tempfile
-import logging
 
 logger = logging.getLogger("versions")
+
 
 class Settings:
     # Path containing different outline library versions
     repos_path = ""
-    module_repos = { }
+    module_repos = {}
+
 
 class Singleton:
     def __init__(self, name, bases, namespace):
-        self._obj=type(name,bases,namespace)()
+        self._obj = type(name, bases, namespace)()
         atexit.register(self._obj.clean)
 
     def __call__(self):
         return self._obj
+
 
 class Session(object):
 
@@ -44,10 +47,10 @@ class Session(object):
     """
     def __init__(self):
         object.__init__(self)
-        self.__modules = { }
+        self.__modules = {}
         self.__create_path()
 
-    def require(self, module, version, force=False):
+    def require(self, module, version):
         """Symlinks a module into the session's temp dir."""
 
         # Bail out if we've already loaded the module.
@@ -57,8 +60,12 @@ class Session(object):
                             % (module, version, self.__modules[module]))
             return False
 
+        if not Settings.module_repos and not Settings.repos_path:
+            logger.warn("No repo paths were configured, not requiring a version.")
+            return False
+
         # Find the destination.
-        if Settings.module_repos.has_key(module):
+        if module in Settings.module_repos:
             src = os.path.join(Settings.module_repos[module],
                                module, version)
         else:
@@ -85,11 +92,11 @@ class Session(object):
         # manifest if it exists.  Otherwise, we
         # link it into the repos.
         if os.path.exists("%s/__init__.py" % src):
-            self.__link_version(src, dst, version)
+            self.__link_version(src, dst)
             self.__lock_module(module, version)
             return True
         elif os.path.exists("%s/manifest.py" % src):
-            self.__run_manifest(src, version)
+            self.__run_manifest(src)
             self.__lock_module(module, version)
             return True
         else:
@@ -117,7 +124,7 @@ class Session(object):
         """
         Return true if the given module is loaded.
         """
-        return self.__modules.has_key(name)
+        return name in self.__modules
 
     def get_path(self):
         """Return the path to the session tmp dir."""
@@ -141,10 +148,10 @@ class Session(object):
         return ",".join(["%s:%s" % (mod, ver)
                          for mod, ver in self.__modules.iteritems()])
 
-    def __link_version(self, src, dst, version):
+    def __link_version(self, src, dst):
         os.symlink(src, dst)
 
-    def __run_manifest(self, path, version):
+    def __run_manifest(self, path):
         import imp
         try:
             fob, path, desc = imp.find_module('manifest', [path])

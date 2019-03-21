@@ -93,6 +93,8 @@ def launch(launcher, use_pycuerun=True):
 
     @type launcher: L{OutlineLauncher}
     @param launcher: The OutlineLauncher to launch.
+    @type use_pycuerun: bool
+    @param use_pycuerun: Enable/Disable pycuerun.
 
     @rtype: opencue.Entity.Job
     @return: The opencue job that was launched.
@@ -171,14 +173,14 @@ def wait(job):
 
 
 def serialize(launcher):
-    return _serialize(launcher, usePycuerun=True)
+    return _serialize(launcher, use_pycuerun=True)
 
 
 def serialize_simple(launcher):
-    return _serialize(launcher, usePycuerun=False)
+    return _serialize(launcher, use_pycuerun=False)
 
 
-def _serialize(launcher, usePycuerun):
+def _serialize(launcher, use_pycuerun):
     """
     Serialize the outline part of the given L{OutlineLauncher} into a
     opencue job specification.
@@ -251,7 +253,7 @@ def _serialize(launcher, usePycuerun):
         spec_layer = Et.SubElement(layers, "layer",
                                    {"name": layer.get_name(),
                                     "type": layer.get_type()})
-        if usePycuerun:
+        if use_pycuerun:
             sub_element(spec_layer, "cmd",
                         " ".join(build_command(launcher, layer)))
         else:
