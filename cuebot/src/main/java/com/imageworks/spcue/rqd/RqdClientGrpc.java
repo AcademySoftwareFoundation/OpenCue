@@ -48,42 +48,54 @@ import com.imageworks.spcue.grpc.rqd.RunningFrameStatusResponse;
 public final class RqdClientGrpc implements RqdClient {
     private static final Logger logger = Logger.getLogger(RqdClientGrpc.class);
 
+    private final int rqdCacheSize;
+    private final int rqdCacheExpiration;
     private final int rqdServerPort;
+    private LoadingCache<String, ManagedChannel> channelCache;
 
-    private final int rqdCacheSize = 500;
-    private final int rqdCacheExpiration = 30;
     private boolean testMode = false;
 
-    private LoadingCache<String, ManagedChannel> channelCache = CacheBuilder.newBuilder()
-            .maximumSize(rqdCacheSize)
-            .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
-            .removalListener(new RemovalListener<String, ManagedChannel>() {
-                @Override
-                public void onRemoval(RemovalNotification<String, ManagedChannel> removal){
-                    ManagedChannel conn = removal.getValue();
-                    conn.shutdown();
-                }
-            })
-            .build(
-                    new CacheLoader<String, ManagedChannel>() {
-                        @Override
-                        public ManagedChannel load(String host) throws Exception {
-                            ManagedChannelBuilder channelBuilder = ManagedChannelBuilder.forAddress(
-                                    host, rqdServerPort).usePlaintext();
-                            return channelBuilder.build();
-                        }
-                    });
 
-    public RqdClientGrpc(int rqdServerPort) {
+    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration) {
         this.rqdServerPort = rqdServerPort;
+        this.rqdCacheSize = rqdCacheSize;
+        this.rqdCacheExpiration = rqdCacheExpiration;
+    }
+
+    private void buildChannelCache() {
+        this.channelCache = CacheBuilder.newBuilder()
+                .maximumSize(rqdCacheSize)
+                .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
+                .removalListener(new RemovalListener<String, ManagedChannel>() {
+                    @Override
+                    public void onRemoval(RemovalNotification<String, ManagedChannel> removal){
+                        ManagedChannel conn = removal.getValue();
+                        conn.shutdown();
+                    }
+                })
+                .build(
+                        new CacheLoader<String, ManagedChannel>() {
+                            @Override
+                            public ManagedChannel load(String host) throws Exception {
+                                ManagedChannelBuilder channelBuilder = ManagedChannelBuilder.forAddress(
+                                        host, rqdServerPort).usePlaintext();
+                                return channelBuilder.build();
+                            }
+                        });
     }
 
     private RqdInterfaceGrpc.RqdInterfaceBlockingStub getStub(String host) throws ExecutionException {
+        if (channelCache == null) {
+            buildChannelCache();
+        }
         ManagedChannel channel = channelCache.get(host);
         return RqdInterfaceGrpc.newBlockingStub(channel);
     }
 
     private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host) throws ExecutionException {
+        if (channelCache == null) {
+            buildChannelCache();
+        }
         ManagedChannel channel = channelCache.get(host);
         return RunningFrameGrpc.newBlockingStub(channel);
     }
