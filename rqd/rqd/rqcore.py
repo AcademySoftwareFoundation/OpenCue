@@ -519,7 +519,6 @@ class FrameAttendantThread(threading.Thread):
             self.__sendFrameCompleteReport()
             time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
             if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL):
-                log.info('RESTARTING INTERVAL THREAD!')
                 self.rqCore.onIntervalThread.cancel()
                 self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL)
 
@@ -618,9 +617,7 @@ class RqCore:
             log.warning('Unable to shutdown due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
         try:
-            log.info('Sending status report.')
             self.sendStatusReport()
-            log.info('Status report sent.')
         except Exception as e:
             log.critical('Unable to send status report due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
@@ -809,11 +806,9 @@ class RqCore:
         finally:
             self.__threadLock.release()
 
-        log.info("STARTING RUNNING FRAME.")
         runningFrame = RunningFrame(self, runFrame)
         runningFrame.frameAttendantThread = FrameAttendantThread(self, runFrame, runningFrame)
         runningFrame.frameAttendantThread.start()
-        log.info("FININSHED RUNNING FRAME?")
 
     def getRunningFrame(self, frameId):
         try:
