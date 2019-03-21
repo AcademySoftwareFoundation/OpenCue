@@ -27,28 +27,29 @@ Contact: Middle-Tier
 SVN: $Id$
 """
 
-import os
-import sys
-import subprocess
-import time
-import threading
 import logging as log
-import traceback
+import os
 import platform
+import random
+import subprocess
+import sys
 import tempfile
+import threading
+import time
+import traceback
 
-from compiled_proto import report_pb2
-from compiled_proto import host_pb2
 import rqconstants
-from rqexceptions import RqdException
+import rqutil
+from compiled_proto import host_pb2
+from compiled_proto import report_pb2
 from rqexceptions import CoreReservationFailureException
 from rqexceptions import DuplicateFrameViolationException
 from rqexceptions import InvalidUserException
+from rqexceptions import RqdException
 from rqmachine import Machine
 from rqnetwork import Network
 from rqnetwork import RunningFrame
 from rqnimby import Nimby
-import rqutil
 
 
 class FrameAttendantThread(threading.Thread):
@@ -516,6 +517,11 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.deleteFrame(self.runFrame.frame_id)
 
             self.__sendFrameCompleteReport()
+            time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
+            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL):
+                log.info('RESTARTING INTERVAL THREAD!')
+                self.rqCore.onIntervalThread.cancel()
+                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL)
 
             log.info("Monitor frame ended for frameId=%s",
                      self.runFrame.frame_id)
@@ -550,6 +556,8 @@ class RqCore:
         self.shutdownThread = None
         self.updateRssThread = None
         self.onIntervalThread = None
+        self.intervalStartTime = None
+        self.intervalSleepTime = rqconstants.RQD_MIN_PING_INTERVAL
 
         self.__cluster = None
         self.__session = None
@@ -577,18 +585,24 @@ class RqCore:
         self.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
         self.updateRssThread.start()
 
-        self.onIntervalThread = threading.Timer(rqconstants.RQD_PING_INTERVAL,
-                                                self.onInterval)
+        self.onIntervalThread = threading.Timer(self.intervalSleepTime, self.onInterval)
+        self.intervalStartTime = time.time()
         self.onIntervalThread.start()
 
         log.warning('RQD Started')
 
-    def onInterval(self):
+    def onInterval(self, sleepTime=None):
         """This is called by self.grpcConnected as a timer thread to execute
            every interval"""
+        if sleepTime is None:
+            self.intervalSleepTime = random.randint(
+                rqconstants.RQD_MIN_PING_INTERVAL,
+                rqconstants.RQD_MAX_PING_INTERVAL)
+        else:
+            self.intervalSleepTime = sleepTime
         try:
-            self.onIntervalThread = threading.Timer(rqconstants.RQD_PING_INTERVAL,
-                                                    self.onInterval)
+            self.onIntervalThread = threading.Timer(self.intervalSleepTime, self.onInterval)
+            self.intervalStartTime = time.time()
             self.onIntervalThread.start()
         except Exception as e:
             log.critical('Unable to schedule a ping due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
@@ -604,7 +618,9 @@ class RqCore:
             log.warning('Unable to shutdown due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
         try:
+            log.info('Sending status report.')
             self.sendStatusReport()
+            log.info('Status report sent.')
         except Exception as e:
             log.critical('Unable to send status report due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
 
@@ -730,12 +746,10 @@ class RqCore:
         else:
             log.warning("Shutting down RQD by request")
 
-    #These functions are defined in slice/rqd_ice.ice
-    #and called by the cuebot via ICE
 
     def launchFrame(self, runFrame):
         """This will setup for the launch the frame specified in the arguments.
-        If a problem is encountered, a CueExecption will be thrown.
+        If a problem is encountered, a CueException will be thrown.
         @type   runFrame: RunFrame
         @param  runFrame: rqd_pb2.RunFrame"""
         log.info("Running command %s for %s" % (runFrame.command,
@@ -795,9 +809,11 @@ class RqCore:
         finally:
             self.__threadLock.release()
 
+        log.info("STARTING RUNNING FRAME.")
         runningFrame = RunningFrame(self, runFrame)
         runningFrame.frameAttendantThread = FrameAttendantThread(self, runFrame, runningFrame)
         runningFrame.frameAttendantThread.start()
+        log.info("FININSHED RUNNING FRAME?")
 
     def getRunningFrame(self, frameId):
         try:
