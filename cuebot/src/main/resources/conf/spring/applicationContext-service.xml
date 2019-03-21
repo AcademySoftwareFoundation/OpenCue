@@ -43,6 +43,12 @@
     <constructor-arg index="0" type="int">
       <value>${grpc.rqd_server_port}</value>
     </constructor-arg>
+    <constructor-arg index="1" type="int">
+      <value>${grpc.rqd_cache_size}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${grpc.rqd_cache_expiration}</value>
+    </constructor-arg>
   </bean>
 
   <bean id="launchQueue" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">

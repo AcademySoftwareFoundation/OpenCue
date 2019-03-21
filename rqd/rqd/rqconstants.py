@@ -50,7 +50,8 @@ CUEBOT_GRPC_PORT = 8443
 
 # RQD behavior:
 RSS_UPDATE_INTERVAL = 10
-RQD_PING_INTERVAL = 60
+RQD_MIN_PING_INTERVAL_SEC = 5
+RQD_MAX_PING_INTERVAL_SEC = 30
 MAX_LOG_FILES = 15
 CORE_VALUE = 100
 LAUNCH_FRAME_USER_GID = 20
@@ -141,7 +142,7 @@ if len(FACILITY) != 3 or not re.match('^[A-Za-z0-9]*$', FACILITY):
 
 # maa is small so decrease the ping in interval
 if FACILITY == 'maa':
-    RQD_PING_INTERVAL = 30
+    RQD_MAX_PING_INTERVAL_SEC = 30
 
 try:
     if os.path.isfile(CONFIG_FILE):

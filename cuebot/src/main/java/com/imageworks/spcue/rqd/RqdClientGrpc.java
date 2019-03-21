@@ -17,11 +17,19 @@
 
 package com.imageworks.spcue.rqd;
 
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
 import org.apache.log4j.Logger;
 
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+import com.google.common.cache.RemovalListener;
+import com.google.common.cache.RemovalNotification;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -40,25 +48,55 @@ import com.imageworks.spcue.grpc.rqd.RunningFrameStatusResponse;
 public final class RqdClientGrpc implements RqdClient {
     private static final Logger logger = Logger.getLogger(RqdClientGrpc.class);
 
+    private final int rqdCacheSize;
+    private final int rqdCacheExpiration;
     private final int rqdServerPort;
+    private LoadingCache<String, ManagedChannel> channelCache;
 
     private boolean testMode = false;
 
-    public RqdClientGrpc(int rqdServerPort) {
+
+    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration) {
         this.rqdServerPort = rqdServerPort;
+        this.rqdCacheSize = rqdCacheSize;
+        this.rqdCacheExpiration = rqdCacheExpiration;
     }
 
-    private RqdInterfaceGrpc.RqdInterfaceBlockingStub getStub(String host) {
-        ManagedChannelBuilder channelBuilder =
-                ManagedChannelBuilder.forAddress(host, rqdServerPort).usePlaintext();
-        ManagedChannel channel = channelBuilder.build();
+    private void buildChannelCache() {
+        this.channelCache = CacheBuilder.newBuilder()
+                .maximumSize(rqdCacheSize)
+                .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
+                .removalListener(new RemovalListener<String, ManagedChannel>() {
+                    @Override
+                    public void onRemoval(RemovalNotification<String, ManagedChannel> removal){
+                        ManagedChannel conn = removal.getValue();
+                        conn.shutdown();
+                    }
+                })
+                .build(
+                        new CacheLoader<String, ManagedChannel>() {
+                            @Override
+                            public ManagedChannel load(String host) throws Exception {
+                                ManagedChannelBuilder channelBuilder = ManagedChannelBuilder.forAddress(
+                                        host, rqdServerPort).usePlaintext();
+                                return channelBuilder.build();
+                            }
+                        });
+    }
+
+    private RqdInterfaceGrpc.RqdInterfaceBlockingStub getStub(String host) throws ExecutionException {
+        if (channelCache == null) {
+            buildChannelCache();
+        }
+        ManagedChannel channel = channelCache.get(host);
         return RqdInterfaceGrpc.newBlockingStub(channel);
     }
 
-    private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host) {
-        ManagedChannelBuilder channelBuilder =
-                ManagedChannelBuilder.forAddress(host, rqdServerPort).usePlaintext();
-        ManagedChannel channel = channelBuilder.build();
+    private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host) throws ExecutionException {
+        if (channelCache == null) {
+            buildChannelCache();
+        }
+        ManagedChannel channel = channelCache.get(host);
         return RunningFrameGrpc.newBlockingStub(channel);
     }
 
@@ -71,7 +109,7 @@ public final class RqdClientGrpc implements RqdClient {
 
         try {
             getStub(host.getName()).rebootNow(request);
-        } catch (StatusRuntimeException e) {
+        } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to reboot host: " + host.getName(), e);
         }
     }
@@ -85,7 +123,7 @@ public final class RqdClientGrpc implements RqdClient {
 
         try {
             getStub(host.getName()).rebootIdle(request);
-        } catch (StatusRuntimeException e) {
+        } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to reboot host: " + host.getName(), e);
         }
     }
@@ -105,7 +143,7 @@ public final class RqdClientGrpc implements RqdClient {
         try {
             logger.info("killing frame on " + host + ", source: " + message);
             getStub(host).killRunningFrame(request);
-        } catch(StatusRuntimeException e) {
+        } catch(StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to kill frame " + frameId, e);
         }
     }
@@ -124,7 +162,7 @@ public final class RqdClientGrpc implements RqdClient {
                                     .setRunFrame(getRunFrameResponse.getRunFrame())
                                     .build());
             return frameStatusResponse.getRunningFrameInfo();
-        } catch(StatusRuntimeException e) {
+        } catch(StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to obtain status for frame " + proc.frameId, e);
         }
     }
@@ -139,7 +177,7 @@ public final class RqdClientGrpc implements RqdClient {
 
         try {
             getStub(proc.hostName).launchFrame(request);
-        } catch (StatusRuntimeException e) {
+        } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to launch frame", e);
         }
     }
