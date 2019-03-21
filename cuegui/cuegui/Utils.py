@@ -87,7 +87,7 @@ def countJobTypes(objects):
                 results["paused"] = True
             else:
                 results["unpaused"] = True
-            if object.data.job_stats.dead_frames:
+            if object.data.stats.dead_frames:
                 results["hasDead"] = True
             if object.data.auto_eat:
                 results["autoEating"] = True

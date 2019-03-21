@@ -83,24 +83,24 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "will appear here and all frames that become dead will\n"
                            "automatically be eaten.")
         self.addColumn("Run", 38, id=3,
-                       data=lambda job: job.data.job_stats.running_frames,
-                       sort=lambda job: job.data.job_stats.running_frames,
+                       data=lambda job: job.data.stats.running_frames,
+                       sort=lambda job: job.data.stats.running_frames,
                        tip="The number of running frames.")
         self.addColumn("Cores", 55, id=4,
-                       data=lambda job: "%.02f" % job.data.job_stats.reserved_cores,
-                       sort=lambda job: job.data.job_stats.reserved_cores,
+                       data=lambda job: "%.02f" % job.data.stats.reserved_cores,
+                       sort=lambda job: job.data.stats.reserved_cores,
                        tip="The number of reserved cores.")
         self.addColumn("Wait", 45, id=5,
-                       data=lambda job: job.data.job_stats.waiting_frames,
-                       sort=lambda job: job.data.job_stats.waiting_frames,
+                       data=lambda job: job.data.stats.waiting_frames,
+                       sort=lambda job: job.data.stats.waiting_frames,
                        tip="The number of waiting frames.")
         self.addColumn("Depend", 55, id=6,
-                       data=lambda job: job.data.job_stats.depend_frames,
-                       sort=lambda job: job.data.job_stats.depend_frames,
+                       data=lambda job: job.data.stats.depend_frames,
+                       sort=lambda job: job.data.stats.depend_frames,
                        tip="The number of dependent frames.")
         self.addColumn("Total", 50, id=7,
-                       data=lambda job: job.data.job_stats.total_frames,
-                       sort=lambda job: job.data.job_stats.total_frames,
+                       data=lambda job: job.data.stats.total_frames,
+                       sort=lambda job: job.data.stats.total_frames,
                        tip="The total number of frames.")
 #        self.addColumn("_Booking Bar", 150, id=8, default=False,
 #                       delegate=JobBookingBarDelegate)
@@ -130,8 +130,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "A very rough estimate of the number of HOURS:MINUTES\n"
                            "it will be before the entire job is done.")
         self.addColumn("MaxRss", 60, id=14,
-                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
-                       sort=lambda job: job.data.job_stats.max_rss,
+                       data=lambda job: cuegui.Utils.memoryToString(job.data.stats.max_rss),
+                       sort=lambda job: job.data.stats.max_rss,
                        tip="The most memory used at one time by any single frame.")
         self.addColumn("_Blank", 20, id=15,
                        tip="Spacer")
@@ -147,28 +147,29 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for itemType in [cuegui.Constants.TYPE_GROUP, cuegui.Constants.TYPE_ROOTGROUP]:
             self.startColumnsForType(itemType)
             self.addColumn("", 0, id=1,
-                           data=lambda group: group.name)
+                           data=lambda group: group.data.name)
             self.addColumn("", 0, id=2)
             self.addColumn("", 0, id=3)
             self.addColumn("", 0, id=4,
-                           data=lambda group: group.group_stats.running_frames)
+                           data=lambda group: group.data.stats.running_frames)
             self.addColumn("", 0, id=5,
-                           data=lambda group: "%.2f" % group.group_stats.reserved_cores)
+                           data=lambda group: "%.2f" % group.data.stats.reserved_cores)
             self.addColumn("", 0, id=6,
-                           data=lambda group: group.group_stats.waiting_frames)
+                           data=lambda group: group.data.stats.waiting_frames)
             self.addColumn("", 0, id=7)
             self.addColumn("", 0, id=8)
             self.addColumn("", 0, id=9,
-                           data=lambda group: (group.min_cores or ""))
+                           data=lambda group: (group.data.min_cores or ""))
             self.addColumn("", 0, id=10,
-                           data=lambda group: (group.max_cores > 0 and group.max_cores or ""))
+                           data=lambda group: (group.data.max_cores > 0 and group.data.max_cores or ""))
             self.addColumn("", 0, id=11)
             self.addColumn("", 0, id=12)
             self.addColumn("", 0, id=13)
             self.addColumn("", 0, id=14)
             self.addColumn("", 0, id=15)
             self.addColumn("", 0, id=16,
-                           data=lambda group: (group.department != "Unknown" and group.department or ""))
+                           data=lambda group: (group.data.department != "Unknown" and
+                                               group.data.department or ""))
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -348,14 +349,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
+            allIds = []
             for group in groups:
-                if isinstance(group, opencue.compiled_proto.job_pb2.NestedGroup):
-                    group = opencue.wrappers.group.NestedGroup(group).asGroup()
-                if isinstance(group, opencue.compiled_proto.job_pb2.Group):
-                    group = opencue.wrappers.group.Group(group)
-                groups.extend(group.getGroups())
-                nestedGroups.append(group)
-            allIds = set(self.__getNestedIds(nestedGroups))
+                nestedGroups.append(opencue.wrappers.group.NestedGroup(group))
+                allIds.extend(self.__getNestedIds(group))
         except Exception as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
@@ -373,45 +370,45 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return
         self._itemsLock.lockForWrite()
         try:
-# This is causing segfaults as sorting is somehow allowed to happen at the same time
-# At this time, __getNestedIds functionality was in __processUpdateHandleNested
-#            updated = self.__processUpdateHandleNested(self.invisibleRootItem(), nested_shows)
-#            # Remove any items that were not updated
-#            for id in list(set(self._items.keys()) - set(updated)):
-#                self._removeItem(id)
-
             current = set(self._items.keys())
-
-            if list(current - results[1]) or list(results[1] - current):
+            if current == set(results[1]):
+                # Only updates
+                self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
+                self.redraw()
+            else:
                 # (Something removed) or (Something added)
                 selected_ids = [item.rpcObject.id for item in self.selectedItems()]
                 collapsed = self.__getCollapsed()
                 scrolled = self.verticalScrollBar().value()
-
                 self._items = {}
                 self.clear()
-
                 self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
-
                 self.__setCollapsed(collapsed)
                 self.verticalScrollBar().setValue(scrolled)
                 [self._items[id_].setSelected(True) for id_ in selected_ids if id_ in self._items]
-            else:
-                # Only updates
-                self.__processUpdateHandleNested(self.invisibleRootItem(), results[0])
-                self.redraw()
         except Exception:
             logger.warning("Failed to process update.", exc_info=True)
         finally:
             self._itemsLock.unlock()
 
-    def __getNestedIds(self, groups):
+    def __getNestedIds(self, group):
         """Returns all the ids founds in the nested list
-        @type  groups:
-        @param groups: A group that can contain groups and/or jobs
+        @type  group: job_pb2.Group
+        @param group: A group that can contain groups and/or jobs
         @rtype:  list
         @return: The list of all child ids"""
-        return [group.id() for group in groups]
+        updated = []
+        for group in group.groups.nested_groups:
+            updated.append(group.id)
+
+            # If group has groups, recursively call this function
+            updated.extend(map(self.__getNestedIds, group.groups.nested_groups))
+
+            # If group has jobs, update them
+            for job in group.jobs.nested_jobs:
+                updated.append(job.id)
+
+        return updated
 
     def __processUpdateHandleNested(self, parent, groups):
         """Adds or updates self._items from a list of NestedGroup objects.
@@ -419,32 +416,29 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param parent: The parent item for this level of items
         @type  groups: list<NestedGroup>
         @param groups: paramB_description"""
-        if hasattr(groups, 'nested_groups'):
-            groups = groups.nested_groups
-        for groupWrapper in groups:
-            group = groupWrapper.data
+        for group in groups:
             # If id already exists, update it
-            if group.parent_id:
-                parent = self._items.get(group.parent_id, opencue.api.getGroup(group.parent_id))
-            if group.id in self._items:
-                groupItem = self._items[group.id]
+            if group.data.parent.id:
+                parent = self._items.get(group.data.parent.id)
+
+            if group.id() in self._items:
+                groupItem = self._items[group.id()]
                 groupItem.update(group, parent)
-
-            # If id does not exist, create it
-            elif cuegui.Utils.isGroup(group):
-                self._items[group.id] = groupItem = GroupWidgetItem(group, parent)
+            elif group.data.parent.id:
+                self._items[group.id()] = groupItem = GroupWidgetItem(group, parent)
             else:
-                self._items[group.id] = groupItem = RootGroupWidgetItem(group, parent)
+                self._items[group.id()] = groupItem = RootGroupWidgetItem(group, parent)
 
-            # If group has jobs, update them
-            jobs = groupWrapper.getJobs()
-            if hasattr(jobs, 'nested_jobs'):
-                jobs = jobs.nested_jobs
-            for job in jobs:
-                if job.id in self._items:
-                    self._items[job.id].update(job, groupItem)
-                else:
-                    self._items[job.id] = JobWidgetItem(job, groupItem)
+            nestedGroups = [opencue.wrappers.group.NestedGroup(nestedGroup) for nestedGroup in group.data.groups.nested_groups]
+            self.__processUpdateHandleNested(groupItem, nestedGroups)
+
+            if hasattr(group.data.jobs, 'nested_jobs'):
+                for job in group.data.jobs.nested_jobs:
+                    job = opencue.wrappers.job.NestedJob(job)
+                    if job.id() in self._items:
+                        self._items[job.id()].update(job, groupItem)
+                    else:
+                        self._items[job.id()] = JobWidgetItem(job, groupItem)
 
     def mouseDoubleClickEvent(self,event):
         objects = self.selectedObjects()
@@ -606,11 +600,12 @@ class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __lt__(self, other):
         """The shows are always ascending alphabetical"""
         if self.treeWidget().header().sortIndicatorOrder():
-            return other.rpcObject.data.name < self.rpcObject.data.name
-        return other.rpcObject.data.name > self.rpcObject.data.name
+            return other.rpcObject.name < self.rpcObject.name
+        return other.rpcObject.name > self.rpcObject.name
 
     def __ne__(self, other):
         return other.rpcObject != self.rpcObject
+
 
 class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
@@ -666,6 +661,7 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         else:
             return True
 
+
 class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a job entry in the MonitorCue widget."""
     __initialized = False
@@ -708,17 +704,17 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
         elif role == QtCore.Qt.BackgroundRole:
             if col == COLUMN_MAXRSS and \
-               self.rpcObject.data.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
+               self.rpcObject.data.stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
                     return self.__highMemoryColor
             if self.rpcObject.data.is_paused:
                 return self.__pausedColor
-            if self.rpcObject.data.job_stats.dead_frames:
+            if self.rpcObject.data.stats.dead_frames:
                 return self.__dyingColor
-            if not self.rpcObject.data.job_stats.running_frames:
-                if not self.rpcObject.data.job_stats.waiting_frames and \
-                   self.rpcObject.data.job_stats.depend_frames:
+            if not self.rpcObject.data.stats.running_frames:
+                if not self.rpcObject.data.stats.waiting_frames and \
+                   self.rpcObject.data.stats.depend_frames:
                     return self.__dependedColor
-                if self.rpcObject.data.job_stats.waiting_frames and \
+                if self.rpcObject.data.stats.waiting_frames and \
                    time.time() - self.rpcObject.data.start_time > 30:
                     return self.__noRunningColor
             return self.__backgroundColor
@@ -735,14 +731,14 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
                 self._cache["FST"] = set([
-                    ('WAITING', self.rpcObject.data.job_stats.waiting_frames),
-                    ('RUNNING', self.rpcObject.data.job_stats.running_frames),
-                    ('SUCCEEDED', self.rpcObject.data.job_stats.succeeded_frames),
+                    ('WAITING', self.rpcObject.data.stats.waiting_frames),
+                    ('RUNNING', self.rpcObject.data.stats.running_frames),
+                    ('SUCCEEDED', self.rpcObject.data.stats.succeeded_frames),
                     ('CHECKPOINT', 0),
                     ('SETUP', 0),
-                    ('EATEN', self.rpcObject.data.job_stats.eaten_frames),
-                    ('DEAD', self.rpcObject.data.job_stats.dead_frames),
-                    ('DEPEND', self.rpcObject.data.job_stats.depend_frames)
+                    ('EATEN', self.rpcObject.data.stats.eaten_frames),
+                    ('DEAD', self.rpcObject.data.stats.dead_frames),
+                    ('DEPEND', self.rpcObject.data.stats.depend_frames)
                 ])
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 

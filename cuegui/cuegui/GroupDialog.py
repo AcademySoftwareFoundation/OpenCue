@@ -175,7 +175,7 @@ class GroupDialog(QtWidgets.QDialog):
 
 class ModifyGroupDialog(GroupDialog):
     def __init__(self, modifyGroup, parent=None):
-        modifyGroup = opencue.api.getGroup(modifyGroup.id)
+        modifyGroup = opencue.api.getGroup(modifyGroup.id())
         defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
                     "message": "Modifying the group %s" % modifyGroup.data.name,
                     "name": modifyGroup.data.name,
@@ -198,4 +198,4 @@ class NewGroupDialog(GroupDialog):
                     "defaultJobMaxCores": 1.0,
                     "minCores": 0.0,
                     "maxCores": 1.0}
-        GroupDialog.__init__(self, opencue.wrappers.group.NestedGroup(parentGroup), None, defaults, parent)
+        GroupDialog.__init__(self, parentGroup, None, defaults, parent)

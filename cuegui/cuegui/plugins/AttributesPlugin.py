@@ -279,6 +279,8 @@ class JobAttributes(AbstractAttributes):
         return {"depends": jobObject.getWhatThisDependsOn()}
 
     def dataSource(self, job, preload):
+        if isinstance(job, opencue.wrappers.job.NestedJob):
+            job = job.asJob()
         d = {
             "job": job.data.name,
             "id": opencue.util.id(job),

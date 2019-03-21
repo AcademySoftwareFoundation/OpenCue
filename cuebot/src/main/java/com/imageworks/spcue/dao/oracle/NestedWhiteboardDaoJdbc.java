@@ -40,7 +40,9 @@ import com.imageworks.spcue.grpc.job.GroupStats;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.NestedGroup;
+import com.imageworks.spcue.grpc.job.NestedGroupSeq;
 import com.imageworks.spcue.grpc.job.NestedJob;
+import com.imageworks.spcue.grpc.job.NestedJobSeq;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -150,6 +152,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
 
         public Map<String, NestedGroup> groups = new HashMap<String,NestedGroup>(50);
+        public Map<String, List<String>> childrenMap = new HashMap<String, List<String>>();
+        public String rootGroupID;
 
         @Override
         public NestedGroup mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -157,8 +161,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             String groupId = rs.getString("pk_folder");
             NestedGroup group;
             if (!groups.containsKey(groupId)) {
-                String parentGroup = rs.getString("pk_parent_folder");
-                NestedGroup.Builder groupBuilder = NestedGroup.newBuilder()
+                group = NestedGroup.newBuilder()
                         .setId(rs.getString("pk_folder"))
                         .setName(rs.getString("group_name"))
                         .setDefaultJobPriority(rs.getInt("int_def_job_priority"))
@@ -167,29 +170,30 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setMaxCores(Convert.coreUnitsToCores(rs.getInt("folder_max_cores")))
                         .setMinCores(Convert.coreUnitsToCores(rs.getInt("folder_min_cores")))
                         .setLevel(rs.getInt("int_level"))
-                        .setDepartment(rs.getString("dept_name"));
-                if (parentGroup != null) {
-                    NestedGroup parent = groups.get(parentGroup);
-                    NestedGroup.Builder parentBuilder = parent.toBuilder();
+                        .setDepartment(rs.getString("dept_name"))
+                        .build();
 
-                    parent = parentBuilder.setGroups(
-                            parentBuilder.getGroupsBuilder().addNestedGroups(groupBuilder.build())).build();
-                    groups.put(parentGroup, parent);
-                    groupBuilder.setParent(parent);
-                    group = groupBuilder.build();
+                String parentGroupId = rs.getString("pk_parent_folder");
+                if (parentGroupId != null) {
+                    List<String> children = childrenMap.get(parentGroupId);
+                    if (children == null) {
+                        children = new ArrayList<>();
+                        childrenMap.put(parentGroupId, children);
+                    }
+                    children.add(groupId);
                 }
                 else {
-                    group = groupBuilder.build();
-                    groups.put("root", group);
+                    rootGroupID = rs.getString("pk_folder");
                 }
                 groups.put(groupId, group);
-            } else {
+            }
+            else {
                 group = groups.get(groupId);
             }
             if (rs.getString("pk_job") != null) {
-                NestedJob job = mapResultSetToJob(rs);
-                NestedJob.Builder jobBuilder = mapResultSetToJob(rs).toBuilder();
-                jobBuilder.setParent(group);
+                NestedJob job = mapResultSetToJob(rs).toBuilder()
+                        .setParent(group)
+                        .build();
                 GroupStats oldStats = group.getStats();
                 JobStats jobStats = job.getStats();
                 GroupStats groupStats = GroupStats.newBuilder()
@@ -198,11 +202,13 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setWaitingFrames(oldStats.getWaitingFrames() + jobStats.getWaitingFrames())
                         .setDependFrames(oldStats.getDependFrames() + jobStats.getDependFrames())
                         .setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores())
-                        .setPendingJobs(oldStats.getPendingJobs() + 1)
+                        .setPendingJobs(oldStats.getPendingJobs() + 1).build();
+
+                NestedJobSeq nestedJobSeq = group.getJobs().toBuilder()
+                        .addNestedJobs(job)
                         .build();
-                job = jobBuilder.build();
                 group = group.toBuilder()
-                        .setJobs(group.getJobs().toBuilder().addNestedJobs(job).build())
+                        .setJobs(nestedJobSeq)
                         .setStats(groupStats)
                         .build();
                 groups.put(groupId, group);
@@ -211,12 +217,30 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         }
     }
 
+    private NestedJobWhiteboardMapper updateConnections(NestedJobWhiteboardMapper mapper) {
+        for (Map.Entry<String, List<String>> entry : mapper.childrenMap.entrySet()) {
+            NestedGroup group = mapper.groups.get(entry.getKey());
+            NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
+            for (String childId : entry.getValue()) {
+                NestedGroup child = mapper.groups.get(childId);
+                child = child.toBuilder().setParent(group).build();
+                childrenBuilder.addNestedGroups(child);
+                mapper.groups.put(childId, child);
+            }
+            group = group.toBuilder()
+                    .setGroups(childrenBuilder.build())
+                    .build();
+            mapper.groups.put(entry.getKey(), group);
+        }
+        return mapper;
+    }
+
     public NestedGroup getJobWhiteboard(ShowInterface show) {
 
         CachedJobWhiteboardMapper cachedMapper = jobCache.get(show.getShowId());
         if (cachedMapper != null) {
             if (System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT) {
-                return cachedMapper.mapper.groups.get("root");
+                return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
             }
         }
 
@@ -225,10 +249,10 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
                 mapper, show.getShowId());
 
+        mapper = updateConnections(mapper);
         jobCache.put(show.getShowId(), new CachedJobWhiteboardMapper(mapper));
-        return mapper.groups.get("root");
+        return mapper.groups.get(mapper.rootGroupID);
     }
-
 
     private static final NestedJob mapResultSetToJob(ResultSet rs) throws SQLException {
         NestedJob.Builder jobBuilder = NestedJob.newBuilder()

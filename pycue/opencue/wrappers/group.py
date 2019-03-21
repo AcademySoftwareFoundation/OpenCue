@@ -81,7 +81,12 @@ class Group(object):
         """Moves the given jobs into this group
         @type  jobs: list<Job>
         @param jobs: The jobs to add to this group"""
-        jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
+        jobsToReparent = []
+        for job in jobs:
+            if isinstance(job, opencue.wrappers.job.NestedJob):
+                job = job.asJob()
+            jobsToReparent.append(job.data)
+        jobSeq = job_pb2.JobSeq(jobs=jobsToReparent)
         self.stub.ReparentJobs(job_pb2.GroupReparentJobsRequest(group=self.data, jobs=jobSeq),
                                timeout=Cuebot.Timeout)
 
@@ -181,9 +186,7 @@ class NestedGroup(Group):
 
     def createSubGroup(self, name):
         """Create a sub group"""
-        return Group(self.stub.CreateSubGroup(
-            job_pb2.GroupCreateSubGroupRequest(group=self.asGroup(), name=name),
-            timeout=Cuebot.Timeout).group)
+        return Group(self.asGroup()).createSubGroup(name)
 
     def children(self):
         """returns jobs and groups in a single array"""
