@@ -83,11 +83,13 @@ def countJobTypes(objects):
 
     for object in objects:
         if isJob(object):
+            if isinstance(object, opencue.wrappers.job.NestedJob):
+                object = object.asJob()
             if object.data.is_paused:
                 results["paused"] = True
             else:
                 results["unpaused"] = True
-            if object.data.stats.dead_frames:
+            if object.data.job_stats.dead_frames:
                 results["hasDead"] = True
             if object.data.auto_eat:
                 results["autoEating"] = True
