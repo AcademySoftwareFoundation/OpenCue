@@ -41,6 +41,7 @@ COPY pyoutline/bin ./pyoutline/bin
 COPY pyoutline/etc ./pyoutline/etc
 COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/outline ./pyoutline/outline
+COPY pyoutline/versions ./pyoutline/versions
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
