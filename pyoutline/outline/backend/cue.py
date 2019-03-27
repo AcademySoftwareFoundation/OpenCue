@@ -24,9 +24,8 @@ from xml.etree import ElementTree as Et
 
 import FileSequence
 import opencue
-import versions
 
-from outline import config, util, OutlineException
+from outline import config, util, versions, OutlineException
 from outline.depend import DependType
 
 

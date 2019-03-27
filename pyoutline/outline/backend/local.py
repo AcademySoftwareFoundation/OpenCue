@@ -15,10 +15,9 @@
 
 import sqlite3
 import subprocess
-import versions
 
 from outline.manifest import FileSequence
-from outline import config, util
+from outline import config, util, versions
 
 
 def build_command(ol, layer, frame):
