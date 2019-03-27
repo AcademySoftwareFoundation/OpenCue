@@ -19,7 +19,7 @@ import signal
 import sys
 import traceback
 
-import versions
+from outline import versions
 
 
 logging.basicConfig()
