@@ -32,7 +32,7 @@ def getConfigValues():
             try:
                 configData = yaml.load(data)
             except yaml.YAMLError:
-                raise CuesubmitConfigError("Could not load yaml file: {}. Please check it's "
+                raise CuesubmitConfigError("Could not load yaml file: {}. Please check its "
                                            "formatting".format(configFile))
     return configData
 
