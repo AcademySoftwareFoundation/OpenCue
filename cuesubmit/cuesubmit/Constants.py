@@ -15,15 +15,19 @@
 
 import os
 
-UI_NAME = 'OPENCUEMAYA'
-SUBMIT_APP_WINDOW_TITLE = 'OpenCue Submit'
+from cuesubmit import Config
+
+config = Config.getConfigValues()
 
 UP_KEY = 16777235
 DOWN_KEY = 16777237
 TAB_KEY = 16777217
 
-MAYA_RENDER_CMD = 'Render'
-NUKE_RENDER_CMD = 'nuke'
-FRAME_TOKEN = '#IFRAME#'
+UI_NAME = config.get('UI_NAME', 'OPENCUESUBMIT')
+SUBMIT_APP_WINDOW_TITLE = config.get('SUBMIT_APP_WINDOW_TITLE', 'OpenCue Submit')
+
+MAYA_RENDER_CMD = config.get('MAYA_RENDER_CMD', 'Render')
+NUKE_RENDER_CMD = config.get('NUKE_RENDER_CMD', 'nuke')
+FRAME_TOKEN = config.get('FRAME_TOKEN', '#IFRAME#')
 
 DIR_PATH = os.path.dirname(__file__)
