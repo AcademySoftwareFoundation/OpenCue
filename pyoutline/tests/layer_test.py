@@ -21,7 +21,7 @@ import unittest
 
 import outline
 from outline.modules.shell import Shell
-from tests.test_utils import TemporarySessionDirectory
+import test_utils
 
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
@@ -47,7 +47,7 @@ class CompositeTest(unittest.TestCase):
     @mock.patch('outline.layer.Layer.system')
     def test_execute(self, systemMock):
         """Run the execute method."""
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             self.ol.setup()
             self.event.execute(1)
 
@@ -78,7 +78,7 @@ class ChunkingTest(unittest.TestCase):
         greated then 1, the local frame set will contain
         more than a single frame.
         """
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             self.ol.setup()
         self.assertEqual([1, 2, 3, 4, 5], self.event.get_local_frame_set(1).getAll())
         self.assertEqual([8, 9, 10], self.event.get_local_frame_set(8).getAll())
@@ -181,7 +181,7 @@ class LayerTest(unittest.TestCase):
 
     def test_get_path(self):
         """Test that the layer session path is correct."""
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             self.assertRaises(outline.OutlineException, self.event.get_path)
             self.ol.setup()
             expectedPath = '%s/layers/%s' % (
@@ -190,13 +190,13 @@ class LayerTest(unittest.TestCase):
 
     def test_setup(self):
         """Test setting up the event for launch."""
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             self.event.setup()
 
     @mock.patch('outline.layer.Layer.system')
     def test_execute(self, systemMock):
         """Test execution of a frame."""
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             self.ol.setup()
             self.event.execute(1)
 
@@ -218,7 +218,7 @@ class LayerTest(unittest.TestCase):
 
     def test_add_layer_during_setup(self):
         """Test to ensure that layers added during setup are serialized."""
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.Outline('mr_hat')
             ol.add_layer(TestA('test_a'))
             ol.setup()
@@ -248,7 +248,7 @@ class LayerTest(unittest.TestCase):
         self.assertEquals(ol, ol.get_layer('test').get_outline())
 
     def test_dependency_creation(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             outline.Outline.current = None
             ol = outline.Outline('after_init')
             ol.add_layer(TestAfterInit('test'))
@@ -290,7 +290,7 @@ class OutputRegistrationTest(unittest.TestCase):
         Test that output registered in a pre-process is serialized
         to a ol:outputs file in the render layer.
         """
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.Outline("pre_test")
 
             # the render layer

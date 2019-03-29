@@ -20,7 +20,8 @@ import os
 import unittest
 
 from outline import load_json
-from tests.test_utils import TemporarySessionDirectory
+import test_utils
+
 
 JSON_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'json')
 
@@ -48,7 +49,7 @@ class JsonTest(unittest.TestCase):
         """Load JSON from a file"""
         with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
             ol = load_json(fp.read())
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol.setup()
             ol.get_layer('shell_layer').execute('1000')
 

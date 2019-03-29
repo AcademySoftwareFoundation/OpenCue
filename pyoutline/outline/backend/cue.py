@@ -115,7 +115,7 @@ def launch(launcher, use_pycuerun=True):
 
 def test(job):
     """
-    Test the given job.  This function returns immediatly
+    Test the given job.  This function returns immediately
     when the given job completes, or throws an L{OutlineException}
     if the job fails in any way.
 
@@ -222,7 +222,7 @@ def _serialize(launcher, use_pycuerun):
 
     env = Et.SubElement(j, "env")
     for env_k, env_v in ol.get_env().iteritems():
-        # Only pre-setshot environement variables are
+        # Only pre-setshot environment variables are
         # passed up to the cue.
         if env_v[1]:
             pair = Et.SubElement(env, "key", {"name": env_k})
@@ -231,7 +231,7 @@ def _serialize(launcher, use_pycuerun):
     layers = Et.SubElement(j, "layers")
     for layer in ol.get_layers():
 
-        # Unregisterd layers are in the job, but, don't show up on the cue.
+        # Unregistered layers are in the job, but, don't show up on the cue.
         if not layer.get_arg("register"):
             continue
 

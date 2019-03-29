@@ -17,11 +17,13 @@
 
 import os
 import unittest
+from xml.etree import ElementTree as Et
 
 import FileSequence
 import outline
 from outline.modules.shell import Shell
-from tests.test_utils import TemporarySessionDirectory
+from test_utils import TemporarySessionDirectory
+
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
 
@@ -176,6 +178,83 @@ class OutlineTest(unittest.TestCase):
             # is passed.
             ol.set_arg('swoob', 8008)
             self.assertEquals(8008, ol.get_arg('swoob', 2112))
+
+
+class LoadOutlineTest(unittest.TestCase):
+    """
+    Tests to ensure that the opencue spec generator
+    is doing its job.
+    """
+    script = os.path.join(SCRIPTS_DIR, 'shell.outline')
+
+    def test_ol_tag_override_env(self):
+        """
+        Check that the OL_TAG_OVERRIDE environment variable
+        is handled properly.
+        """
+        ol = outline.load_outline(self.script)
+        for layer in ol.get_layers():
+            layer.set_arg("tags", ["foo", "man", "chu"])
+
+        try:
+            os.environ["OL_TAG_OVERRIDE"] = "general"
+            l = outline.cuerun.OutlineLauncher(ol)
+
+            root = Et.fromstring(l.serialize())
+            self.assertEquals(os.environ["OL_TAG_OVERRIDE"],
+                              root.find("job/layers/layer/tags").text)
+        finally:
+            del os.environ["OL_TAG_OVERRIDE"]
+
+    def test_tags_as_list(self):
+        """Check that tags passed in as a list."""
+
+        ol = outline.load_outline(self.script)
+        for layer in ol.get_layers():
+            layer.set_arg("tags", ["foo", "man", "chu"])
+
+        l = outline.cuerun.OutlineLauncher(ol)
+        root = Et.fromstring(l.serialize())
+        self.assertEquals("foo | man | chu",
+                          root.find("job/layers/layer/tags").text)
+
+    def test_tags_as_string(self):
+        """Check tags passed in as a string."""
+
+        ol = outline.load_outline(self.script)
+        for layer in ol.get_layers():
+            layer.set_arg("tags", "foo | man | chu")
+
+        l = outline.cuerun.OutlineLauncher(ol)
+        root = Et.fromstring(l.serialize())
+        self.assertEquals("foo | man | chu",
+                          root.find("job/layers/layer/tags").text)
+
+    def test_os_flag(self):
+        """
+        Check that the os flag is handled properly.
+        """
+        ol = outline.load_outline(self.script)
+        l = outline.cuerun.OutlineLauncher(ol, os="awesome")
+
+        root = Et.fromstring(l.serialize())
+        self.assertEquals("awesome",
+                          root.find("job/os").text)
+
+    def test_ol_os_env(self):
+        """
+        Check that the OL_OS environment variable
+        is handled properly.
+        """
+        try:
+            os.environ["OL_OS"] = "radical"
+            ol = outline.load_outline(self.script)
+            l = outline.cuerun.OutlineLauncher(ol)
+            root = Et.fromstring(l.serialize())
+            self.assertEquals("radical",
+                              root.find("job/os").text)
+        finally:
+            del os.environ["OL_OS"]
 
 
 if __name__ == '__main__':

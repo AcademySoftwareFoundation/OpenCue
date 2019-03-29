@@ -20,7 +20,7 @@ import unittest
 import outline
 from outline.depend import DependType
 from outline.modules.shell import Shell
-from tests.test_utils import TemporarySessionDirectory
+import test_utils
 
 
 class DependTest(unittest.TestCase):
@@ -46,7 +46,7 @@ class DependTest(unittest.TestCase):
         self.assertEqual(layer2, depends[0].get_depend_on_layer())
 
     def testShortHandDepend(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             layer1Name = 'bah1'
             layer2Name = 'bah2'
             layer1 = Shell(layer1Name, command=['/bin/ls'])
@@ -63,7 +63,7 @@ class DependTest(unittest.TestCase):
             self.assertEqual(layer1, depends[0].get_depend_on_layer())
 
     def testAnyFrameDepend(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             layer1Name = 'bah1'
             layer2Name = 'bah2'
             layer1 = Shell(layer1Name, command=['/bin/ls'], range='1-2')

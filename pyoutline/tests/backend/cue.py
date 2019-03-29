@@ -16,90 +16,52 @@
 
 
 import os
-import sys
 import unittest
 
 from xml.etree import ElementTree as Et
 
-sys.path.insert(0,"../../src")
 import outline
+import outline.backend.cue
 
-class CueBackendTest(unittest.TestCase):
-    """
-    Tests to ensure that the opencue spec generator
-    is doing its job.
-    """
-    script = os.path.dirname(__file__) + "../scripts/shell.outline"
-    
-    def test_ol_tag_override_env(self):
-        """
-        Check that the OL_TAG_OVERRIDE environment variable
-        is handled properly.
-        """
-        ol = outline.load_outline(CueBackendTest.script)
-        for layer in ol.get_layers():
-            layer.set_arg("tags", ["foo", "man", "chu"])
-        
-        try:
-            os.environ["OL_TAG_OVERRIDE"] = "general"
-            l = outline.cuerun.OutlineLauncher(ol)
-    
-            root = Et.fromstring(l.serialize())
-            self.assertEquals(os.environ["OL_TAG_OVERRIDE"], 
-                              root.find("job/layers/layer/tags").text)
-        finally:
-            del os.environ["OL_TAG_OVERRIDE"]
-        
-        
-    def test_tags_as_list(self):
-        """Check that tags passed in as a list."""
-        
-        ol = outline.load_outline(CueBackendTest.script)
-        for layer in ol.get_layers():
-            layer.set_arg("tags", ["foo", "man", "chu"])
-            
-        l = outline.cuerun.OutlineLauncher(ol)
-        root = Et.fromstring(l.serialize())
-        self.assertEquals("foo | man | chu", 
-                          root.find("job/layers/layer/tags").text)
-        
-    def test_tags_as_string(self):
-        """Check tags passed in as a string."""
-        
-        ol = outline.load_outline(CueBackendTest.script)
-        for layer in ol.get_layers():
-            layer.set_arg("tags", "foo | man | chu")
-            
-        l = outline.cuerun.OutlineLauncher(ol)
-        root = Et.fromstring(l.serialize())
-        self.assertEquals("foo | man | chu", 
-                          root.find("job/layers/layer/tags").text)
-        
-    def test_os_flag(self):
-        """
-        Check that the os flag is handled properly.
-        """
-        ol = outline.load_outline(CueBackendTest.script)
-        l = outline.cuerun.OutlineLauncher(ol, os="awesome")
-        
-        root = Et.fromstring(l.serialize())
-        self.assertEquals("awesome", 
-                          root.find("job/os").text)
-        
-    def test_ol_os_env(self):
-        """
-        Check that the OL_OS environment variable
-        is handled properly.
-        """
-        try:
-            os.environ["OL_OS"] = "radical"
-            ol = outline.load_outline(CueBackendTest.script)
-            l = outline.cuerun.OutlineLauncher(ol)
-            root = Et.fromstring(l.serialize())
-            self.assertEquals("radical", 
-                              root.find("job/os").text)
-        finally:
-            del os.environ["OL_OS"]
+
+SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), '..', 'scripts')
+
+
+class SerializeTest(unittest.TestCase):
+    def testSerializeShellOutline(self):
+        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        ol = outline.load_outline(path)
+        launcher = outline.cuerun.OutlineLauncher(ol)
+        outlineXml = outline.backend.cue.serialize(launcher)
+
+        expectedXml = ('<?xml version="1.0"?>'
+                       '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" "http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">'
+                       '<spec>'
+                         '<facility>local</facility>'
+                         '<show>testing</show>'
+                         '<shot>default</shot>'
+                         '<user>cipriano</user>'
+                         '<email>cipriano@example.com</email>'
+                         '<uid>272943</uid>'
+                         '<job name="shell">'
+                           '<paused>False</paused>'
+                           '<maxretries>2</maxretries>'
+                           '<autoeat>False</autoeat>'
+                           '<env />'
+                           '<layers>'
+                             '<layer name="cmd" type="Render">'
+                               '<cmd>/wrappers/opencue_wrap_frame  /bin/pycuerun /Users/cipriano/opencue/pyoutline/tests/backend/../scripts/shell.outline -e #IFRAME#-cmd  --version latest  --repos  --debug</cmd>'
+                               '<range>1000-1000</range>'
+                               '<chunk>1</chunk>'
+                               '<services><service>shell</service></services>'
+                             '</layer>'
+                           '</layers>'
+                         '</job>'
+                         '<depends />'
+                       '</spec>')
+
+        self.assertEqual(expectedXml, outlineXml)
+
 
 if __name__ == '__main__':
     unittest.main()
