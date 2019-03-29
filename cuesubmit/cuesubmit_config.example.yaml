@@ -1,0 +1,10 @@
+# An Example cuesubmit config file.
+# It can be placed anywhere on your filesystem and referenced with
+# the CUESUBMIT_CONFIG_FILE environment variable.
+# If this file is not found the defaults in Constants.py will be used.
+
+UI_NAME : "OPENCUESUBMIT"
+SUBMIT_APP_WINDOW_TITLE : "OpenCue Submit"
+MAYA_RENDER_CMD : "Render"
+NUKE_RENDER_CMD : "nuke"
+FRAME_TOKEN : "#IFRAME#"
