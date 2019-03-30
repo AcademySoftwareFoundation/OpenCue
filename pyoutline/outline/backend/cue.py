@@ -73,8 +73,8 @@ def build_command(launcher, layer):
     command.append("%s/pycuerun" % config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
-    command.append(" --version %s" % versions.get_version("outline"))
-    command.append(" --repos %s" % versions.get_repos())
+    command.append("--version %s" % versions.get_version("outline"))
+    command.append("--repos %s" % versions.get_repos())
     command.append("--debug")
 
     if launcher.get("dev"):
@@ -203,7 +203,7 @@ def _serialize(launcher, use_pycuerun):
         user = util.get_user()
     sub_element(root, "user", user)
     if not launcher.get("nomail"):
-        sub_element(root, "email", "%s@%s" % (util.get_user(),
+        sub_element(root, "email", "%s@%s" % (user,
                                               config.get("outline", "domain")))
     sub_element(root, "uid", str(util.get_uid()))
 
