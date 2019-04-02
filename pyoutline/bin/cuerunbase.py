@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,12 +47,12 @@ def signal_handler(signum, frame):
     """
     Catch unexpected signals and dump as much info as possible.
     """
-    print 'caught signal', signum
-    print frame.f_back
-    print frame.f_lasti
-    print frame.f_globals
-    print frame.f_locals
-    print frame.f_restricted
+    print('caught signal', signum)
+    print(frame.f_back)
+    print(frame.f_lasti)
+    print(frame.f_globals)
+    print(frame.f_locals)
+    print(frame.f_restricted)
     traceback.print_exc(file=sys.stderr)
 
 
@@ -200,7 +203,7 @@ class AbstractCuerun(object):
             result = cuerun.launch(outline, **args)
             self.__evh.emit(event.LaunchEvent(event.AFTER_LAUNCH, self, job=result, outline=outline))
             return result
-        except Exception, e:
+        except Exception as e:
             sys.stderr.write("outline failure, %s" % e)
             traceback.print_exc(file=sys.stderr)
             sys.exit(1)
