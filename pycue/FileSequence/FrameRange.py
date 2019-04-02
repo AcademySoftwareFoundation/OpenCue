@@ -76,6 +76,9 @@ class FrameRange(object):
     def __getitem__(self, key):
         return self.frameList[key]
 
+    def __len__(self):
+        return self.size()
+
     def size(self):
         """Gets the number of frames contained in this sequence."""
         return len(self.frameList)

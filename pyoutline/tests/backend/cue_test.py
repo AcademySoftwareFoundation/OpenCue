@@ -25,7 +25,7 @@ import opencue.wrappers.job
 
 import outline
 import outline.backend.cue
-import tests.test_utils as test_utils
+from .. import test_utils
 
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -80,51 +80,44 @@ class SerializeTest(unittest.TestCase):
 
 
 class BuildCommandTest(unittest.TestCase):
-    def testBuildShellCommand(self):
+    def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
-        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        layer = ol.get_layer('cmd')
+        self.ol = outline.load_outline(path)
+        self.launcher = outline.cuerun.OutlineLauncher(self.ol, user=TEST_USER)
+        self.layer = self.ol.get_layer('cmd')
 
+    def testBuildShellCommand(self):
         self.assertEqual(
             [
                 '/wrappers/opencue_wrap_frame', '', '/bin/pycuerun',
                 '%s/shell.outline -e #IFRAME#-cmd' % SCRIPTS_DIR,
                 '--version latest', '--repos ', '--debug',
             ],
-            outline.backend.cue.build_command(launcher, layer))
+            outline.backend.cue.build_command(self.launcher, self.layer))
 
     def testBuildCommandWithStrace(self):
-        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
-        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        layer = ol.get_layer('cmd')
-        layer.set_arg('strace', True)
-        layer.set_arg('setshot', False)
+        self.layer.set_arg('strace', True)
+        self.layer.set_arg('setshot', False)
 
         with test_utils.TemporarySessionDirectory():
-            ol.setup()
+            self.ol.setup()
 
             self.assertEqual(
                 [
                     'strace', '-ttt', '-T', '-e', 'open,stat', '-f', '-o',
-                    '%s/strace.log' % ol.get_session().get_path(layer),
+                    '%s/strace.log' % self.ol.get_session().get_path(self.layer),
                     '/wrappers/opencue_wrap_frame_no_ss', '', '/bin/pycuerun',
-                    '%s -e #IFRAME#-cmd' % ol.get_path(),
+                    '%s -e #IFRAME#-cmd' % self.ol.get_path(),
                     '--version latest', '--repos ', '--debug',
                 ],
-                outline.backend.cue.build_command(launcher, layer))
+                outline.backend.cue.build_command(self.launcher, self.layer))
 
     def testBuildCommandWithCustomWrapper(self):
-        path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         devUser = 'foo-user'
         wrapperPath = '/fake/wrapper'
-        ol = outline.load_outline(path)
-        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
-        launcher.set_flag('dev', True)
-        launcher.set_flag('devuser', devUser)
-        layer = ol.get_layer('cmd')
-        layer.set_arg('wrapper', wrapperPath)
+        self.launcher.set_flag('dev', True)
+        self.launcher.set_flag('devuser', devUser)
+        self.layer.set_arg('wrapper', wrapperPath)
 
         self.assertEqual(
             [
@@ -133,10 +126,17 @@ class BuildCommandTest(unittest.TestCase):
                 '--version latest', '--repos ', '--debug', '--dev',
                 '--dev-user %s' % devUser,
             ],
-            outline.backend.cue.build_command(launcher, layer))
+            outline.backend.cue.build_command(self.launcher, self.layer))
 
 
 class LaunchTest(unittest.TestCase):
+
+    def setUp(self):
+        self.job_wait_period_original = outline.backend.cue.JOB_WAIT_PERIOD_SEC
+        outline.backend.cue.JOB_WAIT_PERIOD_SEC = .1
+
+    def tearDown(self):
+        outline.backend.cue.JOB_WAIT_PERIOD_SEC = self.job_wait_period_original
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.Cuebot.setHosts')
@@ -175,12 +175,15 @@ class LaunchTest(unittest.TestCase):
         launchSpecAndWaitMock.assert_called_with(serializedXml)
         isJobPendingMock.assert_has_calls([mock.call(jobName), mock.call(jobName)])
 
+    @mock.patch('opencue.api.getJob')
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.launchSpecAndWait')
-    def testLaunchAndTest(self, launchSpecAndWaitMock, getStubMock):
+    def testLaunchAndTest(self, launchSpecAndWaitMock, getStubMock, getJobMock):
         jobName = 'another-job'
         launchSpecAndWaitMock.return_value = [
             opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
+        getJobMock.return_value = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         ol = outline.load_outline(path)

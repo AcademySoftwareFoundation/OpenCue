@@ -35,6 +35,8 @@ __all__ = ["launch",
            "serialize",
            "serialize_simple"]
 
+JOB_WAIT_PERIOD_SEC = 5
+
 
 def build_command(launcher, layer):
     """
@@ -131,7 +133,7 @@ def test(job):
     try:
         while True:
             try:
-                job = opencue.api.getJob(job)
+                job = opencue.api.getJob(job.name())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     msg = "Job test failed, dead or eaten frames on: %s"
                     raise OutlineException(msg % job.data.name)
@@ -168,7 +170,7 @@ def wait(job):
         except Exception, e:
             msg = "opencue error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, e)
-        time.sleep(5)
+        time.sleep(JOB_WAIT_PERIOD_SEC)
 
 
 def serialize(launcher):

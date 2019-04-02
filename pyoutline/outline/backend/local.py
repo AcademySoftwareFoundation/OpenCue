@@ -16,8 +16,10 @@
 import sqlite3
 import subprocess
 
-from outline.manifest import FileSequence
-from outline import config, util, versions
+import FileSequence
+
+from outline import config
+from outline import versions
 
 
 def build_command(ol, layer, frame):
@@ -80,7 +82,6 @@ def build_frame_range(frame_range, chunk_size):
             frames.append(frame_set.__getitem__(0))
         else:
             unique_frames = list(set(frame_set))
-            print unique_frames
             for i in range(0, len(unique_frames)):
                 if i % chunk_size == 0:
                     frames.append(unique_frames[i])
@@ -98,7 +99,6 @@ class Dispatcher(object):
 
 
     def dispatch(self):
-        import copy
         try:
             while True:
                 l, f = self.__get_next_frame()

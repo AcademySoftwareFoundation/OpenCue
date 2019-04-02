@@ -136,37 +136,50 @@ class LayerTest(unittest.TestCase):
 
     def setUp(self):
         """Setup a basis event from a preset outline file."""
+        outline.config.add_section('Shell')
+        outline.config.set('Shell', 'foo', 'bar')
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         self.ol = outline.load_outline(path)
         self.ol.set_frame_range('1-10')
-        self.event = self.ol.get_layer('cmd')
+        self.ol.set_env('cue_test_01', 'foo')
+        self.ol.set_env('cue_test_02', 'bar')
+        self.layer = self.ol.get_layer('cmd')
+        self.layer.set_env('cue_layer_01', 'layer-env-a')
+        self.layer.set_env('cue_layer_02', 'layer-env-b')
+
+    def tearDown(self):
+        outline.config.remove_section('Shell')
 
     def test_name(self):
         """Test the name has been set properly."""
-        self.assertEqual('cmd', self.event.get_name())
+        self.assertEqual('cmd', self.layer.get_name())
 
     def test_to_string(self):
         """Tests to ensure __str__ returns the layer name."""
-        self.assertEqual(self.event.get_name(), str(self.event))
+        self.assertEqual(self.layer.get_name(), str(self.layer))
 
     def test_get_set_args(self):
         """Test the argument getter/setter methods."""
+        self.assertEqual(self.layer.get_arg('test1'), 1)
+        self.assertEqual(self.layer.get_arg('test2'), 2)
 
-        self.assertEqual(self.event.get_arg('test1'), 1)
-        self.assertEqual(self.event.get_arg('test2'), 2)
+        self.layer.set_arg('foo', 1)
 
-        self.event.set_arg('foo', 1)
+        self.assertEqual(1, self.layer.get_arg('foo'))
+        self.assertEqual(1, self.layer.get_arg('bar', 1))
 
-        self.assertEqual(1, self.event.get_arg('foo'))
-        self.assertEqual(1, self.event.get_arg('bar', 1))
+        self.layer.set_default_arg('foo', 2)
+        self.layer.set_default_arg('foo2', 2)
+        self.assertEqual(1, self.layer.get_arg('foo'))
+        self.assertEqual(2, self.layer.get_arg('foo2'))
 
     def test_invalid_type_args(self):
         """Test the interpolation of arg strings."""
 
-        self.event.require_arg('shazam', str)
-        self.assertRaises(outline.layer.LayerException, self.event.set_arg, 'shazam', { })
+        self.layer.require_arg('shazam', str)
+        self.assertRaises(outline.layer.LayerException, self.layer.set_arg, 'shazam', { })
 
-        self.event.set_arg('shazam', 'shazoo')
+        self.layer.set_arg('shazam', 'shazoo')
 
     def test_require_arg(self):
         """
@@ -174,47 +187,69 @@ class LayerTest(unittest.TestCase):
         throw a LayerException if they are not set before
         setup() is run.
         """
-        self.event.require_arg('bobofet')
-        self.assertRaises(outline.layer.LayerException, self.event.check_required_args)
-        self.event.set_arg('bobofet', 1)
-        self.event.check_required_args()
+        self.layer.require_arg('bobofet')
+        self.assertRaises(outline.layer.LayerException, self.layer.check_required_args)
+        self.layer.set_arg('bobofet', 1)
+        self.layer.check_required_args()
+
+    def test_default_args(self):
+        default_args = self.layer.get_default_args()
+
+        self.assertEqual(
+            {'chunk': 1, 'register': True, 'range': None, 'foo': 'bar'},
+            default_args)
+
+    def test_args_override(self):
+        with test_utils.TemporarySessionDirectory():
+            self.ol.setup()
+            self.layer.put_data('args_override', {'arg_to_be_overridden': 'blah.blah'})
+
+            self.layer.setup_args_override()
+
+            self.assertEqual('blah.blah', self.layer.get_arg('arg_to_be_overridden'))
 
     def test_get_path(self):
         """Test that the layer session path is correct."""
         with test_utils.TemporarySessionDirectory():
-            self.assertRaises(outline.OutlineException, self.event.get_path)
+            self.assertRaises(outline.OutlineException, self.layer.get_path)
             self.ol.setup()
             expectedPath = '%s/layers/%s' % (
-                self.ol.get_session().get_path(), self.event.get_name())
-            self.assertEquals(expectedPath, self.event.get_path())
+                self.ol.get_session().get_path(), self.layer.get_name())
+            self.assertEquals(expectedPath, self.layer.get_path())
 
     def test_setup(self):
         """Test setting up the event for launch."""
         with test_utils.TemporarySessionDirectory():
-            self.event.setup()
+            self.layer.setup()
 
     @mock.patch('outline.layer.Layer.system')
     def test_execute(self, systemMock):
         """Test execution of a frame."""
+        os.environ = {}
+
         with test_utils.TemporarySessionDirectory():
             self.ol.setup()
-            self.event.execute(1)
+            self.layer.execute(1)
 
             systemMock.assert_has_calls([mock.call(['ps', 'aux'], frame=1)])
+            self.assertTrue('foo', os.environ['cue_test_01'])
+            self.assertTrue('bar', os.environ['cue_test_02'])
+            self.assertTrue('layer-env-a', os.environ['cue_layer_01'])
+            self.assertTrue('layer-env-b', os.environ['cue_layer_02'])
 
     def test_get_set_frame_range(self):
         """Test getting/setting the frame range.  If the frame
         range is not set on a layer, then it should default to
         the outline frame range.
         """
-        self.assertEquals(self.ol.get_frame_range(), self.event.get_frame_range())
-        self.event.set_frame_range('1-10')
-        self.assertEquals('1,2,3,4,5,6,7,8,9,10', self.event.get_frame_range())
+        self.assertEquals(self.ol.get_frame_range(), self.layer.get_frame_range())
+        self.layer.set_frame_range('1-10')
+        self.assertEquals('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
 
     def test_get_set_chunk_size(self):
         """Test get/set of chunk size."""
-        self.event.set_chunk_size(5)
-        self.assertEquals(5, self.event.get_chunk_size())
+        self.layer.set_chunk_size(5)
+        self.assertEquals(5, self.layer.get_chunk_size())
 
     def test_add_layer_during_setup(self):
         """Test to ensure that layers added during setup are serialized."""
@@ -271,12 +306,24 @@ class LayerTest(unittest.TestCase):
         t.set_output_attribute('test', True)
         self.assertTrue(t.get_output('node1').get_attribute('test'))
 
-    def test_set_output_attribute(self):
-        """Test setting an input attribute on all registered input."""
-        t = TestA('test')
-        t.add_input('node1', outline.io.Path('/tmp'))
-        t.set_input_attribute('test', True)
-        self.assertTrue(t.get_input('node1').get_attribute('test'))
+    @mock.patch('outline.io.system')
+    def test_system(self, systemMock):
+        self.layer.system('arbitrary-command', ignore_error=True)
+
+        systemMock.assert_called_with('arbitrary-command', True, None)
+
+    def test_set_name(self):
+        newLayerName = 'arbitrary-new-name'
+
+        self.layer.set_name(newLayerName)
+
+        self.assertEqual(newLayerName, self.layer.get_name())
+
+        with test_utils.TemporarySessionDirectory():
+            self.ol.setup()
+
+            self.assertRaises(outline.layer.LayerException, self.layer.set_name, 'this-should-fail')
+
 
 class OutputRegistrationTest(unittest.TestCase):
 
