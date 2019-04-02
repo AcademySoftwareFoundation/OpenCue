@@ -67,6 +67,8 @@ fcnf = os.environ.get('OPENCUE_CONF', '')
 if os.path.exists(fcnf):
     config.update(yaml.load(open(fcnf).read()))
 
+DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
+DEFAULT_GRPC_PORT = 8443
 
 class Cuebot(object):
     """Used to manage the connection to the Cuebot.  Normally the connection
@@ -151,20 +153,23 @@ class Cuebot(object):
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
+        maxMessageBytes = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
         for host in hosts:
             if ':' in host:
-                connect_str = host
+                connectStr = host
             else:
-                connect_str = '%s:%s' % (host, config.get('cuebot.grpc_port', 8443))
-            logger.debug('connecting to gRPC at %s', connect_str)
+                connectStr = '%s:%s' % (host, config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
+            logger.debug('connecting to gRPC at %s', connectStr)
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
-                Cuebot.RpcChannel = grpc.insecure_channel(connect_str)
+                Cuebot.RpcChannel = grpc.insecure_channel(connectStr, options=[
+                    ('grpc.max_send_message_length', maxMessageBytes),
+                    ('grpc.max_receive_message_length', maxMessageBytes)])
                 # Test the connection
                 Cuebot.getStub('cue').GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout)
             except Exception:
-                logger.warning('Could not establish grpc channel with {}.'.format(connect_str))
+                logger.warning('Could not establish grpc channel with {}.'.format(connectStr))
                 continue
             atexit.register(Cuebot.closeChannel)
             return None
