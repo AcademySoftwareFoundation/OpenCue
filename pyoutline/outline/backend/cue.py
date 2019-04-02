@@ -35,6 +35,8 @@ __all__ = ["launch",
            "serialize",
            "serialize_simple"]
 
+JOB_WAIT_PERIOD_SEC = 5
+
 
 def build_command(launcher, layer):
     """
@@ -73,8 +75,8 @@ def build_command(launcher, layer):
     command.append("%s/pycuerun" % config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
-    command.append(" --version %s" % versions.get_version("outline"))
-    command.append(" --repos %s" % versions.get_repos())
+    command.append("--version %s" % versions.get_version("outline"))
+    command.append("--repos %s" % versions.get_repos())
     command.append("--debug")
 
     if launcher.get("dev"):
@@ -115,7 +117,7 @@ def launch(launcher, use_pycuerun=True):
 
 def test(job):
     """
-    Test the given job.  This function returns immediatly
+    Test the given job.  This function returns immediately
     when the given job completes, or throws an L{OutlineException}
     if the job fails in any way.
 
@@ -131,7 +133,7 @@ def test(job):
     try:
         while True:
             try:
-                job = opencue.api.getJob(job)
+                job = opencue.api.getJob(job.name())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
                     msg = "Job test failed, dead or eaten frames on: %s"
                     raise OutlineException(msg % job.data.name)
@@ -168,7 +170,7 @@ def wait(job):
         except Exception, e:
             msg = "opencue error waiting on job: %s, %s. Will continue to wait."
             print >> sys.stderr, msg % (job.data.name, e)
-        time.sleep(5)
+        time.sleep(JOB_WAIT_PERIOD_SEC)
 
 
 def serialize(launcher):
@@ -203,7 +205,7 @@ def _serialize(launcher, use_pycuerun):
         user = util.get_user()
     sub_element(root, "user", user)
     if not launcher.get("nomail"):
-        sub_element(root, "email", "%s@%s" % (util.get_user(),
+        sub_element(root, "email", "%s@%s" % (user,
                                               config.get("outline", "domain")))
     sub_element(root, "uid", str(util.get_uid()))
 
@@ -222,7 +224,7 @@ def _serialize(launcher, use_pycuerun):
 
     env = Et.SubElement(j, "env")
     for env_k, env_v in ol.get_env().iteritems():
-        # Only pre-setshot environement variables are
+        # Only pre-setshot environment variables are
         # passed up to the cue.
         if env_v[1]:
             pair = Et.SubElement(env, "key", {"name": env_k})
@@ -231,7 +233,7 @@ def _serialize(launcher, use_pycuerun):
     layers = Et.SubElement(j, "layers")
     for layer in ol.get_layers():
 
-        # Unregisterd layers are in the job, but, don't show up on the cue.
+        # Unregistered layers are in the job but don't show up on the cue.
         if not layer.get_arg("register"):
             continue
 

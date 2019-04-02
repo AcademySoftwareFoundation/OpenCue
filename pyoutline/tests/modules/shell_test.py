@@ -23,7 +23,7 @@ from outline.loader import Outline
 from outline.modules.shell import Shell
 from outline.modules.shell import ShellSequence
 from outline.modules.shell import ShellScript
-from tests.test_utils import TemporarySessionDirectory
+from .. import test_utils
 
 
 class ShellModuleTest(unittest.TestCase):
@@ -72,7 +72,7 @@ class ShellModuleTest(unittest.TestCase):
 
         layerName = 'arbitrary-layer'
 
-        with TemporarySessionDirectory(), tempfile.NamedTemporaryFile() as scriptFile:
+        with test_utils.TemporarySessionDirectory(), tempfile.NamedTemporaryFile() as scriptFile:
 
             scriptContents = '# !/bin/sh\necho zoom zoom zoom'
 
