@@ -153,7 +153,7 @@ class Cuebot(object):
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
-        maxMessageSize = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
+        maxMessageBytes = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
         for host in hosts:
             if ':' in host:
                 connectStr = host
@@ -163,8 +163,8 @@ class Cuebot(object):
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
                 Cuebot.RpcChannel = grpc.insecure_channel(connectStr, options=[
-                    ('grpc.max_send_message_length', maxMessageSize),
-                    ('grpc.max_receive_message_length', maxMessageSize)])
+                    ('grpc.max_send_message_length', maxMessageBytes),
+                    ('grpc.max_receive_message_length', maxMessageBytes)])
                 # Test the connection
                 Cuebot.getStub('cue').GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout)
