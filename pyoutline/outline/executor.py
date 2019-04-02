@@ -14,6 +14,9 @@
 
 
 """A simple python thread pool."""
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 import Queue
 import threading
@@ -58,6 +61,6 @@ class TaskExecutor(object):
                     item[0](*item[1])
                 else:
                     item[0]()
-            except Exception, e:
+            except Exception as e:
                 logger.warn("Worker thread exception: %s" % e)
             self.__queue.task_done()

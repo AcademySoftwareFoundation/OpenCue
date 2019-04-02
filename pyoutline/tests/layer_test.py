@@ -15,13 +15,16 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 import mock
 import os
 import unittest
 
 import outline
 from outline.modules.shell import Shell
-import test_utils
+from . import test_utils
 
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')

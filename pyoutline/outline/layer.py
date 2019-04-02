@@ -14,6 +14,9 @@
 
 
 """Base classes for all outline modules."""
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import os
 import sys
@@ -22,16 +25,16 @@ import tempfile
 
 import FileSequence
 
-from config import config
-import constants
-from depend import Depend
-from depend import DependType
-import event
-from exception import LayerException
-from exception import SessionException
-import io
-from loader import current_outline
-import util
+from .config import config
+from . import constants
+from .depend import Depend
+from .depend import DependType
+from . import event
+from .exception import LayerException
+from .exception import SessionException
+from . import io
+from .loader import current_outline
+from . import util
 
 
 __all__ = ["Layer",
@@ -60,7 +63,7 @@ class LayerType(type):
         for plugin in PluginManager.get_plugins():
             try:
                 plugin.init(r)
-            except AttributeError, e:
+            except AttributeError as e:
                 pass
         return r
 
@@ -283,7 +286,7 @@ class Layer(object):
 
     def set_env(self, key, value):
         """Set an env var to be set before execute."""
-        if self.__env.has_key(key):
+        if key in self.__env:
             logger.warn("Overwriting outline env var: %s, from %s to %s",
                         key, self.__env[key], value)
         self.__env[str(key)] = str(value)
@@ -415,7 +418,7 @@ class Layer(object):
                 logger.info("Setting post-set shot environement var: %s %s",
                             env_k, env_v)
                 os.environ[str(env_k)] = str(env_v)
-        except AttributeError, e:
+        except AttributeError as e:
             pass
 
         logger.info("Layer %s executing local frame set %s"
@@ -448,9 +451,9 @@ class Layer(object):
                 if hasattr(self, 'get_creator') and self.get_creator():
                     self.get_creator().set_arg(key, value)
                 logger.warn('Replaced arg %s with %s' % (key, value))
-        except SessionException, e:
+        except SessionException as e:
             logger.debug('args_override not found in session (This is normal)')
-        except Exception, e:
+        except Exception as e:
             logger.debug('Not loading args_override from session due to %s' % e)
 
     def set_default_arg(self, key, value):
@@ -458,7 +461,7 @@ class Layer(object):
         Set the value for the given argument if and only if the
         argument has not already been set.
         """
-        if not self.__args.has_key(key):
+        if key not in self.__args:
             self.__args[key] = value
 
     def get_arg(self, key, default=None):
@@ -484,7 +487,7 @@ class Layer(object):
 
     def is_arg_set(self, key):
         """Return true if the key exits in the arg hash."""
-        return self.__args.has_key(key)
+        return key in self.__args
 
     def get_args(self):
         """Return the arg dictionary."""
@@ -794,7 +797,7 @@ class Layer(object):
 
         try:
             on_layer = self.__resolve_layer_name(on_layer)
-        except LayerException, e:
+        except LayerException as e:
             logger.warn("%s layer does not exist, depend failed" % on_layer)
             return
 
@@ -803,7 +806,7 @@ class Layer(object):
         # Handle the depend any bullshit
         #
         if any_frame or depend_type == DependType.LayerOnAny:
-            if isinstance(self, (LayerPreProcess,)):
+            if isinstance(self, LayerPreProcess):
                 depend_type = DependType.LayerOnLayer
             else:
                 depend_type = DependType.FrameByFrame
@@ -848,7 +851,7 @@ class Layer(object):
         """
         try:
             self.__depends.remove(depend)
-        except Exception, e:
+        except Exception as e:
             logger.warn("failed to remove dependency %s, %s" % (depend, e))
 
     def get_depends(self):
@@ -898,7 +901,7 @@ class Layer(object):
         if not name:
             name = "input%d" % len(self.__input)
         name = str(name)
-        if self.__input.has_key(name):
+        if name in self.__input:
             msg = "An input with the name %s has already been created."
             raise LayerException(msg % name)
 
@@ -914,7 +917,7 @@ class Layer(object):
         if not name:
             name = "output%d" % len(self.__output)
         name = str(name)
-        if self.__output.has_key(name):
+        if name in self.__output:
             msg = "An output with the name %s has already been created."
             raise LayerException(msg % name)
 
@@ -994,7 +997,7 @@ class Layer(object):
         If a required property does not exist throw a LayerException.
         """
         for key, rtype in self.__req_args:
-            if not self.__args.has_key(key):
+            if key not in self.__args:
                 msg = "The %s layer requires the %s property to be set."
                 raise LayerException(msg % (self, key))
             if rtype:

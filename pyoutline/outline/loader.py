@@ -14,6 +14,9 @@
 
 
 """Load and parse outline scripts."""
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 
 import os
@@ -25,13 +28,13 @@ import simplejson
 
 import FileSequence
 
-import constants
-from depend import parse_require_str
-from exception import OutlineException
-from exception import SessionException
-from session import is_session_path
-from session import Session
-import util
+from . import constants
+from .depend import parse_require_str
+from .exception import OutlineException
+from .exception import SessionException
+from .session import is_session_path
+from .session import Session
+from . import util
 
 
 logger = logging.getLogger("outline.loader")
@@ -109,9 +112,9 @@ def load_json(json):
     data = simplejson.loads(json)
     ol = Outline(current=True)
 
-    if data.has_key("name"):
+    if "name" in data:
         ol.set_name(data["name"])
-    if data.has_key("range"):
+    if "range" in data:
         ol.set_frame_range(data["range"])
 
     for layer in data["layers"]:
@@ -130,7 +133,7 @@ def load_json(json):
             error = "Json error, layer missing 'name' or 'module' definition"
             raise OutlineException(error)
 
-        except Exception, e:
+        except Exception as e:
             msg = "Failed to load plugin: %s , %s"
             raise OutlineException(msg % (s_class, e))
 
@@ -154,7 +157,7 @@ def parse_outline_script(path):
     try:
         logger.info("parsing outline file %s" % path)
         execfile(path, {})
-    except Exception, exp:
+    except Exception as exp:
         logger.warn("failed to parse as python file, %s" % exp)
         raise OutlineException("failed to parse outline file: %s, %s" %
                                (path, exp))
@@ -437,7 +440,7 @@ class Outline(object):
                     require, dtype = parse_require_str(layer.get_arg("require"))
                     try:
                         layer.depend_on(self.get_layer(require), dtype)
-                    except OutlineException, e:
+                    except OutlineException as e:
                         logger.warn("Invalid layer in depend %s, skipping" % require)
                         continue
                 else:
@@ -446,7 +449,7 @@ class Outline(object):
                         require, dtype = parse_require_str(require)
                         try:
                             layer.depend_on(self.get_layer(str(require)), dtype)
-                        except OutlineException, e:
+                        except OutlineException as e:
                             logger.warn("Invalid layer in depend %s, skipping" % require)
                             continue
 
@@ -499,7 +502,7 @@ class Outline(object):
         layer_map = dict([(evt.get_name(), evt) for evt in self.__layers])
         try:
             return layer_map[name]
-        except Exception, e:
+        except Exception as e:
             raise OutlineException("invalid layer name: %s, %s" % (name, e))
 
     def get_layers(self):
@@ -513,7 +516,7 @@ class Outline(object):
     def is_layer(self, name):
         """Return true if a layer exists with the specified name."""
         layer_map = dict([(evt.get_name(), evt) for evt in self.__layers])
-        return layer_map.has_key(name)
+        return name in layer_map
 
     def get_path(self):
         """Return the path to the outline file."""
@@ -666,7 +669,7 @@ class Outline(object):
                     post set shot.
 
         """
-        if self.__env.has_key(key):
+        if key in self.__env:
             logger.warn("Overwriting outline env var: %s, from %s to %s",
                         key, self.__env[key], value)
 
@@ -713,7 +716,7 @@ class Outline(object):
         @type value: mixed
         @param value: Value to associate with the given key.
         """
-        if self.__args.has_key(key):
+        if key in self.__args:
             logger.warn("Overwriting outline argument: %s, from %s to %s",
                         key, self.__args[key], value)
         self.__args[key] = value

@@ -14,6 +14,9 @@
 
 
 """Class for storing dependency data."""
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 __all__ = ["Depend",
            "DependType",

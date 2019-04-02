@@ -15,6 +15,9 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 import time
 import unittest
 
@@ -33,7 +36,7 @@ class TaskExecutorTest(unittest.TestCase):
         e.wait()
 
     def print_(self, msg):
-        print "Test Message: %s" % msg
+        print("Test Message: %s" % msg)
         time.sleep(1)
 
 

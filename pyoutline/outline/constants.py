@@ -14,6 +14,9 @@
 
 
 """Outline constants and enumerations."""
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 # Init mode is during the parsing of the outline
 # script.  Nothing can really be done in this phase

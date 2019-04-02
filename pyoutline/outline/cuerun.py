@@ -14,6 +14,9 @@
 
 
 """Outline launching and frame execution utlities."""
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 
 import logging
@@ -23,11 +26,11 @@ from optparse import OptionParser, OptionGroup
 
 import FileSequence
 
-from config import config
-import constants
-from layer import Frame
-from loader import load_outline
-import util
+from .config import config
+from . import constants
+from .layer import Frame
+from .loader import load_outline
+from . import util
 
 
 logger = logging.getLogger("outline.cuerun")
@@ -172,7 +175,7 @@ class OutlineLauncher(object):
                 fully_baked = True
                 for layer in self.__outline.get_layers():
                     # Frames dont' have a range by default.
-                    if isinstance(layer, (Frame,)):
+                    if isinstance(layer, Frame):
                         continue
                     elif not layer.get_arg("range"):
                         fully_baked = False
