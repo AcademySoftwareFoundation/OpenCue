@@ -233,7 +233,7 @@ def _serialize(launcher, use_pycuerun):
     layers = Et.SubElement(j, "layers")
     for layer in ol.get_layers():
 
-        # Unregistered layers are in the job, but, don't show up on the cue.
+        # Unregistered layers are in the job but don't show up on the cue.
         if not layer.get_arg("register"):
             continue
 

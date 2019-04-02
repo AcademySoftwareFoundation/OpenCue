@@ -83,3 +83,7 @@ class DispatcherTest(unittest.TestCase):
         subprocessCallMock.return_value = 0
 
         outline.backend.local.launch(launcher)
+
+
+if __name__ == '__main__':
+    unittest.main()

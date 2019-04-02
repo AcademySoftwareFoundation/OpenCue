@@ -13,3 +13,4 @@
 #  limitations under the License.
 
 import cue_test
+import local_test
