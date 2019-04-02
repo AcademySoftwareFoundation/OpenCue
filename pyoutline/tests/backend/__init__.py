@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,5 +15,5 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import cue_test
-import local_test
+from . import cue_test
+from . import local_test

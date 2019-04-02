@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -29,7 +32,7 @@ class PluginManager(object):
         for plugin in cls.registered_plugins:
             try:
                 plugin.init_cuerun_plugin(cuerun)
-            except AttributeError, e:
+            except AttributeError as e:
                 pass
 
     @classmethod
@@ -42,11 +45,11 @@ class PluginManager(object):
                                 [module_name])
             try:
                 module.loaded()
-            except  AttributeError, e:
+            except  AttributeError as e:
                 pass
             cls.registered_plugins.append(module)
 
-        except ImportError, e:
+        except ImportError as e:
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)
 
     @classmethod
@@ -59,9 +62,9 @@ class PluginManager(object):
             plugin = __import__(module_name, globals(), locals(), [module_name])
             try:
                 plugin.init(layer)
-            except AttributeError, e:
+            except AttributeError as e:
                 pass
-        except ImportError, e:
+        except ImportError as e:
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)
 
     @classmethod

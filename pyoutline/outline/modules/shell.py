@@ -14,6 +14,9 @@
 
 
 """Modules for executing arbitrary shell commands."""
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
 
 import logging
@@ -116,7 +119,7 @@ class ShellScript(Frame):
 
     def _setup(self):
         s_path = self.put_file(self.get_arg("script"), "script")
-        os.chmod(s_path, 0755)        
+        os.chmod(s_path, 0o755)        
 
     def _execute(self, frames):
         self.system(self.get_file("script"), frame=frames[0])

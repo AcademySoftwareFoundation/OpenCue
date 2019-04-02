@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -109,7 +112,7 @@ class Dispatcher(object):
                     retcode = subprocess.call(command, shell=False)
                     if retcode != 0:
                         raise Exception("frame failed")
-                except Exception, e:
+                except Exception as e:
                     # Failed to run frame
                     # Set frame to dead
                      c = self.__conn.cursor()
@@ -117,8 +120,8 @@ class Dispatcher(object):
                                ('DEAD', l, f))
                      self.__conn.commit()
 
-        except Exception, e:
-            print "Job is done: %s" % e
+        except Exception as e:
+            print("Job is done: %s" % e)
         finally:
             self.__conn.close()
 

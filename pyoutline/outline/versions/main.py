@@ -16,9 +16,12 @@
 """
     Versions is a method for versioning python modules.
 """
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 import os
-from session import Session, Settings
+from .session import Session, Settings
 
 
 __all__ = ["require",
