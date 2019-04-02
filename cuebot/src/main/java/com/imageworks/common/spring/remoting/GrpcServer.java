@@ -43,20 +43,23 @@ public class GrpcServer implements ApplicationContextAware {
 
     private static final String DEFAULT_NAME = "CueGrpcServer";
     private static final String DEFAULT_PORT = "8443";
+    private static final int DEFAULT_MAX_MESSAGE_SIZE = 104857600;
 
     private String name;
     private int port;
+    private int maxMessageSize;
     private Server server;
     private ApplicationContext applicationContext;
 
     public GrpcServer() {
-        this(DEFAULT_NAME, DEFAULT_PORT, new Properties());
+        this(DEFAULT_NAME, DEFAULT_PORT, new Properties(), DEFAULT_MAX_MESSAGE_SIZE);
     }
 
-    public GrpcServer(String name, String port, Properties props) {
+    public GrpcServer(String name, String port, Properties props, Integer maxMessageSize) {
         logger.info("Setting up gRPC server...");
         this.name = name;
         this.port = Integer.parseInt(port);
+        this.maxMessageSize = maxMessageSize;
     }
 
     public void shutdown() {
@@ -93,7 +96,7 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))
                 .addService(applicationContext.getBean("manageSubscription", ManageSubscription.class))
                 .addService(applicationContext.getBean("manageTask", ManageTask.class))
-                .maxInboundMessageSize(104857600)
+                .maxInboundMessageSize(maxMessageSize)
                 .intercept(new CueServerInterceptor())
                 .build();
         server.start();
