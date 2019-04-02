@@ -8,6 +8,7 @@ logger.level: WARNING
 cuebot.protocol: tcp
 cuebot.grpc_port: 8443
 cuebot.timeout: 10000
+cuebot.max_message_size: 104857600
 
 cuebot.facility_default: cloud
 cuebot.facility:

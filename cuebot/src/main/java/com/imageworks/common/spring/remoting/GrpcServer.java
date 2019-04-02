@@ -93,6 +93,7 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))
                 .addService(applicationContext.getBean("manageSubscription", ManageSubscription.class))
                 .addService(applicationContext.getBean("manageTask", ManageTask.class))
+                .maxInboundMessageSize(104857600)
                 .intercept(new CueServerInterceptor())
                 .build();
         server.start();
