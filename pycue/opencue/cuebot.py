@@ -67,7 +67,7 @@ fcnf = os.environ.get('OPENCUE_CONF', '')
 if os.path.exists(fcnf):
     config.update(yaml.load(open(fcnf).read()))
 
-DEFAULT_MAX_MESSAGE_SIZE = 1024 ** 2 * 10
+DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
 
 class Cuebot(object):
@@ -153,7 +153,7 @@ class Cuebot(object):
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
-        maxMessageSize = config.get('cuebot.max_message_size', DEFAULT_MAX_MESSAGE_SIZE)
+        maxMessageSize = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
         for host in hosts:
             if ':' in host:
                 connectStr = host

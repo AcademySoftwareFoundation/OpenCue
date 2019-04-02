@@ -40,7 +40,7 @@
             </props>
         </constructor-arg>
         <constructor-arg index="3" type="java.lang.Integer">
-            <value>${grpc.max_message_size}</value>
+            <value>${grpc.max_message_bytes}</value>
         </constructor-arg>
     </bean>
 
