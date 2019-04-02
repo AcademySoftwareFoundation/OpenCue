@@ -124,9 +124,8 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
 
             # Draw the text
             painter.setPen(QtGui.QColor(index.data(QtCore.Qt.ForegroundRole)))
-            painter.setFont(QtGui.QFont(index.data(QtCore.Qt.FontRole)))
             painter.drawText(option.rect.adjusted(3, -1, -3, 0),
-                             QtCore.Qt.TextAlignmentRole | QtCore.Qt.AlignVCenter,
+                             QtCore.Qt.AlignHCenter | QtCore.Qt.AlignVCenter,
                              str(index.data(QtCore.Qt.DisplayRole)))
         finally:
             painter.restore()
