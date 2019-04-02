@@ -42,7 +42,6 @@ import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.NestedGroup;
 import com.imageworks.spcue.grpc.job.NestedGroupSeq;
 import com.imageworks.spcue.grpc.job.NestedJob;
-import com.imageworks.spcue.grpc.job.NestedJobSeq;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
@@ -191,11 +190,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 group = groups.get(groupId);
             }
             if (rs.getString("pk_job") != null) {
-                NestedJob job = mapResultSetToJob(rs).toBuilder()
-                        .setParent(group)
-                        .build();
                 GroupStats oldStats = group.getStats();
-                JobStats jobStats = job.getStats();
+                JobStats jobStats = WhiteboardDaoJdbc.mapJobStats(rs);
                 GroupStats groupStats = GroupStats.newBuilder()
                         .setDeadFrames(oldStats.getDeadFrames() + jobStats.getDeadFrames())
                         .setRunningFrames(oldStats.getRunningFrames() + jobStats.getRunningFrames())
@@ -204,12 +200,9 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores())
                         .setPendingJobs(oldStats.getPendingJobs() + 1).build();
 
-                NestedJobSeq nestedJobSeq = group.getJobs().toBuilder()
-                        .addNestedJobs(job)
-                        .build();
                 group = group.toBuilder()
-                        .setJobs(nestedJobSeq)
                         .setStats(groupStats)
+                        .addJobs(rs.getString("pk_job"))
                         .build();
                 groups.put(groupId, group);
             }
