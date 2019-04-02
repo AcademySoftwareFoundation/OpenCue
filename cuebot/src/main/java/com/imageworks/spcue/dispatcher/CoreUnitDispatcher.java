@@ -27,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
@@ -96,43 +98,33 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     public boolean testMode = false;
 
-    /*
-     * Maximum number of jobs to query.
-     */
-    private static final int JOB_QUERY_MAX = 20;
-
-    /*
-     * Number of seconds before waiting to book the same job
-     * from a different host.
-     */
-    private static final int JOB_LOCK_EXPIRE_SECONDS = 5;
-
-    /*
-     * Maximum number of frames to query from the DB
-     * to attempt to dispatch.
-     */
-    private static final int FRAME_QUERY_MAX = 10;
-
-    /* Maximum number of frames to book at one time on
-     * the same host.
-     */
-    private static final int JOB_FRAME_DISPATCH_MAX = 2;
-
-    /*
-     * Maximum number of frames to dispatch from a host
-     * at one time.
-     */
-    private static final int HOST_FRAME_DISPATCH_MAX = 12;
+    @Autowired
+    private Environment env;
 
     /*
      * Keeps a map of unique job IDs that should be skipped
      * over for booking until the record has expired.
      */
-    // TODO: concurrencyLevel(3) is likely too low given the number of dispatch threads
-    private Cache<String, String> jobLock = CacheBuilder.newBuilder()
-        .concurrencyLevel(3)
-        .expireAfterWrite(JOB_LOCK_EXPIRE_SECONDS, TimeUnit.SECONDS)
-        .build();
+    private Cache<String, String> jobLock;
+
+    /*
+     * Return an integer value from the opencue.properties given a key
+     */
+    private int getIntProperty(String property) {
+        return env.getRequiredProperty(property, Integer.class);
+    }
+
+    private Cache<String, String> getOrCreateJobLock() {
+        if (jobLock == null) {
+            this.jobLock = CacheBuilder.newBuilder()
+                    .concurrencyLevel(getIntProperty("dispatcher.job_lock_concurrency_level"))
+                    .expireAfterWrite(getIntProperty("dispatcher.job_lock_expire_seconds"),
+                            TimeUnit.SECONDS)
+                    .build();
+        }
+        return jobLock;
+    }
+
 
     private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
@@ -147,15 +139,17 @@ public class CoreUnitDispatcher implements Dispatcher {
                     return procs;
                 }
 
-                if (procs.size() >= HOST_FRAME_DISPATCH_MAX) {
+                if (procs.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
                     break;
                 }
 
-                if (jobLock.getIfPresent(jobid) != null) {
-                    continue;
-                }
+                if (getIntProperty("dispatcher.job_lock_expire_seconds") > 0) {
+                    if (getOrCreateJobLock().getIfPresent(jobid) != null) {
+                        continue;
+                    }
 
-                jobLock.put(jobid, jobid);
+                    jobLock.put(jobid, jobid);
+                }
 
                 DispatchJob job = jobManager.getDispatchJob(jobid);
                 try {
@@ -187,9 +181,11 @@ public class CoreUnitDispatcher implements Dispatcher {
                         Dispatcher.MEM_RESERVED_MIN,
                         1)) {
             if (show == null)
-                jobs = dispatchSupport.findDispatchJobs(host, JOB_QUERY_MAX);
+                jobs = dispatchSupport.findDispatchJobs(host,
+                        getIntProperty("dispatcher.job_query_max"));
             else
-                jobs = dispatchSupport.findDispatchJobs(host, show, JOB_QUERY_MAX);
+                jobs = dispatchSupport.findDispatchJobs(host, show,
+                        getIntProperty("dispatcher.job_query_max"));
 
             if (jobs.size() == 0) {
                 host.removeGpu();
@@ -203,8 +199,8 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHostToAllShows(DispatchHost host) {
         Set<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
-                               host,
-                               JOB_QUERY_MAX);
+                host,
+                getIntProperty("dispatcher.job_query_max"));
 
         return dispatchJobs(host, jobs);
     }
@@ -215,7 +211,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         Set<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
-            jobs = dispatchSupport.findDispatchJobs(host, JOB_QUERY_MAX);
+            jobs = dispatchSupport.findDispatchJobs(host, getIntProperty("dispatcher.job_query_max"));
 
         return dispatchJobs(host, jobs);
     }
@@ -226,7 +222,8 @@ public class CoreUnitDispatcher implements Dispatcher {
         Set<String> jobs = getGpuJobs(host, show);
 
         if (jobs == null)
-            jobs = dispatchSupport.findDispatchJobs(host, show, JOB_QUERY_MAX);
+            jobs = dispatchSupport.findDispatchJobs(host, show,
+                    getIntProperty("dispatcher.job_query_max"));
 
         return dispatchJobs(host, jobs);
     }
@@ -253,7 +250,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         }
 
         List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(job,
-                host, FRAME_QUERY_MAX);
+                host, getIntProperty("dispatcher.frame_query_max"));
 
         logger.info("Frames found: " + frames.size() + " for host " +
                 host.getName() + " " + host.idleCores + "/" + host.idleMemory +
@@ -305,10 +302,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                         Dispatcher.GPU_RESERVED_MIN)) {
                     break;
                 }
-                else if (procs.size() >= JOB_FRAME_DISPATCH_MAX) {
+                else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
                     break;
                 }
-                else if (procs.size() >= HOST_FRAME_DISPATCH_MAX) {
+                else if (procs.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
                     break;
                 }
             }
@@ -323,7 +320,8 @@ public class CoreUnitDispatcher implements Dispatcher {
 
         // Do not throttle this method
         for (DispatchFrame frame:
-            dispatchSupport.findNextDispatchFrames(job, proc, FRAME_QUERY_MAX)) {
+            dispatchSupport.findNextDispatchFrames(job, proc,
+                    getIntProperty("dispatcher.frame_query_max"))) {
             try {
                 boolean success = new DispatchFrameTemplate(proc, job, frame, true) {
                     public void wrapDispatchFrame() {
