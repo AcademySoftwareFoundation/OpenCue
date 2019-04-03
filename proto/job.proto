@@ -647,7 +647,7 @@ message NestedGroup {
     int32 level = 9;
     NestedGroup parent = 10;
     NestedGroupSeq groups = 11;
-    NestedJobSeq jobs = 12;
+    repeated string jobs = 12;
     GroupStats stats = 13;
 }
 
@@ -678,10 +678,6 @@ message NestedJob {
     int32 stop_time = 19;
     NestedGroup parent = 20;
     JobStats stats = 21;
-}
-
-message NestedJobSeq {
-    repeated NestedJob nested_jobs = 1;
 }
 
 
