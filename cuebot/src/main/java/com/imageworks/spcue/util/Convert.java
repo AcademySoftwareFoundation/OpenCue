@@ -21,6 +21,7 @@ package com.imageworks.spcue.util;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Utility class for conversions
@@ -42,7 +43,7 @@ public final class Convert {
 
     public static final float coreUnitsToCores(int coreUnits) {
         if (coreUnits == -1) { return -1f;}
-        return Float.valueOf(String.format("%6.2f",coreUnits / 100.0f));
+        return Float.valueOf(String.format(Locale.ROOT, "%6.2f", coreUnits / 100.0f));
     }
 
     public static final float coreUnitsToWholeCores(int coreUnits) {
@@ -51,7 +52,7 @@ public final class Convert {
     }
 
     private static final List<String> MATCH_BOOL =
-        java.util.Arrays.asList(new String[] { "true","yes","1","on" });
+        java.util.Arrays.asList(new String[] { "true", "yes", "1", "on" });
 
     public static final boolean stringToBool(String value) {
         if (value == null) { return false; }

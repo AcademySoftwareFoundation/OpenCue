@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -235,7 +236,7 @@ public final class CueUtil {
     }
 
     public final static String buildProcName(String host, int cores) {
-        return String.format("%s/%4.2f",host, Convert.coreUnitsToCores(cores));
+        return String.format(Locale.ROOT, "%s/%4.2f",host, Convert.coreUnitsToCores(cores));
 
     }
     /**
