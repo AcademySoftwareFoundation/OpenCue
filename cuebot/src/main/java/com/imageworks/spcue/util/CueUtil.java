@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
@@ -231,11 +232,11 @@ public final class CueUtil {
      * @return String
      */
     public final static String buildFrameName(LayerInterface layer, int num) {
-        return String.format("%04d-%s",num,layer.getName());
+        return String.format("%04d-%s", num, layer.getName());
     }
 
     public final static String buildProcName(String host, int cores) {
-        return String.format("%s/%4.2f",host, Convert.coreUnitsToCores(cores));
+        return String.format(Locale.ROOT, "%s/%4.2f", host, Convert.coreUnitsToCores(cores));
 
     }
     /**

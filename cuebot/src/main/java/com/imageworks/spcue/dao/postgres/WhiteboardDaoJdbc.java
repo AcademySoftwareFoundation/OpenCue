@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
@@ -1247,7 +1248,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setUsedMemory(rs.getInt("int_mem_used"));
 
                     if (SqlUtil.getString(rs, "str_host") != null) {
-                        builder.setLastResource(String.format("%s/%2.2f", SqlUtil.getString(rs, "str_host"),
+                        builder.setLastResource(String.format(Locale.ROOT, "%s/%2.2f",
+                                SqlUtil.getString(rs, "str_host"),
                                 Convert.coreUnitsToCores(rs.getInt("int_cores"))));
                     } else {
                         builder.setLastResource("");

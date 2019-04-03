@@ -23,6 +23,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class LayerStats {
 
@@ -90,11 +91,12 @@ public class LayerStats {
     }
 
     public String getFormattedHighMemory() {
-        return String.format("%.1fGB", executionSummary.highMemoryKb / 1024.0 / 1024.0);
+        return String.format(Locale.ROOT, "%.1fGB",
+                executionSummary.highMemoryKb / 1024.0 / 1024.0);
     }
 
     public String getFormattedProcHours() {
-        return String.format("%.1f", executionSummary.coreTime / 3600.0);
+        return String.format(Locale.ROOT, "%.1f", executionSummary.coreTime / 3600.0);
     }
 
     public int getFailedFrames() {
@@ -119,7 +121,7 @@ public class LayerStats {
         StringBuilder sb = new StringBuilder(128);
 
         for(ThreadStats t: threadStats) {
-            sb.append(String.format("%.2f", t.getAvgFrameTime() / conversionUnits));
+            sb.append(String.format(Locale.ROOT, "%.2f", t.getAvgFrameTime() / conversionUnits));
             sb.append(",");
         }
         if (sb.length() > 1) {
