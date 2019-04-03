@@ -18,9 +18,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import six
 from builtins import str
 from builtins import range
 from builtins import object
+import future.types
+from future.utils import with_metaclass
 import os
 import sys
 import logging
@@ -38,7 +41,7 @@ from .exception import SessionException
 from . import io
 from .loader import current_outline
 from . import util
-from future.utils import with_metaclass
+
 
 
 __all__ = ["Layer",
@@ -446,7 +449,7 @@ class Layer(with_metaclass(LayerType, object)):
         """
         try:
             args_override = self.get_data('args_override')
-            logger.warn('Loaded args_override from session to replace args:')
+            logger.warning('Loaded args_override from session to replace args:')
             for key, value in args_override.items():
                 self.set_arg(key, value)
                 # This was necessary because plugins/s3d.py uses get_creator()
@@ -478,7 +481,15 @@ class Layer(with_metaclass(LayerType, object)):
 
         for arg, rtype in self.__req_args:
             if arg == key and rtype:
-                if not isinstance(value, rtype):
+                # Python 2/3 compatibility. Existing client code may be requiring a type of "str"
+                #   and assuming this will work in Python 2. However in the PyOutline code "str" is
+                #   actually equivalent to future.types.newstr - a unicode descendant which closely
+                #   matches the new unicode-based "str" type in Python 3.
+                if hasattr(future.types, 'newstr') and rtype == future.types.newstr:
+                    acceptable_types = six.string_types + (future.types.newstr,)
+                else:
+                    acceptable_types = (rtype,)
+                if not isinstance(value, acceptable_types):
                     msg = "The arg %s for the %s module must be a %s"
                     raise LayerException(msg % (arg,
                                                 self.__class__.__name__,

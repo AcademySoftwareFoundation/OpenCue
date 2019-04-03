@@ -18,7 +18,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
+import six
 from past.builtins import execfile
 from builtins import str
 from builtins import object
@@ -73,7 +73,8 @@ def load_outline(path):
 
     ext = os.path.splitext(path)
     if ext[1] == ".yaml" or path.find("cue_archive") != -1:
-        ol =  yaml.load(file(path, 'r'))
+        with open(path, 'r') as fp:
+            ol = yaml.load(fp.read())
         Outline.current = ol
         if not isinstance(ol, Outline):
             raise OutlineException("The file %s did not produce "
@@ -676,11 +677,11 @@ class Outline(object):
             logger.warn("Overwriting outline env var: %s, from %s to %s",
                         key, self.__env[key], value)
 
-        if not isinstance(key, (str)):
+        if not isinstance(key, six.string_types):
             raise OutlineException("Invalid key type for env var: %s",
                                    type(key))
 
-        if not isinstance(value, (str)):
+        if not isinstance(value, six.string_types):
             raise OutlineException("Invalid value type for env var: %s",
                                    type(value))
 

@@ -44,14 +44,14 @@ class LoaderTest(unittest.TestCase):
         self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
-        self.assertEquals(path, ol.get_path())
+        self.assertEqual(path, ol.get_path())
 
         # Ensure the single event has been loaded
-        self.assertEquals(1, len(ol.get_layers()))
+        self.assertEqual(1, len(ol.get_layers()))
 
         # ensure that outline returned from load_outline is
         # the same as current_outline
-        self.assertEquals(ol, outline.current_outline())
+        self.assertEqual(ol, outline.current_outline())
 
     def test_serialized_parse(self):
         """
@@ -66,14 +66,14 @@ class LoaderTest(unittest.TestCase):
         self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
-        self.assertEquals(pathInYaml, ol.get_path())
+        self.assertEqual(pathInYaml, ol.get_path())
 
         # Ensure the single event has been loaded
-        self.assertEquals(1, len(ol.get_layers()))
+        self.assertEqual(1, len(ol.get_layers()))
 
         # ensure that outline returned from load_outline is
         # the same as current_outline
-        self.assertEquals(ol, outline.current_outline())
+        self.assertEqual(ol, outline.current_outline())
 
 
 class OutlineTest(unittest.TestCase):
@@ -88,9 +88,9 @@ class OutlineTest(unittest.TestCase):
             ol.set_env("ENV_1", "a")
             ol.set_env("ENV_2", "b", True)
 
-            self.assertEquals(ol.get_env("ENV_1"), "a")
+            self.assertEqual(ol.get_env("ENV_1"), "a")
             self.assertFalse(ol.get_env()["ENV_1"][1])
-            self.assertEquals(ol.get_env("ENV_2"), "b")
+            self.assertEqual(ol.get_env("ENV_2"), "b")
             self.assertTrue(ol.get_env()["ENV_2"][1])
 
     def test_add_get_remove_layer(self):
@@ -98,18 +98,18 @@ class OutlineTest(unittest.TestCase):
             ol = outline.load_outline(self.path)
             ol.add_layer(Shell("shell_command", cmd=["/bin/ls"]))
 
-            self.assertEquals(2, len(ol.get_layers()))
+            self.assertEqual(2, len(ol.get_layers()))
             self.assertTrue(isinstance(ol.get_layer("shell_command"), Shell))
 
             ol.remove_layer(ol.get_layer("shell_command"))
 
-            self.assertEquals(1, len(ol.get_layers()))
+            self.assertEqual(1, len(ol.get_layers()))
 
     def test_get_layers(self):
         with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
-            self.assertEquals(1, len(ol.get_layers()))
+            self.assertEqual(1, len(ol.get_layers()))
             self.assertTrue(isinstance(ol.get_layers(), list))
 
     def test_is_layer(self):
@@ -126,7 +126,7 @@ class OutlineTest(unittest.TestCase):
 
             ol.set_path(path)
 
-            self.assertEquals(path, ol.get_path())
+            self.assertEqual(path, ol.get_path())
 
     def test_get_set_name(self):
         with test_utils.TemporarySessionDirectory():
@@ -135,7 +135,7 @@ class OutlineTest(unittest.TestCase):
 
             ol.set_name(name)
 
-            self.assertEquals(name, ol.get_name())
+            self.assertEqual(name, ol.get_name())
 
     def test_get_session(self):
         with test_utils.TemporarySessionDirectory():
@@ -156,15 +156,15 @@ class OutlineTest(unittest.TestCase):
 
             # Set frame range from string
             ol.set_frame_range('1-10')
-            self.assertEquals('1-10', ol.get_frame_range())
+            self.assertEqual('1-10', ol.get_frame_range())
 
             # Set frame range from sequence
             ol.set_frame_range([1, 2, 3, 4, 5])
-            self.assertEquals('1,2,3,4,5', ol.get_frame_range())
+            self.assertEqual('1,2,3,4,5', ol.get_frame_range())
 
             # Set frame range from FrameSet
             ol.set_frame_range(FileSequence.FrameSet('5-10'))
-            self.assertEquals('5,6,7,8,9,10', ol.get_frame_range())
+            self.assertEqual('5,6,7,8,9,10', ol.get_frame_range())
 
     def test_get_set_arg(self):
         with test_utils.TemporarySessionDirectory():
@@ -172,15 +172,15 @@ class OutlineTest(unittest.TestCase):
 
             # Test normal get/set function
             ol.set_arg('foo', 1)
-            self.assertEquals(1, ol.get_arg('foo'))
+            self.assertEqual(1, ol.get_arg('foo'))
 
             # Test the default argument
-            self.assertEquals('apple', ol.get_arg('foobar', 'apple'))
+            self.assertEqual('apple', ol.get_arg('foobar', 'apple'))
 
             # Test to ensure the set value is returned if a default
             # is passed.
             ol.set_arg('swoob', 8008)
-            self.assertEquals(8008, ol.get_arg('swoob', 2112))
+            self.assertEqual(8008, ol.get_arg('swoob', 2112))
 
 
 class LoadOutlineTest(unittest.TestCase):
@@ -204,7 +204,7 @@ class LoadOutlineTest(unittest.TestCase):
             l = outline.cuerun.OutlineLauncher(ol)
 
             root = Et.fromstring(l.serialize())
-            self.assertEquals(os.environ["OL_TAG_OVERRIDE"],
+            self.assertEqual(os.environ["OL_TAG_OVERRIDE"],
                               root.find("job/layers/layer/tags").text)
         finally:
             del os.environ["OL_TAG_OVERRIDE"]
@@ -218,7 +218,7 @@ class LoadOutlineTest(unittest.TestCase):
 
         l = outline.cuerun.OutlineLauncher(ol)
         root = Et.fromstring(l.serialize())
-        self.assertEquals("foo | man | chu",
+        self.assertEqual("foo | man | chu",
                           root.find("job/layers/layer/tags").text)
 
     def test_tags_as_string(self):
@@ -230,7 +230,7 @@ class LoadOutlineTest(unittest.TestCase):
 
         l = outline.cuerun.OutlineLauncher(ol)
         root = Et.fromstring(l.serialize())
-        self.assertEquals("foo | man | chu",
+        self.assertEqual("foo | man | chu",
                           root.find("job/layers/layer/tags").text)
 
     def test_os_flag(self):
@@ -241,7 +241,7 @@ class LoadOutlineTest(unittest.TestCase):
         l = outline.cuerun.OutlineLauncher(ol, os="awesome")
 
         root = Et.fromstring(l.serialize())
-        self.assertEquals("awesome",
+        self.assertEqual("awesome",
                           root.find("job/os").text)
 
     def test_ol_os_env(self):
@@ -254,7 +254,7 @@ class LoadOutlineTest(unittest.TestCase):
             ol = outline.load_outline(self.script)
             l = outline.cuerun.OutlineLauncher(ol)
             root = Et.fromstring(l.serialize())
-            self.assertEquals("radical",
+            self.assertEqual("radical",
                               root.find("job/os").text)
         finally:
             del os.environ["OL_OS"]

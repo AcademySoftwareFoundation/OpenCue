@@ -44,8 +44,8 @@ class JsonTest(unittest.TestCase):
              '}')
 
         ol = load_json(s)
-        self.assertEquals('test_job', ol.get_name())
-        self.assertEquals('1-10', ol.get_frame_range())
+        self.assertEqual('test_job', ol.get_name())
+        self.assertEqual('1-10', ol.get_frame_range())
 
     @mock.patch('outline.layer.Layer.system')
     def testJsonFile(self, systemMock):

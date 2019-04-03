@@ -181,6 +181,13 @@ class LayerTest(unittest.TestCase):
     def test_invalid_type_args(self):
         """Test the interpolation of arg strings."""
 
+        # test int
+        self.layer.require_arg('some-int-arg', str)
+
+        # py2, if str is required str, unicode, newstr should all be ok. str could be normal str or could be newstr
+
+        # py3, if str is required only str should be ok
+
         self.layer.require_arg('shazam', str)
         self.assertRaises(outline.layer.LayerException, self.layer.set_arg, 'shazam', { })
 
@@ -220,7 +227,7 @@ class LayerTest(unittest.TestCase):
             self.ol.setup()
             expectedPath = '%s/layers/%s' % (
                 self.ol.get_session().get_path(), self.layer.get_name())
-            self.assertEquals(expectedPath, self.layer.get_path())
+            self.assertEqual(expectedPath, self.layer.get_path())
 
     def test_setup(self):
         """Test setting up the event for launch."""
@@ -247,14 +254,14 @@ class LayerTest(unittest.TestCase):
         range is not set on a layer, then it should default to
         the outline frame range.
         """
-        self.assertEquals(self.ol.get_frame_range(), self.layer.get_frame_range())
+        self.assertEqual(self.ol.get_frame_range(), self.layer.get_frame_range())
         self.layer.set_frame_range('1-10')
-        self.assertEquals('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
+        self.assertEqual('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
 
     def test_get_set_chunk_size(self):
         """Test get/set of chunk size."""
         self.layer.set_chunk_size(5)
-        self.assertEquals(5, self.layer.get_chunk_size())
+        self.assertEqual(5, self.layer.get_chunk_size())
 
     def test_add_layer_during_setup(self):
         """Test to ensure that layers added during setup are serialized."""
@@ -276,7 +283,7 @@ class LayerTest(unittest.TestCase):
         # Ensure after init was run,
         self.assertTrue(ol.get_layer('test').get_arg('after_init'))
         # Ensure that the layer has the right ol reference
-        self.assertEquals(ol, ol.get_layer('test').get_outline())
+        self.assertEqual(ol, ol.get_layer('test').get_outline())
 
     def test_after_init_current(self):
         ol = outline.Outline('after_init', current=True)
@@ -285,7 +292,7 @@ class LayerTest(unittest.TestCase):
         # Ensure after init was run,
         self.assertTrue(ol.get_layer('test').get_arg('after_init'))
         # Ensure that the layer has the right ol reference
-        self.assertEquals(ol, ol.get_layer('test').get_outline())
+        self.assertEqual(ol, ol.get_layer('test').get_outline())
 
     def test_dependency_creation(self):
         with test_utils.TemporarySessionDirectory():
@@ -296,13 +303,13 @@ class LayerTest(unittest.TestCase):
             ol.setup()
 
             # check the depend was setup properly
-            self.assertEquals(1, len(ol.get_layer('testb').get_depends()))
+            self.assertEqual(1, len(ol.get_layer('testb').get_depends()))
 
     def test_type_arg(self):
         """Test to ensure the type argument is handled properly."""
         outline.Outline.current = None
         t = TestA('test', type='Post')
-        self.assertEquals('Post', t.get_type())
+        self.assertEqual('Post', t.get_type())
 
     def test_set_output_attribute(self):
         """Test setting an output attribute on all registered output."""
@@ -368,7 +375,7 @@ class OutputRegistrationTest(unittest.TestCase):
             # now run a single frame of the render layer and ensure that
             # the outputs are automatically loaded.
             layer1.execute(1000)
-            self.assertEquals(1, len(layer1.get_outputs()))
+            self.assertEqual(1, len(layer1.get_outputs()))
 
 
 class TestAfterInit(outline.Layer):

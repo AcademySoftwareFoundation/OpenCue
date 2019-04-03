@@ -41,14 +41,14 @@ class SessionTest(unittest.TestCase):
 
         # Put file into session proper.
         path = self.session.put_file(self.script_path)
-        self.assertEquals(path, self.session.get_file('shell.outline'))
+        self.assertEqual(path, self.session.get_file('shell.outline'))
 
     def test_put_file_rename(self):
         """Testing get/put file into outline."""
 
         # Put file into session proper.
         path = self.session.put_file(self.script_path, rename="outline")
-        self.assertEquals(path, self.session.get_file("outline"))
+        self.assertEqual(path, self.session.get_file("outline"))
 
     def test_put_file_to_layer(self):
         """Testing get/put file into layer."""
@@ -56,7 +56,7 @@ class SessionTest(unittest.TestCase):
         # Put file into layer
         layer = self.ol.get_layer("cmd")
         path = layer.put_file(self.script_path)
-        self.assertEquals(path, layer.get_file("shell.outline"))
+        self.assertEqual(path, layer.get_file("shell.outline"))
 
     def test_get_new_file_from_layer(self):
         """Tests the new option for the get_file method. """
@@ -69,7 +69,7 @@ class SessionTest(unittest.TestCase):
         self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
 
         path = layer.get_file("foo.bar", new=True)
-        self.assertEquals("%s/foo.bar" % layer.get_path(), path)
+        self.assertEqual("%s/foo.bar" % layer.get_path(), path)
 
         # If the file already exists, new should throw an exception
         layer.put_file(self.script_path)
@@ -86,7 +86,7 @@ class SessionTest(unittest.TestCase):
        # and then retrieve it.
        value = [100,200,300,400,500]
        self.session.put_data("foo",value)
-       self.assertEquals(value, self.session.get_data("foo"))
+       self.assertEqual(value, self.session.get_data("foo"))
 
     def test_put_data_to_layer(self):
        """Test get/set layer data."""
@@ -94,7 +94,7 @@ class SessionTest(unittest.TestCase):
        layer = self.ol.get_layer("cmd")
        value = [100,200,300,400,500]
        layer.put_data("foo", value)
-       self.assertEquals(value, layer.get_data("foo"))
+       self.assertEqual(value, layer.get_data("foo"))
    
 
 if __name__ == '__main__':
