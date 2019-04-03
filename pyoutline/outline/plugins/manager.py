@@ -16,6 +16,7 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from builtins import object
 import sys
 import logging
 
@@ -68,18 +69,14 @@ class PluginManager(object):
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)
 
     @classmethod
-    def load_all_plugins(cls):        
-        def sort_by_priority(a, b):
+    def load_all_plugins(cls):
+        def section_priority(section_needing_key):
             priority_option = "priority"
-            a_priority = 0
-            b_priority = 0
-            if config.has_option(a, priority_option):
-                a_priority = config.getint(a, priority_option)
-            if config.has_option(b, priority_option):
-                b_priority = config.getint(b, priority_option)
-            return cmp(b_priority, a_priority)
+            if config.has_option(section_needing_key, priority_option):
+                return config.getint(section_needing_key, priority_option)
+            return 0
         
-        sections = sorted(config.sections(), cmp=sort_by_priority)
+        sections = sorted(config.sections(), key=section_priority)
         
         for section in sections:
             if section.startswith("plugin:"):

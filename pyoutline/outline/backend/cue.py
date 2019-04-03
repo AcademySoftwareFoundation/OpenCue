@@ -18,6 +18,8 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from builtins import str
+from past.builtins import basestring
 import logging
 import os
 import sys
@@ -226,7 +228,7 @@ def _serialize(launcher, use_pycuerun):
         sub_element(j, "os", os.environ.get("OL_OS"))
 
     env = Et.SubElement(j, "env")
-    for env_k, env_v in ol.get_env().iteritems():
+    for env_k, env_v in ol.get_env().items():
         # Only pre-setshot environment variables are
         # passed up to the cue.
         if env_v[1]:
@@ -303,9 +305,10 @@ def _serialize(launcher, use_pycuerun):
     xml.append('<?xml version="1.0"?>')
     xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
                '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
-    xml.append(Et.tostring(root))
+    xml.append(Et.tostring(root).decode())
 
     result = "".join(xml)
+    #print(result)
     logger.debug(parseString(result).toprettyxml())
     return result
 

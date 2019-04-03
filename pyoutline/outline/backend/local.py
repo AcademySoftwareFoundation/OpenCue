@@ -16,6 +16,8 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from builtins import range
+from builtins import object
 import sqlite3
 import subprocess
 

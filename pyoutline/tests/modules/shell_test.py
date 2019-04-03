@@ -16,6 +16,7 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from builtins import range
 import mock
 import tempfile
 import unittest

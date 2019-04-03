@@ -16,23 +16,26 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from builtins import str
+from builtins import object
 import atexit
 import logging
 import os
 import shutil
 import sys
 import tempfile
+from future.utils import with_metaclass
 
 logger = logging.getLogger("versions")
 
 
-class Settings:
+class Settings(object):
     # Path containing different outline library versions
     repos_path = ""
     module_repos = {}
 
 
-class Singleton:
+class Singleton(type):
     def __init__(self, name, bases, namespace):
         self._obj = type(name, bases, namespace)()
         atexit.register(self._obj.clean)
@@ -41,9 +44,7 @@ class Singleton:
         return self._obj
 
 
-class Session(object):
-
-    __metaclass__ = Singleton
+class Session(with_metaclass(Singleton, object)):
 
     """
     The Session class handles creation of the versioning session.
@@ -149,7 +150,7 @@ class Session(object):
 
     def get_ver_str(self):
         return ",".join(["%s:%s" % (mod, ver)
-                         for mod, ver in self.__modules.iteritems()])
+                         for mod, ver in self.__modules.items()])
 
     def __link_version(self, src, dst):
         os.symlink(src, dst)

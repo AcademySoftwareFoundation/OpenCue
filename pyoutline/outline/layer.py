@@ -18,6 +18,9 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+from builtins import str
+from builtins import range
+from builtins import object
 import os
 import sys
 import logging
@@ -35,6 +38,7 @@ from .exception import SessionException
 from . import io
 from .loader import current_outline
 from . import util
+from future.utils import with_metaclass
 
 
 __all__ = ["Layer",
@@ -67,10 +71,8 @@ class LayerType(type):
                 pass
         return r
 
-class Layer(object):
+class Layer(with_metaclass(LayerType, object)):
     """The base class for all outline modules."""
-
-    __metaclass__ = LayerType
 
     def __init__(self, name, **args):
         object.__init__(self)
@@ -406,7 +408,7 @@ class Layer(object):
         self.check_input(frames)
 
         # Set all post set shot environement variables.
-        for env_k, env_v in self.__outline.get_env().iteritems():
+        for env_k, env_v in self.__outline.get_env().items():
             if not env_v[1]:
                 logger.info("Setting post-set shot environement var: %s %s",
                             env_k, env_v[0])
@@ -414,7 +416,7 @@ class Layer(object):
 
         # Set all layer specific post set shot env variables
         try:
-            for env_k, env_v in self.__env.iteritems():
+            for env_k, env_v in self.__env.items():
                 logger.info("Setting post-set shot environement var: %s %s",
                             env_k, env_v)
                 os.environ[str(env_k)] = str(env_v)
@@ -445,7 +447,7 @@ class Layer(object):
         try:
             args_override = self.get_data('args_override')
             logger.warn('Loaded args_override from session to replace args:')
-            for key, value in args_override.iteritems():
+            for key, value in args_override.items():
                 self.set_arg(key, value)
                 # This was necessary because plugins/s3d.py uses get_creator()
                 if hasattr(self, 'get_creator') and self.get_creator():
@@ -709,7 +711,7 @@ class Layer(object):
             # is responsible for.
             #
             idx = frame_set.index(int(start_frame))
-            for i in xrange(idx, idx + chunk):
+            for i in range(idx, idx + chunk):
                 try:
                     if frame_set[i] in local_frame_set:
                         continue
@@ -873,7 +875,7 @@ class Layer(object):
         Check the existance of all required input.  Raise a LayerException
         if input is missing.
         """
-        for name, inpt in self.__input.iteritems():
+        for name, inpt in self.__input.items():
             if not inpt.get_attribute("checked"):
                 continue
             if not inpt.exists(frame_set):
@@ -887,7 +889,7 @@ class Layer(object):
         """
         if self.get_arg("nocheck"):
             return
-        for name, output in self.__output.iteritems():
+        for name, output in self.__output.items():
             if not output.get_attribute("checked"):
                 continue
             if not output.exists(frame_set):
@@ -974,7 +976,7 @@ class Layer(object):
         Set the given attribute on all registered output.
         """
         logger.debug("Setting output attribute: %s = %s" % (name, value))
-        for output in self.__output.itervalues():
+        for output in self.__output.values():
             output.set_attribute(name, value)
 
     def set_input_attribute(self, name, value):
@@ -982,7 +984,7 @@ class Layer(object):
         Set the given attribute on all registered input.
         """
         logger.debug("Setting input attribute: %s = %s" % (name, value))
-        for output in self.__input.itervalues():
+        for output in self.__input.values():
             output.set_attribute(name, value)
 
     def get_temp_dir(self):
@@ -1025,7 +1027,7 @@ class Layer(object):
         """
         if not os.path.exists(os.path.join(self.get_path(), "ol:outputs")):
             return
-        for name, output in self.get_data("ol:outputs").iteritems():
+        for name, output in self.get_data("ol:outputs").items():
             self.add_output(name, output)
 
     def __set_python_path(self):
@@ -1053,7 +1055,7 @@ class Layer(object):
         Create directories for all registered output if possible.  If
         the directory already exists the operation will be skipped.
         """
-        for out in self.get_outputs().itervalues():
+        for out in self.get_outputs().values():
             if out.get_attribute("mkdir"):
                 out.mkdir()
 

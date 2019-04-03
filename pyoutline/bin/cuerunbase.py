@@ -16,6 +16,7 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from builtins import object
 import logging
 import os
 import signal

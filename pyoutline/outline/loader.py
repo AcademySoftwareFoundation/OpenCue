@@ -19,6 +19,9 @@ from __future__ import print_function
 from __future__ import division
 
 
+from past.builtins import execfile
+from builtins import str
+from builtins import object
 import os
 import logging
 import uuid
@@ -103,7 +106,7 @@ def load_json(json):
         must be converted to byte strings.
         """
         result = { }
-        for k, v in layer.iteritems():
+        for k, v in layer.items():
             result[str(k)] = v
         del result["module"]
         del result["name"]

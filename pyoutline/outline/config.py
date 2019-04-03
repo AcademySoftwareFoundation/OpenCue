@@ -18,9 +18,11 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
 import os
 
-from ConfigParser import SafeConfigParser
+from six.moves.configparser import SafeConfigParser
 
 __all__ = ["config"]
 

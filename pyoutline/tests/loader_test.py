@@ -25,7 +25,7 @@ from xml.etree import ElementTree as Et
 import FileSequence
 import outline
 from outline.modules.shell import Shell
-from .test_utils import TemporarySessionDirectory
+from . import test_utils
 
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
@@ -82,7 +82,7 @@ class OutlineTest(unittest.TestCase):
         self.path = os.path.join(SCRIPTS_DIR, 'shell.outline')
 
     def test_get_set_env(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             ol.set_env("ENV_1", "a")
@@ -94,7 +94,7 @@ class OutlineTest(unittest.TestCase):
             self.assertTrue(ol.get_env()["ENV_2"][1])
 
     def test_add_get_remove_layer(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
             ol.add_layer(Shell("shell_command", cmd=["/bin/ls"]))
 
@@ -106,21 +106,21 @@ class OutlineTest(unittest.TestCase):
             self.assertEquals(1, len(ol.get_layers()))
 
     def test_get_layers(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             self.assertEquals(1, len(ol.get_layers()))
             self.assertTrue(isinstance(ol.get_layers(), list))
 
     def test_is_layer(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             self.assertTrue(ol.is_layer("cmd"))
             self.assertFalse(ol.is_layer("not_a_layer"))
 
     def test_get_set_path(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
             path = '/tmp/foo.outline'
 
@@ -129,7 +129,7 @@ class OutlineTest(unittest.TestCase):
             self.assertEquals(path, ol.get_path())
 
     def test_get_set_name(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
             name = 'foo_name'
 
@@ -138,7 +138,7 @@ class OutlineTest(unittest.TestCase):
             self.assertEquals(name, ol.get_name())
 
     def test_get_session(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             # The session is only available once the outline has been "setup"
@@ -151,7 +151,7 @@ class OutlineTest(unittest.TestCase):
             self.assertTrue(isinstance(ol.get_session(), outline.Session))
 
     def test_get_set_frame_range(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             # Set frame range from string
@@ -167,7 +167,7 @@ class OutlineTest(unittest.TestCase):
             self.assertEquals('5,6,7,8,9,10', ol.get_frame_range())
 
     def test_get_set_arg(self):
-        with TemporarySessionDirectory():
+        with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
 
             # Test normal get/set function
