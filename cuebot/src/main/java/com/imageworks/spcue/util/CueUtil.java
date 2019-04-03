@@ -232,11 +232,11 @@ public final class CueUtil {
      * @return String
      */
     public final static String buildFrameName(LayerInterface layer, int num) {
-        return String.format("%04d-%s",num,layer.getName());
+        return String.format("%04d-%s", num, layer.getName());
     }
 
     public final static String buildProcName(String host, int cores) {
-        return String.format(Locale.ROOT, "%s/%4.2f",host, Convert.coreUnitsToCores(cores));
+        return String.format(Locale.ROOT, "%s/%4.2f", host, Convert.coreUnitsToCores(cores));
 
     }
     /**
