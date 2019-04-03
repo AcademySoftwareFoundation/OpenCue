@@ -439,16 +439,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 else:
                     self._items[job.id()] = JobWidgetItem(job, groupItem)
 
-
-
-            # if hasattr(group.data.jobs, 'nested_jobs'):
-            #     for job in group.data.jobs.nested_jobs:
-            #         job = opencue.wrappers.job.NestedJob(job)
-            #         if job.id() in self._items:
-            #             self._items[job.id()].update(job, groupItem)
-            #         else:
-            #             self._items[job.id()] = JobWidgetItem(job, groupItem)
-
     def mouseDoubleClickEvent(self,event):
         objects = self.selectedObjects()
         if objects:
