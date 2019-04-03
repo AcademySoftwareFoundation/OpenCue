@@ -599,8 +599,8 @@ class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __lt__(self, other):
         """The shows are always ascending alphabetical"""
         if self.treeWidget().header().sortIndicatorOrder():
-            return other.rpcObject.name < self.rpcObject.name
-        return other.rpcObject.name > self.rpcObject.name
+            return other.rpcObject.name() < self.rpcObject.name()
+        return other.rpcObject.name() > self.rpcObject.name()
 
     def __ne__(self, other):
         return other.rpcObject != self.rpcObject
@@ -651,8 +651,8 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __lt__(self, other):
         """Groups are always ascending alphabetical"""
         if self.treeWidget().header().sortIndicatorOrder():
-            return other.rpcObject.name < self.rpcObject.name
-        return other.rpcObject.name > self.rpcObject.name
+            return other.rpcObject.name() < self.rpcObject.name()
+        return other.rpcObject.name() > self.rpcObject.name()
 
     def __ne__(self, other):
         if hasattr(other, 'rpcObject'):
