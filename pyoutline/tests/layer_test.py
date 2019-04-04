@@ -18,10 +18,14 @@
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-from builtins import str
+
+# WARNING: Do not import builtins.str here as we do elsewhere in the code. Unit tests on Python 2
+# need to preserve the existing Python 2 string type.
 from builtins import range
+import future.types
 import mock
 import os
+import sys
 import unittest
 
 import outline
@@ -181,17 +185,34 @@ class LayerTest(unittest.TestCase):
     def test_invalid_type_args(self):
         """Test the interpolation of arg strings."""
 
-        # test int
-        self.layer.require_arg('some-int-arg', str)
+        intArgName = 'some-int-arg'
+        self.layer.require_arg(intArgName, int)
+        self.assertRaises(
+            outline.layer.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
+        self.layer.set_arg(intArgName, 872)
 
-        # py2, if str is required str, unicode, newstr should all be ok. str could be normal str or could be newstr
+        if sys.version_info[0] >= 3:
+            strArgName = 'some-str-arg'
+            self.layer.require_arg(strArgName, str)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+            self.layer.set_arg(strArgName, 'py3-string')
+        else:
+            strArgName = 'some-str-arg'
+            self.layer.require_arg(strArgName, str)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+            self.layer.set_arg(strArgName, 'standard-py2-string')
+            self.layer.set_arg(strArgName, u'py2-unicode')
+            self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
 
-        # py3, if str is required only str should be ok
-
-        self.layer.require_arg('shazam', str)
-        self.assertRaises(outline.layer.LayerException, self.layer.set_arg, 'shazam', { })
-
-        self.layer.set_arg('shazam', 'shazoo')
+            newstrArgName = 'some-newstr-arg'
+            self.layer.require_arg(newstrArgName, future.types.newstr)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, newstrArgName, dict())
+            self.layer.set_arg(newstrArgName, 'standard-py2-string')
+            self.layer.set_arg(newstrArgName, u'py2-unicode')
+            self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
 
     def test_require_arg(self):
         """
