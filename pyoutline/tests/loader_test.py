@@ -18,11 +18,13 @@
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
+
 import os
 import unittest
 from xml.etree import ElementTree as Et
 
 import FileSequence
+
 import outline
 from outline.modules.shell import Shell
 from . import test_utils

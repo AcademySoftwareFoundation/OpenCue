@@ -17,12 +17,15 @@
 be executed over a frame range.  Typically these shell
 commands would be executed in parallel on a render farm.
 """
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
+
 
 # TODO(bcipriano) Clean up this file - get rid of wildcard imports
 #  and don't collapse everything into the toplevel namespace like this. (Issue #151)
+
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
 from .config import config
 from .exception import *

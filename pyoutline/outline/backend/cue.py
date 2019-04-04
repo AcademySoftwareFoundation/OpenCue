@@ -14,18 +14,21 @@
 
 
 """OpenCue integration module."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
-from past.builtins import basestring
 import logging
 import os
 import sys
 import time
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
+
+import six
 
 import FileSequence
 import opencue
@@ -301,14 +304,13 @@ def _serialize(launcher, use_pycuerun):
     # Dependencies go after all of the layers
     root.append(depends)
 
-    xml = []
+    xml = list()
     xml.append('<?xml version="1.0"?>')
     xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
                '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
     xml.append(Et.tostring(root).decode())
 
     result = "".join(xml)
-    #print(result)
     logger.debug(parseString(result).toprettyxml())
     return result
 
@@ -317,7 +319,7 @@ def scrub_tags(tags):
     """
     Ensure that layer tags pass in as a string are formatted properly.
     """
-    if isinstance(tags, basestring):
+    if isinstance(tags, six.string_types):
         tags = [tag.strip() for tag in tags.split("|")
                 if tag.strip().isalnum()]
     return " | ".join(tags)

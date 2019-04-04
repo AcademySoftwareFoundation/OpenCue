@@ -14,20 +14,23 @@
 
 
 """Load and parse outline scripts."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import six
 from past.builtins import execfile
 from builtins import str
 from builtins import object
 import os
 import logging
-import uuid
-import time
-import yaml
 import simplejson
+import time
+import uuid
+import yaml
+
+import six
 
 import FileSequence
 

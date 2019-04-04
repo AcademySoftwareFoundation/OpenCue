@@ -14,6 +14,8 @@
 
 
 """Global storage and data exchange."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -23,12 +25,11 @@ from builtins import object
 import os
 import logging
 import shutil
-import yaml
 import uuid
+import yaml
 
 from .config import config
 from .exception import SessionException
-from . import util
 
 
 __all__ = ["is_session_path",

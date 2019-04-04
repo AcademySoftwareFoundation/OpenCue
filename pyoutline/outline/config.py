@@ -14,6 +14,8 @@
 
 
 """Outline configuration"""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -23,6 +25,7 @@ standard_library.install_aliases()
 import os
 
 from six.moves.configparser import SafeConfigParser
+
 
 __all__ = ["config"]
 

@@ -13,14 +13,15 @@
 #  limitations under the License.
 
 
-"""
-    Versions is a method for versioning python modules.
-"""
+"""Versions is a method for versioning python modules."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
 import os
+
 from .session import Session, Settings
 
 

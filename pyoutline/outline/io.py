@@ -14,6 +14,8 @@
 
 
 """Handle input and output."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -24,10 +26,10 @@ from builtins import object
 import os
 import re
 import logging
+import shlex
 import subprocess
 import tempfile
 import yaml
-import shlex
 
 import FileSequence
 

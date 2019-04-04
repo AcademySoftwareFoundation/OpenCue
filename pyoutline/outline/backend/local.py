@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,10 +13,15 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
-from builtins import range
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 from builtins import object
-import sqlite3
+from builtins import range
 import subprocess
+
+import sqlite3
 
 import FileSequence
 
@@ -129,7 +131,7 @@ class Dispatcher(object):
 
     def __create_dispatch_list(self):
         """
-        Creates a list of dispachable frames.
+        Creates a list of dispatchable frames.
         """
         c = self.__conn.cursor()
         c.execute('''create table frames (layer text, frame int, state string, layer_order int, frame_order int)''')
@@ -157,5 +159,5 @@ class Dispatcher(object):
             c.execute("UPDATE frames SET state=? WHERE layer=? AND frame=?",
                       ('RUNNING', result[0], result[1]))
             self.__conn.commit()
-            return (result[0], result[1])
+            return result[0], result[1]
         raise Exception("Frame not found")

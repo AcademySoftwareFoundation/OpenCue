@@ -14,11 +14,12 @@
 
 
 """Base classes for all outline modules."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import six
 from builtins import str
 from builtins import range
 from builtins import object
@@ -28,6 +29,8 @@ import os
 import sys
 import logging
 import tempfile
+
+import six
 
 import FileSequence
 
@@ -43,7 +46,6 @@ from .loader import current_outline
 from . import util
 
 
-
 __all__ = ["Layer",
            "Frame",
            "LayerPreProcess",
@@ -53,6 +55,7 @@ __all__ = ["Layer",
 logger = logging.getLogger("outline.layer")
 
 DEFAULT_FRAME_RANGE = "1000-1000"
+
 
 class LayerType(type):
     """

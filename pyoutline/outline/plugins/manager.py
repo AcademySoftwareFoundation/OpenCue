@@ -1,6 +1,3 @@
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,13 +13,19 @@ from __future__ import absolute_import
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 from builtins import object
-import sys
 import logging
+import sys
 
 from outline.config import config
 
+
 logger = logging.getLogger("outline.plugins")
+
 
 class PluginManager(object):
 

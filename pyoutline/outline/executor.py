@@ -14,6 +14,8 @@
 
 
 """A simple python thread pool."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -26,9 +28,11 @@ import queue
 import threading
 import logging
 
+
 __all__ = ["TaskExecutor"]
 
 logger = logging.getLogger("outline.executor")
+
 
 class TaskExecutor(object):
     def __init__(self, threads):

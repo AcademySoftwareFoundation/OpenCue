@@ -14,9 +14,12 @@
 
 
 """Outline exception hierarchy"""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
 
 __all__ = ["OutlineException",
            "LayerException",
@@ -25,9 +28,11 @@ __all__ = ["OutlineException",
            "FileSpecException",
            "FailImmediately"]
 
+
 class OutlineException(Exception):
     """A General outline base exception."""
     pass
+
 
 class LayerException(OutlineException):
     """Layer exception
@@ -36,6 +41,7 @@ class LayerException(OutlineException):
     setting up or executing a layer entity.
     """
     pass
+
 
 class ShellCommandFailureException(OutlineException):
     """ShellCommandFailureException
@@ -48,6 +54,7 @@ class ShellCommandFailureException(OutlineException):
         self.message = msg
         self.exit_status = status
 
+
 class SessionException(OutlineException):
     """Session exception.
 
@@ -56,12 +63,14 @@ class SessionException(OutlineException):
     """
     pass
 
+
 class FailImmediately(OutlineException):
     """
     Throwing this exception will fail the frame immediately,
     even from within a plugin
     """
     pass
+
 
 class FileSpecException(Exception):
     """
