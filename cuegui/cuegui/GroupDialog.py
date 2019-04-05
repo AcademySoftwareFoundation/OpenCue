@@ -190,7 +190,7 @@ class ModifyGroupDialog(GroupDialog):
 class NewGroupDialog(GroupDialog):
     def __init__(self, parentGroup, parent=None):
         defaults = {"title": "Create New Group",
-                    "message": "Group to be created as a child of the group %s" % parentGroup.name,
+                    "message": "Group to be created as a child of the group %s" % parentGroup.name(),
                     "name": "",
                     "department": "Unknown",
                     "defaultJobPriority": 0,

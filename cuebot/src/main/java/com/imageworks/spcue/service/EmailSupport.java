@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
@@ -269,8 +270,10 @@ public class EmailSupport {
             context.put("succeededFrames", String.format("%04d", jts.succeeded));
             context.put("failedFrames",  String.format("%04d", jts.dead + jts.eaten + jts.waiting));
             context.put("checkpointFrames",  String.format("%04d", jts.checkpoint));
-            context.put("maxRSS", String.format("%.1fGB", exj.highMemoryKb / 1024.0 / 1024.0));
-            context.put("coreTime",  String.format("%.1f", exj.coreTime / 3600.0));
+            context.put("maxRSS", String.format(Locale.ROOT, "%.1fGB",
+                    exj.highMemoryKb / 1024.0 / 1024.0));
+            context.put("coreTime",  String.format(Locale.ROOT, "%.1f",
+                    exj.coreTime / 3600.0));
 
             Template t = ve.getTemplate("/conf/webapp/html/email_template.html");
 
