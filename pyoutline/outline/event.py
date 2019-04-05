@@ -26,6 +26,8 @@ from builtins import str
 from builtins import object
 import logging
 
+from .exception import FailImmediately
+
 
 logger = logging.getLogger("outline.event")
 
@@ -48,7 +50,6 @@ AFTER_EXECUTE = EVENT_TYPES[4]
 AFTER_LAUNCH = EVENT_TYPES[5]
 BEFORE_LAUNCH = EVENT_TYPES[6]
 
-from .exception import FailImmediately
 
 class EventHandler(object):
     """

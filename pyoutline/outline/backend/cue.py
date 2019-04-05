@@ -304,11 +304,12 @@ def _serialize(launcher, use_pycuerun):
     # Dependencies go after all of the layers
     root.append(depends)
 
-    xml = list()
-    xml.append('<?xml version="1.0"?>')
-    xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-               '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
-    xml.append(Et.tostring(root).decode())
+    xml = [
+        '<?xml version="1.0"?>',
+        '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
+            '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">',
+        Et.tostring(root).decode()
+    ]
 
     result = "".join(xml)
     logger.debug(parseString(result).toprettyxml())
