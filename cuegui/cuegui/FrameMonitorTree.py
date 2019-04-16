@@ -423,7 +423,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         logger.info("_getUpdateChanged")
         if not self.__job or \
            (self.__jobState and self.__jobState == opencue.api.job_pb2.FINISHED):
-            logger.warning("no job or job is finished, bailing")
+            logger.debug("no job or job is finished, bailing")
             return []
         logger.info(" + Nth update = %s" % self.__class__)
         updatedFrames = []
