@@ -13,12 +13,19 @@
 #  limitations under the License.
 
 
-import sys
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import object
 import logging
+import sys
 
 from outline.config import config
 
+
 logger = logging.getLogger("outline.plugins")
+
 
 class PluginManager(object):
 
@@ -29,7 +36,7 @@ class PluginManager(object):
         for plugin in cls.registered_plugins:
             try:
                 plugin.init_cuerun_plugin(cuerun)
-            except AttributeError, e:
+            except AttributeError as e:
                 pass
 
     @classmethod
@@ -42,11 +49,11 @@ class PluginManager(object):
                                 [module_name])
             try:
                 module.loaded()
-            except  AttributeError, e:
+            except  AttributeError as e:
                 pass
             cls.registered_plugins.append(module)
 
-        except ImportError, e:
+        except ImportError as e:
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)
 
     @classmethod
@@ -59,24 +66,20 @@ class PluginManager(object):
             plugin = __import__(module_name, globals(), locals(), [module_name])
             try:
                 plugin.init(layer)
-            except AttributeError, e:
+            except AttributeError as e:
                 pass
-        except ImportError, e:
+        except ImportError as e:
             sys.stderr.write("Warning: plugin load failed: %s\n" % e)
 
     @classmethod
-    def load_all_plugins(cls):        
-        def sort_by_priority(a, b):
+    def load_all_plugins(cls):
+        def section_priority(section_needing_key):
             priority_option = "priority"
-            a_priority = 0
-            b_priority = 0
-            if config.has_option(a, priority_option):
-                a_priority = config.getint(a, priority_option)
-            if config.has_option(b, priority_option):
-                b_priority = config.getint(b, priority_option)
-            return cmp(b_priority, a_priority)
+            if config.has_option(section_needing_key, priority_option):
+                return config.getint(section_needing_key, priority_option)
+            return 0
         
-        sections = sorted(config.sections(), cmp=sort_by_priority)
+        sections = sorted(config.sections(), key=section_priority)
         
         for section in sections:
             if section.startswith("plugin:"):

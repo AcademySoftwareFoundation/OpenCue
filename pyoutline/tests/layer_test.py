@@ -15,13 +15,22 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+# WARNING: Do not import builtins.str here as we do elsewhere in the code. Unit tests on Python 2
+# need to preserve the existing Python 2 string type.
+from builtins import range
+import future.types
 import mock
 import os
+import sys
 import unittest
 
 import outline
 from outline.modules.shell import Shell
-import test_utils
+from . import test_utils
 
 
 SCRIPTS_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'scripts')
@@ -176,10 +185,34 @@ class LayerTest(unittest.TestCase):
     def test_invalid_type_args(self):
         """Test the interpolation of arg strings."""
 
-        self.layer.require_arg('shazam', str)
-        self.assertRaises(outline.layer.LayerException, self.layer.set_arg, 'shazam', { })
+        intArgName = 'some-int-arg'
+        self.layer.require_arg(intArgName, int)
+        self.assertRaises(
+            outline.layer.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
+        self.layer.set_arg(intArgName, 872)
 
-        self.layer.set_arg('shazam', 'shazoo')
+        if sys.version_info[0] >= 3:
+            strArgName = 'some-str-arg'
+            self.layer.require_arg(strArgName, str)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+            self.layer.set_arg(strArgName, 'py3-string')
+        else:
+            strArgName = 'some-str-arg'
+            self.layer.require_arg(strArgName, str)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+            self.layer.set_arg(strArgName, 'standard-py2-string')
+            self.layer.set_arg(strArgName, u'py2-unicode')
+            self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
+
+            newstrArgName = 'some-newstr-arg'
+            self.layer.require_arg(newstrArgName, future.types.newstr)
+            self.assertRaises(
+                outline.layer.LayerException, self.layer.set_arg, newstrArgName, dict())
+            self.layer.set_arg(newstrArgName, 'standard-py2-string')
+            self.layer.set_arg(newstrArgName, u'py2-unicode')
+            self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
 
     def test_require_arg(self):
         """
@@ -215,7 +248,7 @@ class LayerTest(unittest.TestCase):
             self.ol.setup()
             expectedPath = '%s/layers/%s' % (
                 self.ol.get_session().get_path(), self.layer.get_name())
-            self.assertEquals(expectedPath, self.layer.get_path())
+            self.assertEqual(expectedPath, self.layer.get_path())
 
     def test_setup(self):
         """Test setting up the event for launch."""
@@ -242,14 +275,14 @@ class LayerTest(unittest.TestCase):
         range is not set on a layer, then it should default to
         the outline frame range.
         """
-        self.assertEquals(self.ol.get_frame_range(), self.layer.get_frame_range())
+        self.assertEqual(self.ol.get_frame_range(), self.layer.get_frame_range())
         self.layer.set_frame_range('1-10')
-        self.assertEquals('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
+        self.assertEqual('1,2,3,4,5,6,7,8,9,10', self.layer.get_frame_range())
 
     def test_get_set_chunk_size(self):
         """Test get/set of chunk size."""
         self.layer.set_chunk_size(5)
-        self.assertEquals(5, self.layer.get_chunk_size())
+        self.assertEqual(5, self.layer.get_chunk_size())
 
     def test_add_layer_during_setup(self):
         """Test to ensure that layers added during setup are serialized."""
@@ -271,7 +304,7 @@ class LayerTest(unittest.TestCase):
         # Ensure after init was run,
         self.assertTrue(ol.get_layer('test').get_arg('after_init'))
         # Ensure that the layer has the right ol reference
-        self.assertEquals(ol, ol.get_layer('test').get_outline())
+        self.assertEqual(ol, ol.get_layer('test').get_outline())
 
     def test_after_init_current(self):
         ol = outline.Outline('after_init', current=True)
@@ -280,7 +313,7 @@ class LayerTest(unittest.TestCase):
         # Ensure after init was run,
         self.assertTrue(ol.get_layer('test').get_arg('after_init'))
         # Ensure that the layer has the right ol reference
-        self.assertEquals(ol, ol.get_layer('test').get_outline())
+        self.assertEqual(ol, ol.get_layer('test').get_outline())
 
     def test_dependency_creation(self):
         with test_utils.TemporarySessionDirectory():
@@ -291,13 +324,13 @@ class LayerTest(unittest.TestCase):
             ol.setup()
 
             # check the depend was setup properly
-            self.assertEquals(1, len(ol.get_layer('testb').get_depends()))
+            self.assertEqual(1, len(ol.get_layer('testb').get_depends()))
 
     def test_type_arg(self):
         """Test to ensure the type argument is handled properly."""
         outline.Outline.current = None
         t = TestA('test', type='Post')
-        self.assertEquals('Post', t.get_type())
+        self.assertEqual('Post', t.get_type())
 
     def test_set_output_attribute(self):
         """Test setting an output attribute on all registered output."""
@@ -363,7 +396,7 @@ class OutputRegistrationTest(unittest.TestCase):
             # now run a single frame of the render layer and ensure that
             # the outputs are automatically loaded.
             layer1.execute(1000)
-            self.assertEquals(1, len(layer1.get_outputs()))
+            self.assertEqual(1, len(layer1.get_outputs()))
 
 
 class TestAfterInit(outline.Layer):

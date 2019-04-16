@@ -14,13 +14,19 @@
 
 
 """Plugin for booking local cores after a job is launched."""
+
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+from builtins import str
 import os
 import logging
+from socket import gethostname
 import subprocess
 
-from socket import gethostname
-
 from outline import event
+
 
 logger = logging.getLogger("outline.plugins.local")
 
@@ -65,7 +71,7 @@ def deed_local_machine():
     show = opencue.findShow(os.environ.get("SHOW", "pipe"))
     try:
         owner = opencue.getOwner(user)
-    except opencue.CueException, e:
+    except opencue.CueException as e:
         owner = show.createOwner(user)
 
     owner.takeOwnership(gethostname())

@@ -13,8 +13,10 @@
 #  limitations under the License.
 
 
-import os
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
 
-from manager import PluginManager
+from .manager import PluginManager
 
 PluginManager.load_all_plugins()

@@ -15,12 +15,16 @@
 #  limitations under the License.
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import unittest
 
 import outline
 from outline.depend import DependType
 from outline.modules.shell import Shell
-import test_utils
+from . import test_utils
 
 
 class DependTest(unittest.TestCase):

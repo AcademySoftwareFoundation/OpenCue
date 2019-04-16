@@ -13,8 +13,15 @@
 #  limitations under the License.
 
 
-import sqlite3
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import object
+from builtins import range
 import subprocess
+
+import sqlite3
 
 import FileSequence
 
@@ -109,7 +116,7 @@ class Dispatcher(object):
                     retcode = subprocess.call(command, shell=False)
                     if retcode != 0:
                         raise Exception("frame failed")
-                except Exception, e:
+                except Exception as e:
                     # Failed to run frame
                     # Set frame to dead
                      c = self.__conn.cursor()
@@ -117,14 +124,14 @@ class Dispatcher(object):
                                ('DEAD', l, f))
                      self.__conn.commit()
 
-        except Exception, e:
-            print "Job is done: %s" % e
+        except Exception as e:
+            print("Job is done: %s" % e)
         finally:
             self.__conn.close()
 
     def __create_dispatch_list(self):
         """
-        Creates a list of dispachable frames.
+        Creates a list of dispatchable frames.
         """
         c = self.__conn.cursor()
         c.execute('''create table frames (layer text, frame int, state string, layer_order int, frame_order int)''')
@@ -152,5 +159,5 @@ class Dispatcher(object):
             c.execute("UPDATE frames SET state=? WHERE layer=? AND frame=?",
                       ('RUNNING', result[0], result[1]))
             self.__conn.commit()
-            return (result[0], result[1])
+            return result[0], result[1]
         raise Exception("Frame not found")

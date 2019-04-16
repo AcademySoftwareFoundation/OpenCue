@@ -13,11 +13,17 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import range
 import mock
 import tempfile
 import unittest
 
 from FileSequence import FrameSet
+
 import outline
 from outline.loader import Outline
 from outline.modules.shell import Shell

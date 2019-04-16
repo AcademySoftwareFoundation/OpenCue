@@ -15,7 +15,6 @@
 #  limitations under the License.
 
 
-
 from outline import Outline, cuerun
 from outline.modules.tutorial import HelloModule
 

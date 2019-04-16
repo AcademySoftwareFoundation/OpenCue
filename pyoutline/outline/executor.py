@@ -15,17 +15,28 @@
 
 """A simple python thread pool."""
 
-import Queue
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from future import standard_library
+standard_library.install_aliases()
+from builtins import range
+from builtins import object
+import queue
 import threading
 import logging
+
 
 __all__ = ["TaskExecutor"]
 
 logger = logging.getLogger("outline.executor")
 
+
 class TaskExecutor(object):
     def __init__(self, threads):
-        self.__queue = Queue.Queue()
+        self.__queue = queue.Queue()
 
         for i in range(0, threads):
             logger.debug("executor creating thread #%d" % i)
@@ -58,6 +69,6 @@ class TaskExecutor(object):
                     item[0](*item[1])
                 else:
                     item[0]()
-            except Exception, e:
+            except Exception as e:
                 logger.warn("Worker thread exception: %s" % e)
             self.__queue.task_done()

@@ -16,7 +16,18 @@
 """
 The outline event handler controls firing events to listeners.
 """
+
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+from builtins import object
 import logging
+
+from .exception import FailImmediately
+
 
 logger = logging.getLogger("outline.event")
 
@@ -39,7 +50,6 @@ AFTER_EXECUTE = EVENT_TYPES[4]
 AFTER_LAUNCH = EVENT_TYPES[5]
 BEFORE_LAUNCH = EVENT_TYPES[6]
 
-from exception import FailImmediately
 
 class EventHandler(object):
     """
@@ -55,7 +65,7 @@ class EventHandler(object):
         callback function.
         """
         logger.debug("adding event listener %s" % event_type)
-        if not self.__listeners.has_key(event_type):
+        if event_type not in self.__listeners:
             self.__listeners[event_type] = [ ]
         self.__listeners[event_type].append(callback)
 
@@ -64,10 +74,10 @@ class EventHandler(object):
         for callback in self.__listeners.get(event.type, []):
             try:
                 callback(event)
-            except FailImmediately, fi:
+            except FailImmediately as fi:
                 logger.debug("FailImmediately exception thrown, %s, %s" % (event.type, fi))
                 raise fi
-            except Exception, e:
+            except Exception as e:
                 logger.debug("failed to execute event %s, %s" % (event.type, e))
 
     def get_event_listeners(self, event_type):

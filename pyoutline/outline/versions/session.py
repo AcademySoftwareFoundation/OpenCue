@@ -13,23 +13,31 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import object
 import atexit
+from future.utils import with_metaclass
 import logging
 import os
 import shutil
 import sys
 import tempfile
 
+
 logger = logging.getLogger("versions")
 
 
-class Settings:
+class Settings(object):
     # Path containing different outline library versions
     repos_path = ""
     module_repos = {}
 
 
-class Singleton:
+class Singleton(type):
     def __init__(self, name, bases, namespace):
         self._obj = type(name, bases, namespace)()
         atexit.register(self._obj.clean)
@@ -38,9 +46,7 @@ class Singleton:
         return self._obj
 
 
-class Session(object):
-
-    __metaclass__ = Singleton
+class Session(with_metaclass(Singleton, object)):
 
     """
     The Session class handles creation of the versioning session.
@@ -114,7 +120,7 @@ class Session(object):
                 del self.__modules[module]
                 os.unlink(path)
                 return True
-            except KeyError, kerr:
+            except KeyError as kerr:
                 logger.warn("Module %s was not loaded." % module)
         else:
             logger.warn("Failed to remove symlink '%s', does not exist." % path)
@@ -146,7 +152,7 @@ class Session(object):
 
     def get_ver_str(self):
         return ",".join(["%s:%s" % (mod, ver)
-                         for mod, ver in self.__modules.iteritems()])
+                         for mod, ver in self.__modules.items()])
 
     def __link_version(self, src, dst):
         os.symlink(src, dst)
@@ -157,8 +163,8 @@ class Session(object):
             fob, path, desc = imp.find_module('manifest', [path])
             mob = imp.load_module("manifest", fob, path, desc)
             fob.close()
-        except Exception, e:
-            print "Failed to execute manifest file: %s" % e
+        except Exception as e:
+            print("Failed to execute manifest file: %s" % e)
 
     def __lock_module(self, name, version):
         self.__modules[name] = str(version)

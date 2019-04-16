@@ -12,11 +12,17 @@ RUN yum -y install \
   gcc \
   python-devel
 
-RUN yum -y install python-pip
+RUN yum -y install \
+  python-pip \
+  python36 \
+  python36-devel \
+  python36-pip
 
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
+
+RUN pip3.6 install -r requirements.txt
 
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
@@ -33,7 +39,13 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
+# Fix imports to work in both Python 2 and 3. See
+# <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
+RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
+
 RUN cd pycue && python setup.py install
+
+RUN cd pycue && python3.6 setup.py install
 
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
@@ -53,6 +65,8 @@ FROM build as test
 COPY pyoutline/tests/ ./pyoutline/tests
 
 RUN cd pyoutline && python setup.py test
+
+RUN cd pyoutline && python3.6 setup.py test
 
 
 # -----------------

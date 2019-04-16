@@ -15,15 +15,21 @@
 
 """Global storage and data exchange."""
 
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+from builtins import str
+from builtins import object
 import os
 import logging
 import shutil
-import yaml
 import uuid
+import yaml
 
-from config import config
-from exception import SessionException
-import util
+from .config import config
+from .exception import SessionException
 
 
 __all__ = ["is_session_path",
@@ -111,8 +117,8 @@ class Session(object):
                 logger.info("creating session path: %s" % base_path)
                 old_mask = os.umask(0)
                 try:
-                    os.makedirs(base_path, 0777)
-                    os.mkdir("%s/layers" % base_path, 0777)
+                    os.makedirs(base_path, 0o777)
+                    os.mkdir("%s/layers" % base_path, 0o777)
                 finally:
                     os.umask(old_mask)
 
@@ -120,7 +126,7 @@ class Session(object):
             # will return the proper value.
             self.__path = base_path
 
-        except OSError, exp:
+        except OSError as exp:
             msg = "Failed to create session path: %s, reason: %s"
             raise SessionException(msg % (self.get_path(), exp))
 
@@ -140,7 +146,7 @@ class Session(object):
                 self.__name = data
                 self.__path = os.path.dirname(self.__outline.get_path())
                 logger.info("session loaded: %s" % self.__name)
-            except Exception, exp:
+            except Exception as exp:
                 msg = "failed to load session from %s, %s"
                 raise SessionException(msg % (session, exp))
         finally:
@@ -207,7 +213,7 @@ class Session(object):
         logger.info("creating session link %s"  % dst_path)
         try:
             os.unlink(dst_path)
-        except Exception, e:
+        except Exception as e:
             pass
         os.symlink(os.path.abspath(src), dst_path)
         
@@ -350,7 +356,7 @@ class Session(object):
         try:
             try:
                 return yaml.load(fp)
-            except Exception, exp:
+            except Exception as exp:
                 msg = "failed to load yaml data from %s, %s"
                 raise SessionException(msg % (path, exp))
         finally:
@@ -390,7 +396,7 @@ class Session(object):
                 return path
             old_mask = os.umask(0)
             try:
-                os.mkdir(path, 0777)
+                os.mkdir(path, 0o777)
             except OSError:
                 # Just eat this.  If it did actually fail
                 # the whole process will fail pretty soon.

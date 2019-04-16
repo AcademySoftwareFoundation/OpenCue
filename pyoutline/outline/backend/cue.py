@@ -15,12 +15,20 @@
 
 """OpenCue integration module."""
 
+
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
 import logging
 import os
 import sys
 import time
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
+
+import six
 
 import FileSequence
 import opencue
@@ -142,7 +150,7 @@ def test(job):
                 msg = "waiting on %s job to complete: %d/%d"
                 logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
                                     job.data.job_stats.total_frames))
-            except opencue.CueException, ie:
+            except opencue.CueException as ie:
                 raise OutlineException("test for job %s failed: %s" %
                                        (job.data.name, ie))
             time.sleep(5)
@@ -164,12 +172,12 @@ def wait(job):
             msg = "waiting on %s job to complete: %d/%d"
             logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
                                 job.data.job_stats.total_frames))
-        except opencue.CueException, ie:
+        except opencue.CueException as ie:
             msg = "opencue error waiting on job: %s, %s. Will continue to wait."
-            print >> sys.stderr, msg % (job.data.name, ie)
-        except Exception, e:
+            print(msg % (job.data.name, ie), file=sys.stderr)
+        except Exception as e:
             msg = "opencue error waiting on job: %s, %s. Will continue to wait."
-            print >> sys.stderr, msg % (job.data.name, e)
+            print(msg % (job.data.name, e), file=sys.stderr)
         time.sleep(JOB_WAIT_PERIOD_SEC)
 
 
@@ -223,7 +231,7 @@ def _serialize(launcher, use_pycuerun):
         sub_element(j, "os", os.environ.get("OL_OS"))
 
     env = Et.SubElement(j, "env")
-    for env_k, env_v in ol.get_env().iteritems():
+    for env_k, env_v in ol.get_env().items():
         # Only pre-setshot environment variables are
         # passed up to the cue.
         if env_v[1]:
@@ -296,11 +304,12 @@ def _serialize(launcher, use_pycuerun):
     # Dependencies go after all of the layers
     root.append(depends)
 
-    xml = []
-    xml.append('<?xml version="1.0"?>')
-    xml.append('<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-               '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">')
-    xml.append(Et.tostring(root))
+    xml = [
+        '<?xml version="1.0"?>',
+        '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
+            '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">',
+        Et.tostring(root).decode()
+    ]
 
     result = "".join(xml)
     logger.debug(parseString(result).toprettyxml())
@@ -311,7 +320,7 @@ def scrub_tags(tags):
     """
     Ensure that layer tags pass in as a string are formatted properly.
     """
-    if isinstance(tags, (basestring,)):
+    if isinstance(tags, six.string_types):
         tags = [tag.strip() for tag in tags.split("|")
                 if tag.strip().isalnum()]
     return " | ".join(tags)
