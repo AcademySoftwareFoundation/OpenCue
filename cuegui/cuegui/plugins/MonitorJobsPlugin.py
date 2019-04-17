@@ -135,19 +135,29 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(self.__regexLoadJobsEditBox)
         self.__regexLoadJobsEditBox.returnPressed.connect(self._regexLoadJobsHandle)
 
+    def _loadFinishedJobsSetup(self, layout):
+        """Ensures that when querying jobs that finished jobs are included.
+        Requires: self._regexLoadJobsHandle() and class JobLoadFinishedCheckBox
+        @param layout: The layout that the widgets will be placed in
+        @type  layout: QLayout"""
+        self.__loadFinishedJobsCheckBox = JobLoadFinishedCheckBox(self)
+        layout.addWidget(self.__loadFinishedJobsCheckBox)
+        self.__loadFinishedJobsCheckBox.stateChanged.connect(self._regexLoadJobsHandle)
+
     def _regexLoadJobsHandle(self):
         """This will select all jobs that have a name that contain the substring
         in self.__regexLoadJobsEditBox.text() and scroll to the first match"""
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
+        load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
 
         if not substring:
-            return
+            substring = ''
 
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
-        elif re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-            # If show and shot is provided, load all finished jobs
+        elif load_finished_jobs or re.search("^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
+            # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
             for job in opencue.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
         else:
@@ -171,6 +181,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         mineCheckbox.setChecked(True)
         layout.addWidget(mineCheckbox)
         mineCheckbox.stateChanged.connect(self.jobMonitor.setLoadMine)
+
+        self._loadFinishedJobsSetup(self.__toolbar)
 
         finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
         finishedButton.setToolTip("Unmonitor finished jobs")
@@ -228,6 +240,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(unpauseButton)
         unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)
 
+class JobLoadFinishedCheckBox(QtWidgets.QCheckBox):
+    def __init__(self,parent):
+        QtWidgets.QCheckBox.__init__(self,"Load Finished")
+        self.parent = weakref.proxy(parent)
+
+        toolTip = 'This ensures that all finished jobs.<br>' \
+                  'get included when querying the Cuebot server'
+
+        self.setToolTip(toolTip)
 
 class JobRegexLoadEditBox(QtWidgets.QLineEdit):
     def __init__(self, parent):
