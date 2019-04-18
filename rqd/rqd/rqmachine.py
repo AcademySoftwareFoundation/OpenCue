@@ -268,7 +268,8 @@ class Machine:
                     frame.runFrame.attributes["pcpu"] = str(pcpu)
 
                     if rqconstants.ENABLE_PTREE:
-                        frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree))
+                        frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree,
+                                                                           Loader=yaml.SafeLoader))
 
             # Store the current data for the next check
             self.__pidHistory = pidData

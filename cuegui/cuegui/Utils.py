@@ -387,8 +387,8 @@ def getResourceConfig(path=None):
     if not path:
         path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
     try:
-        with open(path, 'r') as f:
-            config = yaml.load(f)
+        with open(path, 'r') as fileObject:
+            config = yaml.load(fileObject, Loader=yaml.SafeLoader)
     except (IOError, ScannerError) as e:
         print ('WARNING: Could not read config file %s: %s'
                % (path, e))

@@ -30,7 +30,7 @@ def getConfigValues():
     if configFile and os.path.exists(configFile):
         with open(configFile, 'r') as data:
             try:
-                configData = yaml.load(data)
+                configData = yaml.load(data, Loader=yaml.SafeLoader)
             except yaml.YAMLError:
                 raise CuesubmitConfigError("Could not load yaml file: {}. Please check its "
                                            "formatting".format(configFile))

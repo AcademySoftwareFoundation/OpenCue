@@ -139,18 +139,15 @@ class Session(object):
             raise SessionException(msg % session)
 
         logger.info("loading session: %s" % session)
-        fp = open(session)
-        try:
+        with open(session) as file_object:
             try:
-                data = yaml.load(fp)
-                self.__name = data
-                self.__path = os.path.dirname(self.__outline.get_path())
-                logger.info("session loaded: %s" % self.__name)
+                data = yaml.load(file_object, Loader=yaml.SafeLoader)
             except Exception as exp:
                 msg = "failed to load session from %s, %s"
                 raise SessionException(msg % (session, exp))
-        finally:
-            fp.close()
+        self.__name = data
+        self.__path = os.path.dirname(self.__outline.get_path())
+        logger.info("session loaded: %s" % self.__name)
 
     def get_name(self):
         """
@@ -352,15 +349,12 @@ class Session(object):
                 stored under that name.")
 
         logger.debug("opening data path for %s : %s" % (name, path))
-        fp = open(path,"r")
-        try:
+        with open(path) as file_object:
             try:
-                return yaml.load(fp)
+                return yaml.load(file_object, Loader=yaml.SafeLoader)
             except Exception as exp:
                 msg = "failed to load yaml data from %s, %s"
                 raise SessionException(msg % (path, exp))
-        finally:
-            fp.close()
 
     def get_path(self, layer=None):
         """

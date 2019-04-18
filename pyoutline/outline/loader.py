@@ -76,8 +76,8 @@ def load_outline(path):
 
     ext = os.path.splitext(path)
     if ext[1] == ".yaml" or path.find("cue_archive") != -1:
-        with open(path, 'r') as fp:
-            ol = yaml.load(fp.read())
+        with open(path) as file_object:
+            ol = yaml.load(file_object, Loader=yaml.SafeLoader)
         Outline.current = ol
         if not isinstance(ol, Outline):
             raise OutlineException("The file %s did not produce "

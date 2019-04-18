@@ -419,6 +419,7 @@ class FileSpec(Path):
 
         return ".".join(e)
 
+
 def file_spec_serializer(dumper, data):
     """
     Serialize a FileSpec object.  This is required for Yaml
@@ -428,12 +429,14 @@ def file_spec_serializer(dumper, data):
                                    u'%s' % yaml.dump([data.get_path(),
                                                       data.get_attributes()]))
 
+
 def file_spec_constructor(loader, node):
     """
     Unserializes a yamlized FileSpec.
     """
-    value = yaml.load(loader.construct_scalar(node))
+    value = yaml.load(loader.construct_scalar(node), Loader=yaml.SafeLoader)
     return FileSpec(value[0], **value[1])
+
 
 # Register the yaml serialize/unserialize callbacks.
 yaml.add_representer(FileSpec, file_spec_serializer)
