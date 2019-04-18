@@ -20,7 +20,7 @@ OpenCue provides features to manage rendering management at scale:
 - Highly-scalable architecture supporting numerous concurrent machines.
 - Tagging systems allow you to allocate specific jobs to specific machine
   types.
-- Jobs are process on a central render farm and don't rely on the artist's
+- Jobs are processed on a central render farm and don't rely on the artist's
   workstation.
 - Native multi-threading that supports Katana, Prman, and Arnold.
 - Support for multi facility, on-premisses, cloud, and hybrid deployments.
