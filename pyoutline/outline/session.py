@@ -141,7 +141,7 @@ class Session(object):
         logger.info("loading session: %s" % session)
         with open(session) as file_object:
             try:
-                data = yaml.load(file_object, Loader=yaml.Loader)
+                data = yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:
                 msg = "failed to load session from %s, %s"
                 raise SessionException(msg % (session, exp))
@@ -351,7 +351,7 @@ class Session(object):
         logger.debug("opening data path for %s : %s" % (name, path))
         with open(path) as file_object:
             try:
-                return yaml.load(file_object, Loader=yaml.Loader)
+                return yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:
                 msg = "failed to load yaml data from %s, %s"
                 raise SessionException(msg % (path, exp))
