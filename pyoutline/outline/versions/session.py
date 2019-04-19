@@ -23,7 +23,6 @@ import atexit
 from future.utils import with_metaclass
 import logging
 import os
-import shutil
 import sys
 import tempfile
 
@@ -141,6 +140,7 @@ class Session(with_metaclass(Singleton, object)):
         Unloads all modules.
         """
         self.__modules.clear()
+        import shutil
         shutil.rmtree(self.get_path())
 
     def get_version(self, module, default="latest"):
