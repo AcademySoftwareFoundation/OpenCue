@@ -134,7 +134,7 @@ class Show(object):
         @return: response is empty
         """
         response = self.stub.SetDefaultMinCores(show_pb2.ShowSetDefaultMinCoresRequest(
-            show=self.data, max_cores=mincores),
+            show=self.data, min_cores=mincores),
             timeout=Cuebot.Timeout)
         return response
 
