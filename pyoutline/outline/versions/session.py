@@ -23,6 +23,7 @@ import atexit
 from future.utils import with_metaclass
 import logging
 import os
+import shutil
 import sys
 import tempfile
 
@@ -39,7 +40,7 @@ class Settings(object):
 class Singleton(type):
     def __init__(self, name, bases, namespace):
         self._obj = type(name, bases, namespace)()
-        atexit.register(self._obj.clean)
+        atexit.register(self._obj.clean, shutil_ptr=shutil)
 
     def __call__(self):
         return self._obj
@@ -135,13 +136,14 @@ class Session(with_metaclass(Singleton, object)):
         """Return the path to the session tmp dir."""
         return self.__path
 
-    def clean(self):
+    def clean(self, shutil_ptr):
         """
         Unloads all modules.
+        @type shutil_ptr: shutil module
+        @param shutil_ptr: reference to the shutil module. Only needed for Py2.7 compatibility.
         """
         self.__modules.clear()
-        import shutil
-        shutil.rmtree(self.get_path())
+        shutil_ptr.rmtree(self.get_path())
 
     def get_version(self, module, default="latest"):
         """
