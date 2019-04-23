@@ -26,9 +26,9 @@ from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import host_pb2
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub')
 class JobSearchTests(unittest.TestCase):
 
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testByOptions(self, getStubMock):
         jobId = 'A0000000-0000-0000-0000-000000000000'
         stubMock = mock.Mock()
@@ -46,8 +46,7 @@ class JobSearchTests(unittest.TestCase):
             job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(ids=[jobId])),
             timeout=mock.ANY)
 
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
-    def testBaseSearch(self, getStubMock):
+    def testBaseSearchHost(self, getStubMock):
         stubMock = mock.Mock()
         getStubMock.return_value = stubMock
 
@@ -57,6 +56,10 @@ class JobSearchTests(unittest.TestCase):
         stubMock.GetHosts.assert_called_with(
             host_pb2.HostGetHostsRequest(r=host_pb2.HostSearchCriteria(substr=['unittest_host'])),
             timeout=mock.ANY)
+
+    def testBaseSearchJob(self, getStubMock):
+        stubMock = mock.Mock()
+        getStubMock.return_value = stubMock
 
         jobSearch = opencue.search.JobSearch(show=['pipe'], match=['v6'])
         jobSearch.search()
