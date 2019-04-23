@@ -70,7 +70,7 @@ class IdTests(unittest.TestCase):
         arbitraryId = 'foo'
         job = Job(job_pb2.Job(id=arbitraryId))
 
-        self.assertEquals(arbitraryId, opencue.id(job))
+        self.assertEqual(arbitraryId, opencue.id(job))
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testIdOnEntityList(self, getStubMock):
@@ -80,9 +80,9 @@ class IdTests(unittest.TestCase):
 
         ids = opencue.id(jobs)
 
-        self.assertEquals(len(jobs), len(ids))
+        self.assertEqual(len(jobs), len(ids))
         for i in range(0, len(jobs)):
-            self.assertEquals(arbitraryIds[i], ids[i])
+            self.assertEqual(arbitraryIds[i], ids[i])
 
 
 if __name__ == '__main__':

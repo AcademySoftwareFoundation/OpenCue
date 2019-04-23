@@ -72,7 +72,7 @@ class BaseSearch(object):
         self.options = options
 
     def search(self):
-        return self.byOptions(self.options)
+        return self.byOptions(**self.options)
 
     @classmethod
     def byOptions(cls, **options):
