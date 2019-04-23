@@ -23,6 +23,7 @@ import unittest
 
 import opencue
 from opencue.compiled_proto import job_pb2
+from opencue.compiled_proto import host_pb2
 
 
 class JobSearchTests(unittest.TestCase):
@@ -43,6 +44,25 @@ class JobSearchTests(unittest.TestCase):
 
         stubMock.GetJobs.assert_called_with(
             job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(ids=[jobId])),
+            timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testBaseSearch(self, getStubMock):
+        stubMock = mock.Mock()
+        getStubMock.return_value = stubMock
+
+        hostSearch = opencue.search.HostSearch(substr=['unittest_host'])
+        hostSearch.search()
+
+        stubMock.GetHosts.assert_called_with(
+            host_pb2.HostGetHostsRequest(r=host_pb2.HostSearchCriteria(substr=['unittest_host'])),
+            timeout=mock.ANY)
+
+        jobSearch = opencue.search.JobSearch(show=['pipe'], match=['v6'])
+        jobSearch.search()
+
+        stubMock.GetJobs.assert_called_with(
+            job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(shows=['pipe'], substr=['v6'])),
             timeout=mock.ANY)
 
 
