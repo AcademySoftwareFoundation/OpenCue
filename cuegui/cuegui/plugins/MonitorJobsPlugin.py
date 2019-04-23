@@ -150,9 +150,6 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
         load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
 
-        if not substring:
-            substring = ''
-
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
@@ -241,11 +238,11 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)
 
 class JobLoadFinishedCheckBox(QtWidgets.QCheckBox):
-    def __init__(self,parent):
-        QtWidgets.QCheckBox.__init__(self,"Load Finished")
+    def __init__(self, parent):
+        QtWidgets.QCheckBox.__init__(self, 'Load Finished')
         self.parent = weakref.proxy(parent)
 
-        toolTip = 'This ensures that all finished jobs.<br>' \
+        toolTip = 'This ensures that all finished jobs<br>' \
                   'get included when querying the Cuebot server'
 
         self.setToolTip(toolTip)
