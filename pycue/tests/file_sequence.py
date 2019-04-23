@@ -125,18 +125,18 @@ class FrameRangeTests(unittest.TestCase):
     def testSize(self):
         result = FrameRange('1-7')
 
-        self.assertEquals(7, result.size())
+        self.assertEqual(7, result.size())
 
     def testGet(self):
         result = FrameRange('1-7')
 
-        self.assertEquals(5, result.get(4))
+        self.assertEqual(5, result.get(4))
 
     def testIndex(self):
         result = FrameRange('1-7')
 
-        self.assertEquals(5, result.index(6))
-        self.assertEquals(-1, result.index(22))
+        self.assertEqual(5, result.index(6))
+        self.assertEqual(-1, result.index(22))
 
     def testNormalize(self):
         simpleRange = FrameRange('3-5')

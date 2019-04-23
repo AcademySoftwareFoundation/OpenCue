@@ -96,13 +96,14 @@ class Show(object):
 
     def getFilters(self):
         """Returns the job filters for this show
-        @rtype: FilterSeq
-        @return: Seq object containing a list of Filters
+        @rtype: list<Filter>
+        @return: List of Filter wrapper objects for this show.
         """
         response = self.stub.GetFilters(show_pb2.ShowGetFiltersRequest(
             show=self.data),
             timeout=Cuebot.Timeout)
-        return [filter.Filter(filter) for filter in response.filters]
+        filterSeq = response.filters
+        return [opencue.wrappers.filter.Filter(filter) for filter in filterSeq.filters]
 
     def setActive(self, value):
         """Set the active state of this show to value
@@ -145,9 +146,9 @@ class Show(object):
         @rtype: Filter
         @return: filter wrapper of found filter
         """
-        response = self.stub.FindFilter(show_pb2.ShowFindShowRequest(
+        response = self.stub.FindFilter(show_pb2.ShowFindFilterRequest(
             show=self.data, name=name), timeout=Cuebot.Timeout)
-        return filter.Filter(response.filter)
+        return opencue.wrappers.filter.Filter(response.filter)
 
     def createFilter(self, name):
         """Create a filter on the show
@@ -158,7 +159,7 @@ class Show(object):
         """
         response = self.stub.CreateFilter(show_pb2.ShowCreateFilterRequest(
             show=self.data, name=name), timeout=Cuebot.Timeout)
-        return filter.Filter(response.filter)
+        return opencue.wrappers.filter.Filter(response.filter)
 
     def getGroups(self):
         """Get the groups for this show
