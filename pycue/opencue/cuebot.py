@@ -60,12 +60,14 @@ __all__ = ["Cuebot"]
 logger = logging.getLogger("opencue")
 
 default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
-config = yaml.load(open(default_config).read())
+with open(default_config) as file_object:
+    config = yaml.load(file_object, Loader=yaml.SafeLoader)
 
 # check for facility specific configurations.
 fcnf = os.environ.get('OPENCUE_CONF', '')
 if os.path.exists(fcnf):
-    config.update(yaml.load(open(fcnf).read()))
+    with open(fcnf) as file_object:
+        config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
 DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
