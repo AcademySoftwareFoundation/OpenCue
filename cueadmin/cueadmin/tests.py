@@ -13,14 +13,12 @@
 #  limitations under the License.
 
 
-import logging
 import unittest
 
 import opencue
 
 import common
 
-logger = logging.getLogger("opencue.cuetools")
 
 Parser = None
 
@@ -31,138 +29,7 @@ TEST_SHOW = ""
 
 class CueadminTests(unittest.TestCase):
 
-    def testCreateShow(self):
-        show = "test_show"
-        args = Parser.parse_args(["-create-show", show, "-force"])
-        try:
-            s = opencue.api.findShow(show)
-            s.delete()
-        except opencue.EntityNotFoundException:
-            pass
 
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertEqual(s.data.name, show)
-        s.delete()
-
-    def testDeleteShow(self):
-        show = "test_show"
-        args = Parser.parse_args(["-delete-show", show, "-force"])
-        try:
-            opencue.api.findShow(show)
-        except opencue.EntityNotFoundException:
-            opencue.api.createShow(show)
-        common.handleArgs(args)
-        try:
-            opencue.api.findShow(show)
-            assert False
-        except opencue.EntityNotFoundException:
-            assert True
-
-    def testEnableBooking(self):
-        show = TEST_SHOW
-        args = Parser.parse_args(["-booking", show, "off", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertFalse(s.data.booking_enabled)
-        args = Parser.parse_args(["-booking", show, "on", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertTrue(s.data.booking_enabled)
-
-    def testEnableDispatch(self):
-        show = TEST_SHOW
-        args = Parser.parse_args(["-dispatching", show, "off", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertFalse(s.data.dispatch_enabled)
-        args = Parser.parse_args(["-dispatching", show, "on", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertTrue(s.data.dispatch_enabled)
-
-    def testDefaultMinCores(self):
-        show = TEST_SHOW
-        args = Parser.parse_args(["-default-min-cores", show, "100", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertEquals(100, s.data.default_min_cores)
-        args = Parser.parse_args(["-default-min-cores", show, "1", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertEquals(1, s.data.default_min_cores)
-
-    def testDefaultMaxCores(self):
-        show = TEST_SHOW
-        args = Parser.parse_args(["-default-max-cores", show, "100", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertEquals(100, s.data.default_max_cores)
-        args = Parser.parse_args(["-default-max-cores", show, "200", "-force"])
-        common.handleArgs(args)
-        s = opencue.api.findShow(show)
-        self.assertEquals(200, s.data.default_max_cores)
-
-    def testCreateAlloc(self):
-        fac = TEST_FAC
-        name = "test_alloc"
-        entity = "%s.%s" % (fac, name)
-        args = Parser.parse_args(["-create-alloc", fac, name, "tag", "-force"])
-        try:
-            s = opencue.api.findAllocation(entity)
-            s.delete()
-        except opencue.EntityNotFoundException:
-            pass
-        common.handleArgs(args)
-        s = opencue.api.findAllocation(entity)
-        self.assertEqual(s.data.name, entity)
-        s.delete()
-
-    def testDeleteAlloc(self):
-        entity = "{0}.test_alloc".format(TEST_FAC)
-        args = Parser.parse_args(["-delete-alloc", entity, "-force"])
-        try:
-            opencue.api.findAllocation(entity)
-        except opencue.EntityNotFoundException:
-            f = opencue.api.getFacility(TEST_FAC)
-            f.proxy.createAllocation("test_alloc", "tulip")
-        common.handleArgs(args)
-        try:
-            opencue.api.findAllocation(entity)
-            assert False
-        except opencue.EntityNotFoundException:
-            assert True
-
-    def testRenameAlloc(self):
-        facility = opencue.api.getFacility(TEST_FAC)
-
-        entity1 = "{0}.test_alloc".format(TEST_FAC)
-        entity2 = "{0}.other_alloc".format(TEST_FAC)
-
-        args = Parser.parse_args(["-rename-alloc", entity1, entity2, "-force"])
-
-        deleteAlloc(entity1)
-        deleteAlloc(entity2)
-
-        facility.createAllocation("test_alloc", "tulip")
-        common.handleArgs(args)
-        s = opencue.api.findAllocation(entity2)
-        self.assertEqual(s.data.name, entity2)
-        s.delete()
-
-    def testTagAlloc(self):
-        facility = opencue.api.getFacility(TEST_FAC)
-        entity = "{0}.test_alloc".format(TEST_FAC)
-        new_tag = "new_tag"
-        args = Parser.parse_args(["-tag-alloc", entity, new_tag, "-force"])
-
-        deleteAlloc(entity)
-
-        facility.createAllocation("test_alloc", entity)
-        common.handleArgs(args)
-        s = opencue.api.findAllocation(entity)
-        self.assertEqual(s.data.tag, new_tag)
-        s.delete()
 
     def testTransferAlloc(self):
         facility = opencue.api.getFacility(TEST_FAC)
