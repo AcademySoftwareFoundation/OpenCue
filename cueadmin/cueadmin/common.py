@@ -507,18 +507,6 @@ def cutoff(s, length):
 # These static utility methods are implementations that may or may not
 # need to be moved to the server, but should be someplace common
 #
-class AllocUtil(object):
-    def __init__(self):
-        pass
-
-    @staticmethod
-    def transferHosts(src, dst):
-        hosts = opencue.proxy(src).getHosts()
-        logger.debug("transferring %d hosts from %s to %s" %
-                     (len(hosts), opencue.rep(src), opencue.rep(dst)))
-        dst.proxy.reparentHosts(hosts)
-
-
 class DependUtil(object):
 
     def __init__(self):
@@ -746,7 +734,7 @@ def handleArgs(args):
         dst = opencue.api.findAllocation(args.transfer[1])
         confirm(
             "Transfer hosts from from %s to %s" % (src.data.name, dst.data.name),
-            args.force, AllocUtil.transferHosts, src, dst)
+            args.force, dst.reparentHosts, src.getHosts())
 
     elif args.tag_alloc:
         alloc, tag = args.tag_alloc
@@ -827,7 +815,7 @@ def handleArgs(args):
         def moveHosts(hosts_, dst_):
             for host_ in hosts_:
                 logger.debug("moving %s to %s" % (opencue.rep(host_), opencue.rep(dst_)))
-                host.setAllocation(dst_.data)
+                host_.setAllocation(dst_.data)
 
         confirm("Move %d hosts to %s" % (len(hosts), args.move),
                 args.force, moveHosts, hosts, opencue.api.findAllocation(args.move))

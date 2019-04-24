@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -24,6 +26,7 @@ import cueadmin.common
 TEST_SHOW = 'test_show'
 TEST_FACILITY = 'some-non-default-facility'
 TEST_ALLOC = 'test_alloc'
+TEST_HOST = 'some_host'
 
 
 class ShowTests(unittest.TestCase):
@@ -171,14 +174,181 @@ class AllocTests(unittest.TestCase):
 
     @mock.patch('opencue.api.findAllocation')
     @mock.patch('opencue.cuebot.Cuebot.getStub')
-    def testTagAlloc(self):
-        tagName = "new_tag"
-        args = self.parser.parse_args(["-tag-alloc", entity, new_tag, "-force"])
+    def testTagAlloc(self, getStubMock, findAllocMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        tagName = 'new_tag'
+        args = self.parser.parse_args(['-tag-alloc', allocName, tagName, '-force'])
+        allocMock = mock.Mock()
+        findAllocMock.return_value = allocMock
 
-        deleteAlloc(entity)
+        cueadmin.common.handleArgs(args)
 
-        facility.createAllocation("test_alloc", entity)
-        common.handleArgs(args)
-        s = opencue.api.findAllocation(entity)
-        self.assertEqual(s.data.tag, new_tag)
-        s.delete()
+        findAllocMock.assert_called_with(allocName)
+        allocMock.setTag.assert_called_with(tagName)
+
+    @mock.patch('opencue.api.findAllocation')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testReparentHosts(self, getStubMock, findAllocMock):
+        srcAllocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        dstAllocName = '%s.some_other_alloc' % TEST_FACILITY
+        args = self.parser.parse_args(['-transfer', srcAllocName, dstAllocName, '-force'])
+        srcAllocMock = mock.Mock()
+        dstAllocMock = mock.Mock()
+        findAllocMock.side_effect = [srcAllocMock, dstAllocMock]
+        hostList = ['some', 'arbitrary', 'list', 'of', 'hosts']
+        srcAllocMock.getHosts.return_value = hostList
+
+        cueadmin.common.handleArgs(args)
+
+        findAllocMock.assert_has_calls([mock.call(srcAllocName), mock.call(dstAllocName)])
+        dstAllocMock.reparentHosts.assert_called_with(hostList)
+
+
+class HostTests(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    @mock.patch('opencue.search.HostSearch')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetRepairState(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(['-repair', '-host', TEST_HOST, '-force'])
+        hostMock = mock.Mock()
+        hostSearchMock.byName.return_value = [hostMock]
+
+        cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST])
+        hostMock.setHardwareState.assert_called_with(opencue.api.host_pb2.REPAIR)
+
+    @mock.patch('opencue.search.HostSearch')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testLockHost(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(['-lock', '-host', TEST_HOST, '-force'])
+        hostMock = mock.Mock()
+        hostSearchMock.byName.return_value = [hostMock]
+
+        cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST])
+        hostMock.lock.assert_called_with()
+
+    @mock.patch('opencue.search.HostSearch')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testUnlockHost(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(['-unlock', '-host', TEST_HOST, '-force'])
+        hostMock = mock.Mock()
+        hostSearchMock.byName.return_value = [hostMock]
+
+        cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST])
+        hostMock.unlock.assert_called_with()
+
+    @mock.patch('opencue.api.findAllocation')
+    @mock.patch('opencue.search.HostSearch')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testMoveHost(self, getStubMock, hostSearchMock, findAllocMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        args = self.parser.parse_args(['-move', allocName, '-host', TEST_HOST, '-force'])
+        hostMock = mock.Mock()
+        hostSearchMock.byName.return_value = [hostMock]
+        allocMock = mock.Mock()
+        findAllocMock.return_value = allocMock
+
+        cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_called_with([TEST_HOST])
+        findAllocMock.assert_called_with(allocName)
+        hostMock.setAllocation.assert_called_with(allocMock.data)
+
+
+class SubscriptionTests(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    @mock.patch('opencue.api.findAllocation')
+    @mock.patch('opencue.api.findShow')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCreateSub(self, getStubMock, findShowMock, findAllocMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        numCores = 125
+        burstCores = 236
+        args = self.parser.parse_args(
+            ['-create-sub', TEST_SHOW, allocName, str(numCores), str(burstCores), '-force'])
+        showMock = mock.Mock()
+        findShowMock.return_value = showMock
+        allocMock = mock.Mock()
+        findAllocMock.return_value = allocMock
+
+        cueadmin.common.handleArgs(args)
+
+        findShowMock.assert_called_with(TEST_SHOW)
+        findAllocMock.assert_called_with(allocName)
+        showMock.createSubscription.assert_called_with(allocMock.data, numCores, burstCores)
+
+    @mock.patch('opencue.api.findSubscription')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testDeleteSub(self, getStubMock, findSubMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        args = self.parser.parse_args(['-delete-sub', TEST_SHOW, allocName, '-force'])
+        subName = '%s.%s' % (allocName, TEST_SHOW)
+        subMock = mock.Mock()
+        findSubMock.return_value = subMock
+
+        cueadmin.common.handleArgs(args)
+
+        findSubMock.assert_called_with(subName)
+        subMock.delete.assert_called_with()
+
+    @mock.patch('opencue.api.findSubscription')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetSize(self, getStubMock, findSubMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        newSize = 200
+        args = self.parser.parse_args(['-size', TEST_SHOW, allocName, str(newSize), '-force'])
+        subName = '%s.%s' % (allocName, TEST_SHOW)
+        subMock = mock.Mock()
+        findSubMock.return_value = subMock
+
+        cueadmin.common.handleArgs(args)
+
+        findSubMock.assert_called_with(subName)
+        subMock.setSize.assert_called_with(newSize)
+
+    @mock.patch('opencue.api.findSubscription')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetBurst(self, getStubMock, findSubMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        newBurstSize = 847
+        args = self.parser.parse_args(['-burst', TEST_SHOW, allocName, str(newBurstSize), '-force'])
+        subName = '%s.%s' % (allocName, TEST_SHOW)
+        subMock = mock.Mock()
+        findSubMock.return_value = subMock
+
+        cueadmin.common.handleArgs(args)
+
+        findSubMock.assert_called_with(subName)
+        subMock.setBurst.assert_called_with(newBurstSize)
+
+    @mock.patch('opencue.api.findSubscription')
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetBurstPercentage(self, getStubMock, findSubMock):
+        allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
+        originalSize = 120
+        newBurstPerc = '20%'
+        args = self.parser.parse_args(['-burst', TEST_SHOW, allocName, newBurstPerc, '-force'])
+        subName = '%s.%s' % (allocName, TEST_SHOW)
+        subMock = mock.Mock()
+        subMock.data.size = originalSize
+        findSubMock.return_value = subMock
+
+        cueadmin.common.handleArgs(args)
+
+        findSubMock.assert_called_with(subName)
+        subMock.setBurst.assert_called_with(originalSize * (1 + float(newBurstPerc[:-1]) / 100))
+
+
+if __name__ == '__main__':
+    unittest.main()
