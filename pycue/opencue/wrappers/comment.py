@@ -33,11 +33,11 @@ class Comment(object):
 
     def delete(self):
         """Delete this comment"""
-        self.stub.Delete(comment_pb2.CommentDeleteRequest(self.data), timeout=Cuebot.Timeout)
+        self.stub.Delete(comment_pb2.CommentDeleteRequest(comment=self.data), timeout=Cuebot.Timeout)
 
     def save(self):
         """Saves the current comment values"""
-        self.stub.Save(comment_pb2.CommentSaveRequest(self.data), timeout=Cuebot.Timeout)
+        self.stub.Save(comment_pb2.CommentSaveRequest(comment=self.data), timeout=Cuebot.Timeout)
 
     def message(self):
         """Message of the comment

@@ -292,3 +292,7 @@ class ShowTests(unittest.TestCase):
         stubMock.EnableDispatching.assert_called_with(
             show_pb2.ShowEnableDispatchingRequest(show=show.data, enabled=TEST_ENABLE_VALUE),
             timeout=mock.ANY)
+
+
+if __name__ == '__main__':
+    unittest.main()
