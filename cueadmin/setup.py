@@ -50,4 +50,5 @@ setup(
             'cueadmin=cueadmin.__main__:main'
         ]
     },
+    test_suite='tests',
 )
