@@ -11,26 +11,3 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-
-import logging
-
-import cueadmin.common
-
-
-logger = logging.getLogger("opencue.tools.cueadmin")
-
-
-def main():
-    parser = cueadmin.common.getParser()
-    args = parser.parse_args()
-
-    try:
-        cueadmin.common.handleCommonArgs(args)
-        cueadmin.common.handleArgs(args)
-    except Exception as e:
-        cueadmin.common.handleParserException(args, e)
-
-
-if __name__ == '__main__':
-    main()
