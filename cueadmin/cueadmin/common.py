@@ -168,7 +168,7 @@ def getParser():
                            "any min core filers are applied.")
 
     show.add_argument("-default-max-cores", action="store", nargs=2, metavar="SHOW CORES",
-                      help="The default min core value for all jobs before "
+                      help="The default max core value for all jobs before "
                            "any max core filters are applied.")
     #
     # Allocation
