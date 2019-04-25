@@ -54,3 +54,7 @@ class CommentTests(unittest.TestCase):
 
         stubMock.Save.assert_called_with(
             comment_pb2.CommentSaveRequest(comment=comment.data), timeout=mock.ANY)
+
+
+if __name__ == '__main__':
+    unittest.main()

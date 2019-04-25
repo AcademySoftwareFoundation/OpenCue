@@ -117,3 +117,7 @@ class AllocationTests(unittest.TestCase):
         stubMock.SetTag.assert_called_with(
             facility_pb2.AllocSetTagRequest(allocation=alloc.data, tag=TEST_ALLOC_TAG),
             timeout=mock.ANY)
+
+
+if __name__ == '__main__':
+    unittest.main()

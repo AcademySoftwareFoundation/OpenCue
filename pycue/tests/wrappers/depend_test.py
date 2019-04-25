@@ -77,3 +77,7 @@ class DependTests(unittest.TestCase):
                               depend_er_job=TEST_DEPEND_ER,
                               depend_on_job=TEST_DEPEND_ON_NEG))
         self.assertFalse(dependNeg.isInternal())
+
+
+if __name__ == '__main__':
+    unittest.main()
