@@ -83,9 +83,6 @@ def handleParserException(args, e):
         print >> sys.stderr, "Error: %s." % ex
 
 
-OS_LIST = []
-
-
 def getParser():
 
     parser = getCommonParser(description="CueAdmin OpenCue Administrator Tool",
@@ -219,8 +216,6 @@ def getParser():
     host.add_argument("-fixed", action="store_true", help="Sets hosts into Up state.")
     host.add_argument("-thread", action="store", help="Set the host's thread mode.",
                       choices=[mode.lower() for mode in opencue.api.host_pb2.ThreadMode.keys()])
-    host.add_argument("-os", action="store", help="Set the host's operating system.",
-                      choices=OS_LIST)
 
     return parser
 
