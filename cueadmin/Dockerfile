@@ -47,7 +47,9 @@ COPY cueadmin/cueadmin ./cueadmin/cueadmin
 # -----------------
 FROM build as test
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+COPY cueadmin/tests/ ./cueadmin/tests
+
+RUN cd cueadmin && python setup.py test
 
 
 # -----------------
