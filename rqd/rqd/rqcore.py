@@ -31,6 +31,7 @@ import logging as log
 import os
 import platform
 import random
+import signal
 import subprocess
 import sys
 import tempfile
@@ -356,7 +357,6 @@ class FrameAttendantThread(threading.Thread):
         """The steps required to handle a frame under mac"""
         frameInfo = self.frameInfo
 
-
         self.__createEnvVariables()
         self.__writeHeader()
 
@@ -405,7 +405,6 @@ class FrameAttendantThread(threading.Thread):
                 tries += 1
                 time.sleep(0.5 * tries)
         raise IOError("Failed to create %s" % filepath)
-
 
     def runUnknown(self):
         """The steps required to handle a frame under an unknown OS"""
@@ -525,7 +524,8 @@ class FrameAttendantThread(threading.Thread):
             log.info("Monitor frame ended for frameId=%s",
                      self.runFrame.frame_id)
 
-class RqCore:
+
+class RqCore(object):
     """Main body of RQD, handles the integration of all components,
        the setup and launching of a frame and acts on all ice calls
        that are passed from the Network module."""
@@ -561,6 +561,9 @@ class RqCore:
         self.__cluster = None
         self.__session = None
         self.__stmt = None
+
+        signal.signal(signal.SIGINT, self.handleExit)
+        signal.signal(signal.SIGTERM, self.handleExit)
 
     def start(self):
         """Called by main to start the rqd service"""
@@ -743,6 +746,10 @@ class RqCore:
         else:
             log.warning("Shutting down RQD by request")
 
+    def handleExit(self, signalnum, flag):
+        """Shutdown threads and exit RQD."""
+        self.shutdown()
+        sys.exit()
 
     def launchFrame(self, runFrame):
         """This will setup for the launch the frame specified in the arguments.
