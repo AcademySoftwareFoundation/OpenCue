@@ -92,9 +92,14 @@ def startup(app_name, app_version, argv):
     cuegui.Style.init()
 
     # If the config file does not exist, copy over the default
+    if os.getenv('CUEGUI_DEFAULT_INI_PATH'):
+        default_ini_path = os.getenv('CUEGUI_DEFAULT_INI_PATH')
+    else:
+        default_ini_path = cuegui.Constants.DEFAULT_INI_PATH
+
     local = settings.fileName()
     if not os.path.exists(local):
-        default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
+        default = os.path.join(default_ini_path, "%s.ini" % app_name.lower())
         logger.warning('Not found: %s\nCopying:   %s' % (local, default))
         try:
             os.mkdir(os.path.dirname(local))
