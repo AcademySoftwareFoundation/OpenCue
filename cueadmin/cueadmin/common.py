@@ -857,18 +857,6 @@ def handleArgs(args):
         confirm("Set %d hosts to thread mode %s" % (len(hosts), args.thread), args.force,
                 setThreadMode, hosts, args.thread)
 
-    elif args.os:
-        if not hosts:
-            raise ValueError(host_error_msg)
-
-        def setHostOs(hosts_, os):
-            for host_ in hosts_:
-                logger.debug("setting host %s to OS %s" % (host_.data.name, os))
-                host_.setOs(os)
-
-        confirm("Set %d hosts to OS %s" % (len(hosts), args.os), args.force,
-                setHostOs, hosts, args.os)
-
     elif args.repair:
         if not hosts:
             raise ValueError(host_error_msg)
