@@ -25,13 +25,7 @@ import output
 import util
 
 
-class __NullHandler(logging.Handler):
-    def emit(self, record):
-        pass
-
-
 logger = logging.getLogger("opencue.tools.cueadmin")
-logger.addHandler(__NullHandler())
 
 __ALL__ = ["testServer",
            "handleCommonArgs",
@@ -54,28 +48,11 @@ __ALL__ = ["testServer",
            "Convert",
            "AllocUtil"]
 
-EPILOG = '\n\n'
-
-
-def handleCommonArgs(args):
-    logger.debug(args)
-    if args.verbose:
-        util.enableDebugLogging()
-    if args.server:
-        logger.debug("setting opencue host servers to %s" % args.server)
-        opencue.Cuebot.setHosts(args.server)
-    if args.facility:
-        logger.debug("setting facility to %s" % args.facility)
-        opencue.Cuebot.setFacility(args.facility)
-    if args.force:
-        pass
-
 
 def handleParserException(args, e):
     try:
         if args.verbose:
             traceback.print_exc(file=sys.stderr)
-        print EPILOG
         raise e
     except ValueError, ex:
             print >>sys.stderr, "Error: %s. Try the -verbose or -h flags for more info." % ex
@@ -84,11 +61,33 @@ def handleParserException(args, e):
 
 
 def getParser():
+    parser = argparse.ArgumentParser(description="CueAdmin OpenCue Administrator Tool",
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
 
-    parser = getCommonParser(description="CueAdmin OpenCue Administrator Tool",
-                                    formatter_class=argparse.RawDescriptionHelpFormatter,
-                                    conflict_handler='resolve')
-    query = setCommonQueryArgs(parser)
+    general = parser.add_argument_group("General Options")
+    general.add_argument("-server", action='store', nargs="+", metavar='HOSTNAME',
+                         help='Specify cuebot addres(s).')
+    general.add_argument("-facility", action='store', metavar='CODE',
+                         help='Specify the facility code.')
+    general.add_argument("-verbose", "-v", action='store_true',
+                         help='Turn on verbose logging.')
+    general.add_argument("-force", action='store_true',
+                         help='Force operations that usually require confirmation.')
+
+    query = parser.add_argument_group("Query Options")
+    query.add_argument("-lj", "-laj", action=QueryAction, nargs="*", metavar="SUBSTR",
+                       help="List jobs with optional name substring match.")
+
+    query.add_argument("-lji", action=QueryAction, nargs="*", metavar="SUBSTR",
+                       help="List job info with optional name substring match.")
+
+    query.add_argument("-ls", action="store_true", help="List shows.")
+
+    query.add_argument("-la", action="store_true", help="List allocations.")
+
+    query.add_argument("-lb", action="store", nargs="+", help="List subscriptions.", metavar="SHOW")
+    query.add_argument("-lba", action="store", metavar="ALLOC",
+                       help="List all subscriptions to a specified allocation.")
 
     query.add_argument("-lp", "-lap", action="store", nargs="*",
                        metavar="[SHOW ...] [-host HOST ...] [-alloc ...] [-job JOB ...] "
@@ -109,12 +108,9 @@ def getParser():
     query.add_argument("-lv", action="store", nargs="*", metavar="[SHOW]",
                        help="List default services.")
 
-    query.add_argument("-lba", action="store", metavar="ALLOC",
-                       help="List all subscriptions to a specified allocation.")
+    query.add_argument("-query", "-q", nargs="+", action="store", default=[],
+                       help=argparse.SUPPRESS)
 
-    query.add_argument("-state", nargs="+", metavar="STATE", action="store", default=[],
-                       choices=["up", "down", "repair", "Up", "Down", "Repair"],
-                       help="Filter host search by hardware state, up or down.")
     #
     # Filter
     #
@@ -139,6 +135,10 @@ def getParser():
 
     filter_grp.add_argument("-limit", action="store", default=0,
                             help="Limit the result of a proc search to N rows")
+    filter_grp.add_argument("-state", nargs="+", metavar="STATE", action="store", default=[],
+                            #choices=["UP", "DOWN", "REPAIR"], type=str.upper,
+                            help="Filter host search by hardware state, up or down.")
+
     #
     # Show
     #
@@ -220,26 +220,6 @@ def getParser():
     return parser
 
 
-def getCommonParser(**options):
-    parser = argparse.ArgumentParser(**options)
-
-    if parser.epilog:
-        parser.epilog += EPILOG
-    else:
-        parser.epilog = EPILOG
-
-    general = parser.add_argument_group("General Options")
-    general.add_argument("-server", action='store', nargs="+", metavar='HOSTNAME',
-                         help='Specify cuebot addres(s).')
-    general.add_argument("-facility", action='store', metavar='CODE',
-                         help='Specify the facility code.')
-    general.add_argument("-verbose", "-v", action='store_true',
-                         help='Turn on verbose logging.')
-    general.add_argument("-force", action='store_true',
-                         help='Force operations that usually require confirmation.')
-    return parser
-
-
 class QueryAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string == '-lh':
@@ -251,46 +231,6 @@ class QueryAction(argparse.Action):
         elif option_string == '-lji':
             namespace.lji = True
             namespace.query = values
-
-
-def setCommonQueryArgs(parser):
-    query = parser.add_argument_group("Query Options")
-    query.add_argument("-lj", "-laj", action=QueryAction, nargs="*", metavar="SUBSTR",
-                       help="List jobs with optional name substring match.")
-    query.add_argument("-lji", action=QueryAction, nargs="*", metavar="SUBSTR",
-                       help="List job info with optional name substring match.")
-    query.add_argument("-lh", action=QueryAction, nargs="*", metavar="SUBSTR",
-                       help="List hosts with optional name substring match.")
-    query.add_argument("-ls", action="store_true", help="List shows.")
-    query.add_argument("-la", action="store_true", help="List allocations.")
-    query.add_argument("-lb", action="store", nargs="+", help="List subscriptions.", metavar="SHOW")
-    query.add_argument("-query", "-q", nargs="+", action="store", default=[],
-                       help=argparse.SUPPRESS)
-    return query
-
-
-def handleCommonQueryArgs(args):
-    if args.lh:
-        output.displayHosts(opencue.search.HostSearch.byMatch(args.query))
-        return True
-    elif args.lj:
-        for job in opencue.search.JobSearch.byMatch(args.query):
-            print job.data.name
-        return True
-    elif args.lji:
-        output.displayJobs(opencue.search.JobSearch.byMatch(args.query))
-        return True
-    elif args.la:
-        output.displayAllocations(opencue.api.getAllocations())
-        return True
-    elif args.lb:
-        for show in resolveShowNames(args.lb):
-            output.displaySubscriptions(show.getSubscriptions(), show.data.name)
-        return True
-    elif args.ls:
-        output.displayShows(opencue.api.getShows())
-        return True
-    return False
 
 
 def handleFloatCriterion(mixed, convert=None):
@@ -577,8 +517,8 @@ class Convert(object):
     @staticmethod
     def strToHardwareState(val):
         try:
-            return getattr(opencue.api.host_pb2, str(val.upper()))
-        except Exception:
+            return opencue.api.host_pb2.HardwareState.Value(str(val.upper()))
+        except ValueError:
             raise ValueError("invalid hardware state: %s" % val.upper())
 
     @staticmethod
@@ -651,16 +591,27 @@ class ActionUtil(object):
 
 def handleArgs(args):
 
+    if args.verbose:
+        util.enableDebugLogging()
+
+    if args.server:
+        logger.debug("setting opencue host servers to %s" % args.server)
+        opencue.Cuebot.setHosts(args.server)
+
+    if args.facility:
+        logger.debug("setting facility to %s" % args.facility)
+        opencue.Cuebot.setFacility(args.facility)
+
     #
     # Query
     #
-    if isinstance(args.lp, list) or isinstance(args.ll, list):
-        if isinstance(args.ll, list):
+    if args.lp is not None or args.ll is not None:
+        if args.ll is not None:
             args.lp = args.ll
         if not args.host:
             args.host = []
 
-        procs = opencue.search.ProcSearch().byOptions(
+        result = opencue.search.ProcSearch.byOptions(
             show=args.lp,
             host=args.host,
             limit=args.limit,
@@ -669,9 +620,9 @@ def handleArgs(args):
             memory=handleIntCriterion(args.memory, Convert.gigsToKB),
             duration=handleIntCriterion(args.duration, Convert.hoursToSeconds))
         if isinstance(args.ll, list):
-            print "\n".join([l.data.logPath for l in procs])
+            print "\n".join([l.data.logPath for l in result.procs.procs])
         else:
-            output.displayProcs(procs)
+            output.displayProcs(result.procs.procs)
         return
 
     elif args.lh:
@@ -691,8 +642,31 @@ def handleArgs(args):
         else:
             output.displayServices(opencue.api.getDefaultServices())
         return
+
+    elif args.lj:
+        for job in opencue.search.JobSearch.byMatch(args.query):
+            print job.data.name
+        return
+
+    elif args.lji:
+        output.displayJobs(opencue.search.JobSearch.byMatch(args.query))
+        return
+
+    elif args.la:
+        output.displayAllocations(opencue.api.getAllocations())
+        return
+
+    elif args.lb:
+        for show in resolveShowNames(args.lb):
+            output.displaySubscriptions(show.getSubscriptions(), show.data.name)
+        return
+
+    elif args.ls:
+        output.displayShows(opencue.api.getShows())
+        return
+
     #
-    # Gather hosts if -host - hostmatch was specified
+    # Gather hosts if -host or -hostmatch was specified
     #
     host_error_msg = "No valid hosts selected, see the -host/-hostmatch options"
     hosts = None
@@ -905,9 +879,6 @@ def handleArgs(args):
         if burst.find("%") !=-1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
         sub.setBurst(float(burst))
-
-    else:
-        handleCommonQueryArgs(args)
 
 
 def createAllocation(fac, name, tag):

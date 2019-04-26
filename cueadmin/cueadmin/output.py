@@ -60,7 +60,7 @@ def displayHosts(hosts):
                                                  common.formatMem(host.data.idle_memory)),
                              host.data.os,
                              common.formatLongDuration(int(time.time()) - host.data.boot_time),
-                             host.data.state,
+                             opencue.api.host_pb2.HardwareState.Name(host.data.state),
                              host.data.lock_state,
                              host.data.alloc_name,
                              host.data.thread_mode)

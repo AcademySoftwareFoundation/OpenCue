@@ -27,6 +27,7 @@ TEST_SHOW = 'test_show'
 TEST_FACILITY = 'some-non-default-facility'
 TEST_ALLOC = 'test_alloc'
 TEST_HOST = 'some_host'
+TEST_JOB = 'my_random_job_name'
 
 
 @mock.patch('opencue.api.findShow')
@@ -235,6 +236,18 @@ class HostTests(unittest.TestCase):
         findAllocMock.assert_called_with(allocName)
         hostMock.setAllocation.assert_called_with(allocMock.data)
 
+    @mock.patch('opencue.api.getHosts')
+    def testListHosts(self, getHostsMock, getStubMock, hostSearchMock):
+        arbitraryMatchString = 'arbitraryMatchString'
+        args = self.parser.parse_args(
+            ['-lh', arbitraryMatchString, '-state', 'up', 'repair', '-alloc', TEST_ALLOC])
+
+        cueadmin.common.handleArgs(args)
+
+        getHostsMock.assert_called_with(
+            alloc=[TEST_ALLOC], match=[arbitraryMatchString],
+            state=[opencue.api.host_pb2.UP, opencue.api.host_pb2.REPAIR])
+
 
 @mock.patch('opencue.api.findSubscription')
 @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -314,6 +327,51 @@ class SubscriptionTests(unittest.TestCase):
 
         findSubMock.assert_called_with(subName)
         subMock.setBurst.assert_called_with(originalSize * (1 + float(newBurstPerc[:-1]) / 100))
+
+
+@mock.patch('opencue.search.JobSearch')
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+class JobTests(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    def testListJobs(self, getStubMock, jobSearchMock):
+        args = self.parser.parse_args(['-lj', TEST_JOB])
+
+        cueadmin.common.handleArgs(args)
+
+        jobSearchMock.byMatch.assert_called_with([TEST_JOB])
+
+    def testListJobInfo(self, getStubMock, jobSearchMock):
+        args = self.parser.parse_args(['-lji', TEST_JOB])
+
+        cueadmin.common.handleArgs(args)
+
+        jobSearchMock.byMatch.assert_called_with([TEST_JOB])
+
+
+@mock.patch('opencue.search.ProcSearch')
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+class ProcTests(unittest.TestCase):
+
+    def setUp(self):
+        self.parser = cueadmin.common.getParser()
+
+    def testListProcs(self, getStubMock, procSearchMock):
+        resultsLimit = '54'
+        args = self.parser.parse_args(
+            ['-lp', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5', '-host', TEST_HOST,
+             '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
+
+        cueadmin.common.handleArgs(args)
+
+        procSearchMock.byOptions.assert_called_with(
+            alloc=[TEST_ALLOC],
+            duration=[opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=5400)],
+            host=[TEST_HOST], job=[TEST_JOB], limit=resultsLimit,
+            memory=[opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=134217728)],
+            show=[TEST_SHOW])
 
 
 if __name__ == '__main__':

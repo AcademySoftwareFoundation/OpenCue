@@ -26,7 +26,6 @@ def main():
     args = parser.parse_args()
 
     try:
-        cueadmin.common.handleCommonArgs(args)
         cueadmin.common.handleArgs(args)
     except Exception as e:
         cueadmin.common.handleParserException(args, e)
