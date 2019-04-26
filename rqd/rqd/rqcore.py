@@ -563,6 +563,7 @@ class RqCore(object):
         self.__stmt = None
 
         signal.signal(signal.SIGINT, self.handleExit)
+        signal.signal(signal.SIGTERM, self.handleExit)
 
     def start(self):
         """Called by main to start the rqd service"""

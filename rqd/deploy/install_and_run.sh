@@ -8,5 +8,5 @@ cd "$rqd_dir"
 pip install -r requirements.txt
 python setup.py install
 
-rqd
+exec rqd
 
