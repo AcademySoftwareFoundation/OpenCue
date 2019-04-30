@@ -52,7 +52,7 @@ STANDARD_ROW_HEIGHT = 16  # 14
 MEMORY_WARNING_LEVEL = 5242880
 
 RESOURCE_PATH = os.path.dirname(__file__) + "/images"
-DEFAULT_INI_PATH = os.path.dirname(__file__) + "/config"
+DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', os.path.dirname(__file__) + '/config')
 
 DEFAULT_PLUGIN_PATHS = [os.path.dirname(__file__) + "/plugins"]
 
