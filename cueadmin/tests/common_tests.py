@@ -275,6 +275,18 @@ class SubscriptionTests(unittest.TestCase):
         findAllocMock.assert_called_with(allocName)
         showMock.createSubscription.assert_called_with(allocMock.data, numCores, burstCores)
 
+    @mock.patch('opencue.api.findShow')
+    def testListSubs(self, findShowMock, getStubMock, findSubMock):
+        args = self.parser.parse_args(['-lb', TEST_SHOW])
+        showMock = mock.Mock()
+        showMock.getSubscriptions.return_value = []
+        findShowMock.return_value = showMock
+
+        cueadmin.common.handleArgs(args)
+
+        findShowMock.assert_called_with(TEST_SHOW)
+        showMock.getSubscriptions.assert_called_with()
+
     def testDeleteSub(self, getStubMock, findSubMock):
         allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
         args = self.parser.parse_args(['-delete-sub', TEST_SHOW, allocName, '-force'])

@@ -333,20 +333,6 @@ def handleIntCriterion(mixed, convert=None):
     return [result]
 
 
-def resolveJobNames(names):
-    items = opencue.search.JobSearch.byName(names)
-    logger.debug("found %d of %d supplied jobs" % (len(items), len(names)))
-    if len(names) != len(items) and len(items):
-        logger.warn("Unable to match all job names with running jobs on the cue.")
-        logger.warn("Operations executed for %s" % set(names).intersection(
-            [i.data.name for i in items]))
-        logger.warn("Operations NOT executed for %s" % set(names).difference(
-            [i.data.name for i in items]))
-    if not items:
-        raise ValueError("no valid jobs")
-    return items
-
-
 def resolveHostNames(names=None, substr=None):
     items = []
     if names:
