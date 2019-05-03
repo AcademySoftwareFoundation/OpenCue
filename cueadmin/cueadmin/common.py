@@ -16,7 +16,6 @@
 import argparse
 import logging
 import sys
-import time
 import traceback
 
 import opencue
@@ -377,61 +376,10 @@ def confirm(msg, force, func, *args, **kwargs):
         return func(*args, **kwargs)
 
 
-def formatTime(epoch, time_format="%m/%d %H:%M", default="--/-- --:--"):
-    """Formats time using time formatting standards
-    see: http://docs.python.org/library/time.html"""
-    if not epoch:
-        return default
-    return time.strftime(time_format, time.localtime(epoch))
-
-
-def findDuration(start, stop):
-    if stop < 1:
-        stop = int(time.time())
-    return stop - start
-
-
-def formatDuration(sec):
-    def splitTime(seconds):
-        minutes, seconds = divmod(seconds, 60)
-        hour, minutes = divmod(minutes, 60)
-        return hour, minutes, seconds
-    return "%02d:%02d:%02d" % splitTime(sec)
-
-
-def formatLongDuration(sec):
-    def splitTime(seconds):
-        minutes, seconds = divmod(seconds, 60)
-        hour, minutes = divmod(minutes, 60)
-        days, hour = divmod(hour, 24)
-        return days, hour
-    return "%02d:%02d" % splitTime(sec)
-
-
-def formatMem(kmem, unit=None):
-    k = 1024
-    if unit == "K" or not unit and kmem < k:
-        return "%dK" % kmem
-    if unit == "M" or not unit and kmem < pow(k, 2):
-        return "%dM" % (kmem / k)
-    if unit == "G" or not unit and kmem < pow(k, 3):
-        return "%.01fG" % (float(kmem) / pow(k, 2))
-
-
-def cutoff(s, length):
-    if len(s) < length-2:
-        return s
-    else:
-        return "%s.." % s[0:length-2]
-
-
 # These static utility methods are implementations that may or may not
 # need to be moved to the server, but should be someplace common
 #
 class DependUtil(object):
-
-    def __init__(self):
-        pass
 
     @staticmethod
     def dropAllDepends(job, layer=None, frame=None):
@@ -454,9 +402,6 @@ class DependUtil(object):
 
 
 class Convert(object):
-
-    def __init__(self):
-        pass
 
     @staticmethod
     def gigsToKB(val):
@@ -517,9 +462,6 @@ class Convert(object):
 
 
 class ActionUtil(object):
-
-    def __init__(self):
-        pass
 
     @staticmethod
     def factory(actionType, value):
@@ -621,7 +563,7 @@ def handleArgs(args):
         output.displaySubscriptions(allocation.getSubscriptions(), "All Shows")
         return
 
-    elif isinstance(args.lv, (list,)):
+    elif args.lv is not None:
         if args.lv:
             show = opencue.api.findShow(args.lv[0])
             output.displayServices(show.getServiceOverrides())
@@ -630,12 +572,12 @@ def handleArgs(args):
         return
 
     elif args.lj:
-        for job in opencue.search.JobSearch.byMatch(args.query):
+        for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs:
             print job.data.name
         return
 
     elif args.lji:
-        output.displayJobs(opencue.search.JobSearch.byMatch(args.query))
+        output.displayJobs(opencue.search.JobSearch.byMatch(args.query).jobs.jobs)
         return
 
     elif args.la:
