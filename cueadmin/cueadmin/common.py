@@ -676,9 +676,8 @@ def handleArgs(args):
         old, new = args.rename_alloc
         try:
             new = new.split(".", 2)[1]
-        except Exception:
-            msg = "Allocation names must be in the form 'facility.name'"
-            raise Exception(msg)
+        except IndexError:
+            raise ValueError("Allocation names must be in the form 'facility.name'")
 
         confirm(
             "Rename allocation from %s to %s" % (old, new),
@@ -775,8 +774,6 @@ def handleArgs(args):
         confirm("Move %d hosts to %s" % (len(hosts), args.move),
                 args.force, moveHosts, hosts, opencue.api.findAllocation(args.move))
 
-    # No Test coverage, takes up to a minute for
-    # a host to report back in.
     elif args.delete_host:
         if not hosts:
             raise ValueError(host_error_msg)
@@ -784,15 +781,10 @@ def handleArgs(args):
         def deleteHosts(hosts_):
             for host_ in hosts_:
                 logger.debug("deleting host: %s" % host_)
-                try:
-                    host_.delete()
-                except Exception, e:
-                    print "Failed to delete %s due to %s" % (host_, e)
+                host_.delete()
 
         confirm("Delete %s hosts" % len(hosts), args.force, deleteHosts, hosts)
 
-    # No Test coverage, sometimes the machines don't come
-    # back up.
     elif args.safe_reboot:
         if not hosts:
             raise ValueError(host_error_msg)
