@@ -19,6 +19,8 @@ import sys
 import traceback
 
 import opencue
+import opencue.wrappers.job
+import opencue.wrappers.proc
 
 import output
 import util
@@ -548,9 +550,11 @@ def handleArgs(args):
             memory=handleIntCriterion(args.memory, Convert.gigsToKB),
             duration=handleIntCriterion(args.duration, Convert.hoursToSeconds))
         if isinstance(args.ll, list):
-            print "\n".join([l.data.logPath for l in result.procs.procs])
+            print "\n".join(
+                [opencue.wrappers.proc.Proc(proc).data.log_path for proc in result.procs.procs])
         else:
-            output.displayProcs(result.procs.procs)
+            output.displayProcs(
+                [opencue.wrappers.proc.Proc(proc) for proc in result.procs.procs])
         return
 
     elif args.lh:
@@ -572,12 +576,14 @@ def handleArgs(args):
         return
 
     elif args.lj:
-        for job in opencue.search.JobSearch.byMatch(args.query):
-            print job.data.name
+        for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs:
+            print job.name
         return
 
     elif args.lji:
-        output.displayJobs(opencue.search.JobSearch.byMatch(args.query).jobs.jobs)
+        output.displayJobs(
+            [opencue.wrappers.job.Job(job)
+             for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs])
         return
 
     elif args.la:

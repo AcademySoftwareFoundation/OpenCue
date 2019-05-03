@@ -18,8 +18,19 @@
 import mock
 import unittest
 
+import opencue.compiled_proto.facility_pb2
+import opencue.compiled_proto.host_pb2
+import opencue.compiled_proto.job_pb2
+import opencue.compiled_proto.service_pb2
 import opencue.compiled_proto.show_pb2
+import opencue.compiled_proto.subscription_pb2
+import opencue.wrappers.allocation
+import opencue.wrappers.host
+import opencue.wrappers.proc
+import opencue.wrappers.service
 import opencue.wrappers.show
+import opencue.wrappers.subscription
+
 import cueadmin.common
 
 
@@ -164,6 +175,19 @@ class ShowTests(unittest.TestCase):
     @mock.patch('opencue.api.getShows')
     def testListShows(self, getShowsMock, getStubMock, findShowMock):
         args = self.parser.parse_args(['-ls'])
+        getShowsMock.return_value = [
+            opencue.wrappers.show.Show(
+                opencue.compiled_proto.show_pb2.Show(
+                    name='testing',
+                    active=True,
+                    show_stats=opencue.compiled_proto.show_pb2.ShowStats(
+                        reserved_cores=265,
+                        running_frames=100,
+                        pending_frames=248,
+                        pending_jobs=29
+                    )
+                ))
+        ]
 
         cueadmin.common.handleArgs(args)
 
@@ -254,6 +278,22 @@ class AllocTests(unittest.TestCase):
     @mock.patch('opencue.api.getAllocations')
     def testListAllocs(self, getAllocsMock, getStubMock, findAllocMock):
         args = self.parser.parse_args(['-la'])
+        getAllocsMock.return_value = [
+            opencue.wrappers.allocation.Allocation(
+                opencue.compiled_proto.facility_pb2.Allocation(
+                    name='local.desktop',
+                    tag='desktop',
+                    billable=False,
+                    stats=opencue.compiled_proto.facility_pb2.AllocationStats(
+                        running_cores=100,
+                        available_cores=125,
+                        cores=600,
+                        locked_hosts=25,
+                        down_hosts=3
+                    )
+                )
+            )
+        ]
 
         cueadmin.common.handleArgs(args)
 
@@ -262,7 +302,17 @@ class AllocTests(unittest.TestCase):
     def testListSubscriptionsForAlloc(self, getStubMock, findAllocMock):
         args = self.parser.parse_args(['-lba', TEST_ALLOC])
         allocMock = mock.Mock()
-        allocMock.getSubscriptions.return_value = []
+        allocMock.getSubscriptions.return_value = [
+            opencue.wrappers.subscription.Subscription(
+                opencue.compiled_proto.subscription_pb2.Subscription(
+                    allocation_name='local.general',
+                    show_name='showName',
+                    size=1000,
+                    burst=1500,
+                    reserved_cores=500
+                )
+            )
+        ]
         findAllocMock.return_value = allocMock
 
         cueadmin.common.handleArgs(args)
@@ -360,6 +410,28 @@ class HostTests(unittest.TestCase):
         arbitraryMatchString = 'arbitraryMatchString'
         args = self.parser.parse_args(
             ['-lh', arbitraryMatchString, '-state', 'up', 'repair', '-alloc', TEST_ALLOC])
+        getHostsMock.return_value = [
+            opencue.wrappers.host.Host(
+                opencue.compiled_proto.host_pb2.Host(
+                    name='host1',
+                    load=25,
+                    nimby_enabled=False,
+                    free_memory=3500000,
+                    free_swap=1040000,
+                    free_mcp=84782900,
+                    cores=6,
+                    memory=4500000,
+                    idle_cores=5,
+                    idle_memory=3000000,
+                    os='Linux',
+                    boot_time=1556836762,
+                    state=1,
+                    lock_state=1,
+                    alloc_name='alloc01',
+                    thread_mode=1
+                )
+            )
+        ]
 
         cueadmin.common.handleArgs(args)
 
@@ -476,7 +548,17 @@ class SubscriptionTests(unittest.TestCase):
     def testListSubs(self, findShowMock, getStubMock, findSubMock):
         args = self.parser.parse_args(['-lb', TEST_SHOW])
         showMock = mock.Mock()
-        showMock.getSubscriptions.return_value = []
+        showMock.getSubscriptions.return_value = [
+            opencue.wrappers.subscription.Subscription(
+                opencue.compiled_proto.subscription_pb2.Subscription(
+                    allocation_name='cloud.desktop',
+                    show_name='showName',
+                    size=0,
+                    burst=1500,
+                    reserved_cores=50
+                )
+            ),
+        ]
         findShowMock.return_value = showMock
 
         cueadmin.common.handleArgs(args)
@@ -547,7 +629,25 @@ class JobTests(unittest.TestCase):
 
     def testListJobs(self, getStubMock, jobSearchMock):
         args = self.parser.parse_args(['-lj', TEST_JOB])
-        jobSearchMock.byMatch.return_value = [mock.Mock()]
+        jobSearchMock.byMatch.return_value = opencue.compiled_proto.job_pb2.JobGetJobsResponse(
+            jobs=opencue.compiled_proto.job_pb2.JobSeq(
+                jobs=[
+                    opencue.compiled_proto.job_pb2.Job(
+                        name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
+                        is_paused=False,
+                        group='u0uMmB1O0z3ZkvreFYzP',
+                        job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                            running_frames=5,
+                            reserved_cores=5,
+                            waiting_frames=182,
+                        ),
+                        priority=89,
+                        min_cores=1,
+                        max_cores=1
+                    )
+                ]
+            )
+        )
 
         cueadmin.common.handleArgs(args)
 
@@ -555,6 +655,25 @@ class JobTests(unittest.TestCase):
 
     def testListJobInfo(self, getStubMock, jobSearchMock):
         args = self.parser.parse_args(['-lji', TEST_JOB])
+        jobSearchMock.byMatch.return_value = opencue.compiled_proto.job_pb2.JobGetJobsResponse(
+            jobs=opencue.compiled_proto.job_pb2.JobSeq(
+                jobs=[
+                    opencue.compiled_proto.job_pb2.Job(
+                        name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
+                        is_paused=False,
+                        group='u0uMmB1O0z3ZkvreFYzP',
+                        job_stats=opencue.compiled_proto.job_pb2.JobStats(
+                            running_frames=5,
+                            reserved_cores=5,
+                            waiting_frames=182,
+                        ),
+                        priority=89,
+                        min_cores=1,
+                        max_cores=1
+                    )
+                ]
+            )
+        )
 
         cueadmin.common.handleArgs(args)
 
@@ -573,6 +692,21 @@ class ProcTests(unittest.TestCase):
         args = self.parser.parse_args(
             ['-lp', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5', '-host', TEST_HOST,
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
+        procSearchMock.byOptions.return_value = opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
+            procs=opencue.compiled_proto.host_pb2.ProcSeq(
+                procs=[
+                    opencue.compiled_proto.host_pb2.Proc(
+                        name='proc1',
+                        reserved_cores=28,
+                        used_memory=44,
+                        reserved_memory=120,
+                        job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
+                        frame_name='y0ihh3fxrstz6ub7ut2k',
+                        dispatch_time=1556845762
+                    )
+                ]
+            )
+        )
 
         cueadmin.common.handleArgs(args)
 
@@ -588,6 +722,21 @@ class ProcTests(unittest.TestCase):
         args = self.parser.parse_args(
             ['-ll', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5',
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
+        procSearchMock.byOptions.return_value = opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
+            procs=opencue.compiled_proto.host_pb2.ProcSeq(
+                procs=[
+                    opencue.compiled_proto.host_pb2.Proc(
+                        name='proc1',
+                        reserved_cores=28,
+                        used_memory=44,
+                        reserved_memory=120,
+                        job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
+                        frame_name='y0ihh3fxrstz6ub7ut2k',
+                        dispatch_time=1556845762
+                    )
+                ]
+            )
+        )
 
         cueadmin.common.handleArgs(args)
 
@@ -608,6 +757,16 @@ class ServiceTests(unittest.TestCase):
     @mock.patch('opencue.api.getDefaultServices')
     def testListDefaultServices(self, getDefaultServicesMock, getStubMock):
         args = self.parser.parse_args(['-lv'])
+        getDefaultServicesMock.return_value = [
+            opencue.wrappers.service.Service(
+                opencue.compiled_proto.service_pb2.Service(
+                    name='maya',
+                    threadable=False,
+                    min_cores=100,
+                    min_memory=2097152,
+                    tags=['general', 'desktop']
+                ))
+        ]
 
         cueadmin.common.handleArgs(args)
 
@@ -617,7 +776,17 @@ class ServiceTests(unittest.TestCase):
     def testListShowServices(self, findShowMock, getStubMock):
         args = self.parser.parse_args(['-lv', TEST_SHOW])
         showMock = mock.Mock()
-        showMock.getServiceOverrides.return_value = []
+        showMock.getServiceOverrides.return_value = [
+            opencue.wrappers.service.Service(
+                opencue.compiled_proto.service_pb2.Service(
+                    name='maya',
+                    threadable=False,
+                    min_cores=100,
+                    min_memory=2097152,
+                    tags=['general', 'desktop']
+                )
+            )
+        ]
         findShowMock.return_value = showMock
 
         cueadmin.common.handleArgs(args)
