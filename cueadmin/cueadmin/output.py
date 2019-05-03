@@ -16,6 +16,7 @@
 import time
 
 import opencue
+import opencue.compiled_proto.job_pb2
 
 import cueadmin.common
 import cueadmin.format
@@ -150,15 +151,12 @@ def displayJobs(jobs):
     job_format = "%-56s %-15s %5s %7s %8s %5s %8s %8s"
     print job_format % ("Job", "Group", "Booked", "Cores", "Wait", "Pri", "MinCores", "MaxCores")
     for job in jobs:
-        p = ""
-        if job.data.is_paused:
-            p = " [paused]"
-        name = job.data.name + p
+        name = job.data.name + (' [paused]' if job.data.is_paused else '')
         print job_format % (cueadmin.format.cutoff(name, 52),
                             cueadmin.format.cutoff(job.data.group, 15),
-                            job.stats.running_frames,
-                            "%0.2f" % job.stats.reserved_cores,
-                            job.stats.waiting_frames,
+                            job.data.job_stats.running_frames,
+                            "%0.2f" % job.data.job_stats.reserved_cores,
+                            job.data.job_stats.waiting_frames,
                             job.data.priority,
                             "%0.2f" % job.data.min_cores,
                             "%0.2f" % job.data.max_cores)
@@ -171,10 +169,7 @@ def displayJobInfo(job):
     print "-"*60
     print "job: %s\n" % job.data.name
     print "%13s: %s" % ("start time", cueadmin.format.formatTime(job.data.start_time))
-    if job.data.is_paused:
-        print "%13s: %s" % ("state", "PAUSED")
-    else:
-        print "%13s: %s" % ("state", job.data.state)
+    print "%13s: %s" % ("state", "PAUSED" if job.data.is_paused else job.data.state)
     print "%13s: %s" % ("type", "N/A")
     print "%13s: %s" % ("architecture", "N/A")
     print "%13s: %s" % ("services", "N/A")
@@ -185,30 +180,28 @@ def displayJobInfo(job):
     print "%22s: %s" % ("running", job.data.job_stats.running_frames)
     print "%22s: %s" % ("waiting (ready)", job.data.job_stats.waiting_frames)
     print "%22s: %s" % ("waiting (depend)", job.data.job_stats.depend_frames)
-    print "%22s: %s" % ("failed", job.data.job_stats.deadFrames)
+    print "%22s: %s" % ("failed", job.data.job_stats.dead_frames)
 
     print "%22s: %s\n" % ("total frame retries", "N/A")
     layers = job.getLayers()
     print "this is a cuerun3 job with %d layers\n" % len(layers)
     for layer in layers:
-        print "%s  (%d frames, %d done)" % (layer.data.name, layer.data.job_stats.total_frames,
-                                            layer.data.job_stats.succeeded_frames)
+        print "%s  (%d frames, %d done)" % (layer.data.name, layer.data.layer_stats.total_frames,
+                                            layer.data.layer_stats.succeeded_frames)
         print "   average frame time: %s" % "N/A"
         print "   average ram usage: %s" % "N/A"
-        print "   tags: %s\n" % layer.data.tags
+        print "   tags: %s\n" % ' | '.join(layer.data.tags)
 
 
 def displayFrames(frames):
     """Displays the supplied list of frames
     @type  frames: list<Frame>
     @param frames: List of frames to display"""
-    header = "%-35s %-10s %-15s %-13s %-12s %-9s %5s %2s %2s" % \
-             ("Frame", "Staus", "Host", "Start", "End", "Runtime", "Mem ", "R", " Exit")
+    header = "%-35s %-11s %-15s %-13s %-12s %-9s %5s %7s %5s" % \
+             ("Frame", "Status", "Host", "Start", "End", "Runtime", "Mem", "Retry", "Exit")
     print header, "\n", "-" * len(header)
 
     for frame in frames:
-        dependencies = ""
-
         startTime = cueadmin.format.formatTime(frame.data.start_time)
         stopTime = cueadmin.format.formatTime(frame.data.stop_time)
 
@@ -221,17 +214,16 @@ def displayFrames(frames):
         memory = cueadmin.format.formatMem(frame.data.max_rss)
         exitStatus = frame.data.exit_status
 
-        print "%-35s %-10s %-15s %-13s %-12s %-9s %4s %2s  %-4s %s" % (
+        print "%-35s %-11s %-15s %-13s %-12s %-9s %5s %7s %5s" % (
             cueadmin.format.cutoff(frame.data.name, 35),
-            frame.data.state,
+            opencue.compiled_proto.job_pb2.FrameState.Name(frame.data.state),
             frame.data.last_resource,
             startTime,
             stopTime,
             duration,
             memory,
             frame.data.retry_count,
-            exitStatus,
-            dependencies)
+            exitStatus)
 
     if len(frames) == 1000:
         print "Warning: Only showing first 1000 matches. See frame query options to " \

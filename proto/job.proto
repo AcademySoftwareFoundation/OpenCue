@@ -9,7 +9,7 @@ import "comment.proto";
 import "depend.proto";
 import "renderPartition.proto";
 
-// Job releated messages and services
+// Job related messages and services
 // This includes Job, Layer, Frame, and Group objects
 
 
@@ -63,7 +63,7 @@ service FrameInterface {
     // Retries the frame by setting it as waiting
     rpc Retry(FrameRetryRequest) returns (FrameRetryResponse);
 
-    // Updates the state of the frame's checkpoint status.  If the checkpoint status is compelte, then the frame's
+    // Updates the state of the frame's checkpoint status.  If the checkpoint status is complete, then the frame's
     // checkpointCoreSeconds is updated with the amount of render time that was checkpointed.
     rpc SetCheckpointState(FrameSetCheckpointStateRequest) returns (FrameSetCheckpointStateResponse);
 }

@@ -572,7 +572,7 @@ def handleArgs(args):
         return
 
     elif args.lj:
-        for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs:
+        for job in opencue.search.JobSearch.byMatch(args.query):
             print job.data.name
         return
 
