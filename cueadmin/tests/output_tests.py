@@ -52,7 +52,7 @@ def captured_output():
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
-@mock.patch('time.time', mock.MagicMock(return_value=1556846762))
+@mock.patch('time.time', mock.MagicMock(return_value=1556846762+time.altzone))
 class OutputTests(unittest.TestCase):
 
     def testDisplayProcs(self, getStubMock):
@@ -65,7 +65,7 @@ class OutputTests(unittest.TestCase):
                     reserved_memory=120,
                     job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
                     frame_name='y0ihh3fxrstz6ub7ut2k',
-                    dispatch_time=1556845762
+                    dispatch_time=1556845762+time.altzone
                 ))]
 
         with captured_output() as (out, err):
@@ -73,7 +73,7 @@ class OutputTests(unittest.TestCase):
 
         self.assertEqual(
             'Host       Cores   Memory                   Job                            / Frame                          Start        Runtime      \n'
-            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/02 18:09  00:16:40     \n',
+            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/03 01:09  00:16:40     \n',
             out.getvalue())
 
     def testDisplayHosts(self, getStubMock):
@@ -248,7 +248,7 @@ class OutputTests(unittest.TestCase):
         job = opencue.wrappers.job.Job(
             opencue.compiled_proto.job_pb2.Job(
                 name='d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d',
-                start_time=1556836762,
+                start_time=1556836762+time.altzone,
                 is_paused=True,
                 min_cores=1,
                 max_cores=6,
@@ -293,7 +293,7 @@ class OutputTests(unittest.TestCase):
             '------------------------------------------------------------\n'
             'job: d7HXvMXDNMKyfzLumwsY-P3CNG1w4pa452dGcqOyf_qVK5PbHmCZafkv4rEF8d\n'
             '\n'
-            '   start time: 05/02 15:39\n'
+            '   start time: 05/02 22:39\n'
             '        state: PAUSED\n'
             '         type: N/A\n'
             ' architecture: N/A\n'
