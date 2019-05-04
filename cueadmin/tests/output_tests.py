@@ -357,7 +357,7 @@ class OutputTests(unittest.TestCase):
             '------------------------------------------------------------------------------------------------------------------------\n'
             'rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0.. SUCCEEDED   render-host-01  05/02 15:39   05/02 18:26  02:46:40   905M       1     0\n'
             'XjWPTN6CsAujCmgKHfyA-u2wFSQg2MNu    WAITING                     --/-- --:--   --/-- --:--               0K       0     0\n',
-            out.getvalue())
+            str(out.getvalue()))
 
 
 if __name__ == '__main__':
