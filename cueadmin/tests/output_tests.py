@@ -19,6 +19,7 @@ import contextlib
 import mock
 import StringIO
 import sys
+import time
 import unittest
 
 import opencue.compiled_proto.facility_pb2
@@ -327,8 +328,8 @@ class OutputTests(unittest.TestCase):
                 opencue.compiled_proto.job_pb2.Frame(
                     name='rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0syBsxMwp-8sk6X0thFbCFaL06wAPc',
                     state=opencue.compiled_proto.job_pb2.SUCCEEDED,
-                    start_time=1556836762,
-                    stop_time=1556846762,
+                    start_time=1556836762+time.altzone,
+                    stop_time=1556846762+time.altzone,
                     max_rss=927392,
                     exit_status=0,
                     last_resource='render-host-01',
@@ -355,9 +356,9 @@ class OutputTests(unittest.TestCase):
         self.assertEqual(
             'Frame                               Status      Host            Start         End          Runtime     Mem   Retry  Exit \n'
             '------------------------------------------------------------------------------------------------------------------------\n'
-            'rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0.. SUCCEEDED   render-host-01  05/02 15:39   05/02 18:26  02:46:40   905M       1     0\n'
+            'rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0.. SUCCEEDED   render-host-01  05/02 22:39   05/03 01:26  02:46:40   905M       1     0\n'
             'XjWPTN6CsAujCmgKHfyA-u2wFSQg2MNu    WAITING                     --/-- --:--   --/-- --:--               0K       0     0\n',
-            str(out.getvalue()))
+            out.getvalue())
 
 
 if __name__ == '__main__':
