@@ -20,6 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from builtins import input
 import logging
 import sys
 import time
@@ -52,7 +53,7 @@ def promptYesNo(prompt, force=False):
     @rtype:  bool
     @return: The users response"""
     try:
-        result = force or raw_input("%s [y/n] " % prompt) in ("y", "Y")
+        result = force or input("%s [y/n] " % prompt) in ("y", "Y")
     except KeyboardInterrupt:
         raise
     if not result:

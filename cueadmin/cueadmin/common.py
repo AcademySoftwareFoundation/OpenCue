@@ -17,8 +17,11 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
+from builtins import str
+from builtins import object
 import argparse
 import logging
+import six
 import sys
 import traceback
 
@@ -220,7 +223,7 @@ def getParser():
     host.add_argument("-repair", action="store_true", help="Sets hosts into the repair state.")
     host.add_argument("-fixed", action="store_true", help="Sets hosts into Up state.")
     host.add_argument("-thread", action="store", help="Set the host's thread mode.",
-                      choices=[mode.lower() for mode in opencue.api.host_pb2.ThreadMode.keys()])
+                      choices=[mode.lower() for mode in list(opencue.api.host_pb2.ThreadMode.keys())])
 
     return parser
 
@@ -261,7 +264,7 @@ def handleFloatCriterion(mixed, convert=None):
 
     if isinstance(mixed, (float, int)):
         result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(value=_convert(mixed))
-    elif isinstance(mixed, str):
+    elif isinstance(mixed, six.string_types):
         if mixed.startswith("gt"):
             result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
                 value=_convert(mixed[2:]))
@@ -273,17 +276,14 @@ def handleFloatCriterion(mixed, convert=None):
             result = opencue.api.criterion_pb2.InRangeFloatSearchCriterion(min=_convert(min_value),
                                                                            max=_convert(max_value))
         else:
-            try:
-                result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
-                    value=_convert(mixed))
-            except ValueError:
-                raise Exception("invalid float search input value: " + str(mixed))
+            result = opencue.api.criterion_pb2.GreaterThanFloatSearchCriterion(
+                value=_convert(mixed))
     elif any([isinstance(mixed.__class__, crit_cls) for crit_cls in criterions]):
         result = mixed
     elif not mixed:
         return []
     else:
-        raise Exception("invalid float search input value: " + str(mixed))
+        raise ValueError("invalid float search input value: " + str(mixed))
 
     return [result]
 
@@ -311,7 +311,7 @@ def handleIntCriterion(mixed, convert=None):
 
     if isinstance(mixed, (float, int)):
         result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(value=_convert(mixed))
-    elif isinstance(mixed, str):
+    elif isinstance(mixed, six.string_types):
         if mixed.startswith("gt"):
             result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                 value=_convert(mixed[2:]))
@@ -323,17 +323,14 @@ def handleIntCriterion(mixed, convert=None):
             result = opencue.api.criterion_pb2.InRangeIntegerSearchCriterion(
                 min=_convert(min_value), max=_convert(max_value))
         else:
-            try:
-                result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
-                    value=_convert(mixed))
-            except ValueError:
-                raise Exception("invalid int search input value: " + str(mixed))
+            result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+                value=_convert(mixed))
     elif any([isinstance(mixed.__class__, crit_cls) for crit_cls in criterions]):
         result = mixed
     elif not mixed:
         return []
     else:
-        raise Exception("invalid float search input value: " + str(mixed))
+        raise ValueError("invalid float search input value: " + str(mixed))
 
     return [result]
 

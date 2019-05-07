@@ -16,6 +16,7 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+from __future__ import unicode_literals
 
 import time
 
@@ -31,7 +32,7 @@ def displayProcs(procs):
     @type procs: list<Proc>
     @param procs: Procs to display information about
     """
-    proc_format = "%-10s %-7s %-24s %-30s / %-30s %-12s %-12s "
+    proc_format = "%-10s %-7s %-24s %-30s / %-30s %-12s %-12s"
     print(proc_format % ("Host", "Cores", "Memory", "Job", "Frame", "Start", "Runtime"))
     for proc in procs:
         print(proc_format % (proc.data.name.split("/")[0],
@@ -201,8 +202,9 @@ def displayFrames(frames):
     """Displays the supplied list of frames
     @type  frames: list<Frame>
     @param frames: List of frames to display"""
-    header = "%-35s %-11s %-15s %-13s %-12s %-9s %5s %7s %5s" % \
-             ("Frame", "Status", "Host", "Start", "End", "Runtime", "Mem", "Retry", "Exit")
+    framesFormat = "%-35s %-11s %-15s %-13s %-12s %-9s %5s %7s %5s"
+    header = framesFormat % (
+        "Frame", "Status", "Host", "Start", "End", "Runtime", "Mem", "Retry", "Exit")
     print(header + "\n" + "-" * len(header))
 
     for frame in frames:
@@ -218,7 +220,7 @@ def displayFrames(frames):
         memory = cueadmin.format.formatMem(frame.data.max_rss)
         exitStatus = frame.data.exit_status
 
-        print("%-35s %-11s %-15s %-13s %-12s %-9s %5s %7s %5s" % (
+        print(framesFormat % (
             cueadmin.format.cutoff(frame.data.name, 35),
             opencue.compiled_proto.job_pb2.FrameState.Name(frame.data.state),
             frame.data.last_resource,
@@ -230,5 +232,5 @@ def displayFrames(frames):
             exitStatus))
 
     if len(frames) == 1000:
-        print("Warning: Only showing first 1000 matches. See frame query options to " \
+        print("Warning: Only showing first 1000 matches. See frame query options to "
               "limit your results.")

@@ -19,9 +19,11 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from future import standard_library
+standard_library.install_aliases()
 import contextlib
 import mock
-import StringIO
+import io
 import sys
 import time
 import unittest
@@ -47,7 +49,7 @@ import cueadmin.output
 
 @contextlib.contextmanager
 def captured_output():
-    new_out, new_err = StringIO.StringIO(), StringIO.StringIO()
+    new_out, new_err = io.StringIO(), io.StringIO()
     old_out, old_err = sys.stdout, sys.stderr
     try:
         sys.stdout, sys.stderr = new_out, new_err
@@ -77,8 +79,8 @@ class OutputTests(unittest.TestCase):
             cueadmin.output.displayProcs(procs)
 
         self.assertEqual(
-            'Host       Cores   Memory                   Job                            / Frame                          Start        Runtime      \n'
-            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/03 01:09  00:16:40     \n',
+            'Host       Cores   Memory                   Job                            / Frame                          Start        Runtime     \n'
+            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/03 01:09  00:16:40    \n',
             out.getvalue())
 
     def testDisplayHosts(self, getStubMock):
