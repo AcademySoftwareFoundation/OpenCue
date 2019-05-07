@@ -15,6 +15,10 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import contextlib
 import mock
 import StringIO
@@ -37,6 +41,7 @@ import opencue.wrappers.proc
 import opencue.wrappers.service
 import opencue.wrappers.show
 import opencue.wrappers.subscription
+
 import cueadmin.output
 
 
@@ -91,7 +96,7 @@ class OutputTests(unittest.TestCase):
                     idle_cores=5,
                     idle_memory=3000000,
                     os='Linux',
-                    boot_time=1556836762,
+                    boot_time=1556836762+time.altzone,
                     state=1,
                     lock_state=1,
                     alloc_name='alloc01',
@@ -354,7 +359,7 @@ class OutputTests(unittest.TestCase):
             cueadmin.output.displayFrames(frames)
 
         self.assertEqual(
-            'Frame                               Status      Host            Start         End          Runtime     Mem   Retry  Exit \n'
+            'Frame                               Status      Host            Start         End          Runtime     Mem   Retry  Exit\n'
             '------------------------------------------------------------------------------------------------------------------------\n'
             'rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0.. SUCCEEDED   render-host-01  05/02 22:39   05/03 01:26  02:46:40   905M       1     0\n'
             'XjWPTN6CsAujCmgKHfyA-u2wFSQg2MNu    WAITING                     --/-- --:--   --/-- --:--               0K       0     0\n',

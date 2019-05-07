@@ -13,6 +13,10 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+
 import argparse
 import logging
 import sys
@@ -22,8 +26,8 @@ import opencue
 import opencue.wrappers.job
 import opencue.wrappers.proc
 
-import output
-import util
+import cueadmin.output
+import cueadmin.util
 
 
 logger = logging.getLogger("opencue.tools.cueadmin")
@@ -55,10 +59,10 @@ def handleParserException(args, e):
         if args.verbose:
             traceback.print_exc(file=sys.stderr)
         raise e
-    except ValueError, ex:
-            print >>sys.stderr, "Error: %s. Try the -verbose or -h flags for more info." % ex
-    except Exception, ex:
-        print >> sys.stderr, "Error: %s." % ex
+    except ValueError as ex:
+            print("Error: %s. Try the -verbose or -h flags for more info." % ex, file=sys.stderr)
+    except Exception as ex:
+        print("Error: %s." % ex, file=sys.stderr)
 
 
 def getParser():
@@ -373,7 +377,7 @@ def resolveShowNames(names):
 
 
 def confirm(msg, force, func, *args, **kwargs):
-    if util.promptYesNo("Please confirm. %s?" % msg, force):
+    if cueadmin.util.promptYesNo("Please confirm. %s?" % msg, force):
         logger.debug("%s [forced %s]" % (msg, force))
         return func(*args, **kwargs)
 
@@ -522,7 +526,7 @@ class ActionUtil(object):
 def handleArgs(args):
 
     if args.verbose:
-        util.enableDebugLogging()
+        cueadmin.util.enableDebugLogging()
 
     if args.server:
         logger.debug("setting opencue host servers to %s" % args.server)
@@ -550,53 +554,54 @@ def handleArgs(args):
             memory=handleIntCriterion(args.memory, Convert.gigsToKB),
             duration=handleIntCriterion(args.duration, Convert.hoursToSeconds))
         if isinstance(args.ll, list):
-            print "\n".join(
-                [opencue.wrappers.proc.Proc(proc).data.log_path for proc in result.procs.procs])
+            print("\n".join(
+                [opencue.wrappers.proc.Proc(proc).data.log_path for proc in result.procs.procs]))
         else:
-            output.displayProcs(
+            cueadmin.output.displayProcs(
                 [opencue.wrappers.proc.Proc(proc) for proc in result.procs.procs])
         return
 
     elif args.lh:
         states = [Convert.strToHardwareState(s) for s in args.state]
-        output.displayHosts(opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc))
+        cueadmin.output.displayHosts(
+            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc))
         return
 
     elif args.lba:
         allocation = opencue.api.findAllocation(args.lba)
-        output.displaySubscriptions(allocation.getSubscriptions(), "All Shows")
+        cueadmin.output.displaySubscriptions(allocation.getSubscriptions(), "All Shows")
         return
 
     elif args.lv is not None:
         if args.lv:
             show = opencue.api.findShow(args.lv[0])
-            output.displayServices(show.getServiceOverrides())
+            cueadmin.output.displayServices(show.getServiceOverrides())
         else:
-            output.displayServices(opencue.api.getDefaultServices())
+            cueadmin.output.displayServices(opencue.api.getDefaultServices())
         return
 
     elif args.lj:
         for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs:
-            print job.name
+            print(job.name)
         return
 
     elif args.lji:
-        output.displayJobs(
+        cueadmin.output.displayJobs(
             [opencue.wrappers.job.Job(job)
              for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs])
         return
 
     elif args.la:
-        output.displayAllocations(opencue.api.getAllocations())
+        cueadmin.output.displayAllocations(opencue.api.getAllocations())
         return
 
     elif args.lb:
         for show in resolveShowNames(args.lb):
-            output.displaySubscriptions(show.getSubscriptions(), show.data.name)
+            cueadmin.output.displaySubscriptions(show.getSubscriptions(), show.data.name)
         return
 
     elif args.ls:
-        output.displayShows(opencue.api.getShows())
+        cueadmin.output.displayShows(opencue.api.getShows())
         return
 
     #
@@ -811,4 +816,4 @@ def createAllocation(fac, name, tag):
     """Create a new allocation with the given name and tag."""
     facility = opencue.api.getFacility(fac)
     alloc = opencue.api.createAllocation(name, tag, facility)
-    print "Created allocation: %s" % alloc.data.name
+    print("Created allocation: %s" % alloc.data.name)

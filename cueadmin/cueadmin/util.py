@@ -16,6 +16,10 @@
 """Utility functions for CueAdmin"""
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import logging
 import sys
 import time
@@ -52,7 +56,7 @@ def promptYesNo(prompt, force=False):
     except KeyboardInterrupt:
         raise
     if not result:
-        print "Canceled"
+        print("Canceled")
     return result
 
 
@@ -85,9 +89,9 @@ def waitOnJobName(jobName, maxWaitForLaunch=None):
                 waited += delay
                 if maxWaitForLaunch and waited >= maxWaitForLaunch:
                     return False
-        except opencue.CueException, e:
-            print >>sys.stderr, "Error: %s" % e
-        except Exception, e:
-            print >>sys.stderr, "Error: %s" % e
+        except opencue.CueException as e:
+            print("Error: %s" % e, file=sys.stderr)
+        except Exception as e:
+            print("Error: %s" % e, file=sys.stderr)
 
         time.sleep(delay)
