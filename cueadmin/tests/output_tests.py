@@ -15,9 +15,15 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from future import standard_library
+standard_library.install_aliases()
 import contextlib
 import mock
-import StringIO
+import io
 import sys
 import time
 import unittest
@@ -37,12 +43,13 @@ import opencue.wrappers.proc
 import opencue.wrappers.service
 import opencue.wrappers.show
 import opencue.wrappers.subscription
+
 import cueadmin.output
 
 
 @contextlib.contextmanager
 def captured_output():
-    new_out, new_err = StringIO.StringIO(), StringIO.StringIO()
+    new_out, new_err = io.StringIO(), io.StringIO()
     old_out, old_err = sys.stdout, sys.stderr
     try:
         sys.stdout, sys.stderr = new_out, new_err
@@ -72,8 +79,8 @@ class OutputTests(unittest.TestCase):
             cueadmin.output.displayProcs(procs)
 
         self.assertEqual(
-            'Host       Cores   Memory                   Job                            / Frame                          Start        Runtime      \n'
-            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/03 01:09  00:16:40     \n',
+            'Host       Cores   Memory                   Job                            / Frame                          Start        Runtime     \n'
+            'proc1      28.00   44K of 120K (36.67%)     mms2oazed2bbcjk60gho_w11licy.. / y0ihh3fxrstz6ub7ut2k           05/03 01:09  00:16:40    \n',
             out.getvalue())
 
     def testDisplayHosts(self, getStubMock):
@@ -91,7 +98,7 @@ class OutputTests(unittest.TestCase):
                     idle_cores=5,
                     idle_memory=3000000,
                     os='Linux',
-                    boot_time=1556836762,
+                    boot_time=1556836762+time.altzone,
                     state=1,
                     lock_state=1,
                     alloc_name='alloc01',
@@ -354,7 +361,7 @@ class OutputTests(unittest.TestCase):
             cueadmin.output.displayFrames(frames)
 
         self.assertEqual(
-            'Frame                               Status      Host            Start         End          Runtime     Mem   Retry  Exit \n'
+            'Frame                               Status      Host            Start         End          Runtime     Mem   Retry  Exit\n'
             '------------------------------------------------------------------------------------------------------------------------\n'
             'rFNQafSvWkCQA3O7SaJw-tWa1L92CjGM0.. SUCCEEDED   render-host-01  05/02 22:39   05/03 01:26  02:46:40   905M       1     0\n'
             'XjWPTN6CsAujCmgKHfyA-u2wFSQg2MNu    WAITING                     --/-- --:--   --/-- --:--               0K       0     0\n',
