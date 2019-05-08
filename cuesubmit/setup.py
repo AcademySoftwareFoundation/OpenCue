@@ -53,4 +53,5 @@ setup(
             'cuesubmit=cuesubmit.__main__:main'
         ]
     },
+    test_suite='tests',
 )

@@ -57,7 +57,7 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 # -----------------
 FROM build as test
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+RUN cd cuesubmit && python setup.py test
 
 
 # -----------------
