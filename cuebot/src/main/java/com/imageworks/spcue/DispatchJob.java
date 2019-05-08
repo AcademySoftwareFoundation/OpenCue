@@ -23,6 +23,7 @@ import com.imageworks.spcue.grpc.job.JobState;
 
 public class DispatchJob extends JobEntity implements JobInterface {
     public int maxRetries;
+    public int priority;
     public boolean paused;
     public boolean autoEat;
     public boolean autoBook;
