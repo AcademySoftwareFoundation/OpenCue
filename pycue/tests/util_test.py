@@ -60,6 +60,24 @@ class ProxyTests(unittest.TestCase):
         ])
         self.assertEqual(ids, [proxy.group.id for proxy in proxyList])
 
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testProxyObjectArray(self, getStubMock):
+        """convert a list of proto object and a class name to a proxy"""
+        ids = ['A0000000-0000-0000-0000-000000000000', 'B0000000-0000-0000-0000-000000000000']
+        protos = [job_pb2.Group(id=id) for id in ids]
+        stubMock = mock.Mock()
+        stubMock.GetGroup.side_effect = lambda request: job_pb2.GroupGetGroupResponse(
+            group=job_pb2.Group(id=request.id))
+        getStubMock.return_value = stubMock
+
+        proxyList = opencue.proxy(protos, 'Group')
+
+        stubMock.GetGroup.assert_has_calls([
+            mock.call(job_pb2.GroupGetGroupRequest(id=ids[0])),
+            mock.call(job_pb2.GroupGetGroupRequest(id=ids[1])),
+        ])
+        self.assertEqual(ids, [proxy.group.id for proxy in proxyList])
+
 
 class IdTests(unittest.TestCase):
     """id() takes an entity and returns the unique id"""

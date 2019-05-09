@@ -27,11 +27,11 @@ from builtins import str
 import logging
 import os
 from functools import wraps
+from six import string_types
 
 from . import exception
 import grpc
 from opencue import Cuebot
-from google.protobuf.pyext._message import RepeatedCompositeContainer
 
 logger = logging.getLogger('opencue')
 
@@ -79,25 +79,59 @@ def id(value):
         return _extract(value)
 
 
-@grpcExceptionParser
 def proxy(item, cls=None):
-    """Lookup a rpc object from its id and cls"""
-    def _proxy(entity, cls=None):
-        if cls is None:
-            raise ValueError("cls must be specified")
-        stub = Cuebot.getStub(cls.lower())
-        getMethod = getattr(stub, "Get{}".format(cls))
-        proto = Cuebot.PROTO_MAP.get(cls.lower())
-        if proto:
-            requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
-            return getMethod(requestor(id=entity))
-        else:
-            raise AttributeError('Could not find a proto for {}'.format(cls))
+    """Helper function for getting proto objects back from Cuebot.
+    @type  item: str, list<str>, protobuf Message, list<protobuf Message>
+    @param item: The id/item, or list of ids/items to look up
+    @type cls: str
+    @param cls: The Name of the protobuf message class to use.
+    @rtype:  protobuf Message or list
+    @return: Cue object or list of objects
+     """
+    if cls is None:
+        raise ValueError("cls must be specified")
 
-    if isinstance(item, (tuple, list, set, RepeatedCompositeContainer)):
-        return [_proxy(i, cls) for i in item]
+    if isinstance(item, string_types):
+        return getProtoFromIdAndClass(item, cls)
+
+    elif hasattr(item, 'id'):
+        return getProtoFromIdAndClass(item.id, cls)
+
     else:
-        return _proxy(item, cls)
+        try:
+            return getProtosFromItems(item, cls)
+        except TypeError as e:
+            logger.error('Cannot get rpc object of type {}. Allowed types are: '
+                         'String, List<String>, protobuf object, List<protobuf object>'.format(
+                              item.__class__))
+            raise e
+
+
+@grpcExceptionParser
+def getProtoFromIdAndClass(id, cls):
+    """Given an id and proto class name, return the full object from Cuebot."""
+    getMethod = getattr(Cuebot.getStub(cls.lower()), "Get{}".format(cls))
+    proto = Cuebot.PROTO_MAP.get(cls.lower())
+    if proto:
+        requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
+    else:
+        raise AttributeError('Could not find a proto class object for {}'.format(cls))
+    return getMethod(requestor(id=id))
+
+
+def getProtosFromItems(items, cls):
+    """Given a list of ids or items with ids, and their class name,
+    return a list of objects from Cuebot"""
+    protos = []
+    for item in items:
+        if isinstance(item, string_types):
+            protos.append(getProtoFromIdAndClass(item, cls))
+        else:
+            if hasattr(item, 'id'):
+                protos.append(getProtoFromIdAndClass(item.id, cls))
+            else:
+                raise ValueError("Could not get id from object {}".format(item))
+    return protos
 
 
 def rep(entity):
