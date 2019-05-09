@@ -142,8 +142,8 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(readOnly = true)
-    public boolean findHigherPriorityJob(JobDetail baseJob, VirtualProc proc) {
-        return dispatcherDao.findHigherPriorityJob(baseJob, proc);
+    public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
+        return dispatcherDao.higherPriorityJobExists(baseJob, proc);
     }
 
     @Transactional(readOnly = true)

@@ -121,7 +121,7 @@ public interface DispatcherDao {
      * @param proc
      * @return boolean
      */
-    boolean findHigherPriorityJob(JobDetail baseJob, VirtualProc proc);
+    boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
     /**
     * Dispatch the given host to the specified show.  Look for a max of numJobs.

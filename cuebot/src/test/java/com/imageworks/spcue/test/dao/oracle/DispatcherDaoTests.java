@@ -417,7 +417,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testfindHigherPriorityJob() {
+    public void testHigherPriorityJobExists() {
         DispatchHost host = getHost();
         JobDetail job1 = getJob1();
         JobDetail job2 = getJob2();
@@ -444,7 +444,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
-        boolean higher = dispatcherDao.findHigherPriorityJob(job1, proc);
+        boolean higher = dispatcherDao.higherPriorityJobExists(job1, proc);
         assertTrue(higher);
     }
 }

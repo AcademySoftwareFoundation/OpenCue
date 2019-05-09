@@ -408,11 +408,7 @@ public class FrameCompleteHandler {
 
                             if (!unbook) {
                                 JobDetail jobDetail = jobManager.getJobDetail(job.id);
-                                logger.warn("CHECKING Priority...");
-                                logger.warn(jobDetail.priority);
-                                unbook = dispatchSupport.findHigherPriorityJob(jobDetail, proc);
-                                logger.warn("UNBOOK VALUE...");
-                                logger.warn(unbook);
+                                unbook = dispatchSupport.higherPriorityJobExists(jobDetail, proc);
                             }
 
                             if (unbook) {

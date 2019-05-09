@@ -58,8 +58,9 @@ import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_LOCAL_DISPATCH_
 import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
 import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_SHOWS;
-import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_HIGHER_PRIORITY_JOB_BY_FACILITY;
 import static com.imageworks.spcue.dao.oracle.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
+import static com.imageworks.spcue.dao.oracle.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
+
 
 
 /**
@@ -357,20 +358,20 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public boolean findHigherPriorityJob(JobDetail baseJob, VirtualProc proc) {
+    public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
         long start = System.currentTimeMillis();
         try {
             return getJdbcTemplate().queryForObject(
-                    FIND_HIGHER_PRIORITY_JOB_BY_FACILITY,
-                    Integer.class, baseJob.priority, proc.getFacilityId(),
+                    HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS,
+                    Boolean.class, baseJob.priority, proc.getFacilityId(),
                     proc.os, proc.getFacilityId(), proc.os,
                     proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
-                    hostString(proc.hostName)) > 0;
+                    hostString(proc.hostName));
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
             return false;
         }
         finally {
-            logger.trace("findHigherPriorityJob(JobDetail baseJob, VirtualProc proc) " + CueUtil.duration(start));
+            logger.trace("higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) " + CueUtil.duration(start));
         }
     }
 

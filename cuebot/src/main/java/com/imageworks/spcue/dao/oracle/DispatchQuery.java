@@ -145,7 +145,7 @@ public class DispatchQuery {
      * under its minimum and can take the proc.
      *
      * The current job the proc is on is excluded.  This should only be run
-     * if the exluded job is actually over its min proc.
+     * if the excluded job is actually over its min proc.
      *
      * Does not unbook for Utility frames
      *
@@ -220,13 +220,13 @@ public class DispatchQuery {
      * It checks to see if there is another job someplace that is
      * at a higher priority and can take the proc.
      *
-     * The current job the proc is on is excluded.  This should only brun
-     * if the exluded job is actually over its min proc.
+     * The current job the proc is on is excluded.  This should only be run
+     * if the excluded job is actually over its min proc.
      *
      * Does not unbook for Utility frames
      *
      */
-    public static final String FIND_HIGHER_PRIORITY_JOB_BY_FACILITY =
+    public static final String HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS =
             "SELECT " +
                     "1 " +
                 "FROM " +

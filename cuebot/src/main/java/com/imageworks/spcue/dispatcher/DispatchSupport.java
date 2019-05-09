@@ -264,7 +264,7 @@ public interface DispatchSupport {
      * @param proc
      * @return boolean
      */
-    boolean findHigherPriorityJob(JobDetail baseJob, VirtualProc proc);
+    boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
     /**
      * Run the frame on the specified proc.
