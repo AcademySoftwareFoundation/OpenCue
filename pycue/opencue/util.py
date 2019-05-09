@@ -79,59 +79,39 @@ def id(value):
         return _extract(value)
 
 
-def proxy(item, cls=None):
+@grpcExceptionParser
+def proxy(idOrObject, cls):
     """Helper function for getting proto objects back from Cuebot.
-    @type  item: str, list<str>, protobuf Message, list<protobuf Message>
-    @param item: The id/item, or list of ids/items to look up
+    @type  idOrObject: str, list<str>, protobuf Message, list<protobuf Message>
+    @param idOrObject: The id/item, or list of ids/items to look up
     @type cls: str
     @param cls: The Name of the protobuf message class to use.
     @rtype:  protobuf Message or list
-    @return: Cue object or list of objects
-     """
-    if cls is None:
-        raise ValueError("cls must be specified")
-
-    if isinstance(item, string_types):
-        return getProtoFromIdAndClass(item, cls)
-
-    elif hasattr(item, 'id'):
-        return getProtoFromIdAndClass(item.id, cls)
-
-    else:
-        try:
-            return getProtosFromItems(item, cls)
-        except TypeError as e:
-            logger.error('Cannot get rpc object of type {}. Allowed types are: '
-                         'String, List<String>, protobuf object, List<protobuf object>'.format(
-                              item.__class__))
-            raise e
-
-
-@grpcExceptionParser
-def getProtoFromIdAndClass(id, cls):
-    """Given an id and proto class name, return the full object from Cuebot."""
-    getMethod = getattr(Cuebot.getStub(cls.lower()), "Get{}".format(cls))
-    proto = Cuebot.PROTO_MAP.get(cls.lower())
-    if proto:
-        requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
-    else:
-        raise AttributeError('Could not find a proto class object for {}'.format(cls))
-    return getMethod(requestor(id=id))
-
-
-def getProtosFromItems(items, cls):
-    """Given a list of ids or items with ids, and their class name,
-    return a list of objects from Cuebot"""
-    protos = []
-    for item in items:
-        if isinstance(item, string_types):
-            protos.append(getProtoFromIdAndClass(item, cls))
+    @return: Cue object or list of objects"""
+    def _proxy(idString):
+        proto = Cuebot.PROTO_MAP.get(cls.lower())
+        if proto:
+            requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
+            getMethod = getattr(Cuebot.getStub(cls.lower()), "Get{}".format(cls))
+            return getMethod(requestor(id=idString))
         else:
+            raise AttributeError('Could not find a proto for {}'.format(cls))
+
+    def _proxies(entities):
+        messages = []
+        for item in entities:
             if hasattr(item, 'id'):
-                protos.append(getProtoFromIdAndClass(item.id, cls))
+                messages.append(_proxy(item.id))
             else:
-                raise ValueError("Could not get id from object {}".format(item))
-    return protos
+                messages.append(_proxy(item))
+        return messages
+
+    if hasattr(idOrObject, 'id'):
+        return _proxy(idOrObject.id)
+    elif isinstance(idOrObject, string_types):
+        return _proxy(idOrObject)
+    else:
+        return _proxies(idOrObject)
 
 
 def rep(entity):
