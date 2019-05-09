@@ -24,20 +24,21 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+import functools
+import grpc
 import logging
 import os
-from functools import wraps
-from six import string_types
+import six
+import sys
 
-from . import exception
-import grpc
-from opencue import Cuebot
+import opencue
 
 logger = logging.getLogger('opencue')
 
 
 def grpcExceptionParser(grpcFunc):
-    """"""
+    """Decorator to wrap functions making GRPC calls.
+    Attempts to throw the appropriate exception based on grpc status code."""
     def _decorator(*args, **kwargs):
         try:
             return grpcFunc(*args, **kwargs)
@@ -45,20 +46,27 @@ def grpcExceptionParser(grpcFunc):
             code = e.code()
             details = e.details() or "No details found. Check server logs."
             if code == grpc.StatusCode.NOT_FOUND:
-                raise exception.EntityNotFoundException("Object does not exist. {}".format(details))
+                raise opencue.exception.EntityNotFoundException,\
+                    "Object does not exist. {}".format(details),\
+                    sys.exc_info()[2]
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise exception.EntityAlreadyExistsException("Object already exists. {}"
-                                                             .format(details))
+                raise opencue.exception.EntityAlreadyExistsException,\
+                    "Object already exists. {}".format(details),\
+                    sys.exc_info()[2]
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise exception.DeadlineExceededException("Request deadline exceeded. {}"
-                                                          .format(details))
+                raise opencue.exception.DeadlineExceededException,\
+                    "Request deadline exceeded. {}".format(details),\
+                    sys.exc_info()[2]
             elif code == grpc.StatusCode.INTERNAL:
-                raise exception.CueInternalErrorException("Server caught an internal exception. {}"
-                                                          .format(details))
+                raise opencue.exception.CueInternalErrorException,\
+                    "Server caught an internal exception. {}".format(details),\
+                    sys.exc_info()[2]
             else:
-                raise exception.CueException("Encountered a server error. {code} : {details}"
-                                             .format(code=code, details=details))
-    return wraps(grpcFunc)(_decorator)
+                raise opencue.exception.CueException,\
+                    "Encountered a server error. {code} : {details}".format(
+                        code=code, details=details),\
+                    sys.exc_info()[2]
+    return functools.wraps(grpcFunc)(_decorator)
 
 
 def id(value):
@@ -89,10 +97,10 @@ def proxy(idOrObject, cls):
     @rtype:  protobuf Message or list
     @return: Cue object or list of objects"""
     def _proxy(idString):
-        proto = Cuebot.PROTO_MAP.get(cls.lower())
+        proto = opencue.Cuebot.PROTO_MAP.get(cls.lower())
         if proto:
             requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
-            getMethod = getattr(Cuebot.getStub(cls.lower()), "Get{}".format(cls))
+            getMethod = getattr(opencue.Cuebot.getStub(cls.lower()), "Get{}".format(cls))
             return getMethod(requestor(id=idString))
         else:
             raise AttributeError('Could not find a proto for {}'.format(cls))
@@ -108,7 +116,7 @@ def proxy(idOrObject, cls):
 
     if hasattr(idOrObject, 'id'):
         return _proxy(idOrObject.id)
-    elif isinstance(idOrObject, string_types):
+    elif isinstance(idOrObject, six.string_types):
         return _proxy(idOrObject)
     else:
         return _proxies(idOrObject)
