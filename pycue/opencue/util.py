@@ -24,8 +24,8 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
-from future.utils import raise_with_traceback
 import functools
+import future.utils
 import grpc
 import logging
 import os
@@ -46,19 +46,19 @@ def grpcExceptionParser(grpcFunc):
             code = exc.code()
             details = exc.details() or "No details found. Check server logs."
             if code == grpc.StatusCode.NOT_FOUND:
-                raise_with_traceback(opencue.exception.EntityNotFoundException(
+                future.utils.raise_with_traceback(opencue.exception.EntityNotFoundException(
                     "Object does not exist. {}".format(details)))
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise_with_traceback(opencue.exception.EntityAlreadyExistsException(
+                future.utils.raise_with_traceback(opencue.exception.EntityAlreadyExistsException(
                     "Object already exists. {}".format(details)))
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise_with_traceback(opencue.exception.DeadlineExceededException(
+                future.utils.raise_with_traceback(opencue.exception.DeadlineExceededException(
                     "Request deadline exceeded. {}".format(details)))
             elif code == grpc.StatusCode.INTERNAL:
-                raise_with_traceback(opencue.exception.CueInternalErrorException(
+                future.utils.raise_with_traceback(opencue.exception.CueInternalErrorException(
                     "Server caught an internal exception. {}".format(details)))
             else:
-                raise_with_traceback(opencue.exception.CueException(
+                future.utils.raise_with_traceback(opencue.exception.CueException(
                     "Encountered a server error. {code} : {details}".format(
                         code=code, details=details)))
     return functools.wraps(grpcFunc)(_decorator)
