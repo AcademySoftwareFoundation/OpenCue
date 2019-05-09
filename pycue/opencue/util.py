@@ -24,7 +24,7 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
-from future.utils import raise_from
+from future.utils import raise_with_traceback
 import functools
 import grpc
 import logging
@@ -46,21 +46,21 @@ def grpcExceptionParser(grpcFunc):
             code = exc.code()
             details = exc.details() or "No details found. Check server logs."
             if code == grpc.StatusCode.NOT_FOUND:
-                raise_from(opencue.exception.EntityNotFoundException(
-                    "Object does not exist. {}".format(details)), exc)
+                raise_with_traceback(opencue.exception.EntityNotFoundException(
+                    "Object does not exist. {}".format(details)))
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise_from(opencue.exception.EntityAlreadyExistsException(
-                    "Object already exists. {}".format(details)), exc)
+                raise_with_traceback(opencue.exception.EntityAlreadyExistsException(
+                    "Object already exists. {}".format(details)))
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise_from(opencue.exception.DeadlineExceededException(
-                    "Request deadline exceeded. {}".format(details)), exc)
+                raise_with_traceback(opencue.exception.DeadlineExceededException(
+                    "Request deadline exceeded. {}".format(details)))
             elif code == grpc.StatusCode.INTERNAL:
-                raise_from(opencue.exception.CueInternalErrorException(
-                    "Server caught an internal exception. {}".format(details)), exc)
+                raise_with_traceback(opencue.exception.CueInternalErrorException(
+                    "Server caught an internal exception. {}".format(details)))
             else:
-                raise_from(opencue.exception.CueException(
+                raise_with_traceback(opencue.exception.CueException(
                     "Encountered a server error. {code} : {details}".format(
-                        code=code, details=details)), exc)
+                        code=code, details=details)))
     return functools.wraps(grpcFunc)(_decorator)
 
 
