@@ -24,12 +24,12 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+from future.utils import raise_from
 import functools
 import grpc
 import logging
 import os
 import six
-import sys
 
 import opencue
 
@@ -42,30 +42,25 @@ def grpcExceptionParser(grpcFunc):
     def _decorator(*args, **kwargs):
         try:
             return grpcFunc(*args, **kwargs)
-        except grpc.RpcError as e:
-            code = e.code()
-            details = e.details() or "No details found. Check server logs."
+        except grpc.RpcError as exc:
+            code = exc.code()
+            details = exc.details() or "No details found. Check server logs."
             if code == grpc.StatusCode.NOT_FOUND:
-                raise opencue.exception.EntityNotFoundException,\
-                    "Object does not exist. {}".format(details),\
-                    sys.exc_info()[2]
+                raise_from(opencue.exception.EntityNotFoundException(
+                    "Object does not exist. {}".format(details)), exc)
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise opencue.exception.EntityAlreadyExistsException,\
-                    "Object already exists. {}".format(details),\
-                    sys.exc_info()[2]
+                raise_from(opencue.exception.EntityAlreadyExistsException(
+                    "Object already exists. {}".format(details)), exc)
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise opencue.exception.DeadlineExceededException,\
-                    "Request deadline exceeded. {}".format(details),\
-                    sys.exc_info()[2]
+                raise_from(opencue.exception.DeadlineExceededException(
+                    "Request deadline exceeded. {}".format(details)), exc)
             elif code == grpc.StatusCode.INTERNAL:
-                raise opencue.exception.CueInternalErrorException,\
-                    "Server caught an internal exception. {}".format(details),\
-                    sys.exc_info()[2]
+                raise_from(opencue.exception.CueInternalErrorException(
+                    "Server caught an internal exception. {}".format(details)), exc)
             else:
-                raise opencue.exception.CueException,\
+                raise_from(opencue.exception.CueException(
                     "Encountered a server error. {code} : {details}".format(
-                        code=code, details=details),\
-                    sys.exc_info()[2]
+                        code=code, details=details)), exc)
     return functools.wraps(grpcFunc)(_decorator)
 
 
