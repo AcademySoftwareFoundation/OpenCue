@@ -31,8 +31,8 @@ OpenCue provides features to manage rendering management at scale:
 
 ## Learn more
 
-For more infromation on installing, using, and administering OpenCue, see
-the [Wiki](https://github.com/imageworks/OpenCue/wiki)
+For more information on installing, using, and administering OpenCue, see
+the [Wiki](https://github.com/imageworks/OpenCue/wiki).
 
 ## Contact us
 
