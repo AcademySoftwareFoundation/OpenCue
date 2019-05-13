@@ -253,7 +253,7 @@ public class HostReportHandler {
             }
 
             /*
-             * If a message was set, the hot is not bookable.  Log
+             * If a message was set, the host is not bookable.  Log
              * the message and move on.
              */
             if (msg != null) {

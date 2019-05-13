@@ -30,6 +30,7 @@ import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ProcInterface;
@@ -255,6 +256,15 @@ public interface DispatchSupport {
      * @return
      */
     boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
+
+    /**
+     * Return true if there are higher priority jobs to run.
+     *
+     * @param baseJob
+     * @param proc
+     * @return boolean
+     */
+    boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
     /**
      * Run the frame on the specified proc.

@@ -35,6 +35,7 @@ import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ShowInterface;
@@ -57,6 +58,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATC
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
 
 
 /**
@@ -351,6 +353,24 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
          finally {
              logger.trace("findUnderProcedJob(Job excludeJob, VirtualProc proc) " + CueUtil.duration(start));
          }
+    }
+
+    @Override
+    public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
+        long start = System.currentTimeMillis();
+        try {
+            return getJdbcTemplate().queryForObject(
+                    HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS,
+                    Boolean.class, baseJob.priority, proc.getFacilityId(),
+                    proc.os, proc.getFacilityId(), proc.os,
+                    proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
+                    proc.hostName);
+        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
+            return false;
+        }
+        finally {
+            logger.trace("higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) " + CueUtil.duration(start));
+        }
     }
 
     @Override
