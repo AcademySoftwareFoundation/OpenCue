@@ -24,6 +24,7 @@ from future import standard_library
 standard_library.install_aliases()
 import getpass
 import os
+import tempfile
 
 from six.moves.configparser import SafeConfigParser
 
@@ -31,7 +32,7 @@ from six.moves.configparser import SafeConfigParser
 __all__ = ["config"]
 
 PYOUTLINE_ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
-DEFAULT_USER_DIR = '/tmp/opencue/outline/user/{}'.format(getpass.getuser())
+DEFAULT_USER_DIR = '{}/opencue/outline/{}'.format(tempfile.gettempdir(), getpass.getuser())
 
 config = SafeConfigParser()
 
