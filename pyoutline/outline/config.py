@@ -35,8 +35,7 @@ __all__ = ["config"]
 __file_path__ = pathlib.Path(__file__)
 
 PYOUTLINE_ROOT_DIR = __file_path__.parent.parent
-DEFAULT_USER_DIR = pathlib.Path('{tmpdir}/opencue/outline/{user}'.format(
-    tmpdir=tempfile.gettempdir(), user=getpass.getuser()))
+DEFAULT_USER_DIR = pathlib.Path(tempfile.gettempdir()) / 'opencue' / 'outline' / getpass.getuser()
 
 config = SafeConfigParser()
 
