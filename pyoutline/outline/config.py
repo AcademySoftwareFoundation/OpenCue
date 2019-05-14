@@ -22,12 +22,16 @@ from __future__ import absolute_import
 
 from future import standard_library
 standard_library.install_aliases()
+import getpass
 import os
 
 from six.moves.configparser import SafeConfigParser
 
 
 __all__ = ["config"]
+
+PYOUTLINE_ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+DEFAULT_USER_DIR = '/tmp/opencue/outline/user/{}'.format(getpass.getuser())
 
 config = SafeConfigParser()
 
@@ -45,3 +49,10 @@ for default_config_path in default_config_paths:
         break
 
 config.read(os.environ.get("OL_CONFIG", default_config_path))
+
+# Add defaults to the config,if they were not specified.
+if not config.get('outline', 'home'):
+    config.set('outline', 'home', PYOUTLINE_ROOT_DIR)
+
+if not config.get('outline', 'user_dir'):
+    config.set('outline', 'user_dir', DEFAULT_USER_DIR)
