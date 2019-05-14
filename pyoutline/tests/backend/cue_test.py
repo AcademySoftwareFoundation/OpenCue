@@ -39,6 +39,8 @@ TEST_USER = 'test-user'
 class SerializeTest(unittest.TestCase):
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        outline.config.set('outline', 'home', '/opencue/outline')
+        outline.config.set('outline', 'user_dir', '/tmp/opencue/user')
         ol = outline.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
 
@@ -65,8 +67,9 @@ class SerializeTest(unittest.TestCase):
         self.assertEqual('Render', layer.get('type'))
         self.assertEqual(1, len(layer.findall('cmd')))
         self.assertEqual(
-            '/wrappers/opencue_wrap_frame  '
-            '/bin/pycuerun '
+            '/opencue/outline/wrappers/opencue_wrap_frame '
+            '/tmp/opencue/user '
+            '/opencue/outline/bin/pycuerun '
             '{scripts_dir}/shell.outline '
             '-e #IFRAME#-cmd '
             '--version latest '
@@ -86,6 +89,8 @@ class SerializeTest(unittest.TestCase):
 class BuildCommandTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        outline.config.set('outline', 'home', '')
+        outline.config.set('outline', 'user_dir', '')
         self.ol = outline.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol, user=TEST_USER)
         self.layer = self.ol.get_layer('cmd')
