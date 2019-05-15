@@ -33,6 +33,8 @@ SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scr
 class BuildCommandTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+        outline.config.set('outline', 'home', '')
+        outline.config.set('outline', 'user_dir', '')
         self.ol = outline.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol)
         self.layer = self.ol.get_layer('cmd')
