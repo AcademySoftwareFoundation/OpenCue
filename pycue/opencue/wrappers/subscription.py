@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
 Project: opencue Library
 
@@ -32,24 +31,30 @@ class Subscription(object):
         self.stub = Cuebot.getStub('subscription')
 
     def find(self, name):
-        response = self.stub.Find(subscription_pb2.SubscriptionFindRequest(
-            name=name),
+        response = self.stub.Find(
+            subscription_pb2.SubscriptionFindRequest(name=name),
+            timeout=Cuebot.Timeout)
+        return Subscription(response.subscription)
+
+    def get(self, id):
+        response = self.stub.Get(
+            subscription_pb2.SubscriptionGetRequest(id=id),
             timeout=Cuebot.Timeout)
         return Subscription(response.subscription)
 
     def setSize(self, size):
-        self.stub.SetSize(subscription_pb2.SubscriptionSetSizeRequest(
-            subscription=self.data, new_size=size),
+        self.stub.SetSize(
+            subscription_pb2.SubscriptionSetSizeRequest(subscription=self.data, new_size=size),
             timeout=Cuebot.Timeout)
 
     def setBurst(self, burst):
-        self.stub.SetBurst(subscription_pb2.SubscriptionSetBurstRequest(
-            subscription=self.data, burst=burst),
+        self.stub.SetBurst(
+            subscription_pb2.SubscriptionSetBurstRequest(subscription=self.data, burst=burst),
             timeout=Cuebot.Timeout)
 
     def delete(self):
-        self.stub.Delete(subscription_pb2.SubscriptionDeleteRequest(
-            subscription=self.data),
+        self.stub.Delete(
+            subscription_pb2.SubscriptionDeleteRequest(subscription=self.data),
             timeout=Cuebot.Timeout)
 
     def id(self):
