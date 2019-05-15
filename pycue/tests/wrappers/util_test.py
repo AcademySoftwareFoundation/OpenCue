@@ -18,6 +18,9 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
+import os
+import time
 import unittest
 
 import opencue.wrappers.util
@@ -32,12 +35,16 @@ MEM_6000_G = 1024 * 1024 * 1024 * 6
 
 class UtilTests(unittest.TestCase):
 
+    def setUp(self):
+        os.environ['TZ'] = 'Europe/London'
+        time.tzset()
+
     def testFormatTime(self):
-        expected = '05/15 10:55'
+        expected = '05/15 18:55'
         timeString = opencue.wrappers.util.format_time(TEST_SECONDS_A)
         self.assertEqual(timeString, expected)
 
-        expected = '12/31 16:33'
+        expected = '01/01 01:33'
         timeString = opencue.wrappers.util.format_time(TEST_SECONDS_B)
         self.assertEqual(timeString, expected)
 
@@ -47,11 +54,11 @@ class UtilTests(unittest.TestCase):
 
 
     def testDateToMMDDHHMM(self):
-        expected = '05/15 10:55'
+        expected = '05/15 18:55'
         timeString = opencue.wrappers.util.dateToMMDDHHMM(TEST_SECONDS_A)
         self.assertEqual(timeString, expected)
 
-        expected = '12/31 16:33'
+        expected = '01/01 01:33'
         timeString = opencue.wrappers.util.dateToMMDDHHMM(TEST_SECONDS_B)
         self.assertEqual(timeString, expected)
 
