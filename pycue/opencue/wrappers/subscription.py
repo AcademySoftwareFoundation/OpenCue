@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
 Project: opencue Library
 
@@ -34,6 +33,12 @@ class Subscription(object):
     def find(self, name):
         response = self.stub.Find(subscription_pb2.SubscriptionFindRequest(
             name=name),
+            timeout=Cuebot.Timeout)
+        return Subscription(response.subscription)
+
+    def get(self, id):
+        response = self.stub.Get(subscription_pb2.SubscriptionGetRequest(
+            id=id),
             timeout=Cuebot.Timeout)
         return Subscription(response.subscription)
 

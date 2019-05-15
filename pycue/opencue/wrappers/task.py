@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
 Project: opencue Library
 
@@ -40,9 +39,9 @@ class Task(object):
         @type  minCores: int
         @param minCores: the minimum number of cores the task needs"""
         self.stub.SetMinCores(
-            task_pb2.TaskSetMinCoresRequest(task=self.task, new_min_cores=minCores),
+            task_pb2.TaskSetMinCoresRequest(task=self.data, new_min_cores=minCores),
             timeout=Cuebot.Timeout)
 
     def delete(self):
         """Deletes this task"""
-        self.stub.Delete(task_pb2.TaskDeleteRequest(task=self.task), timeout=Cuebot.Timeout)
+        self.stub.Delete(task_pb2.TaskDeleteRequest(task=self.data), timeout=Cuebot.Timeout)
