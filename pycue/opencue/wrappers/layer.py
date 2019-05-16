@@ -25,6 +25,7 @@ from opencue.compiled_proto import job_pb2
 from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend
+import opencue.wrappers.frame
 
 
 class Layer(object):
@@ -68,18 +69,18 @@ class Layer(object):
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
         response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, s=criteria),
                                        timeout=Cuebot.Timeout)
-        return [frame.Frame(frame) for frame in response.frames]
+        return [opencue.wrappers.frame.Frame(frameData) for frameData in response.frames.frames]
 
     def getOutputPaths(self):
         """Return the output paths for this layer.
-        @rtype: list<String>
+        @rtype: list<str>
         @return: list of output paths"""
         return self.stub.GetOutputPaths(job_pb2.LayerGetOutputPathsRequest(layer=self.data),
-                                        timeout=Cuebot.Timeout)
+                                        timeout=Cuebot.Timeout).output_paths
 
     def setTags(self, tags):
         """Sets the tags, TODO: update description of tag structure
-        @type  tags: str
+        @type  tags: list<str>
         @param tags: Layer tags"""
         return self.stub.SetTags(job_pb2.LayerSetTagsRequest(layer=self.data, tags=tags),
                                  timeout=Cuebot.Timeout)
