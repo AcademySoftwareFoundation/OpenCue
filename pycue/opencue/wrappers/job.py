@@ -351,11 +351,17 @@ class Job(object):
         @return: Uid of job owner"""
         return self.data.uid
 
-    def username(self):
+    def user(self):
         """Returns the username of the person who owns the job
         @rtype: str
         @return: Username of job owner"""
         return self.data.user
+
+    def username(self):
+        """Returns the username of the person who owns the job
+        @rtype: str
+        @return: Username of job owner"""
+        return self.user()
 
     def state(self):
         """Returns the job state
@@ -380,6 +386,12 @@ class Job(object):
         @rtype:  int
         @return: Job's maxProcs"""
         return self.data.max_cores
+
+    def os(self):
+        """Returns the job's os
+        @rtype: str
+        @return: os name of the Job"""
+        return self.data.os
 
     def startTime(self, format=None):
         """Returns the job start time in the desired format
