@@ -612,7 +612,7 @@ message HostRenameTagResponse {} // Empty
 // SetAllocation
 message HostSetAllocationRequest {
     Host host = 1;
-    string allocation_name = 2;
+    string allocation_id = 2;
 }
 
 message HostSetAllocationResponse {} // Empty

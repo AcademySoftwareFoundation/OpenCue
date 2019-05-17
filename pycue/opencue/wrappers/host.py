@@ -115,7 +115,7 @@ class Host(object):
         @param allocation: An allocation object
         """
         self.stub.SetAllocation(
-            host_pb2.HostSetAllocationRequest(host=self.data, allocation_name=allocation.id()),
+            host_pb2.HostSetAllocationRequest(host=self.data, allocation_id=allocation.id()),
             timeout=Cuebot.Timeout)
 
     def addComment(self, subject, message):
@@ -149,11 +149,11 @@ class Host(object):
             host_pb2.HostSetHardwareStateRequest(host=self.data, state=state),
             timeout=Cuebot.Timeout)
 
-    def setOs(self, os):
+    def setOs(self, osName):
         """Sets the host os
-        @type os: string
-        @param os: os value to set host to"""
-        self.stub.SetOs(host_pb2.HostSetOsRequest(host=self.data, os=os),
+        @type osName: string
+        @param osName: os value to set host to"""
+        self.stub.SetOs(host_pb2.HostSetOsRequest(host=self.data, os=osName),
                         timeout=Cuebot.Timeout)
 
     def setThreadMode(self, mode):
