@@ -67,7 +67,7 @@ class Filter(object):
         )
         return Matcher(self.stub.CreateMatcher(
             filter_pb2.FilterCreateMatcherRequest(filter=self.data, data=matcher),
-            timeout=Cuebot.Timeout))
+            timeout=Cuebot.Timeout).matcher)
 
     def createAction(self, actionType, value):
         """Creates an action for this filter.
@@ -79,34 +79,34 @@ class Filter(object):
         @return: The new Action object"""
         action = ActionData(
             type=actionType,
-            groupValue=None,
-            stringValue=None,
-            integerValue=0,
-            floatValue=0.0,
-            booleanValue=False
+            group_value=None,
+            string_value=None,
+            integer_value=0,
+            float_value=0.0,
+            boolean_value=False
         )
 
         if isinstance(value, job_pb2.Group):
-            action.valueType = filter_pb2.GROUP_TYPE
-            action.groupValue = value.id
+            action.value_type = filter_pb2.GROUP_TYPE
+            action.group_value = value.id
         elif isinstance(value, str):
-            action.valueType = filter_pb2.STRING_TYPE
-            action.stringValue = value
+            action.value_type = filter_pb2.STRING_TYPE
+            action.string_value = value
         elif isinstance(value, bool):
-            action.valueType = filter_pb2.BOOLEAN_TYPE
-            action.booleanValue = value
+            action.value_type = filter_pb2.BOOLEAN_TYPE
+            action.boolean_value = value
         elif isinstance(value, int):
-            action.valueType = filter_pb2.INTEGER_TYPE
-            action.integerValue = value
+            action.value_type = filter_pb2.INTEGER_TYPE
+            action.integer_value = value
         elif isinstance(value, float):
-            action.valueType = filter_pb2.FLOAT_TYPE
-            action.floatValue = value
+            action.value_type = filter_pb2.FLOAT_TYPE
+            action.float_value = value
         else:
-            action.valueType = filter_pb2.NONE_TYPE
+            action.value_type = filter_pb2.NONE_TYPE
 
         return Action(self.stub.CreateAction(
             filter_pb2.FilterCreateActionRequest(filter=self.data, data=action),
-            timeout=Cuebot.Timeout))
+            timeout=Cuebot.Timeout).action)
 
     def getActions(self):
         """Returns the actions in this filter
@@ -114,7 +114,7 @@ class Filter(object):
         @return: A list of the actions in this filter"""
         response = self.stub.GetActions(filter_pb2.FilterGetActionsRequest(filter=self.data),
                                         timeout=Cuebot.Timeout)
-        return [Matcher(m) for m in response.actions]
+        return [Action(action) for action in response.actions.actions]
 
     def getMatchers(self):
         """Returns the matchers in this filter
@@ -122,7 +122,7 @@ class Filter(object):
         @return: A list of the matchers in this filter"""
         response = self.stub.GetMatchers(filter_pb2.FilterGetMatchersRequest(filter=self.data),
                                          timeout=Cuebot.Timeout)
-        return [Matcher(m) for m in response.matchers]
+        return [Matcher(matcher) for matcher in response.matchers.matchers]
 
     def lowerOrder(self):
         """Lowers the order of this filter relative to the other filters"""
@@ -233,17 +233,17 @@ class Action(object):
             return "%s %s" % (self.type(), self.value())
 
     def value(self):
-        valueType = filter_pb2.ActionValueType.Name(self.data.value_type)
-        if valueType == "GROUP_TYPE":
-            return self.data.groupValue.ice_getIdentity().name
-        elif valueType == "STRING_TYPE":
-            return self.data.stringValue
-        elif valueType == "INTEGER_TYPE":
-            return self.data.integerValue
-        elif valueType == "FLOAT_TYPE":
-            return self.data.floatValue
-        elif valueType == "BOOLEAN_TYPE":
-            return self.data.booleanValue
+        valueType = self.data.value_type
+        if valueType == filter_pb2.GROUP_TYPE:
+            return self.data.group_value
+        elif valueType == filter_pb2.STRING_TYPE:
+            return self.data.string_value
+        elif valueType == filter_pb2.INTEGER_TYPE:
+            return self.data.integer_value
+        elif valueType == filter_pb2.FLOAT_TYPE:
+            return self.data.float_value
+        elif valueType == filter_pb2.BOOLEAN_TYPE:
+            return self.data.boolean_value
         else:
             return None
 
@@ -257,34 +257,31 @@ class Action(object):
                 raise TypeError("invalid group argument, not a group")
             if not value.id:
                 raise ValueError("group is not a valid rpc object")
-            self.data.groupValue = value.id
-            self.data.valueType = filter_pb2.GROUP_TYPE
+            self.data.group_value = value.id
+            self.data.value_type = filter_pb2.GROUP_TYPE
 
-        elif actionType == filter_pb2.PAUSE_JOB:
-            self.data.booleanValue = value
-            self.data.valueType = filter_pb2.BOOLEAN_TYPE
+        elif actionType in (filter_pb2.PAUSE_JOB, filter_pb2.SET_MEMORY_OPTIMIZER):
+            self.data.boolean_value = value
+            self.data.value_type = filter_pb2.BOOLEAN_TYPE
 
         elif actionType in (filter_pb2.SET_JOB_PRIORITY,
                             filter_pb2.SET_ALL_RENDER_LAYER_MEMORY):
-            self.data.integerValue = int(value)
-            self.data.valueType = filter_pb2.INTEGER_TYPE
+            self.data.integer_value = int(value)
+            self.data.value_type = filter_pb2.INTEGER_TYPE
 
         elif actionType in (filter_pb2.SET_JOB_MIN_CORES,
                             filter_pb2.SET_JOB_MAX_CORES,
                             filter_pb2.SET_ALL_RENDER_LAYER_CORES):
-            self.data.floatValue = float(value)
-            self.data.valueType = filter_pb2.FLOAT_TYPE
+            self.data.float_value = float(value)
+            self.data.value_type = filter_pb2.FLOAT_TYPE
 
         elif actionType == filter_pb2.SET_ALL_RENDER_LAYER_TAGS:
-            self.data.stringValue = value
-            self.data.valueType = filter_pb2.STRING_TYPE
+            self.data.string_value = value
+            self.data.value_type = filter_pb2.STRING_TYPE
 
         elif actionType == filter_pb2.STOP_PROCESSING:
-            self.data.valueType = filter_pb2.NONE_TYPE
+            self.data.value_type = filter_pb2.NONE_TYPE
 
-        elif actionType == filter_pb2.SET_MEMORY_OPTIMIZER:
-            self.data.booleanValue = value
-            self.data.valueType = filter_pb2.BOOLEAN_TYPE
         else:
            raise Exception("invalid action type: %s" % actionType)
 
