@@ -512,8 +512,5 @@ class MatcherTests(unittest.TestCase):
         self.assertTrue(matcherTrue.isNew())
 
 
-
-
-
 if __name__ == '__main__':
     unittest.main()
