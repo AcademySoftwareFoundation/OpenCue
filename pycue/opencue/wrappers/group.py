@@ -186,7 +186,7 @@ class NestedGroup(Group):
 
     def createSubGroup(self, name):
         """Create a sub group"""
-        return Group(self.asGroup()).createSubGroup(name)
+        return self.asGroup().createSubGroup(name)
 
     def children(self):
         """returns jobs and groups in a single array"""
@@ -198,7 +198,7 @@ class NestedGroup(Group):
 
     def asGroup(self):
         """returns a Group object from this NestedGroup"""
-        return job_pb2.Group(
+        return Group(job_pb2.Group(
             id=self.data.id,
             name=self.data.name,
             department=self.data.department,
@@ -209,4 +209,4 @@ class NestedGroup(Group):
             max_cores=self.data.max_cores,
             level=self.data.level,
             group_stats=self.data.stats,
-        )
+        ))

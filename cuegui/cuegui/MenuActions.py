@@ -1123,8 +1123,7 @@ class GroupActions(AbstractActions):
                 for group in groups:
                     if isinstance(group, opencue.wrappers.group.NestedGroup):
                         group = group.asGroup()
-                    self.cuebotCall(opencue.wrappers.group.Group(group).delete,
-                                    "Delete Group %s Failed" % group.name)
+                    self.cuebotCall(group.delete, "Delete Group {} Failed".format(group.name()))
 
 
 class SubscriptionActions(AbstractActions):

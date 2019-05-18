@@ -181,7 +181,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
                               StreamObserver<HostSetAllocationResponse> responseObserver) {
         HostInterface host = getHostInterface(request.getHost());
         hostManager.setAllocation(host,
-                adminManager.getAllocationDetail(request.getAllocationName()));
+                adminManager.getAllocationDetail(request.getAllocationId()));
         responseObserver.onNext(HostSetAllocationResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
