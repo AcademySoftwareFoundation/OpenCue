@@ -459,6 +459,30 @@ class JobTests(unittest.TestCase):
             job_pb2.JobStaggerFramesRequest(job=job.data, range=range, stagger=stagger),
             timeout=mock.ANY)
 
+    def testFrameStateTotals(self, getStubMock):
+        runningFrames = 10
+        waitingFrames = 50
+        succeededFrames = 30
+        expected = {job_pb2.WAITING: waitingFrames,
+                    job_pb2.RUNNING: runningFrames,
+                    job_pb2.SUCCEEDED: succeededFrames,
+                    job_pb2.CHECKPOINT: 0,
+                    job_pb2.SETUP: 0,
+                    job_pb2.EATEN: 0,
+                    job_pb2.DEAD: 0,
+                    job_pb2.DEPEND: 0}
+
+        job = opencue.wrappers.job.Job(job_pb2.Job(
+            name="frameStateTestJob",
+            job_stats=job_pb2.JobStats(
+                running_frames=runningFrames,
+                waiting_frames=waitingFrames,
+                succeeded_frames=succeededFrames)))
+
+        frameStateTotals = job.frameStateTotals()
+        self.assertEqual(frameStateTotals, expected)
+
+
 @mock.patch('opencue.cuebot.Cuebot.getStub')
 class NestedJobTests(unittest.TestCase):
 

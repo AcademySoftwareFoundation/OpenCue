@@ -97,9 +97,9 @@ class AbstractDelegate(QtWidgets.QItemDelegate):
         @param rect: The area to draw in
         @type  frameStateTotals: dict
         @param frameStateTotals: Dictionary of frame states and their amount"""
-        ratio = rect.width() / float(sum([list(values)[1] for values in frameStateTotals]))
+        ratio = rect.width() / float(sum(frameStateTotals.values()))
         for frameState in FRAME_STATES:
-            length = int(ceil(ratio * list(frameStateTotals)[frameState][1]))
+            length = int(ceil(ratio * frameStateTotals[frameState]))
             if length > 0:
                 rect.setWidth(length)
                 painter.fillRect(rect, RGB_FRAME_STATE[frameState])
