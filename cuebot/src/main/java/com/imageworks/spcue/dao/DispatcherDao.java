@@ -25,6 +25,7 @@ import java.util.Set;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ShowInterface;
@@ -112,6 +113,15 @@ public interface DispatcherDao {
      * @return
      */
     boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc);
+
+    /**
+     * Returns true if there exists a higher priority job than the base job
+     *
+     * @param baseJob
+     * @param proc
+     * @return boolean
+     */
+    boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc);
 
     /**
     * Dispatch the given host to the specified show.  Look for a max of numJobs.

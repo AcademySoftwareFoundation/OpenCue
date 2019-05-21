@@ -256,7 +256,7 @@ class LayerAttributes(AbstractAttributes):
                 }
 
 
-        for num, output in enumerate(layer.getOutputPaths().output_paths):
+        for num, output in enumerate(layer.getOutputPaths()):
             # Try to formulate a unique name the output.
             try:
                 # Outline only puts outputs in as filespecs,
@@ -332,7 +332,7 @@ class JobAttributes(AbstractAttributes):
         ## In the layer outputs.
         if job.data.job_stats.total_layers < 20:
             for layer in job.getLayers():
-                outputs = layer.getOutputPaths().output_paths
+                outputs = layer.getOutputPaths()
                 if not outputs:
                     continue
                 entry = {}

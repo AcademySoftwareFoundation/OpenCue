@@ -123,7 +123,8 @@ public interface Dispatcher {
     public static final int ORPHANED_SECONDS = 300;
 
     // The chance a frame will unbook itself to run a higher priority frame.
-    public static final int UNBOOK_FREQUENCY = 50;
+    // 0 will never unbook, > 100 will always unbook.
+    public static final int UNBOOK_FREQUENCY = 101;
 
     // The default operating system assigned to host that don't report one.
     public static final String OS_DEFAULT = "rhel40";

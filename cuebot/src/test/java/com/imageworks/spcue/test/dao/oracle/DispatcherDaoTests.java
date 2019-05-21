@@ -64,6 +64,7 @@ import com.imageworks.spcue.test.AssumingOracleEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -398,13 +399,13 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",
-                String.class, job1.id));
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job1.id));
 
         assertEquals(JobState.PENDING.toString(),
                 jdbcTemplate.queryForObject(
-                "SELECT str_state FROM job WHERE pk_job=?",
-                String.class, job2.id));
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job2.id));
 
         VirtualProc proc = VirtualProc.build(host, frame);
         proc.coresReserved = 100;
@@ -412,5 +413,112 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         boolean under = dispatcherDao.findUnderProcedJob(job1, proc);
         assertTrue(under);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHigherPriorityJobExistsTrue() {
+        DispatchHost host = getHost();
+        JobDetail job1 = getJob1();
+        JobDetail job2 = getJob2();
+        job1.priority = 100;
+        job2.priority = 200;
+
+        jobDao.updateMinCores(job1, 0);
+        jobDao.updateMinCores(job2, 0);
+        jobDao.updatePriority(job1, 100);
+        jobDao.updatePriority(job2, 200);
+
+        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        assertNotNull(frame);
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job1.id));
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job2.id));
+
+        VirtualProc proc = VirtualProc.build(host, frame);
+        proc.coresReserved = 100;
+        dispatcher.dispatch(frame, proc);
+
+        boolean isHigher = dispatcherDao.higherPriorityJobExists(job1, proc);
+        assertTrue(isHigher);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHigherPriorityJobExistsFalse() {
+        DispatchHost host = getHost();
+        JobDetail job1 = getJob1();
+        JobDetail job2 = getJob2();
+        job1.priority = 20000;
+        job2.priority = 100;
+
+        jobDao.updateMinCores(job1, 0);
+        jobDao.updateMinCores(job2, 0);
+        jobDao.updatePriority(job1, 20000);
+        jobDao.updatePriority(job2, 100);
+
+        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        assertNotNull(frame);
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job1.id));
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job2.id));
+
+        VirtualProc proc = VirtualProc.build(host, frame);
+        proc.coresReserved = 100;
+        dispatcher.dispatch(frame, proc);
+
+        boolean isHigher = dispatcherDao.higherPriorityJobExists(job1, proc);
+        assertFalse(isHigher);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHigherPriorityJobExistsMaxProcBound() {
+        DispatchHost host = getHost();
+        JobDetail job1 = getJob1();
+        JobDetail job2 = getJob2();
+        job1.priority = 100;
+        job2.priority = 200;
+
+        jobDao.updateMaxCores(job2, 0);
+        jobDao.updatePriority(job1, 100);
+        jobDao.updatePriority(job2, 200);
+
+        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        assertNotNull(frame);
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job1.id));
+
+        assertEquals(JobState.PENDING.toString(),
+                jdbcTemplate.queryForObject(
+                        "SELECT str_state FROM job WHERE pk_job=?",
+                        String.class, job2.id));
+
+        VirtualProc proc = VirtualProc.build(host, frame);
+        proc.coresReserved = 100;
+        dispatcher.dispatch(frame, proc);
+
+        boolean isHigher = dispatcherDao.higherPriorityJobExists(job1, proc);
+        assertFalse(isHigher);
     }
 }

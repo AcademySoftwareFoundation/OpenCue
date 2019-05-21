@@ -22,15 +22,12 @@ package com.imageworks.spcue.dao.postgres;
 public class DispatchQuery {
 
     public static final String FIND_JOBS_BY_SHOW =
-        "/* FIND_JOBS_BY_SHOW */ SELECT pk_job, float_tier, rank FROM ( " +
+        "/* FIND_JOBS_BY_SHOW */ " +
+        "SELECT pk_job, int_priority, rank FROM ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER (ORDER BY " +
-                    "point.float_tier ASC, " +
-                    "folder_resource.float_tier ASC, " +
-                    "job_resource.float_tier ASC " +
-                    ") AS rank, " +
+                "ROW_NUMBER() OVER (ORDER BY job_resource.int_priority DESC) AS rank, " +
                 "job.pk_job, " +
-                "job_resource.float_tier " +
+                "job_resource.int_priority " +
             "FROM " +
                 "job            , " +
                 "job_resource   , " +
@@ -152,8 +149,8 @@ public class DispatchQuery {
      * It checks to see if there is another job someplace that is
      * under its minimum and can take the proc.
      *
-     * The current job the proc is on is excluded.  This should only brun
-     * if the exluded job is actually over its min proc.
+     * The current job the proc is on is excluded.  This should only be run
+     * if the excluded job is actually over its min proc.
      *
      * Does not unbook for Utility frames
      *
@@ -177,7 +174,7 @@ public class DispatchQuery {
         "AND " +
             "job_resource.float_tier < 1.00 " +
         "AND " +
-            "job_resource.int_cores < job_resource.int_max_cores " +
+            "job_resource.int_cores < job_resource.int_min_cores " +
         "AND " +
             "job.str_state = 'PENDING' " +
         "AND " +
@@ -225,6 +222,81 @@ public class DispatchQuery {
                     "h.str_name = ? " +
             ") " +
         "LIMIT 1";
+
+    /**
+     * This query is run before a proc is dispatched to the next frame.
+     * It checks to see if there is another job someplace that is
+     * at a higher priority and can take the proc.
+     *
+     * The current job the proc is on is excluded.  This should only be run
+     * if the excluded job is actually over its min proc.
+     *
+     * Does not unbook for Utility frames
+     *
+     */
+    public static final String HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS =
+            "SELECT " +
+                "1 " +
+            "FROM " +
+                "job, " +
+                "job_resource, " +
+                "folder, " +
+                "folder_resource " +
+            "WHERE " +
+                "job.pk_job = job_resource.pk_job " +
+            "AND " +
+                "job.pk_folder = folder.pk_folder " +
+            "AND " +
+                "folder.pk_folder = folder_resource.pk_folder " +
+            "AND " +
+                "(folder_resource.int_max_cores = -1 OR folder_resource.int_cores < folder_resource.int_max_cores) " +
+            "AND " +
+                "job_resource.int_priority > ?" +
+            "AND " +
+                "job_resource.int_cores < job_resource.int_max_cores " +
+            "AND " +
+                "job.str_state = 'PENDING' " +
+            "AND " +
+                "job.b_paused = false " +
+            "AND " +
+                "job.pk_facility = ? " +
+            "AND " +
+                "job.str_os = ? " +
+            "AND " +
+                "job.pk_job IN ( " +
+                    "SELECT /* index (h i_str_host_tag) */ " +
+                        "l.pk_job " +
+                    "FROM " +
+                        "job j, " +
+                        "layer l, " +
+                        "layer_stat lst, " +
+                        "host h " +
+                    "WHERE " +
+                        "j.pk_job = l.pk_job " +
+                    "AND " +
+                        "j.str_state = 'PENDING' " +
+                    "AND " +
+                        "j.b_paused = false " +
+                    "AND " +
+                        "j.pk_facility = ? " +
+                    "AND " +
+                        "j.str_os = ? " +
+                    "AND " +
+                        "(CASE WHEN lst.int_waiting_count > 0 THEN lst.pk_layer ELSE NULL END) = l.pk_layer " +
+                    "AND " +
+                        "(CASE WHEN lst.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
+                    "AND " +
+                        "l.int_cores_min <= ? " +
+                    "AND " +
+                        "l.int_mem_min <= ? " +
+                    "AND " +
+                        "l.int_gpu_min = ? " +
+                    "AND " +
+                        "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                    "AND " +
+                        "h.str_name = ? " +
+                ") " +
+            "LIMIT 1";
 
     /**
      * Finds the next frame in a job for a proc.

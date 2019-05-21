@@ -29,6 +29,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
@@ -395,12 +396,20 @@ public class FrameCompleteHandler {
                     && randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
                     && System.currentTimeMillis() > lastUnbook.get()) {
 
+                // First make sure all jobs have their min cores
+                // Then check for higher priority jobs
+                // If not, rebook this job
                 if (job.autoUnbook && proc.coresReserved >= 100) {
                     if (jobManager.isOverMinCores(job)) {
                         try {
 
                             boolean unbook =
                                     dispatchSupport.findUnderProcedJob(job, proc);
+
+                            if (!unbook) {
+                                JobDetail jobDetail = jobManager.getJobDetail(job.id);
+                                unbook = dispatchSupport.higherPriorityJobExists(jobDetail, proc);
+                            }
 
                             if (unbook) {
 
@@ -449,6 +458,7 @@ public class FrameCompleteHandler {
                     }
                 }
 
+                // Book the next frame of this job on the same proc
                 if (proc.isLocalDispatch) {
                     dispatchQueue.execute(new DispatchNextFrame(job, proc,
                             localDispatcher));

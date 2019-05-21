@@ -20,28 +20,37 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from builtins import str
 from future import standard_library
 standard_library.install_aliases()
+import getpass
 import os
+import pathlib
+import tempfile
 
 from six.moves.configparser import SafeConfigParser
 
 
 __all__ = ["config"]
+__file_path__ = pathlib.Path(__file__)
+
+PYOUTLINE_ROOT_DIR = __file_path__.parent.parent
+DEFAULT_USER_DIR = pathlib.Path(tempfile.gettempdir()) / 'opencue' / 'outline' / getpass.getuser()
 
 config = SafeConfigParser()
 
-default_config_paths = [
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        'etc', 'outline.cfg'),
-    os.path.join(
-        os.path.dirname(os.path.dirname(__file__)),
-        'etc', 'outline.cfg'),
-]
+default_config_paths = [__file_path__.parent.parent.parent / 'etc' / 'outline.cfg',
+                        __file_path__.parent.parent / 'etc' / 'outline.cfg']
 default_config_path = None
 for default_config_path in default_config_paths:
-    if os.path.exists(default_config_path):
+    if default_config_path.exists():
         break
 
-config.read(os.environ.get("OL_CONFIG", default_config_path))
+config.read(os.environ.get("OL_CONFIG", str(default_config_path)))
+
+# Add defaults to the config,if they were not specified.
+if not config.get('outline', 'home'):
+    config.set('outline', 'home', str(PYOUTLINE_ROOT_DIR))
+
+if not config.get('outline', 'user_dir'):
+    config.set('outline', 'user_dir', str(DEFAULT_USER_DIR))

@@ -24,41 +24,44 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+import functools
+import future.utils
+import grpc
 import logging
 import os
-from functools import wraps
+import six
 
-from . import exception
-import grpc
-from opencue import Cuebot
-from google.protobuf.pyext._message import RepeatedCompositeContainer
+import opencue
 
 logger = logging.getLogger('opencue')
 
 
 def grpcExceptionParser(grpcFunc):
-    """"""
+    """Decorator to wrap functions making GRPC calls.
+    Attempts to throw the appropriate exception based on grpc status code."""
     def _decorator(*args, **kwargs):
         try:
             return grpcFunc(*args, **kwargs)
-        except grpc.RpcError as e:
-            code = e.code()
-            details = e.details() or "No details found. Check server logs."
+        except grpc.RpcError as exc:
+            code = exc.code()
+            details = exc.details() or "No details found. Check server logs."
             if code == grpc.StatusCode.NOT_FOUND:
-                raise exception.EntityNotFoundException("Object does not exist. {}".format(details))
+                future.utils.raise_with_traceback(opencue.exception.EntityNotFoundException(
+                    "Object does not exist. {}".format(details)))
             elif code == grpc.StatusCode.ALREADY_EXISTS:
-                raise exception.EntityAlreadyExistsException("Object already exists. {}"
-                                                             .format(details))
+                future.utils.raise_with_traceback(opencue.exception.EntityAlreadyExistsException(
+                    "Object already exists. {}".format(details)))
             elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                raise exception.DeadlineExceededException("Request deadline exceeded. {}"
-                                                          .format(details))
+                future.utils.raise_with_traceback(opencue.exception.DeadlineExceededException(
+                    "Request deadline exceeded. {}".format(details)))
             elif code == grpc.StatusCode.INTERNAL:
-                raise exception.CueInternalErrorException("Server caught an internal exception. {}"
-                                                          .format(details))
+                future.utils.raise_with_traceback(opencue.exception.CueInternalErrorException(
+                    "Server caught an internal exception. {}".format(details)))
             else:
-                raise exception.CueException("Encountered a server error. {code} : {details}"
-                                             .format(code=code, details=details))
-    return wraps(grpcFunc)(_decorator)
+                future.utils.raise_with_traceback(opencue.exception.CueException(
+                    "Encountered a server error. {code} : {details}".format(
+                        code=code, details=details)))
+    return functools.wraps(grpcFunc)(_decorator)
 
 
 def id(value):
@@ -80,24 +83,38 @@ def id(value):
 
 
 @grpcExceptionParser
-def proxy(item, cls=None):
-    """Lookup a rpc object from its id and cls"""
-    def _proxy(entity, cls=None):
-        if cls is None:
-            raise ValueError("cls must be specified")
-        stub = Cuebot.getStub(cls.lower())
-        getMethod = getattr(stub, "Get{}".format(cls))
-        proto = Cuebot.PROTO_MAP.get(cls.lower())
+def proxy(idOrObject, cls):
+    """Helper function for getting proto objects back from Cuebot.
+    @type  idOrObject: str, list<str>, protobuf Message, list<protobuf Message>
+    @param idOrObject: The id/item, or list of ids/items to look up
+    @type cls: str
+    @param cls: The Name of the protobuf message class to use.
+    @rtype:  protobuf Message or list
+    @return: Cue object or list of objects"""
+    def _proxy(idString):
+        proto = opencue.Cuebot.PROTO_MAP.get(cls.lower())
         if proto:
             requestor = getattr(proto, "{cls}Get{cls}Request".format(cls=cls))
-            return getMethod(requestor(id=entity))
+            getMethod = getattr(opencue.Cuebot.getStub(cls.lower()), "Get{}".format(cls))
+            return getMethod(requestor(id=idString))
         else:
             raise AttributeError('Could not find a proto for {}'.format(cls))
 
-    if isinstance(item, (tuple, list, set, RepeatedCompositeContainer)):
-        return [_proxy(i, cls) for i in item]
+    def _proxies(entities):
+        messages = []
+        for item in entities:
+            if hasattr(item, 'id'):
+                messages.append(_proxy(item.id))
+            else:
+                messages.append(_proxy(item))
+        return messages
+
+    if hasattr(idOrObject, 'id'):
+        return _proxy(idOrObject.id)
+    elif isinstance(idOrObject, six.string_types):
+        return _proxy(idOrObject)
     else:
-        return _proxy(item, cls)
+        return _proxies(idOrObject)
 
 
 def rep(entity):

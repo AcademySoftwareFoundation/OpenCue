@@ -4,6 +4,7 @@ futures==3.2.0;python_version<"3.0"
 grpcio==1.16.0
 grpcio-tools==1.16.0
 mock==2.0.0
+pathlib==1.0.1;python_version<"3.4"
 pexpect==4.6.0
 PySide2==5.11.2
 psutil==5.4.7

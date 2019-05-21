@@ -35,6 +35,7 @@ import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.ProcInterface;
@@ -138,6 +139,11 @@ public class DispatchSupportService implements DispatchSupport {
     @Transactional(readOnly = true)
     public boolean findUnderProcedJob(JobInterface excludeJob, VirtualProc proc) {
         return dispatcherDao.findUnderProcedJob(excludeJob, proc);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean higherPriorityJobExists(JobDetail baseJob, VirtualProc proc) {
+        return dispatcherDao.higherPriorityJobExists(baseJob, proc);
     }
 
     @Transactional(readOnly = true)
