@@ -729,16 +729,17 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
         elif role == QtCore.Qt.UserRole + 1:
             if "FST" not in self._cache:
-                self._cache["FST"] = set([
-                    ('WAITING', self.rpcObject.data.job_stats.waiting_frames),
-                    ('RUNNING', self.rpcObject.data.job_stats.running_frames),
-                    ('SUCCEEDED', self.rpcObject.data.job_stats.succeeded_frames),
-                    ('CHECKPOINT', 0),
-                    ('SETUP', 0),
-                    ('EATEN', self.rpcObject.data.job_stats.eaten_frames),
-                    ('DEAD', self.rpcObject.data.job_stats.dead_frames),
-                    ('DEPEND', self.rpcObject.data.job_stats.depend_frames)
-                ])
+                jobStats = self.rpcObject.data.job_stats
+                self._cache["FST"] = {
+                    opencue.compiled_proto.job_pb2.WAITING: jobStats.waiting_frames,
+                    opencue.compiled_proto.job_pb2.RUNNING: jobStats.running_frames,
+                    opencue.compiled_proto.job_pb2.SUCCEEDED: jobStats.succeeded_frames,
+                    opencue.compiled_proto.job_pb2.CHECKPOINT: 0,
+                    opencue.compiled_proto.job_pb2.SETUP: 0,
+                    opencue.compiled_proto.job_pb2.EATEN: jobStats.eaten_frames,
+                    opencue.compiled_proto.job_pb2.DEAD: jobStats.dead_frames,
+                    opencue.compiled_proto.job_pb2.DEPEND: jobStats.depend_frames,
+                }
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
         return cuegui.Constants.QVARIANT_NULL
