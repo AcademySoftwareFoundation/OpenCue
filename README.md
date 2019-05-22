@@ -1,18 +1,20 @@
-# OpenCue
+![OpenCue](/images/opencue_logo_with_text.png)
+
+[![CII Best Practices](https://bestpractices.coreinfrastructure.org/projects/2837/badge)](https://bestpractices.coreinfrastructure.org/projects/2837)
 
 - [Introduction](#Introduction)
 - [OpenCue features](#OpenCue-features)
 - [Learn more](#Learn-more)
 - [Contact us](#Contact-us)
 
-## Introduction
+# Introduction
 
 OpenCue is an open source render management system. You can use OpenCue in
 visual effects and animation production to break down complex jobs into
 individual tasks. You can submit jobs to a configurable dispatch queue that
 allocates the necessary computational resources.
 
-## OpenCue features
+# OpenCue features
 
 OpenCue provides features to manage rendering management at scale:
 
@@ -29,12 +31,12 @@ OpenCue provides features to manage rendering management at scale:
 - Integrated automated booking.
 - No limit on the number of procs a job can have.
 
-## Learn more
+# Learn more
 
 For more information on installing, using, and administering OpenCue, see
 the [Wiki](https://github.com/imageworks/OpenCue/wiki).
 
-## Contact us
+# Contact us
 
 To join the OpenCue discussion forum for users and admins, join
 [the OpenCue users](https://groups.google.com/forum/#!forum/opencue-users)
