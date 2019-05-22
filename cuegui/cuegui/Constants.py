@@ -65,7 +65,7 @@ EMAIL_BODY_SUFFIX = "\n\n"
 EMAIL_DOMAIN = ""
 
 URL_USERGUIDE = "https://opencue.io/docs/"
-URL_SUGGESTION = "https://github.com/imageworks/OpenCue/issues/new?labels=enhancement&template=feature_request.md"
+URL_SUGGESTION = "https://github.com/imageworks/OpenCue/issues/new?labels=enhancement&template=enhancement.md"
 URL_BUG = "https://github.com/imageworks/OpenCue/issues/new?labels=bug&template=bug_report.md"
 
 DEFAULT_EDITOR = "gview -R -m -M -U %s/gvimrc +" % DEFAULT_INI_PATH
