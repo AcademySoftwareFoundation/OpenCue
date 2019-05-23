@@ -64,65 +64,65 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     public static final String GET_NESTED_GROUPS =
         "SELECT " +
             "show.pk_show, " +
-            "show.str_name AS str_show," +
-            "facility.str_name AS facility_name,"+
-            "dept.str_name AS dept_name,"+
-            "folder.pk_folder," +
-            "folder.pk_parent_folder," +
-            "folder.str_name AS group_name," +
-            "folder.int_job_priority as int_def_job_priority," +
-            "folder.int_job_min_cores as int_def_job_min_cores," +
+            "show.str_name AS str_show, " +
+            "facility.str_name AS facility_name, " +
+            "dept.str_name AS dept_name, " +
+            "folder.pk_folder, " +
+            "folder.pk_parent_folder, " +
+            "folder.str_name AS group_name, " +
+            "folder.int_job_priority as int_def_job_priority, " +
+            "folder.int_job_min_cores as int_def_job_min_cores, " +
             "folder.int_job_max_cores as int_def_job_max_cores, " +
-            "folder_resource.int_min_cores AS folder_min_cores," +
-            "folder_resource.int_max_cores AS folder_max_cores," +
-            "folder_level.int_level,"+
-            "job.pk_job," +
-            "job.str_name," +
-            "job.str_shot," +
-            "job.str_user," +
-            "job.str_state," +
-            "job.str_log_dir," +
-            "job.int_uid," +
-            "job_resource.int_priority," +
-            "job.ts_started," +
-            "job.ts_stopped," +
-            "job.ts_updated,"+
-            "job.b_paused," +
+            "folder_resource.int_min_cores AS folder_min_cores, " +
+            "folder_resource.int_max_cores AS folder_max_cores, " +
+            "folder_level.int_level, " +
+            "job.pk_job, " +
+            "job.str_name, " +
+            "job.str_shot, " +
+            "job.str_user, " +
+            "job.str_state, " +
+            "job.str_log_dir, " +
+            "job.int_uid, " +
+            "job_resource.int_priority, " +
+            "job.ts_started, " +
+            "job.ts_stopped, " +
+            "job.ts_updated, " +
+            "job.b_paused, " +
             "job.b_autoeat, " +
-            "job.b_comment," +
-            "job.str_os," +
+            "job.b_comment, " +
+            "job.str_os, " +
             "job.int_frame_count, " +
             "job.int_layer_count, " +
-            "job_stat.int_waiting_count, "+
-            "job_stat.int_running_count, "+
+            "job_stat.int_waiting_count, " +
+            "job_stat.int_running_count, " +
             "job_stat.int_dead_count, " +
             "job_stat.int_eaten_count," +
-            "job_stat.int_depend_count, "+
-            "job_stat.int_succeeded_count, "+
-            "job_usage.int_core_time_success, "+
+            "job_stat.int_depend_count, " +
+            "job_stat.int_succeeded_count, " +
+            "job_usage.int_core_time_success, " +
             "job_usage.int_core_time_fail, " +
             "job_usage.int_frame_success_count, " +
             "job_usage.int_frame_fail_count, " +
-            "job_usage.int_clock_time_high," +
-            "job_usage.int_clock_time_success,"+
-            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores,"+
-            "job_resource.int_min_cores,"+
-            "job_resource.int_max_cores,"+
+            "job_usage.int_clock_time_high, " +
+            "job_usage.int_clock_time_success, " +
+            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores, " +
+            "job_resource.int_min_cores, " +
+            "job_resource.int_max_cores, " +
             "job_mem.int_max_rss " +
         "FROM " +
             "show, " +
             "dept, " +
             "folder_level, " +
-            "folder_resource, "+
+            "folder_resource, " +
             "folder " +
         "LEFT JOIN " +
             "job " +
         "ON " +
             " (folder.pk_folder = job.pk_folder AND job.str_state='PENDING') " +
         "LEFT JOIN " +
-            "facility "+
+            "facility " +
         "ON " +
-            "(job.pk_facility = facility.pk_facility) "+
+            "(job.pk_facility = facility.pk_facility) " +
         "LEFT JOIN " +
             "job_stat " +
         "ON " +
@@ -281,49 +281,52 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
     private static final String GET_HOSTS =
         "SELECT " +
-            "alloc.str_name AS alloc_name," +
-            "host.pk_host, "+
-            "host.str_name AS host_name," +
-            "host_stat.str_state AS host_state,"+
-            "host.b_nimby,"+
-            "host_stat.ts_booted,"+
-            "host_stat.ts_ping,"+
-            "host.int_cores,"+
-            "host.int_cores_idle,"+
-            "host.int_mem,"+
-            "host.int_mem_idle,"+
-            "host.str_lock_state,"+
-            "host.str_tags,"+
-            "host.b_comment,"+
-            "host.int_thread_mode,"+
-            "host_stat.int_mem_total,"+
-            "host_stat.int_mem_free,"+
-            "host_stat.int_swap_total,"+
-            "host_stat.int_swap_free,"+
-            "host_stat.int_mcp_total,"+
-            "host_stat.int_mcp_free,"+
-            "host_stat.int_gpu_total,"+
-            "host_stat.int_gpu_free,"+
-            "host_stat.int_load,"+
-            "proc.pk_proc,"+
-            "proc.int_cores_reserved AS proc_cores,"+
-            "proc.int_mem_reserved AS proc_memory, "+
-            "proc.int_mem_used AS used_memory,"+
-            "proc.int_mem_max_used AS max_memory,"+
-            "proc.int_gpu_reserved AS proc_gpu, "+
-            "proc.ts_ping,"+
-            "proc.ts_booked,"+
-            "proc.ts_dispatched,"+
-            "proc.b_unbooked,"+
-            "redirect.str_name AS str_redirect,"+
-            "job.str_name AS job_name,"+
-            "job.str_log_dir, "+
-            "show.str_name AS show_name,"+
-            "frame.str_name AS frame_name "+
+            "alloc.str_name AS alloc_name, " +
+            "host.pk_host, " +
+            "host.str_name AS host_name, " +
+            "host_stat.str_state AS host_state, " +
+            "host.b_nimby, " +
+            "host_stat.ts_booted, " +
+            "host_stat.ts_ping, " +
+            "host.int_cores, " +
+            "host.int_cores_idle, " +
+            "host.int_gpu, " +
+            "host.int_gpu_idle, " +
+            "host.int_mem, " +
+            "host.int_mem_idle, " +
+            "host.str_lock_state, " +
+            "host.str_tags, " +
+            "host.b_comment, " +
+            "host.int_thread_mode, " +
+            "host_stat.str_os, " +
+            "host_stat.int_mem_total, " +
+            "host_stat.int_mem_free, " +
+            "host_stat.int_swap_total, " +
+            "host_stat.int_swap_free, " +
+            "host_stat.int_mcp_total, " +
+            "host_stat.int_mcp_free, " +
+            "host_stat.int_gpu_total, " +
+            "host_stat.int_gpu_free, " +
+            "host_stat.int_load, " +
+            "proc.pk_proc, " +
+            "proc.int_cores_reserved AS proc_cores, " +
+            "proc.int_mem_reserved AS proc_memory, " +
+            "proc.int_mem_used AS used_memory, " +
+            "proc.int_mem_max_used AS max_memory, " +
+            "proc.int_gpu_reserved AS proc_gpu, " +
+            "proc.ts_ping, " +
+            "proc.ts_booked, " +
+            "proc.ts_dispatched, " +
+            "proc.b_unbooked, " +
+            "redirect.str_name AS str_redirect, " +
+            "job.str_name AS job_name, " +
+            "job.str_log_dir, " +
+            "show.str_name AS show_name, " +
+            "frame.str_name AS frame_name " +
         "FROM " +
-            "alloc," +
-            "host_stat,"+
-            "host "+
+            "alloc, " +
+            "host_stat, " +
+            "host " +
                 "LEFT JOIN " +
                     "proc " +
                  "ON " +
@@ -334,19 +337,19 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                     "(proc.pk_frame = frame.pk_frame) " +
                 "LEFT JOIN " +
                     "job " +
-                "ON "+
+                "ON " +
                     "(proc.pk_job  = job.pk_job) " +
-                "LEFT JOIN "+
-                    "show "+
+                "LEFT JOIN " +
+                    "show " +
                 "ON " +
-                    "(proc.pk_show = show.pk_show) "+
-                "LEFT JOIN "+
-                    "redirect "+
+                    "(proc.pk_show = show.pk_show) " +
+                "LEFT JOIN " +
+                    "redirect " +
                 "ON " +
-                    "(proc.pk_proc = redirect.pk_proc) "+
+                    "(proc.pk_proc = redirect.pk_proc) " +
         "WHERE " +
             "host.pk_alloc = alloc.pk_alloc " +
-        "AND "+
+        "AND " +
             "host.pk_host = host_stat.pk_host ";
 
     /**
