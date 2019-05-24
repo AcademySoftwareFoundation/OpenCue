@@ -38,6 +38,6 @@ the [Wiki](https://github.com/imageworks/OpenCue/wiki).
 
 # Contact us
 
-To join the OpenCue discussion forum for users and admins, join
-[the OpenCue users](https://groups.google.com/forum/#!forum/opencue-users)
-mailing list, or email the group directly at <opencue-users@googlegroups.com>.
+To join the OpenCue discussion forum for users and admins, join the
+[opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
+group directly at <opencue-user@lists.aswf.io>.
