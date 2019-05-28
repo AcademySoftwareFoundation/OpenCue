@@ -537,9 +537,10 @@ class Job(object):
         @rtype: dict
         @return: total number of frames in each state"""
         if not hasattr(self, "__frameStateTotals"):
-            self.__frameStateTotals = {
-                (a, getattr(self.data.job_stats, "%s_frames" % a.lower(), 0))
-                for a in job_pb2.FrameState.keys()}
+            self.__frameStateTotals = {}
+            for state in job_pb2.FrameState.keys():
+                frameCount = getattr(self.data.job_stats, '{}_frames'.format(state.lower()), 0)
+                self.__frameStateTotals[getattr(job_pb2, state)] = frameCount
         return self.__frameStateTotals
 
     def percentCompleted(self):
