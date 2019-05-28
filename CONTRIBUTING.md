@@ -14,10 +14,10 @@ save yourself a lot of time by asking first.
 
 How do you talk to us? There are several ways to get in touch:
 
-* [opencue-dev](https://groups.google.com/group/opencue-dev):
+* [opencue-dev](https://lists.aswf.io/g/opencue-dev):
 This is a development focused mail list.
 
-* [opencue-users](https://groups.google.com/group/opencue-users):
+* [opencue-user](https://lists.aswf.io/g/opencue-user):
 This is an end-user oriented mail list.
 
 * [GitHub Issues](https://github.com/imageworks/OpenCue/issues):
@@ -25,7 +25,7 @@ GitHub **issues** are a great place to start a conversation! Issues aren’t
 restricted to bugs; we happily welcome feature requests and other suggestions
 submitted as issues. The only conversations we would direct away from issues are
 questions in the form of “How do I do X”. Please direct these to the opencue-dev
-or opencue-users mail lists, and consider contributing what you've learned to
+or opencue-user mail lists, and consider contributing what you've learned to
 our docs if appropriate!
 
 ## Getting Started
