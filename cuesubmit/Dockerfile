@@ -10,6 +10,7 @@ WORKDIR /src
 RUN yum -y install \
   epel-release \
   gcc \
+  mesa-libGL \
   python-devel
 
 RUN yum -y install python-pip
@@ -56,6 +57,8 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 # TEST
 # -----------------
 FROM build as test
+
+COPY cuesubmit/tests/ ./cuesubmit/tests
 
 RUN cd cuesubmit && python setup.py test
 
