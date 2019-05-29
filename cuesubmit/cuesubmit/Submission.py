@@ -100,6 +100,8 @@ def submitJob(jobData):
             layer = buildShellLayer(layerData, lastLayer)
         elif layerData.layerType == JobTypes.JobTypes.NUKE:
             layer = buildNukeLayer(layerData, lastLayer)
+        else:
+            raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
         lastLayer = layer
     return cuerun.launch(outline, use_pycuerun=False)
