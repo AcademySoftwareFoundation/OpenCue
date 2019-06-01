@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue;
 
-public class GroupDetail extends Entity implements GroupInterface, DepartmentInterface {
+public class GroupDetail extends Entity implements GroupInterface {
 
     public int jobMinCores = -1;
     public int jobMaxCores = -1;
@@ -41,9 +41,5 @@ public class GroupDetail extends Entity implements GroupInterface, DepartmentInt
         return id;
     }
 
-    @Override
-    public String getDepartmentId() {
-        return deptId;
-    }
 }
 

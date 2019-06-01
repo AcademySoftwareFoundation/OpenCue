@@ -28,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.FrameInterface;
@@ -49,8 +48,6 @@ import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.depend.AbstractDepend;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
-import com.imageworks.spcue.grpc.department.Department;
-import com.imageworks.spcue.grpc.department.DepartmentSeq;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.facility.Allocation;
@@ -330,33 +327,6 @@ public class WhiteboardService implements Whiteboard {
 
     public Subscription findSubscription(String show, String alloc) {
         return whiteboardDao.findSubscription(show, alloc);
-    }
-
-    @Override
-    public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
-        return whiteboardDao.getTask(show, dept, shot);
-    }
-
-    @Override
-    public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
-        return whiteboardDao.getTasks(show, dept);
-    }
-
-    @Override
-    public List<String> getDepartmentNames() {
-        return whiteboardDao.getDepartmentNames();
-    }
-
-    @Override
-    public Department getDepartment(
-            ShowInterface show, String name) {
-        return whiteboardDao.getDepartment(show, name);
-    }
-
-    @Override
-    public DepartmentSeq getDepartments(
-            ShowInterface show) {
-        return whiteboardDao.getDepartments(show);
     }
 
     @Override

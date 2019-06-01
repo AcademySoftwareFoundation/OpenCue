@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 import com.imageworks.spcue.BuildableJob;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.ExecutionSummary;
 import com.imageworks.spcue.FacilityInterface;
@@ -154,7 +153,7 @@ public interface JobDao {
     /**
      * Returns a list of jobs assigned to a specific task.
      *
-     * @param idl
+     * @param t
      * @return
      */
     List<JobInterface> getJobs(TaskEntity t);
@@ -301,10 +300,10 @@ public interface JobDao {
      * is greater than 0 and less than or equal to
      * MAX_FRAME_RETRIES
      *
-     * @param Job
+     * @param job
      * @param max_retries
      */
-    void updateMaxFrameRetries(JobInterface j, int max_retries);
+    void updateMaxFrameRetries(JobInterface job, int max_retries);
 
     /**
      * Inserts a map into the job's env table
@@ -320,7 +319,7 @@ public interface JobDao {
      * is greater than the current value of int_max_rss
      *
      * @param job
-     * @param env
+     * @param maxRss
      */
     void updateMaxRSS(JobInterface job, long maxRss);
 
@@ -394,21 +393,6 @@ public interface JobDao {
     void activatePostJob(JobInterface job);
 
     /**
-     * Update all jobs in the specified group to the
-     * specified department.
-     *
-     * @param group
-     */
-    void updateDepartment(GroupInterface group, DepartmentInterface dept);
-
-    /**
-     * Update the specified job to the specified department.
-     *
-     * @param group
-     */
-    void updateDepartment(JobInterface job, DepartmentInterface dept);
-
-    /**
      * Set the job's new parent.  The job will automatically
      * inherit all relevant settings from the group.
      *
@@ -421,8 +405,8 @@ public interface JobDao {
      * Update layer usage with processor time usage.
      * This happens when the proc has completed or failed some work.
      *
-     * @param proc
-     * @param newState
+     * @param job
+     * @param usage
      */
     void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus);
 

@@ -29,11 +29,6 @@ public class PointDetail extends Entity implements PointInterface {
     public boolean tiManaged = false;
 
     @Override
-    public String getDepartmentId() {
-        return deptId;
-    }
-
-    @Override
     public String getShowId() {
         return showId;
     }

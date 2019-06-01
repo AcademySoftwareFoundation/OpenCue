@@ -38,7 +38,6 @@ import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FilterEntity;
@@ -55,13 +54,11 @@ import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.ShowEntity;
-import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.GroupDao;
@@ -81,7 +78,6 @@ import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.grpc.department.Department;
 import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.grpc.filter.FilterType;
@@ -158,9 +154,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     LayerDao layerDao;
-
-    @Resource
-    DepartmentDao departmentDao;
 
     @Resource
     DependManager dependManager;
@@ -857,43 +850,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testFindLayer() {
         JobDetail job = launchJob();
         whiteboardDao.findLayer(job.name, "pass_1");
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetDepartment() {
-        ShowInterface show = showDao.findShowDetail("pipe");
-        DepartmentInterface dept = departmentDao.getDefaultDepartment();
-
-        Department d = whiteboardDao.getDepartment(show, dept.getName());
-
-        assertEquals("pipe.Unknown", d.getName());
-        assertEquals("Unknown", d.getDept());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetDepartments() {
-        ShowInterface show = showDao.findShowDetail("pipe");
-        whiteboardDao.getDepartments(show);
-    }
-
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetDepartmentNames() {
-        assertTrue(whiteboardDao.getDepartmentNames().size() > 0);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetTasks() {
-        whiteboardDao.getTasks(showDao.findShowDetail("pipe"),
-                departmentDao.getDefaultDepartment());
     }
 
     @Test

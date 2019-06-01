@@ -21,7 +21,6 @@ package com.imageworks.spcue.dao;
 
 import java.util.List;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
@@ -78,14 +77,6 @@ public interface GroupDao {
     void insertGroup(GroupDetail group);
 
     /**
-     * Updates the groups department.
-     *
-     * @param group
-     * @param dept
-     */
-    void updateDepartment(GroupInterface group, DepartmentInterface dept);
-
-    /**
      * Removes the specified group.  You cannot delete a group that contains
      * jobs or other groups or the shows root folder.
      *
@@ -99,9 +90,6 @@ public interface GroupDao {
      *
      * @param group
      * @param parent
-     *
-     * @throws EntityModificationError          throws this if the group is the top level group
-     *                                          which cannot be parented to another group.
      */
     void updateGroupParent(GroupInterface group, GroupInterface parent);
 

@@ -40,7 +40,6 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.JobLauncher;
@@ -67,9 +66,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     ShowDao showDao;
 
     @Resource
-    DepartmentDao departmentDao;
-
-    @Resource
     JobManager jobManager;
 
     @Resource
@@ -94,7 +90,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         group.name = "Shit";
         group.parentId =  groupDao.getRootGroupId(getShow());
         group.showId = getShow().getId();
-        group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group, groupDao.getRootGroupDetail(getShow()));
         return group;
     }
@@ -104,7 +99,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         group.name = "SubShit";
         group.parentId =  parent.id;
         group.showId = getShow().getId();
-        group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group, groupDao.getGroup(parent.id));
         return group;
     }
@@ -156,7 +150,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         group.name = "Shit";
         group.parentId =  groupDao.getRootGroupId(getShow());
         group.showId = getShow().getId();
-        group.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(group);
     }
 
@@ -297,14 +290,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void testUpdateDepartment() {
-        GroupDetail group = createGroup();
-        groupDao.updateDepartment(group, departmentDao.findDepartment("Lighting"));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testGetGroupDetail() {
         GroupDetail group = createGroup();
         GroupDetail group2 = groupDao.getGroupDetail(group.id);
@@ -320,13 +305,11 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         GroupDetail g1 = new GroupDetail();
         g1.name = "Test1";
         g1.showId = getShow().getId();
-        g1.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g1, groupDao.getRootGroupDetail(getShow()));
 
         GroupDetail g2 = new GroupDetail();
         g2.name = "Test2";
         g2.showId = getShow().getId();
-        g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
         for ( GroupInterface g: groupDao.getChildrenRecursive(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"))) {
@@ -351,13 +334,11 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         GroupDetail g1 = new GroupDetail();
         g1.name = "testuserA";
         g1.showId = getShow().getId();
-        g1.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g1, groupDao.getRootGroupDetail(getShow()));
 
         GroupDetail g2 = new GroupDetail();
         g2.name = "testuserB";
         g2.showId = getShow().getId();
-        g2.deptId = departmentDao.getDefaultDepartment().getId();
         groupDao.insertGroup(g2, groupDao.getRootGroupDetail(getShow()));
 
         List<GroupInterface> groups = groupDao.getChildren(groupDao.getGroup("A0000000-0000-0000-0000-000000000000"));

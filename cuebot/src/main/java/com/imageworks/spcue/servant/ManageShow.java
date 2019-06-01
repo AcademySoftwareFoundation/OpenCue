@@ -60,10 +60,6 @@ import com.imageworks.spcue.grpc.show.ShowGetActiveShowsRequest;
 import com.imageworks.spcue.grpc.show.ShowGetActiveShowsResponse;
 import com.imageworks.spcue.grpc.show.ShowGetDeedsRequest;
 import com.imageworks.spcue.grpc.show.ShowGetDeedsResponse;
-import com.imageworks.spcue.grpc.show.ShowGetDepartmentRequest;
-import com.imageworks.spcue.grpc.show.ShowGetDepartmentResponse;
-import com.imageworks.spcue.grpc.show.ShowGetDepartmentsRequest;
-import com.imageworks.spcue.grpc.show.ShowGetDepartmentsResponse;
 import com.imageworks.spcue.grpc.show.ShowGetFiltersRequest;
 import com.imageworks.spcue.grpc.show.ShowGetFiltersResponse;
 import com.imageworks.spcue.grpc.show.ShowGetGroupsRequest;
@@ -269,27 +265,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         filterManager.createFilter(filter);
         ShowCreateFilterResponse response = ShowCreateFilterResponse.newBuilder()
                 .setFilter(whiteboard.findFilter(show, request.getName()))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void getDepartment(ShowGetDepartmentRequest request,
-                                    StreamObserver<ShowGetDepartmentResponse> responseObserver) {
-        ShowGetDepartmentResponse response = ShowGetDepartmentResponse.newBuilder()
-                .setDepartment(whiteboard.getDepartment(getShowEntity(request.getShow()), request.getDepartment()))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void getDepartments(ShowGetDepartmentsRequest request,
-                               StreamObserver<ShowGetDepartmentsResponse> responseObserver) {
-        ShowEntity show = getShowEntity(request.getShow());
-        ShowGetDepartmentsResponse response = ShowGetDepartmentsResponse.newBuilder()
-                .setDepartments(whiteboard.getDepartments(show))
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();

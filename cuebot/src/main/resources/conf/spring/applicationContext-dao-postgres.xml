@@ -107,15 +107,7 @@
         <property name="dataSource" ref="cueDataSource" />
     </bean>
 
-    <bean id="departmentDao" class="com.imageworks.spcue.dao.postgres.DepartmentDaoJdbc">
-        <property name="dataSource" ref="cueDataSource" />
-    </bean>
-
     <bean id="taskDao" class="com.imageworks.spcue.dao.postgres.TaskDaoJdbc">
-        <property name="dataSource" ref="cueDataSource" />
-    </bean>
-
-    <bean id="pointDao" class="com.imageworks.spcue.dao.postgres.PointDaoJdbc">
         <property name="dataSource" ref="cueDataSource" />
     </bean>
 

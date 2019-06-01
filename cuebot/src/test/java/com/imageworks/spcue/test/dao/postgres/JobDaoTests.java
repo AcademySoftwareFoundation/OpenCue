@@ -42,17 +42,12 @@ import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
-import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
-import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -84,22 +79,13 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     JobDao jobDao;
 
     @Resource
-    PointDao pointDao;
-
-    @Resource
     ShowDao showDao;
-
-    @Resource
-    TaskDao taskDao;
 
     @Resource
     GroupDao groupDao;
 
     @Resource
     FacilityDao facilityDao;
-
-    @Resource
-    DepartmentDao departmentDao;
 
     private static String ROOT_FOLDER = "A0000000-0000-0000-0000-000000000000";
     private static String ROOT_SHOW = "00000000-0000-0000-0000-000000000000";
@@ -120,7 +106,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
         job.logDir = JobLogUtil.getJobLogPath(job);
-        job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId = facilityDao.getDefaultFacility().getId();
         job.state = JobState.PENDING;
         jobDao.insertJob(job);
@@ -159,7 +144,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
         job.logDir = JobLogUtil.getJobLogPath(job);
-        job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId= facilityDao.getDefaultFacility().getId();
         jobDao.insertJob(job);
         assertNotNull(job.id);
@@ -183,20 +167,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobDetail job = insertJob();
         jobDao.getJobDetail(job.id);
         jobDao.getJob(job.id);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetJobsByTask() {
-
-        PointInterface p = pointDao.getPointConfigDetail(
-                showDao.findShowDetail("pipe"),
-                departmentDao.getDefaultDepartment());
-
-        TaskEntity t = new TaskEntity(p, "dev.cue");
-        taskDao.insertTask(t);
-        jobDao.getJobs(t);
     }
 
     @Test
@@ -547,7 +517,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
 
         GroupDetail testGroup = new GroupDetail();
         testGroup.name = "testGroup";
-        testGroup.deptId = departmentDao.getDefaultDepartment().getId();
         testGroup.showId = root.getShowId();
 
         groupDao.insertGroup(testGroup, root);
@@ -565,9 +534,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
 
         assertEquals(group.getGroupId(),jdbcTemplate.queryForObject(
                 "SELECT pk_folder FROM job WHERE pk_job=?",String.class, job.id));
-
-        assertEquals(group.getDepartmentId(),jdbcTemplate.queryForObject(
-                "SELECT pk_dept FROM job WHERE pk_job=?",String.class, job.id));
 
         group.jobMaxCores = 100;
         group.jobMinCores = 100;

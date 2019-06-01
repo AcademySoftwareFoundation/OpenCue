@@ -21,7 +21,6 @@ package com.imageworks.spcue.service;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
@@ -68,14 +67,5 @@ public interface AdminManager {
     void setSubscriptionBurst(SubscriptionInterface sub, int burst);
     void setSubscriptionSize(SubscriptionInterface sub, int size);
     SubscriptionEntity getSubscriptionDetail(String id);
-
-    /*
-     * Departments
-     */
-    DepartmentInterface findDepartment(String name);
-    DepartmentInterface getDefaultDepartment();
-    DepartmentInterface getDepartment(DepartmentInterface d);
-    DepartmentInterface createDepartment(String name);
-    void removeDepartment(DepartmentInterface d);
 }
 

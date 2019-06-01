@@ -25,7 +25,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.GroupDetail;
@@ -34,7 +33,6 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
@@ -51,8 +49,6 @@ public class AdminManagerService implements AdminManager {
 
     private SubscriptionDao subscriptionDao;
 
-    private DepartmentDao departmentDao;
-
     private FacilityDao facilityDao;
 
     private GroupManager groupManager;
@@ -67,7 +63,6 @@ public class AdminManagerService implements AdminManager {
 
     public void createShow(ShowEntity show) {
 
-        DepartmentInterface dept = getDefaultDepartment();
         showDao.insertShow(show);
 
         /*
@@ -77,7 +72,6 @@ public class AdminManagerService implements AdminManager {
         newGroup.name = show.getName();
         newGroup.parentId = null;
         newGroup.showId = show.getShowId();
-        newGroup.deptId = dept.getId();
         groupManager.createGroup(newGroup, null);
     }
 
@@ -164,35 +158,6 @@ public class AdminManagerService implements AdminManager {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public DepartmentInterface findDepartment(String name) {
-        return departmentDao.findDepartment(name);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public DepartmentInterface getDefaultDepartment() {
-        return departmentDao.getDefaultDepartment();
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public DepartmentInterface getDepartment(DepartmentInterface d) {
-        return departmentDao.getDepartment(d.getDepartmentId());
-    }
-
-    @Override
-    public DepartmentInterface createDepartment(String name) {
-        departmentDao.insertDepartment(name);
-        return findDepartment(name);
-    }
-
-    @Override
-    public void removeDepartment(DepartmentInterface d) {
-        departmentDao.deleteDepartment(d);
-    }
-
-    @Override
     public FacilityInterface createFacility(String name) {
         FacilityEntity facility = new FacilityEntity();
         facility.name = name;
@@ -248,14 +213,6 @@ public class AdminManagerService implements AdminManager {
 
     public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
         this.subscriptionDao = subscriptionDao;
-    }
-
-    public DepartmentDao getDepartmentDao() {
-        return departmentDao;
-    }
-
-    public void setDepartmentDao(DepartmentDao departmentDao) {
-        this.departmentDao = departmentDao;
     }
 
     public GroupManager getGroupManager() {

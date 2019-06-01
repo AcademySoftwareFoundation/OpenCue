@@ -36,7 +36,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.BuildableJob;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.ExecutionSummary;
@@ -805,14 +804,6 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             }
         }
 
-        getJdbcTemplate().update(
-                "UPDATE job SET pk_folder=?, pk_dept=? WHERE pk_job=?",
-                dest.getGroupId(), dest.getDepartmentId(), job.getJobId());
-
-        getJdbcTemplate().update(
-                "UPDATE job_history SET pk_dept=? WHERE pk_job=?",
-                dest.getDepartmentId(), job.getJobId());
-
         if (values.size() > 0) {
             query.deleteCharAt(query.length()-1);
             query.append(" WHERE pk_job=?");
@@ -890,19 +881,6 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 JobState.PENDING.toString(), job.getJobId());
         getJdbcTemplate().update("DELETE FROM job_post WHERE pk_job=?",job.getJobId());
     }
-
-    @Override
-    public void updateDepartment(GroupInterface group, DepartmentInterface dept) {
-        getJdbcTemplate().update("UPDATE job SET pk_dept=? WHERE pk_folder=?",
-                dept.getDepartmentId(), group.getGroupId());
-    }
-
-    @Override
-    public void updateDepartment(JobInterface job, DepartmentInterface dept) {
-        getJdbcTemplate().update("UPDATE job SET pk_dept=? WHERE pk_job=?",
-                dept.getDepartmentId(), job.getJobId());
-    }
-
 
     public void updateUsage(JobInterface job, ResourceUsage usage, int exitStatus) {
 

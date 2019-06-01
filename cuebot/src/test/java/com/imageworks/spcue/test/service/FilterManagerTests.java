@@ -37,7 +37,6 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
@@ -73,9 +72,6 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     ShowDao showDao;
-
-    @Resource
-    DepartmentDao departmentDao;
 
     @Resource
     GroupManager groupManager;
@@ -329,7 +325,6 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         GroupDetail g = new GroupDetail();
         g.name = "Testest";
         g.showId = job.getShowId();
-        g.deptId = departmentDao.getDefaultDepartment().getId();
 
         groupManager.createGroup(g, groupManager.getRootGroupDetail(job));
 
