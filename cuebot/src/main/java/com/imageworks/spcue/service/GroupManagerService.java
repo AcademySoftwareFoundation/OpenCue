@@ -44,8 +44,6 @@ public class GroupManagerService implements GroupManager {
 
     private DepartmentDao departmentDao;
 
-    private DepartmentManager departmentManager;
-
     @Override
     public void setGroupDefaultJobPriority(GroupInterface g, int priority) {
         groupDao.updateDefaultJobPriority(g, priority);
@@ -99,10 +97,6 @@ public class GroupManagerService implements GroupManager {
             d = departmentDao.getDepartment(group.getDepartmentId());
         }
         groupDao.insertGroup(group, parent);
-
-        if (!departmentManager.departmentConfigExists(group, d)) {
-            departmentManager.createDepartmentConfig(group, d);
-        }
     }
 
     @Override
@@ -120,19 +114,6 @@ public class GroupManagerService implements GroupManager {
     @Override
     public void reparentGroupIds(GroupInterface group, List<String> groups) {
         reparentGroups(group, groupDao.getGroups(groups));
-    }
-
-    @Override
-    public void setGroupDepartment(GroupInterface group, DepartmentInterface dept) {
-        /*
-         * If this is the first time the show is using this department
-         * a department configuration is created.
-         */
-        if (!departmentManager.departmentConfigExists(group, dept)) {
-            departmentManager.createDepartmentConfig(group, dept);
-        }
-        groupDao.updateDepartment(group, dept);
-        jobDao.updateDepartment(group, dept);
     }
 
     @Override
@@ -181,14 +162,6 @@ public class GroupManagerService implements GroupManager {
 
     public void setDepartmentDao(DepartmentDao departmentDao) {
         this.departmentDao = departmentDao;
-    }
-
-    public DepartmentManager getDepartmentManager() {
-        return departmentManager;
-    }
-
-    public void setDepartmentManager(DepartmentManager departmentManager) {
-        this.departmentManager = departmentManager;
     }
 }
 

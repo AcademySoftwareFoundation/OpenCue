@@ -17,27 +17,18 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import java.util.List;
-
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 
+import java.util.List;
+
 public class FrameSearchFactory {
-    private DatabaseEngine dbEngine;
 
     public FrameSearchInterface create() {
-        if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new FrameSearch();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.FrameSearch();
-        } else {
-            throw new RuntimeException(
-                    "current database engine is not supported by FrameSearchFactory");
-        }
+        return new FrameSearch();
     }
 
     public FrameSearchInterface create(List<String> frameIds) {
@@ -76,13 +67,5 @@ public class FrameSearchFactory {
         frameSearch.setCriteria(criteria);
         frameSearch.filterByLayer(layer);
         return frameSearch;
-    }
-
-    public DatabaseEngine getDbEngine() {
-        return dbEngine;
-    }
-
-    public void setDbEngine(DatabaseEngine dbEngine) {
-        this.dbEngine = dbEngine;
     }
 }

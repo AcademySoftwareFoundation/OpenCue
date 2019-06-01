@@ -17,11 +17,11 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
-import java.util.HashSet;
-
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+
+import java.util.HashSet;
 
 public final class JobSearch extends Criteria implements JobSearchInterface {
     private JobSearchCriteria criteria;

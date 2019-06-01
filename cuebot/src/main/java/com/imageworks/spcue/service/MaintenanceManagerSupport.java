@@ -53,8 +53,6 @@ public class MaintenanceManagerSupport {
 
     private HistoricalSupport historicalSupport;
 
-    private DepartmentManager departmentManager;
-
     private static final long WAIT_FOR_HOST_REPORTS_MS = 600000;
 
     private static final int CHECKPOINT_MAX_WAIT_SEC = 300;
@@ -171,20 +169,6 @@ public class MaintenanceManagerSupport {
         }
     }
 
-    public void updateTaskValues() {
-        if (!maintenanceDao.lockTask(MaintenanceTask.LOCK_TASK_UPDATE, 700)) { return; }
-        try {
-            logger.info("running task updates");
-            for (PointDetail pd: departmentManager.getManagedPointConfs()) {
-                departmentManager.updateManagedTasks(pd);
-            }
-        } catch (Exception e) {
-            logger.warn("failed to archive finished jobs: " + e);
-        } finally {
-            maintenanceDao.unlockTask(MaintenanceTask.LOCK_TASK_UPDATE);
-        }
-    }
-
     public FrameDao getFrameDao() {
         return frameDao;
     }
@@ -223,14 +207,6 @@ public class MaintenanceManagerSupport {
 
     public void setHistoricalSupport(HistoricalSupport historicalSupport) {
         this.historicalSupport = historicalSupport;
-    }
-
-    public DepartmentManager getDepartmentManager() {
-        return departmentManager;
-    }
-
-    public void setDepartmentManager(DepartmentManager departmentManager) {
-        this.departmentManager = departmentManager;
     }
 
     public JobManager getJobManager() {

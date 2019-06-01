@@ -105,15 +105,6 @@
     <property name="hostDao" ref="hostDao" />
   </bean>
 
-
-  <bean id="departmentManager" class="com.imageworks.spcue.service.DepartmentManagerService">
-    <property name="taskDao" ref="taskDao" />
-    <property name="showDao" ref="showDao" />
-    <property name="trackitDao" ref="trackitDao" />
-    <property name="pointDao" ref="pointDao" />
-    <property name="jobDao" ref="jobDao" />
-  </bean>
-
   <bean id="commentManager" class="com.imageworks.spcue.service.CommentManagerService">
     <property name="commentDao" ref="commentDao" />
     <property name="emailSupport" ref="emailSupport" />

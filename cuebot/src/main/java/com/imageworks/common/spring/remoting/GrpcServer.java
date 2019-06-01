@@ -16,7 +16,6 @@ import com.imageworks.spcue.servant.ManageAction;
 import com.imageworks.spcue.servant.ManageAllocation;
 import com.imageworks.spcue.servant.ManageComment;
 import com.imageworks.spcue.servant.ManageDeed;
-import com.imageworks.spcue.servant.ManageDepartment;
 import com.imageworks.spcue.servant.ManageDepend;
 import com.imageworks.spcue.servant.ManageFacility;
 import com.imageworks.spcue.servant.ManageFilter;
@@ -33,7 +32,6 @@ import com.imageworks.spcue.servant.ManageService;
 import com.imageworks.spcue.servant.ManageServiceOverride;
 import com.imageworks.spcue.servant.ManageShow;
 import com.imageworks.spcue.servant.ManageSubscription;
-import com.imageworks.spcue.servant.ManageTask;
 import com.imageworks.spcue.servant.RqdReportStatic;
 
 
@@ -78,7 +76,6 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageAllocation", ManageAllocation.class))
                 .addService(applicationContext.getBean("manageComment", ManageComment.class))
                 .addService(applicationContext.getBean("manageDeed", ManageDeed.class))
-                .addService(applicationContext.getBean("manageDepartment", ManageDepartment.class))
                 .addService(applicationContext.getBean("manageDepend", ManageDepend.class))
                 .addService(applicationContext.getBean("manageFacility", ManageFacility.class))
                 .addService(applicationContext.getBean("manageFilter", ManageFilter.class))
@@ -95,7 +92,6 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageServiceOverride", ManageServiceOverride.class))
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))
                 .addService(applicationContext.getBean("manageSubscription", ManageSubscription.class))
-                .addService(applicationContext.getBean("manageTask", ManageTask.class))
                 .maxInboundMessageSize(maxMessageBytes)
                 .intercept(new CueServerInterceptor())
                 .build();

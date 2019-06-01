@@ -60,7 +60,6 @@ public class JobManagerSupport {
     private DependManager dependManager;
     private HostManager hostManager;
     private RqdClient rqdClient;
-    private DepartmentManager departmentManager;
     private DispatchSupport dispatchSupport;
     private DispatchQueue manageQueue;
     private RedirectManager redirectManager;
@@ -80,10 +79,6 @@ public class JobManagerSupport {
              * job record, not layers or frames.
              */
             satisfyWhatDependsOn(job);
-
-            if (departmentManager.isManaged(job)) {
-                departmentManager.syncJobsWithTask(job);
-            }
 
             if (isManualKill) {
 
@@ -565,14 +560,6 @@ public class JobManagerSupport {
 
     public void setRqdClient(RqdClient rqdClient) {
         this.rqdClient = rqdClient;
-    }
-
-    public DepartmentManager getDepartmentManager() {
-        return departmentManager;
-    }
-
-    public void setDepartmentManager(DepartmentManager departmentManager) {
-        this.departmentManager = departmentManager;
     }
 
     public RedirectManager getRedirectManager() {

@@ -17,26 +17,18 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
+import com.google.common.collect.ImmutableList;
+import com.imageworks.spcue.dao.criteria.CriteriaInterface;
+import com.imageworks.spcue.dao.criteria.Phrase;
+import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.grpc.criterion.*;
+
 import java.security.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-
-import com.google.common.collect.ImmutableList;
-
-import com.imageworks.spcue.dao.criteria.CriteriaInterface;
-import com.imageworks.spcue.dao.criteria.Phrase;
-import com.imageworks.spcue.dao.criteria.Sort;
-import com.imageworks.spcue.grpc.criterion.EqualsFloatSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.EqualsIntegerSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.GreaterThanFloatSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.GreaterThanIntegerSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.InRangeFloatSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.InRangeIntegerSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.LessThanFloatSearchCriterion;
-import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 
 public abstract class Criteria implements CriteriaInterface {
 
