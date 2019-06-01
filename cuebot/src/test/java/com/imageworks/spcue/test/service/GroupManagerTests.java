@@ -19,7 +19,6 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -31,21 +30,16 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobSpec;
 
-import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -68,9 +62,6 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
     JobDao jobDao;
 
     @Resource
-    DepartmentDao departmentDao;
-
-    @Resource
     ShowDao showDao;
 
     @Before
@@ -87,33 +78,7 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
         group.name = "testGroup";
         group.showId = pipe.getId();
         group.parentId =  groupDao.getRootGroupDetail(pipe).getId();
-        group.deptId = departmentDao.getDefaultDepartment().getId();
         groupManager.createGroup(group, null);
     }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void setGroupDepartment() {
-        ShowInterface pipe = showDao.findShowDetail("pipe");
-        GroupDetail group = groupDao.getRootGroupDetail(pipe);
-
-        // Launch a test job
-        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
-        jobLauncher.launch(spec);
-        JobInterface job = jobManager.getJob(spec.getJobs().get(0).detail.id);
-
-        // Set the group's department property to Lighting, it should
-        // currently be Unknown
-        DepartmentInterface dept = departmentDao.findDepartment("Lighting");
-        jobDao.updateParent(job, group);
-
-        // Update the group to the Lighting department
-        groupManager.setGroupDepartment(group, dept);
-
-        // Now check if the job we launched was also updated to the lighting department
-        assertEquals(dept.getDepartmentId(), jobDao.getJobDetail(job.getJobId()).deptId);
-    }
-
 }
 

@@ -31,7 +31,6 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.EntityRemovalError;
@@ -156,13 +155,6 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
         getJdbcTemplate().update(
                 "UPDATE folder SET str_name=? WHERE pk_folder=?",
                 value, group.getId());
-    }
-
-    @Override
-    public void updateDepartment(GroupInterface group, DepartmentInterface dept) {
-        getJdbcTemplate().update(
-                "UPDATE folder SET pk_dept=? WHERE pk_folder=?",
-                dept.getDepartmentId(), group.getId());
     }
 
     @Override

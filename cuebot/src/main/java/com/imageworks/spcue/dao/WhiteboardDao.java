@@ -24,7 +24,6 @@ import java.util.List;
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FilterInterface;
@@ -43,8 +42,6 @@ import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.depend.AbstractDepend;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
-import com.imageworks.spcue.grpc.department.Department;
-import com.imageworks.spcue.grpc.department.DepartmentSeq;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.facility.Allocation;
@@ -82,8 +79,6 @@ import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
-import com.imageworks.spcue.grpc.task.Task;
-import com.imageworks.spcue.grpc.task.TaskSeq;
 
 /**
  * @category DAO
@@ -462,45 +457,6 @@ public interface WhiteboardDao {
      */
     UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
                                              List<LayerInterface> layers, int lastUpdate);
-
-    /**
-     *
-     * @param show ShowInterface
-     * @return DepartmentSeq
-     */
-    DepartmentSeq getDepartments (ShowInterface show);
-
-    /**
-     *
-     * @param show ShowInterface
-     * @param name String
-     * @return Department
-     */
-    Department getDepartment(ShowInterface show, String name);
-
-    /**
-     * Returns a list of available department names
-     *
-     * @return List of Strings
-     */
-    List<String> getDepartmentNames();
-
-    /**
-     *
-     * @param show ShowInterface
-     * @param dept DepartmentInterface
-     * @param shot String
-     * @return Task
-     */
-    Task getTask(ShowInterface show, DepartmentInterface dept, String shot);
-
-    /**
-     *
-     * @param show ShowInterface
-     * @param dept DepartmentInterface
-     * @return List of Tasks
-     */
-    TaskSeq getTasks(ShowInterface show, DepartmentInterface dept);
 
     /**
      * Returns procs from a ProcSearchInterface criteria.

@@ -21,7 +21,6 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;

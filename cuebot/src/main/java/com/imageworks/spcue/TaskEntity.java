@@ -43,11 +43,6 @@ public class TaskEntity extends Entity implements TaskInterface {
     }
 
     @Override
-    public String getDepartmentId() {
-        return deptId;
-    }
-
-    @Override
     public String getShowId() {
         return showId;
     }

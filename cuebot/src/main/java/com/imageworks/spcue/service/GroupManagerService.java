@@ -24,13 +24,11 @@ import java.util.List;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.util.CueUtil;
@@ -41,8 +39,6 @@ public class GroupManagerService implements GroupManager {
     private GroupDao groupDao;
 
     private JobDao jobDao;
-
-    private DepartmentDao departmentDao;
 
     @Override
     public void setGroupDefaultJobPriority(GroupInterface g, int priority) {
@@ -88,14 +84,6 @@ public class GroupManagerService implements GroupManager {
 
     @Override
     public void createGroup(GroupDetail group, GroupInterface parent) {
-        DepartmentInterface d;
-        if (group.getDepartmentId() == null) {
-            d = departmentDao.getDefaultDepartment();
-            group.deptId = d.getId();
-        }
-        else {
-            d = departmentDao.getDepartment(group.getDepartmentId());
-        }
         groupDao.insertGroup(group, parent);
     }
 
@@ -156,12 +144,5 @@ public class GroupManagerService implements GroupManager {
         this.jobDao = jobDao;
     }
 
-    public DepartmentDao getDepartmentDao() {
-        return departmentDao;
-    }
-
-    public void setDepartmentDao(DepartmentDao departmentDao) {
-        this.departmentDao = departmentDao;
-    }
 }
 

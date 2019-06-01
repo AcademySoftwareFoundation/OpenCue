@@ -42,7 +42,6 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
@@ -83,10 +82,6 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Resource
     JobLauncher jobLauncher;
 
-
-    @Resource
-    DepartmentDao departmentDao;
-
     @Resource
     FacilityDao facilityDao;
 
@@ -107,7 +102,6 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
         job.logDir = JobLogUtil.getJobLogPath(job);
-        job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId = facilityDao.getDefaultFacility().getId();
         jobDao.insertJob(job);
 

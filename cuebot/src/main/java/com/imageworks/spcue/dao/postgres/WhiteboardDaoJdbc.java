@@ -35,7 +35,6 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FilterInterface;
 import com.imageworks.spcue.FrameInterface;
@@ -56,8 +55,6 @@ import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
-import com.imageworks.spcue.grpc.department.Department;
-import com.imageworks.spcue.grpc.department.DepartmentSeq;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.depend.DependSeq;
 import com.imageworks.spcue.grpc.depend.DependTarget;
@@ -119,8 +116,6 @@ import com.imageworks.spcue.grpc.show.ShowSeq;
 import com.imageworks.spcue.grpc.show.ShowStats;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
-import com.imageworks.spcue.grpc.task.Task;
-import com.imageworks.spcue.grpc.task.TaskSeq;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
@@ -584,51 +579,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public Department getDepartment(ShowInterface show, String name) {
-        return getJdbcTemplate().queryForObject(
-                GET_DEPARTMENT, DEPARTMENT_MAPPER,
-                show.getShowId(), name);
-    }
-
-    @Override
-    public DepartmentSeq getDepartments (ShowInterface show) {
-        List<Department> departments = getJdbcTemplate().query(
-                GET_DEPARTMENTS, DEPARTMENT_MAPPER,
-                show.getShowId());
-        return DepartmentSeq.newBuilder().addAllDepartments(departments).build();
-    }
-
-    @Override
-    public List<String> getDepartmentNames() {
-        return getJdbcTemplate().query("SELECT str_name FROM dept ORDER BY str_name ASC",
-            new RowMapper<String>() {
-                public String mapRow(ResultSet rs, int row) throws SQLException {
-                    return rs.getString("str_name");
-                }
-            });
-    }
-
-    @Override
-    public Task getTask(ShowInterface show, DepartmentInterface dept, String shot) {
-        return getJdbcTemplate().queryForObject(
-                GET_TASK + " AND point.pk_show=? AND point.pk_dept=? AND task.str_shot=?",
-                TASK_MAPPER, show.getShowId(), dept.getDepartmentId(), shot);
-    }
-
-    @Override
-    public TaskSeq getTasks(ShowInterface show, DepartmentInterface dept) {
-        if (dept == null) {
-            return TaskSeq.newBuilder().addAllTasks(getJdbcTemplate().query(
-                    GET_TASK + " AND point.pk_show=? ORDER BY task.str_shot",
-                    TASK_MAPPER, show.getShowId())).build();
-        } else {
-            return TaskSeq.newBuilder().addAllTasks(getJdbcTemplate().query(
-                    GET_TASK + " AND point.pk_show=? AND point.pk_dept=? ORDER BY task.str_shot",
-                    TASK_MAPPER, show.getShowId(), dept.getDepartmentId())).build();
-        }
-    }
-
-    @Override
     public DeedSeq getDeeds(OwnerEntity owner) {
         List<Deed> deeds = getJdbcTemplate().query(
                 QUERY_FOR_DEED + " AND owner.pk_owner=?",
@@ -869,20 +819,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         }
     };
 
-    public static final RowMapper<Department> DEPARTMENT_MAPPER =
-            new RowMapper<Department>() {
-                public Department mapRow(ResultSet rs, int row) throws SQLException {
-                    return Department.newBuilder()
-                            .setId(SqlUtil.getString(rs,"pk_point"))
-                            .setName(SqlUtil.getString(rs,"str_name"))
-                            .setDept(SqlUtil.getString(rs,"str_dept"))
-                            .setTiManaged(rs.getBoolean("b_managed"))
-                            .setTiTask(SqlUtil.getString(rs,"str_ti_task"))
-                            .setMinCores(Convert.coreUnitsToCores(rs.getInt("int_min_cores")))
-                            .build();
-                }
-            };
-
     public static final RowMapper<Proc> PROC_MAPPER =
             new RowMapper<Proc>() {
                 public Proc mapRow(ResultSet rs, int row) throws SQLException {
@@ -907,19 +843,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"frame_name")))
                             .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
-                            .build();
-                }
-            };
-
-    public static final RowMapper<Task> TASK_MAPPER =
-            new RowMapper<Task>() {
-                public Task mapRow(ResultSet rs, int row) throws SQLException {
-                    return Task.newBuilder()
-                            .setId(SqlUtil.getString(rs,"pk_task"))
-                            .setDept(SqlUtil.getString(rs,"str_dept"))
-                            .setShot(SqlUtil.getString(rs,"str_shot"))
-                            .setMinCores(Convert.coreUnitsToWholeCores(rs.getInt("int_min_cores")))
-                            .setAdjustCores(Convert.coreUnitsToWholeCores(rs.getInt("int_adjust_cores")))
                             .build();
                 }
             };
@@ -1074,7 +997,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     return Group.newBuilder()
                             .setId(SqlUtil.getString(rs,"pk_folder"))
                             .setName(SqlUtil.getString(rs,"group_name"))
-                            .setDepartment(SqlUtil.getString(rs,"str_dept"))
                             .setDefaultJobPriority(rs.getInt("int_job_priority"))
                             .setDefaultJobMinCores(Convert.coreUnitsToCores(rs.getInt("int_job_min_cores")))
                             .setDefaultJobMaxCores(Convert.coreUnitsToCores(rs.getInt("int_job_max_cores")))

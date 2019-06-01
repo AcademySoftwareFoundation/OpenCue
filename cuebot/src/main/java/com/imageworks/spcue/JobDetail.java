@@ -21,7 +21,7 @@ package com.imageworks.spcue;
 
 import com.imageworks.spcue.grpc.job.JobState;
 
-public class JobDetail extends JobEntity implements JobInterface, DepartmentInterface {
+public class JobDetail extends JobEntity implements JobInterface {
     public String groupId;
     public String deptId;
     public JobState state;
@@ -52,9 +52,5 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
     public int localMaxMemory;
     public int localThreadNumber;
     public int localMaxGpu;
-
-    public String getDepartmentId() {
-        return deptId;
-    }
 }
 

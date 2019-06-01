@@ -53,12 +53,6 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
-    <bean scope="prototype" id="manageDepartment" class="com.imageworks.spcue.servant.ManageDepartment">
-        <property name="adminManager" ref="adminManager" />
-        <property name="departmentManager" ref="departmentManager" />
-        <property name="whiteboard" ref="whiteboard" />
-    </bean>
-
     <bean scope="prototype" id="manageDepend" class="com.imageworks.spcue.servant.ManageDepend">
         <property name="dependManager" ref="dependManager" />
         <property name="manageQueue" ref="manageQueue" />

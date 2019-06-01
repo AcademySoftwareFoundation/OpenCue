@@ -66,7 +66,6 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "show.pk_show, " +
             "show.str_name AS str_show, " +
             "facility.str_name AS facility_name, " +
-            "dept.str_name AS dept_name, " +
             "folder.pk_folder, " +
             "folder.pk_parent_folder, " +
             "folder.str_name AS group_name, " +
@@ -111,7 +110,6 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "job_mem.int_max_rss " +
         "FROM " +
             "show, " +
-            "dept, " +
             "folder_level, " +
             "folder_resource, " +
             "folder " +
@@ -144,9 +142,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         "AND " +
             "folder.pk_folder = folder_level.pk_folder " +
         "AND " +
-            "folder.pk_folder = folder_resource.pk_folder " +
-        "AND " +
-            "folder.pk_dept = dept.pk_dept ";
+            "folder.pk_folder = folder_resource.pk_folder ";
 
     class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
 
@@ -168,7 +164,6 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setMaxCores(Convert.coreUnitsToCores(rs.getInt("folder_max_cores")))
                         .setMinCores(Convert.coreUnitsToCores(rs.getInt("folder_min_cores")))
                         .setLevel(rs.getInt("int_level"))
-                        .setDepartment(rs.getString("dept_name"))
                         .build();
 
                 String parentGroupId = rs.getString("pk_parent_folder");
