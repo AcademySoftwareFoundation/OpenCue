@@ -18,22 +18,13 @@
 package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.config.DatabaseEngine;
-import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
+import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 
 public class JobSearchFactory {
-    private DatabaseEngine dbEngine;
 
     public JobSearchInterface create() {
-        if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new JobSearch();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.JobSearch();
-        } else {
-            throw new RuntimeException(
-                    "current database engine is not supported by JobSearchFactory");
-        }
+        return new JobSearch();
     }
 
     public JobSearchInterface create(JobSearchCriteria criteria) {
@@ -46,13 +37,5 @@ public class JobSearchFactory {
         JobSearchInterface jobSearch = create();
         jobSearch.filterByShow(show);
         return jobSearch;
-    }
-
-    public DatabaseEngine getDbEngine() {
-        return dbEngine;
-    }
-
-    public void setDbEngine(DatabaseEngine dbEngine) {
-        this.dbEngine = dbEngine;
     }
 }

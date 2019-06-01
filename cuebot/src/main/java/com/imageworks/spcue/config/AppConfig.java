@@ -24,13 +24,10 @@ import com.imageworks.spcue.servlet.JobLaunchServlet;
 import javax.sql.DataSource;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
 
@@ -48,27 +45,9 @@ import org.springframework.context.annotation.PropertySource;
 @PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
 
-    @Configuration
-    @Conditional(OracleDatabaseCondition.class)
-    @ImportResource({"classpath:conf/spring/applicationContext-dao-oracle.xml"})
-    static class OracleEngineConfig {}
-
-    @Configuration
-    @Conditional(PostgresDatabaseCondition.class)
-    @ImportResource({"classpath:conf/spring/applicationContext-dao-postgres.xml"})
-    static class PostgresEngineConfig {}
-
     @Bean
     @Primary
-    @ConfigurationProperties(prefix="datasource.cue-data-source")
-    public DataSource cueDataSource() {
-        return DataSourceBuilder.create().build();
-    }
-
-    @Bean
-    @Conditional(OracleDatabaseCondition.class)
-    @ConfigurationProperties(prefix="datasource.trackit-data-source")
-    public DataSource trackitDataSource() {
+    public DataSource dataSource() {
         return DataSourceBuilder.create().build();
     }
 

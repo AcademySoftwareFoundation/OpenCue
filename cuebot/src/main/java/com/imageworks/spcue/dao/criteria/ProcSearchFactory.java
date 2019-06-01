@@ -17,22 +17,13 @@
 
 package com.imageworks.spcue.dao.criteria;
 
-import com.imageworks.spcue.config.DatabaseEngine;
 import com.imageworks.spcue.dao.criteria.postgres.ProcSearch;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 
 public class ProcSearchFactory {
-    private DatabaseEngine dbEngine;
 
     public ProcSearchInterface create() {
-        if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new ProcSearch();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.ProcSearch();
-        } else {
-            throw new RuntimeException(
-                    "current database engine is not supported by ProcSearchFactory");
-        }
+        return new ProcSearch();
     }
 
     public ProcSearchInterface create(ProcSearchCriteria criteria) {
@@ -46,13 +37,5 @@ public class ProcSearchFactory {
         procSearch.setCriteria(criteria);
         procSearch.addSort(sort);
         return procSearch;
-    }
-
-    public DatabaseEngine getDbEngine() {
-        return dbEngine;
-    }
-
-    public void setDbEngine(DatabaseEngine dbEngine) {
-        this.dbEngine = dbEngine;
     }
 }

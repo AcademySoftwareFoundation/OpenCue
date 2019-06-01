@@ -17,13 +17,13 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
-import java.util.HashSet;
-import java.util.Set;
-
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class HostSearch extends Criteria implements HostSearchInterface {
     private HostSearchCriteria criteria;

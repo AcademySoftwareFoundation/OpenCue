@@ -17,14 +17,7 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
-import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
 import com.google.common.collect.ImmutableList;
-import org.apache.log4j.Logger;
-
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
@@ -33,6 +26,12 @@ import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
+import org.apache.log4j.Logger;
+
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class FrameSearch extends Criteria implements FrameSearchInterface {
     private static final int MAX_RESULTS = 1000;
