@@ -190,15 +190,7 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
         responseObserver.onNext(GroupSetGroupResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
-
-    @Override
-    public void setDepartment(GroupSetDeptRequest request, StreamObserver<GroupSetDeptResponse> responseObserver) {
-        GroupInterface group = getGroupInterface(request.getGroup());
-        groupManager.setGroupDepartment(group, adminManager.findDepartment(request.getDept()));
-        responseObserver.onNext(GroupSetDeptResponse.newBuilder().build());
-        responseObserver.onCompleted();
-    }
-
+    
     @Override
     public void setDefaultJobPriority(GroupSetDefJobPriorityRequest request, StreamObserver<GroupSetDefJobPriorityResponse> responseObserver) {
         GroupInterface group = getGroupInterface(request.getGroup());

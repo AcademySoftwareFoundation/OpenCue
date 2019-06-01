@@ -31,9 +31,13 @@ import com.imageworks.spcue.ShowInterface;
 public interface GroupManager {
 
     void setGroupMaxCores(GroupInterface g, int coreUnits);
+
     void setGroupMinCores(GroupInterface g, int coreUnits);
+
     void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
+
     void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
+
     void setGroupDefaultJobPriority(GroupInterface g, int priority);
 
     /**
@@ -98,14 +102,5 @@ public interface GroupManager {
      * @param groups
      */
     void reparentGroupIds(GroupInterface group, List<String> groups);
-
-    /**
-     * Sets the group's department all all jobs in that
-     * group to the new department.
-     *
-     * @param group
-     * @param d
-     */
-    void setGroupDepartment(GroupInterface group, DepartmentInterface d);
 }
 

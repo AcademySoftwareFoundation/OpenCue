@@ -28,7 +28,6 @@ import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.JobSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.job.Group;
@@ -95,7 +94,6 @@ import com.imageworks.spcue.grpc.show.ShowSetDefaultMinCoresResponse;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
@@ -107,7 +105,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     private AdminManager adminManager;
     private Whiteboard whiteboard;
     private ShowDao showDao;
-    private DepartmentManager departmentManager;
     private FilterManager filterManager;
     private OwnerManager ownerManager;
     private ServiceManager serviceManager;
@@ -431,14 +428,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
     public void setFilterManager(FilterManager filterManager) {
         this.filterManager = filterManager;
-    }
-
-    public DepartmentManager getDepartmentManager() {
-        return departmentManager;
-    }
-
-    public void setDepartmentManager(DepartmentManager departmentManager) {
-        this.departmentManager = departmentManager;
     }
 
     public OwnerManager getOwnerManager() {

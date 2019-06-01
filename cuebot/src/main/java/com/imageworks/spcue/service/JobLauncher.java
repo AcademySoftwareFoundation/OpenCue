@@ -47,7 +47,6 @@ public class JobLauncher implements ApplicationContextAware {
     private ApplicationContext context;
 
     private JobManager jobManager;
-    private DepartmentManager departmentManager;
     private AdminManager adminManager;
     private ThreadPoolTaskExecutor launchQueue;
     private EmailSupport emailSupport;
@@ -129,16 +128,9 @@ public class JobLauncher implements ApplicationContextAware {
              * touch any rows that are currently in the "live" data set.
              */
             if (!testMode) {
-                Set<String> depts = new HashSet<String>();
                 for (BuildableJob job: spec.getJobs()) {
                     JobDetail d = jobManager.getJobDetail(job.detail.id);
                     jmsMover.send(d);
-                    if (departmentManager.isManaged(d)) {
-                        if (!depts.contains(d.deptId)) {
-                            departmentManager.syncJobsWithTask(d);
-                            depts.add(d.deptId);
-                        }
-                    }
                 }
             }
         } catch (Exception e) {
@@ -193,14 +185,6 @@ public class JobLauncher implements ApplicationContextAware {
 
     public void setJobManager(JobManager jobManager) {
         this.jobManager = jobManager;
-    }
-
-    public DepartmentManager getDepartmentManager() {
-        return departmentManager;
-    }
-
-    public void setDepartmentManager(DepartmentManager departmentManager) {
-        this.departmentManager = departmentManager;
     }
 
     public AdminManager getAdminManager() {

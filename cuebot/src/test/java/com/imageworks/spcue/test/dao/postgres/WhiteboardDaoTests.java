@@ -32,7 +32,6 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.ActionEntity;
@@ -54,12 +53,10 @@ import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.OwnerEntity;
-import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
-import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ActionDao;
@@ -71,7 +68,6 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.MatcherDao;
-import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
@@ -106,7 +102,6 @@ import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
-import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -122,7 +117,6 @@ import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Autowired
@@ -175,16 +169,10 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     FrameDao frameDao;
 
     @Resource
-    PointDao pointDao;
-
-    @Resource
     HostManager hostManager;
 
     @Resource
     CommentManager commentManager;
-
-    @Resource
-    DepartmentManager departmentManager;
 
     @Resource
     Dispatcher dispatcher;
@@ -906,21 +894,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     public void testGetTasks() {
         whiteboardDao.getTasks(showDao.findShowDetail("pipe"),
                 departmentDao.getDefaultDepartment());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetTask() {
-        PointInterface p = pointDao.getPointConfigDetail(
-                showDao.findShowDetail("pipe"),
-                departmentDao.getDefaultDepartment());
-
-        TaskEntity t = new TaskEntity(p,"dev.cue");
-        departmentManager.createTask(t);
-
-        whiteboardDao.getTask(showDao.findShowDetail("pipe"),
-                departmentDao.getDefaultDepartment(), "dev.cue");
     }
 
     @Test
