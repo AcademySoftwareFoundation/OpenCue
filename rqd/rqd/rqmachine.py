@@ -255,7 +255,6 @@ class Machine:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
 
-                    # rss and resource.getpagesize() are both integers
                     rss = int((rss * resource.getpagesize()) / 1024)
                     vsize = int(vsize/1024)
 
@@ -283,7 +282,6 @@ class Machine:
             loadAvgFile = open(rqconstants.PATH_LOADAVG, "r")
             loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
             if self.__enabledHT():
-                # loadAvg has been cast to int, so until now loadAvg / 2 will always have returned an int
                 loadAvg = int(loadAvg / 2)
             loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
@@ -416,7 +414,6 @@ class Machine:
         if platform.system() == "Linux" or pathCpuInfo is not None:
             # Reads static information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            # All these values are ints, so the result of dividing by int should be int
             self.__renderHost.total_mcp = int(mcpStat.f_blocks * mcpStat.f_frsize / KILOBYTE)
 
             # Reads static information from /proc/cpuinfo
@@ -431,7 +428,6 @@ class Machine:
                 # The end of a processor block
                 elif lineList == ['']:
                     # Check for hyper-threading
-                    # int divided by int should continue to be an int
                     hyperthreadingMultiplier =  (int(singleCore.get('siblings', '1'))
                                                // int(singleCore.get('cpu cores', '1')))
 
@@ -462,7 +458,6 @@ class Machine:
             import multiprocessing
             __totalCores = multiprocessing.cpu_count() * 100
             if __totalCores > 1200:
-                # Per the .proto files, total_cores should be an int. In the past this result would always have been an int
                 __totalCores = int(__totalCores / 2)
                 __numProcs = 2
 
@@ -484,13 +479,11 @@ class Machine:
             __numProcs = rqconstants.OVERRIDE_PROCS
 
         # Don't report/reserve cores added due to hyperthreading
-        # Per the .proto files, total_cores should be an int
         __totalCores = int(__totalCores / hyperthreadingMultiplier)
 
         self.__coreInfo.idle_cores = __totalCores
         self.__coreInfo.total_cores = __totalCores
         self.__renderHost.num_procs = __numProcs
-        # Per the .proto files, cores_per_proc should be an int
         self.__renderHost.cores_per_proc = int(__totalCores / __numProcs)
 
         if hyperthreadingMultiplier > 1:
@@ -525,7 +518,6 @@ class Machine:
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
-            # Per the .proto, total_mem should be an int (and has always been an int previously)
             self.__renderHost.total_mem = int(memsizeMatch.group('totalMemBytes')) // 1024
         else:
             self.__renderHost.total_mem = 0
@@ -538,7 +530,6 @@ class Machine:
             if match:
                 vmStats[match.group('field')] = int(match.group('pages')) * 4096
 
-        # These two values have always been ints previously, and free_mem is an int in the proto
         freeMemory = int(vmStats.get("Pages free", 0) / 1024)
         inactiveMemory = int(vmStats.get("Pages inactive", 0) / 1024)
         self.__renderHost.free_mem = freeMemory + inactiveMemory
@@ -556,7 +547,6 @@ class Machine:
         if platform.system() == "Linux":
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            # free_mcp has always been an int previously and is specified as int in the proto
             self.__renderHost.free_mcp = int((mcpStat.f_bavail * mcpStat.f_bsize) / KILOBYTE)
 
             # Reads dynamic information from /proc/meminfo
@@ -625,7 +615,6 @@ class Machine:
         """ Setup rqd for hyper-threading """
 
         if self.__enabledHT():
-            # range called on a float will fail
             self.__tasksets = set(range(int(self.__coreInfo.total_cores / 100)))
 
     def reserveHT(self, reservedCores):
@@ -647,20 +636,15 @@ class Machine:
 
         log.debug('Taskset: Requesting reserve of %s' % (reservedCores / 100))
 
-        # ambiguous and probably not critical - opting to preserve the old behaviour.
-        # reservedCores is always an int - historically the result of this division
-        # will always have been an int.
         if len(self.__tasksets) < reservedCores // 100:
             err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
             log.critical(err)
             raise CoreReservationFailureException(err)
 
         tasksets = []
-        # range called on a float will fail
         for x in range(int(reservedCores / 100)):
             core = self.__tasksets.pop()
             tasksets.append(str(core))
-            # Preserving the old behaviour - this has always been an int until now
             tasksets.append(str(core + int(self.__coreInfo.total_cores / 100)))
 
         log.debug('Taskset: Reserving cores - %s' % ','.join(tasksets))
