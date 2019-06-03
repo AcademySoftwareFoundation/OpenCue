@@ -26,7 +26,6 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
-from __future__ import print_function
 from __future__ import absolute_import
 
 import logging as log
@@ -143,27 +142,32 @@ class FrameAttendantThread(threading.Thread):
         self.startTime = time.time()
 
         try:
-            print >> self.rqlog, "="*59
-            print >> self.rqlog, "RenderQ JobSpec     ", time.ctime(self.startTime), "\n"
-            print >> self.rqlog, "proxy               ", "RunningFrame/%s -t:tcp -h %s -p 10021" % (
-                self.runFrame.frame_id,
-                self.rqCore.machine.getHostname())
-            print >> self.rqlog, "%-21s%s" % ("command", self.runFrame.command)
-            print >> self.rqlog, "%-21s%s" % ("uid", self.runFrame.uid)
-            print >> self.rqlog, "%-21s%s" % ("gid", self.runFrame.gid)
-            print >> self.rqlog, "%-21s%s" % ("logDestination",
-                                              self.runFrame.log_dir_file)
-            print >> self.rqlog, "%-21s%s" % ("cwd", self.runFrame.frame_temp_dir)
-            print >> self.rqlog, "%-21s%s" % ("renderHost",
-                                              self.rqCore.machine.getHostname())
-            print >> self.rqlog, "%-21s%s" % ("jobId", self.runFrame.job_id)
-            print >> self.rqlog, "%-21s%s" % ("frameId", self.runFrame.frame_id)
-            for env in sorted(self.frameEnv):
-                print >> self.rqlog, "%-21s%s=%s" % ("env", env, self.frameEnv[env])
-            print >> self.rqlog, "="*59
+            lines = [
+                "="*59,
+                "RenderQ JobSpec      {} \n".format(time.ctime(self.startTime)),
+                "proxy                RunningFrame/{} -t:tcp -h {} -p 10021".format(
+                    self.runFrame.frame_id,
+                    self.rqCore.machine.getHostname()
+                ),
+                "{:21s}{}".format("command", self.runFrame.command),
+                "{:21s}{}".format("uid", self.runFrame.uid),
+                "{:21s}{}".format("gid", self.runFrame.gid),
+                "{:21s}{}".format("logDestination", self.runFrame.log_dir_file),
+                "{:21s}{}".format("cwd", self.runFrame.frame_temp_dir),
+                "{:21s}{}".format("renderHost", self.rqCore.machine.getHostname()),
+                "{:21s}{}".format("jobId", self.runFrame.job_id),
+                "{:21s}{}".format("frameId", self.runFrame.frame_id),
+            ]
 
-            if 'CPU_LIST' in self.runFrame.attributes:
-                print >> self.rqlog, 'Hyper-threading enabled'
+            for env in sorted(self.frameEnv):
+                lines.append("{:21s}{}={}".format("env", env, self.frameEnv[env]))
+            lines.append("="*59)
+
+            if "CPU_LIST" in self.runFrame.attributes:
+                lines.append("Hyper-threading enabled")
+
+            data = ("\n".join(lines)).encode("utf-8")
+            self.rqlog.write(data)
 
         except Exception as e:
             log.critical("Unable to write header to rqlog: "
@@ -177,21 +181,32 @@ class FrameAttendantThread(threading.Thread):
         self.endTime = time.time()
         self.frameInfo.runTime = int(self.endTime - self.startTime)
         try:
-            print >> self.rqlog, "\n", "="*59
-            print >> self.rqlog, "RenderQ Job Complete\n"
-            print >> self.rqlog, "%-20s%s" % ("exitStatus", self.frameInfo.exitStatus)
-            print >> self.rqlog, "%-20s%s" % ("exitSignal", self.frameInfo.exitSignal)
+            lines = [
+                "",
+                "="*59,
+                "RenderQ Job Complete\n",
+                "{:20s}{}".format("exitStatus", self.frameInfo.exitStatus),
+                "{:20s}{}".format("exitSignal", self.frameInfo.exitSignal),
+            ]
             if self.frameInfo.killMessage:
-                print >> self.rqlog, "%-20s%s" % ("killMessage", self.frameInfo.killMessage)
-            print >> self.rqlog, "%-20s%s" % ("startTime",
-                                         time.ctime(self.startTime))
-            print >> self.rqlog, "%-20s%s" % ("endTime",
-                                         time.ctime(self.endTime))
-            print >> self.rqlog, "%-20s%s" % ("maxrss", self.frameInfo.maxRss)
-            print >> self.rqlog, "%-20s%s" % ("utime", self.frameInfo.utime)
-            print >> self.rqlog, "%-20s%s" % ("stime", self.frameInfo.stime)
-            print >> self.rqlog, "%-20s%s" % ("renderhost", self.rqCore.machine.getHostname())
-            print >> self.rqlog, "="*59
+                lines.append("{:20s}{}".format(
+                    "killMessage", self.frameInfo.killMessage)
+                )
+            lines.extend(
+                [
+                    "{:20s}{}".format("startTime", time.ctime(self.startTime)),
+                    "{:20s}{}".format("endTime", time.ctime(self.endTime)),
+                    "{:20s}{}".format("maxrss", self.frameInfo.maxRss),
+                    "{:20s}{}".format("utime", self.frameInfo.utime),
+                    "{:20s}{}".format("stime", self.frameInfo.stime),
+                    "{:20s}{}".format("renderhost", self.rqCore.machine.getHostname()),
+                    "="*59,
+                ]
+            )
+
+            data = ("\n".join(lines)).encode("utf-8")
+            self.rqlog.write(data)
+
         except Exception as e:
             log.critical("Unable to write footer: %s due to %s at %s" %
                          (self.runFrame.log_dir_file, e,
@@ -476,7 +491,12 @@ class FrameAttendantThread(threading.Thread):
                         err = "Unable to rotate previous log file due to %s" % e
                         raise RuntimeError(err)
                     try:
-                        self.rqlog = file(runFrame.log_dir_file, "w", 0)
+                        """
+                        To get unbuffered IO, we must open the file in binary
+                        mode. As a consequence, we must encode all text to
+                        utf-8 before we write it to the file.
+                        """
+                        self.rqlog = open(runFrame.log_dir_file, "wb", buffering=0)
                         self.waitForFile(runFrame.log_dir_file)
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)

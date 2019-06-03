@@ -80,55 +80,55 @@ class RqdHost:
         return self.stub.GetRunFrame(rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
 
     def nimbyOff(self):
-        print self.rqdHost, "Turning off Nimby"
+        print("{} Turning off Nimby".format(self.rqdHost))
         log.info("rqd nimbyoff by {0}".format(os.environ.get("USER")))
         self.stub.NimbyOff(rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
-        print self.rqdHost, "Turning on Nimby"
+        print("{} Turning on Nimby".format(self.rqdHost))
         log.info("rqd nimbyon by {0}".format(os.environ.get("USER")))
         self.stub.NimbyOn(rqd_pb2.RqdStaticNimbyOnRequest())
 
     def lockAll(self):
-        print self.rqdHost,"Locking all cores"
+        print("{} Locking all cores".format(self.rqdHost))
         self.stub.LockAll(rqd_pb2.RqdStaticLockAllRequest())
 
     def unlockAll(self):
-        print self.rqdHost,"Unlocking all cores"
+        print("{} Unlocking all cores".format(self.rqdHost))
         self.stub.UnlockAll(rqd_pb2.RqdStaticUnlockAllRequest())
 
     def lock(self, cores):
         cores = int(cores)
-        print self.rqdHost,"Locking %d cores" % cores
+        print("{} Locking {} cores".format(self.rqdHost, cores))
         self.stub.Lock(rqd_pb2.RqdStaticLockRequest(cores=cores))
 
     def unlock(self, cores):
         cores = int(cores)
-        print self.rqdHost,"Unlocking %d cores" % cores
+        print("{} Unlocking {} cores".format(self.rqdHost, cores))
         self.stub.Unlock(rqd_pb2.RqdStaticUnlockRequest(cores=cores))
 
     def shutdownRqdIdle(self):
-        print self.rqdHost,"Sending shutdownRqdIdle command"
+        print("{} Sending shutdownRqdIdle command".format(self.rqdHost))
         self.stub.ShutdownRqdIdle(rqd_pb2.RqdStaticShutdownIdleRequest())
 
     def shutdownRqdNow(self):
-        print self.rqdHost,"Sending shutdownRqdNow command"
+        print("{} Sending shutdownRqdNow command".format(self.rqdHost))
         self.stub.ShutdownRqdNow(rqd_pb2.RqdStaticShutdownNowRequest())
 
     def restartRqdIdle(self):
-        print self.rqdHost,"Sending restartRqdIdle command"
+        print("{} Sending restartRqdIdle command".format(self.rqdHost))
         self.stub.RestartRqdIdle(rqd_pb2.RqdStaticRestartIdleRequest())
 
     def restartRqdNow(self):
-        print self.rqdHost,"Sending restartRqdNow command"
+        print("{} Sending restartRqdNow command".format(self.rqdHost))
         self.stub.RestartRqdNow(rqd_pb2.RqdStaticRestartNowRequest())
 
     def rebootIdle(self):
-        print self.rqdHost,"Sending rebootIdle command"
+        print("{} Sending rebootIdle command".format(self.rqdHost))
         self.stub.RebootIdle(rqd_pb2.RqdStaticRebootIdleRequest())
 
     def rebootNow(self):
-        print self.rqdHost,"Sending rebootNow command"
+        print("{} Sending rebootNow command".format(self.rqdHost))
         self.stub.RebootNow(rqd_pb2.RqdStaticRebootNowRequest())
 
     def launchFrame(self, frame):
@@ -174,7 +174,7 @@ if __name__ == "__main__":
             tagPrefix = 'rqdv-'
             for tag in rqdHost.status().host.tags:
                 if tag.startswith(tagPrefix):
-                    print "version =", tag[len(tagPrefix):]
+                    print("version ={}".format(tag[len(tagPrefix):]))
         if o == "--nimbyoff":
             rqdHost.nimbyOff()
         if o == "--nimbyon":

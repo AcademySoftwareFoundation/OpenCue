@@ -81,18 +81,24 @@ class RqdReportInterfaceServicer(report_pb2_grpc.RqdReportInterfaceServicer):
     def _trackUpdateTime(self, report):
         now = time.time()
         self.statusCheckin[report.host.name] = {"last": now, "report": report}
-        print "-" * 20, time.asctime(time.localtime(now)), "-" * 20
+        timestring = time.asctime(time.localtime(time.time()))
+        print("{:*<20} {} {:*<20}".format('', timestring, ''))
         for host in sorted(self.statusCheckin.keys()):
             secondsSinceLast = now - self.statusCheckin[host]["last"]
             if host == report.host.name:
-               print " >",
+               line = [" >"]
             else:
-               print "  ",
-            print host.ljust(15) \
-                  , str(int(secondsSinceLast)).ljust(10) \
-                  , str(self.statusCheckin[host]["report"].host.load).ljust(5) \
-                  , str(self.statusCheckin[host]["report"].host.freeMem).ljust(10) \
-                  , ",".join(self.statusCheckin[host]["report"].host.tags)
+               line = ["  "]
+            line.extend(
+                [
+                    host.ljust(15),
+                    str(int(secondsSinceLast)).ljust(10),
+                    str(self.statusCheckin[host]["report"].host.load).ljust(5),
+                    str(self.statusCheckin[host]["report"].host.freeMem).ljust(10),
+                    ",".join(self.statusCheckin[host]["report"].host.tags)
+                ]
+            )
+            print("".join(line))
 
     def ReportRqdStartup(self, request, context):
         report = request.bootReport
