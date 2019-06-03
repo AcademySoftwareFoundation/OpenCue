@@ -166,6 +166,8 @@ class FrameAttendantThread(threading.Thread):
             if "CPU_LIST" in self.runFrame.attributes:
                 lines.append("Hyper-threading enabled")
 
+            lines.append("") # Force a newline at the end
+
             data = ("\n".join(lines)).encode("utf-8")
             self.rqlog.write(data)
 
