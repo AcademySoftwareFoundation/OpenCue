@@ -18,7 +18,6 @@ Constants.
 """
 
 
-import commands
 import logging
 import os
 import platform
@@ -105,7 +104,7 @@ ALLOW_GPU = False
 ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
-if commands.getoutput('/bin/su --help').find('session-command') != -1:
+if subprocess.check_output(["/bin/su", "--help"]).find(b"session-command") != -1:
     SU_ARGUEMENT = '--session-command'
 else:
     SU_ARGUEMENT = '-c'

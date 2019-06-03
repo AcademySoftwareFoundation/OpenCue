@@ -28,7 +28,6 @@ SVN: $Id$
 """
 from __future__ import absolute_import
 
-import commands
 import errno
 import logging as log
 import math
@@ -323,7 +322,7 @@ class Machine:
             try:
                 # /shots/spi/home/bin/spinux1/cudaInfo
                 # /shots/spi/home/bin/rhel7/cudaInfo
-                cudaInfo = commands.getoutput('/usr/local/spi/rqd3/cudaInfo')
+                cudaInfo = subprocess.check_output(['/usr/local/spi/rqd3/cudaInfo'])
                 if 'There is no device supporting CUDA' in cudaInfo:
                     self.gpuNotSupported = True
                 else:
@@ -516,7 +515,7 @@ class Machine:
         return self.__windowsStat
 
     def updateMacMemory(self):
-        memsizeOutput = commands.getoutput('sysctl hw.memsize').strip()
+        memsizeOutput = subprocess.check_output(['sysctl hw.memsize']).strip()
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
@@ -524,7 +523,7 @@ class Machine:
         else:
             self.__renderHost.total_mem = 0
 
-        vmStatLines = commands.getoutput('vm_stat').split('\n')
+        vmStatLines = subprocess.check_output(['vm_stat']).split('\n')
         lineRegex = re.compile(r'^(?P<field>.+):[\s]+(?P<pages>[\d]+).$')
         vmStats = {}
         for line in vmStatLines[1:-2]:
@@ -536,7 +535,7 @@ class Machine:
         inactiveMemory = vmStats.get("Pages inactive", 0) / 1024
         self.__renderHost.free_mem = freeMemory + inactiveMemory
 
-        swapStats = commands.getoutput('sysctl vm.swapusage').strip()
+        swapStats = subprocess.check_output(['sysctl vm.swapusage']).strip()
         swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
         swapMatch = swapRegex.match(swapStats)
         if swapMatch:
