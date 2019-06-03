@@ -50,6 +50,7 @@ Everything can throw SpiIce.SpiIceException
   - RunningFrameInfo status()
   - void kill()
 """
+from __future__ import absolute_import
 
 
 from concurrent import futures
@@ -63,12 +64,12 @@ import time
 
 import grpc
 
-from compiled_proto import report_pb2
-from compiled_proto import report_pb2_grpc
-from compiled_proto import rqd_pb2_grpc
-import rqconstants
-import rqdservicers
-import rqutil
+from .compiled_proto import report_pb2
+from .compiled_proto import report_pb2_grpc
+from .compiled_proto import rqd_pb2_grpc
+from . import rqconstants
+from . import rqdservicers
+from . import rqutil
 
 
 class RunningFrame(object):
@@ -140,10 +141,10 @@ class RunningFrame(object):
                         os.killpg(self.pid, rqconstants.KILL_SIGNAL)
                 finally:
                     rqutil.permissionsLow()
-            except OSError, e:
+            except OSError as e:
                 log.warning("kill() tried to kill a non-existant pid for: %s "
                             "Error: %s" % (self.frameId, e))
-            except Exception, e:
+            except Exception as e:
                 log.warning("kill() encountered an unknown error: %s" % e)
         else:
             log.warning("Kill requested after frameAttendantThread has exited "

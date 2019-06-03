@@ -15,12 +15,14 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+from __future__ import print_function
+from __future__ import absolute_import
 import os
 import unittest
 
-from rqcore import RqCore
+from .rqcore import RqCore
 
-from test.test_cuebot_listener import RqdReportStaticServer
+from .test.test_cuebot_listener import RqdReportStaticServer
 
 
 class SetupCuebotListener(unittest.TestCase):
@@ -39,10 +41,10 @@ class test_Machine_cpuinfo(unittest.TestCase):
         del self.rqd
 
     def _printme(self):
-        print len(self.rqd.machine.procDict)
-        print self.rqd.machine._procCount
-        print self.rqd.machine._coreCount
-        print self.rqd.machine._coresPerProc
+        print(len(self.rqd.machine.procDict))
+        print(self.rqd.machine._procCount)
+        print(self.rqd.machine._coreCount)
+        print(self.rqd.machine._coresPerProc)
 
     def test_shark(self):
         self.__cpuinfoTestHelper('./test/_cpuinfo_shark_ht_8-4-2-2')

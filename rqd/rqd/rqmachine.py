@@ -26,6 +26,7 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
+from __future__ import absolute_import
 
 import commands
 import errno
@@ -46,17 +47,17 @@ if platform.system() == 'Linux':
     import resource
     import yaml
 
-import rqconstants
-from rqexceptions import CoreReservationFailureException
-import rqutil
-import rqswap
+from . import rqconstants
+from .rqexceptions import CoreReservationFailureException
+from . import rqutil
+from . import rqswap
 
 if platform.system() == "win32":
     import win32process
     import win32api
 
-from compiled_proto import host_pb2
-from compiled_proto import report_pb2
+from .compiled_proto import host_pb2
+from .compiled_proto import report_pb2
 
 KILOBYTE = 1024
 
@@ -203,7 +204,7 @@ class Machine:
                         # The time in jiffies the process started
                         # after system boot.
                         "start_time": statFields[21]}
-                except Exception, e:
+                except Exception as e:
                     pass
 
         try:
@@ -237,7 +238,7 @@ class Machine:
                                 seconds = now - bootTime - \
                                         float(data["start_time"]) / rqconstants.SYS_HERTZ
                                 if seconds:
-                                    if self.__pidHistory.has_key(pid):
+                                    if pid in self.__pidHistory:
                                         # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
                                         oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
                                         #checking if already updated data
@@ -273,7 +274,7 @@ class Machine:
 
             # Store the current data for the next check
             self.__pidHistory = pidData
-        except Exception, e:
+        except Exception as e:
             log.exception('Failure with rss update due to: {0}'.format(e))
 
     def getLoadAvg(self):
@@ -332,7 +333,7 @@ class Machine:
                     self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
                     self.gpuResults['free'] = int(results[4]) * KILOBYTE
                     self.gpuResults['updated'] = time.time()
-            except Exception, e:
+            except Exception as e:
                 log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
                             (e, traceback.extract_tb(sys.exc_info()[2])))
         return self.gpuResults
@@ -433,12 +434,12 @@ class Machine:
                                                / int(singleCore.get('cpu cores', '1')))
 
                     __totalCores += rqconstants.CORE_VALUE
-                    if singleCore.has_key("core id") \
-                       and singleCore.has_key("physical id") \
+                    if "core id" in singleCore \
+                       and "physical id" in singleCore \
                        and not singleCore["physical id"] in procsFound:
                         procsFound.append(singleCore["physical id"])
                         __numProcs += 1
-                    elif not singleCore.has_key("core id"):
+                    elif "core id" not in singleCore:
                         __numProcs += 1
                     singleCore = {}
                 # An entry without data

@@ -46,6 +46,8 @@
       Displays information from or sends a command to an RQD host
 \nCONTACT
      Middle-Tier Group"""
+from __future__ import print_function
+from __future__ import absolute_import
 
 
 import os
@@ -57,9 +59,9 @@ import logging as log
 
 import grpc
 
-from compiled_proto import rqd_pb2
-from compiled_proto import rqd_pb2_grpc
-import rqconstants
+from .compiled_proto import rqd_pb2
+from .compiled_proto import rqd_pb2_grpc
+from . import rqconstants
 
 
 class RqdHost:
@@ -139,7 +141,7 @@ class RqdHost:
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print __doc__
+        print(__doc__)
         sys.exit()
     elif sys.argv[1].startswith("-"):
         hostname = "localhost"
@@ -157,17 +159,17 @@ if __name__ == "__main__":
         newargs = [re.sub(r"^(-\w{2,})$", r"-\1", arg) for arg in startArgv]
         opts, argv = getopt.getopt(newargs, SHORT_ARGS, LONG_ARGS)
     except getopt.GetoptError:
-        print __doc__
+        print(__doc__)
         sys.exit(1)
 
     rqdHost = RqdHost(hostname)
 
     for o, a in opts:
         if o in ("-h", "--help"):
-            print __doc__
+            print(__doc__)
             sys.exit(0)
         if o in ("-s", "--s"):
-            print rqdHost.status()
+            print(rqdHost.status())
         if o in ("-v",):
             tagPrefix = 'rqdv-'
             for tag in rqdHost.status().host.tags:
@@ -199,12 +201,12 @@ if __name__ == "__main__":
             rqdHost.rebootNow()
         if o == "--getproxy":
             frameProxy = rqdHost.getRunningFrame(a)
-            print frameProxy
+            print(frameProxy)
         if o == "--kill":
             rqdHost.killFrame(a, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
 
         if o == "--test_edu_frame":
-            print "Launching edu test frame (logs to /mcp)"
+            print("Launching edu test frame (logs to /mcp)")
             frameNum = "0001"
             runFrame = rqd_pb2.RunFrame()
             runFrame.job_id = "SD6F3S72DJ26236KFS"
@@ -226,7 +228,7 @@ if __name__ == "__main__":
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame":
-            print "Launching script test frame (logs to /mcp)"
+            print("Launching script test frame (logs to /mcp)")
             runFrame = rqd_pb2.RunFrame()
             runFrame.resource_id = "8888888877777755555"
             runFrame.job_id = "SD6F3S72DJ26236KFS"
@@ -248,7 +250,7 @@ if __name__ == "__main__":
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame_mac":
-            print "Launching script test frame (logs to /tmp)"
+            print("Launching script test frame (logs to /tmp)")
             runFrame = rqd_pb2.RunFrame()
             runFrame.resource_id = "2222222277777755555"
             runFrame.job_id = "SD6F3S72DJ26236KFS"

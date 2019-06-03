@@ -1,10 +1,11 @@
+from __future__ import absolute_import
 
 import logging as log
 
 import grpc
 
-from compiled_proto import rqd_pb2
-from compiled_proto import rqd_pb2_grpc
+from .compiled_proto import rqd_pb2
+from .compiled_proto import rqd_pb2_grpc
 
 
 class RqdInterfaceServicer(rqd_pb2_grpc.RqdInterfaceServicer):
