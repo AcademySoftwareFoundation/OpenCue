@@ -34,7 +34,7 @@ OpenCue provides features to manage rendering management at scale:
 # Learn more
 
 For more information on installing, using, and administering OpenCue, visit
-[opencue.io](https://opencue.io).
+[opencue.io](https://www.opencue.io).
 
 # Contact us
 
