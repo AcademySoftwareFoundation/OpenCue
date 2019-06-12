@@ -363,7 +363,7 @@ class OutputRegistrationTest(unittest.TestCase):
     def setUp(self):
         outline.Outline.current = None
 
-    # TODO(bcipriano) Re-enable this tests once FileSequence has a Python
+    # TODO(bcipriano) Re-enable this test once FileSequence has a Python
     #  implementation. (Issue #242)
     def disabled__test_output_passing(self):
         """

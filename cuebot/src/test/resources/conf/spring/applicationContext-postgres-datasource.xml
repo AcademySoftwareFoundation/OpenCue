@@ -24,12 +24,12 @@
            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-2.5.xsd">
 
     <!--
-    The way the unit tests work right now, any tests that has this XML included will set up the entire context from scratch for the
-    individual tests. The TestDatabaseSetup works around this problem by creating only 1 database per process, no matter how many times the
+    The way the unit tests work right now, any test that has this XML included will set up the entire context from scratch for the
+    individual test. The TestDatabaseSetup works around this problem by creating only 1 database per process, no matter how many times the
     bean is created. The username and password will be the same for the entire process.
 
-    What about using a tests suite? That idea didn't pan out because I wasn't able to get spring to initialize the tests suite class / inject
-    information (db username/password/etc..) back in to the spring context for use by the individual tests classes.
+    What about using a test suite? That idea didn't pan out because I wasn't able to get spring to initialize the test suite class / inject
+    information (db username/password/etc..) back in to the spring context for use by the individual test classes.
 
     Unlike the Oracle version of this bean, a destroy hook isn't needed; the embedded database exits and is torn down when
     the process exits.

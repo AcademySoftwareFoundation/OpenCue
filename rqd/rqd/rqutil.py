@@ -143,7 +143,7 @@ def getHostname():
         if rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return getHostIp()
         else:
-            # This may not work in windows/mac, need to tests
+            # This may not work in windows/mac, need to test
             return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     else:
         return socket.gethostname()
