@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,12 +13,12 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
 import os
 import unittest
 
-from rqcore import RqCore
-
-from test.test_cuebot_listener import RqdReportStaticServer
+import rqd.rqcore
+import tests.test_cuebot_listener
 
 
 class SetupCuebotListener(unittest.TestCase):
@@ -31,9 +29,7 @@ class SetupCuebotListener(unittest.TestCase):
 
 
 class test_Machine_cpuinfo(unittest.TestCase):
-    def setUp(self):
-        #rqconstants.DISABLE_NIMBY = True
-        self.rqd = RqCore()
+
 
     def tearDown(self):
         del self.rqd
@@ -45,37 +41,37 @@ class test_Machine_cpuinfo(unittest.TestCase):
         print self.rqd.machine._coresPerProc
 
     def test_shark(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_shark_ht_8-4-2-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_shark_ht_8-4-2-2')
 
     def test_shark_ht(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_shark_8-4-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_shark_8-4-2')
 
     def test_dub(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_dub_8-4-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_dub_8-4-2')
 
     def test_drack(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_drack_4-2-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_drack_4-2-2')
 
     def test_genosis(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_genosis_1-1-1')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_genosis_1-1-1')
 
     def test_rider(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_rider_4-2-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_rider_4-2-2')
 
     def test_vrack(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_vrack_2-1-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_vrack_2-1-2')
 
     def test_8600(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_hp8600_8-4-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_hp8600_8-4-2')
 
     def test_dub(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_dub_8-4-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_dub_8-4-2')
 
     def test_srdsvr05(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_srdsvr05_ht_12-6-2-2')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_srdsvr05_ht_12-6-2-2')
 
     def test_srdsvr09(self):
-        self.__cpuinfoTestHelper('./test/_cpuinfo_srdsvr09_48-12-4')
+        self.__cpuinfoTestHelper('./tests/_cpuinfo_srdsvr09_48-12-4')
 
     def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs

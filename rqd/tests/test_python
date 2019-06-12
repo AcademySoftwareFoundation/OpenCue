@@ -1,4 +1,4 @@
-#!/usr/bin/python -u
+#!/usr/local/bin/python
 
 import sys
 import getopt
@@ -16,7 +16,7 @@ exitStatus = 0
 for o, a in opts:
     if o in ("-h", "--help"):
         print "Description:"
-        print "  Simple test script for use with rqd development"
+        print "  Simple tests script for use with rqd development"
         print
         print "Syntax:"
         print "  -t <#>, --timerun <#>"

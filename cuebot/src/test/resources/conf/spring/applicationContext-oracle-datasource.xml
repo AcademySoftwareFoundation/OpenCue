@@ -24,21 +24,21 @@
            http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-2.5.xsd">
     
     <!--
-    The way the unit tests work right now, any test that has this XML included will set up the entire context from scratch for the
-    individual test. The TestDatabaseSetup works around this problem by creating only 1 database per process, no matter how many times the
+    The way the unit tests work right now, any tests that has this XML included will set up the entire context from scratch for the
+    individual tests. The TestDatabaseSetup works around this problem by creating only 1 database per process, no matter how many times the
     bean is created. The username and password will be the same for the entire process.
     
     Normally we'd have a destroy-method attrib here as well, but we take that out for 2 reasons:
     
-    1. Destroying would happen at the end of each test method, which means our DB would get dropped after a single test
+    1. Destroying would happen at the end of each tests method, which means our DB would get dropped after a single tests
     2. Destroying doesn't even work properly in this version of the spring testing framework. The context never gets destroyed. There's an
        annotation in later versions called DirtyContext that you can apply on the class (not the method like in this version) and that lets
        you specify where you want the context destroyed.
        
     To work around this destroying problem, TestDatabaseSetup creates a shutdown hook that drop the database once the process ends.
     
-    What about using a test suite? That idea didn't pan out because I wasn't able to get spring to intiailize the test suite class / inject
-    information (db username/password/etc..) back in to the spring context for use by the individual test classes.
+    What about using a tests suite? That idea didn't pan out because I wasn't able to get spring to intiailize the tests suite class / inject
+    information (db username/password/etc..) back in to the spring context for use by the individual tests classes.
     -->
     <bean id="dataSourceSetup" class="com.imageworks.spcue.test.TestDatabaseSetup" init-method="create" />
 

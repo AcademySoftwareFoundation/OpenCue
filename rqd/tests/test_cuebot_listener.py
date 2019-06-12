@@ -15,7 +15,7 @@
 
 # $Id$
 #
-# A simple test script that acts like the cuebot by listening for messages from RQD.
+# A simple tests script that acts like the cuebot by listening for messages from RQD.
 #
 # Author: John Welborn (jwelborn@imageworks.com)
 
