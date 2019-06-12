@@ -43,9 +43,9 @@ RUN python -m grpc_tools.protoc \
 # -----------------
 FROM build as test
 
-COPY rqd/rqd/test/ ./rqd/rqd/test
+COPY rqd/tests/ ./rqd/tests
 
-RUN rqd/rqd/unittests.py
+RUN cd rqd && python setup.py test
 
 
 # -----------------
