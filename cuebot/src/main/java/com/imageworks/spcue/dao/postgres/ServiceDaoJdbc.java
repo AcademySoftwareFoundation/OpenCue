@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.LinkedHashSet;
 
 import com.google.common.collect.Sets;
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -32,8 +33,10 @@ import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
+@Repository
+public class ServiceDaoJdbc extends AbstractJdbcDao implements ServiceDao {
 
     private static final String SPLITTER = " \\| ";
 

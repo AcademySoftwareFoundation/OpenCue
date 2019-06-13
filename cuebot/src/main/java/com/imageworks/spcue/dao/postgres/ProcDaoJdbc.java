@@ -26,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -46,8 +47,10 @@ import com.imageworks.spcue.dispatcher.ResourceDuplicationFailureException;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
+@Repository
+public class ProcDaoJdbc extends AbstractJdbcDao implements ProcDao {
 
     private static final String VERIFY_RUNNING_PROC =
         "SELECT " +

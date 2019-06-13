@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DeedEntity;
@@ -31,11 +33,17 @@ import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.OwnerDao;
 
+@Service
 @Transactional
 public class OwnerManagerService implements OwnerManager {
 
+    @Autowired
     private OwnerDao ownerDao;
+
+    @Autowired
     private DeedDao deedDao;
+
+    @Autowired
     private HostDao hostDao;
 
     @Override
@@ -104,30 +112,6 @@ public class OwnerManagerService implements OwnerManager {
     @Override
     public boolean isOwner(OwnerEntity owner, HostInterface host) {
         return ownerDao.isOwner(owner, host);
-    }
-
-    public OwnerDao getOwnerDao() {
-        return ownerDao;
-    }
-
-    public void setOwnerDao(OwnerDao ownerDao) {
-        this.ownerDao = ownerDao;
-    }
-
-    public DeedDao getDeedDao() {
-        return deedDao;
-    }
-
-    public void setDeedDao(DeedDao deedDao) {
-        this.deedDao = deedDao;
-    }
-
-    public HostDao getHostDao() {
-        return hostDao;
-    }
-
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
     }
 }
 

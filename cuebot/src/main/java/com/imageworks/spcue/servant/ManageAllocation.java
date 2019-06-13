@@ -44,13 +44,28 @@ import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfaceImplBase {
+
+    @Autowired
     private AllocationDao allocationDao;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private AdminManager adminManager;
+
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private HostSearchFactory hostSearchFactory;
 
     public ManageAllocation() {}
@@ -193,50 +208,6 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
         adminManager.setAllocationTag(alloc, request.getTag());
         responseObserver.onNext(AllocSetTagResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-    public AdminManager getAdminManager() {
-        return adminManager;
-    }
-
-    public void setAdminManager(AdminManager adminManager) {
-        this.adminManager = adminManager;
-    }
-
-    public AllocationDao getAllocationDao() {
-        return allocationDao;
-    }
-
-    public void setAllocationDao(AllocationDao allocationDao) {
-        this.allocationDao = allocationDao;
-    }
-
-    public DispatchQueue getManageQueue() {
-        return manageQueue;
-    }
-
-    public void setManageQueue(DispatchQueue manageQueue) {
-        this.manageQueue = manageQueue;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
-    }
-
-    public HostManager getHostManager() {
-        return hostManager;
-    }
-
-    public void setHostManager(HostManager hostManager) {
-        this.hostManager = hostManager;
-    }
-
-    public void setHostSearchFactory(HostSearchFactory hostSearchFactory) {
-        this.hostSearchFactory = hostSearchFactory;
     }
 
     private AllocationEntity toAllocationEntity(Allocation allocGrpc) {

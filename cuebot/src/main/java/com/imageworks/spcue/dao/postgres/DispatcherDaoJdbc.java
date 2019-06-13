@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -44,6 +45,7 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Repository;
 
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_PROC;
@@ -66,7 +68,8 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JO
  *
  * @category DAO
  */
-public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
+@Repository
+public class DispatcherDaoJdbc extends AbstractJdbcDao implements DispatcherDao {
 
     private static final Logger logger = Logger.getLogger(DispatcherDaoJdbc.class);
 

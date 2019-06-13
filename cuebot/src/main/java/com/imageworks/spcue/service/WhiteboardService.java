@@ -22,6 +22,7 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,25 +104,21 @@ import com.imageworks.spcue.grpc.task.TaskSeq;
 * because the readers view of the DB is fixed throughout the transaction.
 *
 */
+@org.springframework.stereotype.Service
 @Transactional(readOnly = true, propagation = Propagation.REQUIRED)
 public class WhiteboardService implements Whiteboard {
 
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(WhiteboardService.class);
 
+    @Autowired
     private WhiteboardDao whiteboardDao;
 
+    @Autowired
     private NestedWhiteboardDao nestedWhiteboardDao;
 
+    @Autowired
     private JobDao jobDao;
-
-    public JobDao getJobDao() {
-        return jobDao;
-    }
-
-    public void setJobDao(JobDao jobDao) {
-        this.jobDao = jobDao;
-    }
 
     public boolean isJobPending(String name) {
         return jobDao.exists(name);

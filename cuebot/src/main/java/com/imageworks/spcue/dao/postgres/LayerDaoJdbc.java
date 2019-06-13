@@ -29,6 +29,7 @@ import java.util.UUID;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
@@ -48,8 +49,10 @@ import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
+@Repository
+public class LayerDaoJdbc extends AbstractJdbcDao implements LayerDao {
 
     private static final String INSERT_OUTPUT_PATH =
         "INSERT INTO " +

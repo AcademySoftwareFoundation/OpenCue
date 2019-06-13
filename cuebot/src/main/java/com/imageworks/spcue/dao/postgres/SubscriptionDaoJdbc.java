@@ -22,6 +22,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
@@ -35,8 +36,10 @@ import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class SubscriptionDaoJdbc extends JdbcDaoSupport implements SubscriptionDao {
+@Repository
+public class SubscriptionDaoJdbc extends AbstractJdbcDao implements SubscriptionDao {
 
     private static final String IS_SHOW_OVER_SIZE =
         "SELECT " +

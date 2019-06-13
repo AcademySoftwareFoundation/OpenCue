@@ -19,39 +19,10 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.DispatcherDao;
-import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.criteria.Direction;
-import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
-import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
-import com.imageworks.spcue.dao.criteria.Sort;
+import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.dao.criteria.*;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -61,56 +32,60 @@ import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     DispatcherDao dispatcherDao;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
     
-    @Resource
+    @Autowired
     ProcSearchFactory procSearchFactory;
 
     private static String PK_ALLOC = "00000000-0000-0000-0000-000000000000";

@@ -17,19 +17,6 @@
 
 package com.imageworks.spcue.test.dao.criteria;
 
-import java.io.File;
-import java.util.List;
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
@@ -38,25 +25,35 @@ import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.service.JobLauncher;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class JobSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     JobSearchFactory jobSearchFactory;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     WhiteboardDao whiteboardDao;
 
-    @Resource
+    @Autowired
     ShowDao showDao;
 
     @Before

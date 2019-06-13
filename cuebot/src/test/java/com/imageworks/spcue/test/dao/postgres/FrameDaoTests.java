@@ -19,30 +19,8 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.Map;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Rule;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.AfterTransaction;
-import org.springframework.test.context.transaction.BeforeTransaction;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
@@ -60,47 +38,51 @@ import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+import java.util.Map;
+
+import static org.junit.Assert.*;
 
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
-
+    
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     DependManager dependManager;
 
-    @Resource
+    @Autowired
     DispatchSupport dispatchSupport;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
     private static final String HOST = "beta";

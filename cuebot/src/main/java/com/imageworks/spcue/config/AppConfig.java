@@ -19,44 +19,52 @@
 
 package com.imageworks.spcue.config;
 
-import com.imageworks.spcue.servlet.JobLaunchServlet;
-
-import javax.sql.DataSource;
-import org.springframework.boot.jdbc.DataSourceBuilder;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.imageworks.spcue.dispatcher.CoreUnitDispatcher;
+import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.LocalDispatcher;
+import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdClientGrpc;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.ImportResource;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
+import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+
 
 @Configuration
-@ImportResource({"classpath:conf/spring/applicationContext-grpc.xml",
-                 "classpath:conf/spring/applicationContext-grpcServer.xml",
-                 "classpath:conf/spring/applicationContext-service.xml",
-                 "classpath:conf/spring/applicationContext-jms.xml",
-                 "classpath:conf/spring/applicationContext-criteria.xml"})
-
-
-@EnableConfigurationProperties
-@PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
 
-    @Bean
-    @Primary
-    public DataSource dataSource() {
-        return DataSourceBuilder.create().build();
+    @Configuration
+    @ConfigurationProperties("grpc.rqd")
+    public class RqdConfiguration {
+        public int cacheSize = 500;
+        public int cacheExpiration = 30;
+        public int serverPort = 8444;
     }
 
     @Bean
-    public ServletRegistrationBean jobLaunchServlet() {
-        ServletRegistrationBean b = new ServletRegistrationBean();
-        b.addUrlMappings("/launch");
-        b.addInitParameter("contextConfigLocation", "classpath:conf/spring/jobLaunchServlet-servlet.xml");
-        b.setServlet(new JobLaunchServlet());
-        return b;
+    @Autowired
+    public RqdClient rqdClient(RqdConfiguration config) {
+        return new RqdClientGrpc(config.serverPort, config.cacheSize, config.cacheExpiration);
     }
 
+    @Bean("localDispatcher")
+    public Dispatcher localDispatcher() {
+        return new LocalDispatcher();
+    }
+
+    @Bean("dispatcher")
+    public Dispatcher coreUnitDispatcher() {
+        return new CoreUnitDispatcher();
+    }
+
+    @Bean
+    public JavaMailSenderImpl mailSender() {
+        JavaMailSenderImpl sender =  new JavaMailSenderImpl();
+        sender.setHost("smtp");
+        return sender;
+    }
 }
 

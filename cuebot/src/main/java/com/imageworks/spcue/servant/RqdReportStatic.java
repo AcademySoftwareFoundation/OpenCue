@@ -13,11 +13,17 @@ import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionRequest;
 import com.imageworks.spcue.grpc.report.RqdReportRunningFrameCompletionResponse;
 import com.imageworks.spcue.grpc.report.RqdReportStatusRequest;
 import com.imageworks.spcue.grpc.report.RqdReportStatusResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 
+@Component
 public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceImplBase {
 
+    @Autowired
     private FrameCompleteHandler frameCompleteHandler;
+
+    @Autowired
     private HostReportHandler hostReportHandler;
 
     @SuppressWarnings("unused")

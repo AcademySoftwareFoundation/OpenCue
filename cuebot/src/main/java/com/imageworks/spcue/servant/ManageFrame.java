@@ -77,16 +77,34 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private FrameDao frameDao;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private LocalBookingSupport localBookingSupport;
+
+    @Autowired
     private FrameSearchFactory frameSearchFactory;
 
     @Override
@@ -110,8 +128,7 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
         responseObserver.onNext(FrameGetFramesResponse.newBuilder()
                 .setFrames(
                         whiteboard.getFrames(
-                                frameSearchFactory.create(
-                                        jobManagerSupport.getJobManager().findJob(request.getJob()),
+                                frameSearchFactory.create(jobManager.findJob(request.getJob()),
                                         request.getR())))
                 .build());
         responseObserver.onCompleted();
@@ -156,7 +173,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void createDependencyOnFrame(FrameCreateDependencyOnFrameRequest request,
                                         StreamObserver<FrameCreateDependencyOnFrameResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         FrameOnFrame depend = new FrameOnFrame(frame,
                 jobManager.getFrameDetail(request.getDependOnFrame().getId()));
@@ -171,7 +187,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void createDependencyOnJob(FrameCreateDependencyOnJobRequest request,
                                       StreamObserver<FrameCreateDependencyOnJobResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         FrameOnJob depend = new FrameOnJob(frame, jobManager.getJobDetail(request.getJob().getId()));
         dependManager.createDepend(depend);
@@ -185,7 +200,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void createDependencyOnLayer(FrameCreateDependencyOnLayerRequest request,
                                         StreamObserver<FrameCreateDependencyOnLayerResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         FrameOnLayer depend = new FrameOnLayer(frame, jobManager.getLayerDetail(request.getLayer().getId()));
         dependManager.createDepend(depend);
@@ -219,7 +233,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void markAsDepend(FrameMarkAsDependRequest request,
                              StreamObserver<FrameMarkAsDependResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.markFrameAsDepend(frame);
         responseObserver.onNext(FrameMarkAsDependResponse.newBuilder().build());
@@ -228,7 +241,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void markAsWaiting(FrameMarkAsWaitingRequest request, StreamObserver<FrameMarkAsWaitingResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.markFrameAsWaiting(frame);
         responseObserver.onNext(FrameMarkAsWaitingResponse.newBuilder().build());
@@ -237,7 +249,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void dropDepends(FrameDropDependsRequest request, StreamObserver<FrameDropDependsResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         manageQueue.execute(new DispatchDropDepends(frame, request.getTarget(), dependManager));
         responseObserver.onNext(FrameDropDependsResponse.newBuilder().build());
@@ -247,7 +258,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void addRenderPartition(FrameAddRenderPartitionRequest request,
                                    StreamObserver<FrameAddRenderPartitionResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         LocalHostAssignment lha = new LocalHostAssignment();
         lha.setFrameId(frame.id);
@@ -274,7 +284,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     @Override
     public void setCheckpointState(FrameSetCheckpointStateRequest request,
                                    StreamObserver<FrameSetCheckpointStateResponse> responseObserver) {
-        updateManagers();
         FrameEntity frame = getFrameEntity(request.getFrame());
         jobManager.updateCheckpointState(frame, request.getState());
         responseObserver.onNext(FrameSetCheckpointStateResponse.newBuilder().build());
@@ -339,11 +348,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     private FrameEntity getFrameEntity(Frame frame) {
         return frameDao.getFrameDetail(frame.getId());
-    }
-
-    private void updateManagers() {
-        setDependManager(jobManagerSupport.getDependManager());
-        setJobManager(jobManagerSupport.getJobManager());
     }
 
     public FrameSearchFactory getFrameSearchFactory() {

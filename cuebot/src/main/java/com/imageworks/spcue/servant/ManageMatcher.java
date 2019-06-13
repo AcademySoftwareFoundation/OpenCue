@@ -32,11 +32,16 @@ import com.imageworks.spcue.grpc.filter.MatcherGetParentFilterResponse;
 import com.imageworks.spcue.grpc.filter.MatcherInterfaceGrpc;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-
+@Component
 public class ManageMatcher extends MatcherInterfaceGrpc.MatcherInterfaceImplBase {
 
+    @Autowired
     private FilterManager filterManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     public void delete(MatcherDeleteRequest request, StreamObserver<MatcherDeleteResponse> responseObserver) {
@@ -63,22 +68,6 @@ public class ManageMatcher extends MatcherInterfaceGrpc.MatcherInterfaceImplBase
         filterManager.updateMatcher(newMatcher);
         responseObserver.onNext(MatcherCommitResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-    public FilterManager getFilterManager() {
-        return filterManager;
-    }
-
-    public void setFilterManager(FilterManager filterManager) {
-        this.filterManager = filterManager;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
     }
 }
 

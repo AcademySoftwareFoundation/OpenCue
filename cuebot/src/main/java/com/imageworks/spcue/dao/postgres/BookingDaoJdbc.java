@@ -24,6 +24,8 @@ import java.sql.SQLException;
 import java.util.Calendar;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -37,9 +39,14 @@ import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
+import javax.annotation.PostConstruct;
+import javax.sql.DataSource;
+
+@Repository
 public class BookingDaoJdbc extends
-    JdbcDaoSupport implements BookingDao {
+        AbstractJdbcDao implements BookingDao {
 
     private static final String INSERT_LOCAL_JOB_ASSIGNMENT =
         "INSERT INTO " +

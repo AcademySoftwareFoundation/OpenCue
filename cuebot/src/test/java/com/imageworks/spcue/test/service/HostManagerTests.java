@@ -19,81 +19,59 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
+import com.imageworks.spcue.*;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.service.*;
+import com.imageworks.spcue.util.CueUtil;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.EntityModificationError;
-import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.OwnerEntity;
-import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.FacilityDao;
-import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.OwnerManager;
-import com.imageworks.spcue.util.CueUtil;
+import java.io.File;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     FacilityDao facilityDao;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     AllocationDao allocationDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     OwnerManager ownerManager;
 
     private static final String HOST_NAME = "alpha1";

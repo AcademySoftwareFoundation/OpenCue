@@ -23,13 +23,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.stereotype.Component;
 
 public class DispatchQueue {
 
-    private TaskExecutor dispatchPool;
-    private ThreadPoolTaskExecutor _dispatchPool;
+    private ThreadPoolTaskExecutor dispatchPool;
+
     private String name = "Default";
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
 
@@ -40,8 +42,9 @@ public class DispatchQueue {
 
     public DispatchQueue() {}
 
-    public DispatchQueue(String name) {
+    public DispatchQueue(String name, ThreadPoolTaskExecutor pool) {
         this.name = name;
+        this.dispatchPool = pool;
     }
 
     public void execute(Runnable r) {
@@ -60,19 +63,19 @@ public class DispatchQueue {
     }
 
     public int getMaxPoolSize() {
-        return _dispatchPool.getMaxPoolSize();
+        return dispatchPool.getMaxPoolSize();
     }
 
     public int getActiveThreadCount() {
-        return _dispatchPool.getActiveCount();
+        return dispatchPool.getActiveCount();
     }
 
     public int getWaitingCount() {
-        return _dispatchPool.getThreadPoolExecutor().getQueue().size();
+        return dispatchPool.getThreadPoolExecutor().getQueue().size();
     }
 
     public int getRemainingCapacity() {
-        return _dispatchPool.getThreadPoolExecutor().getQueue().remainingCapacity();
+        return dispatchPool.getThreadPoolExecutor().getQueue().remainingCapacity();
     }
 
     public long getTotalDispatched() {
@@ -81,15 +84,6 @@ public class DispatchQueue {
 
     public long getTotalRejected() {
         return (long) tasksRejected.get();
-    }
-
-    public TaskExecutor getDispatchPool() {
-        return dispatchPool;
-    }
-
-    public void setDispatchPool(TaskExecutor dispatchPool) {
-        this.dispatchPool = dispatchPool;
-        this._dispatchPool = (ThreadPoolTaskExecutor) dispatchPool;
     }
 
     public void shutdown() {

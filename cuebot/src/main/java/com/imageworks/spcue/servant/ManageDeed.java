@@ -38,10 +38,16 @@ import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
 
+    @Autowired
     private OwnerManager ownerManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     @Override
@@ -79,23 +85,6 @@ public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
         ownerManager.setBlackoutTimeEnabled(toEntity(request.getDeed()), request.getEnabled());
         responseObserver.onNext(DeedSetBlackoutTimeEnabledResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-
-    public OwnerManager getOwnerManager() {
-        return ownerManager;
-    }
-
-    public void setOwnerManager(OwnerManager ownerManager) {
-        this.ownerManager = ownerManager;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
     }
 
     private DeedEntity toEntity(Deed deed) {

@@ -30,18 +30,28 @@ import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dispatcher.LocalDispatcher;
 import com.imageworks.spcue.grpc.host.LockState;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 
 /**
  * Non transactional class for handling local booking logic.
  */
+@Service
 public class LocalBookingSupport {
 
     private static final Logger logger = Logger.getLogger(LocalBookingSupport.class);
 
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private LocalDispatcher localDispatcher;
+
+    @Autowired
     private OwnerManager ownerManager;
+
+    @Autowired
     private BookingManager bookingManager;
 
     public boolean bookLocal(JobInterface job, String hostname, String user,
@@ -150,38 +160,6 @@ public class LocalBookingSupport {
                 + ", there were no suitable frames to book.");
 
         return false;
-    }
-
-    public HostManager getHostManager() {
-        return hostManager;
-    }
-
-    public void setHostManager(HostManager hostManager) {
-        this.hostManager = hostManager;
-    }
-
-    public LocalDispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(LocalDispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
-
-    public OwnerManager getOwnerManager() {
-        return ownerManager;
-    }
-
-    public void setOwnerManager(OwnerManager ownerManager) {
-        this.ownerManager = ownerManager;
-    }
-
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
     }
 }
 

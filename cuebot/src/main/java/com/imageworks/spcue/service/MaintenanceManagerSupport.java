@@ -22,6 +22,7 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
 import com.imageworks.spcue.FrameInterface;
@@ -36,21 +37,29 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
+import org.springframework.stereotype.Service;
 
+@Service
 public class MaintenanceManagerSupport {
 
     private static final Logger logger = Logger.getLogger(MaintenanceManagerSupport.class);
 
+    @Autowired
     private MaintenanceDao maintenanceDao;
 
+    @Autowired
     private ProcDao procDao;
 
+    @Autowired
     private FrameDao frameDao;
 
+    @Autowired
     private JobManager jobManager;
 
+    @Autowired
     private DispatchSupport dispatchSupport;
 
+    @Autowired
     private HistoricalSupport historicalSupport;
 
     private static final long WAIT_FOR_HOST_REPORTS_MS = 600000;

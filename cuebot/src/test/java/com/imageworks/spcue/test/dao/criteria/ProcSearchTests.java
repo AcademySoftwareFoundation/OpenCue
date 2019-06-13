@@ -17,21 +17,7 @@
 
 package com.imageworks.spcue.test.dao.criteria;
 
-import java.io.File;
-import java.util.List;
-import java.util.stream.Collectors;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.Inherit;
@@ -46,11 +32,19 @@ import com.imageworks.spcue.grpc.host.Proc;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.show.Show;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.GroupManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.*;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
@@ -58,7 +52,6 @@ import static org.junit.Assert.assertNotEquals;
 
 @Transactional
 @ContextConfiguration(classes= TestAppConfig.class, loader= AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     private static final String FIRST_HOST = "beta01";
@@ -68,28 +61,28 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     private static final String DEFAULT_GROUP_NAME = "pipe";
     private static final String NEW_GROUP_NAME = "arbitrary-group-name";
 
-    @Resource
+    @Autowired
     ProcSearchFactory procSearchFactory;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     WhiteboardDao whiteboardDao;
 
-    @Resource
+    @Autowired
     GroupManager groupManager;
 
     @Before

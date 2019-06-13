@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -38,14 +39,20 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
+import org.springframework.stereotype.Component;
 
 public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
     private static final Logger logger =
         Logger.getLogger(LocalDispatcher.class);
 
+    @Autowired
     private BookingManager bookingManager;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private HostManager hostManager;
 
     private static final int MAX_QUERY_FRAMES = 10;

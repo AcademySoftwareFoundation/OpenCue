@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -46,8 +47,10 @@ import com.imageworks.spcue.depend.PreviousFrame;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class DependDaoJdbc extends JdbcDaoSupport implements DependDao {
+@Repository
+public class DependDaoJdbc extends AbstractJdbcDao implements DependDao {
 
     public static final RowMapper<LightweightDependency> DEPEND_MAPPER = new RowMapper<LightweightDependency>() {
         public LightweightDependency mapRow(ResultSet rs, int row) throws SQLException {

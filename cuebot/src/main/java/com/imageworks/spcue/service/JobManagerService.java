@@ -23,7 +23,9 @@ import java.util.List;
 
 import com.google.common.collect.Sets;
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -62,19 +64,37 @@ import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
 
+@Service
 @Transactional
 public class JobManagerService implements JobManager {
 
     private static final Logger logger = Logger.getLogger(JobManagerService.class);
 
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private ShowDao showDao;
+
+    @Autowired
     private FrameDao frameDao;
+
+    @Autowired
     private LayerDao layerDao;
+
+    @Autowired
     private HostDao hostDao;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private FilterManager filterManager;
+
+    @Autowired
     private GroupDao groupDao;
+
+    @Autowired
     private FacilityDao facilityDao;
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)

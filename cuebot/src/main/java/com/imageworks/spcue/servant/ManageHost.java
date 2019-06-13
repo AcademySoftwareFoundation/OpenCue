@@ -88,7 +88,9 @@ import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     private HostManager hostManager;

@@ -17,18 +17,6 @@
 
 package com.imageworks.spcue.test.dao.criteria;
 
-import java.util.List;
-import java.util.stream.Collectors;
-import javax.annotation.Resource;
-
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
@@ -41,25 +29,34 @@ import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.Assert.assertEquals;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     HostSearchFactory hostSearchFactory;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     WhiteboardDao whiteboardDao;
 
     private AllocationEntity createAlloc(FacilityInterface facility, String allocName) {

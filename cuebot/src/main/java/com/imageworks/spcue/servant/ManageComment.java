@@ -28,9 +28,13 @@ import com.imageworks.spcue.grpc.comment.CommentInterfaceGrpc;
 import com.imageworks.spcue.grpc.comment.CommentSaveRequest;
 import com.imageworks.spcue.grpc.comment.CommentSaveResponse;
 import com.imageworks.spcue.service.CommentManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageComment extends CommentInterfaceGrpc.CommentInterfaceImplBase {
 
+    @Autowired
     private CommentManager commentManager;
 
     @Override
@@ -50,14 +54,6 @@ public class ManageComment extends CommentInterfaceGrpc.CommentInterfaceImplBase
         CommentSaveResponse response = CommentSaveResponse.newBuilder().build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
-    }
-
-    public CommentManager getCommentManager() {
-        return commentManager;
-    }
-
-    public void setCommentManager(CommentManager commentManager) {
-        this.commentManager = commentManager;
     }
 }
 

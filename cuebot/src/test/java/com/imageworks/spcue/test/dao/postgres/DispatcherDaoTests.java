@@ -19,104 +19,75 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.List;
-import java.util.Set;
-import javax.annotation.Resource;
-
+import com.imageworks.spcue.*;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.service.*;
+import com.imageworks.spcue.util.CueUtil;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.BookingDao;
-import com.imageworks.spcue.dao.DispatcherDao;
-import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.JobDao;
-import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
-import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.job.JobState;
-import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.GroupManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
-import com.imageworks.spcue.util.CueUtil;
+import java.io.File;
+import java.util.List;
+import java.util.Set;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     DispatcherDao dispatcherDao;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     AllocationDao allocationDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     DispatchSupport dispatchSupport;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     GroupManager groupManager;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     BookingDao bookingDao;
 
     private static final String HOSTNAME="beta";

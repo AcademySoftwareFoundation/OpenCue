@@ -20,6 +20,8 @@
 package com.imageworks.spcue.service;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,20 +39,26 @@ import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
 
+@Service
 @Transactional
 public class AdminManagerService implements AdminManager {
 
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(AdminManagerService.class);
 
+    @Autowired
     private ShowDao showDao;
 
+    @Autowired
     private AllocationDao allocationDao;
 
+    @Autowired
     private SubscriptionDao subscriptionDao;
 
+    @Autowired
     private FacilityDao facilityDao;
 
+    @Autowired
     private GroupManager groupManager;
 
     public void setShowActive(ShowInterface show, boolean value) {
@@ -189,46 +197,6 @@ public class AdminManagerService implements AdminManager {
     @Override
     public void setAllocationBillable(AllocationInterface alloc, boolean value) {
         allocationDao.updateAllocationBillable(alloc, value);
-    }
-
-    public AllocationDao getAllocationDao() {
-        return allocationDao;
-    }
-
-    public void setAllocationDao(AllocationDao allocationDao) {
-        this.allocationDao = allocationDao;
-    }
-
-    public ShowDao getShowDao() {
-        return showDao;
-    }
-
-    public void setShowDao(ShowDao showDao) {
-        this.showDao = showDao;
-    }
-
-    public SubscriptionDao getSubscriptionDao() {
-        return subscriptionDao;
-    }
-
-    public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
-        this.subscriptionDao = subscriptionDao;
-    }
-
-    public GroupManager getGroupManager() {
-        return groupManager;
-    }
-
-    public void setGroupManager(GroupManager groupManager) {
-        this.groupManager = groupManager;
-    }
-
-    public FacilityDao getFacilityDao() {
-        return facilityDao;
-    }
-
-    public void setFacilityDao(FacilityDao facilityDao) {
-        this.facilityDao = facilityDao;
     }
 }
 

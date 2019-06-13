@@ -39,11 +39,16 @@ import com.imageworks.spcue.grpc.subscription.SubscriptionSetSizeResponse;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
-
+@Component
 public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionInterfaceImplBase {
 
+    @Autowired
     private AdminManager adminManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     @Override

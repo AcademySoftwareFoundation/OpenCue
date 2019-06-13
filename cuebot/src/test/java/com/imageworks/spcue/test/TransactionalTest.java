@@ -19,22 +19,16 @@
 
 package com.imageworks.spcue.test;
 
-import org.junit.Test;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.config.TestAppConfig;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-public class TransactionalTest extends AbstractTransactionalJUnit4SpringContextTests {
+abstract public class TransactionalTest extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Test
-    public void testInit() {
-
-    }
 
 }
 

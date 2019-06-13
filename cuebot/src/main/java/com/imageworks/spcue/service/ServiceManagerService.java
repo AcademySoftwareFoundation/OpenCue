@@ -19,7 +19,9 @@
 
 package com.imageworks.spcue.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,9 +32,11 @@ import com.imageworks.spcue.dao.ServiceDao;
 /**
  * Manages job services.
  */
+@Service
 @Transactional
 public class ServiceManagerService implements ServiceManager {
 
+    @Autowired
     private ServiceDao serviceDao;
 
     private static final String DEFAULT_SERVICE = "default";

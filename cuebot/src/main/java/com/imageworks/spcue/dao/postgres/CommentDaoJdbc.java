@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -31,8 +32,10 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.CommentDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
+@Repository
+public class CommentDaoJdbc extends AbstractJdbcDao implements CommentDao {
 
     public void deleteComment(String id) {
         /*

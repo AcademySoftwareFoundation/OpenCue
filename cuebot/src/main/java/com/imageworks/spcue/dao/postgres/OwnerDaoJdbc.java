@@ -22,6 +22,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -32,8 +33,10 @@ import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.OwnerDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class OwnerDaoJdbc  extends JdbcDaoSupport implements OwnerDao {
+@Repository
+public class OwnerDaoJdbc  extends AbstractJdbcDao implements OwnerDao {
 
     public static final RowMapper<OwnerEntity>
         OWNER_MAPPER = new RowMapper<OwnerEntity>() {

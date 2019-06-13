@@ -20,7 +20,9 @@ package com.imageworks.spcue.dao.criteria;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.dao.criteria.postgres.HostSearch;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import org.springframework.stereotype.Component;
 
+@Component
 public class HostSearchFactory {
 
     public HostSearchInterface create(HostSearchCriteria criteria) {

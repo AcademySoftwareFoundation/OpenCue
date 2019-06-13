@@ -22,6 +22,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.apache.commons.lang.StringUtils;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -33,8 +34,10 @@ import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
+@Repository
+public class ShowDaoJdbc extends AbstractJdbcDao implements ShowDao {
 
     private static final RowMapper<ShowEntity> SHOW_MAPPER =
         new RowMapper<ShowEntity>() {

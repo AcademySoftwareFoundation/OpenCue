@@ -34,10 +34,16 @@ import com.imageworks.spcue.grpc.filter.ActionInterfaceGrpc;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
 
+    @Autowired
     private FilterManager filterManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     @Override
@@ -64,22 +70,6 @@ public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
         filterManager.updateAction(newAction);
         responseObserver.onNext(ActionCommitResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-    public FilterManager getFilterManager() {
-        return filterManager;
-    }
-
-    public void setFilterManager(FilterManager filterManager) {
-        this.filterManager = filterManager;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
     }
 }
 

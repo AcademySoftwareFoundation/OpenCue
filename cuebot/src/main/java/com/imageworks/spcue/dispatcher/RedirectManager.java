@@ -42,21 +42,44 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.stereotype.Component;
 
-
+@Component
 public class RedirectManager {
 
     private static final Logger logger = Logger.getLogger(RedirectManager.class);
 
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private ProcDao procDao;
+
+    @Autowired
     private GroupDao groupDao;
+
+    @Autowired
+    @Qualifier("dispatcher")
     private Dispatcher dispatcher;
+
+    @Autowired
     private BookingQueue bookingQueue;
+
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private DispatchSupport dispatchSupport;
+
+    @Autowired
     private RedirectService redirectService;
+
+    @Autowired
     private ProcSearchFactory procSearchFactory;
 
     public RedirectManager(RedirectService redirectService) {

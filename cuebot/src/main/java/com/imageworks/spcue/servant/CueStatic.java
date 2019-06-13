@@ -30,14 +30,28 @@ import com.imageworks.spcue.grpc.cue.CueGetSystemStatsResponse;
 import com.imageworks.spcue.grpc.cue.CueInterfaceGrpc;
 import com.imageworks.spcue.grpc.cue.SystemStats;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
 
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private DispatchQueue dispatchQueue;
+
+    @Autowired
     private HostReportQueue reportQueue;
+
+    @Autowired
     private BookingQueue bookingQueue;
+
+    @Autowired
     private DispatchSupport dispatchSupport;
 
     @Override
@@ -91,55 +105,6 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setStats(stats)
                 .build());
         responseObserver.onCompleted();
-    }
-
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
-    }
-
-    public DispatchQueue getManageQueue() {
-        return manageQueue;
-    }
-
-    public void setManageQueue(DispatchQueue manageQueue) {
-        this.manageQueue = manageQueue;
-    }
-
-    public DispatchQueue getDispatchQueue() {
-        return dispatchQueue;
-    }
-
-    public void setDispatchQueue(DispatchQueue dispatchQueue) {
-        this.dispatchQueue = dispatchQueue;
-    }
-
-    public HostReportQueue getReportQueue() {
-        return reportQueue;
-    }
-
-    public void setReportQueue(HostReportQueue reportQueue) {
-        this.reportQueue = reportQueue;
-    }
-
-    public BookingQueue getBookingQueue() {
-        return bookingQueue;
-    }
-
-    public void setBookingQueue(BookingQueue bookingQueue) {
-        this.bookingQueue = bookingQueue;
-    }
-
-    public DispatchSupport getDispatchSupport() {
-        return dispatchSupport;
-    }
-
-    public void setDispatchSupport(DispatchSupport dispatchSupport) {
-        this.dispatchSupport = dispatchSupport;
     }
 }
 

@@ -106,18 +106,37 @@ import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
     private LayerDetail layer;
     private FrameSearchInterface frameSearch;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private LayerDao layerDao;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private LocalBookingSupport localBookingSupport;
+
+    @Autowired
     private FrameSearchFactory frameSearchFactory;
 
     @Override
@@ -383,81 +402,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         responseObserver.onCompleted();
     }
 
-    public DependManager getDependManager() {
-        return dependManager;
-    }
-
-    public void setDependManager(DependManager dependManager) {
-        this.dependManager = dependManager;
-    }
-
-    public DispatchQueue getManageQueue() {
-        return manageQueue;
-    }
-
-    public void setManageQueue(DispatchQueue dispatchQueue) {
-        this.manageQueue = dispatchQueue;
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public LayerDetail getLayer() {
-        return layer;
-    }
-
-    public void setLayer(LayerDetail layer) {
-        this.layer = layer;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
-    }
-
-    public LayerDao getLayerDao() {
-        return layerDao;
-    }
-
-    public void setLayerDao(LayerDao layerDao) {
-        this.layerDao = layerDao;
-    }
-
-    public JobManagerSupport getJobManagerSupport() {
-        return jobManagerSupport;
-    }
-
-    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-        this.jobManagerSupport = jobManagerSupport;
-    }
-
-    public LocalBookingSupport getLocalBookingSupport() {
-        return localBookingSupport;
-    }
-
-    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-        this.localBookingSupport = localBookingSupport;
-    }
-
-    public FrameSearchFactory getFrameSearchFactory() {
-        return frameSearchFactory;
-    }
-
-    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-        this.frameSearchFactory = frameSearchFactory;
-    }
-
     private void updateLayer(Layer layerData) {
-        setJobManager(jobManagerSupport.getJobManager());
-        setDependManager(jobManagerSupport.getDependManager());
         layer = layerDao.getLayerDetail(layerData.getId());
         frameSearch = frameSearchFactory.create(layer);
     }

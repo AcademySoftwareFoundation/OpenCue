@@ -18,31 +18,8 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Test;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.AfterTransaction;
-import org.springframework.test.context.transaction.BeforeTransaction;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.FrameStateTotals;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.Source;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
@@ -57,55 +34,58 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.spcue.service.JobSpec;
+import com.imageworks.spcue.service.*;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
 
 import static org.hamcrest.Matchers.contains;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     JobManagerSupport jobManagerSupport;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     DispatcherDao dispatcherDao;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
     private static final String JOB1 = "pipe-dev.cue-testuser_shell_dispatch_test_v1";

@@ -25,6 +25,7 @@ import java.util.List;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -148,24 +149,55 @@ import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private static final Logger logger = Logger.getLogger(ManageJob.class);
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private GroupManager groupManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private JobLauncher jobLauncher;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private CommentManager commentManager;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private Dispatcher localDispatcher;
+
+    @Autowired
     private LocalBookingSupport localBookingSupport;
+
+    @Autowired
     private FilterManager filterManager;
-    private JobInterface job;
+
+    @Autowired
     private FrameSearchFactory frameSearchFactory;
+
+    @Autowired
     private JobSearchFactory jobSearchFactory;
+
+    private JobInterface job;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -679,8 +711,6 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     }
 
     private void setupJobData(Job jobData) {
-        setJobManager(jobManagerSupport.getJobManager());
-        setDependManager(jobManagerSupport.getDependManager());
         job = jobManager.getJob(jobData.getId());
     }
 

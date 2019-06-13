@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.task.TaskRejectedException;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
@@ -59,23 +60,51 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
+@Service
 public class HostReportHandler {
 
     private static final Logger logger = Logger.getLogger(HostReportHandler.class);
 
+    @Autowired
     private BookingManager bookingManager;
+
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private BookingQueue bookingQueue;
+
+    @Autowired
     private ThreadPoolExecutor reportQueue;
+
+    @Autowired
     private ThreadPoolExecutor killQueue;
+
+    @Autowired
     private DispatchSupport dispatchSupport;
+
+    @Autowired
     private Dispatcher dispatcher;
+
+    @Autowired
     private Dispatcher localDispatcher;
+
+    @Autowired
     private RqdClient rqdClient;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private LayerDao layerDao;
 
     /**

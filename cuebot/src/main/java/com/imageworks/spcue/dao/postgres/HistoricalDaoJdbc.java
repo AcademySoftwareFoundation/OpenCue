@@ -21,13 +21,16 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.HistoricalDao;
 import com.imageworks.spcue.grpc.job.JobState;
+import org.springframework.stereotype.Repository;
 
-public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
+@Repository
+public class HistoricalDaoJdbc extends AbstractJdbcDao implements HistoricalDao {
 
     private static final String GET_FINISHED_JOBS =
         JobDaoJdbc.GET_JOB +

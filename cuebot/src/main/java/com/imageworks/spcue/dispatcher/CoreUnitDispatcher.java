@@ -45,6 +45,7 @@ import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Component;
 
 /**
  * The Core Unit Dispatcher.
@@ -84,16 +85,21 @@ import com.imageworks.spcue.util.CueUtil;
  * For all other exceptions, both the frame and the proc have to be
  * manually removed.
  */
+
 public class CoreUnitDispatcher implements Dispatcher {
     private static final Logger logger =
         Logger.getLogger(CoreUnitDispatcher.class);
 
+    @Autowired
     private DispatchSupport dispatchSupport;
 
+    @Autowired
     private JobManager jobManager;
 
+    @Autowired
     private RqdClient rqdClient;
 
+    @Autowired
     private HostManager hostManager;
 
     public boolean testMode = false;
@@ -404,40 +410,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             " to " + f.show + "/" + f.shot;
         logger.trace(msg);
     }
-
-
-    public DispatchSupport getDispatchSupport() {
-        return dispatchSupport;
-    }
-
-    public void setDispatchSupport(DispatchSupport dispatchSupport) {
-        this.dispatchSupport = dispatchSupport;
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public HostManager getHostManager() {
-        return hostManager;
-    }
-
-    public void setHostManager(HostManager hostManager) {
-        this.hostManager = hostManager;
-    }
-
-    public RqdClient getRqdClient() {
-        return rqdClient;
-    }
-
-    public void setRqdClient(RqdClient rqdClient) {
-        this.rqdClient = rqdClient;
-    }
-
+    
     private abstract class DispatchFrameTemplate {
         protected VirtualProc proc;
         protected JobInterface job;

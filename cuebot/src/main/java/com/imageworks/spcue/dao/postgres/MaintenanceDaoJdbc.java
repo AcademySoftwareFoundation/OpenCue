@@ -19,13 +19,16 @@
 
 package com.imageworks.spcue.dao.postgres;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import org.springframework.stereotype.Repository;
 
-public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao {
+@Repository
+public class MaintenanceDaoJdbc extends AbstractJdbcDao implements MaintenanceDao {
 
     private static final String HOST_DOWN_INTERVAL = "interval '300' second";
 

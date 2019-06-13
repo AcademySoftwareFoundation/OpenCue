@@ -17,22 +17,7 @@
 
 package com.imageworks.spcue.test.dao.criteria;
 
-import java.io.File;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
@@ -49,36 +34,46 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.util.CueUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     WhiteboardDao whiteboardDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
     @Before

@@ -19,22 +19,6 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
@@ -44,31 +28,35 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
-
+    
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     GroupDao groupDao;
 
-    @Resource
+    @Autowired
     ShowDao showDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
     @Before

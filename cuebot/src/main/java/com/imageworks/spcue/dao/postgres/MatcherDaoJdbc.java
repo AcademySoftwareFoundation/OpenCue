@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -33,8 +34,10 @@ import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
+@Repository
+public class MatcherDaoJdbc extends AbstractJdbcDao implements MatcherDao {
 
     private static final String INSERT_MATCHER =
         "INSERT INTO " +

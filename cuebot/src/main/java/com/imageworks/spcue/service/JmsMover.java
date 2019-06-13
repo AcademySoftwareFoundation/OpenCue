@@ -37,13 +37,17 @@ import org.springframework.jms.core.JmsTemplate;
 import org.springframework.jms.core.MessageCreator;
 
 import com.imageworks.spcue.util.CueExceptionUtil;
+import org.springframework.stereotype.Component;
 
+@Component
 public class JmsMover extends ThreadPoolExecutor {
     private static final Logger logger = Logger.getLogger(JmsMover.class);
     private final Gson gson = new GsonBuilder().serializeNulls().create();
 
     @Autowired
     private Environment env;
+
+    @Autowired
     private JmsTemplate template;
     private Topic topic;
 

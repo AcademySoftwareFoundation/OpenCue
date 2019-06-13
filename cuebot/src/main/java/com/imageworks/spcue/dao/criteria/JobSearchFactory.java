@@ -20,7 +20,9 @@ package com.imageworks.spcue.dao.criteria;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
+import org.springframework.stereotype.Component;
 
+@Component
 public class JobSearchFactory {
 
     public JobSearchInterface create() {

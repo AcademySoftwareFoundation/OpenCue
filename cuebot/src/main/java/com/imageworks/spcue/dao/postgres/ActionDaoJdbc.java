@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -35,8 +36,10 @@ import com.imageworks.spcue.dao.ActionDao;
 import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class ActionDaoJdbc extends JdbcDaoSupport  implements ActionDao {
+@Repository
+public class ActionDaoJdbc extends AbstractJdbcDao implements ActionDao {
 
     public static final String INSERT_ACTION =
         "INSERT INTO " +

@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,10 +30,14 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dao.CommentDao;
 
+@Service
 @Transactional
 public class CommentManagerService implements CommentManager {
 
+    @Autowired
     private EmailSupport emailSupport;
+
+    @Autowired
     private AdminManager adminManager;
 
     CommentDao commentDao;
@@ -68,30 +74,6 @@ public class CommentManagerService implements CommentManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public void saveComment(CommentDetail detail) {
         commentDao.updateComment(detail);
-    }
-
-    public CommentDao getCommentDao() {
-        return commentDao;
-    }
-
-    public void setCommentDao(CommentDao commentDao) {
-        this.commentDao = commentDao;
-    }
-
-    public EmailSupport getEmailSupport() {
-        return emailSupport;
-    }
-
-    public void setEmailSupport(EmailSupport emailSupport) {
-        this.emailSupport = emailSupport;
-    }
-
-    public AdminManager getAdminManager() {
-        return adminManager;
-    }
-
-    public void setAdminManager(AdminManager adminManager) {
-        this.adminManager = adminManager;
     }
 }
 

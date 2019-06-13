@@ -21,6 +21,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -28,8 +29,10 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.dao.RedirectDao;
 import com.imageworks.spcue.grpc.host.RedirectType;
+import org.springframework.stereotype.Repository;
 
-public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
+@Repository
+public class RedirectDaoJdbc extends AbstractJdbcDao implements RedirectDao {
     @Override
     public boolean containsKey(String key) {
         return getJdbcTemplate().queryForObject(

@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -44,8 +45,10 @@ import com.imageworks.spcue.grpc.job.NestedGroupSeq;
 import com.imageworks.spcue.grpc.job.NestedJob;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Repository;
 
-public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhiteboardDao {
+@Repository
+public class NestedWhiteboardDaoJdbc extends AbstractJdbcDao implements NestedWhiteboardDao {
 
     private class CachedJobWhiteboardMapper {
         public final long time;

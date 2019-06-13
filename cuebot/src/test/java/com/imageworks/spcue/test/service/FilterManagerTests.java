@@ -18,83 +18,60 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import javax.annotation.Resource;
-
+import com.imageworks.spcue.*;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.grpc.filter.*;
+import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.service.*;
+import com.imageworks.spcue.util.Convert;
+import com.imageworks.spcue.util.CueUtil;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.ActionEntity;
-import com.imageworks.spcue.FilterEntity;
-import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.ShowInterface;
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.FilterDao;
-import com.imageworks.spcue.dao.GroupDao;
-import com.imageworks.spcue.dao.JobDao;
-import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.ShowDao;
-import com.imageworks.spcue.grpc.filter.ActionType;
-import com.imageworks.spcue.grpc.filter.ActionValueType;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.MatchSubject;
-import com.imageworks.spcue.grpc.filter.MatchType;
-import com.imageworks.spcue.grpc.job.Layer;
-import com.imageworks.spcue.service.FilterManager;
-import com.imageworks.spcue.service.GroupManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.Whiteboard;
-import com.imageworks.spcue.util.Convert;
-import com.imageworks.spcue.util.CueUtil;
+import java.io.File;
 
 import static org.hamcrest.Matchers.contains;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     FilterDao filterDao;
 
-    @Resource
+    @Autowired
     ShowDao showDao;
 
-    @Resource
+    @Autowired
     GroupManager groupManager;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     FilterManager filterManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     GroupDao groupDao;
 
-    @Resource
+    @Autowired
     Whiteboard whiteboard;
 
     private static String FILTER_NAME = "test_filter";

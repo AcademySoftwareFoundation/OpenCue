@@ -24,7 +24,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,22 +62,48 @@ import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
 
+@Service
 @Transactional(propagation = Propagation.REQUIRED)
 public class DispatchSupportService implements DispatchSupport {
     private static final Logger logger = Logger.getLogger(DispatchSupportService.class);
 
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private FrameDao frameDao;
+
+    @Autowired
     private LayerDao layerDao;
+
+    @Autowired
     private ProcDao procDao;
+
+    @Autowired
     private HostDao hostDao;
+
+    @Autowired
     private ShowDao showDao;
+
+    @Autowired
     private DispatcherDao dispatcherDao;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private SubscriptionDao subscriptionDao;
+
+    @Autowired
     private RqdClient rqdClient;
+
+    @Autowired
     private RedirectManager redirectManager;
+
+    @Autowired
     private BookingManager bookingManager;
+
+    @Autowired
     private BookingDao bookingDao;
 
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
@@ -546,110 +574,6 @@ public class DispatchSupportService implements DispatchSupport {
         if (idleCores < host.idleCores) {
             host.idleCores = idleCores;
         }
-    }
-
-    public DispatcherDao getDispatcherDao() {
-        return dispatcherDao;
-    }
-
-    public void setDispatcherDao(DispatcherDao dispatcherDao) {
-        this.dispatcherDao = dispatcherDao;
-    }
-
-    public FrameDao getFrameDao() {
-        return frameDao;
-    }
-
-    public void setFrameDao(FrameDao frameDao) {
-        this.frameDao = frameDao;
-    }
-
-    public JobDao getJobDao() {
-        return jobDao;
-    }
-
-    public void setJobDao(JobDao jobDao) {
-        this.jobDao = jobDao;
-    }
-
-    public ProcDao getProcDao() {
-        return procDao;
-    }
-
-    public void setProcDao(ProcDao procDao) {
-        this.procDao = procDao;
-    }
-
-    public DependManager getDependManager() {
-        return dependManager;
-    }
-
-    public void setDependManager(DependManager dependManager) {
-        this.dependManager = dependManager;
-    }
-
-    public LayerDao getLayerDao() {
-        return layerDao;
-    }
-
-    public void setLayerDao(LayerDao layerDao) {
-        this.layerDao = layerDao;
-    }
-
-    public HostDao getHostDao() {
-        return hostDao;
-    }
-
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
-    }
-
-    public RqdClient getRqdClient() {
-        return rqdClient;
-    }
-
-    public void setRqdClient(RqdClient rqdClient) {
-        this.rqdClient = rqdClient;
-    }
-
-    public SubscriptionDao getSubscriptionDao() {
-        return subscriptionDao;
-    }
-
-    public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
-        this.subscriptionDao = subscriptionDao;
-    }
-
-    public RedirectManager getRedirectManager() {
-        return redirectManager;
-    }
-
-    public void setRedirectManager(RedirectManager redirectManager) {
-        this.redirectManager = redirectManager;
-    }
-
-    public ShowDao getShowDao() {
-        return showDao;
-    }
-
-    public void setShowDao(ShowDao showDao) {
-        this.showDao = showDao;
-    }
-
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
-    }
-
-    public BookingDao getBookingDao() {
-        return bookingDao;
-    }
-
-    public void setBookingDao(BookingDao bookingDao) {
-        this.bookingDao = bookingDao;
     }
 }
 

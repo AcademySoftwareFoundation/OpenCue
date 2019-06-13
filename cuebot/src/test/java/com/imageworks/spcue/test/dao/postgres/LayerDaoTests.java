@@ -19,24 +19,6 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import javax.annotation.Resource;
-
-import org.apache.commons.lang.StringUtils;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.BuildableLayer;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
@@ -51,38 +33,43 @@ import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
+import org.apache.commons.lang.StringUtils;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     FacilityDao facilityDao;
 
     private static String ROOT_FOLDER = "A0000000-0000-0000-0000-000000000000";

@@ -19,13 +19,19 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import javax.annotation.Resource;
-
+import com.imageworks.spcue.*;
+import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.*;
+import com.imageworks.spcue.dao.criteria.*;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
+import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.grpc.filter.*;
+import com.imageworks.spcue.grpc.host.*;
+import com.imageworks.spcue.grpc.job.*;
+import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.service.*;
+import com.imageworks.spcue.util.CueUtil;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.annotation.Rollback;
@@ -34,78 +40,9 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.imageworks.spcue.ActionEntity;
-import com.imageworks.spcue.AllocationEntity;
-import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.DeedEntity;
-import com.imageworks.spcue.DispatchFrame;
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FilterEntity;
-import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.HostEntity;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobEntity;
-import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.LocalHostAssignment;
-import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.OwnerEntity;
-import com.imageworks.spcue.ServiceOverrideEntity;
-import com.imageworks.spcue.ShowEntity;
-import com.imageworks.spcue.Source;
-import com.imageworks.spcue.VirtualProc;
-import com.imageworks.spcue.config.TestAppConfig;
-import com.imageworks.spcue.dao.ActionDao;
-import com.imageworks.spcue.dao.AllocationDao;
-import com.imageworks.spcue.dao.FilterDao;
-import com.imageworks.spcue.dao.FrameDao;
-import com.imageworks.spcue.dao.GroupDao;
-import com.imageworks.spcue.dao.HostDao;
-import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.MatcherDao;
-import com.imageworks.spcue.dao.ProcDao;
-import com.imageworks.spcue.dao.ShowDao;
-import com.imageworks.spcue.dao.WhiteboardDao;
-import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
-import com.imageworks.spcue.dao.criteria.HostSearchFactory;
-import com.imageworks.spcue.dao.criteria.HostSearchInterface;
-import com.imageworks.spcue.dao.criteria.JobSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearchInterface;
-import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
-import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
-import com.imageworks.spcue.dispatcher.DispatchSupport;
-import com.imageworks.spcue.dispatcher.Dispatcher;
-import com.imageworks.spcue.grpc.filter.ActionType;
-import com.imageworks.spcue.grpc.filter.ActionValueType;
-import com.imageworks.spcue.grpc.filter.FilterType;
-import com.imageworks.spcue.grpc.filter.MatchSubject;
-import com.imageworks.spcue.grpc.filter.MatchType;
-import com.imageworks.spcue.grpc.host.HardwareState;
-import com.imageworks.spcue.grpc.host.Host;
-import com.imageworks.spcue.grpc.host.HostSearchCriteria;
-import com.imageworks.spcue.grpc.host.LockState;
-import com.imageworks.spcue.grpc.host.Owner;
-import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
-import com.imageworks.spcue.grpc.job.Frame;
-import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
-import com.imageworks.spcue.grpc.job.FrameState;
-import com.imageworks.spcue.grpc.job.Job;
-import com.imageworks.spcue.grpc.job.JobSearchCriteria;
-import com.imageworks.spcue.grpc.job.Layer;
-import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.BookingManager;
-import com.imageworks.spcue.service.CommentManager;
-import com.imageworks.spcue.service.DependManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.OwnerManager;
-import com.imageworks.spcue.service.ServiceManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
-import com.imageworks.spcue.util.CueUtil;
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -114,84 +51,80 @@ import static org.junit.Assert.assertTrue;
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
-
+    
     @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
-
-    @Resource
     AllocationDao allocationDao;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     WhiteboardDao whiteboardDao;
 
-    @Resource
+    @Autowired
     ShowDao showDao;
 
-    @Resource
+    @Autowired
     FilterDao filterDao;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     MatcherDao matcherDao;
 
-    @Resource
+    @Autowired
     ActionDao actionDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     GroupDao groupDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     DependManager dependManager;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     CommentManager commentManager;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     DispatchSupport dispatchSupport;
 
-    @Resource
+    @Autowired
     OwnerManager ownerManager;
 
-    @Resource
+    @Autowired
     BookingManager bookingManager;
 
-    @Resource
+    @Autowired
     ServiceManager serviceManager;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
-    @Resource
+    @Autowired
     HostSearchFactory hostSearchFactory;
 
-    @Resource
+    @Autowired
     JobSearchFactory jobSearchFactory;
 
-    @Resource
+    @Autowired
     ProcSearchFactory procSearchFactory;
 
     private static final String HOST = "testest";

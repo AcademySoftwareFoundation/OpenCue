@@ -28,6 +28,7 @@ import java.util.Locale;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -119,8 +120,10 @@ import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
+@Repository
+public class WhiteboardDaoJdbc extends AbstractJdbcDao implements WhiteboardDao {
     @SuppressWarnings("unused")
     private static final Logger logger = Logger.getLogger(WhiteboardDaoJdbc.class);
 

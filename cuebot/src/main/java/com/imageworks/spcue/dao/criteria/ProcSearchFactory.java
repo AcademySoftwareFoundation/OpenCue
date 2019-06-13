@@ -19,7 +19,9 @@ package com.imageworks.spcue.dao.criteria;
 
 import com.imageworks.spcue.dao.criteria.postgres.ProcSearch;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ProcSearchFactory {
 
     public ProcSearchInterface create() {

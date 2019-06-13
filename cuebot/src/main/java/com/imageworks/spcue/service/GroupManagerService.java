@@ -21,6 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,11 +35,14 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.util.CueUtil;
 
+@Service
 @Transactional
 public class GroupManagerService implements GroupManager {
 
+    @Autowired
     private GroupDao groupDao;
 
+    @Autowired
     private JobDao jobDao;
 
     @Override

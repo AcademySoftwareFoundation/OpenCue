@@ -20,18 +20,10 @@
 package com.imageworks.spcue.config;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
-
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.PropertySource;
 
 @Configuration
-@ImportResource({"classpath:conf/spring/applicationContext-assumptions.xml",
-                 "classpath:conf/spring/applicationContext-grpc.xml",
-                 "classpath:conf/spring/applicationContext-grpcServer.xml",
-                 "classpath:conf/spring/applicationContext-service.xml",
-                 "classpath:conf/spring/applicationContext-jms.xml",
-                 "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class TestAppConfig {

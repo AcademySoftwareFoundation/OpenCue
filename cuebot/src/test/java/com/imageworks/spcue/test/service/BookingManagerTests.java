@@ -19,24 +19,7 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -47,59 +30,60 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.rqd.RqdClient;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.BookingManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.service.*;
 import com.imageworks.spcue.util.CueUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import java.io.File;
+
+import static org.junit.Assert.*;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     BookingDao bookingDao;
 
-    @Resource
+    @Autowired
     DispatcherDao dispatcherDao;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     BookingManager bookingManager;
 
-    @Resource
+    @Autowired
     Dispatcher localDispatcher;
 
-    @Resource
+    @Autowired
     RqdClient rqdClient;
 
-    @Resource
+    @Autowired
     Whiteboard whiteboard;
 
 

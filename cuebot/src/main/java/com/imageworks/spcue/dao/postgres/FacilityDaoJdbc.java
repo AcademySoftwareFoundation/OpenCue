@@ -22,6 +22,7 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -29,8 +30,10 @@ import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class FacilityDaoJdbc extends JdbcDaoSupport implements FacilityDao {
+@Repository
+public class FacilityDaoJdbc extends AbstractJdbcDao implements FacilityDao {
 
     public static final RowMapper<FacilityInterface> FACILITY_MAPPER = new RowMapper<FacilityInterface>() {
         public FacilityInterface mapRow(ResultSet rs, int rowNum) throws SQLException {

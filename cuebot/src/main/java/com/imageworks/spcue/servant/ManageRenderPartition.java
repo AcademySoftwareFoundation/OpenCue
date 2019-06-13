@@ -29,9 +29,13 @@ import com.imageworks.spcue.grpc.renderpartition.RenderPartSetMaxResourcesRespon
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionInterfaceGrpc;
 import com.imageworks.spcue.service.BookingManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageRenderPartition extends RenderPartitionInterfaceGrpc.RenderPartitionInterfaceImplBase {
 
+    @Autowired
     private BookingManager bookingManager;
 
     @Override

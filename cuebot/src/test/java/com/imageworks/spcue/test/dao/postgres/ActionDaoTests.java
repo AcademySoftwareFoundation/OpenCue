@@ -18,18 +18,6 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
-import javax.annotation.Resource;
-
-import org.junit.Rule;
-import org.junit.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
 import com.imageworks.spcue.ShowInterface;
@@ -42,35 +30,36 @@ import com.imageworks.spcue.grpc.filter.ActionType;
 import com.imageworks.spcue.grpc.filter.ActionValueType;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.test.AssumingPostgresEngine;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.junit.Assert.assertEquals;
 
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTests  {
-
-    @Autowired
-    @Rule
-    public AssumingPostgresEngine assumingPostgresEngine;
 
     private static final ActionType ActionType = null;
 
-    @Resource
+    @Autowired
     ActionDao actionDao;
 
-    @Resource
+    @Autowired
     FilterDao filterDao;
 
-    @Resource
+    @Autowired
     ShowDao showDao;
 
-    @Resource
+    @Autowired
     GroupDao groupDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
     private static String FILTER_NAME = "test_filter";

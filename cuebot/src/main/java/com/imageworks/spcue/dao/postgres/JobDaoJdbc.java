@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -55,8 +56,10 @@ import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
+@Repository
+public class JobDaoJdbc extends AbstractJdbcDao implements JobDao {
     private static final Pattern LAST_JOB_STRIP_PATTERN = Pattern.compile("_v*([_0-9]*$)");
 
     /*

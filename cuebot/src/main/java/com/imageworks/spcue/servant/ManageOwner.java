@@ -39,12 +39,22 @@ import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
 
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private OwnerManager ownerManager;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private AdminManager adminManager;
 
     @Override

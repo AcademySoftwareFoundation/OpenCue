@@ -72,7 +72,9 @@ import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
 
     private GroupDao groupDao;

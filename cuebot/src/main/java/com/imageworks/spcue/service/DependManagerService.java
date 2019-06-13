@@ -24,8 +24,10 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DataRetrievalFailureException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,15 +62,25 @@ import com.imageworks.spcue.grpc.depend.DependType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 
+@Service
 @Transactional
 public class DependManagerService implements DependManager {
 
     private static final Logger logger = Logger.getLogger(DependManagerService.class);
 
+    @Autowired
     private DependDao dependDao;
+
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private LayerDao layerDao;
+
+    @Autowired
     private FrameDao frameDao;
+
+    @Autowired
     private FrameSearchFactory frameSearchFactory;
 
     /** Job Depends **/
@@ -630,46 +642,6 @@ public class DependManagerService implements DependManager {
     @Transactional(propagation=Propagation.REQUIRED)
     public void deleteDepend(LightweightDependency depend) {
         dependDao.deleteDepend(depend);
-    }
-
-    public FrameDao getFrameDao() {
-        return frameDao;
-    }
-
-    public void setFrameDao(FrameDao frameDao) {
-        this.frameDao = frameDao;
-    }
-
-    public JobDao getJobDao() {
-        return jobDao;
-    }
-
-    public void setJobDao(JobDao jobDao) {
-        this.jobDao = jobDao;
-    }
-
-    public LayerDao getLayerDao() {
-        return layerDao;
-    }
-
-    public void setLayerDao(LayerDao layerDao) {
-        this.layerDao = layerDao;
-    }
-
-    public DependDao getDependDao() {
-        return dependDao;
-    }
-
-    public void setDependDao(DependDao workDao) {
-        this.dependDao = workDao;
-    }
-
-    public FrameSearchFactory getFrameSearchFactory() {
-        return frameSearchFactory;
-    }
-
-    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

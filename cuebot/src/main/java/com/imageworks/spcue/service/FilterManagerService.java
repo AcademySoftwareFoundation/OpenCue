@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,16 +61,28 @@ import com.imageworks.spcue.util.Convert;
  *
  * @category Service
  */
+@Service
 @Transactional
 public class FilterManagerService implements FilterManager {
 
     private static final Logger logger = Logger.getLogger(FilterManagerService.class);
 
+    @Autowired
     private ActionDao actionDao;
+
+    @Autowired
     private MatcherDao matcherDao;
+
+    @Autowired
     private FilterDao filterDao;
+
+    @Autowired
     private GroupDao groupDao;
+
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private LayerDao layerDao;
 
     @Transactional(propagation = Propagation.SUPPORTS)

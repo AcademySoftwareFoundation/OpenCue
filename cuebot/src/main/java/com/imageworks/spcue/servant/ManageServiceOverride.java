@@ -31,9 +31,13 @@ import com.imageworks.spcue.grpc.service.ServiceOverrideInterfaceGrpc;
 import com.imageworks.spcue.grpc.service.ServiceOverrideUpdateRequest;
 import com.imageworks.spcue.grpc.service.ServiceOverrideUpdateResponse;
 import com.imageworks.spcue.service.ServiceManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceOverrideInterfaceImplBase {
 
+    @Autowired
     private ServiceManager serviceManager;
 
     @Override

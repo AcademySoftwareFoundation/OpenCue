@@ -33,13 +33,21 @@ import com.imageworks.spcue.grpc.depend.DependUnsatisfyRequest;
 import com.imageworks.spcue.grpc.depend.DependUnsatisfyResponse;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 
     private static final Logger logger = Logger.getLogger(ManageDepend.class);
 
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     @Override
@@ -73,30 +81,6 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
         dependManager.unsatisfyDepend(depend);
         responseObserver.onNext(DependUnsatisfyResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-    public DependManager getDependManager() {
-        return dependManager;
-    }
-
-    public void setDependManager(DependManager dependManager) {
-        this.dependManager = dependManager;
-    }
-
-    public DispatchQueue getManageQueue() {
-        return manageQueue;
-    }
-
-    public void setManageQueue(DispatchQueue manageQueue) {
-        this.manageQueue = manageQueue;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
     }
 }
 

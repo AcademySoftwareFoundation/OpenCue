@@ -13,9 +13,16 @@ import com.imageworks.spcue.grpc.facility.FacilityRenameRequest;
 import com.imageworks.spcue.grpc.facility.FacilityRenameResponse;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplBase {
+
+    @Autowired
     private AdminManager adminManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     public ManageFacility() {}
@@ -55,21 +62,5 @@ public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplB
         adminManager.deleteFacility(adminManager.getFacility(request.getName()));
         responseObserver.onNext(FacilityDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
-    }
-
-    public AdminManager getAdminManager() {
-        return adminManager;
-    }
-
-    public void setAdminManager(AdminManager adminManager) {
-        this.adminManager = adminManager;
-    }
-
-    public Whiteboard getWhiteboard() {
-        return whiteboard;
-    }
-
-    public void setWhiteboard(Whiteboard whiteboard) {
-        this.whiteboard = whiteboard;
     }
 }

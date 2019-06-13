@@ -25,6 +25,7 @@ import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,19 +39,34 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dispatcher.commands.DispatchLaunchJob;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
+import org.springframework.stereotype.Service;
 
 /**
  * Job launching functions.
  */
+@Service
 public class JobLauncher implements ApplicationContextAware {
     private static final Logger logger = Logger.getLogger(JobLauncher.class);
+
+    @Autowired
     private ApplicationContext context;
 
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private AdminManager adminManager;
+
+    @Autowired
     private ThreadPoolTaskExecutor launchQueue;
+
+    @Autowired
     private EmailSupport emailSupport;
+
+    @Autowired
     private JmsMover jmsMover;
+
+    @Autowired
     private LocalBookingSupport localBookingSupport;
 
     /**

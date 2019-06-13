@@ -22,7 +22,9 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,7 +45,7 @@ import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.JobState;
 
-
+@Service
 @Transactional
 public class BookingManagerService implements BookingManager {
 
@@ -51,13 +53,28 @@ public class BookingManagerService implements BookingManager {
     private static final Logger logger =
         Logger.getLogger(BookingManagerService.class);
 
+    @Autowired
     private BookingQueue bookingQueue;
+
+    @Autowired
     private BookingDao bookingDao;
+
+    @Autowired
     private Dispatcher localDispatcher;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private JobDao jobDao;
+
+    @Autowired
     private HostDao hostDao;
+
+    @Autowired
     private ProcDao procDao;
 
     @Override
@@ -182,70 +199,6 @@ public class BookingManagerService implements BookingManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean hasResourceDeficit(HostInterface host) {
         return bookingDao.hasResourceDeficit(host);
-    }
-
-    public BookingQueue getBookingQueue() {
-        return bookingQueue;
-    }
-
-    public void setBookingQueue(BookingQueue bookingQueue) {
-        this.bookingQueue = bookingQueue;
-    }
-
-    public BookingDao getBookingDao() {
-        return bookingDao;
-    }
-
-    public void setBookingDao(BookingDao bookingDao) {
-        this.bookingDao = bookingDao;
-    }
-
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
-
-    public JobManagerSupport getJobManagerSupport() {
-        return jobManagerSupport;
-    }
-
-    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-        this.jobManagerSupport = jobManagerSupport;
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public JobDao getJobDao() {
-        return jobDao;
-    }
-
-    public void setJobDao(JobDao jobDao) {
-        this.jobDao = jobDao;
-    }
-
-    public HostDao getHostDao() {
-        return hostDao;
-    }
-
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
-    }
-
-    public ProcDao getProcDao() {
-        return procDao;
-    }
-
-    public void setProcDao(ProcDao procDao) {
-        this.procDao = procDao;
     }
 }
 

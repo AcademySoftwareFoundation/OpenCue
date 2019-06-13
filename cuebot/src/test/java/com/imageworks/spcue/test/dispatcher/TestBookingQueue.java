@@ -19,17 +19,7 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.HostDao;
@@ -40,18 +30,26 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.util.CueUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     HostDao hostDao;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
     private static final String HOSTNAME = "beta";

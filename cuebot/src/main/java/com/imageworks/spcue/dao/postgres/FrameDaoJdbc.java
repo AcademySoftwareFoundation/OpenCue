@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -51,8 +52,10 @@ import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
+@Repository
+public class FrameDaoJdbc extends AbstractJdbcDao implements FrameDao {
 
     private static final String UPDATE_FRAME_STOPPED_NORSS =
         "UPDATE "+

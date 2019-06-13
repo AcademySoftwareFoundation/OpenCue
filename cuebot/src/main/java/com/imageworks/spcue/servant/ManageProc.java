@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.grpc.stub.StreamObserver;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.GroupInterface;
@@ -65,15 +66,30 @@ import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageProc extends ProcInterfaceGrpc.ProcInterfaceImplBase {
 
+    @Autowired
     private ProcDao procDao;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private GroupManager groupManager;
+
+    @Autowired
     private RedirectManager redirectManager;
+
+    @Autowired
     private ProcSearchFactory procSearchFactory;
 
     @Override

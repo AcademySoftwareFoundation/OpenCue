@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
@@ -49,21 +50,41 @@ import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.FrameSet;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
 /**
  * A non-transaction support class for managing jobs.
  */
+@Service
 public class JobManagerSupport {
     private static final Logger logger = Logger.getLogger(JobManagerSupport.class);
 
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private DependManager dependManager;
+
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private RqdClient rqdClient;
+
+    @Autowired
     private DispatchSupport dispatchSupport;
+
+    @Autowired
     private DispatchQueue manageQueue;
+
+    @Autowired
     private RedirectManager redirectManager;
+
+    @Autowired
     private EmailSupport emailSupport;
+
+    @Autowired
     private FrameSearchFactory frameSearchFactory;
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
@@ -512,78 +533,6 @@ public class JobManagerSupport {
             return true;
         }
         return false;
-    }
-
-    public DependManager getDependManager() {
-        return dependManager;
-    }
-
-    public void setDependManager(DependManager dependManager) {
-        this.dependManager = dependManager;
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public DispatchQueue getManageQueue() {
-        return manageQueue;
-    }
-
-    public void setManageQueue(DispatchQueue manageQueue) {
-        this.manageQueue = manageQueue;
-    }
-
-    public HostManager getHostManager() {
-        return hostManager;
-    }
-
-    public void setHostManager(HostManager hostManager) {
-        this.hostManager = hostManager;
-    }
-
-    public DispatchSupport getDispatchSupport() {
-        return dispatchSupport;
-    }
-
-    public void setDispatchSupport(DispatchSupport dispatchSupport) {
-        this.dispatchSupport = dispatchSupport;
-    }
-
-    public RqdClient getRqdClient() {
-        return rqdClient;
-    }
-
-    public void setRqdClient(RqdClient rqdClient) {
-        this.rqdClient = rqdClient;
-    }
-
-    public RedirectManager getRedirectManager() {
-        return redirectManager;
-    }
-
-    public void setRedirectManager(RedirectManager redirectManager) {
-        this.redirectManager = redirectManager;
-    }
-
-    public EmailSupport getEmailSupport() {
-        return emailSupport;
-    }
-
-    public void setEmailSupport(EmailSupport emailSupport) {
-        this.emailSupport = emailSupport;
-    }
-
-    public FrameSearchFactory getFrameSearchFactory() {
-        return frameSearchFactory;
-    }
-
-    public void setFrameSearchFactory(FrameSearchFactory frameSearchFactory) {
-        this.frameSearchFactory = frameSearchFactory;
     }
 }
 

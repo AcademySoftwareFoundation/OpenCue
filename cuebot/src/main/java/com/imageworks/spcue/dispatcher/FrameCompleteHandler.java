@@ -24,6 +24,7 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -47,27 +48,50 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Component;
 
 /**
  * The FrameCompleteHandler encapsulates all logic necessary for processing
  * FrameComplete reports from RQD.
  */
+@Component
 public class FrameCompleteHandler {
 
     private static final Logger logger = Logger.getLogger(FrameCompleteHandler.class);
 
     private static final Random randomNumber = new Random();
 
+    @Autowired
     private HostManager hostManager;
+
+    @Autowired
     private JobManager jobManager;
+
+    @Autowired
     private RedirectManager redirectManager;
+
+    @Autowired
     private BookingManager bookingManager;
+
+    @Autowired
     private DispatchQueue dispatchQueue;
+
+    @Autowired
     private BookingQueue bookingQueue;
+
+    @Autowired
     private Dispatcher dispatcher;
+
+    @Autowired
     private Dispatcher localDispatcher;
+
+    @Autowired
     private JobManagerSupport jobManagerSupport;
+
+    @Autowired
     private DispatchSupport dispatchSupport;
+
+    @Autowired
     private JmsMover jsmMover;
 
     /*
@@ -555,94 +579,6 @@ public class FrameCompleteHandler {
     public synchronized void shutdown() {
         logger.info("Shutting down FrameCompleteHandler.");
         shutdown = true;
-    }
-
-    public HostManager getHostManager() {
-        return hostManager;
-    }
-
-    public void setHostManager(HostManager hostManager) {
-        this.hostManager = hostManager;
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public RedirectManager getRedirectManager() {
-        return redirectManager;
-    }
-
-    public void setRedirectManager(RedirectManager redirectManager) {
-        this.redirectManager = redirectManager;
-    }
-
-    public DispatchQueue getDispatchQueue() {
-        return dispatchQueue;
-    }
-
-    public void setDispatchQueue(DispatchQueue dispatchQueue) {
-        this.dispatchQueue = dispatchQueue;
-    }
-
-    public BookingQueue getBookingQueue() {
-        return bookingQueue;
-    }
-
-    public void setBookingQueue(BookingQueue bookingQueue) {
-        this.bookingQueue = bookingQueue;
-    }
-
-    public Dispatcher getDispatcher() {
-        return dispatcher;
-    }
-
-    public void setDispatcher(Dispatcher dispatcher) {
-        this.dispatcher = dispatcher;
-    }
-
-    public JobManagerSupport getJobManagerSupport() {
-        return jobManagerSupport;
-    }
-
-    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
-        this.jobManagerSupport = jobManagerSupport;
-    }
-
-    public DispatchSupport getDispatchSupport() {
-        return dispatchSupport;
-    }
-
-    public void setDispatchSupport(DispatchSupport dispatchSupport) {
-        this.dispatchSupport = dispatchSupport;
-    }
-
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
-
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
-    }
-
-    public JmsMover getJmsMover() {
-        return jsmMover;
-    }
-
-    public void setJmsMover(JmsMover jsmMover) {
-        this.jsmMover = jsmMover;
     }
 }
 

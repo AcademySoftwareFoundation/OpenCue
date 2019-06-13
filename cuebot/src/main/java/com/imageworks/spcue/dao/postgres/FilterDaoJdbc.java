@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
@@ -37,6 +38,7 @@ import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
 /**
  * A DAO class for loading Filters, Actions, and Matchers.  Part of the
@@ -44,7 +46,8 @@ import com.imageworks.spcue.util.SqlUtil;
  *
  * @category DAO
  */
-public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
+@Repository
+public class FilterDaoJdbc extends AbstractJdbcDao implements FilterDao {
 
     private static final String GET_FILTER =
         "SELECT " +

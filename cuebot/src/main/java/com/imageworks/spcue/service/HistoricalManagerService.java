@@ -21,6 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,9 +30,11 @@ import com.imageworks.spcue.HistoricalJobTransferException;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.HistoricalDao;
 
+@Service
 @Transactional
 public class HistoricalManagerService implements HistoricalManager {
 
+    @Autowired
     private HistoricalDao historicalDao;
 
     public static final int ARCHIVE_JOBS_CUTOFF_HOURS = 72 ;

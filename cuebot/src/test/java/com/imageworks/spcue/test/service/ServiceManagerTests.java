@@ -19,19 +19,7 @@
 package com.imageworks.spcue.test.service;
 
 
-import java.io.File;
-import javax.annotation.Resource;
-
 import com.google.common.collect.Sets;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.ServiceOverrideEntity;
@@ -41,26 +29,33 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.util.CueUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
-    @Resource
+    @Autowired
     ServiceManager serviceManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
     @Before

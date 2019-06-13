@@ -25,7 +25,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.log4j.Logger;
+import org.springframework.stereotype.Component;
 
+@Component
 public class BookingQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = Logger.getLogger(BookingQueue.class);
@@ -40,6 +42,11 @@ public class BookingQueue extends ThreadPoolExecutor {
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
 
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
+
+    public BookingQueue() {
+        super(THREADS_MINIMUM, THREADS_MAXIMUM, THREADS_KEEP_ALIVE_SECONDS,
+                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(INITIAL_QUEUE_SIZE));
+    }
 
     public BookingQueue(int sleepTimeMs) {
         super(THREADS_MINIMUM, THREADS_MAXIMUM, THREADS_KEEP_ALIVE_SECONDS,

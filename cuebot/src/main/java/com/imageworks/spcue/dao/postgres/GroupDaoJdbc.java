@@ -26,6 +26,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.SqlParameter;
@@ -42,8 +43,10 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
+@Repository
+public class GroupDaoJdbc extends AbstractJdbcDao implements GroupDao {
 
     private static final int MAX_NESTING_LEVEL = 10;
 

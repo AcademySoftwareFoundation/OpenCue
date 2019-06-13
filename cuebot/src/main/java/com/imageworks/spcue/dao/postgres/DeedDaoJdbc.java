@@ -23,6 +23,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -31,8 +32,10 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.dao.DeedDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
+@Repository
+public class DeedDaoJdbc extends AbstractJdbcDao implements DeedDao {
 
     public static final RowMapper<DeedEntity>
         DEED_MAPPER = new RowMapper<DeedEntity>() {

@@ -20,14 +20,20 @@
 package com.imageworks.spcue;
 
 import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.builder.SpringApplicationBuilder;
 
 @SpringBootApplication
+@EnableAutoConfiguration
 public class CuebotApplication extends SpringApplication {
 
     public static void main(String[] args) {
         // Cuebot startup
-        SpringApplication.run(CuebotApplication.class, args);
+        new SpringApplicationBuilder(CuebotApplication.class)
+                .properties("spring.config.name:opencue")
+                .build()
+                .run(args);
     }
 }
 

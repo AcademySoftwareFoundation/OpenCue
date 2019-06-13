@@ -24,6 +24,7 @@ import java.util.LinkedHashSet;
 import com.google.common.collect.Sets;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.ServiceEntity;
@@ -41,10 +42,15 @@ import com.imageworks.spcue.grpc.service.ServiceUpdateRequest;
 import com.imageworks.spcue.grpc.service.ServiceUpdateResponse;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.service.Whiteboard;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase {
 
+    @Autowired
     private ServiceManager serviceManager;
+
+    @Autowired
     private Whiteboard whiteboard;
 
     @Override

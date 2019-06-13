@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
@@ -40,9 +41,10 @@ import com.imageworks.spcue.EntityRemovalError;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-
-public class AllocationDaoJdbc extends JdbcDaoSupport  implements AllocationDao {
+@Repository
+public class AllocationDaoJdbc extends AbstractJdbcDao implements AllocationDao {
 
      public static RowMapper<AllocationEntity> ALLOC_MAPPER = new RowMapper<AllocationEntity>() {
          public AllocationEntity mapRow(ResultSet rs, int rowNum) throws SQLException {

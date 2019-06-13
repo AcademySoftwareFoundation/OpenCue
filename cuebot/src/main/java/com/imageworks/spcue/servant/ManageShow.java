@@ -95,15 +95,31 @@ import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
+@Component
 public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
+    @Autowired
     private AdminManager adminManager;
+
+    @Autowired
     private Whiteboard whiteboard;
+
+    @Autowired
     private ShowDao showDao;
+
+    @Autowired
     private FilterManager filterManager;
+
+    @Autowired
     private OwnerManager ownerManager;
+
+    @Autowired
     private ServiceManager serviceManager;
+
+    @Autowired
     private JobSearchFactory jobSearchFactory;
 
     @Override

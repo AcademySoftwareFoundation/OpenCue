@@ -21,8 +21,10 @@ package com.imageworks.spcue.service;
 import javax.annotation.Resource;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.CannotSerializeTransactionException;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Isolation;
@@ -33,15 +35,17 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.dao.RedirectDao;
 
+@Service
 @Transactional(isolation=Isolation.SERIALIZABLE, propagation=Propagation.REQUIRES_NEW)
 public class RedirectService   {
 
     private static final Logger logger =
         Logger.getLogger(RedirectService.class);
 
-    @Resource
+    @Autowired
     private PlatformTransactionManager txManager;
 
+    @Autowired
     private RedirectDao redirectDao;
 
     public RedirectService(RedirectDao redirectDao) {

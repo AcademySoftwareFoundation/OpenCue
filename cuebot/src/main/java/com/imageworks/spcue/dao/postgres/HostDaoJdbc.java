@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.imageworks.spcue.dao.AbstractJdbcDao;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.CallableStatementCreator;
 import org.springframework.jdbc.core.RowMapper;
@@ -54,9 +55,10 @@ import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.SqlUtil;
+import org.springframework.stereotype.Repository;
 
-
-public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
+@Repository
+public class HostDaoJdbc extends AbstractJdbcDao implements HostDao {
 
     public static final RowMapper<HostEntity> HOST_DETAIL_MAPPER = new RowMapper<HostEntity>() {
         public HostEntity mapRow(ResultSet rs, int rowNum) throws SQLException {

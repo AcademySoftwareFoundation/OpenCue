@@ -19,71 +19,52 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.FrameDetail;
-import com.imageworks.spcue.FrameInterface;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LightweightDependency;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.dao.DependDao;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
-import com.imageworks.spcue.depend.FrameByFrame;
-import com.imageworks.spcue.depend.FrameOnFrame;
-import com.imageworks.spcue.depend.FrameOnJob;
-import com.imageworks.spcue.depend.FrameOnLayer;
-import com.imageworks.spcue.depend.JobOnFrame;
-import com.imageworks.spcue.depend.JobOnJob;
-import com.imageworks.spcue.depend.JobOnLayer;
-import com.imageworks.spcue.depend.LayerOnFrame;
-import com.imageworks.spcue.depend.LayerOnJob;
-import com.imageworks.spcue.depend.LayerOnLayer;
-import com.imageworks.spcue.depend.LayerOnSimFrame;
-import com.imageworks.spcue.depend.PreviousFrame;
+import com.imageworks.spcue.depend.*;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration
 public class DependManagerTests extends TransactionalTest {
 
-    @Resource
+    @Autowired
     DependDao dependDao;
 
-    @Resource
+    @Autowired
     DependManager dependManager;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
     @Before

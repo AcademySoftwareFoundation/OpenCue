@@ -19,49 +19,37 @@
 
 package com.imageworks.spcue.test.service;
 
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.GroupDao;
-import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
 
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
 
-    @Resource
+    @Autowired
     GroupManager groupManager;
 
-    @Resource
-    JobManager jobManager;
-
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     GroupDao groupDao;
 
-    @Resource
-    JobDao jobDao;
-
-    @Resource
+    @Autowired
     ShowDao showDao;
 
     @Before

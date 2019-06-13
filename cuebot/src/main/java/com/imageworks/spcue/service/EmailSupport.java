@@ -39,6 +39,7 @@ import org.apache.velocity.VelocityContext;
 import org.apache.velocity.app.VelocityEngine;
 import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.mail.MailException;
 import org.springframework.mail.MailSender;
 import org.springframework.mail.SimpleMailMessage;
@@ -55,10 +56,15 @@ import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
+import org.springframework.stereotype.Component;
 
+@Component
 public class EmailSupport {
 
+    @Autowired
     private MailSender mailSender;
+
+    @Autowired
     private JobManager jobManager;
 
     private Properties opencueProperties;
@@ -320,18 +326,6 @@ public class EmailSupport {
             e.printStackTrace();
             throw new SpcueRuntimeException("Failed " + e, e);
         }
-    }
-
-    public JobManager getJobManager() {
-        return jobManager;
-    }
-
-    public void setJobManager(JobManager jobManager) {
-        this.jobManager = jobManager;
-    }
-
-    public void setMailSender(MailSender mailSender) {
-        this.mailSender = mailSender;
     }
 }
 

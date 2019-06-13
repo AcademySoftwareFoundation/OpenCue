@@ -19,17 +19,7 @@
 
 package com.imageworks.spcue.test.service;
 
-import java.io.File;
-import java.util.List;
-import javax.annotation.Resource;
-
 import com.google.common.collect.ImmutableList;
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
@@ -46,33 +36,40 @@ import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.transaction.annotation.Transactional;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import java.io.File;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 @ContextConfiguration
 public class DependManagerChunkingTests extends TransactionalTest {
 
-    @Resource
+    @Autowired
     DependDao dependDao;
 
-    @Resource
+    @Autowired
     DependManager dependManager;
 
-    @Resource
+    @Autowired
     FrameDao frameDao;
 
-    @Resource
+    @Autowired
     LayerDao layerDao;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     FrameSearchFactory frameSearchFactory;
 
     @Before

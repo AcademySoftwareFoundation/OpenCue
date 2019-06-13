@@ -24,10 +24,15 @@ import java.util.List;
 import org.apache.log4j.Logger;
 
 import com.imageworks.spcue.JobInterface;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
+@Service
 public class HistoricalSupport {
     private static final Logger logger = Logger.getLogger(HistoricalSupport.class);
 
+    @Autowired
     private HistoricalManager historicalManager;
 
     public void archiveHistoricalJobData() {

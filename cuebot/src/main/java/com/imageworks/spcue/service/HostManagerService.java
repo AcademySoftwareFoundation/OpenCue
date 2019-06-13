@@ -23,6 +23,8 @@ import java.sql.Timestamp;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,16 +56,30 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 
+@Service
 @Transactional
 public class HostManagerService implements HostManager {
     private static final Logger logger = Logger.getLogger(HostManagerService.class);
 
+    @Autowired
     private HostDao hostDao;
+
+    @Autowired
     private RqdClient rqdClient;
+
+    @Autowired
     private ProcDao procDao;
+
+    @Autowired
     private ShowDao showDao;
+
+    @Autowired
     private FacilityDao facilityDao;
+
+    @Autowired
     private SubscriptionDao subscriptionDao;
+
+    @Autowired
     private AllocationDao allocationDao;
 
     public HostManagerService() { }
@@ -334,62 +350,6 @@ public class HostManagerService implements HostManager {
 
     public void deleteHost(HostInterface host) {
         hostDao.deleteHost(host);
-    }
-
-    public AllocationDao getAllocationDao() {
-        return allocationDao;
-    }
-
-    public void setAllocationDao(AllocationDao allocationDao) {
-        this.allocationDao = allocationDao;
-    }
-
-    public HostDao getHostDao() {
-        return hostDao;
-    }
-
-    public void setHostDao(HostDao hostDao) {
-        this.hostDao = hostDao;
-    }
-
-    public ProcDao getProcDao() {
-        return procDao;
-    }
-
-    public void setProcDao(ProcDao procDao) {
-        this.procDao = procDao;
-    }
-
-    public RqdClient getRqdClient() {
-        return rqdClient;
-    }
-
-    public void setRqdClient(RqdClient rqdClient) {
-        this.rqdClient = rqdClient;
-    }
-
-    public FacilityDao getFacilityDao() {
-        return facilityDao;
-    }
-
-    public void setFacilityDao(FacilityDao facilityDao) {
-        this.facilityDao = facilityDao;
-    }
-
-    public ShowDao getShowDao() {
-        return showDao;
-    }
-
-    public void setShowDao(ShowDao showDao) {
-        this.showDao = showDao;
-    }
-
-    public SubscriptionDao getSubscriptionDao() {
-        return subscriptionDao;
-    }
-
-    public void setSubscriptionDao(SubscriptionDao subscriptionDao) {
-        this.subscriptionDao = subscriptionDao;
     }
 }
 

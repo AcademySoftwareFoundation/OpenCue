@@ -18,29 +18,7 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
-import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import javax.annotation.Resource;
-
-import org.junit.Before;
-import org.junit.Test;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
-import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.transaction.annotation.Transactional;
-
-import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.GroupDetail;
-import com.imageworks.spcue.GroupInterface;
-import com.imageworks.spcue.Inherit;
-import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.Redirect;
-import com.imageworks.spcue.Source;
-import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.*;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ProcDao;
@@ -52,21 +30,25 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.host.RedirectType;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.AdminManager;
-import com.imageworks.spcue.service.GroupManager;
-import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobLauncher;
-import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.RedirectService;
-import com.imageworks.spcue.service.Whiteboard;
+import com.imageworks.spcue.service.*;
 import com.imageworks.spcue.util.Convert;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.Rollback;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.io.File;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
 
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.isEmptyString;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 
 /**
@@ -77,40 +59,40 @@ import static org.junit.Assert.assertTrue;
 public class RedirectManagerTests
     extends AbstractTransactionalJUnit4SpringContextTests {
 
-    @Resource
+    @Autowired
     RedirectManager redirectManager;
 
-    @Resource
+    @Autowired
     RedirectService redirectService;
 
-    @Resource
+    @Autowired
     JobManager jobManager;
 
-    @Resource
+    @Autowired
     JobLauncher jobLauncher;
 
-    @Resource
+    @Autowired
     HostManager hostManager;
 
-    @Resource
+    @Autowired
     AdminManager adminManager;
 
-    @Resource
+    @Autowired
     Dispatcher dispatcher;
 
-    @Resource
+    @Autowired
     GroupManager groupManager;
 
-    @Resource
+    @Autowired
     ProcDao procDao;
 
-    @Resource
+    @Autowired
     JobDao jobDao;
 
-    @Resource
+    @Autowired
     Whiteboard whiteboard;
     
-    @Resource
+    @Autowired
     ProcSearchFactory procSearchFactory;
 
     private static final String HOSTNAME = "beta";
