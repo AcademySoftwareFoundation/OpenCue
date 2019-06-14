@@ -49,5 +49,6 @@ setup(
             'rqd=rqd.__main__:main'
         ]
     },
+    test_suite='tests',
 )
 
