@@ -432,7 +432,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.updateCompleters()
         try:
             jobs = Submission.submitJob(jobData)
-        except opencue.exception.CueException, e:
+        except opencue.exception.CueException as e:
             message = "Failed to submit job!\n" + e.message
             Widgets.messageBox(message, title="Failed Job Submission", parent=self).show()
             raise e
