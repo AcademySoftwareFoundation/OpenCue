@@ -159,7 +159,8 @@ class CueSelectPulldown(QtWidgets.QWidget):
         if self.multiselect:
             self.toolButton.setText(self.emptyText)
         else:
-            self.setChecked(options[0])
+            if options:
+                self.setChecked(options[0])
         self.setupUi()
         self.setupConnections()
 

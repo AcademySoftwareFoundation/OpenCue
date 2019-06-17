@@ -100,7 +100,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         shows = Util.getShows()
         self.showSelector = Widgets.CueSelectPulldown(
-            'Show:', shows[0],
+            'Show:',
+            shows[0] if len(shows) else '',
             options=shows,
             multiselect=False,
             parent=self)
