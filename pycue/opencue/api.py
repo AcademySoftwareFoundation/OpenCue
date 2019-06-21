@@ -50,6 +50,7 @@ from .wrappers.group import Group
 from .wrappers.host import Host, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
+from .wrappers.owner import Owner
 from .wrappers.proc import Proc
 from .wrappers.service import Service
 from .wrappers.show import Show
@@ -500,8 +501,8 @@ def getHost(uniq):
 @util.grpcExceptionParser
 def getOwner(id):
     """Return an Owner object from the id or name."""
-    return Cuebot.getStub('owner').GetOwner(
-        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner
+    return Owner(Cuebot.getStub('owner').GetOwner(
+        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner)
 
 #
 # Filters
