@@ -204,6 +204,15 @@ class Layer(object):
     #     @param kill: wheather or not to kill the frames as well"""
     #     self.proxy.unbookProcs([a.proxy for a in subs], number, kill)
 
+    def registerOutputPath(self, outputPath):
+        """Register an output with the given layer. The output paths are sent in the opencue email.
+        @type outputPath: str
+        @param outputPath: Output path to register
+        """
+        self.stub.RegisterOutputPath(
+            job_pb2.LayerRegisterOutputPathRequest(layer=self.data, spec=outputPath),
+            timeout=Cuebot.Timeout)
+
     def reorderFrames(self, range, order):
         """Reorders the specified frame range on this layer.
         @type  range: string
