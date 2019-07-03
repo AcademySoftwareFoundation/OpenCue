@@ -317,6 +317,20 @@ class LayerTests(unittest.TestCase):
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
+    def testRegisterOutputPath(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.RegisterOutputPath.return_value = job_pb2.LayerRegisterOutputPathResponse()
+        getStubMock.return_value = stubMock
+
+        outputPath = '/test/output/path'
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.registerOutputPath(outputPath)
+
+        stubMock.RegisterOutputPath.assert_called_with(
+            job_pb2.LayerRegisterOutputPathRequest(layer=layer.data, spec=outputPath),
+            timeout=mock.ANY)
+
     def testReorderFrames(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.ReorderFrames.return_value = job_pb2.LayerReorderFramesResponse()
