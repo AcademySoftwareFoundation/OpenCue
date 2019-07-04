@@ -83,7 +83,10 @@ PLAYBLAST = True
 
 SVN: $Id$
 """
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 
 import getopt
@@ -115,9 +118,9 @@ def setupLogging():
 
 setupLogging()
 
-from .rqcore import RqCore
-from . import rqutil
-from . import rqconstants
+from rqd.rqcore import RqCore
+from rqd import rqutil
+from rqd import rqconstants
 
 def usage():
     """Prints command line syntax"""

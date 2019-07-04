@@ -27,8 +27,11 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
-from __future__ import print_function
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 
 import os
 import select
@@ -37,8 +40,8 @@ import signal
 import threading
 import logging as log
 
-from . import rqconstants
-from . import rqutil
+from rqd import rqconstants
+from rqd import rqutil
 
 class Nimby(threading.Thread):
     """Nimby == Not In My Back Yard.

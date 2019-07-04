@@ -26,7 +26,11 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 
 import logging as log
 import os
@@ -40,18 +44,18 @@ import threading
 import time
 import traceback
 
-from . import rqconstants
-from . import rqutil
-from .compiled_proto import host_pb2
-from .compiled_proto import report_pb2
-from .rqexceptions import CoreReservationFailureException
-from .rqexceptions import DuplicateFrameViolationException
-from .rqexceptions import InvalidUserException
-from .rqexceptions import RqdException
-from .rqmachine import Machine
-from .rqnetwork import Network
-from .rqnetwork import RunningFrame
-from .rqnimby import Nimby
+from rqd import rqconstants
+from rqd import rqutil
+from rqd.compiled_proto import host_pb2
+from rqd.compiled_proto import report_pb2
+from rqd.rqexceptions import CoreReservationFailureException
+from rqd.rqexceptions import DuplicateFrameViolationException
+from rqd.rqexceptions import InvalidUserException
+from rqd.rqexceptions import RqdException
+from rqd.rqmachine import Machine
+from rqd.rqnetwork import Network
+from rqd.rqnetwork import RunningFrame
+from rqd.rqnimby import Nimby
 
 
 class FrameAttendantThread(threading.Thread):

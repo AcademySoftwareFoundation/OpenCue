@@ -50,7 +50,10 @@ Everything can throw SpiIce.SpiIceException
   - RunningFrameInfo status()
   - void kill()
 """
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 
 from concurrent import futures
@@ -64,12 +67,12 @@ import time
 
 import grpc
 
-from .compiled_proto import report_pb2
-from .compiled_proto import report_pb2_grpc
-from .compiled_proto import rqd_pb2_grpc
-from . import rqconstants
-from . import rqdservicers
-from . import rqutil
+from rqd.compiled_proto import report_pb2
+from rqd.compiled_proto import report_pb2_grpc
+from rqd.compiled_proto import rqd_pb2_grpc
+from rqd import rqconstants
+from rqd import rqdservicers
+from rqd import rqutil
 
 
 class RunningFrame(object):

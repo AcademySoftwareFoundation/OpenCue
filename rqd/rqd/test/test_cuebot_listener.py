@@ -19,14 +19,19 @@
 #
 # Author: John Welborn (jwelborn@imageworks.com)
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
+
 from concurrent import futures
 import time
 import sys
 
 import grpc
 
-from compiled_proto import report_pb2_grpc
-import rqconstants
+from rqd.compiled_proto import report_pb2_grpc
+from rqd import rqconstants
 
 # THIS IS FOR TESTING rqd.py ONLY
 

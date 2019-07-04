@@ -26,7 +26,11 @@ Contact: Middle-Tier
 
 SVN: $Id$
 """
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 
 import errno
 import logging as log
@@ -45,17 +49,17 @@ if platform.system() == 'Linux':
     import resource
     import yaml
 
-from . import rqconstants
-from .rqexceptions import CoreReservationFailureException
-from . import rqutil
-from . import rqswap
+from rqd import rqconstants
+from rqd.rqexceptions import CoreReservationFailureException
+from rqd import rqutil
+from rqd import rqswap
 
 if platform.system() == "win32":
     import win32process
     import win32api
 
-from .compiled_proto import host_pb2
-from .compiled_proto import report_pb2
+from rqd.compiled_proto import host_pb2
+from rqd.compiled_proto import report_pb2
 
 KILOBYTE = 1024
 

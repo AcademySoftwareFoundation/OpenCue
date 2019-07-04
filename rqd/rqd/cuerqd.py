@@ -46,8 +46,10 @@
       Displays information from or sends a command to an RQD host
 \nCONTACT
      Middle-Tier Group"""
-from __future__ import print_function
+
 from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 
 import os
@@ -59,9 +61,9 @@ import logging as log
 
 import grpc
 
-from .compiled_proto import rqd_pb2
-from .compiled_proto import rqd_pb2_grpc
-from . import rqconstants
+from rqd.compiled_proto import rqd_pb2
+from rqd.compiled_proto import rqd_pb2_grpc
+from rqd import rqconstants
 
 
 class RqdHost:
