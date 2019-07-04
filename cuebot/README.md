@@ -41,4 +41,3 @@ NOTE: Only OpenCue developers will need to do this setup. If you just want to us
 
 View > Tool Windows > Gradle. Refresh the Gradle project and run the build task, which will
 run compilation and tests.
-
