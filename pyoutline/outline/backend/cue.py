@@ -345,7 +345,7 @@ def build_dependencies(ol, layer, all_depends):
 
         depend = Et.SubElement(all_depends, "depend",
                                type=dep.get_type(),
-                               anyframe=str(dep.is_any_frame()))
+                               anyframe=bool_to_str(dep.is_any_frame()))
 
         if dep.get_type() == DependType.LayerOnSimFrame:
 
