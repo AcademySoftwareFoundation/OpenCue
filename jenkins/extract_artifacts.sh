@@ -17,6 +17,8 @@ fi
 
 mkdir -p "$artifact_directory"
 
+cp LICENSE "$artifact_directory"
+
 echo "{\"git_commit\": \"${GIT_COMMIT}\"}" | tee "${artifact_directory}/build_metadata.json"
 
 container_id=$(docker create opencue/cuebot:${build_id})

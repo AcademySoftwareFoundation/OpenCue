@@ -106,6 +106,8 @@ def _upload_artifact(artifact_file, release):
       content_type = 'application/java-archive'
     elif ext == '.sql':
       content_type = 'application/sql'
+    elif os.path.basename(artifact_file) == 'LICENSE':
+      content_type = 'text/plain'
     else:
       raise Exception('Artifact %s has an unknown file type' % os.path.basename(artifact_file))
     upload_url = release['upload_url'].replace(
@@ -167,6 +169,9 @@ def main():
   release_artifacts = os.listdir(tmpdir)
   if not release_artifacts:
     raise Exception('No release artifacts were found')
+
+  if 'LICENSE' not in release_artifacts:
+    raise Exception('LICENSE file was not found alongside build artifacts')
 
   if 'build_metadata.json' not in release_artifacts:
     raise Exception('Build metadata was not found alongside build artifacts')

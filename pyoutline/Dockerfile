@@ -18,6 +18,7 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
@@ -74,7 +75,7 @@ RUN cd pyoutline && python3.6 setup.py test
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt VERSION pyoutline/
+RUN cp LICENSE requirements.txt VERSION pyoutline/
 
 RUN versioned_name="pyoutline-$(cat ./VERSION)-all" \
   && mv pyoutline $versioned_name \

@@ -15,6 +15,7 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
@@ -68,7 +69,7 @@ RUN cd cuesubmit && python setup.py test
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt VERSION cuesubmit/
+RUN cp LICENSE requirements.txt VERSION cuesubmit/
 
 RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
   && mv cuesubmit $versioned_name \
