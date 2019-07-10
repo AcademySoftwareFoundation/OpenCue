@@ -18,6 +18,7 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
@@ -63,7 +64,7 @@ RUN cd pycue && python3.6 setup.py test
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt VERSION pycue/
+RUN cp LICENSE requirements.txt VERSION pycue/
 
 RUN versioned_name="pycue-$(cat ./VERSION)-all" \
   && mv pycue $versioned_name \

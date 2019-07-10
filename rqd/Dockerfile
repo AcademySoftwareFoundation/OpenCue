@@ -16,6 +16,7 @@ FROM base as build
 
 WORKDIR /src
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
@@ -57,7 +58,7 @@ RUN mkdir dist
 
 RUN cp rqd/deploy/install_and_run.sh dist/
 
-RUN cp requirements.txt VERSION rqd/
+RUN cp LICENSE requirements.txt VERSION rqd/
 
 RUN versioned_name="rqd-$(cat ./VERSION)-all" \
   && mv rqd dist/$versioned_name \

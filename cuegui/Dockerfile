@@ -14,6 +14,7 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
@@ -59,7 +60,7 @@ FROM build as test
 # -----------------
 FROM build as package
 
-RUN cp requirements.txt VERSION cuegui/
+RUN cp LICENSE requirements.txt VERSION cuegui/
 
 RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
   && mv cuegui $versioned_name \

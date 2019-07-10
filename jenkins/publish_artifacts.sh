@@ -26,6 +26,7 @@ if [[ -z "${CUE_PUBLISH_PROJECT}" ]]; then
 fi
 
 gsutil -m cp \
+  "${artifact_directory}/LICENSE" \
   "${artifact_directory}/build_metadata.json" \
   "${artifact_directory}/schema-${build_id}.sql" \
   "${artifact_directory}/demo_data-${build_id}.sql" \
