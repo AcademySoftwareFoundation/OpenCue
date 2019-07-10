@@ -469,8 +469,7 @@ def getHosts(**options):
     @rtype:  List<Host>
     @return: a list of hosts
     """
-    hostSeq = search.HostSearch.byOptions(**options).hosts
-    return [Host(h) for h in hostSeq.hosts]
+    return search.HostSearch.byOptions(**options)
 
 
 @util.grpcExceptionParser
