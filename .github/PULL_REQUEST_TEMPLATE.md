@@ -10,25 +10,36 @@ adding a list of the three or four main points can be helpful.
 
 It's also helpful to describe **why** you're making this change.
 
-**Request any additional reviews.**
-Everyone listed in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will be automatically added to the reviewer list, though
-you only need one Code Owner approval before the Pull Request can be removed.
+**Checklist**
+You can remove this section before creating your Pull Request.
 
-Feel free to add other reviewers if you think their input would be valuable!
+1. **Add a Pull Request title.** A descriptive single sentence.
 
-**Choose Draft/Regular mode.**
-If you feel like your change is ready to be merged or close to that, create a normal Pull Request.
+1. **Fill in the Pull Request body** as described above.
 
-If you feel like your change isn't ready to be merged -- maybe it's just an idea you have -- but
-you want feedback anyway, feel free to create a Draft Pull Request and add any needed reviewers
-(Code Owners will not be automatically added as they are for regular Pull Requests). Draft
+1. **Request any additional reviewers.**
 
-You can convert a Draft Pull Request to a regular Pull Request at any point.
+   Everyone listed in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will be automatically added to the reviewer list, though
+   you only need one Code Owner approval before the Pull Request can be removed.
+   
+   Feel free to add other reviewers if you think their input would be valuable!
 
-Pull Requests will still have presubmit checks (such as CI tests) run on them, which can be
-helpful.
+1. **Choose Draft/Regular mode.**
 
-**Sign the CLA.**
-After you create your Pull Request, a presubmit check will be run to determine whether you've
-signed the OpenCue CLA. If you haven't, the presubmit check will display instructions for
-how to proceed.
+   If you feel like your change is ready to be merged or close to that, create a normal Pull
+   Request.
+
+   If you feel like your change isn't ready to be merged -- maybe it's just an idea you have -- but
+   you want feedback anyway, feel free to create a Draft Pull Request and add any needed reviewers
+   (Code Owners will not be automatically added as they are for regular Pull Requests). Draft
+
+   You can convert a Draft Pull Request to a regular Pull Request at any point.
+
+   Pull Requests will still have presubmit checks (such as CI tests) run on them, which can be
+   helpful.
+
+1. **Sign the CLA.**
+
+   After you create your Pull Request, a presubmit check will be run to determine whether you've
+   signed the OpenCue CLA. If you haven't, the presubmit check will display instructions for
+   how to proceed.
