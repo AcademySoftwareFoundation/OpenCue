@@ -13,18 +13,18 @@ It's also helpful to describe **why** you're making this change.
 **Checklist**
 You can remove this section before creating your Pull Request.
 
-1. **Add a Pull Request title.** A descriptive single sentence.
+1. Add a Pull Request title. A descriptive single sentence.
 
-1. **Fill in the Pull Request body** as described above.
+2. Fill in the Pull Request body as described above.
 
-1. **Request any additional reviewers.**
+3. Request any additional reviewers.
 
    Everyone listed in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will be automatically added to the reviewer list, though
    you only need one Code Owner approval before the Pull Request can be removed.
    
    Feel free to add other reviewers if you think their input would be valuable!
 
-1. **Choose Draft/Regular mode.**
+4. Choose Draft/Regular mode.
 
    If you feel like your change is ready to be merged or close to that, create a normal Pull
    Request.
@@ -38,7 +38,7 @@ You can remove this section before creating your Pull Request.
    Pull Requests will still have presubmit checks (such as CI tests) run on them, which can be
    helpful.
 
-1. **Sign the CLA.**
+5. Sign the CLA.
 
    After you create your Pull Request, a presubmit check will be run to determine whether you've
    signed the OpenCue CLA. If you haven't, the presubmit check will display instructions for
