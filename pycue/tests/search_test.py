@@ -48,6 +48,7 @@ class JobSearchTests(unittest.TestCase):
 
     def testBaseSearchHost(self, getStubMock):
         stubMock = mock.Mock()
+        stubMock.GetHosts.return_value = host_pb2.HostGetHostsResponse()
         getStubMock.return_value = stubMock
 
         hostSearch = opencue.search.HostSearch(substr=['unittest_host'])
