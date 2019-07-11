@@ -11,10 +11,8 @@ adding a list of the three or four main points can be helpful.
 It's also helpful to describe **why** you're making this change.
 
 **Request any additional reviews.**
-Everyone listed
-in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will
-be automatically added to the reviewer list, though you only need one Code Owner approval
-before the Pull Request can be removed.
+Everyone listed in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will be automatically added to the reviewer list, though
+you only need one Code Owner approval before the Pull Request can be removed.
 
 Feel free to add other reviewers if you think their input would be valuable!
 
