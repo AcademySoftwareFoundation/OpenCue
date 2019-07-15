@@ -21,7 +21,7 @@ You can remove this section before creating your Pull Request.
 
    Everyone listed in [CODEOWNERS](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CODEOWNERS) will be automatically added to the reviewer list, though
    you only need one Code Owner approval before the Pull Request can be removed.
-   
+
    Feel free to add other reviewers if you think their input would be valuable!
 
 4. Choose Draft/Regular mode.
@@ -35,8 +35,8 @@ You can remove this section before creating your Pull Request.
 
    You can convert a Draft Pull Request to a regular Pull Request at any point.
 
-   Pull Requests will still have presubmit checks (such as CI tests) run on them, which can be
-   helpful.
+   Draft Pull Requests will still have presubmit checks (such as CI tests) run on them, which can
+   be helpful.
 
 5. Sign the CLA.
 
