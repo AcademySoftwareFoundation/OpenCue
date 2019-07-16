@@ -19,3 +19,5 @@ jobs:
     name: cuebot
   - bash: docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
     name: rqd
+  - bash: docker build -t opencue/pycue:$(setBuildId.buildId) -f pycue/Dockerfile .
+    name: pycue
