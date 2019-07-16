@@ -6,8 +6,8 @@ trigger:
 - master
 
 jobs:
-- job: setEnv
-  displayName: Set Environment
+- job: build
+  displayName: Build
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
@@ -15,16 +15,7 @@ jobs:
       ci/generate_version_number.sh
       echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
     name: setBuildId
-  - bash: echo $(setBuildId.buildId)
-    name: echovar
-
-- job: build
-  displayName: Build
-  dependsOn: setEnv
-  pool:
-    vmImage: 'ubuntu-16.04'
-  variables:
-    buildId: $[ dependencies.setEnv.outputs['setBuildId.buildId'] ]
-  steps:
-  - bash: echo $(buildId)
-    name: echovar
+  - bash: docker build -t opencue/cuebot:$(setBuildId.buildId) -f cuebot/Dockerfile .
+    name: cuebot
+  - bash: docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
+    name: rqd
