@@ -1,19 +1,20 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# OpenCue Build and Test Pipeline
 
+# Trigger the pipeline on every commit to master. Pull Requests to any branch will trigger
+# the pipeline as well, by default.
 trigger:
 - master
 
-pool:
-  vmImage: 'ubuntu-latest'
-
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
-
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+stages:
+- stage: Environment
+  jobs:
+  - job: Set_Build_Id
+    pool:
+      vmImage: 'ubuntu-1604'
+    steps:
+    - bash: |
+        ci/generate_version_number.sh
+        echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
+      name: setBuildId
+    - bash: echo $(setBuildId.buildId)
+      name: echovar
