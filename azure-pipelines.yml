@@ -9,8 +9,9 @@ stages:
 - stage: Environment
   jobs:
   - job: Set_Build_Id
+    displayName: Set Build Id
     pool:
-      vmImage: 'ubuntu-1604'
+      vmImage: 'ubuntu-16.04'
     steps:
     - bash: |
         ci/generate_version_number.sh
