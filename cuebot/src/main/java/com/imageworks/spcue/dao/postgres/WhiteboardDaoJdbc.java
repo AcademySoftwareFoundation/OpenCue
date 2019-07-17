@@ -107,6 +107,7 @@ import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.grpc.job.UpdatedFrame;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
 import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
@@ -366,6 +367,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         List<Layer> layers = getJdbcTemplate().query(
                 query, LAYER_MAPPER, job.getJobId());
         return LayerSeq.newBuilder().addAllLayers(layers).build();
+    }
+
+    @Override
+    public List<Limit> getLimits(LayerInterface layer) {
+        List<Limit> limits = getJdbcTemplate().query(
+                GET_LIMIT_FROM_LAYER_ID, LIMIT_MAPPER, layer.getLayerId());
+        return limits;
     }
 
     @Override
@@ -739,9 +747,34 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 QUERY_FOR_FACILITY, FACILITY_MAPPER)).build();
     }
 
+    @Override
+    public Limit findLimit(String name) {
+        return getJdbcTemplate().queryForObject(
+                QUERY_FOR_LIMIT + " WHERE limit_record.str_name = ?",
+                LIMIT_MAPPER, name);
+    }
+
+    @Override
+    public Limit getLimit(String id) {
+        return getJdbcTemplate().queryForObject(
+                QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ?",
+                LIMIT_MAPPER, id);
+    }
+
     /*
      * Row Mappers
      */
+
+    public static final RowMapper<Limit> LIMIT_MAPPER =
+            new RowMapper<Limit>() {
+                public Limit mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    return Limit.newBuilder()
+                            .setId(SqlUtil.getString(rs, "pk_limit_record"))
+                            .setName(SqlUtil.getString(rs, "str_name"))
+                            .setMaxValue(rs.getInt("int_max_value"))
+                            .build();
+                }
+            };
 
     public static final RowMapper<Matcher> MATCHER_MAPPER =
             new RowMapper<Matcher>() {
@@ -1646,6 +1679,26 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "facility.str_name " +
         "FROM " +
             "facility ";
+
+    private static final String QUERY_FOR_LIMIT =
+        "SELECT " +
+            "limit_record.pk_limit_record, " +
+            "limit_record.str_name, " +
+            "limit_record.int_max_value " +
+        "FROM " +
+            "limit_record ";
+
+    private static final String GET_LIMIT_FROM_LAYER_ID =
+        "SELECT " +
+            "limit_record.pk_limit_record, " +
+            "limit_record.str_name, " +
+            "limit_record.int_max_value " +
+        "FROM " +
+            "limit_record, " +
+            "layer_limit " +
+        "WHERE " +
+            "layer_limit.pk_layer = ? " +
+            "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
 
     public static final String GET_GROUPS =
         "SELECT " +

@@ -7,6 +7,7 @@ option java_multiple_files = true;
 
 import "comment.proto";
 import "depend.proto";
+import "limit.proto";
 import "renderPartition.proto";
 
 // Job related messages and services
@@ -255,6 +256,9 @@ service JobInterface {
 }
 
 service LayerInterface {
+    // Add Limit to the Layer
+    rpc AddLimit(LayerAddLimitRequest) returns (LayerAddLimitResponse);
+
     // Add RenderPartition to Layer
     rpc AddRenderPartition(LayerAddRenderPartitionRequest) returns (LayerAddRenderPartitionResponse);
 
@@ -273,6 +277,9 @@ service LayerInterface {
     // Drops every dependency that is causing this layer not to run.
     rpc DropDepends(LayerDropDependsRequest) returns (LayerDropDependsResponse);
 
+    // Drop the limit from the specified layer.
+    rpc DropLimit(LayerDropLimitRequest) returns (LayerDropLimitResponse);
+
     // Eat the Frames of this Layer
     rpc EatFrames(LayerEatFramesRequest) returns (LayerEatFramesResponse);
 
@@ -287,6 +294,9 @@ service LayerInterface {
 
     // Finds a layer in a pending job from its unique ID
     rpc GetLayer(LayerGetLayerRequest) returns (LayerGetLayerResponse);
+
+    // Return a list of the limits on the specified layer.
+    rpc GetLimits(LayerGetLimitsRequest) returns (LayerGetLimitsResponse);
 
     // Return a list of all registered output paths.
     rpc GetOutputPaths(LayerGetOutputPathsRequest) returns (LayerGetOutputPathsResponse);
@@ -605,6 +615,7 @@ message Layer {
     bool memory_optimizer_enabled = 14;
     LayerStats layer_stats = 15;
     string parent_id = 16;
+    repeated string limits = 17;
 }
 
 message LayerSeq {
@@ -1303,6 +1314,14 @@ message JobStaggerFramesResponse {} // Empty
 
 
 // LAYER ----
+// AddLimit
+message LayerAddLimitRequest {
+    Layer layer = 1;
+    string limit_id = 2;
+}
+
+message LayerAddLimitResponse {} // Empty
+
 // AddRenderPartion
 message LayerAddRenderPartitionRequest {
     Layer layer = 1;
@@ -1367,6 +1386,14 @@ message LayerDropDependsRequest {
 
 message LayerDropDependsResponse {} // Empty
 
+// DropLimit
+message LayerDropLimitRequest {
+    Layer layer = 1;
+    string limit_id = 2;
+}
+
+message LayerDropLimitResponse {} // Empty
+
 // EatFrames
 message LayerEatFramesRequest {
     Layer layer = 1;
@@ -1409,6 +1436,15 @@ message LayerGetLayerRequest {
 
 message LayerGetLayerResponse {
     Layer layer = 1;
+}
+
+// GetLayer
+message LayerGetLimitsRequest {
+    Layer layer = 1;
+}
+
+message LayerGetLimitsResponse {
+    repeated limit.Limit limits = 1;
 }
 
 // GetOutputPaths

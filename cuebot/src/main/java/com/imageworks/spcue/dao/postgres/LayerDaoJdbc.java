@@ -40,6 +40,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.LayerDao;
@@ -742,6 +744,54 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                         usage.getClockTimeSeconds(),
                         layer.getLayerId());
         }
+    }
+
+    private static final String INSERT_LIMIT =
+            "INSERT INTO " +
+                "layer_limit (pk_layer_limit,pk_layer,pk_limit_record)" +
+            "VALUES (?,?,?)";
+
+    private static final String GET_LIMITS =
+            "SELECT " +
+                "limit_record.pk_limit_record, " +
+                "limit_record.str_name, " +
+                "limit_record.int_max_value " +
+            "FROM " +
+                "layer_limit," +
+                "limit_record " +
+            "WHERE " +
+                "layer_limit.pk_layer = ? " +
+                "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+
+    private static final RowMapper<LimitEntity> LIMIT_MAPPER =
+            new RowMapper<LimitEntity>() {
+                public LimitEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    LimitEntity limit = new LimitEntity();
+                    limit.id = rs.getString("pk_limit_record");
+                    limit.name = rs.getString("str_name");
+                    limit.maxValue = rs.getInt("int_max_value");
+                    return limit;
+                }
+            };
+
+    @Override
+    public void addLimit(LayerInterface layer, String limitId) {
+        getJdbcTemplate().update(INSERT_LIMIT, UUID.randomUUID().toString(), layer.getLayerId(),
+                limitId);
+    }
+
+    @Override
+    public void dropLimit(LayerInterface layer, String limitId) {
+        getJdbcTemplate().update(
+                "DELETE FROM layer_limit WHERE pk_limit_record = ? AND pk_layer = ?",
+                limitId,
+                layer.getLayerId());
+    }
+
+    @Override
+    public List<LimitEntity> getLimits(LayerInterface layer) {
+        return getJdbcTemplate().query(GET_LIMITS,
+                LIMIT_MAPPER, layer.getLayerId());
     }
 }
 

@@ -44,6 +44,8 @@ import com.imageworks.spcue.dispatcher.commands.DispatchStaggerFrames;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameSeq;
 import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.job.LayerAddLimitRequest;
+import com.imageworks.spcue.grpc.job.LayerAddLimitResponse;
 import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionRequest;
 import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionResponse;
 import com.imageworks.spcue.grpc.job.LayerCreateDependOnFrameRequest;
@@ -56,6 +58,8 @@ import com.imageworks.spcue.grpc.job.LayerCreateFrameByFrameDependRequest;
 import com.imageworks.spcue.grpc.job.LayerCreateFrameByFrameDependResponse;
 import com.imageworks.spcue.grpc.job.LayerDropDependsRequest;
 import com.imageworks.spcue.grpc.job.LayerDropDependsResponse;
+import com.imageworks.spcue.grpc.job.LayerDropLimitRequest;
+import com.imageworks.spcue.grpc.job.LayerDropLimitResponse;
 import com.imageworks.spcue.grpc.job.LayerEatFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerEatFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerEnableMemoryOptimizerRequest;
@@ -66,6 +70,8 @@ import com.imageworks.spcue.grpc.job.LayerGetFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerGetFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerGetLayerRequest;
 import com.imageworks.spcue.grpc.job.LayerGetLayerResponse;
+import com.imageworks.spcue.grpc.job.LayerGetLimitsRequest;
+import com.imageworks.spcue.grpc.job.LayerGetLimitsResponse;
 import com.imageworks.spcue.grpc.job.LayerGetOutputPathsRequest;
 import com.imageworks.spcue.grpc.job.LayerGetOutputPathsResponse;
 import com.imageworks.spcue.grpc.job.LayerGetWhatDependsOnThisRequest;
@@ -97,6 +103,7 @@ import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.DependManager;
@@ -297,6 +304,15 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     }
 
     @Override
+    public void dropLimit(LayerDropLimitRequest request,
+                         StreamObserver<LayerDropLimitResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        layerDao.dropLimit(layer, request.getLimitId());
+        responseObserver.onNext(LayerDropLimitResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void reorderFrames(LayerReorderFramesRequest request,
                               StreamObserver<LayerReorderFramesResponse> responseObserver) {
         updateLayer(request.getLayer());
@@ -321,6 +337,15 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         updateLayer(request.getLayer());
         layerDao.updateThreadable(layer, request.getThreadable());
         responseObserver.onNext(LayerSetThreadableResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void addLimit(LayerAddLimitRequest request,
+                         StreamObserver<LayerAddLimitResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        layerDao.addLimit(layer, request.getLimitId());
+        responseObserver.onNext(LayerAddLimitResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
@@ -354,6 +379,16 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         updateLayer(request.getLayer());
         jobManager.registerLayerOutput(layer, request.getSpec());
         responseObserver.onNext(LayerRegisterOutputPathResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getLimits(LayerGetLimitsRequest request,
+                          StreamObserver<LayerGetLimitsResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        responseObserver.onNext(LayerGetLimitsResponse.newBuilder()
+                .addAllLimits(whiteboard.getLimits(layer))
+                .build());
         responseObserver.onCompleted();
     }
 

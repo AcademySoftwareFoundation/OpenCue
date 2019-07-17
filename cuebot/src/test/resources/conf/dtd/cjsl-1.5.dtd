@@ -30,7 +30,7 @@
 <!-- ================================================================= -->
 
 <!ELEMENT layers            (layer+)>
-<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,tags?,env*,services?)>
+<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,tags?,limits?,env*,services?)>
 <!ATTLIST layer
     name                    NMTOKEN                #REQUIRED
     type                    (RENDER | UTIL | POST) #REQUIRED
@@ -42,6 +42,7 @@
 <!ELEMENT threadable        (#PCDATA)*>
 <!ELEMENT memory            (#PCDATA)*>
 <!ELEMENT tags              (#PCDATA)*>
+<!ELEMENT limits            (limit+)>
 <!ELEMENT services          (service+)>
 <!ELEMENT env               (key*)>
 
@@ -50,6 +51,11 @@
 <!-- Layer Services                                                    -->
 <!-- ================================================================= -->
 <!ELEMENT service           (#PCDATA)*>
+
+<!-- ================================================================= -->
+<!-- Layer Limits                                                    -->
+<!-- ================================================================= -->
+<!ELEMENT limit           (#PCDATA)*>
 
 <!-- ================================================================= -->
 <!-- Environment Variables -->
