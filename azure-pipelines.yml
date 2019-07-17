@@ -28,27 +28,27 @@ jobs:
     name: pycue
     displayName: Build and Test PyCue
 
-  - bash: docker build -t opencue/pyoutline:${env.BUILD_ID} -f pyoutline/Dockerfile .
+  - bash: docker build -t opencue/pyoutline:$(setBuildId.buildId) -f pyoutline/Dockerfile .
     name: pyoutline
     displayName: Build and Test PyOutline
 
-  - bash: docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile .
+  - bash: docker build -t opencue/cuegui:$(setBuildId.buildId) -f cuegui/Dockerfile .
     name: cuegui
     displayName: Build and Test CueGUI
 
-  - bash: docker build -t opencue/cuesubmit:${env.BUILD_ID} -f cuesubmit/Dockerfile .
+  - bash: docker build -t opencue/cuesubmit:$(setBuildId.buildId) -f cuesubmit/Dockerfile .
     name: cuesubmit
     displayName: Build and Test CueSubmit
 
-  - bash: docker build -t opencue/cueadmin:${env.BUILD_ID} -f cueadmin/Dockerfile .
+  - bash: docker build -t opencue/cueadmin:$(setBuildId.buildId) -f cueadmin/Dockerfile .
     name: cueadmin
     displayName: Build and Test CueAdmin
 
-  - bash: jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build
+  - bash: jenkins/extract_artifacts.sh $(setBuildId.buildId) ./build
     name: extractArtifacts
     displayName: Extract Build Artifacts
 
-  - bash: jenkins/extract_schema.sh ${env.BUILD_ID} ./build
+  - bash: jenkins/extract_schema.sh $(setBuildId.buildId) ./build
     name: extractSchema
     displayName: Extract Database Schema
 
