@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue;
 
-import java.util.Date;
-
 import com.imageworks.spcue.grpc.limit.Limit;
 
 public class LimitEntity extends Entity implements LimitInterface {
