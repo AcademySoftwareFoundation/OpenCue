@@ -116,7 +116,7 @@ jobs:
     artifact: CueGUI Tarball
     displayName: Publish CueGUI Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(setBuildId.buildId)-all.tar.g
+  - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(setBuildId.buildId)-all.tar.gz
     artifact: CueSubmit Tarball
     displayName: Publish CueSubmit Tarball
 
