@@ -66,11 +66,12 @@ jobs:
 
   - publish: build/LICENSE
     artifact: License
+    displayName: Publish LICENSE
 
   - publish: build/build_metadata.json
     artifact: Build Metadata
 
-  - publish: build/cuebot-*-all.jar
+  - publish: build/cuebot-$(setBuildId.buildId)-all.jar
     artifact: Cuebot JAR
 
   #- publish: build/rqd-*-all.tar.gz
