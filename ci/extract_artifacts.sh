@@ -11,7 +11,7 @@ build_id=$1
 artifact_directory=$2
 
 if [ -z "${BUILD_SOURCEVERSION}" ]; then
-  print 'Environment var BUILD_SOURCEVERSION must be set.'
+  echo 'Environment var BUILD_SOURCEVERSION must be set.'
   exit 1
 fi
 
