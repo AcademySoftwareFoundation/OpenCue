@@ -20,64 +20,67 @@ jobs:
     name: cuebot
     displayName: Build and Test Cuebot
 
-  - bash: docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
-    name: rqd
-    displayName: Build and Test RQD
+  #- bash: docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
+  #  name: rqd
+  #  displayName: Build and Test RQD
 
-  - bash: docker build -t opencue/pycue:$(setBuildId.buildId) -f pycue/Dockerfile .
-    name: pycue
-    displayName: Build and Test PyCue
+  #- bash: docker build -t opencue/pycue:$(setBuildId.buildId) -f pycue/Dockerfile .
+  #  name: pycue
+  #  displayName: Build and Test PyCue
 
-  - bash: docker build -t opencue/pyoutline:$(setBuildId.buildId) -f pyoutline/Dockerfile .
-    name: pyoutline
-    displayName: Build and Test PyOutline
+  #- bash: docker build -t opencue/pyoutline:$(setBuildId.buildId) -f pyoutline/Dockerfile .
+  #  name: pyoutline
+  #  displayName: Build and Test PyOutline
 
-  - bash: docker build -t opencue/cuegui:$(setBuildId.buildId) -f cuegui/Dockerfile .
-    name: cuegui
-    displayName: Build and Test CueGUI
+  #- bash: docker build -t opencue/cuegui:$(setBuildId.buildId) -f cuegui/Dockerfile .
+  #  name: cuegui
+  #  displayName: Build and Test CueGUI
 
-  - bash: docker build -t opencue/cuesubmit:$(setBuildId.buildId) -f cuesubmit/Dockerfile .
-    name: cuesubmit
-    displayName: Build and Test CueSubmit
+  #- bash: docker build -t opencue/cuesubmit:$(setBuildId.buildId) -f cuesubmit/Dockerfile .
+  #  name: cuesubmit
+  #  displayName: Build and Test CueSubmit
 
-  - bash: docker build -t opencue/cueadmin:$(setBuildId.buildId) -f cueadmin/Dockerfile .
-    name: cueadmin
-    displayName: Build and Test CueAdmin
+  #- bash: docker build -t opencue/cueadmin:$(setBuildId.buildId) -f cueadmin/Dockerfile .
+  #  name: cueadmin
+  #  displayName: Build and Test CueAdmin
 
-  - bash: jenkins/extract_artifacts.sh $(setBuildId.buildId) ./build
+  - bash: ci/extract_artifacts.sh $(setBuildId.buildId) ./build
     name: extractArtifacts
     displayName: Extract Build Artifacts
 
-  - bash: jenkins/extract_schema.sh $(setBuildId.buildId) ./build
+  - bash: ci/extract_schema.sh $(setBuildId.buildId) ./build
     name: extractSchema
     displayName: Extract Database Schema
 
   - publish: build/LICENSE
     artifact: License
 
+  - publish: build/build_metadata.json
+    artifact: Build Metadata
+
   - publish: build/cuebot-*-all.jar
     artifact: Cuebot JAR
 
-  - publish: build/rqd-*-all.tar.gz
-    artifact: RQD Tarball
+  #- publish: build/rqd-*-all.tar.gz
+  #  artifact: RQD Tarball
 
-  - publish: build/pycue-*-all.tar.gz
-    artifact: PyCue Tarball
+  #- publish: build/pycue-*-all.tar.gz
+  #  artifact: PyCue Tarball
 
-  - publish: build/pyoutline-*-all.tar.gz
-    artifact: PyOutline Tarball
+  #- publish: build/pyoutline-*-all.tar.gz
+  #  artifact: PyOutline Tarball
 
-  - publish: build/cuegui-*-all.tar.gz
-    artifact: CueGUI Tarball
+  #- publish: build/cuegui-*-all.tar.gz
+  #  artifact: CueGUI Tarball
 
-  - publish: build/cuesubmit-*-all.tar.g
-    artifact: CueSubmit Tarball
+  #- publish: build/cuesubmit-*-all.tar.g
+  #  artifact: CueSubmit Tarball
 
-  - publish: build/cueadmin-*-all.tar.gz
-    artifact: CueAdmin Tarball
+  #- publish: build/cueadmin-*-all.tar.gz
+  #  artifact: CueAdmin Tarball
 
-  - publish: build/schema-*.sql
-    artifact: Database Schema
+  #- publish: build/schema-*.sql
+  #  artifact: Database Schema
 
-  - publish: build/demo_data-*.sql
-    artifact: Demo SQL Data
+  #- publish: build/demo_data-*.sql
+  #  artifact: Demo SQL Data
