@@ -18,6 +18,11 @@ jobs:
       ci/generate_version_number.sh
       echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
     name: setBuildId
+    displayName: Generate Build ID
+
+  - bash: mkdir -p $(ARTIFACT_DIRECTORY)
+    name: createArtifactDirectory
+    displayName: Create Artifact Directory
 
   - bash: |
       docker build -t opencue/cuebot:$(setBuildId.buildId) -f cuebot/Dockerfile .
