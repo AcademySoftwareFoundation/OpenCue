@@ -1711,7 +1711,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "FROM " +
             "limit_record ";
 
-private static final String GET_LIMIT_FROM_LAYER_ID =
+    private static final String GET_LIMIT_FROM_LAYER_ID =
         "SELECT " +
             "limit_record.pk_limit_record, " +
             "limit_record.str_name, " +
