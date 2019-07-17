@@ -15,9 +15,69 @@ jobs:
       ci/generate_version_number.sh
       echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
     name: setBuildId
+
   - bash: docker build -t opencue/cuebot:$(setBuildId.buildId) -f cuebot/Dockerfile .
     name: cuebot
+    displayName: Build and Test Cuebot
+
   - bash: docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
     name: rqd
+    displayName: Build and Test RQD
+
   - bash: docker build -t opencue/pycue:$(setBuildId.buildId) -f pycue/Dockerfile .
     name: pycue
+    displayName: Build and Test PyCue
+
+  - bash: docker build -t opencue/pyoutline:${env.BUILD_ID} -f pyoutline/Dockerfile .
+    name: pyoutline
+    displayName: Build and Test PyOutline
+
+  - bash: docker build -t opencue/cuegui:${env.BUILD_ID} -f cuegui/Dockerfile .
+    name: cuegui
+    displayName: Build and Test CueGUI
+
+  - bash: docker build -t opencue/cuesubmit:${env.BUILD_ID} -f cuesubmit/Dockerfile .
+    name: cuesubmit
+    displayName: Build and Test CueSubmit
+
+  - bash: docker build -t opencue/cueadmin:${env.BUILD_ID} -f cueadmin/Dockerfile .
+    name: cueadmin
+    displayName: Build and Test CueAdmin
+
+  - bash: jenkins/extract_artifacts.sh ${env.BUILD_ID} ./build
+    name: extractArtifacts
+    displayName: Extract Build Artifacts
+
+  - bash: jenkins/extract_schema.sh ${env.BUILD_ID} ./build
+    name: extractSchema
+    displayName: Extract Database Schema
+
+  - publish: build/LICENSE
+    artifact: License
+
+  - publish: build/cuebot-*-all.jar
+    artifact: Cuebot JAR
+
+  - publish: build/rqd-*-all.tar.gz
+    artifact: RQD Tarball
+
+  - publish: build/pycue-*-all.tar.gz
+    artifact: PyCue Tarball
+
+  - publish: build/pyoutline-*-all.tar.gz
+    artifact: PyOutline Tarball
+
+  - publish: build/cuegui-*-all.tar.gz
+    artifact: CueGUI Tarball
+
+  - publish: build/cuesubmit-*-all.tar.g
+    artifact: CueSubmit Tarball
+
+  - publish: build/cueadmin-*-all.tar.gz
+    artifact: CueAdmin Tarball
+
+  - publish: build/schema-*.sql
+    artifact: Database Schema
+
+  - publish: build/demo_data-*.sql
+    artifact: Demo SQL Data
