@@ -1,5 +1,8 @@
 # OpenCue Build and Test Pipeline
 
+variables:
+  ARTIFACT_DIRECTORY: ./build
+
 # Trigger the pipeline on every commit to master. Pull Requests to any branch will trigger
 # the pipeline as well, by default.
 trigger:
@@ -18,8 +21,8 @@ jobs:
 
   - bash: |
       docker build -t opencue/cuebot:$(setBuildId.buildId) -f cuebot/Dockerfile .
-      container_id=$(docker create opencue/cuebot:${build_id})
-      docker cp $container_id:/opt/opencue/cuebot-${build_id}-all.jar "$artifact_directory/"
+      container_id=$(docker create opencue/cuebot:$(setBuildId.buildId))
+      docker cp $container_id:/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar "$(ARTIFACT_DIRECTORY)/"
       docker rm $container_id
     name: cuebot
     displayName: Build and Test Cuebot
