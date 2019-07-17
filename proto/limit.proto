@@ -25,6 +25,9 @@ service LimitInterface {
     // Get a limit by id
     rpc Get(LimitGetRequest) returns (LimitGetResponse);
 
+    // Get all limits
+    rpc GetAll(LimitGetAllRequest) returns (LimitGetAllResponse);
+
     // Rename an existing limit
     rpc Rename(LimitRenameRequest) returns (LimitRenameResponse);
 
@@ -77,6 +80,13 @@ message LimitGetRequest {
 
 message LimitGetResponse {
     Limit limit = 1;
+}
+
+// GetAll
+message LimitGetAllRequest {} // Empty
+
+message LimitGetAllResponse {
+    repeated Limit limits = 1;
 }
 
 // Rename

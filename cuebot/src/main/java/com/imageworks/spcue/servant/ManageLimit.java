@@ -8,6 +8,8 @@ import com.imageworks.spcue.grpc.limit.LimitDeleteRequest;
 import com.imageworks.spcue.grpc.limit.LimitDeleteResponse;
 import com.imageworks.spcue.grpc.limit.LimitFindRequest;
 import com.imageworks.spcue.grpc.limit.LimitFindResponse;
+import com.imageworks.spcue.grpc.limit.LimitGetAllRequest;
+import com.imageworks.spcue.grpc.limit.LimitGetAllResponse;
 import com.imageworks.spcue.grpc.limit.LimitGetRequest;
 import com.imageworks.spcue.grpc.limit.LimitGetResponse;
 import com.imageworks.spcue.grpc.limit.LimitInterfaceGrpc;
@@ -57,6 +59,16 @@ public class ManageLimit extends LimitInterfaceGrpc.LimitInterfaceImplBase {
     public void get(LimitGetRequest request, StreamObserver<LimitGetResponse> responseObserver) {
         LimitGetResponse response = LimitGetResponse.newBuilder()
                 .setLimit(whiteboard.getLimit(request.getId()))
+                .build();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getAll(LimitGetAllRequest request,
+                       StreamObserver<LimitGetAllResponse> responseObserver) {
+        LimitGetAllResponse response = LimitGetAllResponse.newBuilder()
+                .addAllLimits(whiteboard.getLimits())
                 .build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();

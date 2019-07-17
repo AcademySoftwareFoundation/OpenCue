@@ -564,6 +564,15 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
+    public void testGetAllLimits() {
+        createTestLimits();
+        List<Limit> limits = whiteboardDao.getLimits();
+        assertEquals(limits.size(), 2);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testGetLimit() {
         String limitName = "testing";
         int limitMaxValue = 20;
