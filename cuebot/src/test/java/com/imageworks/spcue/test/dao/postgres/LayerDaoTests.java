@@ -688,6 +688,16 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void testGetLimitNames() {
+        LayerDetail layer = getLayer();
+        List<String> limits = layerDao.getLimitNames(layer);
+        assertEquals(limits.size(), 1);
+        assertEquals(limits.get(0), LIMIT_NAME);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testAddLimit() {
         LayerDetail layer = getLayer();
         layerDao.addLimit(layer, getTestLimitId(LIMIT_TEST_A));

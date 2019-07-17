@@ -400,5 +400,12 @@ public interface LayerDao {
      */
     List<LimitEntity> getLimits(LayerInterface layer);
 
+    /**
+     * Return a list of limit names on the layer.
+     *
+     * @param layer
+     */
+    List<String> getLimitNames(LayerInterface layer);
+
 }
 
