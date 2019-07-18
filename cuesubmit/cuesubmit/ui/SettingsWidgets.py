@@ -160,12 +160,12 @@ class BaseBlenderSettings(BaseSettingsWidget):
         super(BaseBlenderSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Blender File:')
         self.outputPath = Widgets.CueLabelLineEdit(
-            'Output Path:',
+            'Output Path (Optional):',
             tooltip='Optionally set the rendered output format. '
                     'See the "-o" flag of {} for more info.'.format(
                             Constants.BLENDER_OUTPUT_OPTIONS_URL))
         self.outputSelector = Widgets.CueSelectPulldown(
-            'Output Format (Optional)', options=Constants.BLENDER_FORMATS)
+            'Output Format', options=Constants.BLENDER_FORMATS)
         self.outputLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
         self.setupConnections()
