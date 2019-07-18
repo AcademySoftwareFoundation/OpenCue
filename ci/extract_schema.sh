@@ -30,12 +30,11 @@ echo ${FLYWAY_CONTAINER}:/flyway/sql/
 echo "MIGRATION CONTENTS:"
 echo `ls ${SCHEMA_DIRECTORY}/migrations`
 echo "RUNNING COPY>>>"
-for migration_file in ${SCHEMA_DIRECTORY}/migrations/*
+for migration_file in ${SCHEMA_DIRECTORY}/migrations/*.sql
 do
     echo $migration_file
     docker cp $migration_file ${FLYWAY_CONTAINER}:/flyway/sql/
 done
-docker cp ${SCHEMA_DIRECTORY}/migrations/* ${FLYWAY_CONTAINER}:/flyway/sql/
 docker exec -t $FLYWAY_CONTAINER flyway -url=jdbc:postgresql://$PG_IP/$DB_NAME -user=$DB_USER -n migrate
 docker exec -t --user=$DB_USER $PG_CONTAINER pg_dump --no-privileges --no-owner -s $DB_NAME \
     | tee "${ARTIFACT_DIRECTORY}/schema-${BUILD_ID}.sql"
