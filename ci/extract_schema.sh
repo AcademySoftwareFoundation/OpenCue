@@ -29,8 +29,10 @@ echo ${SCHEMA_DIRECTORY}/migrations
 echo ${FLYWAY_CONTAINER}:/flyway/sql/
 echo "MIGRATION CONTENTS:"
 echo `ls ${SCHEMA_DIRECTORY}/migrations`
+echo "RUNNING COPY>>>"
 for migration_file in ${SCHEMA_DIRECTORY}/migrations/*
 do
+    echo $migration_file
     docker cp $migration_file ${FLYWAY_CONTAINER}:/flyway/sql/
 done
 docker cp ${SCHEMA_DIRECTORY}/migrations/* ${FLYWAY_CONTAINER}:/flyway/sql/
