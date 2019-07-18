@@ -96,7 +96,7 @@ class InNukeSettings(BaseSettingsWidget):
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
-        self.cameraSelector.setChecked(commandData.get('camera', '').split(','))
+        self.writeNodeSelector.setChecked(commandData.get('writeNodes', '').split(','))
 
     def getCommandData(self):
         return {
@@ -165,7 +165,7 @@ class BaseBlenderSettings(BaseSettingsWidget):
                     'See the "-o" flag of {} for more info.'.format(
                             Constants.BLENDER_OUTPUT_OPTIONS_URL))
         self.outputSelector = Widgets.CueSelectPulldown(
-            'Output Format', options=Constants.BLENDER_FORMATS)
+            'Output Format', options=Constants.BLENDER_FORMATS, multiselect=False)
         self.outputLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
         self.setupConnections()
@@ -178,9 +178,12 @@ class BaseBlenderSettings(BaseSettingsWidget):
     
     def setupConnections(self):
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
-    
+        self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+      
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
+        self.outputPath.setText(commandData.get('outputPath', ''))
+        self.outputSelector.setChecked(commandData.get('outputFormat', ''))
     
     def getCommandData(self):
         return {
