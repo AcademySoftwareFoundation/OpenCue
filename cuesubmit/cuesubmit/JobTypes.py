@@ -31,7 +31,7 @@ class JobTypes(object):
         SHELL: SettingsWidgets.ShellSettings,
         MAYA: SettingsWidgets.BaseMayaSettings,
         NUKE: SettingsWidgets.BaseNukeSettings,
-        BLENDER: SettingsWidgets.BaseBlenderSettings
+        BLENDER: SettingsWidgets.BaseBlenderSettings,
     }
 
     def __init__(self):
