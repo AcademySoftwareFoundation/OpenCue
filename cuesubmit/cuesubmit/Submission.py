@@ -47,6 +47,23 @@ def buildNukeCmd(layerData):
     renderCommand += '-x {}'.format(nukeFile)
     return renderCommand
 
+def buildBlenderCmd(layerData):
+    """From a layer, build a Blender render command."""
+    blenderFile = layerData.cmd.get('blenderFile')
+    outputPath = layerData.cmd.get('outputPath')
+    outputFormat = layerData.cmd.get('outputFormat')
+    if not blenderFile:
+        raise ValueError('No Blender file provided. Cannot submit job.')
+    
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -f {frameToken}'.format(
+        renderCmd=Constants.BLENDER_RENDER_CMD, blenderFile=blenderFile,
+        frameToken=Constants.FRAME_TOKEN)
+    if outputPath:
+        renderCommand += ' -o {}'.format(outputPath)
+    if outputFormat:
+        renderCommand += ' -F {}'.format(outputFormat)
+    return renderCommand
+
 
 def buildLayer(layerData, command, lastLayer=None):
     """Create a PyOutline Layer for the given layerData.
@@ -84,6 +101,10 @@ def buildNukeLayer(layerData, lastLayer):
     return buildLayer(layerData, nukeCmd, lastLayer)
 
 
+def buildBlenderLayer(layerData, lastLayer):
+    blenderCmd = buildBlenderCmd(layerData)
+    return buildLayer(layerData, blenderCmd, lastLayer)
+
 def buildShellLayer(layerData, lastLayer):
     return buildLayer(layerData, layerData.cmd['commandTextBox'], lastLayer)
 
@@ -100,6 +121,8 @@ def submitJob(jobData):
             layer = buildShellLayer(layerData, lastLayer)
         elif layerData.layerType == JobTypes.JobTypes.NUKE:
             layer = buildNukeLayer(layerData, lastLayer)
+        elif layerData.layerType == JobTypes.JobTypes.BLENDER:
+            layer = buildBlenderLayer(layerData, lastLayer)
         else:
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
