@@ -31,9 +31,13 @@ jobs:
     displayName: Create Artifact Directory
 
   - bash: |
-      image_id="opencuebuild/cuebot:$(setBuildId.buildId)"
+      build_image_id="opencuebuild/cuebot:$(setBuildId.buildId)"
+      branch_image_id="opencuebuild/cuebot:$(Build.SourceBranchName)"
+      docker pull $branch_image_id || true
       docker build -t $image_id -f cuebot/Dockerfile .
+      docker tag $image_id $branch_image_id
       docker push $image_id
+      docker push $branch_image_id
       container_id=$(docker create ${image_id})
       docker cp $container_id:/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar "$(ARTIFACT_DIRECTORY)/"
       docker rm $container_id
