@@ -24,6 +24,11 @@ sleep 10
 PG_IP=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' $PG_CONTAINER)
 docker exec -t --user=$DB_USER $PG_CONTAINER createdb $DB_NAME
 docker run -td --rm --name $FLYWAY_CONTAINER --entrypoint bash boxfuse/flyway
+echo "MIGRATION LOCATIONS:"
+echo ${SCHEMA_DIRECTORY}/migrations
+echo ${FLYWAY_CONTAINER}:/flyway/sql/
+echo "MIGRATION CONTENTS:"
+echo `ls ${SCHEMA_DIRECTORY}/migrations`
 docker cp ${SCHEMA_DIRECTORY}/migrations/* ${FLYWAY_CONTAINER}:/flyway/sql/
 docker exec -t $FLYWAY_CONTAINER flyway -url=jdbc:postgresql://$PG_IP/$DB_NAME -user=$DB_USER -n migrate
 docker exec -t --user=$DB_USER $PG_CONTAINER pg_dump --no-privileges --no-owner -s $DB_NAME \
