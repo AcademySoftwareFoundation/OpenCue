@@ -24,19 +24,11 @@ COPY cuebot/gradlew.bat cuebot/
 COPY cuebot/settings.gradle cuebot/
 COPY cuebot/gradle/ cuebot/gradle/
 
-# Give builduser access to the gradle config.
-RUN chmod -R 777 .
-
-# Download dependencies but do not build.
-RUN su -c "cd cuebot && ./gradlew dependencies --stacktrace" builduser
-
 COPY proto/ proto/
 COPY cuebot/src/main/resources/ cuebot/src/main/resources/
 COPY cuebot/src/test/ cuebot/src/test/
 COPY cuebot/src/main/java/ cuebot/src/main/java/
 
-# Give builduser access to the sources. This is done as a separate step to speed
-# up the image build.
 RUN chmod -R 777 .
 
 # Tests must be run as a non-root user as the embedded Postgres server will not
@@ -45,10 +37,11 @@ RUN su -c "cd cuebot && ./gradlew build --stacktrace" builduser
 
 RUN su -c "cd cuebot && ./gradlew shadowJar --stacktrace" builduser
 
-RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION)-all.jar
-
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
+RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION)-all.jar
+
 
 # -----------------
 # RUN
