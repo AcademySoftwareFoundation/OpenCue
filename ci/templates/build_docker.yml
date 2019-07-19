@@ -9,7 +9,7 @@ parameters:
 steps:
 - bash: |
     set -e
-    
+
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
     image_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
     image_id_build="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"

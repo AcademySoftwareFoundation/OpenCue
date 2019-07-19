@@ -17,7 +17,7 @@ jobs:
   - bash: |
       ci/generate_version_number.sh > VERSION
       echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
-      echo "Build ID: $(buildId)"
+      echo "Build ID: $BUILDID"
     name: setBuildId
     displayName: Generate Build ID
 
