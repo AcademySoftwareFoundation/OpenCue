@@ -34,6 +34,7 @@ jobs:
       branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
       build_image_id="opencuebuild/cuebot:$(setBuildId.buildId)"
       branch_image_id="opencuebuild/cuebot:${branch_name}"
+      docker pull centos:7
       docker pull $branch_image_id && docker tag $branch_image_id $build_image_id || true
       docker build -t $build_image_id -f cuebot/Dockerfile .
       docker tag $build_image_id $branch_image_id
