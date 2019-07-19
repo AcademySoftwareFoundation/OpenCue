@@ -19,5 +19,6 @@ steps:
     container_id=$(docker create ${build_image_id})
     docker cp $container_id:${{ parameters.artifactPath }} "$(ARTIFACT_DIRECTORY)/"
     docker rm $container_id
+    echo "dummy change"
   name: ${{ parameters.imageName }}
   displayName: Build and Test ${{ parameters.displayName }}
