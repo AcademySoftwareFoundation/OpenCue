@@ -1,9 +1,9 @@
-FROM centos:7 as base
-
 # -----------------
 # BUILD
 # -----------------
-FROM base as build
+FROM centos:7 as build
+
+RUN echo "CueSubmit build stage"
 
 WORKDIR /src
 
@@ -20,9 +20,6 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
@@ -35,8 +32,6 @@ RUN python -m grpc_tools.protoc \
   --grpc_python_out=./pycue/opencue/compiled_proto \
   ./proto/*.proto
 
-RUN cd pycue && python setup.py install
-
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/bin ./pyoutline/bin
@@ -44,30 +39,22 @@ COPY pyoutline/etc ./pyoutline/etc
 COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/outline ./pyoutline/outline
 
-RUN cd pyoutline && python setup.py install
-
 COPY cuesubmit/README.md ./cuesubmit/
 COPY cuesubmit/setup.py ./cuesubmit/
+COPY cuesubmit/tests/ ./cuesubmit/tests
 COPY cuesubmit/plugins ./cuesubmit/plugins
 COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
+RUN cd pycue && python setup.py install
+
+RUN cd pyoutline && python setup.py install
+
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
-COPY cuesubmit/tests/ ./cuesubmit/tests
-
 RUN cd cuesubmit && python setup.py test
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
 
 RUN cp LICENSE requirements.txt VERSION cuesubmit/
 
@@ -79,9 +66,11 @@ RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+RUN echo "CueSubmit runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/cuesubmit-*-all.tar.gz ./
+COPY --from=build /src/cuesubmit-*-all.tar.gz ./
 

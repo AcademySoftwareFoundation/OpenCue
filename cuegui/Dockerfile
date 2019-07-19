@@ -1,9 +1,9 @@
-FROM centos:7 as base
-
 # -----------------
 # BUILD
 # -----------------
-FROM base as build
+FROM centos:7 as build
+
+RUN echo "CueGUI build stage"
 
 WORKDIR /src
 
@@ -19,14 +19,11 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
-COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
+COPY pycue/opencue ./pycue/opencue
 
 RUN python -m grpc_tools.protoc \
   -I=./proto \
@@ -38,27 +35,18 @@ RUN python -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
-RUN cd pycue && python setup.py install
-
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
 COPY cuegui/cuegui ./cuegui/cuegui
 
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
+RUN cd pycue && python setup.py install
+
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
 # TODO(bcipriano) Run unit tests. (Issue #149)
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 
@@ -70,9 +58,11 @@ RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+RUN echo "CueGUI runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/cuegui-*-all.tar.gz ./
+COPY --from=build /src/cuegui-*-all.tar.gz ./
 

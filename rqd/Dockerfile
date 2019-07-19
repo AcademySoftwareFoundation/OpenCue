@@ -20,9 +20,6 @@ COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 RUN mkdir dist
 
 COPY proto/ ./proto
@@ -39,6 +36,9 @@ RUN python -m grpc_tools.protoc \
   ./proto/*.proto
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
+
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 RUN cd rqd && python setup.py test
 

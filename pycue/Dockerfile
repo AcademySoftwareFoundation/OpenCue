@@ -1,9 +1,9 @@
-FROM centos:7 as base
+# -----------------
+# BUILD AND TEST
+# -----------------
+FROM centos:7 as build
 
-# -----------------
-# BUILD
-# -----------------
-FROM base as build
+RUN echo "PyCue build stage"
 
 WORKDIR /src
 
@@ -25,14 +25,12 @@ RUN pip install -r requirements.txt
 
 RUN pip3.6 install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
-COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
+COPY pycue/tests/ ./pycue/tests
+COPY pycue/opencue ./pycue/opencue
 
 RUN python -m grpc_tools.protoc \
   -I=./proto \
@@ -46,23 +44,12 @@ RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
-COPY pycue/tests/ ./pycue/tests
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 RUN cd pycue && python setup.py test
 
 RUN cd pycue && python3.6 setup.py test
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
 
 RUN cp LICENSE requirements.txt VERSION pycue/
 
@@ -74,9 +61,10 @@ RUN versioned_name="pycue-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+RUN echo "PyCue runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/pycue-*-all.tar.gz ./
-
+COPY --from=build /src/pycue-*-all.tar.gz ./
