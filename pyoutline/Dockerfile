@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM centos:7
+FROM centos:7 as build
 
 RUN echo "PyCue build stage"
 
