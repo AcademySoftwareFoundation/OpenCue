@@ -11,8 +11,10 @@ steps:
     set -e
 
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
+
     image_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
     image_id_build="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
+
     branch_image_id="opencuebuild/${{ parameters.imageName }}:${branch_name}"
     branch_image_id_build="opencuebuild/${{ parameters.imageName }}-build:${branch_name}"
     
@@ -24,7 +26,7 @@ steps:
     docker push $image_id_build
     docker push $branch_image_id_build
 
-    docker build --cache-from ${image_id_build} --cache-from $branch_image_id -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
+    docker build --cache-from $branch_image_id -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
     docker tag $image_id $branch_image_id
     docker push $image_id
     docker push $branch_image_id
