@@ -18,7 +18,7 @@ steps:
     docker pull $branch_image_id_build || true
 
     docker build --cache-from $branch_image_id_build --target build -t $image_id_build -f ${{ parameters.imageName }}/Dockerfile .
-    docker build --cache-from $branch_image_id -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
+    docker build --cache-from ${branch_image_id},${image_id_build} -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
     
     docker tag $image_id $branch_image_id
     docker push $image_id_build
