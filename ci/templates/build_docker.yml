@@ -26,7 +26,7 @@ steps:
     docker push $image_id_build
     docker push $branch_image_id_build
 
-    docker build --cache-from $branch_image_id -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
+    docker build --cache-from $branch_image_id --cache-from ${image_id_build} -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
     docker tag $image_id $branch_image_id
     docker push $image_id
     docker push $branch_image_id
