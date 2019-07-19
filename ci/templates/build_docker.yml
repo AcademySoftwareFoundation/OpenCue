@@ -12,24 +12,37 @@ steps:
 
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
 
-    image_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
-    image_id_build="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
+    build_image_for_build_id="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
+    build_image_for_branch="opencuebuild/${{ parameters.imageName }}-build:${branch_name}"
 
-    branch_image_id="opencuebuild/${{ parameters.imageName }}:${branch_name}"
-    branch_image_id_build="opencuebuild/${{ parameters.imageName }}-build:${branch_name}"
-    
-    docker pull $branch_image_id || true
-    docker pull $branch_image_id_build || true
+    runtime_image_for_build_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
+    runtime_image_for_branch="opencuebuild/${{ parameters.imageName }}:${branch_name}"
 
-    docker build --cache-from $branch_image_id_build --target build -t $image_id_build -f ${{ parameters.imageName }}/Dockerfile .
-    docker tag $image_id_build $branch_image_id_build
-    docker push $image_id_build
-    docker push $branch_image_id_build
+    docker pull ${build_image_for_branch} || true
 
-    docker build --cache-from $branch_image_id --cache-from ${image_id_build} -t $image_id -f ${{ parameters.imageName }}/Dockerfile .
-    docker tag $image_id $branch_image_id
-    docker push $image_id
-    docker push $branch_image_id
+    docker build \
+      --target build \
+      --cache-from ${build_image_for_branch} \
+      -t ${build_image_for_build_id} \
+      -t ${build_image_for_branch} \
+      -f ${{ parameters.imageName }}/Dockerfile \
+      "."
+
+    docker push ${build_image_for_build_id}
+    docker push ${build_image_for_branch}
+
+    docker pull ${runtime_image_for_branch} || true
+
+    docker build \
+      --cache-from ${build_image_for_build_id} \
+      --cache-from ${runtime_image_for_branch} \
+      -t ${runtime_image_for_build_id} \
+      -t ${runtime_image_for_branch} \
+      -f ${{ parameters.imageName }}/Dockerfile \
+      "."
+
+    docker push ${runtime_image_for_build_id}
+    docker push ${runtime_image_for_branch}
     
     container_id=$(docker create ${image_id})
     docker cp $container_id:${{ parameters.artifactPath }} "$(ARTIFACT_DIRECTORY)/"
