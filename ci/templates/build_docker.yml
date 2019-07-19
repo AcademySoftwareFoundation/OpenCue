@@ -50,4 +50,3 @@ steps:
 
   name: ${{ parameters.imageName }}
   displayName: Build and Test ${{ parameters.displayName }}
-  dependsOn: createArtifactDirectory
