@@ -3,6 +3,8 @@
 # -----------------
 FROM centos:7 as build
 
+RUN echo "RQD build stage"
+
 RUN yum -y install \
   epel-release \
   gcc \
@@ -49,13 +51,13 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
   && cd dist \
   && tar -cvzf $versioned_name.tar.gz $versioned_name/*
 
-RUN cat VERSION
-
 
 # -----------------
 # RUN
 # -----------------
 FROM centos:7
+
+RUN echo "RQD runtime stage"
 
 RUN yum -y install \
   epel-release \
