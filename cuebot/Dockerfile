@@ -4,7 +4,7 @@
 FROM centos:7 as build
 
 # First line after FROM must be unique to the Docker stage for proper cache selection.
-RUN echo "build stage"
+RUN echo "Cuebot build stage"
 
 RUN yum install -y \
       java-1.8.0-openjdk.x86_64 \
@@ -52,7 +52,7 @@ RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION
 FROM centos:7
 
 # First line after FROM must be unique to the Docker stage for proper cache selection.
-RUN echo "runtime stage"
+RUN echo "Cuebot runtime stage"
 
 RUN yum install -y \
       java-1.8.0-openjdk.x86_64 \

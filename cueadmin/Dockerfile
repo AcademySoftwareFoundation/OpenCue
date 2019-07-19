@@ -75,5 +75,5 @@ RUN echo "CueAdmin runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/cueadmin-*-all.tar.gz ./
+COPY --from=build /src/cueadmin-*-all.tar.gz ./
 
