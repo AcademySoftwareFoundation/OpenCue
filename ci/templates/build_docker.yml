@@ -8,6 +8,8 @@ parameters:
 
 steps:
 - bash: |
+    set -e
+    
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
     image_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
     image_id_build="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
@@ -30,6 +32,6 @@ steps:
     container_id=$(docker create ${image_id})
     docker cp $container_id:${{ parameters.artifactPath }} "$(ARTIFACT_DIRECTORY)/"
     docker rm $container_id
-    echo "dummy change 2"
+
   name: ${{ parameters.imageName }}
   displayName: Build and Test ${{ parameters.displayName }}
