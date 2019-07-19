@@ -56,10 +56,10 @@ jobs:
       artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
-      parameters:
-        imageName: 'cuegui'
-        displayName: 'CueGUI'
-        artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
+    parameters:
+      imageName: 'cuegui'
+      displayName: 'CueGUI'
+      artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
     parameters:
