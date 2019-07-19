@@ -36,13 +36,11 @@ jobs:
       displayName: 'Cuebot'
       artifactPath: '/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar'
 
-  - bash: |
-      docker build -t opencue/rqd:$(setBuildId.buildId) -f rqd/Dockerfile .
-      container_id=$(docker create opencue/rqd:$(setBuildId.buildId))
-      docker cp $container_id:/opt/opencue/rqd-$(setBuildId.buildId)-all.tar.gz "$(ARTIFACT_DIRECTORY)/"
-      docker rm $container_id
-    name: rqd
-    displayName: Build and Test RQD
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'rqd'
+      displayName: 'RQD'
+      artifactPath: '/opt/opencue/rqd-$(setBuildId.buildId)-all.tar.gz'
 
   - bash: |
       docker build -t opencue/pycue:$(setBuildId.buildId) -f pycue/Dockerfile .
