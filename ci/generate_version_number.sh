@@ -10,7 +10,7 @@ version_in="$toplevel_dir/VERSION.in"
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 current_branch="$(git branch --remote --verbose --no-abbrev --contains | sed -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
 
-echo ${current_branch}
+echo ${current_branch} 1>&2
 
 if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
@@ -21,5 +21,6 @@ else
   full_version="${version_major_minor}.$((commit_count_in_master + 1))-${commit_short_hash}"
 fi
 
+echo ${full_version} 1>&2
 echo ${full_version}
 
