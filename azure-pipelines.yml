@@ -50,10 +50,10 @@ jobs:
       artifactPath: '/opt/opencue/pycue-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
-      parameters:
-        imageName: 'pyoutline'
-        displayName: 'PyOutline'
-        artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
+    parameters:
+      imageName: 'pyoutline'
+      displayName: 'PyOutline'
+      artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
       parameters:
@@ -62,16 +62,16 @@ jobs:
         artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
-      parameters:
-        imageName: 'cuesubmit'
-        displayName: 'CueSubmit'
-        artifactPath: '/opt/opencue/cuesubmit-$(setBuildId.buildId)-all.tar.gz'
+    parameters:
+      imageName: 'cuesubmit'
+      displayName: 'CueSubmit'
+      artifactPath: '/opt/opencue/cuesubmit-$(setBuildId.buildId)-all.tar.gz'
 
   - template: ci/templates/build_docker.yml
-      parameters:
-        imageName: 'cueadmin'
-        displayName: 'CueAdmin'
-        artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
+    parameters:
+      imageName: 'cueadmin'
+      displayName: 'CueAdmin'
+      artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
 
   - bash: ci/extract_artifacts.sh $(setBuildId.buildId) ./$(ARTIFACT_DIRECTORY)
     name: extractArtifacts
