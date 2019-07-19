@@ -1,8 +1,9 @@
 # -----------------
-# BUILD AND TEST
+# BUILD
 # -----------------
 FROM centos:7 as build
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "RQD build stage"
 
 RUN yum -y install \
@@ -57,6 +58,7 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
 # -----------------
 FROM centos:7
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "RQD runtime stage"
 
 RUN yum -y install \

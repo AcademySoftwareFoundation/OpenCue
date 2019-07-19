@@ -19,6 +19,4 @@ else
   full_version="${version_major_minor}.$((commit_count_in_master + 1))-${commit_short_hash}"
 fi
 
-echo ${full_version} 1>&2
 echo ${full_version}
-

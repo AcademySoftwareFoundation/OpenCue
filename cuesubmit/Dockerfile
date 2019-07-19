@@ -3,6 +3,7 @@
 # -----------------
 FROM centos:7 as build
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "CueSubmit build stage"
 
 WORKDIR /src
@@ -68,6 +69,7 @@ RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
 # -----------------
 FROM centos:7
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "CueSubmit runtime stage"
 
 WORKDIR /opt/opencue

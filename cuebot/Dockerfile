@@ -1,9 +1,9 @@
 # -----------------
-# BUILD AND TEST
+# BUILD
 # -----------------
 FROM centos:7 as build
 
-# First line after FROM must be unique to the Docker stage for proper cache selection.
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot build stage"
 
 RUN yum install -y \
@@ -51,7 +51,7 @@ RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION
 # -----------------
 FROM centos:7
 
-# First line after FROM must be unique to the Docker stage for proper cache selection.
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot runtime stage"
 
 RUN yum install -y \

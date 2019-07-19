@@ -3,6 +3,7 @@
 # -----------------
 FROM centos:7 as build
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "PyCue build stage"
 
 WORKDIR /src
@@ -74,6 +75,7 @@ RUN versioned_name="pyoutline-$(cat ./VERSION)-all" \
 # -----------------
 FROM centos:7
 
+# First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "PyCue runtime stage"
 
 WORKDIR /opt/opencue

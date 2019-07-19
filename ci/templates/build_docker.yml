@@ -10,6 +10,16 @@ steps:
 - bash: |
     set -e
 
+    # Docker files are split into two stages -- build, which does build/test/package, and runtime,
+    # which includes only what's needed to run the software. We build both in sequence.
+
+    # We tag images both with build ID -- so each build has a unique Docker image -- as well as
+    # branch -- so that subsequent commits to a working branch / Pull Request will be able to
+    # use the previous commit's images as a cache.
+
+    # This requires a few workarounds due to the lack of long-running Docker caches in transient
+    # CI environments.
+
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
 
     build_image_for_build_id="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
@@ -18,8 +28,11 @@ steps:
     runtime_image_for_build_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
     runtime_image_for_branch="opencuebuild/${{ parameters.imageName }}:${branch_name}"
 
+    # Try to pull an image for the branch but don't fail if it doesn't exist.
     docker pull ${build_image_for_branch} || true
 
+    # Build the build-level image. You need to use --cache-from to use the previously-pulled
+    # image as a cache.
     docker build \
       --target build \
       --cache-from ${build_image_for_branch} \
@@ -28,11 +41,17 @@ steps:
       -f ${{ parameters.imageName }}/Dockerfile \
       "."
 
+    # Push both tags of the build-level image.
     docker push ${build_image_for_build_id}
     docker push ${build_image_for_branch}
 
+    # Now do the same for the runtime image.
     docker pull ${runtime_image_for_branch} || true
 
+    # --cache-from overrides the local Docker cache completely -- *only* the images specified
+    # by --cache-from will be used for cache purposes. So we need to specify both the build
+    # image, even though it was built on this machine a few steps earlier, as well as the
+    # branch-level runtime image.
     docker build \
       --cache-from ${build_image_for_build_id} \
       --cache-from ${runtime_image_for_branch} \
@@ -43,7 +62,9 @@ steps:
 
     docker push ${runtime_image_for_build_id}
     docker push ${runtime_image_for_branch}
-    
+
+    # Create a temporary container from the runtime image but don't start it -- it's just
+    # used to extract the packaged component for archiving and later release.
     container_id=$(docker create ${runtime_image_for_build_id})
     docker cp $container_id:${{ parameters.artifactPath }} "$(ARTIFACT_DIRECTORY)/"
     docker rm $container_id
