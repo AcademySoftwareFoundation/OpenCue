@@ -3,6 +3,8 @@
 # -----------------
 FROM centos:7 as build
 
+RUN echo "build stage"
+
 RUN yum install -y \
       java-1.8.0-openjdk.x86_64 \
       java-1.8.0-openjdk-devel.x86_64 \
@@ -47,6 +49,8 @@ RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION
 # RUN
 # -----------------
 FROM centos:7
+
+RUN echo "runtime stage"
 
 RUN yum install -y \
       java-1.8.0-openjdk.x86_64 \
