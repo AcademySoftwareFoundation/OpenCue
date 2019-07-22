@@ -85,6 +85,10 @@ jobs:
     artifact: License
     displayName: Publish LICENSE
 
+  - publish: $(ARTIFACT_DIRECTORY)/VERSION
+    artifact: Version
+    displayName: Publish VERSION
+
   - publish: $(ARTIFACT_DIRECTORY)/build_metadata.json
     artifact: Build Metadata
     displayName: Publish Build Metadata
