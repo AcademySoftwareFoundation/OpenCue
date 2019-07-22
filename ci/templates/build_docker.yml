@@ -1,0 +1,85 @@
+# azure-pipelines template file
+# https://docs.microsoft.com/en-us/azure/devops/pipelines/process/templates?view=azure-devops
+
+parameters:
+  imageName: ''
+  displayName: ''
+  artifactPath: ''
+
+steps:
+- bash: |
+    set -e
+
+    # Docker files are split into two stages -- build, which does build/test/package, and runtime,
+    # which includes only what's needed to run the software. We build both in sequence.
+
+    # We tag images both with build ID -- so each build has a unique Docker image -- as well
+    # as branch -- so that subsequent commits to a working branch / Pull Request will be able
+    # to use the previous commit's images as a cache. We also use the "latest" tag, so new
+    # branches will have something to work from, though how much speedup they get in that case
+    # can vary widely.
+
+    # This requires a few workarounds due to the lack of long-running Docker caches in transient
+    # CI environments.
+
+    branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
+
+    build_image_for_build_id="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
+    build_image_for_branch="opencuebuild/${{ parameters.imageName }}-build:${branch_name}"
+    build_image_latest="opencuebuild/${{ parameters.imageName }}-build:latest"
+
+    runtime_image_for_build_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
+    runtime_image_for_branch="opencuebuild/${{ parameters.imageName }}:${branch_name}"
+    runtime_image_latest="opencuebuild/${{ parameters.imageName }}:latest"
+
+    # Try to pull branch and latest images but don't fail if they don't exist.
+    docker pull ${build_image_for_branch} || true
+    docker pull ${build_image_latest} || true
+
+    # Build the build image. You need to use --cache-from to use pulled images as cache.
+    # --cache-from is applied in the order given, i.e. branch-level images will take
+    # precedence here over "latest" images.
+    docker build \
+      --target build \
+      --cache-from ${build_image_for_branch} \
+      --cache-from ${build_image_latest} \
+      -t ${build_image_for_build_id} \
+      -t ${build_image_for_branch} \
+      -t ${build_image_latest} \
+      -f ${{ parameters.imageName }}/Dockerfile \
+      "."
+
+    docker push ${build_image_for_build_id}
+    docker push ${build_image_for_branch}
+    docker push ${build_image_latest}
+
+    # Now do the same for the runtime image.
+    docker pull ${runtime_image_for_branch} || true
+    docker pull ${runtime_image_latest} || true
+
+    # --cache-from overrides the local Docker cache completely -- *only* the images specified
+    # by --cache-from will be used for cache purposes. So in addition to branch and latest
+    # images we also need to specify the build image, despite it being present in the local
+    # machine's Docker cache already.
+    docker build \
+      --cache-from ${build_image_for_build_id} \
+      --cache-from ${runtime_image_for_branch} \
+      --cache-from ${runtime_image_latest} \
+      -t ${runtime_image_for_build_id} \
+      -t ${runtime_image_for_branch} \
+      -t ${runtime_image_latest} \
+      -f ${{ parameters.imageName }}/Dockerfile \
+      "."
+
+    docker push ${runtime_image_for_build_id}
+    docker push ${runtime_image_for_branch}
+    docker push ${runtime_image_latest}
+
+    # Create a temporary container from the runtime image but don't start it -- it's just
+    # used to extract the packaged component for archiving and later release.
+    container_id=$(docker create ${runtime_image_for_build_id})
+    docker cp $container_id:${{ parameters.artifactPath }} "$(ARTIFACT_DIRECTORY)/"
+    docker rm $container_id
+
+  name: ${{ parameters.imageName }}
+  displayName: Build and Test ${{ parameters.displayName }}
