@@ -22,9 +22,8 @@ jobs:
     displayName: Generate Build ID
 
   - task: Docker@2
-    displayName: Log in to Docker Hub
     inputs:
-      containerRegistry: 'Docker Hub'
+      containerRegistry: 'Docker Hub (build)'
       command: 'login'
 
   - bash: mkdir -p $(ARTIFACT_DIRECTORY)
