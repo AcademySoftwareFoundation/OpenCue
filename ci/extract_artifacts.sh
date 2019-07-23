@@ -15,8 +15,8 @@ if [[ -z "${BUILD_SOURCEVERSION}" ]]; then
   exit 1
 fi
 
-mkdir -p "$artifact_directory"
+mkdir -p "${artifact_directory}"
 
-cp LICENSE "$artifact_directory"
+cp LICENSE VERSION "${artifact_directory}/"
 
 echo "{\"git_commit\": \"${BUILD_SOURCEVERSION}\"}" | tee "${artifact_directory}/build_metadata.json"
