@@ -20,7 +20,7 @@ This is a development focused mail list.
 * [opencue-user](https://lists.aswf.io/g/opencue-user):
 This is an end-user oriented mail list.
 
-* [GitHub Issues](https://github.com/imageworks/OpenCue/issues):
+* [GitHub Issues](https://github.com/AcademySoftwareFoundation/OpenCue/issues):
 GitHub **issues** are a great place to start a conversation! Issues aren’t
 restricted to bugs; we happily welcome feature requests and other suggestions
 submitted as issues. The only conversations we would direct away from issues are
@@ -65,20 +65,21 @@ To protect the project -- and the contributors! -- we do require a
 Contributor License Agreement (CLA) for anybody submitting changes.
 
 * If you are an individual writing the code on your own time and you're SURE
-you are the sole owner of any intellectual property you contribute, use the
-[Individual CLA](http://opensource.imageworks.com/cla/pdf/Imageworks_Contributor_License_Agreement_Individual.pdf).
+you are the sole owner of any intellectual property you contribute, you'll
+want to sign the Individual CLA.
 
 * If you are writing the code as part of your job, or if there is any
 possibility that your employers might think they own any intellectual
-property you create, then you should use the [Corporate
-CLA](http://opensource.imageworks.com/cla/pdf/Imageworks_Contributor_License_Agreement_Corporate.pdf).
+property you create, then you should use the Corporate CLA.
 
-Download the appropriate CLA from the links above, print, sign, and rescan
-it (or just add a digital signature directly), and email it to:
-opensource@imageworks.com
-
-Our CLA's are based on those used by Apache and many other open source
+Our CLAs are based on those used by Apache and many other open source
 projects.
+
+Every pull request runs a check using the Linux Foundation's CLA tool
+to verify that all committers have signed the CLA. If you haven't,
+the pull request's status check will display the next steps you should
+take. You'll log into the CLA tool which will walk you through the
+process.
 
 ## Development and Pull Requests
 
@@ -97,13 +98,27 @@ with a separate pull request.
 
 3. Push commits to your fork.
 
-4. Create a Github pull request from your topic branch.
+4. Create a Github pull request from your topic branch. This can be
+a normal pull request or a **draft** pull request:
 
-5. All pull requests trigger Jenkins builds which build and test the potential
-result of your PR merged with the current `master` branch. These builds verify
-that code compiles and all unit tests succeed. CI build status is displayed on
-the GitHub PR page, and changes will only be considered for merging after all
-builds have succeeded.
+   -  Normal pull request: Use this if you feel like your change is
+   ready to be merged or close to that. Reviews will be automatically
+   requested from all of our Code Owners, but feel free to add others
+   if you'd like -- we love to get as much feedback as we can!
+   
+   -  Draft pull request: Use this if you feel like your change isn't
+   ready to be merged -- maybe it's just an idea you have -- but
+   you want feedback anyway. Reviews will not be automatically
+   requested, but feel free to add reviewers anyway and we'll be happy
+   to provide feedback -- [CODEOWNERS](./CODEOWNERS) is a good place
+   to find a list of potential reviewers.
+   
+   You can convert a Draft pull request to a regular pull request at any point. 
+
+5. All pull requests (including drafts) trigger our CI system, which builds and
+tests your branch. These builds verify that code compiles and all unit tests
+succeed. CI build status is displayed on the GitHub pull request page, and
+changes will only be merged after all builds have succeeded.
 
 6. Pull requests will be reviewed by project Committers and Contributors,
 who may discuss, offer constructive feedback, request changes, or approve
