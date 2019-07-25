@@ -21,11 +21,32 @@ Module: depend.py - opencue Library implementation of a allocation
 """
 
 
+import enum
+
 from opencue.compiled_proto import depend_pb2
 from opencue.cuebot import Cuebot
 
 
 class Depend(object):
+
+    class DependType(enum.IntEnum):
+        JOB_ON_JOB = depend_pb2.JOB_ON_JOB
+        JOB_ON_LAYER = depend_pb2.JOB_ON_LAYER
+        JOB_ON_FRAME = depend_pb2.JOB_ON_FRAME
+        LAYER_ON_JOB = depend_pb2.LAYER_ON_JOB
+        LAYER_ON_LAYER = depend_pb2.LAYER_ON_LAYER
+        LAYER_ON_FRAME = depend_pb2.LAYER_ON_FRAME
+        FRAME_ON_JOB = depend_pb2.FRAME_ON_JOB
+        FRAME_ON_LAYER = depend_pb2.FRAME_ON_LAYER
+        FRAME_ON_FRAME = depend_pb2.FRAME_ON_FRAME
+        FRAME_BY_FRAME = depend_pb2.FRAME_BY_FRAME
+        PREVIOUS_FRAME = depend_pb2.PREVIOUS_FRAME
+        LAYER_ON_SIM_FRAME = depend_pb2.LAYER_ON_SIM_FRAME
+
+    class DependTarget(enum.IntEnum):
+        INTERNAL = depend_pb2.INTERNAL
+        EXTERNAL = depend_pb2.EXTERNAL
+        ANY_TARGET = depend_pb2.ANY_TARGET
 
     def __init__(self, depend=None):
         self.data = depend

@@ -21,6 +21,8 @@ Module: proc.py - opencue Library implementation of a proc
 
 """
 
+import enum
+
 from opencue.compiled_proto import host_pb2
 from opencue.cuebot import Cuebot
 import opencue.wrappers.frame
@@ -30,6 +32,14 @@ import opencue.wrappers.layer
 
 
 class Proc(object):
+
+    class RedirectType(enum.IntEnum):
+        JOB_REDIRECT = host_pb2.JOB_REDIRECT
+        GROUP_REDIRECT = host_pb2.GROUP_REDIRECT
+
+    class RunState(enum.IntEnum):
+        IDLE = host_pb2.IDLE
+        BOOKED = host_pb2.BOOKED
 
     def __init__(self, proc):
         self.data = proc

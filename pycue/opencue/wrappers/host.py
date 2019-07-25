@@ -21,6 +21,7 @@ Module: host.py - opencue Library implementation of a host
 """
 
 
+import enum
 import os
 import time
 
@@ -32,6 +33,30 @@ import opencue.wrappers.proc
 
 
 class Host(object):
+
+    class HardwareState(enum.IntEnum):
+        UP = host_pb2.UP
+        DOWN = host_pb2.DOWN
+        REBOOTING = host_pb2.REBOOTING
+        REBOOT_WHEN_IDLE = host_pb2.REBOOT_WHEN_IDLE
+        REPAIR = host_pb2.REPAIR
+
+    class HostTagType(enum.IntEnum):
+        MANUAL = host_pb2.MANUAL
+        HARDWARE = host_pb2.HARDWARE
+        ALLOC = host_pb2.ALLOC
+        HOSTNAME = host_pb2.HOSTNAME
+
+    class LockState(enum.IntEnum):
+        OPEN = host_pb2.OPEN
+        LOCKED = host_pb2.LOCKED
+        NIMBY_LOCKED = host_pb2.NIMBY_LOCKED
+
+    class ThreadMode(enum.IntEnum):
+        AUTO = host_pb2.AUTO
+        ALL = host_pb2.ALL
+        VARIABLE = host_pb2.VARIABLE
+
     def __init__(self, host):
         """Host class initialization"""
         self.data = host
