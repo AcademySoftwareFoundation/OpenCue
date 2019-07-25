@@ -26,6 +26,7 @@ from opencue.cuebot import Cuebot
 import opencue.search
 import opencue.wrappers.depend
 import opencue.wrappers.frame
+import opencue.wrappers.limit
 
 
 class Layer(object):
@@ -232,6 +233,13 @@ class Layer(object):
         self.stub.StaggerFrames(
             job_pb2.LayerStaggerFramesRequest(layer=self.data, range=range, stagger=stagger),
             timeout=Cuebot.Timeout)
+      
+    def getLimitDetails(self):
+        """Return the Limit objects for the given layer.
+        @rtype: list<opencue.wrappers.limit.Limit>
+        @return: The list of limits on this layer."""
+        return [opencue.wrappers.limit.Limit(limit) for limit in self.stub.GetLimits(
+            job_pb2.LayerGetLimitsRequest(layer=self.data), timeout=Cuebot.Timeout)]
 
     def id(self):
         """Returns the uuid of the layer
@@ -281,6 +289,12 @@ class Layer(object):
         @rtype:  int
         @return: Minimum Kb memory required by frames in this layer"""
         return self.data.min_memory
+    
+    def limits(self):
+        """Returns the limit names for this layer.
+        @rtype: list<str>
+        @return: Names of the limits on this layer."""
+        return self.data.limits
 
     def maxRss(self):
         """Returns the highest amount of memory that any frame in this layer

@@ -10,6 +10,8 @@ import com.imageworks.spcue.grpc.limit.LimitFindRequest;
 import com.imageworks.spcue.grpc.limit.LimitFindResponse;
 import com.imageworks.spcue.grpc.limit.LimitGetRequest;
 import com.imageworks.spcue.grpc.limit.LimitGetResponse;
+import com.imageworks.spcue.grpc.limit.LimitGetAllRequest;
+import com.imageworks.spcue.grpc.limit.LimitGetAllResponse;
 import com.imageworks.spcue.grpc.limit.LimitInterfaceGrpc;
 import com.imageworks.spcue.grpc.limit.LimitRenameRequest;
 import com.imageworks.spcue.grpc.limit.LimitRenameResponse;
@@ -23,10 +25,6 @@ public class ManageLimit extends LimitInterfaceGrpc.LimitInterfaceImplBase {
     private AdminManager adminManager;
     private Whiteboard whiteboard;
 
-
-    public ManageLimit() {}
-
-
     @Override
     public void create(LimitCreateRequest request, StreamObserver<LimitCreateResponse> responseObserver) {
         String limitId = adminManager.createLimit(request.getName(), request.getMaxValue());
@@ -39,7 +37,7 @@ public class ManageLimit extends LimitInterfaceGrpc.LimitInterfaceImplBase {
 
     @Override
     public void delete(LimitDeleteRequest request, StreamObserver<LimitDeleteResponse> responseObserver) {
-        adminManager.deleteLimit(adminManager.getLimit(request.getName()));
+        adminManager.deleteLimit(adminManager.findLimit(request.getName()));
         responseObserver.onNext(LimitDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -63,9 +61,18 @@ public class ManageLimit extends LimitInterfaceGrpc.LimitInterfaceImplBase {
     }
 
     @Override
+    public void getAll(LimitGetAllRequest request,
+                          StreamObserver<LimitGetAllResponse> responseObserver) {
+        responseObserver.onNext(LimitGetAllResponse.newBuilder()
+                .addAllLimits(whiteboard.getLimits())
+                .build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void rename(LimitRenameRequest request, StreamObserver<LimitRenameResponse> responseObserver) {
         adminManager.setLimitName(
-                adminManager.getLimit(request.getOldName()),
+                adminManager.findLimit(request.getOldName()),
                 request.getNewName());
         responseObserver.onNext(LimitRenameResponse.newBuilder().build());
         responseObserver.onCompleted();
@@ -74,7 +81,7 @@ public class ManageLimit extends LimitInterfaceGrpc.LimitInterfaceImplBase {
     @Override
     public void setMaxValue(LimitSetMaxValueRequest request, StreamObserver<LimitSetMaxValueResponse> responseObserver) {
         adminManager.setLimitMaxValue(
-                adminManager.getLimit(request.getName()),
+                adminManager.findLimit(request.getName()),
                 request.getMaxValue());
         responseObserver.onNext(LimitSetMaxValueResponse.newBuilder().build());
         responseObserver.onCompleted();

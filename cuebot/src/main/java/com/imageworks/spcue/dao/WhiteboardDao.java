@@ -692,5 +692,13 @@ public interface WhiteboardDao {
      * @return Limit
      */
     Limit getLimit(String id);
+
+    /**
+     * Returns a list of all limits.
+     *
+     * @param  id String
+     * @return Layer
+     */
+    List<Limit> getLimits();
 }
 

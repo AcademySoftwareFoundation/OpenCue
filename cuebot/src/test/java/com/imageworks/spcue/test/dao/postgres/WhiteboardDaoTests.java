@@ -555,6 +555,15 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Rollback(true)
     public void testGetLimits() {
         createTestLimits();
+        List<Limit> limits = whiteboardDao.getLimits();
+        assertEquals(limits.size(), 2);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLayerLimits() {
+        createTestLimits();
         JobDetail job = launchLimitJob();
         LayerInterface layer = layerDao.findLayer(job, "pass_1");
         List<Limit> limits = whiteboardDao.getLimits(layer);

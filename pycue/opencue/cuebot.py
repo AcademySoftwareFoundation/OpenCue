@@ -42,6 +42,8 @@ from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import host_pb2_grpc
 from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import job_pb2_grpc
+from opencue.compiled_proto import limit_pb2
+from opencue.compiled_proto import limit_pb2_grpc
 from opencue.compiled_proto import renderPartition_pb2
 from opencue.compiled_proto import renderPartition_pb2_grpc
 from opencue.compiled_proto import service_pb2
@@ -101,6 +103,7 @@ class Cuebot(object):
         'host': host_pb2,
         'job': job_pb2,
         'layer': job_pb2,
+        'limit': limit_pb2,
         'matcher': filter_pb2,
         'owner': host_pb2,
         'proc': host_pb2,
@@ -125,6 +128,7 @@ class Cuebot(object):
         'host': host_pb2_grpc.HostInterfaceStub,
         'job': job_pb2_grpc.JobInterfaceStub,
         'layer': job_pb2_grpc.LayerInterfaceStub,
+        'limit': limit_pb2_grpc.LimitInterfaceStub,
         'matcher': filter_pb2_grpc.MatcherInterfaceStub,
         'owner': host_pb2_grpc.OwnerInterfaceStub,
         'proc': host_pb2_grpc.ProcInterfaceStub,

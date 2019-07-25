@@ -767,6 +767,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 LIMIT_MAPPER, id);
     }
 
+    @Override
+    public List<Limit> getLimits() {
+        return getJdbcTemplate().query(
+                QUERY_FOR_LIMIT, LIMIT_MAPPER);
+    }
+
     /*
      * Row Mappers
      */

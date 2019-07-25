@@ -16,6 +16,10 @@
 import opencue
 
 
+def getLimits():
+    """Return a list of limit names from cuebot."""
+    return [limit.name() for limit in opencue.api.getLimits()]
+
 def getServices():
     """Return a list of service names from cuebot."""
     return [service.name() for service in opencue.api.getDefaultServices()]

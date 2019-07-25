@@ -130,6 +130,10 @@ class CueSubmitWidget(QtWidgets.QWidget):
             'Services:',
             options=Util.getServices()
         )
+        self.limitsSelector = Widgets.CueSelectPulldown(
+            'Limits:',
+            options=Util.getLimits()
+        )
         self.coresInput = Widgets.CueLabelLineEdit(
             'Min Cores:',
             '0',
@@ -166,6 +170,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.settingsWidget.dataChanged.connect(self.jobDataChanged)
         self.jobTypeSelector.optionsMenu.triggered.connect(self.jobTypeChanged)
         self.servicesSelector.optionsMenu.triggered.connect(self.jobDataChanged)
+        self.limitsSelector.optionsMenu.triggered.connect(self.jobDataChanged)
         self.coresInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
@@ -193,6 +198,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
         self.servicesLayout.addWidget(self.jobTypeSelector)
         self.servicesLayout.addWidget(self.servicesSelector)
+        self.servicesLayout.addWidget(self.limitsSelector)
         self.servicesLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.servicesLayout)
 
@@ -239,6 +245,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.updateJobTypeSelector(layerObject.layerType)
         self.servicesSelector.clearChecked()
         self.servicesSelector.setChecked(layerObject.services)
+        self.limitsSelector.clearChecked()
+        self.limitsSelector.setChecked(layerObject.limits)
         self.coresInput.setText(str(layerObject.cores))
         self.chunkInput.setText(str(layerObject.chunk))
         self.dependSelector.clearChecked()
@@ -261,6 +269,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             cores=self.coresInput.text(),
             env=None,
             services=[i.strip() for i in self.servicesSelector.text().split(',')],
+            limits=[i.strip() for i in self.limitsSelector.text().split(',')],
             dependType=self.dependSelector.text(),
             dependsOn=None
         )

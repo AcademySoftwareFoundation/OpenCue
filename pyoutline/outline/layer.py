@@ -120,6 +120,9 @@ class Layer(with_metaclass(LayerType, object)):
 
         # The default name of the service.
         self.__service = self.__args.get("service", "shell")
+        
+        # The layer limits.
+        self.__limits = self.__args.get("limits")
 
         # The current frame number.
         self.__frame = None
@@ -547,6 +550,22 @@ class Layer(with_metaclass(LayerType, object)):
         @param service: The name of the primary application.
         """
         self.__service = service
+
+    def get_limits(self):
+        """
+        Return a list limits for this layer.
+        @rtype: string
+        @return: list of limits
+        """
+        return self.__limits
+
+    def set_limits(self, limits):
+        """
+        Set the limits for this layer.
+        @type  limits: string
+        @param limits: list of Limit names
+        """
+        self.__limits = limits
 
     def put_data(self, key, value, force=False):
         """

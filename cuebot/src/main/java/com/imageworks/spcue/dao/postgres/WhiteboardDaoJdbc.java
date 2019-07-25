@@ -350,23 +350,34 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @Override
     public Layer getLayer(String id) {
         return getJdbcTemplate().queryForObject(
-                GET_LAYER + " AND layer.pk_layer=?",
+                GET_LAYER + " AND layer.pk_layer=? GROUP BY layer.pk_layer",
                 LAYER_MAPPER, id);
     }
 
     @Override
     public Layer findLayer(String job, String layer) {
         return getJdbcTemplate().queryForObject(
-                GET_LAYER + " AND job.str_state='PENDING' AND job.str_name=? AND layer.str_name=?",
+                GET_LAYER + " AND job.str_state='PENDING' AND job.str_name=? " +
+                        "AND layer.str_name=? GROUP BY limit_names",
                 LAYER_MAPPER, job, layer);
     }
 
     @Override
     public LayerSeq getLayers(JobInterface job) {
-        String query = GET_LAYER + " AND layer.pk_job=? ORDER BY layer.int_dispatch_order ASC";
+        String query = GET_LAYER + " AND layer.pk_job=? " +
+                "GROUP BY limit_names ORDER BY layer.int_dispatch_order ASC";
         List<Layer> layers = getJdbcTemplate().query(
                 query, LAYER_MAPPER, job.getJobId());
         return LayerSeq.newBuilder().addAllLayers(layers).build();
+    }
+
+    public Layer addLimitNames(Layer layer) {
+        return layer.toBuilder().addAllLimits(getLimitNames(layer.getId())).build();
+    }
+
+    public List<String> getLimitNames(String layerId) {
+        return getJdbcTemplate().query(GET_LIMIT_NAMES,
+                LIMIT_NAME_MAPPER, layerId);
     }
 
     @Override
@@ -759,6 +770,12 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ?",
                 LIMIT_MAPPER, id);
+    }
+
+    @Override
+    public List<Limit> getLimits() {
+        return getJdbcTemplate().query(
+                QUERY_FOR_LIMIT, LIMIT_MAPPER);
     }
 
     /*
@@ -1250,6 +1267,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     }
                     builder.setLayerStats(statsBuilder.build());
                     return builder.build();
+                }
+            };
+
+    private static final RowMapper<String> LIMIT_NAME_MAPPER =
+            new RowMapper<String>() {
+                public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    return rs.getString("str_name");
                 }
             };
 
@@ -1830,14 +1854,17 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "layer_usage.int_clock_time_success," +
             "layer_usage.int_clock_time_fail," +
             "layer_mem.int_max_rss,"+
-            "layer_resource.int_cores " +
+            "layer_resource.int_cores, " +
+            "string_agg(limit_record.str_name, ', ') AS limit_names " +
         "FROM " +
             "layer, " +
             "job," +
             "layer_stat, " +
             "layer_resource, " +
             "layer_usage, " +
-            "layer_mem " +
+            "layer_mem, " +
+            "layer_limit, " +
+            "limit_record " +
         "WHERE " +
             "layer.pk_job = job.pk_job " +
         "AND " +
@@ -1847,7 +1874,22 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "AND " +
             "layer.pk_layer = layer_usage.pk_layer " +
         "AND " +
-            "layer.pk_layer = layer_mem.pk_layer ";
+            "layer.pk_layer = layer_mem.pk_layer " +
+        "AND " +
+            "layer.pk_layer = layer_limit.pk_layer " +
+        "AND " +
+            "layer_limit.pk_limit_record = limit_record.pk_limit_record ";
+
+    private static final String GET_LIMIT_NAMES =
+        "SELECT " +
+            "limit_record.str_name " +
+        "FROM " +
+            "layer_limit, " +
+            "limit_record " +
+        "WHERE " +
+            "layer_limit.pk_layer = ? " +
+        "AND " +
+            "limit_record.pk_limit_record = layer_limit.pk_limit_record";
 
     private static final String GET_SHOW =
         "SELECT " +

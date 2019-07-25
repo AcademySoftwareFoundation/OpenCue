@@ -517,6 +517,11 @@ public class WhiteboardService implements Whiteboard {
     }
 
     @Override
+    public List<Limit> getLimits() {
+        return whiteboardDao.getLimits();
+    }
+
+    @Override
     public List<Limit> getLimits(LayerInterface layer) {
         return whiteboardDao.getLimits(layer);
     }

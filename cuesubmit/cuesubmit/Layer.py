@@ -33,6 +33,7 @@ class LayerData(object):
         self.cores = '1'
         self.env = {}
         self.services = []
+        self.limits = []
         self.dependType = DependType.Null
         self.dependsOn = None
 
@@ -50,21 +51,22 @@ class LayerData(object):
             'cores': self.cores,
             'env': self.env,
             'services': self.services,
+            'limits': self.limits,
             'dependType': self.dependType,
             'dependsOn': self.dependsOn
         }
 
     @staticmethod
     def buildFactory(name=None, layerType=None, cmd=None, layerRange=None, chunk=None, cores=None,
-                     env=None, services=None, dependType=None, dependsOn=None):
+                     env=None, services=None, limits=None, dependType=None, dependsOn=None):
         """Build a new LayerData object with the given settings."""
         layerData = LayerData()
-        layerData.update(name, layerType, cmd, layerRange, chunk, cores, env, services, dependType,
-                         dependsOn)
+        layerData.update(name, layerType, cmd, layerRange, chunk, cores, env, services, limits,
+                         dependType, dependsOn)
         return layerData
 
     def update(self, name=None, layerType=None, cmd=None, layerRange=None, chunk=None, cores=None,
-               env=None, services=None, dependType=None, dependsOn=None):
+               env=None, services=None, limits=None, dependType=None, dependsOn=None):
         """Update this Layer with the provided settings."""
         if name is not None:
             self.name = name
@@ -82,6 +84,8 @@ class LayerData(object):
             self.env = env
         if services is not None:
             self.services = services
+        if limits is not None:
+            self.limits = limits
         if dependType is not None:
             self.dependType = dependType
         if dependsOn is not None:
