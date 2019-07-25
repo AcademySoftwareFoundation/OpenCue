@@ -37,7 +37,7 @@ class Frame(object):
         COMPLETE = job_pb2.COMPLETE
 
     class FrameExitStatus(enum.IntEnum):
-        SUCCESS = job_pb2.DISABLED
+        SUCCESS = job_pb2.SUCCESS
         NO_RETRY = job_pb2.NO_RETRY
         SKIP_RETRY = job_pb2.SKIP_RETRY
 

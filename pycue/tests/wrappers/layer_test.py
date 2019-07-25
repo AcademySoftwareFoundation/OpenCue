@@ -362,5 +362,16 @@ class LayerTests(unittest.TestCase):
             timeout=mock.ANY)
 
 
+class LayerEnumTests(unittest.TestCase):
+
+    def testLayerType(self):
+        self.assertEqual(opencue.api.Layer.LayerType.PRE, opencue.compiled_proto.job_pb2.PRE)
+        self.assertEqual(opencue.api.Layer.LayerType.PRE, 0)
+
+    def testOrder(self):
+        self.assertEqual(opencue.api.Layer.Order.LAST, opencue.compiled_proto.job_pb2.LAST)
+        self.assertEqual(opencue.api.Layer.Order.LAST, 1)
+
+
 if __name__ == '__main__':
     unittest.main()
