@@ -1,0 +1,9 @@
+# OpenCue SonarCloud pipeline
+
+# No automated builds yet, against master or PRs.
+trigger: none
+pr: none
+
+pool:
+  vmImage: 'ubuntu-latest'
+
