@@ -10,10 +10,10 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - task: SonarCloudPrepare@1
-    inputs:
-      SonarCloud: 'SonarCloud (OpenCue token)'
-      organization: 'bcipriano'
-      scannerMode: 'Other'
+  - bash: sonar-scanner -Dsonar.login=${SONAR_TOKEN}
+    name: analyzePython
+    displayName: Analyze Python Components
 
-  - task: SonarCloudAnalyze@1
+  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=${SONAR_TOKEN}
+    name: analyzeCuebot
+    displayName: Analyze Cuebot
