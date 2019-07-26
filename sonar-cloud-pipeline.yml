@@ -13,18 +13,18 @@ jobs:
   - bash: |
       set -e
 
-      echo "fwihoij ${SONAR_TOKEN2} deijcjj"
+      echo "fwihoij $(SONAR_TOKEN) deijcjj"
 
       SONAR_VERSION=4.0.0.1744
 
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
 
-      sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=${SONAR_TOKEN2}
+      sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
     name: analyzePython
     displayName: Analyze Python Components
 
-  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=${SONAR_TOKEN2}
+  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=$(SONAR_TOKEN)
     name: analyzeCuebot
     displayName: Analyze Cuebot
 
