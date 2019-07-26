@@ -104,3 +104,14 @@ jar {
 shadowJar {
     mergeServiceFiles('META-INF/spring.*')
 }
+
+sonarqube {
+    properties {
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.organization", "bcipriano"
+        property "sonar.projectKey", "bcipriano_OpenCue_Cuebot"
+        property "sonar.projectName", "OpenCue Cuebot"
+        // NOTE: sonar.login must be provided manually, like:
+        //   ./gradlew sonarqube -Dsonar.login=<login key>
+    }
+}
