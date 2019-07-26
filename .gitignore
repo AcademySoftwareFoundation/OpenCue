@@ -4,3 +4,4 @@
 venv/
 /build/
 /VERSION
+.scannerwork/
