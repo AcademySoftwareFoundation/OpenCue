@@ -7,3 +7,10 @@ pr: none
 pool:
   vmImage: 'ubuntu-latest'
 
+- task: SonarCloudPrepare@1
+  inputs:
+    SonarCloud: 'SonarCloud (OpenCue token)'
+    organization: 'bcipriano'
+    scannerMode: 'Other'
+
+- task: SonarCloudAnalyze@1
