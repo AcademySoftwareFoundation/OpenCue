@@ -10,10 +10,6 @@ jobs:
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
-  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=${SONAR_TOKEN}
-    name: analyzeCuebot
-    displayName: Analyze Cuebot
-
   - bash: |
       set -e
 
@@ -27,5 +23,9 @@ jobs:
       sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=${SONAR_TOKEN}
     name: analyzePython
     displayName: Analyze Python Components
+
+  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=${SONAR_TOKEN}
+    name: analyzeCuebot
+    displayName: Analyze Cuebot
 
 
