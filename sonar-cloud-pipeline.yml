@@ -17,6 +17,8 @@ jobs:
   - bash: |
       set -e
 
+      echo ${SONAR_TOKEN}
+
       SONAR_VERSION=4.0.0.1744
 
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
