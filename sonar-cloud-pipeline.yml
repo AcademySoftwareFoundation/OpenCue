@@ -4,13 +4,16 @@
 trigger: none
 pr: none
 
-pool:
-  vmImage: 'ubuntu-latest'
+jobs:
+- job: analyze
+  displayName: Analyze with SonarCloud
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - task: SonarCloudPrepare@1
+    inputs:
+      SonarCloud: 'SonarCloud (OpenCue token)'
+      organization: 'bcipriano'
+      scannerMode: 'Other'
 
-- task: SonarCloudPrepare@1
-  inputs:
-    SonarCloud: 'SonarCloud (OpenCue token)'
-    organization: 'bcipriano'
-    scannerMode: 'Other'
-
-- task: SonarCloudAnalyze@1
+  - task: SonarCloudAnalyze@1
