@@ -56,30 +56,42 @@ the upstream OpenCue repository. These topics are covered in
 [Cloning a repository](https://help.github.com/articles/cloning-a-repository/)
 and
 [Configuring a remote for a fork](https://help.github.com/articles/configuring-a-remote-for-a-fork/),
-but again, if you need assistance feel free to reach out on the ocio-dev mail
-list.
+but again, if you need assistance feel free to reach out on the
+[opencue-dev mail list](https://lists.aswf.io/g/opencue-dev).
 
-## Contributor License Agreement (CLA) and Intellectual Property
+## GitHub Issues
 
-To protect the project -- and the contributors! -- we do require a
-Contributor License Agreement (CLA) for anybody submitting changes.
+OpenCue tracks outstanding and in-progress work through
+[GitHub Issues](https://guides.github.com/features/issues/).
 
-* If you are an individual writing the code on your own time and you're SURE
-you are the sole owner of any intellectual property you contribute, you'll
-want to sign the Individual CLA.
+You can view a list of existing issues on the
+[OpenCue issues page](https://github.com/AcademySoftwareFoundation/OpenCue/issues).
 
-* If you are writing the code as part of your job, or if there is any
-possibility that your employers might think they own any intellectual
-property you create, then you should use the Corporate CLA.
+Before you start writing code, make sure that you have a GitHub issue
+assigned to you which describes the work you plan to do. Feel free to file
+a new issue if one doesn't exist for that work, but please search the existing
+issues list first to avoid filing a duplicate.
 
-Our CLAs are based on those used by Apache and many other open source
-projects.
+Having an assigned issue serves a few purposes:
 
-Every pull request runs a check using the Linux Foundation's CLA tool
-to verify that all committers have signed the CLA. If you haven't,
-the pull request's status check will display the next steps you should
-take. You'll log into the CLA tool which will walk you through the
-process.
+-  Avoids duplicating work. You may find that your planned issue is already
+   being worked on by someone else! If an issue has an existing assignee,
+   coordinate with them to find out the current state of their work and if
+   you can assist. If you don't get a response, or the issue seems to be stale,
+   reach out to a [Code Owner](./CODEOWNERS) to escalate.
+   
+-  Provides a centralized place to track related work. There may be related
+   discussion, and many issues are complex enough to require more than one
+   pull request to be fully resolved. The issue page provides a home for
+   all of that material, which is very helpful for future contributors to
+   look back on. 
+
+-  Helps us populate our release notes. Published
+   [OpenCue releases](https://github.com/AcademySoftwareFoundation/OpenCue/releases)
+   use Github issue or pull request numbers to identify what has changed in
+   each release.
+   
+Nearly all pull requests should have an issue associated with them.
 
 ## Development and Pull Requests
 
@@ -120,13 +132,38 @@ tests your branch. These builds verify that code compiles and all unit tests
 succeed. CI build status is displayed on the GitHub pull request page, and
 changes will only be merged after all builds have succeeded.
 
-6. Pull requests will be reviewed by project Committers and Contributors,
+6. A status check will also ensure you've signed the requisite
+[Contributor License Agreement](#contributor-license-agreement-cla-and-intellectual-property).
+
+7. Pull requests will be reviewed by project Committers and Contributors,
 who may discuss, offer constructive feedback, request changes, or approve
 the work.
 
-7. Upon receiving the required number of Committer approvals (as outlined
-in [Required Approvals](#required-approvals)), a Committer other than the PR
-contributor may squash and merge changes into the master branch.
+8. Upon receiving the required number of Committer approvals (as outlined
+in [Required Approvals](#required-approvals)), any Committer may squash and
+merge changes into the master branch.
+
+## Contributor License Agreement (CLA) and Intellectual Property
+
+To protect the project -- and the contributors! -- we do require a
+Contributor License Agreement (CLA) for anybody submitting changes.
+
+* If you are an individual writing the code on your own time and you're SURE
+you are the sole owner of any intellectual property you contribute, you'll
+want to sign the Individual CLA.
+
+* If you are writing the code as part of your job, or if there is any
+possibility that your employers might think they own any intellectual
+property you create, then you should use the Corporate CLA.
+
+Our CLAs are based on those used by Apache and many other open source
+projects.
+
+Every pull request runs a check using the Linux Foundation's CLA tool
+to verify that all committers have signed the CLA. If you haven't,
+the pull request's status check will display the next steps you should
+take. You'll log into the CLA tool which will walk you through the
+process.
 
 ## Required Approvals
 
