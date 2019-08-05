@@ -88,8 +88,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
                          StreamObserver<SubscriptionSetBurstResponse> responseObserver) {
         adminManager.setSubscriptionBurst(
                 getSubscriptionDetail(request.getSubscription()),
-                Convert.coresToWholeCoreUnits(request.getBurst())
-        );
+                request.getBurst());
         responseObserver.onNext(SubscriptionSetBurstResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -99,8 +98,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
                         StreamObserver<SubscriptionSetSizeResponse> responseObserver) {
         adminManager.setSubscriptionSize(
                 getSubscriptionDetail(request.getSubscription()),
-                Convert.coresToWholeCoreUnits(request.getNewSize())
-        );
+                request.getNewSize());
         responseObserver.onNext(SubscriptionSetSizeResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
