@@ -1,0 +1,30 @@
+# OpenCue SonarCloud pipeline
+
+# No automated builds yet, against master or PRs.
+trigger: none
+pr: none
+
+jobs:
+- job: analyze
+  displayName: Analyze with SonarCloud
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - bash: |
+      set -e
+
+      SONAR_VERSION=4.0.0.1744
+
+      wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
+      unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
+
+      # sonar-scanner by default reads most of its configuration from sonar-project.properties
+      sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
+    name: analyzePython
+    displayName: Analyze Python Components
+
+  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=$(SONAR_TOKEN)
+    name: analyzeCuebot
+    displayName: Analyze Cuebot
+
+

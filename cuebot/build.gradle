@@ -1,6 +1,7 @@
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'com.google.protobuf'
+apply plugin: 'org.sonarqube'
 
 sourceCompatibility = 1.8
 
@@ -19,6 +20,7 @@ buildscript {
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.3'
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
+        classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1"
     }
 }
 
@@ -101,4 +103,15 @@ jar {
 
 shadowJar {
     mergeServiceFiles('META-INF/spring.*')
+}
+
+sonarqube {
+    properties {
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.organization", "bcipriano"
+        property "sonar.projectKey", "bcipriano_OpenCue_Cuebot"
+        property "sonar.projectName", "OpenCue Cuebot"
+        // NOTE: sonar.login must be provided manually, like:
+        //   ./gradlew sonarqube -Dsonar.login=<login key>
+    }
 }
