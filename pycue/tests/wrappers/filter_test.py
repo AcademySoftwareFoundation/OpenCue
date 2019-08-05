@@ -512,5 +512,39 @@ class MatcherTests(unittest.TestCase):
         self.assertTrue(matcherTrue.isNew())
 
 
+class FilterEnumTests(unittest.TestCase):
+
+    def testFilterType(self):
+        self.assertEqual(opencue.api.Filter.FilterType.MATCH_ANY,
+                         opencue.compiled_proto.filter_pb2.MATCH_ANY)
+        self.assertEqual(opencue.api.Filter.FilterType.MATCH_ANY, 0)
+
+
+class ActionEnumTests(unittest.TestCase):
+
+    def testActionType(self):
+        self.assertEqual(opencue.api.Action.ActionType.MOVE_JOB_TO_GROUP,
+                         opencue.compiled_proto.filter_pb2.MOVE_JOB_TO_GROUP)
+        self.assertEqual(opencue.api.Action.ActionType.MOVE_JOB_TO_GROUP, 0)
+      
+    def testActionValueType(self):
+        self.assertEqual(opencue.api.Action.ActionValueType.INTEGER_TYPE,
+                         opencue.compiled_proto.filter_pb2.INTEGER_TYPE)
+        self.assertEqual(opencue.api.Action.ActionValueType.INTEGER_TYPE, 2)
+
+
+class MatcherEnumTests(unittest.TestCase):
+
+    def testMatchSubject(self):
+        self.assertEqual(opencue.api.Matcher.MatchSubject.JOB_NAME,
+                         opencue.compiled_proto.filter_pb2.JOB_NAME)
+        self.assertEqual(opencue.api.Matcher.MatchSubject.JOB_NAME, 0)
+
+    def testMatchType(self):
+        self.assertEqual(opencue.api.Matcher.MatchType.IS,
+                         opencue.compiled_proto.filter_pb2.IS)
+        self.assertEqual(opencue.api.Matcher.MatchType.IS, 2)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -21,6 +21,7 @@ Module: job.py - opencue Library implementation of a job
 
 """
 
+import enum
 import os
 import time
 
@@ -36,6 +37,14 @@ import opencue.wrappers.layer
 
 class Job(object):
     """This class contains the ice implementation related to a job."""
+
+    class JobState(enum.IntEnum):
+        PENDING = job_pb2.PENDING
+        FINISHED = job_pb2.FINISHED
+        STARTUP = job_pb2.STARTUP
+        SHUTDOWN = job_pb2.SHUTDOWN
+        POSTED = job_pb2.POSTED
+
     def __init__(self, job=None):
         """_Job class initialization"""
         self.data = job

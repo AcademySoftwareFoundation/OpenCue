@@ -272,5 +272,27 @@ class HostTests(unittest.TestCase):
             timeout=mock.ANY)
 
 
+class HostEnumTests(unittest.TestCase):
+
+    def testHardwareState(self):
+        self.assertEqual(opencue.api.Host.HardwareState.UP, opencue.compiled_proto.host_pb2.UP)
+        self.assertEqual(opencue.api.Host.HardwareState.UP, 0)
+
+    def testHostTagType(self):
+        self.assertEqual(opencue.api.Host.HostTagType.HARDWARE,
+                         opencue.compiled_proto.host_pb2.HARDWARE)
+        self.assertEqual(opencue.api.Host.HostTagType.HARDWARE, 1)
+
+    def testLockState(self):
+        self.assertEqual(opencue.api.Host.LockState.NIMBY_LOCKED,
+                         opencue.compiled_proto.host_pb2.NIMBY_LOCKED)
+        self.assertEqual(opencue.api.Host.LockState.NIMBY_LOCKED, 2)
+
+    def testThreadMode(self):
+        self.assertEqual(opencue.api.Host.ThreadMode.ALL,
+                         opencue.compiled_proto.host_pb2.ALL)
+        self.assertEqual(opencue.api.Host.ThreadMode.ALL, 1)
+
+
 if __name__ == '__main__':
     unittest.main()
