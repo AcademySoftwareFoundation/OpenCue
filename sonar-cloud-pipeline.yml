@@ -20,7 +20,7 @@ jobs:
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
 
       pip install --user virtualenv
-      virtualenv venv
+      ~/.local/bin/virtualenv venv
       source venv/bin/activate
       pip install --user -r requirements.txt
 
