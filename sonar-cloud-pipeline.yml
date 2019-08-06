@@ -23,7 +23,7 @@ jobs:
     name: analyzePython
     displayName: Analyze Python Components
 
-  - bash: cd cuebot && ./gradlew sonarqube -Dsonar.login=$(SONAR_TOKEN)
+  - bash: cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)
     name: analyzeCuebot
     displayName: Analyze Cuebot
 
