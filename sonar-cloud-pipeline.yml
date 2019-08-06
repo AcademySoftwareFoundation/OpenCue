@@ -27,6 +27,7 @@ jobs:
       # Don't need --user here as we're now in the virtual environment.
       pip install -r requirements.txt
 
+      pip install coverage
       coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
       PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
       coverage xml
