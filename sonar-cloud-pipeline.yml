@@ -19,6 +19,7 @@ jobs:
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
 
+      pip install virtualenv
       virtualenv venv
       source venv/bin/activate
       pip install -r requirements.txt
