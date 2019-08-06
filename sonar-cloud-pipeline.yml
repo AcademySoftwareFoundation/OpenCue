@@ -9,6 +9,7 @@ jobs:
   displayName: Analyze with SonarCloud
   pool:
     vmImage: 'ubuntu-16.04'
+  container: aswf/ci-base:2019.0
   steps:
   - bash: |
       set -e
@@ -17,6 +18,14 @@ jobs:
 
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
+
+      virtualenv venv
+      source venv/bin/activate
+      pip install -r requirements.txt
+
+      coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
+      PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
+      coverage xml
 
       # sonar-scanner by default reads most of its configuration from sonar-project.properties
       sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
