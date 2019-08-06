@@ -19,15 +19,9 @@ jobs:
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
 
-      # Container user isn't allowed to install packages at system-level, so we use --user and
-      # the custom path to the virtualenv script.
-      pip install --user virtualenv
-      ~/.local/bin/virtualenv venv
-      source venv/bin/activate
-      # Don't need --user here as we're now in the virtual environment.
-      pip install -r requirements.txt
-
-      pip install coverage
+      pip install --user -r requirements.txt
+      pip install --user coverage
+      
       coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
       PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
       coverage xml
