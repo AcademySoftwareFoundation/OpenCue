@@ -21,7 +21,9 @@ jobs:
 
       pip install --user -r requirements.txt
       pip install --user coverage
-      
+
+      python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
+
       coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
       PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
       coverage xml
