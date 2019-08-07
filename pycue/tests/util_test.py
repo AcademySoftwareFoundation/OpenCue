@@ -36,8 +36,6 @@ def testRaise(exc):
 class ProxyTests(unittest.TestCase):
     """proxy converts different types of entities to usable Ice proxies"""
 
-    
-
     def testNotFoundExceptionParser(self):
         response = grpc.RpcError()
         response.code = lambda: grpc.StatusCode.NOT_FOUND
