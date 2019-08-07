@@ -17,7 +17,7 @@ RUN yum -y install python-pip
 WORKDIR /src
 
 COPY LICENSE ./
-COPY requirements.txt ./
+COPY rqd/requirements.txt ./
 
 RUN pip install -r requirements.txt
 
