@@ -32,7 +32,7 @@ jobs:
       PYTHONPATH=pycue coverage run -a --source=cueadmin/cueadmin/ cueadmin/setup.py test
       PYTHONPATH=pycue coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
       PYTHONPATH=pycue:pyoutline coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
-      coverage run -a --source=rqd/rqd/ rqd/setup.py test
+      coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
       coverage xml
 
       # sonar-scanner by default reads most of its configuration from sonar-project.properties
