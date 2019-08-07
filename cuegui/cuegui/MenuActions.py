@@ -209,6 +209,7 @@ class JobActions(AbstractActions):
 
     view_info = ["View Job", None, "view"]
     def view(self, rpcObjects=None):
+        app = QtGui.qApp
         for job in self._getOnlyJobObjects(rpcObjects):
             QtGui.qApp.view_object.emit(job)
 
@@ -381,7 +382,7 @@ class JobActions(AbstractActions):
     def viewComments(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            cuegui.Comments.CommentListDialog(jobs[0],self._caller).show()
+            cuegui.Comments.CommentListDialog(jobs[0], self._caller).show()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
     def dependWizard(self, rpcObjects=None):
