@@ -18,8 +18,9 @@
 
 package com.imageworks.spcue.servant;
 
-
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.CueGrpcException;
 import com.imageworks.spcue.EntityNotFoundException;
@@ -57,7 +58,7 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
 
     @Override
     public void find(SubscriptionFindRequest request, StreamObserver<SubscriptionFindResponse> responseObserver)
-            throws EntityNotFoundException, CueGrpcException{
+            throws CueGrpcException{
         String name = request.getName();
         try {
             String[] parts = name.split("\\.", 3);
@@ -69,18 +70,28 @@ public class ManageSubscription extends SubscriptionInterfaceGrpc.SubscriptionIn
                     .build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
-        } catch (org.springframework.dao.EmptyResultDataAccessException e) {
-            throw new EntityNotFoundException("A subscription to " + name + " was not found.");
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription("A subscription to " + name + " was not found.")
+                    .withCause(e)
+                    .asRuntimeException());
         }
     }
 
     @Override
     public void get(SubscriptionGetRequest request, StreamObserver<SubscriptionGetResponse> responseObserver) {
-        SubscriptionGetResponse response = SubscriptionGetResponse.newBuilder()
-                .setSubscription(whiteboard.getSubscription(request.getId()))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        try {
+            SubscriptionGetResponse response = SubscriptionGetResponse.newBuilder()
+                    .setSubscription(whiteboard.getSubscription(request.getId()))
+                    .build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

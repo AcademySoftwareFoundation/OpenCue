@@ -3,7 +3,9 @@ package com.imageworks.spcue.servant;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.HostEntity;
@@ -90,20 +92,34 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void find(
             AllocFindRequest request, StreamObserver<AllocFindResponse> responseObserver) {
-        responseObserver.onNext(
-                AllocFindResponse.newBuilder()
-                        .setAllocation(whiteboard.findAllocation(request.getName()))
-                        .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(
+                    AllocFindResponse.newBuilder()
+                            .setAllocation(whiteboard.findAllocation(request.getName()))
+                            .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void get(AllocGetRequest request, StreamObserver<AllocGetResponse> responseObserver) {
-        responseObserver.onNext(
-                AllocGetResponse.newBuilder()
-                    .setAllocation(whiteboard.findAllocation(request.getId()))
-                    .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(
+                    AllocGetResponse.newBuilder()
+                        .setAllocation(whiteboard.findAllocation(request.getId()))
+                        .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

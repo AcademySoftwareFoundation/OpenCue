@@ -1,6 +1,8 @@
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.grpc.facility.FacilityCreateRequest;
 import com.imageworks.spcue.grpc.facility.FacilityCreateResponse;
@@ -34,11 +36,18 @@ public class ManageFacility extends FacilityInterfaceGrpc.FacilityInterfaceImplB
 
     @Override
     public void get(FacilityGetRequest request, StreamObserver<FacilityGetResponse> responseObserver) {
-        FacilityGetResponse response = FacilityGetResponse.newBuilder()
-                .setFacility(whiteboard.getFacility(request.getName()))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+        try {
+            FacilityGetResponse response = FacilityGetResponse.newBuilder()
+                    .setFacility(whiteboard.getFacility(request.getName()))
+                    .build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
