@@ -70,7 +70,6 @@ class ProxyTests(unittest.TestCase):
         response.details = lambda: "unknown"
         self.assertRaises(opencue.exception.CueException,
                           lambda: testRaise(response))
-    
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testProxyUniqueId(self, getStubMock):
