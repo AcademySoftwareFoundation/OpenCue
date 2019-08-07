@@ -9,7 +9,7 @@ jobs:
   displayName: Analyze with SonarCloud
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswf/ci-base:2019.0
+  container: aswftesting/ci-base:2019.0
   steps:
   - bash: |
       set -e
