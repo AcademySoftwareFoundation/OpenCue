@@ -11,6 +11,9 @@ jobs:
     vmImage: 'ubuntu-16.04'
   container: aswf/ci-base:2019.0
   steps:
+  - bash: ci/python_coverage_report.sh
+    name: coverageReport
+    displayName: Generate Test Coverage Report
   - bash: |
       set -e
 
@@ -19,26 +22,10 @@ jobs:
       wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
       unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
 
-      pip install --user -r requirements.txt
-      pip install --user coverage
-      # pip --user installs scripts such as `coverage` into an alternate location.
-      export PATH=~/.local/bin:$PATH
-
-      python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
-      python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
-
-      coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
-      PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
-      PYTHONPATH=pycue coverage run -a --source=cueadmin/cueadmin/ cueadmin/setup.py test
-      PYTHONPATH=pycue coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
-      PYTHONPATH=pycue:pyoutline coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
-      coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
-      coverage xml
-
       # sonar-scanner by default reads most of its configuration from sonar-project.properties
       sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
     name: analyzePython
-    displayName: Analyze Python Components
+    displayName: Analyze and Send to SonarCloud
 
 - job: analyzeCuebot
   displayName: Analyze Cuebot
@@ -46,5 +33,5 @@ jobs:
     vmImage: 'ubuntu-16.04'
   steps:
   - bash: cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)
-    name: analyzeCuebot
-    displayName: Analyze Cuebot
+    name: analyze
+    displayName: Analyze and Send to SonarCloud
