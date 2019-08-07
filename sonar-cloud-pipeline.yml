@@ -5,11 +5,15 @@ trigger: none
 pr: none
 
 jobs:
-- job: analyze
-  displayName: Analyze with SonarCloud
+- job: analyzePython
+  displayName: Analyze Python Components
   pool:
     vmImage: 'ubuntu-16.04'
+  container: aswf/ci-base:2019.0
   steps:
+  - bash: ci/python_coverage_report.sh
+    name: coverageReport
+    displayName: Generate Test Coverage Report
   - bash: |
       set -e
 
@@ -21,10 +25,13 @@ jobs:
       # sonar-scanner by default reads most of its configuration from sonar-project.properties
       sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
     name: analyzePython
-    displayName: Analyze Python Components
+    displayName: Analyze and Send to SonarCloud
 
+- job: analyzeCuebot
+  displayName: Analyze Cuebot
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
   - bash: cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)
-    name: analyzeCuebot
-    displayName: Analyze Cuebot
-
-
+    name: analyze
+    displayName: Analyze and Send to SonarCloud
