@@ -184,10 +184,17 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     @Override
     public void getJob(JobGetJobRequest request, StreamObserver<JobGetJobResponse> responseObserver) {
-        responseObserver.onNext(JobGetJobResponse.newBuilder()
-                .setJob(whiteboard.getJob(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(JobGetJobResponse.newBuilder()
+                    .setJob(whiteboard.getJob(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

@@ -1,9 +1,10 @@
-FROM centos:7 as base
-
 # -----------------
 # BUILD
 # -----------------
-FROM base as build
+FROM centos:7 as build
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "CueAdmin build stage"
 
 WORKDIR /src
 
@@ -25,9 +26,6 @@ RUN pip install -r requirements.txt
 
 RUN pip3.6 install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
@@ -44,33 +42,23 @@ RUN python -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
+COPY cueadmin/README.md ./cueadmin/
+COPY cueadmin/setup.py ./cueadmin/
+COPY cueadmin/tests/ ./cueadmin/tests
+COPY cueadmin/cueadmin ./cueadmin/cueadmin
+
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
 RUN cd pycue && python setup.py install
 
 RUN cd pycue && python3.6 setup.py install
 
-COPY cueadmin/README.md ./cueadmin/
-COPY cueadmin/setup.py ./cueadmin/
-COPY cueadmin/cueadmin ./cueadmin/cueadmin
-
 # TODO(bcipriano) Lint the code here. (Issue #78)
-
-
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
-COPY cueadmin/tests/ ./cueadmin/tests
 
 RUN cd cueadmin && python setup.py test
 
 RUN cd cueadmin && python3.6 setup.py test
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
 
 RUN cp LICENSE requirements.txt VERSION cueadmin/
 
@@ -82,9 +70,12 @@ RUN versioned_name="cueadmin-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "CueAdmin runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/cueadmin-*-all.tar.gz ./
+COPY --from=build /src/cueadmin-*-all.tar.gz ./
 

@@ -1,0 +1,129 @@
+# OpenCue Build and Test Pipeline
+
+variables:
+  ARTIFACT_DIRECTORY: ./build
+
+# Trigger the pipeline on every commit to master. Pull Requests to any branch will trigger
+# the pipeline as well, by default.
+trigger:
+- master
+
+jobs:
+- job: build
+  displayName: Build
+  pool:
+    vmImage: 'ubuntu-16.04'
+  steps:
+  - bash: |
+      set -e
+      ci/generate_version_number.sh > VERSION
+      echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
+    name: setBuildId
+    displayName: Generate Build ID
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: 'Docker Hub (build)'
+      command: 'login'
+
+  - bash: mkdir -p $(ARTIFACT_DIRECTORY)
+    name: createArtifactDirectory
+    displayName: Create Artifact Directory
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'cuebot'
+      displayName: 'Cuebot'
+      artifactPath: '/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'rqd'
+      displayName: 'RQD'
+      artifactPath: '/opt/opencue/rqd-$(setBuildId.buildId)-all.tar.gz'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'pycue'
+      displayName: 'PyCue'
+      artifactPath: '/opt/opencue/pycue-$(setBuildId.buildId)-all.tar.gz'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'pyoutline'
+      displayName: 'PyOutline'
+      artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'cuegui'
+      displayName: 'CueGUI'
+      artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'cuesubmit'
+      displayName: 'CueSubmit'
+      artifactPath: '/opt/opencue/cuesubmit-$(setBuildId.buildId)-all.tar.gz'
+
+  - template: ci/templates/build_docker.yml
+    parameters:
+      imageName: 'cueadmin'
+      displayName: 'CueAdmin'
+      artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
+
+  - bash: ci/extract_artifacts.sh $(setBuildId.buildId) ./$(ARTIFACT_DIRECTORY)
+    name: extractArtifacts
+    displayName: Extract Build Artifacts
+
+  - bash: ci/extract_schema.sh $(setBuildId.buildId) ./$(ARTIFACT_DIRECTORY)
+    name: extractSchema
+    displayName: Extract Database Schema
+
+  - publish: $(ARTIFACT_DIRECTORY)/LICENSE
+    artifact: License
+    displayName: Publish LICENSE
+
+  - publish: $(ARTIFACT_DIRECTORY)/VERSION
+    artifact: Version
+    displayName: Publish VERSION
+
+  - publish: $(ARTIFACT_DIRECTORY)/build_metadata.json
+    artifact: Build Metadata
+    displayName: Publish Build Metadata
+
+  - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(setBuildId.buildId)-all.jar
+    artifact: Cuebot JAR
+    displayName: Publish Cuebot JAR
+
+  - publish: $(ARTIFACT_DIRECTORY)/rqd-$(setBuildId.buildId)-all.tar.gz
+    artifact: RQD Tarball
+    displayName: Publish RQD Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/pycue-$(setBuildId.buildId)-all.tar.gz
+    artifact: PyCue Tarball
+    displayName: Publish PyCue Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/pyoutline-$(setBuildId.buildId)-all.tar.gz
+    artifact: PyOutline Tarball
+    displayName: Publish PyOutline Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(setBuildId.buildId)-all.tar.gz
+    artifact: CueGUI Tarball
+    displayName: Publish CueGUI Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(setBuildId.buildId)-all.tar.gz
+    artifact: CueSubmit Tarball
+    displayName: Publish CueSubmit Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/cueadmin-$(setBuildId.buildId)-all.tar.gz
+    artifact: CueAdmin Tarball
+    displayName: Publish CueAdmin Tarball
+
+  - publish: $(ARTIFACT_DIRECTORY)/schema-$(setBuildId.buildId).sql
+    artifact: Database Schema
+    displayName: Publish Database Schema
+
+  - publish: $(ARTIFACT_DIRECTORY)/demo_data-$(setBuildId.buildId).sql
+    artifact: Demo SQL Data
+    displayName: Publish Demo SQL Data

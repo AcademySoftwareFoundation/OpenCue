@@ -22,6 +22,7 @@ import java.util.HashSet;
 import com.google.protobuf.Descriptors;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
@@ -129,18 +130,32 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
     @Override
     public void findLayer(LayerFindLayerRequest request, StreamObserver<LayerFindLayerResponse> responseObserver) {
-        responseObserver.onNext(LayerFindLayerResponse.newBuilder()
-                .setLayer(whiteboard.findLayer(request.getJob(), request.getLayer()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(LayerFindLayerResponse.newBuilder()
+                    .setLayer(whiteboard.findLayer(request.getJob(), request.getLayer()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getLayer(LayerGetLayerRequest request, StreamObserver<LayerGetLayerResponse> responseObserver) {
-        responseObserver.onNext(LayerGetLayerResponse.newBuilder()
-                .setLayer(whiteboard.getLayer(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(LayerGetLayerResponse.newBuilder()
+                    .setLayer(whiteboard.getLayer(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

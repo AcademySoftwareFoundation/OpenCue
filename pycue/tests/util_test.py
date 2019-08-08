@@ -19,6 +19,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 from builtins import range
+import grpc
 import mock
 import unittest
 
@@ -27,8 +28,48 @@ from opencue.compiled_proto import job_pb2
 from opencue.wrappers.job import Job
 
 
+@opencue.util.grpcExceptionParser
+def testRaise(exc):
+    raise exc
+
+
 class ProxyTests(unittest.TestCase):
     """proxy converts different types of entities to usable Ice proxies"""
+
+    def testNotFoundExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: grpc.StatusCode.NOT_FOUND
+        response.details = lambda: "testing not found"
+        self.assertRaises(opencue.exception.EntityNotFoundException,
+                          lambda: testRaise(response))
+
+    def testExistsExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: grpc.StatusCode.ALREADY_EXISTS
+        response.details = lambda: "already exists"
+        self.assertRaises(opencue.exception.EntityAlreadyExistsException,
+                          lambda: testRaise(response))
+
+    def testDeadlineExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: grpc.StatusCode.DEADLINE_EXCEEDED
+        response.details = lambda: "deadline exceeded"
+        self.assertRaises(opencue.exception.DeadlineExceededException,
+                          lambda: testRaise(response))
+
+    def testInternalExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: grpc.StatusCode.INTERNAL
+        response.details = lambda: "Internal Error"
+        self.assertRaises(opencue.exception.CueInternalErrorException,
+                          lambda: testRaise(response))
+
+    def testUnknownExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: "unknown"
+        response.details = lambda: "unknown"
+        self.assertRaises(opencue.exception.CueException,
+                          lambda: testRaise(response))
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testProxyUniqueId(self, getStubMock):

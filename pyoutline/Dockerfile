@@ -1,9 +1,10 @@
-FROM centos:7 as base
-
 # -----------------
 # BUILD
 # -----------------
-FROM base as build
+FROM centos:7 as build
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "PyCue build stage"
 
 WORKDIR /src
 
@@ -25,9 +26,6 @@ RUN pip install -r requirements.txt
 
 RUN pip3.6 install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
 COPY pycue/setup.py ./pycue/
@@ -44,36 +42,26 @@ RUN python -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
-RUN cd pycue && python setup.py install
-
-RUN cd pycue && python3.6 setup.py install
-
 COPY pyoutline/README.md ./pyoutline/
 COPY pyoutline/setup.py ./pyoutline/
 COPY pyoutline/bin ./pyoutline/bin
 COPY pyoutline/etc ./pyoutline/etc
+COPY pyoutline/tests/ ./pyoutline/tests
 COPY pyoutline/wrappers ./pyoutline/wrappers
 COPY pyoutline/outline ./pyoutline/outline
 
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+
+RUN cd pycue && python setup.py install
+
+RUN cd pycue && python3.6 setup.py install
+
 # TODO(bcipriano) Lint the code here. (Issue #78)
-
-
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
-COPY pyoutline/tests/ ./pyoutline/tests
 
 RUN cd pyoutline && python setup.py test
 
 RUN cd pyoutline && python3.6 setup.py test
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
 
 RUN cp LICENSE requirements.txt VERSION pyoutline/
 
@@ -85,9 +73,12 @@ RUN versioned_name="pyoutline-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "PyCue runtime stage"
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/pyoutline-*-all.tar.gz ./
+COPY --from=build /src/pyoutline-*-all.tar.gz ./
 

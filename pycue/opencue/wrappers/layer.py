@@ -20,6 +20,7 @@ opencue layer module
 implementation of a layer in opencue
 """
 
+import enum
 
 from opencue.compiled_proto import job_pb2
 from opencue.cuebot import Cuebot
@@ -30,6 +31,18 @@ import opencue.wrappers.limit
 
 
 class Layer(object):
+
+    class LayerType(enum.IntEnum):
+        PRE = job_pb2.PRE
+        POST = job_pb2.POST
+        RENDER = job_pb2.RENDER
+        UTIL = job_pb2.UTIL
+
+    class Order(enum.IntEnum):
+        FIRST = job_pb2.FIRST
+        LAST = job_pb2.LAST
+        REVERSE = job_pb2.REVERSE
+
     def __init__(self, layer):
         self.data = layer
         self.stub = Cuebot.getStub('layer')

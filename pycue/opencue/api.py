@@ -45,7 +45,9 @@ from .cuebot import Cuebot
 from .wrappers.allocation import Allocation
 from .wrappers.comment import Comment
 from .wrappers.depend import Depend
+from .wrappers.filter import Action
 from .wrappers.filter import Filter
+from .wrappers.filter import Matcher
 from .wrappers.frame import Frame
 from .wrappers.group import Group
 from .wrappers.host import Host, NestedHost
@@ -64,8 +66,8 @@ __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, 
                filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2, show_pb2,
                subscription_pb2, task_pb2]
 
-__wrappers = [Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, NestedHost, Proc,
-              Show, Subscription, Task]
+__wrappers = [Action, Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, Matcher,
+              NestedHost, Proc, Show, Subscription, Task]
 
 
 #

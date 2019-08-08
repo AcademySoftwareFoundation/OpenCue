@@ -19,8 +19,10 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.log4j.Logger;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
@@ -44,10 +46,17 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 
     @Override
     public void getDepend(DependGetDependRequest request, StreamObserver<DependGetDependResponse> responseObserver) {
-        responseObserver.onNext(DependGetDependResponse.newBuilder()
-                .setDepend(whiteboard.getDepend(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(DependGetDependResponse.newBuilder()
+                    .setDepend(whiteboard.getDepend(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     public void satisfy(DependSatisfyRequest request, StreamObserver<DependSatisfyResponse> responseObserver) {

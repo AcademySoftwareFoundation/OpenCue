@@ -1,6 +1,8 @@
 apply plugin: 'java'
 apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'com.google.protobuf'
+apply plugin: 'org.sonarqube'
+apply plugin: 'jacoco'
 
 sourceCompatibility = 1.8
 
@@ -19,6 +21,7 @@ buildscript {
     dependencies {
         classpath 'com.github.jengelman.gradle.plugins:shadow:4.0.3'
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.3'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1'
     }
 }
 
@@ -101,4 +104,48 @@ jar {
 
 shadowJar {
     mergeServiceFiles('META-INF/spring.*')
+}
+
+jacoco {
+    toolVersion = "0.8.4"
+}
+
+jacocoTestReport {
+    reports {
+        // XML is used by SonarCloud. HTML is generated if you want to generate a human-readable
+        // report locally. Reports are placed in build/reports/jacoco/.
+        xml.enabled true
+        html.enabled true
+    }
+
+    // Exclude files from test coverage.
+    afterEvaluate {
+        classDirectories = files(classDirectories.files.collect {
+            fileTree(dir: it,
+                     exclude: [
+                        // Exclude proto files' generated Java code.
+                        'com/imageworks/spcue/grpc/**',
+                        // Exclude Oracle classes; our standard test environment isn't currently
+                        // able to run Oracle unit tests, so coverage of those files will always
+                        // read as 0% even though tests do exist.
+                        'com/imageworks/spcue/dao/oracle/**',
+                        'com/imageworks/spcue/dao/criteria/oracle/**',])
+        })
+    }
+}
+
+sonarqube {
+    properties {
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.organization", "bcipriano"
+        property "sonar.projectKey", "bcipriano_OpenCue_Cuebot"
+        property "sonar.projectName", "OpenCue Cuebot"
+        // SonarCloud will pick up the JaCoCo report automatically, but has its own options
+        // for excluding files. We don't need to exclude generated code here as it isn't
+        // checked into the repository, so SonarCloud doesn't even know it exists.
+        property "sonar.coverage.exclusions", "src/main/java/com/imageworks/spcue/dao/oracle/**," +
+                                              "src/main/java/com/imageworks/spcue/dao/criteria/oracle/**"
+        // NOTE: sonar.login must be provided manually, like:
+        //   ./gradlew sonarqube -Dsonar.login=<login key>
+    }
 }

@@ -13,6 +13,7 @@
 #  limitations under the License.
 
 import os
+from setuptools import find_packages
 from setuptools import setup
 
 rqd_dir = os.path.abspath(os.path.dirname(__file__))
@@ -43,7 +44,7 @@ setup(
         'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 2.7',
     ],
-    packages=['rqd', 'rqd.compiled_proto'],
+    packages=find_packages(),
     entry_points={
         'console_scripts': [
             'rqd=rqd.__main__:main'
