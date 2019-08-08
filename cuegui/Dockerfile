@@ -47,7 +47,7 @@ RUN cd pycue && python setup.py install
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+RUN cd cuegui && python setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 
