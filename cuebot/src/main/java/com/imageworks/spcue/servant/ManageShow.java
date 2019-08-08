@@ -20,6 +20,7 @@ package com.imageworks.spcue.servant;
 import com.google.common.collect.Sets;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.FilterEntity;
@@ -133,10 +134,17 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
     @Override
     public void findShow(ShowFindShowRequest request, StreamObserver<ShowFindShowResponse> responseObserver) {
-        responseObserver.onNext(ShowFindShowResponse.newBuilder()
-                .setShow(whiteboard.findShow(request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(ShowFindShowResponse.newBuilder()
+                    .setShow(whiteboard.findShow(request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

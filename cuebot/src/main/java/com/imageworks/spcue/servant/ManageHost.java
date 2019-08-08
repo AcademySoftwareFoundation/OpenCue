@@ -22,7 +22,9 @@ package com.imageworks.spcue.servant;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.HostInterface;
@@ -120,19 +122,33 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     @Override
     public void findHost(HostFindHostRequest request,
                                   StreamObserver<HostFindHostResponse> responseObserver) {
-        responseObserver.onNext(HostFindHostResponse.newBuilder()
-                .setHost(whiteboard.findHost(request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(HostFindHostResponse.newBuilder()
+                    .setHost(whiteboard.findHost(request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getHost(HostGetHostRequest request,
                          StreamObserver<HostGetHostResponse> responseObserver) {
-        responseObserver.onNext(HostGetHostResponse.newBuilder()
-                .setHost(whiteboard.findHost(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(HostGetHostResponse.newBuilder()
+                    .setHost(whiteboard.findHost(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
