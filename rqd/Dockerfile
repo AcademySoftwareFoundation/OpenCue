@@ -78,4 +78,4 @@ RUN chmod +x ./install_and_run.sh
 # RQD gRPC server
 EXPOSE 8444
 
-ENTRYPOINT ["/opt/opencue/install_and_run.sh"]
+ENTRYPOINT ["/bin/bash", "-c", "set -e && /opt/opencue/install_and_run.sh"]
