@@ -758,7 +758,7 @@ class FrameActions(AbstractActions):
         if frames:
             job = self._getSource()
             path = cuegui.Utils.getFrameLogFile(job, frames[0])
-            files = dict((int(j.split(".")[-1]),j) for j in glob.glob("%s.*" % (path)) if j[-1].isdigit())
+            files = dict((int(j.split(".")[-1]), j) for j in glob.glob("%s.*" % path) if j[-1].isdigit())
             if files:
                 cuegui.Utils.popupView(files[sorted(files.keys())[-1]])
             else:

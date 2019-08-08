@@ -25,8 +25,12 @@ import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.Main
 import cuegui.MenuActions
+import opencue.compiled_proto.depend_pb2
+import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
+import opencue.wrappers.depend
 import opencue.wrappers.frame
+import opencue.wrappers.host
 import opencue.wrappers.job
 import opencue.wrappers.layer
 
@@ -750,6 +754,182 @@ class LayerActionsTests(unittest.TestCase):
 
         layer.staggerFrames.assert_called_with(original_range, new_step)
 
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class FrameActionsTests(unittest.TestCase):
+
+    # Class-level path only applies to test_* methods.
+    # @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        # self.job_log_dir = '/some/path/to/job/logs'
+        # self.job = opencue.wrappers.job.Job(
+        #     opencue.compiled_proto.job_pb2.Job(name='job-name', log_dir=self.job_log_dir))
+        self.job = mock.Mock()
+        self.frame_actions = cuegui.MenuActions.FrameActions(
+            self.widgetMock, mock.Mock(), None, lambda: self.job)
+
+    @mock.patch('cuegui.Utils.popupFrameView')
+    def test_view(self, popupFrameViewMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.view(rpcObjects=[opencue.wrappers.layer.Layer(None), frame])
+
+        popupFrameViewMock.assert_called_with(self.job, frame)
+
+    @mock.patch('cuegui.Utils.popupFrameTail')
+    def test_tail(self, popupFrameTailMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.tail(rpcObjects=[frame])
+
+        popupFrameTailMock.assert_called_with(self.job, frame)
+
+    @mock.patch('cuegui.Utils.popupView')
+    @mock.patch('glob.glob')
+    @mock.patch('cuegui.Utils.getFrameLogFile')
+    def test_viewLastLog(self, getFrameLogFileMock, globMock, popupViewMock):
+        frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
+        getFrameLogFileMock.return_value = frame_log_path
+        file_list = ['%s/file1.0001' % frame_log_path, '%s/file2.0002' % frame_log_path]
+        globMock.return_value = file_list
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.viewLastLog(rpcObjects=[frame])
+
+        popupViewMock.assert_called_with(file_list[-1])
+
+    @mock.patch('cuegui.Utils.popupView')
+    @mock.patch('glob.glob')
+    @mock.patch('cuegui.Utils.getFrameLogFile')
+    def test_viewLastLogNoFiles(self, getFrameLogFileMock, globMock, popupViewMock):
+        frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
+        getFrameLogFileMock.return_value = frame_log_path
+        globMock.return_value = []
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.viewLastLog(rpcObjects=[frame])
+
+        popupViewMock.assert_called_with(frame_log_path)
+
+    @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
+    def test_useLocalCores(self, localBookingDialogMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.useLocalCores(rpcObjects=[frame])
+
+        localBookingDialogMock.assert_called_with(frame, self.widgetMock)
+        localBookingDialogMock.return_value.exec_.assert_called()
+
+    @mock.patch('cuegui.Utils.popupFrameXdiff')
+    def test_xdiff2(self, popupFrameXdiffMock):
+        frame1 = opencue.wrappers.frame.Frame(None)
+        frame2 = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.xdiff2(rpcObjects=[frame1, frame2])
+
+        popupFrameXdiffMock.assert_called_with(self.job, frame1, frame2)
+
+    @mock.patch('cuegui.Utils.popupFrameXdiff')
+    def test_xdiff3(self, popupFrameXdiffMock):
+        frame1 = opencue.wrappers.frame.Frame(None)
+        frame2 = opencue.wrappers.frame.Frame(None)
+        frame3 = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.xdiff3(rpcObjects=[frame1, frame2, frame3])
+
+        popupFrameXdiffMock.assert_called_with(self.job, frame1, frame2, frame3)
+
+    @mock.patch('opencue.api.findHost')
+    @mock.patch('PySide2.QtGui.qApp')
+    def test_viewHost(self, qAppMock, findHostMock):
+        host_name = 'arbitrary-host-name'
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=host_name))
+        frame = opencue.wrappers.frame.Frame(
+            opencue.compiled_proto.job_pb2.Frame(last_resource='%s/foo' % host_name))
+        findHostMock.return_value = host
+
+        self.frame_actions.viewHost(rpcObjects=[frame])
+
+        qAppMock.view_hosts.emit.assert_called_with([host_name])
+        qAppMock.single_click.emit.assert_called_with(host)
+
+    def test_getWhatThisDependsOn(self):
+        frame = opencue.wrappers.frame.Frame(None)
+        depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+        frame.getWhatThisDependsOn = lambda: [depend]
+
+        # This method just logs info so no return value to check; just make sure it executes.
+        self.frame_actions.getWhatThisDependsOn(rpcObjects=[frame])
+
+    @mock.patch('cuegui.DependDialog.DependDialog')
+    def test_viewDepends(self, dependDialogMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.viewDepends(rpcObjects=[frame])
+
+        dependDialogMock.assert_called_with(frame, self.widgetMock)
+        dependDialogMock.return_value.show.assert_called()
+
+    def test_getWhatDependsOnThis(self):
+        frame = opencue.wrappers.frame.Frame(None)
+        depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+        frame.getWhatDependsOnThis = lambda: [depend]
+
+        # This method just logs info so no return value to check; just make sure it executes.
+        self.frame_actions.getWhatDependsOnThis(rpcObjects=[frame])
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_retry(self, yesNoMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+
+        self.frame_actions.retry(rpcObjects=[frame])
+
+        self.job.retryFrames.assert_called_with(name=[frame_name])
+
+    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    def test_previewMain(self, previewProcessorDialogMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.previewMain(rpcObjects=[frame])
+
+        previewProcessorDialogMock.assert_called_with(self.job, frame, False)
+        previewProcessorDialogMock.return_value.process.assert_called()
+        previewProcessorDialogMock.return_value.exec_.assert_called()
+
+    @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
+    def test_previewAovs(self, previewProcessorDialogMock):
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.previewAovs(rpcObjects=[frame])
+
+        previewProcessorDialogMock.assert_called_with(self.job, frame, True)
+        previewProcessorDialogMock.return_value.process.assert_called()
+        previewProcessorDialogMock.return_value.exec_.assert_called()
+
+    @mock.patch('opencue.search.FrameSearch')
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_eat(self, yesNoMock, frameSearchMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+
+        self.frame_actions.eat(rpcObjects=[frame])
+
+        frameSearchMock.assert_called_with(name=[frame_name])
+        self.job.eatFrames.assert_called_with(frameSearchMock.return_value)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_kill(self, yesNoMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+
+        self.frame_actions.kill(rpcObjects=[frame])
+
+        self.job.killFrames.assert_called_with(name=[frame_name])
+
+    
 
 if __name__ == '__main__':
     unittest.main()
