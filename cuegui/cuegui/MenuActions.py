@@ -209,7 +209,6 @@ class JobActions(AbstractActions):
 
     view_info = ["View Job", None, "view"]
     def view(self, rpcObjects=None):
-        app = QtGui.qApp
         for job in self._getOnlyJobObjects(rpcObjects):
             QtGui.qApp.view_object.emit(job)
 
