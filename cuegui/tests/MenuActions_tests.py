@@ -30,9 +30,11 @@ import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.depend
 import opencue.wrappers.frame
+import opencue.wrappers.group
 import opencue.wrappers.host
 import opencue.wrappers.job
 import opencue.wrappers.layer
+import opencue.wrappers.show
 
 
 _GB_TO_KB = 1024 * 1024
@@ -65,7 +67,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.viewDepends(rpcObjects=[job])
 
-        dependDialogMock.assert_called_with(job, mock.ANY)
+        dependDialogMock.assert_called_with(job, self.widgetMock)
         dependDialogMock.return_value.show.assert_called()
 
     @mock.patch('cuegui.EmailDialog.EmailDialog')
@@ -75,19 +77,19 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.emailArtist(rpcObjects=[job])
 
-        emailDialogMock.assert_called_with(job, [], mock.ANY)
+        emailDialogMock.assert_called_with(job, [], self.widgetMock)
         emailDialogMock.return_value.show.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_setMinCores(self, getDoubleMock):
         highest_current_core_count = 20
-        job1 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job1.data = mock.Mock()
-        job1.data.min_cores = highest_current_core_count - 10
-        job2 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job2.data = mock.Mock()
-        job2.data.min_cores = highest_current_core_count
         new_core_count = 50
+        job1 = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(min_cores=highest_current_core_count - 10))
+        job1.setMinCores = mock.Mock()
+        job2 = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(min_cores=highest_current_core_count))
+        job2.setMinCores = mock.Mock()
         getDoubleMock.return_value = (new_core_count, True)
 
         self.job_actions.setMinCores(rpcObjects=[job1, job2])
@@ -102,12 +104,10 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_setMinCoresCanceled(self, getDoubleMock):
-        job1 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job1.data = mock.Mock()
-        job1.data.min_cores = 0
-        job2 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job2.data = mock.Mock()
-        job2.data.min_cores = 0
+        job1 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(min_cores=0))
+        job1.setMinCores = mock.Mock()
+        job2 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(min_cores=0))
+        job2.setMinCores = mock.Mock()
         getDoubleMock.return_value = (None, False)
 
         self.job_actions.setMinCores(rpcObjects=[job1, job2])
@@ -118,13 +118,13 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_setMaxCores(self, getDoubleMock):
         highest_current_core_count = 20
-        job1 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job1.data = mock.Mock()
-        job1.data.max_cores = highest_current_core_count - 10
-        job2 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job2.data = mock.Mock()
-        job2.data.max_cores = highest_current_core_count
         new_core_count = 50
+        job1 = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(max_cores=highest_current_core_count - 10))
+        job1.setMaxCores = mock.Mock()
+        job2 = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(max_cores=highest_current_core_count))
+        job2.setMaxCores = mock.Mock()
         getDoubleMock.return_value = (new_core_count, True)
 
         self.job_actions.setMaxCores(rpcObjects=[job1, job2])
@@ -139,12 +139,10 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_setMaxCoresCanceled(self, getDoubleMock):
-        job1 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job1.data = mock.Mock()
-        job1.data.max_cores = 0
-        job2 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job2.data = mock.Mock()
-        job2.data.max_cores = 0
+        job1 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(max_cores=0))
+        job1.setMaxCores = mock.Mock()
+        job2 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(max_cores=0))
+        job2.setMaxCores = mock.Mock()
         getDoubleMock.return_value = (None, False)
 
         self.job_actions.setMaxCores(rpcObjects=[job1, job2])
@@ -154,9 +152,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setPriority(self, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        job.data.priority = 0
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(priority=0))
+        job.setPriority = mock.Mock()
         new_priority = 25
         getIntMock.return_value = (new_priority, True)
 
@@ -166,9 +163,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setPriorityCanceled(self, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        job.data.priority = 0
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(priority=0))
+        job.setPriority = mock.Mock()
         getIntMock.return_value = (None, False)
 
         self.job_actions.setPriority(rpcObjects=[job])
@@ -177,7 +173,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetries(self, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
+        job.setMaxRetries = mock.Mock()
         new_retries = 7
         getIntMock.return_value = (new_retries, True)
 
@@ -187,7 +184,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetriesCanceled(self, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
+        job.setMaxRetries = mock.Mock()
         getIntMock.return_value = (None, False)
 
         self.job_actions.setMaxRetries(rpcObjects=[job])
@@ -195,14 +193,16 @@ class JobActionsTests(unittest.TestCase):
         job.setMaxRetries.assert_not_called()
 
     def test_pause(self):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
+        job.pause = mock.Mock()
 
         self.job_actions.pause(rpcObjects=[job])
 
         job.pause.assert_called()
 
     def test_resume(self):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
+        job.resume = mock.Mock()
 
         self.job_actions.resume(rpcObjects=[job])
 
@@ -210,8 +210,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_kill(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.kill = mock.Mock()
 
         self.job_actions.kill(rpcObjects=[job])
 
@@ -219,8 +219,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_killCanceled(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.kill = mock.Mock()
 
         self.job_actions.kill(rpcObjects=[job])
 
@@ -228,8 +228,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_eatDead(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.eatFrames = mock.Mock()
 
         self.job_actions.eatDead(rpcObjects=[job])
 
@@ -237,16 +237,17 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_eatDeadCanceled(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.eatFrames = mock.Mock()
 
         self.job_actions.eatDead(rpcObjects=[job])
 
         job.eatFrames.assert_not_called()
 
     def test_autoEatOn(self):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.setAutoEat = mock.Mock()
+        job.eatFrames = mock.Mock()
 
         self.job_actions.autoEatOn(rpcObjects=[job])
 
@@ -254,8 +255,8 @@ class JobActionsTests(unittest.TestCase):
         job.eatFrames.assert_called_with(state=opencue.compiled_proto.job_pb2.DEAD)
 
     def test_autoEatOff(self):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.setAutoEat = mock.Mock()
 
         self.job_actions.autoEatOff(rpcObjects=[job])
 
@@ -263,8 +264,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_retryDead(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.retryFrames = mock.Mock()
 
         self.job_actions.retryDead(rpcObjects=[job])
 
@@ -272,8 +273,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_retryDeadCanceled(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.retryFrames = mock.Mock()
 
         self.job_actions.retryDead(rpcObjects=[job])
 
@@ -281,8 +282,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_dropExternalDependencies(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.dropDepends = mock.Mock()
 
         self.job_actions.dropExternalDependencies(rpcObjects=[job])
 
@@ -290,8 +291,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_dropExternalDependenciesCanceled(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.dropDepends = mock.Mock()
 
         self.job_actions.dropExternalDependencies(rpcObjects=[job])
 
@@ -299,8 +300,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_dropInternalDependencies(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.dropDepends = mock.Mock()
 
         self.job_actions.dropInternalDependencies(rpcObjects=[job])
 
@@ -308,8 +309,8 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_dropInternalDependenciesCanceled(self, yesNoMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.dropDepends = mock.Mock()
 
         self.job_actions.dropInternalDependencies(rpcObjects=[job])
 
@@ -317,32 +318,31 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Comments.CommentListDialog')
     def test_viewComments(self, commentListMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
 
         self.job_actions.viewComments(rpcObjects=[job])
 
-        commentListMock.assert_called_with(job, mock.ANY)
+        commentListMock.assert_called_with(job, self.widgetMock)
         commentListMock.return_value.show.assert_called()
 
     @mock.patch('cuegui.DependWizard.DependWizard')
     def test_dependWizard(self, dependWizardMock):
-        jobs = [mock.Mock(spec=opencue.wrappers.job.Job)]
+        jobs = [opencue.wrappers.job.Job(None)]
 
         self.job_actions.dependWizard(rpcObjects=jobs)
 
-        dependWizardMock.assert_called_with(mock.ANY, jobs)
+        dependWizardMock.assert_called_with(self.widgetMock, jobs)
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_reorder(self, getTextMock, getItemMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        layer = mock.Mock()
-        layer.data = mock.Mock()
         original_range = '1-10'
-        layer.data.range = original_range
-        job.getLayers.return_value = [layer]
         new_order = 'REVERSE'
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.getLayers = lambda: [
+            opencue.wrappers.layer.Layer(
+                opencue.compiled_proto.job_pb2.Layer(range=original_range))]
+        job.reorderFrames = mock.Mock()
         getTextMock.return_value = (original_range, True)
         getItemMock.return_value = (new_order, True)
 
@@ -353,13 +353,12 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_reorderCanceled(self, getTextMock, getItemMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        layer = mock.Mock()
-        layer.data = mock.Mock()
         original_range = '1-10'
-        layer.data.range = original_range
-        job.getLayers.return_value = [layer]
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.getLayers = lambda: [
+            opencue.wrappers.layer.Layer(
+                opencue.compiled_proto.job_pb2.Layer(range=original_range))]
+        job.reorderFrames = mock.Mock()
 
         getTextMock.return_value = (None, False)
         getItemMock.return_value = (None, True)
@@ -378,14 +377,13 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_stagger(self, getTextMock, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        layer = mock.Mock()
-        layer.data = mock.Mock()
         original_range = '1-10'
-        layer.data.range = original_range
-        job.getLayers.return_value = [layer]
         new_step = 28
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.getLayers = lambda: [
+            opencue.wrappers.layer.Layer(
+                opencue.compiled_proto.job_pb2.Layer(range=original_range))]
+        job.staggerFrames = mock.Mock()
         getTextMock.return_value = (original_range, True)
         getIntMock.return_value = (new_step, True)
 
@@ -396,14 +394,12 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_staggerCanceled(self, getTextMock, getIntMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        layer = mock.Mock()
-        layer.data = mock.Mock()
         original_range = '1-10'
-        layer.data.range = original_range
-        job.getLayers.return_value = [layer]
-
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        job.getLayers = lambda: [
+            opencue.wrappers.layer.Layer(
+                opencue.compiled_proto.job_pb2.Layer(range=original_range))]
+        job.staggerFrames = mock.Mock()
         getTextMock.return_value = (None, False)
         getIntMock.return_value = (None, True)
 
@@ -420,27 +416,25 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.UnbookDialog.UnbookDialog')
     def test_unbook(self, unbookDialogMock):
-        jobs = [mock.Mock(spec=opencue.wrappers.job.Job)]
+        jobs = [opencue.wrappers.job.Job()]
 
         self.job_actions.unbook(rpcObjects=jobs)
 
-        unbookDialogMock.assert_called_with(jobs, mock.ANY)
+        unbookDialogMock.assert_called_with(jobs, self.widgetMock)
         unbookDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.findShow')
     def test_sendToGroup(self, findShowMock, getItemMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        job.data.name = 'arbitrary-job-name'
-        job.data.show = 'arbitrary-show-name'
-        show = mock.Mock()
-        findShowMock.return_value = show
-        group = mock.Mock()
-        group.data = mock.Mock()
         group_name = 'arbitrary-group-name'
-        group.data.name = group_name
-        show.getGroups.return_value = [group]
+        job = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(
+                name='arbitrary-job-name', show='arbitrary-show-name'))
+        show = opencue.wrappers.show.Show(None)
+        group = opencue.wrappers.group.Group(opencue.compiled_proto.job_pb2.Group(name=group_name))
+        group.reparentJobs = mock.Mock()
+        findShowMock.return_value = show
+        show.getGroups = mock.Mock(return_value=[group])
         getItemMock.return_value = (group_name, True)
 
         self.job_actions.sendToGroup(rpcObjects=[job])
@@ -450,10 +444,9 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.findShow')
     def test_sendToGroupCanceled(self, findShowMock, getItemMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
-        job.data = mock.Mock()
-        job.data.name = 'arbitrary-job-name'
-        group = mock.Mock()
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
+        group = opencue.wrappers.group.Group(None)
+        group.reparentJobs = mock.Mock()
         findShowMock.getGroups.return_value = []
         getItemMock.return_value = (None, False)
 
@@ -463,23 +456,19 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
     def test_useLocalCores(self, localBookingDialogMock):
-        job = mock.Mock(spec=opencue.wrappers.job.Job)
+        job = opencue.wrappers.job.Job(None)
 
         self.job_actions.useLocalCores(rpcObjects=[job])
 
-        localBookingDialogMock.assert_called_with(job, mock.ANY)
+        localBookingDialogMock.assert_called_with(job, self.widgetMock)
         localBookingDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
     def test_copyLogFileDir(self, clipboardMock):
-        job1 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job1.data = mock.Mock()
         logDir1 = '/some/random/dir'
-        job1.data.log_dir = logDir1
-        job2 = mock.Mock(spec=opencue.wrappers.job.Job)
-        job2.data = mock.Mock()
         logDir2 = '/a/different/random/dir'
-        job2.data.log_dir = logDir2
+        job1 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(log_dir=logDir1))
+        job2 = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(log_dir=logDir2))
 
         self.job_actions.copyLogFileDir(rpcObjects=[job1, job2])
 
@@ -512,8 +501,9 @@ class JobActionsTests(unittest.TestCase):
 class LayerActionsTests(unittest.TestCase):
     def setUp(self):
         self.widgetMock = mock.Mock()
+        self.job = mock.Mock()
         self.layer_actions = cuegui.MenuActions.LayerActions(
-            self.widgetMock, mock.Mock(), None, mock.Mock())
+            self.widgetMock, mock.Mock(), None, lambda: self.job)
 
     def test_view(self):
         layer_name = 'arbitrary-name'
@@ -529,7 +519,7 @@ class LayerActionsTests(unittest.TestCase):
 
         self.layer_actions.viewDepends(rpcObjects=[layer])
 
-        dependDialogMock.assert_called_with(layer, mock.ANY)
+        dependDialogMock.assert_called_with(layer, self.widgetMock)
         dependDialogMock.return_value.show.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
@@ -612,7 +602,7 @@ class LayerActionsTests(unittest.TestCase):
 
         self.layer_actions.useLocalCores(rpcObjects=[layer])
 
-        localBookingDialogMock.assert_called_with(layer, mock.ANY)
+        localBookingDialogMock.assert_called_with(layer, self.widgetMock)
         localBookingDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.LayerDialog.LayerPropertiesDialog')
@@ -720,7 +710,7 @@ class LayerActionsTests(unittest.TestCase):
 
         self.layer_actions.dependWizard(rpcObjects=layers)
 
-        dependWizardMock.assert_called_with(self.widgetMock, mock.ANY, layers)
+        dependWizardMock.assert_called_with(self.widgetMock, [self.job], layers)
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
@@ -758,13 +748,8 @@ class LayerActionsTests(unittest.TestCase):
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class FrameActionsTests(unittest.TestCase):
 
-    # Class-level path only applies to test_* methods.
-    # @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
         self.widgetMock = mock.Mock()
-        # self.job_log_dir = '/some/path/to/job/logs'
-        # self.job = opencue.wrappers.job.Job(
-        #     opencue.compiled_proto.job_pb2.Job(name='job-name', log_dir=self.job_log_dir))
         self.job = mock.Mock()
         self.frame_actions = cuegui.MenuActions.FrameActions(
             self.widgetMock, mock.Mock(), None, lambda: self.job)
@@ -929,7 +914,36 @@ class FrameActionsTests(unittest.TestCase):
 
         self.job.killFrames.assert_called_with(name=[frame_name])
 
-    
+    @mock.patch('opencue.search.FrameSearch')
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_markAsWaiting(self, yesNoMock, frameSearchMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+
+        self.frame_actions.markAsWaiting(rpcObjects=[frame])
+
+        frameSearchMock.assert_called_with(name=[frame_name])
+        self.job.markAsWaiting.assert_called_with(frameSearchMock.return_value)
+
+    @mock.patch('opencue.search.FrameSearch')
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_dropDepends(self, yesNoMock, frameSearchMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+        frame.dropDepends = mock.Mock()
+
+        self.frame_actions.dropDepends(rpcObjects=[frame])
+
+        frame.dropDepends.assert_called_with(opencue.api.depend_pb2.ANY_TARGET)
+
+    @mock.patch('cuegui.DependWizard.DependWizard')
+    def test_dependWizard(self, dependWizardMock):
+        frames = [opencue.wrappers.frame.Frame(None)]
+
+        self.frame_actions.dependWizard(rpcObjects=frames)
+
+        dependWizardMock.assert_called_with(self.widgetMock, [self.job], [], frames)
+
 
 if __name__ == '__main__':
     unittest.main()
