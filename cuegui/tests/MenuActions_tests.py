@@ -499,9 +499,11 @@ class JobActionsTests(unittest.TestCase):
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class LayerActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
         self.widgetMock = mock.Mock()
-        self.job = mock.Mock()
+        self.job = mock.create_autospec(opencue.wrappers.job.Job())
         self.layer_actions = cuegui.MenuActions.LayerActions(
             self.widgetMock, mock.Mock(), None, lambda: self.job)
 
@@ -522,16 +524,15 @@ class LayerActionsTests(unittest.TestCase):
         dependDialogMock.assert_called_with(layer, self.widgetMock)
         dependDialogMock.return_value.show.assert_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinCores', autospec=True)
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
-    def test_setMinCores(self, getDoubleMock):
+    def test_setMinCores(self, getDoubleMock, setMinCoresMock):
         highest_current_core_count = 20
         new_core_count = 50
         layer1 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(min_cores=highest_current_core_count - 10))
-        layer1.setMinCores = mock.Mock()
         layer2 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(min_cores=highest_current_core_count))
-        layer2.setMinCores = mock.Mock()
         getDoubleMock.return_value = (new_core_count, True)
 
         self.layer_actions.setMinCores(rpcObjects=[layer1, layer2])
@@ -541,36 +542,33 @@ class LayerActionsTests(unittest.TestCase):
             self.widgetMock, mock.ANY, mock.ANY, highest_current_core_count, mock.ANY, mock.ANY,
             mock.ANY)
 
-        layer1.setMinCores.assert_called_with(new_core_count)
-        layer2.setMinCores.assert_called_with(new_core_count)
+        setMinCoresMock.assert_has_calls([
+            mock.call(layer1, new_core_count), mock.call(layer2, new_core_count)])
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinCores')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
-    def test_setMinCoresCanceled(self, getDoubleMock):
+    def test_setMinCoresCanceled(self, getDoubleMock, setMinCoresMock):
         layer1 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(min_cores=0))
-        layer1.setMinCores = mock.Mock()
         layer2 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(min_cores=0))
-        layer2.setMinCores = mock.Mock()
         getDoubleMock.return_value = (None, False)
 
         self.layer_actions.setMinCores(rpcObjects=[layer1, layer2])
 
-        layer1.setMinCores.assert_not_called()
-        layer2.setMinCores.assert_not_called()
+        setMinCoresMock.assert_not_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinMemory', autospec=True)
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
-    def test_setMinMemoryKb(self, getDoubleMock):
+    def test_setMinMemoryKb(self, getDoubleMock, setMinMemoryMock):
         highest_current_mem_limit_gb = 20
         new_mem_limit_gb = 50
         layer1 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(
                 min_memory=(highest_current_mem_limit_gb - 10) * _GB_TO_KB))
-        layer1.setMinMemory = mock.Mock()
         layer2 = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(
                 min_memory=highest_current_mem_limit_gb * _GB_TO_KB))
-        layer2.setMinMemory = mock.Mock()
         getDoubleMock.return_value = (new_mem_limit_gb, True)
 
         self.layer_actions.setMinMemoryKb(rpcObjects=[layer1, layer2])
@@ -580,21 +578,21 @@ class LayerActionsTests(unittest.TestCase):
             self.widgetMock, mock.ANY, mock.ANY, highest_current_mem_limit_gb, mock.ANY, mock.ANY,
             mock.ANY)
 
-        layer1.setMinMemory.assert_called_with(new_mem_limit_gb * _GB_TO_KB)
-        layer2.setMinMemory.assert_called_with(new_mem_limit_gb * _GB_TO_KB)
+        setMinMemoryMock.assert_has_calls([
+            mock.call(layer1, new_mem_limit_gb * _GB_TO_KB),
+            mock.call(layer2, new_mem_limit_gb * _GB_TO_KB),
+        ])
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'setMinMemory')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
-    def test_setMinMemoryKbCanceled(self, getDoubleMock):
+    def test_setMinMemoryKbCanceled(self, getDoubleMock, setMinMemoryMock):
         layer1 = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(min_memory=0))
-        layer1.setMinMemory = mock.Mock()
         layer2 = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(min_memory=0))
-        layer2.setMinMemory = mock.Mock()
         getDoubleMock.return_value = (None, False)
 
         self.layer_actions.setMinMemoryKb(rpcObjects=[layer1, layer2])
 
-        layer1.setMinMemory.assert_not_called()
-        layer2.setMinMemory.assert_not_called()
+        setMinMemoryMock.assert_not_called()
 
     @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
     def test_useLocalCores(self, localBookingDialogMock):
@@ -623,86 +621,86 @@ class LayerActionsTests(unittest.TestCase):
         layerTagsDialogMock.assert_called_with(layers)
         layerTagsDialogMock.return_value.exec_.assert_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'kill')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_kill(self, yesNoMock):
+    def test_kill(self, yesNoMock, killMock):
         layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.kill = mock.Mock()
 
         self.layer_actions.kill(rpcObjects=[layer])
 
-        layer.kill.assert_called()
+        killMock.assert_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'kill')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_killCanceled(self, yesNoMock):
+    def test_killCanceled(self, yesNoMock, killMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.kill = mock.Mock()
 
         self.layer_actions.kill(rpcObjects=[layer])
 
-        layer.kill.assert_not_called()
+        killMock.assert_not_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'eat')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eat(self, yesNoMock):
+    def test_eat(self, yesNoMock, eatMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.eat = mock.Mock()
 
         self.layer_actions.eat(rpcObjects=[layer])
 
-        layer.eat.assert_called()
+        eatMock.assert_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'eat')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_eatCanceled(self, yesNoMock):
+    def test_eatCanceled(self, yesNoMock, eatMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.eat = mock.Mock()
 
         self.layer_actions.eat(rpcObjects=[layer])
 
-        layer.eat.assert_not_called()
+        eatMock.assert_not_called()
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'retry', autospec=True)
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_retry(self, yesNoMock):
+    def test_retry(self, yesNoMock, retryMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.retry = mock.Mock()
 
         self.layer_actions.retry(rpcObjects=[layer])
 
-        layer.retry.assert_called()
+        retryMock.assert_called_with(layer)
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'retry')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
-    def test_retryCanceled(self, yesNoMock):
+    def test_retryCanceled(self, yesNoMock, retryMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.retry = mock.Mock()
 
         self.layer_actions.retry(rpcObjects=[layer])
 
-        layer.retry.assert_not_called()
+        retryMock.assert_not_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_retryDead(self, yesNoMock):
         layer_name = 'arbitrary-name'
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name=layer_name))
-        job = mock.Mock()
-        layer.parent = job
+        layer.parent = self.job
 
         self.layer_actions.retryDead(rpcObjects=[layer])
 
-        job.retryFrames.assert_called_with(layer=[layer_name], state=[opencue.api.job_pb2.DEAD])
+        self.job.retryFrames.assert_called_with(
+            layer=[layer_name], state=[opencue.api.job_pb2.DEAD])
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'markdone', autospec=True)
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_markdone(self, yesNoMock):
+    def test_markdone(self, yesNoMock, markdoneMock):
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
-        layer.markdoneFrames = mock.Mock()
 
         self.layer_actions.markdone(rpcObjects=[layer])
 
-        layer.markdoneFrames.assert_called()
+        markdoneMock.assert_called_with(layer)
 
     @mock.patch('cuegui.DependWizard.DependWizard')
     def test_dependWizard(self, dependWizardMock):
@@ -712,45 +710,46 @@ class LayerActionsTests(unittest.TestCase):
 
         dependWizardMock.assert_called_with(self.widgetMock, [self.job], layers)
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'reorderFrames', autospec=True)
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    def test_reorder(self, getTextMock, getItemMock):
+    def test_reorder(self, getTextMock, getItemMock, reorderFramesMock):
         original_range = '1-10'
         new_order = 'REVERSE'
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(range=original_range))
-        layer.reorderFrames = mock.Mock()
 
         getTextMock.return_value = (original_range, True)
         getItemMock.return_value = (new_order, True)
 
         self.layer_actions.reorder(rpcObjects=[layer])
 
-        layer.reorderFrames.assert_called_with(
-            original_range, opencue.compiled_proto.job_pb2.REVERSE)
+        reorderFramesMock.assert_called_with(
+            layer, original_range, opencue.compiled_proto.job_pb2.REVERSE)
 
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'staggerFrames', autospec=True)
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
-    def test_stagger(self, getTextMock, getIntMock):
+    def test_stagger(self, getTextMock, getIntMock, staggerFramesMock):
         original_range = '1-10'
         new_step = 28
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(range=original_range))
-        layer.staggerFrames = mock.Mock()
         getTextMock.return_value = (original_range, True)
         getIntMock.return_value = (new_step, True)
 
         self.layer_actions.stagger(rpcObjects=[layer])
 
-        layer.staggerFrames.assert_called_with(original_range, new_step)
+        staggerFramesMock.assert_called_with(layer, original_range, new_step)
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class FrameActionsTests(unittest.TestCase):
 
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
         self.widgetMock = mock.Mock()
-        self.job = mock.Mock()
+        self.job = mock.create_autospec(opencue.wrappers.job.Job())
         self.frame_actions = cuegui.MenuActions.FrameActions(
             self.widgetMock, mock.Mock(), None, lambda: self.job)
 
@@ -894,16 +893,14 @@ class FrameActionsTests(unittest.TestCase):
         previewProcessorDialogMock.return_value.process.assert_called()
         previewProcessorDialogMock.return_value.exec_.assert_called()
 
-    @mock.patch('opencue.search.FrameSearch')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_eat(self, yesNoMock, frameSearchMock):
+    def test_eat(self, yesNoMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
         self.frame_actions.eat(rpcObjects=[frame])
 
-        frameSearchMock.assert_called_with(name=[frame_name])
-        self.job.eatFrames.assert_called_with(frameSearchMock.return_value)
+        self.job.eatFrames.assert_called_with(name=[frame_name])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_kill(self, yesNoMock):
@@ -914,16 +911,14 @@ class FrameActionsTests(unittest.TestCase):
 
         self.job.killFrames.assert_called_with(name=[frame_name])
 
-    @mock.patch('opencue.search.FrameSearch')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
-    def test_markAsWaiting(self, yesNoMock, frameSearchMock):
+    def test_markAsWaiting(self, yesNoMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
 
         self.frame_actions.markAsWaiting(rpcObjects=[frame])
 
-        frameSearchMock.assert_called_with(name=[frame_name])
-        self.job.markAsWaiting.assert_called_with(frameSearchMock.return_value)
+        self.job.markAsWaiting.assert_called_with(name=[frame_name])
 
     @mock.patch('opencue.search.FrameSearch')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
@@ -943,6 +938,62 @@ class FrameActionsTests(unittest.TestCase):
         self.frame_actions.dependWizard(rpcObjects=frames)
 
         dependWizardMock.assert_called_with(self.widgetMock, [self.job], [], frames)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_markdone(self, yesNoMock):
+        frame_name = 'arbitrary-frame-name'
+        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+
+        self.frame_actions.markdone(rpcObjects=[frame])
+
+        self.job.markdoneFrames.assert_called_with(name=[frame_name])
+
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'reorderFrames', autospec=True)
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_reorder(self, getItemMock, reorderFramesMock):
+        new_order = 'REVERSE'
+        getItemMock.return_value = (new_order, True)
+        layer_name = 'arbitrary-layer-name'
+        frame_num = 28
+        frame = opencue.wrappers.frame.Frame(
+            opencue.compiled_proto.job_pb2.Frame(layer_name=layer_name, number=frame_num))
+        layer = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name=layer_name))
+        self.job.getLayers.return_value = [layer]
+
+        self.frame_actions.reorder(rpcObjects=[frame])
+
+        reorderFramesMock.assert_called_with(layer, str(frame_num), opencue.compiled_proto.job_pb2.REVERSE)
+
+    @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
+    @mock.patch('cuegui.Utils.getFrameLogFile')
+    def test_copyLogFileName(self, getFrameLogFileMock, clipboardMock):
+        frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
+        getFrameLogFileMock.return_value = frame_log_path
+        frame = opencue.wrappers.frame.Frame(None)
+
+        self.frame_actions.copyLogFileName(rpcObjects=[frame])
+
+        clipboardMock.return_value.setText.assert_called_with([frame_log_path], mock.ANY)
+
+    @mock.patch.object(opencue.wrappers.layer.Layer, 'markdone', autospec=True)
+    @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
+    def test_eatandmarkdone(self, yesNoMock, markdoneMock):
+        layer_name = 'layer-name'
+        frames = [
+            opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name='frame1', layer_name=layer_name)),
+            opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name='frame2', layer_name=layer_name))]
+        layer = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(
+                name=layer_name, layer_stats=opencue.compiled_proto.job_pb2.LayerStats(
+                    eaten_frames=7, succeeded_frames=3, total_frames=10)))
+        self.job.getLayers.return_value = [layer]
+
+        self.frame_actions.eatandmarkdone(rpcObjects=frames)
+
+        self.job.eatFrames.assert_called_with(name=['frame1', 'frame2'])
+        self.job.markdoneFrames.assert_called_with(name=['frame1', 'frame2'])
+        markdoneMock.assert_called_with(layer)
 
 
 if __name__ == '__main__':
