@@ -1,4 +1,3 @@
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,17 +13,8 @@
 #  limitations under the License.
 
 
-
 """
-Main RQD module, handles gRPC function implmentation and job launching.
-
-Project: RQD
-
-Module: rqcore.py
-
-Contact: Middle-Tier
-
-SVN: $Id$
+Main RQD module, handles gRPC function implementation and job launching.
 """
 
 import logging as log
@@ -47,14 +37,14 @@ from rqexceptions import CoreReservationFailureException
 from rqexceptions import DuplicateFrameViolationException
 from rqexceptions import InvalidUserException
 from rqexceptions import RqdException
-from rqmachine import Machine
-from rqnetwork import Network
+import rqd.rqmachine
+import rqd.rqnetwork
 from rqnetwork import RunningFrame
-from rqnimby import Nimby
+import rqd.rqnimby
 
 
 class FrameAttendantThread(threading.Thread):
-    """Once a frame has been recieved and checked by RQD, this class handles
+    """Once a frame has been received and checked by RQD, this class handles
        the launching, waiting on, and cleanup work related to running the
        frame."""
     def __init__(self, rqCore, runFrame, frameInfo):
@@ -527,8 +517,9 @@ class FrameAttendantThread(threading.Thread):
 
 class RqCore(object):
     """Main body of RQD, handles the integration of all components,
-       the setup and launching of a frame and acts on all ice calls
+       the setup and launching of a frame and acts on all gRPC calls
        that are passed from the Network module."""
+
     def __init__(self, optNimbyoff=False):
         """RqCore class initialization"""
         self.__whenIdle = False
@@ -544,11 +535,11 @@ class RqCore(object):
             booked_cores=0,
         )
 
-        self.nimby = Nimby(self)
+        self.nimby = rqd.rqnimby.Nimby(self)
 
-        self.machine = Machine(self, self.cores)
+        self.machine = rqd.rqmachine.Machine(self, self.cores)
 
-        self.network = Network(self)
+        self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()
         self.__cache = {}
 
@@ -567,17 +558,16 @@ class RqCore(object):
 
     def start(self):
         """Called by main to start the rqd service"""
-        # If nimby should be on, start it
-        if rqconstants.OVERRIDE_NIMBY:
-            log.warning("Nimby startup has been triggered by OVERRIDE_NIMBY")
-            self.nimbyOn()
-        elif self.machine.isDesktop():
+        if self.machine.isDesktop():
             if self.__optNimbyoff:
                 log.warning("Nimby startup has been disabled via --nimbyoff")
             elif not rqconstants.OVERRIDE_NIMBY:
                 log.warning("Nimby startup has been disabled via OVERRIDE_NIMBY")
             else:
                 self.nimbyOn()
+        elif rqconstants.OVERRIDE_NIMBY:
+            log.warning("Nimby startup has been triggered by OVERRIDE_NIMBY")
+            self.nimbyOn()
         self.network.start_grpc()
 
     def grpcConnected(self):
@@ -882,7 +872,7 @@ class RqCore(object):
 
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
-           event. Also does not unlock until sufficent idle time is reached."""
+           event. Also does not unlock until sufficient idle time is reached."""
         if os.getuid() != 0:
             log.warning("Not starting nimby, not running as root")
             return
@@ -900,7 +890,9 @@ class RqCore(object):
         """Deactivates nimby and unlocks any nimby lock"""
         if self.nimby.active:
             self.nimby.stop()
-            log.info("Nimby has been deactivated")
+            log.warning("Nimby has been deactivated")
+        else:
+            log.warning('not active')
 
     def onNimbyLock(self):
         """This is called by nimby when it locks the machine.
