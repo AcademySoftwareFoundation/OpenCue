@@ -890,9 +890,7 @@ class RqCore(object):
         """Deactivates nimby and unlocks any nimby lock"""
         if self.nimby.active:
             self.nimby.stop()
-            log.warning("Nimby has been deactivated")
-        else:
-            log.warning('not active')
+            log.info("Nimby has been deactivated")
 
     def onNimbyLock(self):
         """This is called by nimby when it locks the machine.
