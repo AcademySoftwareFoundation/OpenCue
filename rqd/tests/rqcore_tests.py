@@ -77,6 +77,16 @@ class RqCoreTests(unittest.TestCase):
         self.networkMock.return_value.start_grpc.assert_called()
         nimbyOnMock.assert_not_called()
 
+    @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOn')
+    def test_startDesktopNimbyUndefined(self, nimbyOnMock):
+        rqd.rqconstants.OVERRIDE_NIMBY = None
+        self.machineMock.return_value.isDesktop.return_value = True
+
+        self.rqcore.start()
+
+        self.networkMock.return_value.start_grpc.assert_called()
+        nimbyOnMock.assert_not_called()
+
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('rqd.rqmachine.Machine', autospec=True)
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOn')

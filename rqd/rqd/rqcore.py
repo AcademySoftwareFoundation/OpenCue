@@ -560,13 +560,16 @@ class RqCore(object):
         """Called by main to start the rqd service"""
         if self.machine.isDesktop():
             if self.__optNimbyoff:
-                log.warning("Nimby startup has been disabled via --nimbyoff")
+                log.warning('Nimby startup has been disabled via --nimbyoff')
             elif not rqconstants.OVERRIDE_NIMBY:
-                log.warning("Nimby startup has been disabled via OVERRIDE_NIMBY")
+                if rqconstants.OVERRIDE_NIMBY is None:
+                    log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
+                else:
+                    log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
             else:
                 self.nimbyOn()
         elif rqconstants.OVERRIDE_NIMBY:
-            log.warning("Nimby startup has been triggered by OVERRIDE_NIMBY")
+            log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
             self.nimbyOn()
         self.network.start_grpc()
 
