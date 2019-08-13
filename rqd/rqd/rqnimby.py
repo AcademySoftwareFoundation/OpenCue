@@ -41,7 +41,7 @@ import rqutil
 class Nimby(threading.Thread):
     """Nimby == Not In My Back Yard.
        If enabled, nimby will lock and kill all frames running on the host if
-       keyboard or mouse activitiy is detected. If sufficent idle time has
+       keyboard or mouse activity is detected. If sufficient idle time has
        passed, defined in the Constants class, nimby will then unlock the host
        and make it available for rendering."""
 
@@ -129,7 +129,7 @@ class Nimby(threading.Thread):
 
     def lockedIdle(self):
         """Nimby State: Machine is idle,
-                        waiting for sufficent idle time to unlock"""
+                        waiting for sufficient idle time to unlock"""
         log.debug("locked_idle")
         self._openEvents()
         waitStartTime = time.time()
