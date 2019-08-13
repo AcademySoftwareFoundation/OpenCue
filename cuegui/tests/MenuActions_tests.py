@@ -56,7 +56,7 @@ class JobActionsTests(unittest.TestCase):
         job_name = 'arbitrary-name'
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=job_name))
 
-        self.job_actions.view(rpcObjects=[job, opencue.wrappers.frame.Frame(None)])
+        self.job_actions.view(rpcObjects=[job, opencue.wrappers.frame.Frame()])
 
         qAppMock.view_object.emit.assert_called_once_with(job)
 
@@ -173,7 +173,7 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetries(self, getIntMock):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
         job.setMaxRetries = mock.Mock()
         new_retries = 7
         getIntMock.return_value = (new_retries, True)
@@ -184,7 +184,7 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setMaxRetriesCanceled(self, getIntMock):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
         job.setMaxRetries = mock.Mock()
         getIntMock.return_value = (None, False)
 
@@ -193,7 +193,7 @@ class JobActionsTests(unittest.TestCase):
         job.setMaxRetries.assert_not_called()
 
     def test_pause(self):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
         job.pause = mock.Mock()
 
         self.job_actions.pause(rpcObjects=[job])
@@ -201,7 +201,7 @@ class JobActionsTests(unittest.TestCase):
         job.pause.assert_called()
 
     def test_resume(self):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
         job.resume = mock.Mock()
 
         self.job_actions.resume(rpcObjects=[job])
@@ -318,7 +318,7 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Comments.CommentListDialog')
     def test_viewComments(self, commentListMock):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
 
         self.job_actions.viewComments(rpcObjects=[job])
 
@@ -327,7 +327,7 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.DependWizard.DependWizard')
     def test_dependWizard(self, dependWizardMock):
-        jobs = [opencue.wrappers.job.Job(None)]
+        jobs = [opencue.wrappers.job.Job()]
 
         self.job_actions.dependWizard(rpcObjects=jobs)
 
@@ -430,7 +430,7 @@ class JobActionsTests(unittest.TestCase):
         job = opencue.wrappers.job.Job(
             opencue.compiled_proto.job_pb2.Job(
                 name='arbitrary-job-name', show='arbitrary-show-name'))
-        show = opencue.wrappers.show.Show(None)
+        show = opencue.wrappers.show.Show()
         group = opencue.wrappers.group.Group(opencue.compiled_proto.job_pb2.Group(name=group_name))
         group.reparentJobs = mock.Mock()
         findShowMock.return_value = show
@@ -445,7 +445,7 @@ class JobActionsTests(unittest.TestCase):
     @mock.patch('opencue.api.findShow')
     def test_sendToGroupCanceled(self, findShowMock, getItemMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
-        group = opencue.wrappers.group.Group(None)
+        group = opencue.wrappers.group.Group()
         group.reparentJobs = mock.Mock()
         findShowMock.getGroups.return_value = []
         getItemMock.return_value = (None, False)
@@ -456,7 +456,7 @@ class JobActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
     def test_useLocalCores(self, localBookingDialogMock):
-        job = opencue.wrappers.job.Job(None)
+        job = opencue.wrappers.job.Job()
 
         self.job_actions.useLocalCores(rpcObjects=[job])
 
@@ -511,7 +511,7 @@ class LayerActionsTests(unittest.TestCase):
         layer_name = 'arbitrary-name'
         layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(name=layer_name))
 
-        self.layer_actions.view(rpcObjects=[layer, opencue.wrappers.frame.Frame(None)])
+        self.layer_actions.view(rpcObjects=[layer, opencue.wrappers.frame.Frame()])
 
         self.widgetMock.handle_filter_layers_byLayer.emit.assert_called_with([layer_name])
 
@@ -755,9 +755,9 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.popupFrameView')
     def test_view(self, popupFrameViewMock):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
-        self.frame_actions.view(rpcObjects=[opencue.wrappers.layer.Layer(None), frame])
+        self.frame_actions.view(rpcObjects=[opencue.wrappers.layer.Layer(), frame])
 
         popupFrameViewMock.assert_called_with(self.job, frame)
 
@@ -775,9 +775,9 @@ class FrameActionsTests(unittest.TestCase):
     def test_viewLastLog(self, getFrameLogFileMock, globMock, popupViewMock):
         frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
         getFrameLogFileMock.return_value = frame_log_path
-        file_list = ['%s/file1.0001' % frame_log_path, '%s/file2.0002' % frame_log_path]
+        file_list = ['{}/file1.0001'.format(frame_log_path), '{}/file2.0002'.format(frame_log_path)]
         globMock.return_value = file_list
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.viewLastLog(rpcObjects=[frame])
 
@@ -790,7 +790,7 @@ class FrameActionsTests(unittest.TestCase):
         frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
         getFrameLogFileMock.return_value = frame_log_path
         globMock.return_value = []
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.viewLastLog(rpcObjects=[frame])
 
@@ -798,7 +798,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
     def test_useLocalCores(self, localBookingDialogMock):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.useLocalCores(rpcObjects=[frame])
 
@@ -807,8 +807,8 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.popupFrameXdiff')
     def test_xdiff2(self, popupFrameXdiffMock):
-        frame1 = opencue.wrappers.frame.Frame(None)
-        frame2 = opencue.wrappers.frame.Frame(None)
+        frame1 = opencue.wrappers.frame.Frame()
+        frame2 = opencue.wrappers.frame.Frame()
 
         self.frame_actions.xdiff2(rpcObjects=[frame1, frame2])
 
@@ -816,9 +816,9 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.Utils.popupFrameXdiff')
     def test_xdiff3(self, popupFrameXdiffMock):
-        frame1 = opencue.wrappers.frame.Frame(None)
-        frame2 = opencue.wrappers.frame.Frame(None)
-        frame3 = opencue.wrappers.frame.Frame(None)
+        frame1 = opencue.wrappers.frame.Frame()
+        frame2 = opencue.wrappers.frame.Frame()
+        frame3 = opencue.wrappers.frame.Frame()
 
         self.frame_actions.xdiff3(rpcObjects=[frame1, frame2, frame3])
 
@@ -831,7 +831,7 @@ class FrameActionsTests(unittest.TestCase):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=host_name))
         frame = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(last_resource='%s/foo' % host_name))
+            opencue.compiled_proto.job_pb2.Frame(last_resource='{}/foo'.format(host_name)))
         findHostMock.return_value = host
 
         self.frame_actions.viewHost(rpcObjects=[frame])
@@ -840,7 +840,7 @@ class FrameActionsTests(unittest.TestCase):
         qAppMock.single_click.emit.assert_called_with(host)
 
     def test_getWhatThisDependsOn(self):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
         depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
         frame.getWhatThisDependsOn = lambda: [depend]
 
@@ -849,7 +849,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.DependDialog.DependDialog')
     def test_viewDepends(self, dependDialogMock):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.viewDepends(rpcObjects=[frame])
 
@@ -857,7 +857,7 @@ class FrameActionsTests(unittest.TestCase):
         dependDialogMock.return_value.show.assert_called()
 
     def test_getWhatDependsOnThis(self):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
         depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
         frame.getWhatDependsOnThis = lambda: [depend]
 
@@ -875,7 +875,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
     def test_previewMain(self, previewProcessorDialogMock):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.previewMain(rpcObjects=[frame])
 
@@ -885,7 +885,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.PreviewWidget.PreviewProcessorDialog')
     def test_previewAovs(self, previewProcessorDialogMock):
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.previewAovs(rpcObjects=[frame])
 
@@ -933,7 +933,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.DependWizard.DependWizard')
     def test_dependWizard(self, dependWizardMock):
-        frames = [opencue.wrappers.frame.Frame(None)]
+        frames = [opencue.wrappers.frame.Frame()]
 
         self.frame_actions.dependWizard(rpcObjects=frames)
 
@@ -970,7 +970,7 @@ class FrameActionsTests(unittest.TestCase):
     def test_copyLogFileName(self, getFrameLogFileMock, clipboardMock):
         frame_log_path = '/some/path/to/job/logs/job-name.frame-name.rqlog'
         getFrameLogFileMock.return_value = frame_log_path
-        frame = opencue.wrappers.frame.Frame(None)
+        frame = opencue.wrappers.frame.Frame()
 
         self.frame_actions.copyLogFileName(rpcObjects=[frame])
 

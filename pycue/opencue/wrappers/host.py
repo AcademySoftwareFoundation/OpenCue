@@ -57,7 +57,7 @@ class Host(object):
         ALL = host_pb2.ALL
         VARIABLE = host_pb2.VARIABLE
 
-    def __init__(self, host):
+    def __init__(self, host=None):
         """Host class initialization"""
         self.data = host
         self.__id = host.id

@@ -51,7 +51,7 @@ class Frame(object):
         EATEN = job_pb2.EATEN
         CHECKPOINT = job_pb2.CHECKPOINT
 
-    def __init__(self, frame):
+    def __init__(self, frame=None):
         """_Frame class initialization"""
         self.data = frame
         self.stub = Cuebot.getStub('frame')
