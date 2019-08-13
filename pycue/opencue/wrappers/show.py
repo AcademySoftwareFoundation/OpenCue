@@ -30,7 +30,7 @@ import opencue.wrappers.subscription
 
 class Show(object):
 
-    def __init__(self, show):
+    def __init__(self, show=None):
         self.data = show
         self.stub = Cuebot.getStub('show')
 

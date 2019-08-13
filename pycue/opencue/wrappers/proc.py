@@ -41,7 +41,7 @@ class Proc(object):
         IDLE = host_pb2.IDLE
         BOOKED = host_pb2.BOOKED
 
-    def __init__(self, proc):
+    def __init__(self, proc=None):
         self.data = proc
         self.stub = Cuebot.getStub('proc')
 
