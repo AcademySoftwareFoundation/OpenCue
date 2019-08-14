@@ -137,8 +137,8 @@ jacocoTestReport {
 sonarqube {
     properties {
         property "sonar.host.url", "https://sonarcloud.io"
-        property "sonar.organization", "bcipriano"
-        property "sonar.projectKey", "bcipriano_OpenCue_Cuebot"
+        property "sonar.organization", "AcademySoftwareFoundation"
+        property "sonar.projectKey", "AcademySoftwareFoundation_OpenCue_Cuebot"
         property "sonar.projectName", "OpenCue Cuebot"
         // SonarCloud will pick up the JaCoCo report automatically, but has its own options
         // for excluding files. We don't need to exclude generated code here as it isn't
