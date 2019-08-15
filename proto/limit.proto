@@ -42,6 +42,7 @@ message Limit {
     string id = 1;
     string name = 2;
     int32 max_value = 3;
+    int32 current_running = 4;
 }
 
 
