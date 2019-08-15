@@ -587,6 +587,7 @@ class LayerActions(AbstractActions):
         if layers:
             dialog = cuegui.LayerDialog.LayerPropertiesDialog(layers)
             dialog.exec_()
+            self._update()
 
     setTags_info = ["Set Tags", None, "configure"]
     def setTags(self, rpcObjects=None):
