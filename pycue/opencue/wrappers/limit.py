@@ -35,8 +35,9 @@ class Limit(object):
     @rtype: opencue.wrappers.limit.Limit
     @return: The newly created Limit
     """
-    return Limit(self.stub.Create(limit_pb2.LimitCreateRequest(name=self.name(),
-                                                               max_value=self.maxValue())))
+    return Limit(self.stub.Create(
+        limit_pb2.LimitCreateRequest(name=self.name(), max_value=self.maxValue()),
+        timeout=Cuebot.Timeout))
   
   def delete(self):
     """Delete the limit record"""
@@ -58,7 +59,7 @@ class Limit(object):
     @rtype: opencue.wrappers.limit.Limit
     @return: The limit found by id.
     """
-    return Limit(self.stub.Get(limit_pb2.LimitGetRequest(id=id), timeout=Cuebot.Timeout))
+    return Limit(self.stub.Get(limit_pb2.LimitGetRequest(id=id), timeout=Cuebot.Timeout).limit)
   
   def rename(self, newName):
     """Rename the current limit to the provided newName.
@@ -94,5 +95,11 @@ class Limit(object):
   def maxValue(self):
     if hasattr(self.data, 'max_value'):
       return self.data.max_value
+    else:
+      return -1
+    
+  def currentRunning(self):
+    if hasattr(self.data, 'current_running'):
+      return self.data.current_running
     else:
       return -1

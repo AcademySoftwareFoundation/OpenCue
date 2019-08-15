@@ -68,6 +68,17 @@ class Layer(object):
         return self.stub.MarkdoneFrames(job_pb2.LayerMarkdoneFramesRequest(layer=self.data),
                                         timeout=Cuebot.Timeout)
 
+    def addLimit(self, limit_id):
+        """Add a limit to the current layer."""
+        return self.stub.AddLimit(job_pb2.LayerAddLimitRequest(layer=self.data, limit_id=limit_id),
+                                  timeout=Cuebot.Timeout)
+    
+    def dropLimit(self, limit_id):
+        """Remove a limit on the current layer."""
+        return self.stub.DropLimit(
+            job_pb2.LayerDropLimitRequest(layer=self.data, limit_id=limit_id),
+            timeout=Cuebot.Timeout)
+
     def enableMemoryOptimizer(self, value):
         """Set enableMemoryOptimizer to the value.
         @type value: bool
@@ -252,7 +263,7 @@ class Layer(object):
         @rtype: list<opencue.wrappers.limit.Limit>
         @return: The list of limits on this layer."""
         return [opencue.wrappers.limit.Limit(limit) for limit in self.stub.GetLimits(
-            job_pb2.LayerGetLimitsRequest(layer=self.data), timeout=Cuebot.Timeout)]
+            job_pb2.LayerGetLimitsRequest(layer=self.data), timeout=Cuebot.Timeout).limits]
 
     def id(self):
         """Returns the uuid of the layer
