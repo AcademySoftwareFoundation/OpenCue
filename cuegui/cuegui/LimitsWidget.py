@@ -37,6 +37,8 @@ class LimitsWidget(QtWidgets.QWidget):
   def __init__(self, parent):
     QtWidgets.QWidget.__init__(self, parent)
     
+    self.__btnRefresh = QtWidgets.QPushButton("Refresh", self)
+    self.__btnRefresh.setFocusPolicy(QtCore.Qt.NoFocus)
     self.__btnAddLimit = QtWidgets.QPushButton("Add Limit", self)
     self.__btnAddLimit.setFocusPolicy(QtCore.Qt.NoFocus)
     
@@ -46,12 +48,13 @@ class LimitsWidget(QtWidgets.QWidget):
     layout.setContentsMargins(0, 0, 0, 0)
     layout.setSpacing(0)
     layout.addWidget(self.__btnAddLimit, 0, 3)
+    layout.addWidget(self.__btnRefresh, 0, 2)
     layout.addWidget(self.__monitorLimits, 2, 0, 3, 4)
     
     self.__btnAddLimit.clicked.connect(self.__addLimit)
+    self.__btnRefresh.clicked.connect(self.updateSoon)
     
-    self.__menuActions = cuegui.MenuActions.MenuActions(
-      self, self.updateSoon, list)
+    self.__menuActions = cuegui.MenuActions.MenuActions(self, self.updateSoon, list)
 
   def updateSoon(self):
     self.__monitorLimits._update()
@@ -75,6 +78,9 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     self.addColumn("Max Value", 80, id=2,
                    data=lambda limit: ("%d" % limit.maxValue()),
                    sort=lambda limit: limit.maxValue())
+    self.addColumn("Current Running", 80, id=2,
+                   data=lambda limit: ("%d" % limit.currentRunning()),
+                   sort=lambda limit: limit.currentRunning())
     
     cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
     
