@@ -271,10 +271,8 @@ public class JobManagerService implements JobManager {
                 logger.info("creating layer " + layer.name + " range: " + layer.range);
                 layerDao.insertLayerDetail(layer);
                 layerDao.insertLayerEnvironment(layer, buildableLayer.env);
-                for (String limitName: layer.limits) {
-                    LimitInterface limit = limitDao.findLimit(limitName);
-                    addLayerLimit(layer, limit.getLimitId());
-                }
+                layer.limits.stream()
+                        .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
                 frameDao.insertFrames(layer, frames);
             }
 

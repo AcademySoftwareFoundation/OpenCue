@@ -274,9 +274,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
          List<LayerDetail> layers = getJdbcTemplate().query(
                  GET_LAYER_DETAIL + " AND layer.pk_job=?",
                  LAYER_DETAIL_MAPPER, job.getJobId());
-         for (LayerDetail layerDetail : layers) {
-             layerDetail.limits.addAll(getLimitNames(layerDetail));
-         }
+         layers.stream()
+                 .forEach(layerDetail -> layerDetail.limits.addAll(getLimitNames(layerDetail)));
          return layers;
      }
 
