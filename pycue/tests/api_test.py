@@ -28,6 +28,7 @@ from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
+from opencue.compiled_proto import limit_pb2
 from opencue.compiled_proto import service_pb2
 from opencue.compiled_proto import show_pb2
 from opencue.compiled_proto import subscription_pb2
@@ -38,6 +39,7 @@ TEST_GROUP_NAME = 'pipe'
 TEST_GROUP_ID = 'A0000000-0000-0000-0000-000000000000'
 TEST_JOB_NAME = 'pipe-dev.cue-chambers_shell_v6'
 TEST_LAYER_NAME = 'depend_er'
+TEST_LIMIT_NAME = 'test-limit'
 TEST_HOST_NAME = 'wolf1001'
 TEST_SUB_NAME = 'pipe.General'
 TEST_FACILITY_NAME = 'arbitrary-facility-name'
@@ -771,6 +773,35 @@ class ProcTests(unittest.TestCase):
                 r=host_pb2.ProcSearchCriteria(shows=[TEST_SHOW_NAME], allocs=[TEST_ALLOC_NAME])),
             timeout=mock.ANY)
         self.assertEqual([TEST_PROC_NAME], [proc.name() for proc in procs])
+
+
+class Limittests(unittest.TestCase):
+    
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCreateLimit(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Create.return_value = limit_pb2.LimitCreateResponse()
+        getStubMock.return_value = stubMock
+    
+        testLimitValue = 42
+        opencue.api.createLimit(TEST_LIMIT_NAME, testLimitValue)
+    
+        stubMock.Create.assert_called_with(
+            limit_pb2.LimitCreateRequest(name=TEST_LIMIT_NAME, max_value=testLimitValue),
+            timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetLimits(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetAll.return_value = limit_pb2.LimitGetAllResponse(
+            limits=[limit_pb2.Limit(name=TEST_LIMIT_NAME)])
+        getStubMock.return_value = stubMock
+      
+        limits = opencue.api.getLimits()
+        
+        stubMock.GetAll.assert_called_with(limit_pb2.LimitGetAllRequest(), timeout=mock.ANY)
+        self.assertEqual(len(limits), 1)
+        self.assertEqual(limits[0].name(), TEST_LIMIT_NAME)
 
 
 if __name__ == '__main__':

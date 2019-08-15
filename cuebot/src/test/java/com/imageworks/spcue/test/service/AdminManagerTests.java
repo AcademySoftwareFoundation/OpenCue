@@ -30,6 +30,7 @@ import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -75,6 +76,61 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
         adminManager.getFacility("AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA1");
     }
 
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void createLimit() {
+        String limitName = "testlimit";
+        adminManager.createLimit(limitName, 42);
+    }
 
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void deleteLimit() {
+        String limitName = "testlimit";
+        adminManager.createLimit(limitName, 42);
+        LimitInterface limit = adminManager.findLimit(limitName);
+        adminManager.deleteLimit(limit);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void findLimit() {
+        String limitName = "testlimit";
+        adminManager.createLimit(limitName, 42);
+        adminManager.findLimit(limitName);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void getLimit() {
+        String limitName = "testlimit";
+        String limitId = adminManager.createLimit(limitName, 42);
+
+        adminManager.getLimit(limitId);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void setLimitName() {
+        String limitName = "testlimit";
+        adminManager.createLimit(limitName, 42);
+        LimitInterface limit = adminManager.findLimit(limitName);
+        adminManager.setLimitName(limit, "newLimitName");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void setLimitMaxValue() {
+        String limitName = "testlimit";
+        adminManager.createLimit(limitName, 42);
+        LimitInterface limit = adminManager.findLimit(limitName);
+        adminManager.setLimitMaxValue(limit, 16);
+    }
 }
 

@@ -662,7 +662,7 @@ def createLimit(name, maxValue):
     @return: The newly created Limit
     """
     return Limit(Cuebot.getStub('limit').Create(
-        limit_pb2.LimitCreateRequest(name=name, max_value=maxValue)))
+        limit_pb2.LimitCreateRequest(name=name, max_value=maxValue), timeout=Cuebot.Timeout))
 
 @util.grpcExceptionParser
 def getLimits():
