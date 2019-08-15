@@ -24,6 +24,7 @@ from PySide2 import QtWidgets
 import opencue
 
 import cuegui.Constants
+import cuegui.LimitSelectionWidget
 import cuegui.TagsWidget
 import cuegui.Utils
 
@@ -159,6 +160,9 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         # Tags
         self.__tags = LayerTagsWidget(self.__layers, self)
+        
+        # Limits
+        self.__limits = LayerLimitsWidget(self.__layers, self)
 
         ## GPU Memory
         self.__gpu = SlideSpinner(self)
@@ -222,6 +226,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__group.setLayout(layout)
 
         self.layout().addWidget(EnableableItem(self.__tags, multiSelect))
+        self.layout().addWidget(EnableableItem(self.__limits, multiSelect))
         self.layout().addWidget(self.__group)
         self.layout().addWidget(self.__buttons)
 
@@ -275,6 +280,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         if self.__tags.isEnabled():
             self.__tags.apply()
+        if self.__limits.isEnabled():
+            self.__limits.apply()
         self.close()
 
     def getMaxMemory(self):
@@ -374,6 +381,40 @@ class LayerTagsWidget(QtWidgets.QWidget):
             warning("You must have at least 1 tag selected.")
             return False
         return True
+    
+
+class LayerLimitsWidget(QtWidgets.QWidget):
+    """
+    A widget for editing limits.
+    """
+    def __init__(self, layers, parent=None):
+        QtWidgets.QWidget.__init__(self, parent)
+        self.__layers = layers
+        self.__all_limits = {limit.name(): limit for limit in opencue.api.getLimits()}
+        current_limits = set()
+        for layer in layers:
+            for layer_limit in layer.limits():
+                current_limits.add(layer_limit)
+        layout = QtWidgets.QVBoxLayout(self)
+        custom_layout = QtWidgets.QHBoxLayout()
+        self._limits_widget = cuegui.LimitSelectionWidget.LimitSelectionWidget(
+            limits=self.__all_limits.keys())
+        self._limits_widget.enable_limits(current_limits)
+        custom_layout.addWidget(self._limits_widget)
+        layout.addLayout(custom_layout)
+
+    def apply(self):
+        """
+        Apply values to layers.
+        """
+        selected_limits = self._limits_widget.get_selected_limits()
+        for layer in self.__layers:
+            current_limits = layer.limits()
+            for limit_name, limit in self.__all_limits.items():
+                if limit_name in selected_limits and limit_name not in current_limits:
+                    layer.addLimit(limit.id())
+                elif limit_name not in selected_limits and limit_name in current_limits:
+                    layer.dropLimit(limit.id())
 
 
 class LayerTagsDialog(QtWidgets.QDialog):
