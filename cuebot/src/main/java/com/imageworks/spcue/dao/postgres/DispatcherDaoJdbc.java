@@ -251,8 +251,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     proc.coresReserved,
                     proc.memoryReserved,
                     (proc.gpuReserved > 0) ? 1: 0, proc.gpuReserved,
-                    job.getJobId(), job.getJobId(),
-                    proc.hostName, limit);
+                    job.getJobId(), proc.hostName,
+                    job.getJobId(), limit);
         }
     }
 
@@ -274,8 +274,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 (host.idleGpu > 0) ? 1: 0, host.idleGpu,
-                job.getJobId(), job.getJobId(),
-                host.getName(), limit);
+                job.getJobId(), host.getName(),
+                job.getJobId(), limit);
         }
     }
 

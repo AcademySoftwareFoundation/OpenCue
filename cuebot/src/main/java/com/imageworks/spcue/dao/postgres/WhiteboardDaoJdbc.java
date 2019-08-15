@@ -350,22 +350,20 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @Override
     public Layer getLayer(String id) {
         return getJdbcTemplate().queryForObject(
-                GET_LAYER + " AND layer.pk_layer=? GROUP BY layer.pk_layer",
+                GET_LAYER_WITH_LIMITS + " WHERE layer.pk_layer=?",
                 LAYER_MAPPER, id);
     }
 
     @Override
     public Layer findLayer(String job, String layer) {
         return getJdbcTemplate().queryForObject(
-                GET_LAYER + " AND job.str_state='PENDING' AND job.str_name=? " +
-                        "AND layer.str_name=? GROUP BY limit_names",
+                GET_LAYER_WITH_LIMITS + " WHERE job.str_state='PENDING' AND job.str_name=? AND layer.str_name=?",
                 LAYER_MAPPER, job, layer);
     }
 
     @Override
     public LayerSeq getLayers(JobInterface job) {
-        String query = GET_LAYER + " AND layer.pk_job=? " +
-                "GROUP BY limit_names ORDER BY layer.int_dispatch_order ASC";
+        String query = GET_LAYER_WITH_LIMITS + " WHERE layer.pk_job=? ORDER BY layer.int_dispatch_order ASC";
         List<Layer> layers = getJdbcTemplate().query(
                 query, LAYER_MAPPER, job.getJobId());
         return LayerSeq.newBuilder().addAllLayers(layers).build();
@@ -760,22 +758,34 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
     @Override
     public Limit findLimit(String name) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_LIMIT + " WHERE limit_record.str_name = ?",
-                LIMIT_MAPPER, name);
+        String findLimitQuery = QUERY_FOR_LIMIT +
+                " WHERE limit_record.str_name = ? " +
+                "GROUP BY " +
+                    "limit_record.str_name, " +
+                    "limit_record.pk_limit_record, " +
+                    "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(findLimitQuery, LIMIT_MAPPER, name);
     }
 
     @Override
     public Limit getLimit(String id) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_LIMIT + " WHERE limit_record.pk_limit_record = ?",
-                LIMIT_MAPPER, id);
+        String getLimitQuery = QUERY_FOR_LIMIT +
+                " WHERE limit_record.pk_limit_record = ? "+
+                "GROUP BY " +
+                    "limit_record.str_name, " +
+                    "limit_record.pk_limit_record, " +
+                    "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(getLimitQuery, LIMIT_MAPPER, id);
     }
 
     @Override
     public List<Limit> getLimits() {
-        return getJdbcTemplate().query(
-                QUERY_FOR_LIMIT, LIMIT_MAPPER);
+        String getLimitsQuery = QUERY_FOR_LIMIT +
+                " GROUP BY " +
+                    "limit_record.str_name, " +
+                    "limit_record.pk_limit_record, " +
+                    "limit_record.int_max_value";
+        return getJdbcTemplate().query(getLimitsQuery, LIMIT_MAPPER);
     }
 
     /*
@@ -789,6 +799,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setId(SqlUtil.getString(rs, "pk_limit_record"))
                             .setName(SqlUtil.getString(rs, "str_name"))
                             .setMaxValue(rs.getInt("int_max_value"))
+                            .setCurrentRunning(rs.getInt("int_current_running"))
                             .build();
                 }
             };
@@ -1229,6 +1240,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_tags").
                                             replaceAll(" ","").split("\\|")))
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
+                            .addAllLimits(Arrays.asList(SqlUtil.getString(rs,"str_limit_names").split(",")))
                             .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"));
 
                     LayerStats.Builder statsBuilder = LayerStats.newBuilder()
@@ -1708,21 +1720,37 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "SELECT " +
             "limit_record.pk_limit_record, " +
             "limit_record.str_name, " +
-            "limit_record.int_max_value " +
+            "limit_record.int_max_value, " +
+            "SUM(layer_stat.int_running_count) AS int_current_running " +
         "FROM " +
-            "limit_record ";
+            "limit_record " +
+        "LEFT JOIN " +
+            "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+        "LEFT JOIN " +
+            "layer ON layer.pk_layer = layer_limit.pk_layer " +
+        "LEFT JOIN " +
+            "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
 
     private static final String GET_LIMIT_FROM_LAYER_ID =
         "SELECT " +
             "limit_record.pk_limit_record, " +
             "limit_record.str_name, " +
-            "limit_record.int_max_value " +
+            "limit_record.int_max_value, " +
+            "SUM(layer_stat.int_running_count) AS int_current_running " +
         "FROM " +
-            "limit_record, " +
-            "layer_limit " +
+            "limit_record " +
+        "LEFT JOIN " +
+            "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+        "LEFT JOIN " +
+            "layer ON layer.pk_layer = layer_limit.pk_layer " +
+        "LEFT JOIN " +
+            "layer_stat ON layer_stat.pk_layer = layer.pk_layer " +
         "WHERE " +
             "layer_limit.pk_layer = ? " +
-            "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+        "GROUP BY " +
+            "limit_record.str_name, " +
+            "limit_record.pk_limit_record, " +
+            "limit_record.int_max_value";
 
     public static final String GET_GROUPS =
         "SELECT " +
@@ -1854,17 +1882,14 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "layer_usage.int_clock_time_success," +
             "layer_usage.int_clock_time_fail," +
             "layer_mem.int_max_rss,"+
-            "layer_resource.int_cores, " +
-            "string_agg(limit_record.str_name, ', ') AS limit_names " +
+            "layer_resource.int_cores " +
         "FROM " +
             "layer, " +
             "job," +
             "layer_stat, " +
             "layer_resource, " +
             "layer_usage, " +
-            "layer_mem, " +
-            "layer_limit, " +
-            "limit_record " +
+            "layer_mem " +
         "WHERE " +
             "layer.pk_job = job.pk_job " +
         "AND " +
@@ -1874,11 +1899,54 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "AND " +
             "layer.pk_layer = layer_usage.pk_layer " +
         "AND " +
-            "layer.pk_layer = layer_mem.pk_layer " +
-        "AND " +
-            "layer.pk_layer = layer_limit.pk_layer " +
-        "AND " +
-            "layer_limit.pk_limit_record = limit_record.pk_limit_record ";
+            "layer.pk_layer = layer_mem.pk_layer";
+
+    private static final String GET_LAYER_WITH_LIMITS =
+            "SELECT " +
+                "layer.*, " +
+                "layer_stat.int_total_count, " +
+                "layer_stat.int_waiting_count, " +
+                "layer_stat.int_running_count, " +
+                "layer_stat.int_dead_count, " +
+                "layer_stat.int_depend_count, " +
+                "layer_stat.int_eaten_count, " +
+                "layer_stat.int_succeeded_count, " +
+                "layer_usage.int_core_time_success, " +
+                "layer_usage.int_core_time_fail, " +
+                "layer_usage.int_frame_success_count, " +
+                "layer_usage.int_frame_fail_count, " +
+                "layer_usage.int_clock_time_low, " +
+                "layer_usage.int_clock_time_high, " +
+                "layer_usage.int_clock_time_success, " +
+                "layer_usage.int_clock_time_fail, " +
+                "layer_mem.int_max_rss, " +
+                "layer_resource.int_cores, " +
+                "limit_names.str_limit_names " +
+            "FROM " +
+                "layer " +
+            "JOIN " +
+                "job ON layer.pk_job = job.pk_job " +
+            "JOIN " +
+                "layer_stat ON layer.pk_layer = layer_stat.pk_layer " +
+            "JOIN " +
+                "layer_resource ON layer.pk_layer = layer_resource.pk_layer " +
+            "JOIN " +
+                "layer_usage ON layer.pk_layer = layer_usage.pk_layer " +
+            "JOIN " +
+                "layer_mem ON layer.pk_layer = layer_mem.pk_layer " +
+            "LEFT JOIN " +
+                "(" +
+                    "SELECT " +
+                        "layer_limit.pk_layer, " +
+                        "string_agg(limit_record.str_name, ',') AS str_limit_names " +
+                    "FROM " +
+                        "limit_record, " +
+                        "layer_limit " +
+                    "WHERE " +
+                        "layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "GROUP BY " +
+                        "layer_limit.pk_layer) AS limit_names " +
+                "ON layer.pk_layer = limit_names.pk_layer ";
 
     private static final String GET_LIMIT_NAMES =
         "SELECT " +
@@ -1889,7 +1957,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "WHERE " +
             "layer_limit.pk_layer = ? " +
         "AND " +
-            "limit_record.pk_limit_record = layer_limit.pk_limit_record";
+            "limit_record.pk_limit_record = layer_limit.pk_limit_record ";
 
     private static final String GET_SHOW =
         "SELECT " +

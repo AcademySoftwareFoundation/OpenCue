@@ -38,6 +38,7 @@ public class LimitDaoJdbc extends JdbcDaoSupport implements LimitDao {
             limit.id = rs.getString("pk_limit_record");
             limit.name = rs.getString("str_name");
             limit.maxValue = rs.getInt("int_max_value");
+            limit.currentRunning = rs.getInt("int_current_running");
             return limit;
         }
     };
@@ -59,16 +60,26 @@ public class LimitDaoJdbc extends JdbcDaoSupport implements LimitDao {
 
     @Override
     public LimitEntity findLimit(String name){
-        return getJdbcTemplate().queryForObject(
-                "SELECT pk_limit_record, str_name, int_max_value FROM limit_record WHERE str_name=?",
-                LIMIT_MAPPER, name);
+        String findLimitQuery = GET_LIMIT_BASE +
+                "WHERE " +
+                    "limit-record.str_name=? " +
+                "GROUP BY " +
+                    "limit_record.str_name, " +
+                    "limit_record.pk_limit_record, " +
+                    "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(findLimitQuery, LIMIT_MAPPER, name);
     }
 
     @Override
     public LimitEntity getLimit(String id) {
-        return getJdbcTemplate().queryForObject(
-                "SELECT pk_limit_record, str_name, int_max_value FROM limit_record WHERE pk_limit_record=?",
-                LIMIT_MAPPER, id);
+        String getLimitQuery = GET_LIMIT_BASE +
+                "WHERE " +
+                    "limit_record.pk_limit_record=? " +
+                "GROUP BY " +
+                    "limit_record.str_name, " +
+                    "limit_record.pk_limit_record, " +
+                    "limit_record.int_max_value";
+        return getJdbcTemplate().queryForObject(getLimitQuery, LIMIT_MAPPER, id);
     }
 
     @Override
@@ -81,4 +92,19 @@ public class LimitDaoJdbc extends JdbcDaoSupport implements LimitDao {
         getJdbcTemplate().update("UPDATE limit_record SET int_max_value = ? WHERE pk_limit_record = ?",
                 maxValue, limit.getId());
     }
+
+    private static final String GET_LIMIT_BASE =
+        "SELECT " +
+            "limit_record.pk_limit_record, " +
+            "limit_record.str_name, " +
+            "limit_record.int_max_value," +
+            "SUM(layer_stat.int_running_count) AS int_current_running " +
+        "FROM " +
+            "limit_record " +
+        "LEFT JOIN " +
+            "layer_limit ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+        "LEFT JOIN " +
+            "layer ON layer.pk_layer = layer_limit.pk_layer " +
+        "LEFT JOIN " +
+            "layer_stat ON layer_stat.pk_layer = layer.pk_layer ";
 }
