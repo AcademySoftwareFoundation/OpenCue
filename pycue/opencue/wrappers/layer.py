@@ -43,7 +43,7 @@ class Layer(object):
         LAST = job_pb2.LAST
         REVERSE = job_pb2.REVERSE
 
-    def __init__(self, layer):
+    def __init__(self, layer=None):
         self.data = layer
         self.stub = Cuebot.getStub('layer')
 

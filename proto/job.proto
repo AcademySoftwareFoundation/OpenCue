@@ -313,7 +313,7 @@ service LayerInterface {
     rpc KillFrames(LayerKillFramesRequest) returns (LayerKillFramesResponse);
 
     // Mark the frames of this layer done
-    rpc  MarkdoneFrames(LayerMarkdoneFramesRequest) returns (LayerMarkdoneFramesResponse);
+    rpc MarkdoneFrames(LayerMarkdoneFramesRequest) returns (LayerMarkdoneFramesResponse);
 
     // Register an output with the given layer.  The output paths are sent in the opencue email.
     rpc RegisterOutputPath(LayerRegisterOutputPathRequest) returns (LayerRegisterOutputPathResponse);

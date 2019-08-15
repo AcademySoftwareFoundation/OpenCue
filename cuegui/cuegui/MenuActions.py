@@ -381,7 +381,7 @@ class JobActions(AbstractActions):
     def viewComments(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            cuegui.Comments.CommentListDialog(jobs[0],self._caller).show()
+            cuegui.Comments.CommentListDialog(jobs[0], self._caller).show()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
     def dependWizard(self, rpcObjects=None):
@@ -649,7 +649,7 @@ class LayerActions(AbstractActions):
                                              "Mark done ALL frames in selected layers?",
                                              [layer.data.name for layer in layers]):
                 for layer in layers:
-                    layer.markdoneFrames()
+                    layer.markdone()
                 self._update()
 
     dependWizard_info = ["Dependency &Wizard...", None, "configure"]
@@ -759,7 +759,7 @@ class FrameActions(AbstractActions):
         if frames:
             job = self._getSource()
             path = cuegui.Utils.getFrameLogFile(job, frames[0])
-            files = dict((int(j.split(".")[-1]),j) for j in glob.glob("%s.*" % (path)) if j[-1].isdigit())
+            files = dict((int(j.split(".")[-1]), j) for j in glob.glob("%s.*" % path) if j[-1].isdigit())
             if files:
                 cuegui.Utils.popupView(files[sorted(files.keys())[-1]])
             else:
@@ -857,8 +857,7 @@ class FrameActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Eat selected frames?",
                                              names):
-                frameSearch = opencue.search.FrameSearch(name=names)
-                self._getSource().eatFrames(frameSearch)
+                self._getSource().eatFrames(name=names)
                 self._update()
 
     kill_info = ["&Kill", None, "kill"]
@@ -879,8 +878,7 @@ class FrameActions(AbstractActions):
                                              "Mark selected frames as waiting?\n"
                                              "(Ignores all of the frames's dependencies once)",
                                              names):
-                frameSearch = opencue.search.FrameSearch(name=names)
-                self._getSource().markAsWaiting(frameSearch)
+                self._getSource().markAsWaiting(name=names)
                 self._update()
 
     dropDepends_info = ["D&rop depends", None, "configure"]
@@ -911,8 +909,7 @@ class FrameActions(AbstractActions):
                                              "Mark done all selected frames?\n"
                                              "(Drops any dependencies that are waiting on these frames)",
                                              frameNames):
-                frameSearch = opencue.search.FrameSearch(name=frameNames)
-                self._getSource().markDoneFrames(frameSearch)
+                self._getSource().markdoneFrames(name=frameNames)
                 self._update()
 
     reorder_info = ["Reorder...", None, "configure"]
@@ -974,7 +971,7 @@ class FrameActions(AbstractActions):
                                       "layer will be dropped as well.",
                                       frameNames):
 
-                # Mark done the layers to drop their dependences if the layer is done
+                # Mark done the layers to drop their dependencies if the layer is done
 
                 if len(frames) == 1:
                     # Since only a single frame selected, check if layer is only one frame
@@ -988,9 +985,8 @@ class FrameActions(AbstractActions):
                         self._update()
                         return
 
-                frameSearch = opencue.search.FrameSearch(name=frameNames)
-                self._getSource().eatFrames(frameSearch)
-                self._getSource().markDoneFrames(frameSearch)
+                self._getSource().eatFrames(name=frameNames)
+                self._getSource().markdoneFrames(name=frameNames)
 
                 # Warning: The below assumes that eaten frames are desired to be markdone
 
@@ -999,8 +995,8 @@ class FrameActions(AbstractActions):
                 time.sleep(1)
                 for layer in self._getSource().getLayers():
                     if layer.data.name in layerNames:
-                        if layer.stats.eaten_frames + layer.stats.succeeded_frames == layer.stats.total_frames:
-                            layer.markdoneFrames()
+                        if layer.data.layer_stats.eaten_frames + layer.data.layer_stats.succeeded_frames == layer.data.layer_stats.total_frames:
+                            layer.markdone()
                 self._update()
 
 

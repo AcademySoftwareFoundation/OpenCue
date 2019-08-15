@@ -11,6 +11,7 @@ WORKDIR /src
 RUN yum -y install \
   epel-release \
   gcc \
+  mesa-libGL \
   python-devel
 
 RUN yum -y install python-pip
@@ -38,6 +39,7 @@ RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
+COPY cuegui/tests ./cuegui/tests
 COPY cuegui/cuegui ./cuegui/cuegui
 
 COPY VERSION.in VERSIO[N] ./
@@ -47,7 +49,7 @@ RUN cd pycue && python setup.py install
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-# TODO(bcipriano) Run unit tests. (Issue #149)
+RUN cd cuegui && python setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 

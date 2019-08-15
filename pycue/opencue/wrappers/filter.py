@@ -49,7 +49,7 @@ class Filter(object):
         MATCH_ANY = filter_pb2.MATCH_ANY
         MATCH_ALL = filter_pb2.MATCH_ALL
 
-    def __init__(self, filter):
+    def __init__(self, filter=None):
         """_Filter class initialization"""
         self.data = filter
         self.stub = Cuebot.getStub('filter')
