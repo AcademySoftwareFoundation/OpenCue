@@ -23,6 +23,7 @@ LAYER_DATA = {
     'layerType': 'randomType',
     'cmd': 'echo #IFRAME#',
     'layerRange': '1-5',
+    'limits': [],
     'cores': '6',
     'env': {'fooKey': 'barVal'},
     'services': ['shell', 'maya'],

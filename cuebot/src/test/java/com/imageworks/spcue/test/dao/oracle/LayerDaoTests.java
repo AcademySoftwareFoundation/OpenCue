@@ -205,6 +205,15 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void testGetLayerDetails() {
+        LayerDetail layer = getLayer();
+        List<LayerDetail> ld = layerDao.getLayerDetails(getJob());
+        assertEquals(ld.get(0).name, LAYER_NAME);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testFindLayerDetail() {
         LayerDetail layer = getLayer();
         layerDao.findLayer(getJob(), "pass_1");
