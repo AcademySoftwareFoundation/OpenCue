@@ -148,17 +148,18 @@ class ServiceForm(QtWidgets.QWidget):
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
             return
 
-        data = opencue.wrappers.service.Service()
-        data.data.id = self.__service.id
-        data.setName(str(self.name.text()))
-        data.setThreadable(self.threadable.isChecked())
-        data.setMinCores(self.min_cores.value())
-        data.setMaxCores(self.max_cores.value())
-        data.setMinMemory(self.min_memory.value() * 1024)
-        data.setMinGpu(self.min_gpu.value() * 1024)
-        data.setTags(self._tags_w.get_tags())
+        service = opencue.wrappers.service.Service()
+        if self.__service:
+            service.data.id = self.__service.id
+        service.setName(str(self.name.text()))
+        service.setThreadable(self.threadable.isChecked())
+        service.setMinCores(self.min_cores.value())
+        service.setMaxCores(self.max_cores.value())
+        service.setMinMemory(self.min_memory.value() * 1024)
+        service.setMinGpu(self.min_gpu.value() * 1024)
+        service.setTags(self._tags_w.get_tags())
 
-        self.saved.emit(data)
+        self.saved.emit(service)
 
 
 class ServiceManager(QtWidgets.QWidget):
@@ -215,7 +216,7 @@ class ServiceManager(QtWidgets.QWidget):
             self.__selected = opencue.api.getService(str(item.text()))
         self.__form.setService(self.__selected)
 
-    def saved(self, data):
+    def saved(self, service):
         """
         Save a service to opencue.
         """
@@ -230,11 +231,11 @@ class ServiceManager(QtWidgets.QWidget):
 
         if self.__new_service:
             if self.__show:
-                self.__show.createServiceOverride(data)
+                self.__show.createServiceOverride(service.data)
             else:
-                opencue.api.createService(data)
+                opencue.api.createService(service.data)
         else:
-            data.update()
+            service.update()
 
         self.refresh()
         self.__new_service = False
@@ -242,7 +243,7 @@ class ServiceManager(QtWidgets.QWidget):
         for i in range(0, self.__service_list.count()):
             item = self.__service_list.item(i)
             if item:
-                if str(item.text()) == data.name:
+                if str(item.text()) == service.name():
                     self.__service_list.setCurrentRow(i, QtCore.QItemSelectionModel.Select)
                     break
 
