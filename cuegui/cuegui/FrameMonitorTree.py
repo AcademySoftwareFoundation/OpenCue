@@ -186,9 +186,6 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
-        # Used to build right click context menus
-        self.__menuActions = cuegui.MenuActions.MenuActions(
-            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
 
         self.itemClicked.connect(self.__itemSingleClickedCopy)
@@ -507,53 +504,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-
-        menu = QtWidgets.QMenu()
-
-        count = len(self.selectedItems())
-
-        self.__menuActions.frames().addAction(menu, "tail")
-        self.__menuActions.frames().addAction(menu, "view")
-
-        if count == 1:
-            if self.selectedObjects()[0].data.retry_count >= 1:
-                self.__menuActions.frames().addAction(menu, "viewLastLog")
-
-        if count >= 3:
-            self.__menuActions.frames().addAction(menu, "xdiff3")
-        elif count == 2:
-            self.__menuActions.frames().addAction(menu, "xdiff2")
-
-        self.__menuActions.frames().addAction(menu, "useLocalCores")
-
-        if QtGui.qApp.applicationName() == "CueCommander":
-            self.__menuActions.frames().addAction(menu, "viewHost")
-
-        depend_menu = QtWidgets.QMenu("&Dependencies", self)
-        self.__menuActions.frames().addAction(depend_menu, "viewDepends")
-        self.__menuActions.frames().addAction(depend_menu, "dependWizard")
-        self.__menuActions.frames().addAction(depend_menu, "getWhatThisDependsOn")
-        self.__menuActions.frames().addAction(depend_menu, "getWhatDependsOnThis")
-        depend_menu.addSeparator()
-        self.__menuActions.frames().addAction(depend_menu, "dropDepends")
-        self.__menuActions.frames().addAction(depend_menu, "markAsWaiting")
-        self.__menuActions.frames().addAction(depend_menu, "markdone")
-
-        menu.addMenu(depend_menu)
-        menu.addSeparator()
-
-        self.__menuActions.frames().createAction(menu, "Filter Selected Layers", None,
-                                                 self._actionFilterSelectedLayers, "stock-filters")
-        self.__menuActions.frames().addAction(menu, "reorder")
-        menu.addSeparator()
-        self.__menuActions.frames().addAction(menu, "previewMain")
-        self.__menuActions.frames().addAction(menu, "previewAovs")
-        menu.addSeparator()
-        self.__menuActions.frames().addAction(menu, "retry")
-        self.__menuActions.frames().addAction(menu, "eat")
-        self.__menuActions.frames().addAction(menu, "kill")
-        self.__menuActions.frames().addAction(menu, "eatandmarkdone")
-
+        menu = FrameContextMenu(self, self._actionFilterSelectedLayers)
         menu.exec_(e.globalPos())
 
     def _actionFilterSelectedLayers(self):
@@ -562,6 +513,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for frame in self.selectedObjects():
             results[frame.layer()] = True
         self.handle_filter_layers_byLayer[str].emit(list(results.keys()))
+
 
 class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __initialized = False
@@ -593,11 +545,6 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         if role == QtCore.Qt.DisplayRole:
             return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](
                 self._source, self.rpcObject)
-
-#        if role == QtCore.Qt.DisplayRole:
-#            if col not in self._cache:
-#                self._cache[col] = QtCore.QVariant(self.column_info[col][Constants.COLUMN_INFO_DISPLAY](self._source, self.rpcObject))
-#            return self._cache.get(col, Constants.QVARIANT_NULL)
 
         elif role == QtCore.Qt.ForegroundRole:
             if col == STATUS_COLUMN:
@@ -633,6 +580,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 other._source, other.rpcObject)
 
         return QtWidgets.QTreeWidgetItem.__lt__(self, other)
+
 
 class FrameLogDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
@@ -740,6 +688,7 @@ class FrameLogDataBuffer(object):
         except Exception as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
+
 class FrameEtaDataBuffer(object):
     """A cached and threaded interface to reading the last log line"""
     maxCacheTime = 60
@@ -819,3 +768,58 @@ class FrameEtaDataBuffer(object):
             pass
         except Exception as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
+
+
+class FrameContextMenu(QtWidgets.QMenu):
+    def __init__(self, widget, filterSelectedLayersCallback):
+        super(FrameContextMenu, self).__init__()
+
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            widget, widget.updateSoon, widget.selectedObjects, widget.getJob)
+
+        count = len(widget.selectedItems())
+
+        self.__menuActions.frames().addAction(self, "tail")
+        self.__menuActions.frames().addAction(self, "view")
+
+        if count == 1:
+            if widget.selectedObjects()[0].data.retry_count >= 1:
+                self.__menuActions.frames().addAction(self, "viewLastLog")
+
+        if count >= 3:
+            self.__menuActions.frames().addAction(self, "xdiff3")
+        elif count == 2:
+            self.__menuActions.frames().addAction(self, "xdiff2")
+
+        self.__menuActions.frames().addAction(self, "useLocalCores")
+
+        if QtGui.qApp.applicationName() == "CueCommander":
+            self.__menuActions.frames().addAction(self, "viewHost")
+
+        depend_menu = QtWidgets.QMenu("&Dependencies", self)
+        self.__menuActions.frames().addAction(depend_menu, "viewDepends")
+        self.__menuActions.frames().addAction(depend_menu, "dependWizard")
+        self.__menuActions.frames().addAction(depend_menu, "getWhatThisDependsOn")
+        self.__menuActions.frames().addAction(depend_menu, "getWhatDependsOnThis")
+        depend_menu.addSeparator()
+        self.__menuActions.frames().addAction(depend_menu, "dropDepends")
+        self.__menuActions.frames().addAction(depend_menu, "markAsWaiting")
+        self.__menuActions.frames().addAction(depend_menu, "markdone")
+
+        self.addMenu(depend_menu)
+        self.addSeparator()
+
+        self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
+                                                 filterSelectedLayersCallback, "stock-filters")
+        self.__menuActions.frames().addAction(self, "reorder")
+        self.addSeparator()
+        self.__menuActions.frames().addAction(self, "previewMain")
+        self.__menuActions.frames().addAction(self, "previewAovs")
+        self.addSeparator()
+        self.__menuActions.frames().addAction(self, "retry")
+        self.__menuActions.frames().addAction(self, "eat")
+        self.__menuActions.frames().addAction(self, "kill")
+        self.__menuActions.frames().addAction(self, "eatandmarkdone")
+
+    def exec_(self, position):
+        super(FrameContextMenu, self).exec_(position)

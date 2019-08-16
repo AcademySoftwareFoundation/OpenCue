@@ -10,11 +10,18 @@ WORKDIR /src
 
 RUN yum -y install \
   epel-release \
+  fontconfig \
+  freetype \
   gcc \
+  libXi \
+  libXrender \
   mesa-libGL \
-  python-devel
+  python-devel \
+  Xvfb
 
 RUN yum -y install python-pip
+
+RUN dbus-uuidgen > /etc/machine-id
 
 COPY LICENSE ./
 COPY requirements.txt ./
@@ -49,7 +56,7 @@ RUN cd pycue && python setup.py install
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-RUN cd cuegui && python setup.py test
+RUN Xvfb :1 -screen 0 1024x768x16 &> /tmp/xvfb.log & cd cuegui && DISPLAY=:1.0 python setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 
