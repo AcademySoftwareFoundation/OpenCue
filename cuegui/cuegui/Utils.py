@@ -445,13 +445,13 @@ def getLastLine(path):
 
 
 def popupTail(file, facility=None):
-    if not popupWeb(file, facility):
+    if file and not popupWeb(file, facility):
         JOB_LOG_CMD = "/usr/bin/xterm -sb -sl 4096 -n RQLOG -geometry 200x50+0+0 -title %s -e '/usr/bin/tail -n+0 -f %s'" % (os.path.basename(file), file)
         shellOut(JOB_LOG_CMD)
 
 
 def popupView(file, facility=None):
-    if not popupWeb(file, facility):
+    if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
