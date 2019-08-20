@@ -17,6 +17,10 @@
 
 package com.imageworks.spcue.dao.criteria.postgres;
 
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
@@ -27,10 +31,6 @@ import com.imageworks.spcue.grpc.criterion.GreaterThanIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.criterion.InRangeIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.criterion.LessThanIntegerSearchCriterion;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
-
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 
 public class ProcSearch extends Criteria implements ProcSearchInterface {
 

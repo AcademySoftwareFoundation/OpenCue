@@ -19,7 +19,6 @@
 
 package com.imageworks.spcue.servant;
 
-import java.util.List;
 import java.util.Map;
 
 import io.grpc.stub.StreamObserver;

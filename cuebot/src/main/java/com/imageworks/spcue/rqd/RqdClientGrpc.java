@@ -20,16 +20,16 @@ package com.imageworks.spcue.rqd;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.StatusRuntimeException;
-import org.apache.log4j.Logger;
-
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.StatusRuntimeException;
+import org.apache.log4j.Logger;
+
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;

@@ -19,17 +19,18 @@
 
 package com.imageworks.spcue.config;
 
-import com.imageworks.spcue.servlet.JobLaunchServlet;
-
 import javax.sql.DataSource;
+
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.ImportResource;
 import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.PropertySource;
+
+import com.imageworks.spcue.servlet.JobLaunchServlet;
 
 @Configuration
 @ImportResource({"classpath:conf/spring/applicationContext-grpc.xml",

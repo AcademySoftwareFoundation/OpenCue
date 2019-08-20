@@ -19,8 +19,6 @@
 
 package com.imageworks.spcue.servant;
 
-import java.util.List;
-
 import io.grpc.stub.StreamObserver;
 
 import com.imageworks.spcue.ActionEntity;
@@ -30,7 +28,6 @@ import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.grpc.filter.Action;
-import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterCreateActionRequest;
 import com.imageworks.spcue.grpc.filter.FilterCreateActionResponse;
@@ -66,7 +63,6 @@ import com.imageworks.spcue.grpc.filter.FilterSetOrderResponse;
 import com.imageworks.spcue.grpc.filter.FilterSetTypeRequest;
 import com.imageworks.spcue.grpc.filter.FilterSetTypeResponse;
 import com.imageworks.spcue.grpc.filter.Matcher;
-import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;

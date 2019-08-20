@@ -28,7 +28,6 @@ import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.JobSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.FilterType;
 import com.imageworks.spcue.grpc.job.Group;
