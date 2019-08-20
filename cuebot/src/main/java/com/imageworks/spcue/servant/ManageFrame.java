@@ -21,6 +21,7 @@ package com.imageworks.spcue.servant;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.FrameEntity;
 import com.imageworks.spcue.LocalHostAssignment;
@@ -91,18 +92,32 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     @Override
     public void findFrame(FrameFindFrameRequest request, StreamObserver<FrameFindFrameResponse> responseObserver) {
-        responseObserver.onNext(FrameFindFrameResponse.newBuilder()
-                .setFrame(whiteboard.findFrame(request.getJob(), request.getLayer(), request.getFrame()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(FrameFindFrameResponse.newBuilder()
+                    .setFrame(whiteboard.findFrame(request.getJob(), request.getLayer(), request.getFrame()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void getFrame(FrameGetFrameRequest request, StreamObserver<FrameGetFrameResponse> responseObserver) {
-        responseObserver.onNext(FrameGetFrameResponse.newBuilder()
-                .setFrame(whiteboard.getFrame(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(FrameGetFrameResponse.newBuilder()
+                    .setFrame(whiteboard.getFrame(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

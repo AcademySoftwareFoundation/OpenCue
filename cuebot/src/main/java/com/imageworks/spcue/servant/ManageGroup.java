@@ -24,6 +24,7 @@ import java.util.List;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
@@ -84,18 +85,32 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
 
     @Override
     public void getGroup(GroupGetGroupRequest request, StreamObserver<GroupGetGroupResponse> responseObserver) {
-        responseObserver.onNext(GroupGetGroupResponse.newBuilder()
-                .setGroup(whiteboard.getGroup(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(GroupGetGroupResponse.newBuilder()
+                    .setGroup(whiteboard.getGroup(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
     public void findGroup(GroupFindGroupRequest request, StreamObserver<GroupFindGroupResponse> responseObserver) {
-        responseObserver.onNext(GroupFindGroupResponse.newBuilder()
-                .setGroup(whiteboard.findGroup(request.getShow(), request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(GroupFindGroupResponse.newBuilder()
+                    .setGroup(whiteboard.findGroup(request.getShow(), request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

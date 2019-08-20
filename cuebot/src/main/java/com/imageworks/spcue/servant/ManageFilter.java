@@ -19,9 +19,9 @@
 
 package com.imageworks.spcue.servant;
 
-import java.util.List;
-
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
@@ -30,7 +30,6 @@ import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.grpc.filter.Action;
-import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterCreateActionRequest;
 import com.imageworks.spcue.grpc.filter.FilterCreateActionResponse;
@@ -66,7 +65,6 @@ import com.imageworks.spcue.grpc.filter.FilterSetOrderResponse;
 import com.imageworks.spcue.grpc.filter.FilterSetTypeRequest;
 import com.imageworks.spcue.grpc.filter.FilterSetTypeResponse;
 import com.imageworks.spcue.grpc.filter.Matcher;
-import com.imageworks.spcue.grpc.filter.MatcherSeq;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
@@ -81,10 +79,17 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 
     @Override
     public void findFilter(FilterFindFilterRequest request, StreamObserver<FilterFindFilterResponse> responseObserver) {
-        responseObserver.onNext(FilterFindFilterResponse.newBuilder()
-                .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(FilterFindFilterResponse.newBuilder()
+                    .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

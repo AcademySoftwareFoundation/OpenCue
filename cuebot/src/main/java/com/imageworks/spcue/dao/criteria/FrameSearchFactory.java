@@ -17,13 +17,13 @@
 
 package com.imageworks.spcue.dao.criteria;
 
+import java.util.List;
+
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
-
-import java.util.List;
 
 public class FrameSearchFactory {
 

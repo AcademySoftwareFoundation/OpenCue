@@ -1,6 +1,7 @@
 
 from PySide2 import QtCore, QtWidgets
 
+from cuesubmit import Constants
 from cuesubmit.ui import Command
 from cuesubmit.ui import Widgets
 
@@ -95,7 +96,7 @@ class InNukeSettings(BaseSettingsWidget):
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
-        self.cameraSelector.setChecked(commandData.get('camera', '').split(','))
+        self.writeNodeSelector.setChecked(commandData.get('writeNodes', '').split(','))
 
     def getCommandData(self):
         return {
@@ -150,3 +151,43 @@ class ShellSettings(BaseSettingsWidget):
 
     def setCommandData(self, commandData):
         self.commandTextBox.setText(commandData.get('commandTextBox', ''))
+
+
+class BaseBlenderSettings(BaseSettingsWidget):
+    """Standard Blender settings widget to be used from outside Blender."""
+
+    def __init__(self, parent=None, *args, **kwargs):
+        super(BaseBlenderSettings, self).__init__(parent=parent)
+        self.fileInput = Widgets.CueLabelLineEdit('Blender File:')
+        self.outputPath = Widgets.CueLabelLineEdit(
+            'Output Path (Optional):',
+            tooltip='Optionally set the rendered output format. '
+                    'See the "-o" flag of {} for more info.'.format(
+                            Constants.BLENDER_OUTPUT_OPTIONS_URL))
+        self.outputSelector = Widgets.CueSelectPulldown(
+            'Output Format', options=Constants.BLENDER_FORMATS, multiselect=False)
+        self.outputLayout = QtWidgets.QHBoxLayout()
+        self.setupUi()
+        self.setupConnections()
+    
+    def setupUi(self):
+        self.mainLayout.addWidget(self.fileInput)
+        self.mainLayout.addLayout(self.outputLayout)
+        self.outputLayout.addWidget(self.outputPath)
+        self.outputLayout.addWidget(self.outputSelector)
+    
+    def setupConnections(self):
+        self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+      
+    def setCommandData(self, commandData):
+        self.fileInput.setText(commandData.get('nukeFile', ''))
+        self.outputPath.setText(commandData.get('outputPath', ''))
+        self.outputSelector.setChecked(commandData.get('outputFormat', ''))
+    
+    def getCommandData(self):
+        return {
+            'blenderFile': self.fileInput.text(),
+            'outputPath': self.outputPath.text(),
+            'outputFormat': self.outputSelector.text()
+        }
