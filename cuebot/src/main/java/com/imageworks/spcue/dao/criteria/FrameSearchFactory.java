@@ -17,14 +17,15 @@
 
 package com.imageworks.spcue.dao.criteria;
 
+import java.util.List;
+
+import org.springframework.stereotype.Component;
+
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.dao.criteria.postgres.FrameSearch;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class FrameSearchFactory {

@@ -21,6 +21,9 @@ Module: filter.py - opencue Library implementation of spank filter
 
 """
 
+
+import enum
+
 from opencue import Cuebot
 from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import job_pb2
@@ -40,8 +43,13 @@ __all__ = ["Filter", "Action", "Matcher",
 
 
 class Filter(object):
-    """This class contains the ice implementation related to a spank Filter."""
-    def __init__(self, filter):
+    """This class contains the grpc implementation related to a Filter."""
+
+    class FilterType(enum.IntEnum):
+        MATCH_ANY = filter_pb2.MATCH_ANY
+        MATCH_ALL = filter_pb2.MATCH_ALL
+
+    def __init__(self, filter=None):
         """_Filter class initialization"""
         self.data = filter
         self.stub = Cuebot.getStub('filter')
@@ -203,6 +211,27 @@ class Filter(object):
 
 
 class Action(object):
+
+    class ActionType(enum.IntEnum):
+        MOVE_JOB_TO_GROUP = filter_pb2.MOVE_JOB_TO_GROUP
+        PAUSE_JOB = filter_pb2.PAUSE_JOB
+        SET_JOB_MIN_CORES = filter_pb2.SET_JOB_MIN_CORES
+        SET_JOB_MAX_CORES = filter_pb2.SET_JOB_MAX_CORES
+        STOP_PROCESSING = filter_pb2.STOP_PROCESSING
+        SET_JOB_PRIORITY = filter_pb2.SET_JOB_PRIORITY
+        SET_ALL_RENDER_LAYER_TAGS = filter_pb2.SET_ALL_RENDER_LAYER_TAGS
+        SET_ALL_RENDER_LAYER_MEMORY = filter_pb2.SET_ALL_RENDER_LAYER_MEMORY
+        SET_ALL_RENDER_LAYER_CORES = filter_pb2.SET_ALL_RENDER_LAYER_CORES
+        SET_MEMORY_OPTIMIZER = filter_pb2.SET_MEMORY_OPTIMIZER
+
+    class ActionValueType(enum.IntEnum):
+        GROUP_TYPE = filter_pb2.GROUP_TYPE
+        STRING_TYPE = filter_pb2.STRING_TYPE
+        INTEGER_TYPE = filter_pb2.INTEGER_TYPE
+        FLOAT_TYPE = filter_pb2.FLOAT_TYPE
+        BOOLEAN_TYPE = filter_pb2.BOOLEAN_TYPE
+        NONE_TYPE = filter_pb2.NONE_TYPE
+
     def __init__(self, action=None):
         self.data = action
         self.stub = Cuebot.getStub('action')
@@ -295,6 +324,26 @@ class Action(object):
 
 
 class Matcher(object):
+
+    class MatchSubject(enum.IntEnum):
+        JOB_NAME = filter_pb2.JOB_NAME
+        SHOW = filter_pb2.SHOW
+        SHOT = filter_pb2.SHOT
+        USER = filter_pb2.USER
+        SERVICE_NAME = filter_pb2.SERVICE_NAME
+        PRIORITY = filter_pb2.PRIORITY
+        FACILITY = filter_pb2.FACILITY
+        LAYER_NAME = filter_pb2.LAYER_NAME
+
+    class MatchType(enum.IntEnum):
+        CONTAINS = filter_pb2.CONTAINS
+        DOES_NOT_CONTAIN = filter_pb2.DOES_NOT_CONTAIN
+        IS = filter_pb2.IS
+        IS_NOT = filter_pb2.IS_NOT
+        REGEX = filter_pb2.REGEX
+        BEGINS_WITH = filter_pb2.BEGINS_WITH
+        ENDS_WITH = filter_pb2.ENDS_WITH
+
     def __init__(self, matcher=None):
         self.data = matcher
         self.stub = Cuebot.getStub('matcher')

@@ -16,10 +16,13 @@
  */
 
 
-
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.stereotype.Component;
 
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
@@ -66,8 +69,6 @@ import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.service.FilterManager;
 import com.imageworks.spcue.service.Whiteboard;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 @Component
 public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
@@ -89,10 +90,17 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 
     @Override
     public void findFilter(FilterFindFilterRequest request, StreamObserver<FilterFindFilterResponse> responseObserver) {
-        responseObserver.onNext(FilterFindFilterResponse.newBuilder()
-                .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(FilterFindFilterResponse.newBuilder()
+                    .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
@@ -229,7 +237,7 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     public void runFilterOnJobs(FilterRunFilterOnJobsRequest request,
                                 StreamObserver<FilterRunFilterOnJobsResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
-        for (Job job: request.getJobs().getJobsList()) {
+        for (Job job : request.getJobs().getJobsList()) {
             filterManager.runFilterOnJob(filter, job.getId());
         }
         responseObserver.onNext(FilterRunFilterOnJobsResponse.newBuilder().build());

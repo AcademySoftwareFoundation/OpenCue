@@ -25,7 +25,7 @@ import opencue.wrappers.job
 
 class Group(object):
 
-    def __init__(self, group):
+    def __init__(self, group=None):
         self.data = group
         self.stub = Cuebot.getStub('group')
 

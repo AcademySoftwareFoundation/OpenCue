@@ -1,3 +1,4 @@
+
 buildscript {
     repositories {
         mavenCentral()
@@ -5,7 +6,8 @@ buildscript {
     }
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.8'
-        classpath("org.springframework.boot:spring-boot-gradle-plugin:2.1.5.RELEASE")
+        classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.1.5.RELEASE'
+        classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1'
     }
 }
 
@@ -15,14 +17,14 @@ apply plugin: 'idea'
 apply plugin: 'org.springframework.boot'
 apply plugin: 'io.spring.dependency-management'
 apply plugin: 'com.google.protobuf'
+apply plugin: 'jacoco'
+apply plugin: 'org.sonarqube'
 
 sourceCompatibility = 1.8
 targetCompatibility = 1.8
 
 ext {
     activemqVersion = '5.12.0'
-    // This should match the version spring_boot is trying to pull in.
-    springBootVersion = '2.1.5.RELEASE'
 }
 
 configurations {
@@ -97,5 +99,49 @@ sourceSets {
 
 bootJar {
     baseName = 'cuebot'
+}
+
+jacoco {
+    toolVersion = "0.8.4"
+}
+
+jacocoTestReport {
+    reports {
+        // XML is used by SonarCloud. HTML is generated if you want to generate a human-readable
+        // report locally. Reports are placed in build/reports/jacoco/.
+        xml.enabled true
+        html.enabled true
+    }
+
+    // Exclude files from test coverage.
+    afterEvaluate {
+        classDirectories = files(classDirectories.files.collect {
+            fileTree(dir: it,
+                     exclude: [
+                        // Exclude proto files' generated Java code.
+                        'com/imageworks/spcue/grpc/**',
+                        // Exclude Oracle classes; our standard test environment isn't currently
+                        // able to run Oracle unit tests, so coverage of those files will always
+                        // read as 0% even though tests do exist.
+                        'com/imageworks/spcue/dao/oracle/**',
+                        'com/imageworks/spcue/dao/criteria/oracle/**',])
+        })
+    }
+}
+
+sonarqube {
+    properties {
+        property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.organization", "academysoftwarefoundation"
+        property "sonar.projectKey", "AcademySoftwareFoundation_OpenCue_Cuebot"
+        property "sonar.projectName", "OpenCue Cuebot"
+        // SonarCloud will pick up the JaCoCo report automatically, but has its own options
+        // for excluding files. We don't need to exclude generated code here as it isn't
+        // checked into the repository, so SonarCloud doesn't even know it exists.
+        property "sonar.coverage.exclusions", "src/main/java/com/imageworks/spcue/dao/oracle/**," +
+                                              "src/main/java/com/imageworks/spcue/dao/criteria/oracle/**"
+        // NOTE: sonar.login must be provided manually, like:
+        //   ./gradlew sonarqube -Dsonar.login=<login key>
+    }
 }
 

@@ -36,7 +36,6 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
-import com.imageworks.spcue.dao.criteria.JobSearchInterface;
 import com.imageworks.spcue.dao.criteria.JobSearchFactory;
 import com.imageworks.spcue.depend.JobOnFrame;
 import com.imageworks.spcue.depend.JobOnJob;
@@ -117,7 +116,6 @@ import com.imageworks.spcue.grpc.job.JobRetryFramesRequest;
 import com.imageworks.spcue.grpc.job.JobRetryFramesResponse;
 import com.imageworks.spcue.grpc.job.JobRunFiltersRequest;
 import com.imageworks.spcue.grpc.job.JobRunFiltersResponse;
-import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.grpc.job.JobSetAutoEatRequest;
 import com.imageworks.spcue.grpc.job.JobSetAutoEatResponse;
@@ -216,10 +214,17 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     @Override
     public void getJob(JobGetJobRequest request, StreamObserver<JobGetJobResponse> responseObserver) {
-        responseObserver.onNext(JobGetJobResponse.newBuilder()
-                .setJob(whiteboard.getJob(request.getId()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(JobGetJobResponse.newBuilder()
+                    .setJob(whiteboard.getJob(request.getId()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override
