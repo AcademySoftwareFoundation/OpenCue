@@ -25,11 +25,13 @@ class JobTypes(object):
     SHELL = 'Shell'
     MAYA = 'Maya'
     NUKE = 'Nuke'
+    BLENDER = 'Blender'
 
     SETTINGS_MAP = {
         SHELL: SettingsWidgets.ShellSettings,
         MAYA: SettingsWidgets.BaseMayaSettings,
-        NUKE: SettingsWidgets.BaseNukeSettings
+        NUKE: SettingsWidgets.BaseNukeSettings,
+        BLENDER: SettingsWidgets.BaseBlenderSettings,
     }
 
     def __init__(self):
@@ -43,4 +45,4 @@ class JobTypes(object):
     @classmethod
     def types(cls):
         """return a list of types available."""
-        return [cls.SHELL, cls.MAYA, cls.NUKE]
+        return [cls.SHELL, cls.MAYA, cls.NUKE, cls.BLENDER]

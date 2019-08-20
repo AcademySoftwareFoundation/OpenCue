@@ -19,7 +19,9 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.FilterEntity;
@@ -77,10 +79,17 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
 
     @Override
     public void findFilter(FilterFindFilterRequest request, StreamObserver<FilterFindFilterResponse> responseObserver) {
-        responseObserver.onNext(FilterFindFilterResponse.newBuilder()
-                .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(FilterFindFilterResponse.newBuilder()
+                    .setFilter(whiteboard.findFilter(request.getShow(), request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

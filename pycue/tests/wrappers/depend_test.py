@@ -79,5 +79,18 @@ class DependTests(unittest.TestCase):
         self.assertFalse(dependNeg.isInternal())
 
 
+class DependEnumTests(unittest.TestCase):
+
+    def testDependType(self):
+        self.assertEqual(opencue.api.Depend.DependType.JOB_ON_JOB,
+                         opencue.compiled_proto.depend_pb2.JOB_ON_JOB)
+        self.assertEqual(opencue.api.Depend.DependType.JOB_ON_JOB, 0)
+
+    def testDependTarget(self):
+        self.assertEqual(opencue.api.Depend.DependTarget.ANY_TARGET,
+                         opencue.compiled_proto.depend_pb2.ANY_TARGET)
+        self.assertEqual(opencue.api.Depend.DependTarget.ANY_TARGET, 2)
+
+
 if __name__ == '__main__':
     unittest.main()

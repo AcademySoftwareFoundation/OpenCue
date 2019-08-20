@@ -317,6 +317,20 @@ class LayerTests(unittest.TestCase):
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
+    def testRegisterOutputPath(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.RegisterOutputPath.return_value = job_pb2.LayerRegisterOutputPathResponse()
+        getStubMock.return_value = stubMock
+
+        outputPath = '/test/output/path'
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.registerOutputPath(outputPath)
+
+        stubMock.RegisterOutputPath.assert_called_with(
+            job_pb2.LayerRegisterOutputPathRequest(layer=layer.data, spec=outputPath),
+            timeout=mock.ANY)
+
     def testReorderFrames(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.ReorderFrames.return_value = job_pb2.LayerReorderFramesResponse()
@@ -346,6 +360,17 @@ class LayerTests(unittest.TestCase):
         stubMock.StaggerFrames.assert_called_with(
             job_pb2.LayerStaggerFramesRequest(layer=layer.data, range=range, stagger=stagger),
             timeout=mock.ANY)
+
+
+class LayerEnumTests(unittest.TestCase):
+
+    def testLayerType(self):
+        self.assertEqual(opencue.api.Layer.LayerType.PRE, opencue.compiled_proto.job_pb2.PRE)
+        self.assertEqual(opencue.api.Layer.LayerType.PRE, 0)
+
+    def testOrder(self):
+        self.assertEqual(opencue.api.Layer.Order.LAST, opencue.compiled_proto.job_pb2.LAST)
+        self.assertEqual(opencue.api.Layer.Order.LAST, 1)
 
 
 if __name__ == '__main__':

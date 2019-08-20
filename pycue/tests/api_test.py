@@ -624,7 +624,7 @@ class OwnerTests(unittest.TestCase):
 
         stubMock.GetOwner.assert_called_with(
             host_pb2.OwnerGetOwnerRequest(name=ownerName), timeout=mock.ANY)
-        self.assertEqual(ownerName, owner.name)
+        self.assertEqual(ownerName, owner.name())
 
 
 class FilterTests(unittest.TestCase):

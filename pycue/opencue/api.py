@@ -44,12 +44,15 @@ from .cuebot import Cuebot
 from .wrappers.allocation import Allocation
 from .wrappers.comment import Comment
 from .wrappers.depend import Depend
+from .wrappers.filter import Action
 from .wrappers.filter import Filter
+from .wrappers.filter import Matcher
 from .wrappers.frame import Frame
 from .wrappers.group import Group
 from .wrappers.host import Host, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
+from .wrappers.owner import Owner
 from .wrappers.proc import Proc
 from .wrappers.service import Service
 from .wrappers.show import Show
@@ -61,8 +64,8 @@ __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, 
                filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2, show_pb2,
                subscription_pb2, task_pb2]
 
-__wrappers = [Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, NestedHost, Proc,
-              Show, Subscription, Task]
+__wrappers = [Action, Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, Matcher,
+              NestedHost, Proc, Show, Subscription, Task]
 
 
 #
@@ -468,8 +471,7 @@ def getHosts(**options):
     @rtype:  List<Host>
     @return: a list of hosts
     """
-    hostSeq = search.HostSearch.byOptions(**options).hosts
-    return [Host(h) for h in hostSeq.hosts]
+    return search.HostSearch.byOptions(**options)
 
 
 @util.grpcExceptionParser
@@ -500,8 +502,8 @@ def getHost(uniq):
 @util.grpcExceptionParser
 def getOwner(id):
     """Return an Owner object from the id or name."""
-    return Cuebot.getStub('owner').GetOwner(
-        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner
+    return Owner(Cuebot.getStub('owner').GetOwner(
+        host_pb2.OwnerGetOwnerRequest(name=id), timeout=Cuebot.Timeout).owner)
 
 #
 # Filters
