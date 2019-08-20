@@ -56,6 +56,7 @@ import six
 from opencue.compiled_proto import criterion_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.host
 from .cuebot import Cuebot
 
 logger = logging.getLogger("opencue")
@@ -134,8 +135,9 @@ class HostSearch(BaseSearch):
     @classmethod
     def byOptions(cls, **options):
         criteria = cls.criteriaFromOptions(**options)
-        return Cuebot.getStub('host').GetHosts(
-            host_pb2.HostGetHostsRequest(r=criteria), timeout=Cuebot.Timeout)
+        return [
+            opencue.wrappers.host.Host(host) for host in Cuebot.getStub('host').GetHosts(
+                host_pb2.HostGetHostsRequest(r=criteria), timeout=Cuebot.Timeout).hosts.hosts]
 
     @classmethod
     def byName(cls, val):

@@ -521,5 +521,12 @@ class NestedJobTests(unittest.TestCase):
             self.assertEqual(getattr(nestedJob, attr)(), getattr(asJob, attr)())
 
 
+class JobEnumTests(unittest.TestCase):
+
+    def testJobState(self):
+        self.assertEqual(opencue.api.Job.JobState.PENDING, opencue.compiled_proto.job_pb2.PENDING)
+        self.assertEqual(opencue.api.Job.JobState.PENDING, 0)
+
+
 if __name__ == '__main__':
     unittest.main()

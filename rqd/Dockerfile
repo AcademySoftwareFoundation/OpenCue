@@ -1,4 +1,10 @@
-FROM centos:7 as base
+# -----------------
+# BUILD
+# -----------------
+FROM centos:7 as build
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "RQD build stage"
 
 RUN yum -y install \
   epel-release \
@@ -8,25 +14,20 @@ RUN yum -y install \
 
 RUN yum -y install python-pip
 
-
-# -----------------
-# BUILD
-# -----------------
-FROM base as build
-
 WORKDIR /src
 
+COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
 
-COPY VERSION.in VERSIO[N] ./
-RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
+RUN mkdir dist
 
 COPY proto/ ./proto
 COPY rqd/deploy ./rqd/deploy
 COPY rqd/README.md ./rqd/
 COPY rqd/setup.py ./rqd/
+COPY rqd/tests/ ./rqd/tests
 COPY rqd/rqd/ ./rqd/rqd
 
 RUN python -m grpc_tools.protoc \
@@ -37,27 +38,14 @@ RUN python -m grpc_tools.protoc \
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
+COPY VERSION.in VERSIO[N] ./
+RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-# -----------------
-# TEST
-# -----------------
-FROM build as test
-
-COPY rqd/rqd/test/ ./rqd/rqd/test
-
-RUN rqd/rqd/unittests.py
-
-
-# -----------------
-# PACKAGE
-# -----------------
-FROM build as package
-
-RUN mkdir dist
+RUN cd rqd && python setup.py test
 
 RUN cp rqd/deploy/install_and_run.sh dist/
 
-RUN cp requirements.txt VERSION rqd/
+RUN cp LICENSE requirements.txt VERSION rqd/
 
 RUN versioned_name="rqd-$(cat ./VERSION)-all" \
   && mv rqd dist/$versioned_name \
@@ -68,16 +56,26 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM base
+FROM centos:7
+
+# First line after FROM should be unique to avoid --cache-from weirdness.
+RUN echo "RQD runtime stage"
+
+RUN yum -y install \
+  epel-release \
+  gcc \
+  python-devel \
+  time
+
+RUN yum -y install python-pip
 
 WORKDIR /opt/opencue
 
-COPY --from=package /src/dist/rqd-*-all.tar.gz ./
-COPY --from=package /src/dist/install_and_run.sh ./
+COPY --from=build /src/dist/rqd-*-all.tar.gz ./
+COPY --from=build /src/dist/install_and_run.sh ./
 RUN chmod +x ./install_and_run.sh
 
 # RQD gRPC server
 EXPOSE 8444
 
-ENTRYPOINT ["/opt/opencue/install_and_run.sh"]
-
+ENTRYPOINT ["/bin/bash", "-c", "set -e && /opt/opencue/install_and_run.sh"]

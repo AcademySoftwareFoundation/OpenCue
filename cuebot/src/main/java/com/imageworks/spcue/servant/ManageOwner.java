@@ -19,7 +19,9 @@
 
 package com.imageworks.spcue.servant;
 
+import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.grpc.host.OwnerDeleteRequest;
@@ -49,10 +51,17 @@ public class ManageOwner extends OwnerInterfaceGrpc.OwnerInterfaceImplBase {
 
     @Override
     public void getOwner(OwnerGetOwnerRequest request, StreamObserver<OwnerGetOwnerResponse> responseObserver) {
-        responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
-                .setOwner(whiteboard.getOwner(request.getName()))
-                .build());
-        responseObserver.onCompleted();
+        try {
+            responseObserver.onNext(OwnerGetOwnerResponse.newBuilder()
+                    .setOwner(whiteboard.getOwner(request.getName()))
+                    .build());
+            responseObserver.onCompleted();
+        } catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.NOT_FOUND
+                    .withDescription(e.getMessage())
+                    .withCause(e)
+                    .asRuntimeException());
+        }
     }
 
     @Override

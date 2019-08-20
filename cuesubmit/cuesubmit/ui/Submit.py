@@ -257,7 +257,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             layerType=self.jobTypeSelector.text(),
             cmd=self.settingsWidget.getCommandData(),
             layerRange=self.frameBox.frameSpecInput.text(),
-            chunk=None,
+            chunk=self.chunkInput.text(),
             cores=self.coresInput.text(),
             env=None,
             services=[i.strip() for i in self.servicesSelector.text().split(',')],
