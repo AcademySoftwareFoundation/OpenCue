@@ -265,9 +265,9 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
             if self.__mem_opt.isEnabled():
                 layer.enableMemoryOptimizer(self.__mem_opt.isChecked())
             if self.__core.isEnabled():
-                layer.setMinCores(float(self.__core.value()))
+                layer.setMinCores(self.__core.value() * 100.0)
             if self.__max_cores.isEnabled():
-                layer.setMaxCores(float(self.__max_cores.value()))
+                layer.setMaxCores(self.__max_cores.value() * 100.0)
             if self.__thread.isEnabled():
                 layer.setThreadable(self.__thread.isChecked())
             if self.__gpu.isEnabled():
