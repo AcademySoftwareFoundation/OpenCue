@@ -23,7 +23,7 @@ If you don't already have a local copy of the OpenCue source code, you must do
 one of the following:
 
 1.  Download and unzip the
-    [OpenCue source code ZIP file](https://github.com/sharifsalah/OpenCue/archive/master.zip).
+    [OpenCue source code ZIP file](https://github.com/AcademySoftwareFoundation/OpenCue/archive/master.zip).
 2.  If you have the `git` command installed on your cmahine, you can clone
     the repository:
 
