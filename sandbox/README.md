@@ -27,7 +27,7 @@ one of the following:
 2.  If you have the `git` command installed on your cmahine, you can clone
     the repository:
 
-    git clone https://github.com/sharifsalah/OpenCue.git
+        git clone https://github.com/sharifsalah/OpenCue.git
 
 ## Deploying the OpenCue sandbox environment
 
@@ -52,21 +52,21 @@ To deploy the OpenCue sandbox environment:
 
 1.  Change to the root of the OpenCue source code directory:
 
-    cd OpenCue
+        cd OpenCue
 
 2.  To deploy the OpenCue sandbox environment, export the `CUE_FRAME_LOG_DIR`
     environment variable:
 
-    export CUE_FRAME_LOG_DIR=/tmp/rqd/logs
+        export CUE_FRAME_LOG_DIR=/tmp/rqd/logs
 
 3.  To specify a password for the database, export the `POSTGRES_PASSWORD`
     environment variable:
 
-    export POSTGRES_PASSWORD=<REPLACE-WITH-A-PASSWORD>
+        export POSTGRES_PASSWORD=<REPLACE-WITH-A-PASSWORD>
 
 4.  To deploy the sandbox environment, run the `docker-compose` command:
 
-    docker-compose --project-directory . -f sandbox/docker-compose.yml up
+        docker-compose --project-directory . -f sandbox/docker-compose.yml up
 
 Leave this shell running in the background.
 
@@ -96,20 +96,20 @@ To install the OpenCue client packages
 
 1.  Change to the root of the OpenCue source code directory:
 
-    cd OpenCue
+        cd OpenCue
 
 1.  Create a virtual environment for the Python packages:
 
-    virtualenv venv
+        virtualenv venv
 
 2.  Activate the `venv` virtual environment:
 
-    source venv/bin/activate
+        source venv/bin/activate
 
 3.  Install the Python dependencies and client packages in the `venv` virtual
     environment:
 
-    sandbox/install-clients.sh
+        sandbox/install-clients.sh
 
 ## Test the sandbox environment
 
@@ -120,25 +120,25 @@ Run the following commands from the second shell:
 
 1.  Set the location of the PyOutline configuration file:
 
-    export OL_CONFIG=pyoutline/etc/outline.cfg
+        export OL_CONFIG=pyoutline/etc/outline.cfg
 
 2.  The Cuebot docker container is forwarding the gRPC ports to your
     localhost, so you can connect to it as `localhost`: 
     
-    export CUEBOT_HOSTS=localhost
+        export CUEBOT_HOSTS=localhost
 
 3.  To list the hosts in the sandbox environment, run the `cueadmin`
     command:
 
-    cueadmin -lh
+        cueadmin -lh
 
 4.  Launch a new job with CueSubmit:
 
-    cuesubmit &
+        cuesubmit &
 
 5.  Montior the job with CueGUI:
 
-    cuegui &
+        cuegui &
 
 ## Stop and delete the sandbox environment
 
@@ -147,15 +147,15 @@ from the second shell:
 
 1.  To stop the sandbox environment, run the following command:
 
-    docker-compose --project-directory . -f sandbox/docker-compose.yml stop
+        docker-compose --project-directory . -f sandbox/docker-compose.yml stop
 
 2.  To free up storage space, delete the containers:
 
-    docker-compose --project-directory . -f sandbox/docker-compose.yml rm
+        docker-compose --project-directory . -f sandbox/docker-compose.yml rm
 
 3.  To delete the virtual environment for the Python client packages:
 
-    rm -rf venv
+        rm -rf venv
 
 ## What's next?
 
