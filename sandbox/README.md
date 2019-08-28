@@ -41,7 +41,7 @@ containers:
 
 The Docker Compose deployment process also configures the database and applies
 any database migrations. The deployment process also creates a `db-data`
-directory in the `sandbox` directory called . The `db-data` directory is
+directory in the `sandbox` directory. The `db-data` directory is
 mounted as a volume in the PostgresSQL database container and stores the
 contents of the database. If you stop your database container, all data is
 preserved as long as you don't remove this directory. If you need to start
