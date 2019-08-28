@@ -1,4 +1,4 @@
-# OpenCue Sandbox Environment
+# OpenCue sandbox environment
 
 The sandbox environment provides a way to run a test OpenCue deployment. You
 can use the test deployment to run small tests or development work. The sandbox
