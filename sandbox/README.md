@@ -24,7 +24,7 @@ one of the following:
 
 1.  Download and unzip the
     [OpenCue source code ZIP file](https://github.com/AcademySoftwareFoundation/OpenCue/archive/master.zip).
-2.  If you have the `git` command installed on your cmahine, you can clone
+2.  If you have the `git` command installed on your mahine, you can clone
     the repository:
 
         git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
