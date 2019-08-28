@@ -27,7 +27,7 @@ one of the following:
 2.  If you have the `git` command installed on your cmahine, you can clone
     the repository:
 
-        git clone https://github.com/sharifsalah/OpenCue.git
+        git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
 
 ## Deploying the OpenCue sandbox environment
 
