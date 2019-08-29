@@ -1,70 +1,163 @@
+# OpenCue sandbox environment
 
-# OpenCue Sandbox Environment
+The sandbox environment provides a way to run a test OpenCue deployment. You
+can use the test deployment to run small tests or development work. The sandbox
+environment runs OpenCue components in separate Docker containers on your local
+machine.
 
-The sandbox environment provides a way to spin up a test OpenCue deployment that can be used for
-running small tests or development. It runs OpenCue components in separate Docker containers
-on your local machine.
+## Before you begin
 
-The sandbox environment is deployed using docker-compose and will spin up containers for a 
-PostgresSQL database, Cuebot, and an RQD instance. docker-compose will also take care of configuring
-the database and applying in database migrations. See [https://docs.docker.com/compose/] for more
-information on docker-compose. 
+You must have the following software installed on your machine:
 
-A folder will be created for you in the `sandbox` folder called `db-data`. This folder is mounted as
-a volume in database container and stores the contents of the database. If you stop your
-database container, all data will be preserved as long as you don't remove this folder. If you need
-to start from scratch with a fresh database, remove the contents of this folder and restart the 
-containers with docker-compose.
+*   [Docker](https://docs.docker.com/install/)
+*   [Docker Compose](https://docs.docker.com/compose/install/)
+*   Python version 2.7 or greater
+*   The Python [`pip` command](https://pypi.org/project/pip/)
+*   The Python [virtualenv tool](https://pypi.org/project/virtualenv/)
 
-1. Once you have docker and docker-compose installed on your machine, run the following steps from
-the OpenCue repo root directory to deploy the OpenCue sandbox environment. 
+You must allocate a minimum of 6 GB of memory to Docker. To learn
+how to update the memory limit on macOS, see
+[Get started with Docker Desktop for Mac](https://docs.docker.com/docker-for-mac/#advanced).
 
-    1. Export an environment variable to specify where to write RQD render logs.
+If you don't already have a local copy of the OpenCue source code, you must do
+one of the following:
 
-            export CUE_FRAME_LOG_DIR=/tmp/rqd/logs
+1.  Download and unzip the
+    [OpenCue source code ZIP file](https://github.com/AcademySoftwareFoundation/OpenCue/archive/master.zip).
+2.  If you have the `git` command installed on your mahine, you can clone
+    the repository:
 
-    2. Export an environment variable to specify a password for the database (`cuebot` used as an
-    example).
+        git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
 
-            export POSTGRES_PASSWORD=cuebot
+## Deploying the OpenCue sandbox environment
 
-    3. Deploy the sandbox environment with docker-compose.
+The sandbox environment is deployed using
+[Docker Compose]([https://docs.docker.com/compose/]) and runs the following
+containers:
 
-            docker-compose --project-directory . -f sandbox/docker-compose.yml up
+*   a PostgresSQL database
+*   a Cuebot server
+*   an RQD instance.
+
+The Docker Compose deployment process also configures the database and applies
+any database migrations. The deployment process also creates a `db-data`
+directory in the `sandbox` directory. The `db-data` directory is
+mounted as a volume in the PostgresSQL database container and stores the
+contents of the database. If you stop your database container, all data is
+preserved as long as you don't remove this directory. If you need to start
+from scratch with a fresh database, remove the contents of this directory and
+restart the containers with the `docker-compose` command.
+
+To deploy the OpenCue sandbox environment:
+
+1.  Change to the root of the OpenCue source code directory:
+
+        cd OpenCue
+
+2.  To deploy the OpenCue sandbox environment, export the `CUE_FRAME_LOG_DIR`
+    environment variable:
+
+        export CUE_FRAME_LOG_DIR=/tmp/rqd/logs
+
+3.  To specify a password for the database, export the `POSTGRES_PASSWORD`
+    environment variable:
+
+        export POSTGRES_PASSWORD=<REPLACE-WITH-A-PASSWORD>
+
+4.  To deploy the sandbox environment, run the `docker-compose` command:
+
+        docker-compose --project-directory . -f sandbox/docker-compose.yml up
+
+Leave this shell running in the background.
+
+## Installing the OpenCue client packages
+
+OpenCue includes the following client packages to help you submit,
+monitor, and manage rendering jobs:
+
+*   PyCue is the OpenCue Python API. OpenCue client-side Python tools, such as
+    CueGUI and `cueadmin`, all use PyCue for communicating with your OpenCue
+	deployment.
+*   PyOutline is a Python library, that provides a Python interface to the
+    job specification XML, allowing you to construct complex jobs with Python
+	code instead of working directly with XML. 
+*   CueSubmit is a graphical user interface for configuring and launching
+    rendering jobs to an OpenCue deployment.
+*   CueGUI is a graphical user interface you run to monitor and manage jobs,
+    layers, and frames.
+*   `cueadmin` is the OpenCue command-line client for administering an OpenCue
+    deployment.
+*   `pycuerun` is a command-line client for submitting jobs to OpenCue.
+
+To install the OpenCue client packages
 
 
-2. In a separate shell at the OpenCue root directory we can setup the Python environment to run the
-client apps.
-    1. Create a virtualenv.
+1.  Open a second shell.
 
-            virtualenv venv
+1.  Change to the root of the OpenCue source code directory:
 
-    2. Source the virtualenv.
+        cd OpenCue
 
-            source venv/bin/activate
+1.  Create a virtual environment for the Python packages:
 
-    3. Install the Python dependencies to your virtualenv.
+        virtualenv venv
 
-            pip install -r requirements.txt
+2.  Activate the `venv` virtual environment:
 
+        source venv/bin/activate
 
-3. Now that the sandbox environment is up and your Python environment is good, you'll need to tell
-the python apps how to connect to Cuebot. From the same shell run the following.
-    1. The Cuebot docker container is forwarding the gRPC ports to your localhost, so we can connect
-     to it as `localhost`.  
+3.  Install the Python dependencies and client packages in the `venv` virtual
+    environment:
+
+        sandbox/install-clients.sh
+
+## Test the sandbox environment
+
+To connect to the sandbox environment, you must configure your local client
+packages to connect to Cuebot.
+
+Run the following commands from the second shell:
+
+1.  Set the location of the PyOutline configuration file:
+
+        export OL_CONFIG=pyoutline/etc/outline.cfg
+
+2.  The Cuebot docker container is forwarding the gRPC ports to your
+    localhost, so you can connect to it as `localhost`: 
     
-            export CUEBOT_HOSTS=localhost
+        export CUEBOT_HOSTS=localhost
 
-    2. Launch a new job with CueSubmit.
+3.  To list the hosts in the sandbox environment, run the `cueadmin`
+    command:
 
-            python cuesubmit/cuesubmit
+        cueadmin -lh
 
-    3. Montior the job with CueGui.
+4.  Launch a new job with CueSubmit:
 
-            python cuegui/cuegui
+        cuesubmit &
 
-4. When you're done, stop the environment.
+5.  Montior the job with CueGUI:
+
+        cuegui &
+
+## Stop and delete the sandbox environment
+
+To delete the resources you created in this guide, run the following commands
+from the second shell:
+
+1.  To stop the sandbox environment, run the following command:
+
         docker-compose --project-directory . -f sandbox/docker-compose.yml stop
 
-5. Remove the containers to free up space.
+2.  To free up storage space, delete the containers:
+
         docker-compose --project-directory . -f sandbox/docker-compose.yml rm
+
+3.  To delete the virtual environment for the Python client packages:
+
+        rm -rf venv
+
+## What's next?
+
+*   Learn more about [OpenCue concepts and terminology](https://www.opencue.io/docs/concepts/).
+*   Install the full [OpenCue infrastructure](https://www.opencue.io/docs/getting-started/).
