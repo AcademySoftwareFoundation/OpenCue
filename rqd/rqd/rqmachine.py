@@ -601,6 +601,8 @@ class Machine:
             except KeyError:
                 pass
 
+        self.__hostReport.core_info.CopyFrom(self.__rqCore.getCoreInfo())
+
         return self.__hostReport
 
     def getBootReport(self):
