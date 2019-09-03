@@ -46,6 +46,22 @@ logger = cuegui.Logger.getLogger(__file__)
 
 COMMENT_COLUMN = 1
 
+HOST_STATE_MAP = {
+  0: 'Open',
+  1: 'Locked',
+  2: 'Nimby Locked'
+}
+
+HOST_HARDWARE_MAP = {
+  0: 'Up',
+  1: 'Down'
+}
+
+HOST_THREADMODE_MAP = {
+  0: 'All',
+  1: 'Auto'
+}
+
 
 class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
@@ -120,11 +136,11 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "in every 60 seconds so a number larger than this\n"
                            "indicates a problem")
         self.addColumn("Hardware", 70, id=15,
-                       data=lambda host: str(host.data.state),
+                       data=lambda host: HOST_HARDWARE_MAP[host.data.state],
                        tip="The state of the hardware as Up or Down.\n\n"
                            "On a frame it is the amount of memory used.")
         self.addColumn("Locked", 90, id=16,
-                       data=lambda host: str(host.data.lock_state),
+                       data=lambda host: HOST_STATE_MAP[host.data.lock_state],
                        tip="A host can be:\n"
                            "Locked \t\t It was manually locked to prevent booking\n"
                            "Open \t\t It is available to be booked if resources are idle\n"
@@ -132,7 +148,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "\t\t someone actively using it or not enough \n"
                            "\t\t resources are available on a desktop.")
         self.addColumn("ThreadMode", 80, id=17,
-                       data=lambda host: str(host.data.thread_mode),
+                       data=lambda host: HOST_THREADMODE_MAP[host.data.thread_mode],
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
