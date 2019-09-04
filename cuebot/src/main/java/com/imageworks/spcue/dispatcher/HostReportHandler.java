@@ -394,16 +394,14 @@ public class HostReportHandler {
      * @param renderHost RenderHost
      */
     private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
-        if (host.lockState != LockState.LOCKED) {
-            if (coreInfo.getLockedCores() == coreInfo.getTotalCores()) {
-                host.lockState = LockState.LOCKED;
-                hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
-            }
-        } else if (host.lockState != LockState.OPEN) {
+        if (host.lockState == LockState.LOCKED) {
             if (coreInfo.getLockedCores() < coreInfo.getTotalCores()) {
                 host.lockState = LockState.OPEN;
                 hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
             }
+        } else if (coreInfo.getLockedCores() == coreInfo.getTotalCores()) {
+            host.lockState = LockState.LOCKED;
+            hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
         }
     }
 

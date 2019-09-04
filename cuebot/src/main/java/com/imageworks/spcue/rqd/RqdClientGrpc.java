@@ -118,10 +118,6 @@ public final class RqdClientGrpc implements RqdClient {
     public void lockHost(HostInterface host) {
         RqdStaticLockAllRequest request = RqdStaticLockAllRequest.newBuilder().build();
 
-        if (testMode) {
-            return;
-        }
-
         try {
             getStub(host.getName()).lockAll(request);
         } catch (StatusRuntimeException | ExecutionException e) {
@@ -132,10 +128,6 @@ public final class RqdClientGrpc implements RqdClient {
     public void unlockHost(HostInterface host) {
         RqdStaticUnlockAllRequest request = RqdStaticUnlockAllRequest.newBuilder().build();
 
-        if (testMode) {
-            return;
-        }
-
         try {
             getStub(host.getName()).unlockAll(request);
         } catch (StatusRuntimeException | ExecutionException e) {
@@ -145,10 +137,6 @@ public final class RqdClientGrpc implements RqdClient {
 
     public void rebootNow(HostInterface host) {
         RqdStaticRebootNowRequest request = RqdStaticRebootNowRequest.newBuilder().build();
-
-        if (testMode) {
-            return;
-        }
 
         try {
             getStub(host.getName()).rebootNow(request);
