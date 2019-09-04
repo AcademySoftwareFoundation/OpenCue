@@ -48,6 +48,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.BootReport;
+import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -166,6 +167,7 @@ public class HostReportHandler {
                         rhost.getAttributes().get("SP_OS"));
 
                 changeHardwareState(host, report.getHost().getState());
+                changeLockState(host, report.getCoreInfo());
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -380,6 +382,27 @@ public class HostReportHandler {
             if (host.lockState.equals(LockState.NIMBY_LOCKED)) {
                 host.lockState = LockState.OPEN;
                 hostManager.setHostLock(host,LockState.OPEN, new Source("NIMBY"));
+            }
+        }
+    }
+
+    /**
+     * Changes the Lock state of the host. Looks at the number of locked cores and sets host to
+     * locked if all cores are locked.
+     *
+     * @param host DispatchHost
+     * @param renderHost RenderHost
+     */
+    private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
+        if (host.lockState != LockState.LOCKED) {
+            if (coreInfo.getLockedCores() == coreInfo.getTotalCores()) {
+                host.lockState = LockState.LOCKED;
+                hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
+            }
+        } else if (host.lockState != LockState.OPEN) {
+            if (coreInfo.getLockedCores() < coreInfo.getTotalCores()) {
+                host.lockState = LockState.OPEN;
+                hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
             }
         }
     }
