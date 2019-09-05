@@ -340,7 +340,7 @@ class Machine:
     def __getSwapout(self):
         if platform.system() == "Linux":
             try:
-                return str(int(self.__vmstat.get_recent_pgout_rate()))
+                return str(int(self.__vmstat.getRecentPgoutRate()))
             except:
                 return str(0)
         return str(0)
