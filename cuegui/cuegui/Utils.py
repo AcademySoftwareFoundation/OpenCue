@@ -261,12 +261,16 @@ def shellOut(cmd):
     os.system("%s &" % cmd)
 
 
-def checkShellOut(cmdList):
+def checkShellOut(cmdList, lockGui=False):
     """Run the provided command and check it's results.
     Display an error message if the command failed
     @type: list<string>
     @param: The command to run as a space separated list.
+    @type: bool
+    @param: True will lock the gui while the cmd is executed, otherwise it is run in the background.
     """
+    if not lockGui:
+        cmdList.append('&')
     try:
         subprocess.check_call(cmdList)
     except subprocess.CalledProcessError as e:

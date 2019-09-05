@@ -32,11 +32,14 @@ import com.google.common.cache.RemovalListener;
 import com.google.common.cache.RemovalNotification;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.grpc.rqd.RqdInterfaceGrpc;
 import com.imageworks.spcue.grpc.rqd.RqdStaticGetRunFrameRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticGetRunFrameResponse;
 import com.imageworks.spcue.grpc.rqd.RqdStaticKillRunningFrameRequest;
+import com.imageworks.spcue.grpc.rqd.RqdStaticLockAllRequest;
+import com.imageworks.spcue.grpc.rqd.RqdStaticUnlockAllRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticLaunchFrameRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticRebootIdleRequest;
 import com.imageworks.spcue.grpc.rqd.RqdStaticRebootNowRequest;
@@ -100,12 +103,40 @@ public final class RqdClientGrpc implements RqdClient {
         return RunningFrameGrpc.newBlockingStub(channel);
     }
 
+    public void setHostLock(HostInterface host, LockState lock) {
+        if (lock == LockState.OPEN) {
+            logger.debug("Unlocking RQD host");
+            unlockHost(host);
+        } else if (lock == LockState.LOCKED) {
+            logger.debug("Locking RQD host");
+            lockHost(host);
+        } else {
+            logger.debug("Unkown LockState passed to setHostLock.");
+        }
+    }
+
+    public void lockHost(HostInterface host) {
+        RqdStaticLockAllRequest request = RqdStaticLockAllRequest.newBuilder().build();
+
+        try {
+            getStub(host.getName()).lockAll(request);
+        } catch (StatusRuntimeException | ExecutionException e) {
+            throw new RqdClientException("failed to lock host: " + host.getName(), e);
+        }
+    }
+
+    public void unlockHost(HostInterface host) {
+        RqdStaticUnlockAllRequest request = RqdStaticUnlockAllRequest.newBuilder().build();
+
+        try {
+            getStub(host.getName()).unlockAll(request);
+        } catch (StatusRuntimeException | ExecutionException e) {
+            throw new RqdClientException("failed to unlock host: " + host.getName(), e);
+        }
+    }
+
     public void rebootNow(HostInterface host) {
         RqdStaticRebootNowRequest request = RqdStaticRebootNowRequest.newBuilder().build();
-
-        if (testMode) {
-            return;
-        }
 
         try {
             getStub(host.getName()).rebootNow(request);

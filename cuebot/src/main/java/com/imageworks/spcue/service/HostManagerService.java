@@ -71,6 +71,7 @@ public class HostManagerService implements HostManager {
     @Override
     public void setHostLock(HostInterface host, LockState lock, Source source) {
         hostDao.updateHostLock(host, lock, source);
+        rqdClient.setHostLock(host, lock);
     }
 
     @Override

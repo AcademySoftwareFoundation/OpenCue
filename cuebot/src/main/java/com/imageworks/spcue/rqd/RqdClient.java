@@ -19,6 +19,7 @@ package com.imageworks.spcue.rqd;
 
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.grpc.rqd.RunFrame;
 
@@ -38,6 +39,28 @@ public interface RqdClient {
      * @return
      */
     RunningFrameInfo getFrameStatus(VirtualProc proc);
+
+    /**
+     * Sets the host lock to the provided state.
+     *
+     * @param host
+     * @param lock
+     */
+    public void setHostLock(HostInterface host, LockState lock);
+
+    /**
+     * Locks the host.
+     *
+     * @param host
+     */
+    public void lockHost(HostInterface host);
+
+    /**
+     * Unlocks the host.
+     *
+     * @param host
+     */
+    public void unlockHost(HostInterface host);
 
     /**
      * Reboots the host now.

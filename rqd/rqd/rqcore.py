@@ -817,6 +817,9 @@ class RqCore(object):
             log.info("frameId {} is not running on this machine".format(frameId))
             return None
 
+    def getCoreInfo(self):
+        return self.cores
+
     def reportStatus(self, current=None):
         """Replies with hostReport"""
         return self.machine.getHostReport()
@@ -881,7 +884,7 @@ class RqCore(object):
             return
         if not self.nimby.active and platform.system() == "Linux":
             try:
-                self.nimby.start()
+                self.nimby.run()
                 log.info("Nimby has been activated")
             except:
                 self.nimby.locked = False
