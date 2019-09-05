@@ -399,7 +399,7 @@ public class HostReportHandler {
                 host.lockState = LockState.OPEN;
                 hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
             }
-        } else if (coreInfo.getLockedCores() == coreInfo.getTotalCores()) {
+        } else if (coreInfo.getLockedCores() >= coreInfo.getTotalCores()) {
             host.lockState = LockState.LOCKED;
             hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
         }

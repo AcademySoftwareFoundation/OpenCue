@@ -70,7 +70,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 adminManager.findAllocationDetail("spi","general"));
     }
 
-    public static CoreDetail getCoreDetail(int total, int idle, int booked, int locked) {
+    private static CoreDetail getCoreDetail(int total, int idle, int booked, int locked) {
         return CoreDetail.newBuilder()
                 .setTotalCores(total)
                 .setIdleCores(idle)
@@ -79,11 +79,11 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
-    public DispatchHost getHost() {
+    private DispatchHost getHost() {
         return hostManager.findDispatchHost(HOSTNAME);
     }
 
-    public RenderHost getRenderHost() {
+    private static RenderHost getRenderHost() {
         return RenderHost.newBuilder()
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
