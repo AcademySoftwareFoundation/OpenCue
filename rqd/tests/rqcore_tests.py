@@ -30,11 +30,13 @@ import rqd.rqnimby
 
 class RqCoreTests(unittest.TestCase):
 
+    @mock.patch('rqd.rqnimby.Nimby', autospec=True)
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('rqd.rqmachine.Machine', autospec=True)
-    def setUp(self, machineMock, networkMock):
+    def setUp(self, machineMock, networkMock, nimbyMock):
         self.machineMock = machineMock
         self.networkMock = networkMock
+        self.nimbyMock = nimbyMock
         self.rqcore = rqd.rqcore.RqCore()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOn')
@@ -269,6 +271,7 @@ class RqCoreTests(unittest.TestCase):
     def test_launchFrame(self, frameThreadMock):
         self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
 
         self.rqcore.launchFrame(frame)
@@ -284,6 +287,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_launchFrameOnHostWaitingForShutdown(self):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.active = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame()
         self.rqcore.shutdownRqdIdle()
 
@@ -310,6 +314,7 @@ class RqCoreTests(unittest.TestCase):
     def test_launchDuplicateFrame(self):
         self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=20)
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
         frameId = 'arbitrary-frame-id'
         self.rqcore.storeFrame(frameId, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId))
         frameToLaunch = rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frameId)
@@ -319,6 +324,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_launchFrameWithInvalidUid(self):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=0)
 
         with self.assertRaises(rqd.rqexceptions.InvalidUserException):
@@ -326,6 +332,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_launchFrameWithInvalidCoreCount(self):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=0)
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -334,6 +341,7 @@ class RqCoreTests(unittest.TestCase):
     def test_launchFrameWithInsufficientCores(self):
         self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=100, idle_cores=5)
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
@@ -346,6 +354,182 @@ class RqCoreTests(unittest.TestCase):
 
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    def test_restartRqdNowNoFrames(self, respawnMock):
+        self.nimbyMock.return_value.active = False
+
+        self.rqcore.restartRqdNow()
+
+        respawnMock.assert_called_with(self.rqcore)
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'killAllFrame', autospec=True)
+    def test_restartRqdNowWithFrames(self, killAllFrameMock):
+        frame1Id = 'frame1'
+        frame1 = rqd.rqnetwork.RunningFrame(
+            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+        self.rqcore.storeFrame(frame1Id, frame1)
+
+        self.rqcore.restartRqdNow()
+
+        killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    def test_restartRqdIdleNoFrames(self, respawnMock):
+        self.nimbyMock.return_value.active = False
+
+        self.rqcore.restartRqdIdle()
+
+        respawnMock.assert_called_with(self.rqcore)
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
+    def test_restartRqdIdleWithFrames(self, respawnMock):
+        frame1Id = 'frame1'
+        frame1 = rqd.rqnetwork.RunningFrame(
+            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+        self.rqcore.storeFrame(frame1Id, frame1)
+
+        self.rqcore.restartRqdIdle()
+
+        self.assertTrue(self.rqcore.isWaitingForIdle())
+        respawnMock.assert_not_called()
+
+    def test_rebootNowNoUser(self):
+        self.machineMock.return_value.isUserLoggedIn.return_value = False
+        self.nimbyMock.return_value.active = False
+
+        self.rqcore.rebootNow()
+
+        self.machineMock.return_value.reboot.assert_called_with()
+
+    def test_rebootNowWithUser(self):
+        self.machineMock.return_value.isUserLoggedIn.return_value = True
+
+        with self.assertRaises(rqd.rqexceptions.RqdException):
+            self.rqcore.rebootNow()
+
+    def test_rebootIdleNoFrames(self):
+        self.machineMock.return_value.isUserLoggedIn.return_value = False
+        self.nimbyMock.return_value.active = False
+
+        self.rqcore.rebootIdle()
+
+        self.machineMock.return_value.reboot.assert_called_with()
+
+    def test_rebootIdleWithFrames(self):
+        frame1Id = 'frame1'
+        frame1 = rqd.rqnetwork.RunningFrame(
+            self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
+        self.rqcore.storeFrame(frame1Id, frame1)
+
+        self.rqcore.rebootIdle()
+
+        self.assertTrue(self.rqcore.isWaitingForIdle())
+        self.machineMock.return_value.reboot.assert_not_called()
+
+    @mock.patch('os.getuid', new=mock.MagicMock(return_value=0))
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
+    def test_nimbyOn(self):
+        self.nimbyMock.return_value.active = False
+
+        self.rqcore.nimbyOn()
+
+        self.nimbyMock.return_value.run.assert_called_with()
+
+    def test_nimbyOff(self):
+        self.nimbyMock.return_value.active = True
+
+        self.rqcore.nimbyOff()
+
+        self.nimbyMock.return_value.stop.assert_called_with()
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'killAllFrame', autospec=True)
+    def test_onNimbyLock(self, killAllFrameMock):
+        self.rqcore.onNimbyLock()
+
+        killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
+
+    @mock.patch.object(rqd.rqcore.RqCore, 'sendStatusReport', autospec=True)
+    def test_onNimbyUnlock(self, sendStatusReportMock):
+        self.rqcore.onNimbyUnlock()
+
+        sendStatusReportMock.assert_called_with(self.rqcore)
+
+    def test_lock(self):
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.lock(20)
+
+        self.assertEqual(20, self.rqcore.cores.idle_cores)
+        self.assertEqual(30, self.rqcore.cores.locked_cores)
+
+    def test_lockMoreCoresThanThereAre(self):
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.lock(100)
+
+        self.assertEqual(0, self.rqcore.cores.idle_cores)
+        self.assertEqual(50, self.rqcore.cores.locked_cores)
+
+    def test_lockAll(self):
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.lockAll()
+
+        self.assertEqual(0, self.rqcore.cores.idle_cores)
+        self.assertEqual(50, self.rqcore.cores.locked_cores)
+
+    def test_unlock(self):
+        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 10
+        self.rqcore.cores.locked_cores = 40
+
+        self.rqcore.unlock(20)
+
+        self.assertEqual(30, self.rqcore.cores.idle_cores)
+        self.assertEqual(20, self.rqcore.cores.locked_cores)
+
+    def test_unlockMoreCoresThanThereAre(self):
+        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.unlock(100)
+
+        self.assertEqual(50, self.rqcore.cores.idle_cores)
+        self.assertEqual(0, self.rqcore.cores.locked_cores)
+
+    def test_unlockAll(self):
+        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = False
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.unlockAll()
+
+        self.assertEqual(50, self.rqcore.cores.idle_cores)
+        self.assertEqual(0, self.rqcore.cores.locked_cores)
+
+    def test_unlockAllWhenNimbyLocked(self):
+        self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
+        self.nimbyMock.return_value.locked = True
+        self.rqcore.cores.total_cores = 50
+        self.rqcore.cores.idle_cores = 40
+        self.rqcore.cores.locked_cores = 10
+
+        self.rqcore.unlockAll()
+
+        self.assertEqual(40, self.rqcore.cores.idle_cores)
+        self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
 if __name__ == '__main__':
