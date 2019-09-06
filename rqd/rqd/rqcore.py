@@ -543,7 +543,6 @@ class RqCore(object):
         self.__threadLock = threading.Lock()
         self.__cache = {}
 
-        self.shutdownThread = None
         self.updateRssThread = None
         self.onIntervalThread = None
         self.intervalStartTime = None
@@ -829,9 +828,8 @@ class RqCore(object):
         self.machine.state = host_pb2.DOWN
         self.lockAll()
         self.killAllFrame("shutdownRqdNow Command")
-        if not self.__cache and self.shutdownThread is None:
-            self.shutdownThread = threading.Timer(1, self.shutdown)
-            self.shutdownThread.start()
+        if not self.__cache:
+            self.shutdown()
 
     def shutdownRqdIdle(self):
         """When machine is idle, shutdown RQD"""
@@ -860,7 +858,8 @@ class RqCore(object):
            This is not available when a user is logged in"""
         log.warning('Requested to reboot now')
         if self.machine.isUserLoggedIn():
-            err = "Rebooting via RQD is not support for a desktop machine when a user is logged in"
+            err = ('Rebooting via RQD is not supported for a desktop machine '
+                   'when a user is logged in')
             log.warning(err)
             raise RqdException(err)
         self.__reboot = True
@@ -1015,3 +1014,6 @@ class RqCore(object):
 
     def sendStatusReport(self):
         self.network.reportStatus(self.machine.getHostReport())
+
+    def isWaitingForIdle(self):
+        return self.__whenIdle
