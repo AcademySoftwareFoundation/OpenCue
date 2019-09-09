@@ -30,7 +30,7 @@ import time
 import traceback
 
 import rqconstants
-import rqutil
+import rqd.rqutil
 from compiled_proto import host_pb2
 from compiled_proto import report_pb2
 from rqexceptions import CoreReservationFailureException
@@ -53,7 +53,7 @@ class FrameAttendantThread(threading.Thread):
            @param   rqCore: Main RQD Object
            @type   runFrame: RunFrame
            @param  runFrame: rqd_pb2.RunFrame
-           @type  frameInfo: RunningFrame
+           @type  frameInfo: rqd.rqnetwork.RunningFrame
            @param frameInfo: Servant for running frame
         """
         threading.Thread.__init__(self)
@@ -208,7 +208,7 @@ class FrameAttendantThread(threading.Thread):
 
     def __cleanup(self):
         """Cleans up temporary files"""
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             for location in self._tempLocations:
                 if os.path.isfile(location):
@@ -218,7 +218,7 @@ class FrameAttendantThread(threading.Thread):
                         log.warning("Unable to delete file: %s due to %s at %s" % (
                             location, e, traceback.extract_tb(sys.exc_info()[2])))
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         # Close log file
         try:
@@ -235,9 +235,9 @@ class FrameAttendantThread(threading.Thread):
         self.__createEnvVariables()
         self.__writeHeader()
         if rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
-            rqutil.permissionsHigh()
-            rqutil.checkAndCreateUser(runFrame.user_name)
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsHigh()
+            rqd.rqutil.checkAndCreateUser(runFrame.user_name)
+            rqd.rqutil.permissionsLow()
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
                                              frameInfo.frameId,
@@ -251,7 +251,7 @@ class FrameAttendantThread(threading.Thread):
         if 'CPU_LIST' in runFrame.attributes:
             tempCommand += ['taskset', '-c', runFrame.attributes['CPU_LIST']]
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             tempCommand += ["/bin/su", runFrame.user_name, rqconstants.SU_ARGUEMENT,
                             '"' + self._createCommandFile(runFrame.command) + '"']
@@ -266,7 +266,7 @@ class FrameAttendantThread(threading.Thread):
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
@@ -350,7 +350,7 @@ class FrameAttendantThread(threading.Thread):
         self.__createEnvVariables()
         self.__writeHeader()
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
                            self._createCommandFile(frameInfo.runFrame.command) + '"']
@@ -363,7 +363,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stderr=self.rqlog,
                                                        preexec_fn = os.setsid)
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
@@ -401,7 +401,7 @@ class FrameAttendantThread(threading.Thread):
         pass
 
     def run(self):
-        """Thread initilization"""
+        """Thread initialization"""
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
@@ -411,108 +411,110 @@ class FrameAttendantThread(threading.Thread):
             runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
                                                                    runFrame.job_id)
 
-        try:
-            runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
-                                                 runFrame.job_name)
-            runFrame.frame_temp_dir = os.path.join(runFrame.job_temp_dir,
-                                                   runFrame.frame_name)
-            runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
-                                                 runFrame.frame_name)
-            runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
+        #try:
+        runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
+                                             runFrame.job_name)
+        runFrame.frame_temp_dir = os.path.join(runFrame.job_temp_dir,
+                                               runFrame.frame_name)
+        runFrame.log_file = "%s.%s.rqlog" % (runFrame.job_name,
+                                             runFrame.frame_name)
+        runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
 
-            try: # Exception block for all exceptions
-                # Do everything as launching user
-                runFrame.gid = rqconstants.LAUNCH_FRAME_USER_GID
+        #try: # Exception block for all exceptions
+        # Do everything as launching user
+        runFrame.gid = rqconstants.LAUNCH_FRAME_USER_GID
 
-                # Change to job user
-                rqutil.permissionsUser(runFrame.uid, runFrame.gid)
-                try:
-                    #
-                    # Setup proc to allow launching of frame
-                    #
+        # Change to job user
+        rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+        #try:
+        #
+        # Setup proc to allow launching of frame
+        #
 
-                    if not os.access(runFrame.log_dir, os.F_OK):
-                        # Attempting mkdir for missing logdir
-                        msg = "No Error"
-                        try:
-                            os.makedirs(runFrame.log_dir)
-                            os.chmod(runFrame.log_dir, 0777)
-                        except Exception, e:
-                            # This is expected to fail when called in abq
-                            # But the directory should now be visible
-                            msg = e
-
-                        if not os.access(runFrame.log_dir, os.F_OK):
-                            err = "Unable to see log directory: %s, mkdir failed with: %s" % (
-                                runFrame.log_dir, msg)
-                            raise RuntimeError, err
-
-                    if not os.access(runFrame.log_dir, os.W_OK):
-                        err = "Unable to write to log directory %s" % runFrame.log_dir
-                        raise RuntimeError, err
-
-                    try:
-                        # Rotate any old logs to a max of MAX_LOG_FILES:
-                        if os.path.isfile(runFrame.log_dir_file):
-                            rotateCount = 1
-                            while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
-                                   and rotateCount < rqconstants.MAX_LOG_FILES):
-                                rotateCount += 1
-                            os.rename(runFrame.log_dir_file,
-                                      "%s.%s" % (runFrame.log_dir_file, rotateCount))
-                    except Exception, e:
-                        err = "Unable to rotate previous log file due to %s" % e
-                        raise RuntimeError, err
-                    try:
-                        self.rqlog = file(runFrame.log_dir_file, "w", 0)
-                        self.waitForFile(runFrame.log_dir_file)
-                    except Exception, e:
-                        err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
-                        raise RuntimeError, err
-                    try:
-                        os.chmod(runFrame.log_dir_file, 0666)
-                    except Exception, e:
-                        err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
-                        log.warning(err)
-
-                finally:
-                    rqutil.permissionsLow()
-
-                # Store frame in cache and register servant
-                self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
-
-                if platform.system() == "Linux":
-                    self.runLinux()
-                elif platform.system() == "win32":
-                    self.runWin32()
-                elif platform.system() == "Windows":
-                    self.runWindows()
-                elif platform.system() == "Darwin":
-                    self.runDarwin()
-                else:
-                    self.runUnknown()
-
+        if not os.access(runFrame.log_dir, os.F_OK):
+            # Attempting mkdir for missing logdir
+            msg = "No Error"
+            try:
+                os.makedirs(runFrame.log_dir)
+                os.chmod(runFrame.log_dir, 0777)
             except Exception, e:
-                log.critical("Failed launchFrame: For %s due to: \n%s" % (
-                    runFrame.frame_id,
-                    ''.join(traceback.format_exception(*sys.exc_info()))))
-                # Notifies the cuebot that there was an error launching
-                self.frameInfo.exitStatus = rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
-                # Delay keeps the cuebot from spamming failing booking requests
-                time.sleep(10)
-        finally:
-            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'))
+                # This is expected to fail when called in abq
+                # But the directory should now be visible
+                msg = e
 
-            self.rqCore.deleteFrame(self.runFrame.frame_id)
+            if not os.access(runFrame.log_dir, os.F_OK):
+                err = "Unable to see log directory: %s, mkdir failed with: %s" % (
+                    runFrame.log_dir, msg)
+                raise RuntimeError, err
 
-            self.__sendFrameCompleteReport()
-            time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
-            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL_SEC):
-                self.rqCore.onIntervalThread.cancel()
-                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL_SEC)
+        if not os.access(runFrame.log_dir, os.W_OK):
+            err = "Unable to write to log directory %s" % runFrame.log_dir
+            raise RuntimeError, err
 
-            log.info("Monitor frame ended for frameId=%s",
-                     self.runFrame.frame_id)
+        print(platform.system())
+
+        try:
+            # Rotate any old logs to a max of MAX_LOG_FILES:
+            if os.path.isfile(runFrame.log_dir_file):
+                rotateCount = 1
+                while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
+                       and rotateCount < rqconstants.MAX_LOG_FILES):
+                    rotateCount += 1
+                os.rename(runFrame.log_dir_file,
+                          "%s.%s" % (runFrame.log_dir_file, rotateCount))
+        except Exception, e:
+            err = "Unable to rotate previous log file due to %s" % e
+            raise RuntimeError, err
+        try:
+            self.rqlog = file(runFrame.log_dir_file, "w", 0)
+            self.waitForFile(runFrame.log_dir_file)
+        except Exception, e:
+            err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
+            raise RuntimeError, err
+        try:
+            os.chmod(runFrame.log_dir_file, 0666)
+        except Exception, e:
+            err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
+            log.warning(err)
+
+        #finally:
+        rqd.rqutil.permissionsLow()
+
+        # Store frame in cache and register servant
+        self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
+
+        if platform.system() == "Linux":
+            self.runLinux()
+        elif platform.system() == "win32":
+            self.runWin32()
+        elif platform.system() == "Windows":
+            self.runWindows()
+        elif platform.system() == "Darwin":
+            self.runDarwin()
+        else:
+            self.runUnknown()
+
+        #except Exception, e:
+        #    log.critical("Failed launchFrame: For %s due to: \n%s" % (
+        #        runFrame.frame_id,
+        #        ''.join(traceback.format_exception(*sys.exc_info()))))
+        #    # Notifies the cuebot that there was an error launching
+        #    self.frameInfo.exitStatus = rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
+        #    # Delay keeps the cuebot from spamming failing booking requests
+        #    time.sleep(10)
+        #finally:
+        self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'))
+
+        self.rqCore.deleteFrame(self.runFrame.frame_id)
+
+        self.__sendFrameCompleteReport()
+        time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
+        if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL_SEC):
+            self.rqCore.onIntervalThread.cancel()
+            self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL_SEC)
+
+        log.info("Monitor frame ended for frameId=%s",
+                 self.runFrame.frame_id)
 
 
 class RqCore(object):
@@ -643,7 +645,7 @@ class RqCore(object):
         """Stores a frame in the cache and adds the network adapter
         @type  frameId: string
         @param frameId: A frame's unique Id
-        @type  runningFrame: RunningFrame
+        @type  runningFrame: rqd.rqnetwork.RunningFrame
         @param runningFrame: RunningFrame object"""
         self.__threadLock.acquire()
         try:

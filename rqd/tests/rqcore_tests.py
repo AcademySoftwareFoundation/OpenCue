@@ -532,5 +532,33 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
+class FrameAttendantThreadTests(unittest.TestCase):
+
+    #@mock.patch('rqd.rqutil.permissionsLow')
+    #@mock.patch('rqd.rqutil.permissionsUser')
+    @mock.patch('os.chmod', new=mock.MagicMock())
+    @mock.patch('os.makedirs', new=mock.MagicMock())
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
+    @mock.patch.object(rqd.rqutil, 'permissionsUser')
+    @mock.patch.object(rqd.rqutil, 'permissionsLow')
+    @mock.patch('os.access')
+    def test_foo(self, accessMock, rqutilLow, rqutil):
+
+        #permsLow.return_value = 'foo'
+        accessMock.side_effect = [False, True, True]
+        #rqutilMock.return_value.permissionsUser = mock.MagicMock()
+        frameId = 'arbitrary-frame-id'
+        rqCore = mock.MagicMock()
+        rqCore.machine.getTempPath.return_value = '/job/temp/path'
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name='arbitrary-job-name',
+            frame_name='arbitrary-frame-name')
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+
+
 if __name__ == '__main__':
     unittest.main()
