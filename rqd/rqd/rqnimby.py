@@ -36,7 +36,7 @@ import threading
 import logging as log
 
 import rqconstants
-import rqutil
+import rqd.rqutil
 
 class Nimby(threading.Thread):
     """Nimby == Not In My Back Yard.
@@ -86,7 +86,7 @@ class Nimby(threading.Thread):
         """Opens the /dev/input/event* files so nimby can monitor them"""
         self._closeEvents()
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             for device in os.listdir("/dev/input/"):
                 if device.startswith("event") or device.startswith("mice"):
@@ -97,7 +97,7 @@ class Nimby(threading.Thread):
                         # Bad device found
                         log.debug("IOError: Failed to open %s, %s" % ("/dev/input/%s" % device, e))
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
     def _closeEvents(self):
         """Closes the /dev/input/event* files"""

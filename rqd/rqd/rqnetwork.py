@@ -68,7 +68,7 @@ from compiled_proto import report_pb2_grpc
 from compiled_proto import rqd_pb2_grpc
 import rqconstants
 import rqdservicers
-import rqutil
+import rqd.rqutil
 
 
 class RunningFrame(object):
@@ -132,14 +132,14 @@ class RunningFrame(object):
             try:
                 if not self.killMessage and message:
                     self.killMessage = message
-                rqutil.permissionsHigh()
+                rqd.rqutil.permissionsHigh()
                 try:
                     if platform.system() == "Windows":
                         subprocess.Popen('taskkill /F /T /PID %i' % self.pid, shell=True)
                     else:
                         os.killpg(self.pid, rqconstants.KILL_SIGNAL)
                 finally:
-                    rqutil.permissionsLow()
+                    rqd.rqutil.permissionsLow()
             except OSError, e:
                 log.warning("kill() tried to kill a non-existant pid for: %s "
                             "Error: %s" % (self.frameId, e))
