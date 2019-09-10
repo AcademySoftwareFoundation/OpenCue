@@ -425,7 +425,7 @@ class FrameAttendantThread(threading.Thread):
                 runFrame.gid = rqconstants.LAUNCH_FRAME_USER_GID
 
                 # Change to job user
-                rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+                rqutil.permissionsUser(runFrame.uid, runFrame.gid)
                 try:
                     #
                     # Setup proc to allow launching of frame
@@ -456,7 +456,7 @@ class FrameAttendantThread(threading.Thread):
                         if os.path.isfile(runFrame.log_dir_file):
                             rotateCount = 1
                             while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
-                                   and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
+                                   and rotateCount < rqconstants.MAX_LOG_FILES):
                                 rotateCount += 1
                             os.rename(runFrame.log_dir_file,
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
@@ -476,7 +476,7 @@ class FrameAttendantThread(threading.Thread):
                         log.warning(err)
 
                 finally:
-                    rqd.rqutil.permissionsLow()
+                    rqutil.permissionsLow()
 
                 # Store frame in cache and register servant
                 self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
@@ -507,9 +507,9 @@ class FrameAttendantThread(threading.Thread):
 
             self.__sendFrameCompleteReport()
             time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
-            if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
+            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL_SEC):
                 self.rqCore.onIntervalThread.cancel()
-                self.rqCore.onInterval(rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC)
+                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL_SEC)
 
             log.info("Monitor frame ended for frameId=%s",
                      self.runFrame.frame_id)
