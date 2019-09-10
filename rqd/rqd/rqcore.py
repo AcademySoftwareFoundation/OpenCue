@@ -361,7 +361,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stdin=subprocess.PIPE,
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog,
-                                                       preexec_fn = os.setsid)
+                                                       preexec_fn=os.setsid)
         finally:
             rqutil.permissionsLow()
 

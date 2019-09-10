@@ -586,10 +586,12 @@ class FrameAttendantThreadTests(unittest.TestCase):
         permsUser.assert_called_with(frameUid, mock.ANY)
         mkdirMock.assert_called_with(logDir)
         popenMock.assert_called_with(
-            ['/bin/nice', '/usr/bin/time', '-p', '-o',
-            jobTempPath + 'rqd-stat-' + frameId + '-' + str(currentTime),
-            '/bin/su', frameUsername, '-c',
-            '"' + tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '"'],
+            [
+                '/bin/nice', '/usr/bin/time', '-p', '-o',
+                jobTempPath + 'rqd-stat-' + frameId + '-' + str(currentTime),
+                '/bin/su', frameUsername, '-c',
+                '"' + tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '"'
+            ],
             env=mock.ANY,
             cwd=jobTempPath,
             stdin=mock.ANY,
@@ -651,6 +653,66 @@ class FrameAttendantThreadTests(unittest.TestCase):
             stdin=mock.ANY,
             stdout=openMock.return_value,
             stderr=openMock.return_value)
+
+        rqCore.network.reportRunningFrameCompletion.assert_called_with(
+            rqd.compiled_proto.report_pb2.FrameCompleteReport(
+                host=renderHost,
+                frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
+                    job_name=jobName, frame_id=frameId, frame_name=frameName),
+                exit_status=returnCode))
+
+    @mock.patch('os.access', new=mock.MagicMock(side_effect=[False, True, True]))
+    @mock.patch('platform.system', new=mock.Mock(return_value='Darwin'))
+    @mock.patch('tempfile.gettempdir')
+    def test_runDarwin(self, getTempDirMock, permsUser, mkdirMock, openMock, timeMock, popenMock):
+        currentTime = 1568070634.3
+        jobTempPath = '/job/temp/path/'
+        logDir = '/path/to/log/dir/'
+        tempDir = '/some/random/temp/dir'
+        frameId = 'arbitrary-frame-id'
+        jobName = 'arbitrary-job-name'
+        frameName = 'arbitrary-frame-name'
+        frameUid = 928
+        frameUsername = 'my-random-user'
+        returnCode = 0
+        renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+
+        timeMock.return_value = currentTime
+        getTempDirMock.return_value = tempDir
+        popenMock.return_value.returncode = returnCode
+
+        rqCore = mock.MagicMock()
+        rqCore.machine.getTempPath.return_value = jobTempPath
+        rqCore.machine.isDesktop.return_value = True
+        rqCore.machine.getHostInfo.return_value = renderHost
+        rqCore.nimby.locked = False
+
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
+            frame_id=frameId,
+            job_name=jobName,
+            frame_name=frameName,
+            uid=frameUid,
+            user_name=frameUsername,
+            log_dir=logDir)
+        frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
+
+        attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
+        attendantThread.start()
+        attendantThread.join()
+
+        permsUser.assert_called_with(frameUid, mock.ANY)
+        mkdirMock.assert_called_with(logDir)
+        popenMock.assert_called_with(
+            [
+                '/usr/bin/su', frameUsername, '-c',
+                '"' + tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '"'
+            ],
+            env=mock.ANY,
+            cwd=jobTempPath,
+            stdin=mock.ANY,
+            stdout=openMock.return_value,
+            stderr=openMock.return_value,
+            preexec_fn=mock.ANY)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
