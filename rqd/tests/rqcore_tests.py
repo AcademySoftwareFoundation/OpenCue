@@ -648,8 +648,7 @@ class FrameAttendantThreadTests(unittest.TestCase):
         permsUser.assert_called_with(frameUid, mock.ANY)
         mkdirMock.assert_called_with('//intrender/render/logs/' + jobName + '--')
         popenMock.assert_called_with(
-            [
-             tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '.bat'],
+            [tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '.bat'],
             stdin=mock.ANY,
             stdout=openMock.return_value,
             stderr=openMock.return_value)
