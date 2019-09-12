@@ -532,7 +532,6 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
-@mock.patch('commands.getoutput', new=mock.MagicMock(return_value='force use of -c flag'))
 @mock.patch('os.chmod', new=mock.MagicMock())
 @mock.patch('os.path.exists', new=mock.MagicMock(return_value=True))
 @mock.patch('os.path.isfile', new=mock.MagicMock(return_value=False))
@@ -545,6 +544,9 @@ class RqCoreTests(unittest.TestCase):
 @mock.patch('os.makedirs')
 @mock.patch('rqd.rqutil.permissionsUser', spec=True)
 class FrameAttendantThreadTests(unittest.TestCase):
+    def setUp(self):
+        rqd.rqconstants.SU_ARGUEMENT = '-c'
+
     @mock.patch('os.access', new=mock.MagicMock(side_effect=[False, True, True]))
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')
