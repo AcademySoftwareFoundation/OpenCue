@@ -9,7 +9,7 @@ jobs:
   displayName: Analyze Python Components
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswf/ci-base:2019.0
+  container: opencuebuild/ci-opencue:latest
   steps:
   - bash: ci/python_coverage_report.sh
     name: coverageReport
