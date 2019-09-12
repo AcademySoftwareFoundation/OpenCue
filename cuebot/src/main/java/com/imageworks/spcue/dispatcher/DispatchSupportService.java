@@ -59,6 +59,7 @@ import com.imageworks.spcue.grpc.rqd.RunFrame;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
+import com.imageworks.spcue.util.FrameSet;
 
 @Transactional(propagation = Propagation.REQUIRED)
 public class DispatchSupportService implements DispatchSupport {
@@ -346,6 +347,10 @@ public class DispatchSupportService implements DispatchSupport {
         int frameNumber = Integer.valueOf(frame.name.substring(0,frame.name.indexOf("-")));
         String zFrameNumber = String.format("%04d", frameNumber);
 
+        FrameSet fs = new FrameSet(frame.range);
+        int startFrameIndex = fs.index(frameNumber);
+        String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
+
         return RunFrame.newBuilder()
                 .setShot(frame.shot)
                 .setShow(frame.show)
@@ -386,6 +391,7 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
+                                .replaceAll("#FRAMESPEC#",  frameSpec)
                                 .replaceAll("#FRAME#",  frame.name))
                 .build();
     }
