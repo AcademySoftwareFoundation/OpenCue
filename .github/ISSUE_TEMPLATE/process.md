@@ -1,6 +1,6 @@
 ---
 name: Process
-about: A one-off action 
+about: A one-off action
 title: ''
 labels: process
 assignees: ''
