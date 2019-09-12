@@ -53,7 +53,7 @@ class FrameAttendantThread(threading.Thread):
            @param   rqCore: Main RQD Object
            @type   runFrame: RunFrame
            @param  runFrame: rqd_pb2.RunFrame
-           @type  frameInfo: RunningFrame
+           @type  frameInfo: rqd.rqnetwork.RunningFrame
            @param frameInfo: Servant for running frame
         """
         threading.Thread.__init__(self)
@@ -361,7 +361,7 @@ class FrameAttendantThread(threading.Thread):
                                                        stdin=subprocess.PIPE,
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog,
-                                                       preexec_fn = os.setsid)
+                                                       preexec_fn=os.setsid)
         finally:
             rqutil.permissionsLow()
 
@@ -401,7 +401,7 @@ class FrameAttendantThread(threading.Thread):
         pass
 
     def run(self):
-        """Thread initilization"""
+        """Thread initialization"""
         log.info("Monitor frame started for frameId=%s", self.frameId)
 
         runFrame = self.runFrame
@@ -464,7 +464,7 @@ class FrameAttendantThread(threading.Thread):
                         err = "Unable to rotate previous log file due to %s" % e
                         raise RuntimeError, err
                     try:
-                        self.rqlog = file(runFrame.log_dir_file, "w", 0)
+                        self.rqlog = open(runFrame.log_dir_file, "w", 0)
                         self.waitForFile(runFrame.log_dir_file)
                     except Exception, e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
@@ -643,7 +643,7 @@ class RqCore(object):
         """Stores a frame in the cache and adds the network adapter
         @type  frameId: string
         @param frameId: A frame's unique Id
-        @type  runningFrame: RunningFrame
+        @type  runningFrame: rqd.rqnetwork.RunningFrame
         @param runningFrame: RunningFrame object"""
         self.__threadLock.acquire()
         try:
