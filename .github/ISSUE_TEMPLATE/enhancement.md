@@ -1,6 +1,6 @@
 ---
 name: Enhancement
-about: Suggest an upgrade or improvement to an existing feature 
+about: Suggest an upgrade or improvement to an existing feature
 title: ''
 labels: enhancement
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 ---
 
 **Describe the enhancement**
-A clear and concise description of what the bug is.
+A clear and concise description of the proposed enhancement.
 
 **Screenshots**
 If applicable, add screenshots to help explain your suggestion.
@@ -17,4 +17,4 @@ If applicable, add screenshots to help explain your suggestion.
 Your OpenCue version number or commit hash.
 
 **Additional context**
-Add any other context about the problem here.
+Add any other context here.
