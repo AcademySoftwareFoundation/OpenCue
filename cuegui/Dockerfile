@@ -17,6 +17,7 @@ RUN yum -y install \
   libXrender \
   mesa-libGL \
   python-devel \
+  which \
   Xvfb
 
 RUN yum -y install python-pip
@@ -44,7 +45,6 @@ RUN python -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
 
-COPY ci/run-with-xvfb.sh ./
 COPY cuegui/README.md ./cuegui/
 COPY cuegui/setup.py ./cuegui/
 COPY cuegui/tests ./cuegui/tests
