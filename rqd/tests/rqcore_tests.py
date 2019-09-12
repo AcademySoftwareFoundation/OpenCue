@@ -532,6 +532,7 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
+@mock.patch('commands.getoutput', new=mock.MagicMock(return_value='force use of -c flag'))
 @mock.patch('os.chmod', new=mock.MagicMock())
 @mock.patch('os.path.exists', new=mock.MagicMock(return_value=True))
 @mock.patch('os.path.isfile', new=mock.MagicMock(return_value=False))
