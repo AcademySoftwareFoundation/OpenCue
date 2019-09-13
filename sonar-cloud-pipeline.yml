@@ -9,7 +9,7 @@ jobs:
   displayName: Analyze Python Components
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswf/ci-base:2019.0
+  container: aswf/ci-opencue:2019.0
   steps:
   - bash: ci/python_coverage_report.sh
     name: coverageReport
@@ -31,6 +31,7 @@ jobs:
   displayName: Analyze Cuebot
   pool:
     vmImage: 'ubuntu-16.04'
+  container: aswf/ci-opencue:2019.0
   steps:
   - bash: cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)
     name: analyze
