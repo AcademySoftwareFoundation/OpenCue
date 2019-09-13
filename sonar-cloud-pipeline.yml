@@ -1,7 +1,9 @@
 # OpenCue SonarCloud pipeline
 
-# No automated builds yet, against master or PRs.
-trigger: none
+# Only run this pipeline after new commits are merged into master. Don't run for
+# PRs, which is the default behavior.
+trigger:
+- master
 pr: none
 
 jobs:
