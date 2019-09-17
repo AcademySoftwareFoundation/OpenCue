@@ -552,8 +552,11 @@ class Machine:
                                          * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
-            meminfoFile = open(rqconstants.PATH_MEMINFO, "r")
-            for line in meminfoFile:
+            with open(rqconstants.PATH_MEMINFO, "r") as fp:
+                meminfoLines = fp.readlines()
+            #meminfoFile = open(rqconstants.PATH_MEMINFO, "r")
+            #for line in meminfoFile:
+            for line in meminfoLines:
                 if line.startswith("MemFree"):
                     freeMem = int(line.split()[1])
                 elif line.startswith("SwapFree"):
@@ -561,8 +564,8 @@ class Machine:
                 elif line.startswith("Cached"):
                     cachedMem = int(line.split()[1])
                 elif line.startswith("MemTotal"):
-                    self.__renderHost.total_mem =int(line.split()[1])
-            meminfoFile.close()
+                    self.__renderHost.total_mem = int(line.split()[1])
+            #meminfoFile.close()
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
             self.__renderHost.attributes['freeGpu'] = str(self.getGpuMemory())

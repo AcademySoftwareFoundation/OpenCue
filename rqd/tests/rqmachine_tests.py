@@ -19,59 +19,195 @@ import mock
 import os
 import unittest
 
+import pyfakefs.fake_filesystem_unittest
+
 import rqd.rqcore
 import rqd.rqmachine
+import rqd.rqnimby
 import rqd.compiled_proto.report_pb2
+
+
+CPUINFO = """processor	: 0
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 0
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 0
+initial apicid	: 0
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+processor	: 1
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 1
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 1
+initial apicid	: 1
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+processor	: 2
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 2
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 2
+initial apicid	: 2
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+processor	: 3
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 3
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 3
+initial apicid	: 3
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+processor	: 4
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 4
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 4
+initial apicid	: 4
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+processor	: 5
+vendor_id	: GenuineIntel
+cpu family	: 6
+model		: 63
+model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
+stepping	: 2
+microcode	: 0x1
+cpu MHz		: 2299.998
+cache size	: 46080 KB
+physical id	: 5
+siblings	: 1
+core id		: 0
+cpu cores	: 1
+apicid		: 5
+initial apicid	: 5
+fpu		: yes
+fpu_exception	: yes
+cpuid level	: 13
+wp		: yes
+flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
+bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
+bogomips	: 4599.99
+clflush size	: 64
+cache_alignment	: 64
+address sizes	: 40 bits physical, 48 bits virtual
+power management:
+
+"""
 
 
 MEMINFO = """MemTotal:       32942144 kB
 MemFree:         5339060 kB
-MemAvailable:   29191460 kB
-Buffers:         1266484 kB
 Cached:         20360116 kB
-SwapCached:         6064 kB
-Active:         10861012 kB
-Inactive:       13918544 kB
-Active(anon):    1807696 kB
-Inactive(anon):  1086584 kB
-Active(file):    9053316 kB
-Inactive(file): 12831960 kB
-Unevictable:        9544 kB
-Mlocked:            9544 kB
-SwapTotal:       4194300 kB
 SwapFree:        4105212 kB
-Dirty:              1120 kB
-Writeback:             0 kB
-AnonPages:       2916596 kB
-Mapped:          1084660 kB
-Shmem:              4456 kB
-Slab:            2652808 kB
-SReclaimable:    2415168 kB
-SUnreclaim:       237640 kB
-KernelStack:       26416 kB
-PageTables:        21296 kB
-NFS_Unstable:          0 kB
-Bounce:                0 kB
-WritebackTmp:          0 kB
-CommitLimit:    20665372 kB
-Committed_AS:   10363976 kB
-VmallocTotal:   34359738367 kB
-VmallocUsed:           0 kB
-VmallocChunk:          0 kB
-Percpu:             8768 kB
-HardwareCorrupted:     0 kB
-AnonHugePages:   1286144 kB
-ShmemHugePages:        0 kB
-ShmemPmdMapped:        0 kB
-HugePages_Total:       0
-HugePages_Free:        0
-HugePages_Rsvd:        0
-HugePages_Surp:        0
-Hugepagesize:       2048 kB
-Hugetlb:               0 kB
-DirectMap4k:      479100 kB
-DirectMap2M:    24686592 kB
-DirectMap1G:    10485760 kB
+"""
+
+MEMINFO_NONE_FREE = """MemTotal:       32942144 kB
+MemFree:               0 kB
+Cached:                0 kB
+SwapFree:        4105212 kB
+"""
+
+MEMINFO_NO_SWAP = """MemTotal:       32942144 kB
+MemFree:         5339060 kB
+Cached:         20360116 kB
+SwapFree:              0 kB
 """
 
 
@@ -90,7 +226,16 @@ class StatvfsMock(mock.MagicMock):
         self.f_namemax = 255
 
 
-class MachineTests(unittest.TestCase):
+@mock.patch('os.statvfs', new=mock.MagicMock())
+@mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=9876))
+@mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
+class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
+    def setUp(self):
+        self.setUpPyfakefs()
+        self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
+        #self.fs.create_file('/proc/meminfo', contents=MEMINFO)
+        self.fs.create_file('/proc/loadavg', contents='0.25 0.16 0.11 2/1655 50733')
+
     @staticmethod
     def __statvfs_mock():
         statvfs_mock = mock.Mock()
@@ -106,30 +251,41 @@ class MachineTests(unittest.TestCase):
         statvfs_mock.f_namemax = 255
         return statvfs_mock
 
-    @mock.patch('__builtin__.open', new=mock.mock_open(read_data=MEMINFO))
-    @mock.patch('os.statvfs')
-    @mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=9876))
-    @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
-    def test_isNimbySafeToRunJobs(self, statvfsMock):
-        statvfs_mock = mock.MagicMock()
-        statvfs_mock.f_bsize = 1048576
-        statvfs_mock.f_frsize = 4096
-        statvfs_mock.f_blocks = 360540255
-        statvfs_mock.f_bfree = 285953527
-        statvfs_mock.f_bavail = 267639130
-        statvfs_mock.f_files = 91578368
-        statvfs_mock.f_ffree = 91229495
-        statvfs_mock.f_favail = 91229495
-        statvfs_mock.f_flag = 4096
-        statvfs_mock.f_namemax = 255
-        statvfsMock.return_value = statvfs_mock
-
+    def test_isNimbySafeToRunJobs(self):
         rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
+        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        rqCore.nimby.active = True
+        rqCore.nimby.locked = True
         coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
-
+        self.fs.create_file('/proc/meminfo', contents=MEMINFO)
         machine = rqd.rqmachine.Machine(rqCore, coreDetail)
-        print machine.isNimbySafeToRunJobs()
+
+        self.assertTrue(machine.isNimbySafeToRunJobs())
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
+    def test_isNimbySafeToRunJobs_noFreeMem(self):
+        rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
+        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        rqCore.nimby.active = True
+        rqCore.nimby.locked = True
+        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
+        self.fs.create_file('/proc/meminfo', contents=MEMINFO_NONE_FREE)
+        machine = rqd.rqmachine.Machine(rqCore, coreDetail)
+
+        self.assertFalse(machine.isNimbySafeToRunJobs())
+
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
+    def test_isNimbySafeToRunJobs_noFreeSwap(self):
+        rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
+        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        rqCore.nimby.active = True
+        rqCore.nimby.locked = True
+        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
+        self.fs.create_file('/proc/meminfo', contents=MEMINFO_NO_SWAP)
+        machine = rqd.rqmachine.Machine(rqCore, coreDetail)
+
+        self.assertFalse(machine.isNimbySafeToRunJobs())
 
 
 class CpuinfoTests(unittest.TestCase):
