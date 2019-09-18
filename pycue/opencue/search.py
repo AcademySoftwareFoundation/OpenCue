@@ -309,8 +309,8 @@ def _setOptions(criteria, options):
                 # this can go away
                 criteria.memory_range = v
             else:
-                criteria.memory_range.append(_createCriterion(v, int,
-                                                      lambda mem: (1048576 * mem)))
+                criteria.memory_range.append(
+                    _createCriterion(v, int, lambda mem: (1048576 * mem)))
         elif k == "duration":
             if not v:
                 continue
@@ -319,10 +319,10 @@ def _setOptions(criteria, options):
                 # this can go away
                 criteria.duration_range = v
             else:
-                criteria.duration_range.append(_createCriterion(v, int,
-                                                        lambda duration:(60 * 60 * duration)))
+                criteria.duration_range.append(
+                    _createCriterion(v, int, lambda duration: (60 * 60 * duration)))
         elif k == "limit":
-            criteria.max_results.extend([int(v)])
+            criteria.max_results = int(v)
         elif k == "offset":
             criteria.first_result = int(v)
         elif k == "include_finished":
