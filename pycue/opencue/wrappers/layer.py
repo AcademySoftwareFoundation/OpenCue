@@ -13,7 +13,6 @@
 #  limitations under the License.
 
 
-
 """
 opencue layer module
 
@@ -49,7 +48,7 @@ class Layer(object):
     def kill(self):
         """Kill entire layer"""
         return self.stub.KillFrames(job_pb2.LayerKillFramesRequest(layer=self.data),
-                              timeout=Cuebot.Timeout)
+                                    timeout=Cuebot.Timeout)
 
     def eat(self):
         """Eat entire layer"""
@@ -77,7 +76,7 @@ class Layer(object):
 
     def getFrames(self, **options):
         """Returns the list of up to 1000 frames from within the layer.
-        @rtype:  list<Frame>
+        @rtype:  list<opencue.wrappers.frame.Frame>
         @return: Sequence of Frame obejcts"""
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**options)
         response = self.stub.GetFrames(job_pb2.LayerGetFramesRequest(layer=self.data, s=criteria),
@@ -141,7 +140,7 @@ class Layer(object):
 
     def getWhatDependsOnThis(self):
         """Gets a list of dependencies that depend directly on this layer
-        @rtype:  list<opencue.depend.Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: List of dependencies that depend directly on this layer"""
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.LayerGetWhatDependsOnThisRequest(layer=self.data),
@@ -151,7 +150,7 @@ class Layer(object):
 
     def getWhatThisDependsOn(self):
         """Get a list of dependencies that this layer depends on
-        @rtype:  list<opencue.depend.Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: List of dependences that this layer depends on"""
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.LayerGetWhatThisDependsOnRequest(layer=self.data),
@@ -161,48 +160,48 @@ class Layer(object):
 
     def createDependencyOnJob(self, job):
         """Create and return a layer on job dependency
-        @type  job: Job
+        @type  job: opencue.wrappers.job.Job
         @param job: the job you want this job to depend on
-        @rtype:  opencue.depend.Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnJob(
-            job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job),
+            job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a layer on layer dependency
-        @type  layer: Layer
+        @type  layer: opencue.wrappers.layer.Layer
         @param layer: the layer you want this layer to depend on
-        @rtype:  opencue.depend.Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnLayer(
-            job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer),
+            job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a layer on frame dependency
-        @type  frame: Frame
+        @type  frame: opencue.wrappers.frame.Frame
         @param frame: the frame you want this layer to depend on
-        @rtype:  opencue.depend.Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependOnFrame(
-            job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame),
+            job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createFrameByFrameDependency(self, layer):
         """Create and return a frame by frame frame dependency
         @param layer: the layer you want this layer to depend on
-        @type  layer: Layer
-        @rtype:  opencue.depend.Depend
+        @type  layer: opencue.wrappers.layer.Layer
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         # anyframe is hard coded right now, this option should be moved
         # to LayerOnLayer for better efficiency.
         response = self.stub.CreateFrameByFrameDepend(
             job_pb2.LayerCreateFrameByFrameDependRequest(
-                layer=self.data, depend_layer=layer, any_frame=False),
+                layer=self.data, depend_layer=layer.data, any_frame=False),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
@@ -230,7 +229,7 @@ class Layer(object):
         """Reorders the specified frame range on this layer.
         @type  range: string
         @param range: The frame range to reorder
-        @type  order: opencue.Order
+        @type  order: opencue.wrapper.layer.Layer.Order
         @param order: First, Last or Reverse"""
         self.stub.ReorderFrames(
             job_pb2.LayerReorderFramesRequest(layer=self.data, range=range, order=order),

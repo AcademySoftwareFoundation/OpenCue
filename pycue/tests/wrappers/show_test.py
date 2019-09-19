@@ -72,7 +72,8 @@ class ShowTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
-        allocation = facility_pb2.Allocation(id=TEST_ALLOCATION_ID)
+        allocation = opencue.wrappers.allocation.Allocation(
+            facility_pb2.Allocation(id=TEST_ALLOCATION_ID))
         subscription = show.createSubscription(allocation, TEST_SUBSCRIPTION_SIZE, TEST_SUBSCRIPTION_BURST)
 
         stubMock.CreateSubscription.assert_called_with(

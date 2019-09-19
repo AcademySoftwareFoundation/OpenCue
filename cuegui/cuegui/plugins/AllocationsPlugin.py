@@ -129,7 +129,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                              "Move the hosts into the allocation: \"%s\"?" %
                                              item.rpcObject.data.name,
                                              hostNames):
-                item.rpcObject.reparentHosts(hostIds)
+                item.rpcObject.reparentHostIds(hostIds)
                 self.updateSoon()
 
 class AllocationWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

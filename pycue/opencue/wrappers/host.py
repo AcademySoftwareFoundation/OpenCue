@@ -79,7 +79,7 @@ class Host(object):
 
     def getProcs(self):
         """Returns a list of procs under this host.
-        @rtype: list<Proc>
+        @rtype: list<opencue.wrappers.proc.Proc>
         @return: A list of procs under this host
         """
         response = self.stub.GetProcs(host_pb2.HostGetProcsRequest(host=self.data),
@@ -136,7 +136,7 @@ class Host(object):
 
     def setAllocation(self, allocation):
         """Sets the host to the given allocation
-        @type allocation: Allocation
+        @type allocation: opencue.wrappers.allocation.Allocation
         @param allocation: An allocation object
         """
         self.stub.SetAllocation(
@@ -183,7 +183,7 @@ class Host(object):
 
     def setThreadMode(self, mode):
         """Set the thread mode to mode
-        @type mode: ThreadMode
+        @type mode: host_pb2.ThreadMode
         @param mode: ThreadMode to set host to
         """
         self.stub.SetThreadMode(host_pb2.HostSetThreadModeRequest(host=self.data, mode=mode),

@@ -71,7 +71,7 @@ class Group(object):
 
     def getJobs(self):
         """Returns the jobs in this group
-        @rtype:  list<Job>
+        @rtype:  list<opencue.wrappers.job.Job>
         @return: List of jobs in this group"""
         response = self.stub.GetJobs(job_pb2.GroupGetJobsRequest(group=self.data),
                                      timeout=Cuebot.Timeout)
@@ -79,7 +79,7 @@ class Group(object):
 
     def reparentJobs(self, jobs):
         """Moves the given jobs into this group
-        @type  jobs: list<Job>
+        @type  jobs: list<opencue.wrappers.job.Job>
         @param jobs: The jobs to add to this group"""
         jobsToReparent = []
         for job in jobs:
@@ -92,12 +92,19 @@ class Group(object):
 
     def reparentGroups(self, groups):
         """Moves the given groups into this group
-        @type  groups: list<Group>
+        @type  groups: list<opencue.wrappers.group.Group>
         @param groups: The groups to move into"""
-        groupSeq = job_pb2.GroupSeq(groups=groups)
+        groupSeq = job_pb2.GroupSeq(groups=[group.data for group in groups])
         self.stub.ReparentGroups(
             job_pb2.GroupReparentGroupsRequest(group=self.data, groups=groupSeq),
             timeout=Cuebot.Timeout)
+
+    def reparentGroupIds(self, groupIds):
+        """Moves the given group ids into this group
+        @type  groups: list<str>
+        @param groups: The group ids to move into"""
+        groups = [opencue.wrappers.group.Group(job_pb2.Group(id=groupId)) for groupId in groupIds]
+        self.reparentGroups(groups)
 
     def setDepartment(self, name):
         """Sets the group's department to the specified name.  The department
@@ -113,9 +120,10 @@ class Group(object):
 
     def setGroup(self, parentGroup):
         """Sets this group's parent to parentGroup.
-        @type  parentGroup: Group
+        @type  parentGroup: opencue.wrappers.group.Group
         @param parentGroup: Group to parent under"""
-        self.stub.SetGroup(job_pb2.GroupSetGroupRequest(group=self.data, parent_group=parentGroup),
+        self.stub.SetGroup(job_pb2.GroupSetGroupRequest(group=self.data,
+                                                        parent_group=parentGroup.data),
                            timeout=Cuebot.Timeout)
 
     def id(self):

@@ -191,13 +191,14 @@ class FilterTests(unittest.TestCase):
         stubMock.RunFilterOnGroup.return_value = filter_pb2.FilterRunFilterOnGroupResponse()
         getStubMock.return_value = stubMock
 
-        group = job_pb2.Group(name='testGroup')
+        group = opencue.wrappers.group.Group(
+            job_pb2.Group(name='testGroup'))
         filter = opencue.wrappers.filter.Filter(
             filter_pb2.Filter(name=TEST_FILTER_NAME))
         filter.runFilterOnGroup(group)
 
         stubMock.RunFilterOnGroup.assert_called_with(
-            filter_pb2.FilterRunFilterOnGroupRequest(filter=filter.data, group=group),
+            filter_pb2.FilterRunFilterOnGroupRequest(filter=filter.data, group=group.data),
             timeout=mock.ANY)
 
     def testRunFilterOnJobs(self, getStubMock):
@@ -205,8 +206,8 @@ class FilterTests(unittest.TestCase):
         stubMock.RunFilterOnJobs.return_value = filter_pb2.FilterRunFilterOnJobsResponse()
         getStubMock.return_value = stubMock
 
-        jobs = [job_pb2.Job(name='testJob')]
-        jobSeq = job_pb2.JobSeq(jobs=jobs)
+        jobs = [opencue.wrappers.job.Job(job_pb2.Job(name='testJob'))]
+        jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
         filter = opencue.wrappers.filter.Filter(
             filter_pb2.Filter(name=TEST_FILTER_NAME))
         filter.runFilterOnJobs(jobs)

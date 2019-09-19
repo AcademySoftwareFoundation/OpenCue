@@ -334,13 +334,14 @@ class JobTests(unittest.TestCase):
             depend=depend_pb2.Depend(id=dependId))
         getStubMock.return_value = stubMock
 
-        onJob = job_pb2.Job(name=TEST_JOB_NAME+"Depend")
+        onJob = opencue.wrappers.job.Job(
+            job_pb2.Job(name=TEST_JOB_NAME+"Depend"))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
         depend = job.createDependencyOnJob(onJob)
 
         stubMock.CreateDependencyOnJob.assert_called_with(
-            job_pb2.JobCreateDependencyOnJobRequest(job=job.data, on_job=onJob),
+            job_pb2.JobCreateDependencyOnJobRequest(job=job.data, on_job=onJob.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -352,13 +353,14 @@ class JobTests(unittest.TestCase):
             depend=depend_pb2.Depend(id=dependId))
         getStubMock.return_value = stubMock
 
-        onLayer = job_pb2.Layer(name=dependLayer)
+        onLayer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=dependLayer))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
         depend = job.createDependencyOnLayer(onLayer)
 
         stubMock.CreateDependencyOnLayer.assert_called_with(
-            job_pb2.JobCreateDependencyOnLayerRequest(job=job.data, layer=onLayer),
+            job_pb2.JobCreateDependencyOnLayerRequest(job=job.data, layer=onLayer.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -370,13 +372,14 @@ class JobTests(unittest.TestCase):
             depend=depend_pb2.Depend(id=dependId))
         getStubMock.return_value = stubMock
 
-        onFrame = job_pb2.Frame(name=dependFrame)
+        onFrame = opencue.wrappers.frame.Frame(
+            job_pb2.Frame(name=dependFrame))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
         depend = job.createDependencyOnFrame(onFrame)
 
         stubMock.CreateDependencyOnFrame.assert_called_with(
-            job_pb2.JobCreateDependencyOnFrameRequest(job=job.data, frame=onFrame),
+            job_pb2.JobCreateDependencyOnFrameRequest(job=job.data, frame=onFrame.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -420,7 +423,8 @@ class JobTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         groupId = 'ggg-gggg-ggg'
-        group = job_pb2.Group(id=groupId)
+        group = opencue.wrappers.group.Group(
+            job_pb2.Group(id=groupId))
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
         job.setGroup(group)

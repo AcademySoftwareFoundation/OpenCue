@@ -30,6 +30,7 @@ from opencue.compiled_proto import subscription_pb2
 TEST_ALLOC_NAME = 'test_allocation'
 TEST_ALLOC_TAG = 'test_tag'
 TEST_HOST_NAME = 'test_host'
+TEST_HOST_ID = 'hhh-hhhh-hhh'
 TEST_SUBSCRIPTION_NAME = 'test_subscription'
 
 
@@ -87,9 +88,26 @@ class AllocationTests(unittest.TestCase):
 
         alloc = opencue.wrappers.allocation.Allocation(
             facility_pb2.Allocation(name=TEST_ALLOC_NAME))
-        hosts = [host_pb2.Host(name=TEST_HOST_NAME)]
+        hosts = [opencue.wrappers.host.Host(host_pb2.Host(name=TEST_HOST_NAME))]
         alloc.reparentHosts(hosts)
 
+        stubMock.ReparentHosts.assert_called_with(
+            facility_pb2.AllocReparentHostsRequest(
+                allocation=alloc.data,
+                hosts=host_pb2.HostSeq(hosts=[host.data for host in hosts])),
+            timeout=mock.ANY)
+
+    def testReparentHostIds(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.ReparentHosts.return_value = facility_pb2.AllocReparentHostsResponse()
+        getStubMock.return_value = stubMock
+    
+        alloc = opencue.wrappers.allocation.Allocation(
+            facility_pb2.Allocation(name=TEST_ALLOC_NAME))
+        hostIds = [TEST_HOST_ID]
+        alloc.reparentHostIds(hostIds)
+        hosts = [host_pb2.Host(id=TEST_HOST_ID)]
+    
         stubMock.ReparentHosts.assert_called_with(
             facility_pb2.AllocReparentHostsRequest(
                 allocation=alloc.data, hosts=host_pb2.HostSeq(hosts=hosts)), timeout=mock.ANY)
