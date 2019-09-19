@@ -34,6 +34,7 @@ import cuegui.MainWindow
 import cuegui.SplashWindow
 import cuegui.Style
 import cuegui.ThreadPool
+import cuegui.Utils
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -83,7 +84,8 @@ def startup(app_name, app_version, argv):
     app.setApplicationName(app_name)
     app.lastWindowClosed.connect(app.quit)
 
-    QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3)
+    QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
+    QtGui.qApp.threads = []
 
     config_path = "/.%s/config" % app_name.lower()
     settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
@@ -119,4 +121,12 @@ def startup(app_name, app_version, argv):
     # End splash screen
     splash.hide()
 
+    app.aboutToQuit.connect(closingTime)
     app.exec_()
+
+
+def closingTime():
+    """Window close callback."""
+    logger.info("Closing all threads...")
+    for thread in QtGui.qApp.threads:
+        cuegui.Utils.shutdownThread(thread)

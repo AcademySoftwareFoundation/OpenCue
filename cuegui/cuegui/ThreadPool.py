@@ -50,6 +50,7 @@ from builtins import range
 import os
 
 from PySide2 import QtCore
+from PySide2 import QtGui
 
 import cuegui.Logger
 
@@ -73,9 +74,9 @@ class ThreadPool(QtCore.QObject):
         ThreadPool is a general purpose work queue class
     """
 
-    def __init__(self, num_threads, max_queue=20):
-        QtCore.QObject.__init__(self)
-        self.__threads = [ ]
+    def __init__(self, num_threads, max_queue=20, parent=None):
+        QtCore.QObject.__init__(self, parent=parent)
+        self.__threads = []
         self.__started = False
         self.__max_queue = max_queue
         self.__num_threads = num_threads
@@ -87,10 +88,11 @@ class ThreadPool(QtCore.QObject):
     def start(self):
         if self.__started:
             return
-        #logger.debug("spawning %d worker threads" % (self.__num_threads))
         self.__started = True
         for i in range(0, self.__num_threads):
-            self.__threads.append(ThreadPool.WorkerThread(i, self))
+            thread = ThreadPool.WorkerThread(i, self)
+            QtGui.qApp.threads.append(thread)
+            self.__threads.append(thread)
             self.__threads[i].start()
             self.__threads[i].workComplete.connect(self.runCallback,
                                                    QtCore.Qt.BlockingQueuedConnection)
@@ -123,12 +125,12 @@ class ThreadPool(QtCore.QObject):
             runs the callback function
         """
         if work[1]:
-            work[1](work,result)
+            work[1](work, result)
 
     class WorkerThread(QtCore.QThread):
         """WorkerThread
 
-            A therad for parsing job log files.  The log file is parsed
+            A thread for parsing job log files.  The log file is parsed
             using SpiCue.cueprofile and emits a "parsingComplete" signal
             when complete.
         """
@@ -144,7 +146,7 @@ class ThreadPool(QtCore.QObject):
             self.__running = True
             while self.__running:
 
-                work=None
+                work = None
                 self.__parent._q_mutex.lock()
                 try:
                     work = self.__parent._q_queue.pop(0)
@@ -153,7 +155,8 @@ class ThreadPool(QtCore.QObject):
 
                 self.__parent._q_mutex.unlock()
 
-                if not work: continue
+                if not work:
+                    continue
 
                 try:
                     if work[3]:
@@ -170,5 +173,4 @@ class ThreadPool(QtCore.QObject):
 
         def stop(self):
             self.__running = False
-            self._q_empty.wakeAll()
-
+            self.__parent._q_empty.wakeAll()
