@@ -163,11 +163,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     @Override
     public void getFrames(LayerGetFramesRequest request, StreamObserver<LayerGetFramesResponse> responseObserver) {
         updateLayer(request.getLayer());
-        FrameSearchCriteria searchCriteria = request.getS();
-        Descriptors.FieldDescriptor layerDescriptor = searchCriteria.getDescriptorForType().findFieldByName("layer");
-        searchCriteria = searchCriteria.toBuilder()
-                .clearField(layerDescriptor).build();
-        FrameSeq frames = whiteboard.getFrames(frameSearchFactory.create(layer, searchCriteria));
+        FrameSeq frames = whiteboard.getFrames(frameSearchFactory.create(layer, request.getS()));
         responseObserver.onNext(LayerGetFramesResponse.newBuilder()
                 .setFrames(frames)
                 .build());
