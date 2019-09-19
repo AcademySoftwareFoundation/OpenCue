@@ -68,10 +68,8 @@ class SubscriptionCreator(QtWidgets.QWidget):
             show = showMap[str(self.showBox.currentText())]
             alloc = allocMap[str(self.allocBox.currentText())]
 
-            show.createSubscription(alloc.data, float(self.sizeBox.value()),
+            show.createSubscription(alloc, float(self.sizeBox.value()),
                                     float(self.burstBox.value()))
-            # show.proxy.createSubscription(alloc.proxy,
-            #     float(self.sizeBox.value()), float(self.burstBox.value()))
         except Exception as e:
             QtWidgets.QMessageBox.warning(
                 self,

@@ -302,8 +302,7 @@ def createFrameOnJobDepend(job, layer, frame, onjob):
     logger.debug("creating foj depend from %s/%s-%04d to %s"
                  % (job, layer, frame, onjob))
     depend_er_frame = opencue.api.findFrame(job, layer, frame)
-    depend_on_job = opencue.api.findJob(onjob)
-    return depend_er_frame.createDependencyOnJob(depend_on_job)
+    return depend_er_frame.createDependencyOnJob(opencue.api.findJob(onjob))
 
 def createFrameOnLayerDepend(job, layer, frame, onjob, onlayer):
     """Creates a frame on layer dependency

@@ -254,11 +254,12 @@ class LayerTests(unittest.TestCase):
 
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        job = job_pb2.Job(id=jobId)
+        job = opencue.wrappers.job.Job(
+            job_pb2.Job(id=jobId))
         depend = layer.createDependencyOnJob(job)
 
         stubMock.CreateDependOnJob.assert_called_with(
-            job_pb2.LayerCreateDependOnJobRequest(layer=layer.data, job=job),
+            job_pb2.LayerCreateDependOnJobRequest(layer=layer.data, job=job.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -272,11 +273,13 @@ class LayerTests(unittest.TestCase):
 
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        dependLayer = job_pb2.Layer(id=layerId)
+        dependLayer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(id=layerId))
         depend = layer.createDependencyOnLayer(dependLayer)
 
         stubMock.CreateDependOnLayer.assert_called_with(
-            job_pb2.LayerCreateDependOnLayerRequest(layer=layer.data, depend_on_layer=dependLayer),
+            job_pb2.LayerCreateDependOnLayerRequest(layer=layer.data,
+                                                    depend_on_layer=dependLayer.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -290,11 +293,12 @@ class LayerTests(unittest.TestCase):
 
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        frame = job_pb2.Frame(id=frameId)
+        frame = opencue.wrappers.frame.Frame(
+            job_pb2.Frame(id=frameId))
         depend = layer.createDependencyOnFrame(frame)
 
         stubMock.CreateDependOnFrame.assert_called_with(
-            job_pb2.LayerCreateDependOnFrameRequest(layer=layer.data, frame=frame),
+            job_pb2.LayerCreateDependOnFrameRequest(layer=layer.data, frame=frame.data),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)
 
@@ -308,11 +312,13 @@ class LayerTests(unittest.TestCase):
 
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        dependLayer = job_pb2.Layer(id=layerId)
+        dependLayer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(id=layerId))
         depend = layer.createFrameByFrameDependency(dependLayer)
 
         stubMock.CreateFrameByFrameDepend.assert_called_with(
-            job_pb2.LayerCreateFrameByFrameDependRequest(layer=layer.data, depend_layer=dependLayer,
+            job_pb2.LayerCreateFrameByFrameDependRequest(layer=layer.data,
+                                                         depend_layer=dependLayer.data,
                                                          any_frame=False),
             timeout=mock.ANY)
         self.assertEqual(depend.id(), dependId)

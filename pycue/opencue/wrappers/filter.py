@@ -60,9 +60,9 @@ class Filter(object):
 
     def createMatcher(self, subject, matchType, query):
         """Creates a matcher for this filter
-        @type  subject: opencue.MatchSubject.*
+        @type  subject: filter_pb2.MatchSubject.*
         @param subject: The job attribute to match
-        @type  matchType: opencue.MatchType.*
+        @type  matchType: filter_pb2.MatchType.*
         @param matchType: The type of match to perform
         @type  query: string
         @param query: The value to match
@@ -79,7 +79,7 @@ class Filter(object):
 
     def createAction(self, actionType, value):
         """Creates an action for this filter.
-        @type  actionType: opencue.ActionType.*
+        @type  actionType: filter_pb2.ActionType.*
         @param actionType: The action to perform
         @type  value: Group or str, or int or bool
         @param value: Value relevant to the type selected
@@ -153,15 +153,18 @@ class Filter(object):
                             timeout=Cuebot.Timeout)
 
     def runFilterOnGroup(self, group):
+        """Runs the filter on the group provided
+        @type  group: list<opencue.wrapper.group.Group>
+        @param group: The group to run the filter on"""
         self.stub.RunFilterOnGroup(
-            filter_pb2.FilterRunFilterOnGroupRequest(filter=self.data, group=group),
+            filter_pb2.FilterRunFilterOnGroupRequest(filter=self.data, group=group.data),
             timeout=Cuebot.Timeout)
 
     def runFilterOnJobs(self, jobs):
         """Runs the filter on the list of jobs provided
-        @type  jobs: list<JobInterfacePrx or Job or id or str jobname>
-        @param jobs: The jobs to add to this group"""
-        jobSeq = job_pb2.JobSeq(jobs=jobs)
+        @type  jobs: list<opencue.wrapper.job.Job>
+        @param jobs: The jobs to run the filter on"""
+        jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
         self.stub.RunFilterOnJobs(
             filter_pb2.FilterRunFilterOnJobsRequest(filter=self.data, jobs=jobSeq),
             timeout=Cuebot.Timeout)
@@ -182,7 +185,7 @@ class Filter(object):
 
     def setType(self, filterType):
         """Changes the filter type
-        @type  filterType: FilterType
+        @type  filterType: filter_pb2.FilterType
         @param filterType: The new filter type"""
         self.stub.SetType(filter_pb2.FilterSetTypeRequest(filter=self.data, type=filterType),
                           timeout=Cuebot.Timeout)

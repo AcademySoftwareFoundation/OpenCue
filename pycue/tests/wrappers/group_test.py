@@ -201,12 +201,29 @@ class GroupTests(unittest.TestCase):
         stubMock.ReparentGroups.return_value = job_pb2.GroupReparentGroupsResponse()
         getStubMock.return_value = stubMock
 
-        groups = [job_pb2.Group()]
-        groupSeq = job_pb2.GroupSeq(groups=groups)
+        groups = [opencue.wrappers.group.Group(job_pb2.Group())]
+        groupSeq = job_pb2.GroupSeq(groups=[grp.data for grp in groups])
         group = opencue.wrappers.group.Group(
             job_pb2.Group(name=TEST_GROUP_NAME))
         group.reparentGroups(groups)
 
+        stubMock.ReparentGroups.assert_called_with(
+            job_pb2.GroupReparentGroupsRequest(group=group.data, groups=groupSeq),
+            timeout=mock.ANY)
+
+    def testReparentGroupIds(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.ReparentGroups.return_value = job_pb2.GroupReparentGroupsResponse()
+        getStubMock.return_value = stubMock
+    
+        groupId = 'ggg-gggg-ggg'
+        groupIds = [groupId]
+        groups = [opencue.wrappers.group.Group(job_pb2.Group(id='ggg-gggg-ggg'))]
+        groupSeq = job_pb2.GroupSeq(groups=[grp.data for grp in groups])
+        group = opencue.wrappers.group.Group(
+            job_pb2.Group(name=TEST_GROUP_NAME))
+        group.reparentGroupIds(groupIds)
+    
         stubMock.ReparentGroups.assert_called_with(
             job_pb2.GroupReparentGroupsRequest(group=group.data, groups=groupSeq),
             timeout=mock.ANY)
@@ -231,13 +248,13 @@ class GroupTests(unittest.TestCase):
         stubMock.SetGroup.return_value = job_pb2.GroupSetGroupResponse()
         getStubMock.return_value = stubMock
 
-        parentGroup = job_pb2.Group(name='parentGroup')
+        parentGroup = opencue.wrappers.group.Group(job_pb2.Group(name='parentGroup'))
         group = opencue.wrappers.group.Group(
             job_pb2.Group(name=TEST_GROUP_NAME))
         group.setGroup(parentGroup)
 
         stubMock.SetGroup.assert_called_with(
-            job_pb2.GroupSetGroupRequest(group=group.data, parent_group=parentGroup),
+            job_pb2.GroupSetGroupRequest(group=group.data, parent_group=parentGroup.data),
             timeout=mock.ANY)
 
 

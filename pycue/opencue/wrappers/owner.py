@@ -38,7 +38,7 @@ class Owner(object):
 
     def getDeeds(self):
         """Return the list of deeds for the owner
-        @rtype:  List<Deed Wrapper>
+        @rtype:  List<opencue.wrappers..deed.Deed Wrapper>
         @return: The list of deeds associated with this owner."""
         response = self.stub.GetDeeds(host_pb2.OwnerGetDeedsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
@@ -46,7 +46,7 @@ class Owner(object):
 
     def getHosts(self):
         """Get a list of all hosts this owner is responsible for.
-        @rtype:  List<Host Wrapper>
+        @rtype:  List<opencue.wrappers.host.Host Wrapper>
         @return: List of hosts the owned by this owner."""
         response = self.stub.GetHosts(host_pb2.OwnerGetHostsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
@@ -56,7 +56,7 @@ class Owner(object):
         """Return an owner by name.
         @type:   str
         @param:  Name of the owner
-        @rtype:  Owner
+        @rtype:  opencue.wrappers.owner.Owner
         @return: Owner that matches the specified name"""
         return Owner(self.stub.GetOwner(host_pb2.OwnerGetOwnerRequest(name=name),
                                         timeout=Cuebot.Timeout).owner)
