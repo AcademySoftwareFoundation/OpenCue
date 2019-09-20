@@ -624,3 +624,8 @@ def showErrorMessageBox(text, title="ERROR!", detailedText=None):
         messageBox.setDetailedText(detailedText)
     messageBox.setStandardButtons(QtWidgets.QMessageBox.Close)
     return messageBox.exec_()
+
+def shutdownThread(thread):
+    """Shutdown a WorkerThread."""
+    thread.stop()
+    return thread.wait(1500)
