@@ -756,8 +756,8 @@ class PageConfirmation(AbstractWizardPage):
     def __createFrameByFrameDepend(self, layer, onLayer):
         """A function callback provided to the ProgressDialog that sets up a
         frame by frame dependency
-        @type  layer: Layer
+        @type  layer: opencue.wrappers.layer.Layer
         @param layer: The layer that contains the frames that will have the dependency
-        @type  onLayer: Layer
+        @type  onLayer: opencue.wrappers.layer.Layer
         @param onLayer: The layer that contains that frames that will be depended on"""
         layer.createFrameByFrameDependency(onLayer)

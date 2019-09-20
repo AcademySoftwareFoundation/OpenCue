@@ -277,7 +277,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                             self._items[proxy].update(self._items[proxy].rpcObject, item)
 
                     if group_ids:
-                        item.rpcObject.reparentGroups(group_ids)
+                        item.rpcObject.reparentGroupIds(group_ids)
                         # If no exception, then move was allowed, so do it locally:
                         for id_ in group_ids:
                             proxy = cuegui.Utils.getObjectKey(opencue.util.proxy(id_, "Group"))

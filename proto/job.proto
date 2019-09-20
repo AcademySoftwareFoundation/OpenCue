@@ -453,6 +453,9 @@ message FrameSearchCriteria {
     int32 page = 8;
     int32 limit = 9;
     int32 change_date = 10;
+    int32 max_results = 11;
+    int32 offset = 12;
+    bool include_finished = 13;
 }
 
 // A sequence of Frames

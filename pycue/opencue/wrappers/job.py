@@ -167,9 +167,9 @@ class Job(object):
         UpdatedFrameSeq updatedFrames =
         @type  lastCheck: int
         @param lastCheck: Epoch when last updated
-        @type  layers: list<Layer>
+        @type  layers: list<job_pb2.Layer>
         @param layers: List of layers to check, empty list checks all
-        @rtype:  UpdatedFrameCheckResult
+        @rtype:  job_pb2.UpdatedFrameCheckResult
         @return: Job state and a list of updatedFrames"""
         if layers is not None:
             layerSeq = job_pb2.LayerSeq()
@@ -190,7 +190,7 @@ class Job(object):
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this job
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: List of dependencies that depend directly on this job"""
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.JobGetWhatDependsOnThisRequest(job=self.data),
@@ -200,7 +200,7 @@ class Job(object):
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this job depends on
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: dependencies that this job depends on"""
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.JobGetWhatThisDependsOnRequest(job=self.data),
@@ -210,7 +210,7 @@ class Job(object):
 
     def getDepends(self):
         """Returns a list of all depends this job is involved with
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: all depends involved with this job"""
         response = self.stub.GetDepends(
             job_pb2.JobGetDependsRequest(job=self.data),
@@ -220,44 +220,44 @@ class Job(object):
 
     def dropDepends(self, target):
         """Drops the desired dependency target:
-        opencue.DependTarget.AnyTarget
-        opencue.DependTarget.External
-        opencue.DependTarget.Internal
-        @type  target: DependTarget
+        depend_pb2.DependTarget.AnyTarget
+        depend_pb2.DependTarget.External
+        depend_pb2.DependTarget.Internal
+        @type  target: depend_pb2.DependTarget
         @param target: The desired dependency target to drop"""
         return self.stub.DropDepends(job_pb2.JobDropDependsRequest(job=self.data, target=target),
                                      timeout=Cuebot.Timeout)
 
     def createDependencyOnJob(self, job):
         """Create and return a job on job dependency
-        @type  job: Job
+        @type  job: opencue.wrappers.job.Job
         @param job: the job you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: The new dependency"""
         response = self.stub.CreateDependencyOnJob(
-            job_pb2.JobCreateDependencyOnJobRequest(job=self.data, on_job=job),
+            job_pb2.JobCreateDependencyOnJobRequest(job=self.data, on_job=job.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a job on layer dependency
-        @type  layer: Layer
+        @type  layer: opencue.wrappers.layer.Layer
         @param layer: the layer you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependencyOnLayer(
-            job_pb2.JobCreateDependencyOnLayerRequest(job=self.data, layer=layer),
+            job_pb2.JobCreateDependencyOnLayerRequest(job=self.data, layer=layer.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a job on frame dependency
-        @type  frame: Frame
+        @type  frame: opencue.wrappers.frame.Frame
         @param frame: the frame you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         response = self.stub.CreateDependencyOnFrame(
-            job_pb2.JobCreateDependencyOnFrameRequest(job=self.data, frame=frame),
+            job_pb2.JobCreateDependencyOnFrameRequest(job=self.data, frame=frame.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
@@ -295,9 +295,9 @@ class Job(object):
 
     def setGroup(self, group):
         """Sets the job to a new group
-        @type  group: Group
+        @type  group: opencue.wrappers.group.Group
         @param group: the group you want the job to be in."""
-        self.stub.SetGroup(job_pb2.JobSetGroupRequest(job=self.data, group_id=group.id),
+        self.stub.SetGroup(job_pb2.JobSetGroupRequest(job=self.data, group_id=group.id()),
                            timeout=Cuebot.Timeout)
 
     def reorderFrames(self, range, order):
@@ -667,7 +667,7 @@ class NestedJob(Job):
 
     def getLayers(self):
         """Returns the list of layers
-        @rtype:  list<Layer>
+        @rtype:  list<opencue.wrappers.layer.Layer>
         @return: List of layers"""
         return self.asJob().getLayers()
 
@@ -676,7 +676,7 @@ class NestedJob(Job):
         frames = job.getFrames(show=["edu","beo"],user="jwelborn")
         frames = job.getFrames(show="edu",shot="bs.012")
         Allowed: offset, limit, states+, layers+. frameset, changedate
-        @rtype:  list<Frame>
+        @rtype:  list<opencue.wrappers.frame.Frame>
         @return: List of frames"""
         return self.asJob().getFrames(**options)
 
@@ -706,52 +706,52 @@ class NestedJob(Job):
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this job
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: List of dependencies that depend directly on this job"""
         return self.asJob().getWhatDependsOnThis()
 
     def getWhatThisDependsOn(self):
         """Returns a list of dependencies that this job depends on
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: dependencies that this job depends on"""
         return self.asJob().getWhatThisDependsOn()
 
     def getDepends(self):
         """Returns a list of all depends this job is involved with
-        @rtype:  list<Depend>
+        @rtype:  list<opencue.wrappers.depend.Depend>
         @return: all depends involved with this job"""
         return self.asJob().getDepends()
 
     def dropDepends(self, target):
         """Drops the desired dependency target:
-        opencue.DependTarget.AnyTarget
-        opencue.DependTarget.External
-        opencue.DependTarget.Internal
-        @type  target: DependTarget
+        depend_pb2.DependTarget.AnyTarget
+        depend_pb2.DependTarget.External
+        depend_pb2.DependTarget.Internal
+        @type  target: depend_pb2.DependTarget
         @param target: The desired dependency target to drop"""
         return self.asJob().dropDepends(target)
 
     def createDependencyOnJob(self, job):
         """Create and return a job on job dependency
-        @type  job: Job
+        @type  job: opencue.wrappers.job.Job
         @param job: the job you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: The new dependency"""
         return self.asJob().createDependencyOnJOb(job)
 
     def createDependencyOnLayer(self, layer):
         """Create and return a job on layer dependency
-        @type  layer: Layer
+        @type  layer: opencue.wrappers.layer.Layer
         @param layer: the layer you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         return self.asJob().createDependencyOnLayer(layer)
 
     def createDependencyOnFrame(self, frame):
         """Create and return a job on frame dependency
-        @type  frame: Frame
+        @type  frame: opencue.wrappers.frame.Frame
         @param frame: the frame you want this job to depend on
-        @rtype:  Depend
+        @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
         return self.asJob().createDependencyOnFrame(frame)
 
@@ -769,7 +769,7 @@ class NestedJob(Job):
 
     def setGroup(self, group):
         """Sets the job to a new group
-        @type  group: Group
+        @type  group: opencue.wrappers.group.Group
         @param group: the group you want the job to be in."""
         self.asJob().setGroup(group)
 

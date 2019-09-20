@@ -47,7 +47,7 @@ class Show(object):
 
     def createSubscription(self, allocation, size, burst):
         """Creates a new subscription
-        @type allocation: Allocation
+        @type allocation: opencue.wrappers.allocation.Allocation
         @param allocation: Allocation object
         @type size: float
         @param size: Allocation size
@@ -57,7 +57,7 @@ class Show(object):
         @return: The created subscription object
         """
         response = self.stub.CreateSubscription(show_pb2.ShowCreateSubscriptionRequest(
-            show=self.data, allocation_id=allocation.id, size=size, burst=burst),
+            show=self.data, allocation_id=allocation.id(), size=size, burst=burst),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.subscription.Subscription(response.subscription)
 
@@ -67,7 +67,7 @@ class Show(object):
 
     def getServiceOverrides(self):
         """Returns a list of service overrides on the show.
-        @rtype: list<ServiceOverride>
+        @rtype: list<service_pb2.ServiceOverride>
         @return: a list of service override objects
         """
         serviceOverrideSeq = self.stub.GetServiceOverrides(
@@ -77,7 +77,7 @@ class Show(object):
 
     def getSubscriptions(self):
         """Returns a list of all subscriptions
-        @rtype: list<Subscription>
+        @rtype: list<opencue.wrappers.subscription.Subscription>
         @return: A list of subscription objects
         """
         response = self.stub.GetSubscriptions(show_pb2.ShowGetSubscriptionRequest(
@@ -88,7 +88,7 @@ class Show(object):
 
     def findSubscription(self, name):
         """Returns the matching subscription
-        @rtype: Subscription
+        @rtype: opencue.wrappers.subscription.Subscription
         @return: The matching subscription
         """
         subscriptions = opencue.wrappers.subscription.Subscription()
@@ -96,7 +96,7 @@ class Show(object):
 
     def getFilters(self):
         """Returns the job filters for this show
-        @rtype: list<Filter>
+        @rtype: list<opencue.wrappers.filter.Filter>
         @return: List of Filter wrapper objects for this show.
         """
         response = self.stub.GetFilters(show_pb2.ShowGetFiltersRequest(
@@ -143,7 +143,7 @@ class Show(object):
         """Find the filter by name
         @type: string
         @param: name of filter to find
-        @rtype: Filter
+        @rtype: opencue.wrappers.filter.Filter
         @return: filter wrapper of found filter
         """
         response = self.stub.FindFilter(show_pb2.ShowFindFilterRequest(
@@ -163,7 +163,7 @@ class Show(object):
 
     def getGroups(self):
         """Get the groups for this show
-        @rtype: list<Group>
+        @rtype: list<opencue.wrappers.group.Group>
         @return: list of group wrappers for this show
         """
         response = self.stub.GetGroups(show_pb2.ShowGetGroupsRequest(

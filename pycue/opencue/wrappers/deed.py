@@ -38,14 +38,16 @@ class Deed(object):
 
     def getHost(self):
         """Return the host for this deed
-        @rtype:  Host Wrapper
+        @rtype:  opencue.wrappers.host.Host Wrapper
         @return: Host associated with this deed"""
         return opencue.wrappers.host.Host(
             self.stub.GetHost(host_pb2.DeedGetHostRequest(deed=self.data),
                               timeout=Cuebot.Timeout).host)
 
     def getOwner(self):
-        """Returns the owner for these settings."""
+        """Returns the owner for these settings.
+        @rtype: opencue.wrappers.host.Host
+        @return Owner of this deed"""
         return opencue.wrappers.owner.Owner(
             self.stub.GetOwner(host_pb2.DeedGetOwnerRequest(deed=self.data),
                                timeout=Cuebot.Timeout).owner)

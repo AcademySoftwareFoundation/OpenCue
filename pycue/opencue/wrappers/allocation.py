@@ -40,7 +40,7 @@ class Allocation(object):
 
     def getHosts(self):
         """Returns the list of hosts for this allocation.
-        @rtype: list<host>
+        @rtype: list<opencue.wrappers.host.Host>
         @return: list of hosts
         """
         hostSeq = self.stub.GetHosts(facility_pb2.AllocGetHostsRequest(allocation=self.data),
@@ -49,7 +49,7 @@ class Allocation(object):
 
     def getSubscriptions(self):
         """Get the subscriptions of this allocation.
-        @rtype: list<subscription>
+        @rtype: list<opencue.wrappers.subscription.Subscription>
         @return: a list of subscriptions
         """
         subscriptionSeq = self.stub.GetSubscriptions(
@@ -59,15 +59,23 @@ class Allocation(object):
 
     def reparentHosts(self, hosts):
         """Moves the given hosts to the allocation
-        @type  hosts: list<HostInterfacePrx or Host or id or str hostname>
+        @type  hosts: list<opencue.wrappers.host.Host>
         @param hosts: The hosts to move to this allocation
         """
         hostSeq = host_pb2.HostSeq()
-        hostSeq.hosts.extend(hosts)
+        hostSeq.hosts.extend([host.data for host in hosts])
         self.stub.ReparentHosts(
             facility_pb2.AllocReparentHostsRequest(allocation=self.data, hosts=hostSeq),
             timeout=Cuebot.Timeout
         )
+      
+    def reparentHostIds(self, hostIds):
+        """Moves the given hosts to the allocation
+        @type  hostIds: list<str>
+        @param hostIds: The host ids to move to this allocation
+        """
+        hosts = [opencue.wrappers.host.Host(host_pb2.Host(id=hostId)) for hostId in hostIds]
+        self.reparentHosts(hosts)
 
     def setName(self, name):
         """Sets a new name for the allocation.
