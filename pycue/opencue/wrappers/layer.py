@@ -199,7 +199,7 @@ class Layer(object):
         @return: the new dependency"""
         # anyframe is hard coded right now, this option should be moved
         # to LayerOnLayer for better efficiency.
-        response = self.stub.CreateFrameByFrameDepend(
+        response = self.stub.CreateFrameByFrameDependency(
             job_pb2.LayerCreateFrameByFrameDependRequest(
                 layer=self.data, depend_layer=layer.data, any_frame=False),
             timeout=Cuebot.Timeout)
