@@ -21,6 +21,12 @@ import unittest
 
 import pyfakefs.fake_filesystem_unittest
 
+# Decorators are applied at import time, so we have to mock Memoize here; it's
+# a function that caches results of method calls and makes it difficult to mock
+# methods that use it.
+mock.patch('rqd.rqutil.Memoize', lambda x: x).start()
+
+import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnimby
@@ -81,118 +87,10 @@ cache_alignment	: 64
 address sizes	: 40 bits physical, 48 bits virtual
 power management:
 
-processor	: 2
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 63
-model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
-stepping	: 2
-microcode	: 0x1
-cpu MHz		: 2299.998
-cache size	: 46080 KB
-physical id	: 2
-siblings	: 1
-core id		: 0
-cpu cores	: 1
-apicid		: 2
-initial apicid	: 2
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 13
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
-bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
-bogomips	: 4599.99
-clflush size	: 64
-cache_alignment	: 64
-address sizes	: 40 bits physical, 48 bits virtual
-power management:
-
-processor	: 3
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 63
-model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
-stepping	: 2
-microcode	: 0x1
-cpu MHz		: 2299.998
-cache size	: 46080 KB
-physical id	: 3
-siblings	: 1
-core id		: 0
-cpu cores	: 1
-apicid		: 3
-initial apicid	: 3
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 13
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
-bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
-bogomips	: 4599.99
-clflush size	: 64
-cache_alignment	: 64
-address sizes	: 40 bits physical, 48 bits virtual
-power management:
-
-processor	: 4
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 63
-model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
-stepping	: 2
-microcode	: 0x1
-cpu MHz		: 2299.998
-cache size	: 46080 KB
-physical id	: 4
-siblings	: 1
-core id		: 0
-cpu cores	: 1
-apicid		: 4
-initial apicid	: 4
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 13
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
-bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
-bogomips	: 4599.99
-clflush size	: 64
-cache_alignment	: 64
-address sizes	: 40 bits physical, 48 bits virtual
-power management:
-
-processor	: 5
-vendor_id	: GenuineIntel
-cpu family	: 6
-model		: 63
-model name	: Intel(R) Xeon(R) CPU E5-2699 v3 @ 2.30GHz
-stepping	: 2
-microcode	: 0x1
-cpu MHz		: 2299.998
-cache size	: 46080 KB
-physical id	: 5
-siblings	: 1
-core id		: 0
-cpu cores	: 1
-apicid		: 5
-initial apicid	: 5
-fpu		: yes
-fpu_exception	: yes
-cpuid level	: 13
-wp		: yes
-flags		: fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush mmx fxsr sse sse2 ss syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon rep_good nopl cpuid tsc_known_freq pni pclmulqdq vmx ssse3 fma cx16 pcid sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand hypervisor lahf_lm abm invpcid_single pti ibrs ibpb tpr_shadow vnmi flexpriority ept vpid fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid xsaveopt arat md_clear
-bugs		: cpu_meltdown spectre_v1 spectre_v2 spec_store_bypass l1tf mds
-bogomips	: 4599.99
-clflush size	: 64
-cache_alignment	: 64
-address sizes	: 40 bits physical, 48 bits virtual
-power management:
-
 """
 
 
-MEMINFO = """MemTotal:       32942144 kB
+MEMINFO_MODERATE_USAGE = """MemTotal:       32942144 kB
 MemFree:         5339060 kB
 Cached:         20360116 kB
 SwapFree:        4105212 kB
@@ -211,21 +109,29 @@ SwapFree:              0 kB
 """
 
 
-class StatvfsMock(mock.MagicMock):
-    def __init__(self, *args, **kwargs):
-        super(StatvfsMock, self).__init__(args, kwargs)
-        self.f_bsize = 1048576
-        self.f_frsize = 4096
-        self.f_blocks = 360540255
-        self.f_bfree = 285953527
-        self.f_bavail = 267639130
-        self.f_files = 91578368
-        self.f_ffree = 91229495
-        self.f_favail = 91229495
-        self.f_flag = 4096
-        self.f_namemax = 255
+LOADAVG_LOW_USAGE = '0.25 0.16 0.11 2/1655 50733'
+
+LOADAVG_HIGH_USAGE = '10.38 10.12 10.22 2/1655 50733'
 
 
+INITTAB_DESKTOP = '''rc::bootwait:/etc/rc
+id:5:initdefault:
+1:1:respawn:/etc/getty 9600 tty1
+2:1:respawn:/etc/getty 9600 tty2
+3:1:respawn:/etc/getty 9600 tty3
+4:1:respawn:/etc/getty 9600 tty4
+'''
+
+INITTAB_SERVER = '''rc::bootwait:/etc/rc
+id:3:initdefault:
+1:1:respawn:/etc/getty 9600 tty1
+2:1:respawn:/etc/getty 9600 tty2
+3:1:respawn:/etc/getty 9600 tty3
+4:1:respawn:/etc/getty 9600 tty4
+'''
+
+
+@mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
 @mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=9876))
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
@@ -233,59 +139,90 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
         self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
-        #self.fs.create_file('/proc/meminfo', contents=MEMINFO)
-        self.fs.create_file('/proc/loadavg', contents='0.25 0.16 0.11 2/1655 50733')
+        self.loadavg = self.fs.create_file('/proc/loadavg', contents=LOADAVG_LOW_USAGE)
 
-    @staticmethod
-    def __statvfs_mock():
-        statvfs_mock = mock.Mock()
-        statvfs_mock.f_bsize = 1048576
-        statvfs_mock.f_frsize = 4096
-        statvfs_mock.f_blocks = 360540255
-        statvfs_mock.f_bfree = 285953527
-        statvfs_mock.f_bavail = 267639130
-        statvfs_mock.f_files = 91578368
-        statvfs_mock.f_ffree = 91229495
-        statvfs_mock.f_favail = 91229495
-        statvfs_mock.f_flag = 4096
-        statvfs_mock.f_namemax = 255
-        return statvfs_mock
+        self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
+        self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        self.rqCore.nimby = self.nimby
+        self.nimby.active = False
+        self.nimby.locked = False
+        self.coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(total_cores=2)
+
+        self.machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs(self):
-        rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
-        rqCore.nimby.active = True
-        rqCore.nimby.locked = True
-        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
-        self.fs.create_file('/proc/meminfo', contents=MEMINFO)
-        machine = rqd.rqmachine.Machine(rqCore, coreDetail)
+        self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
-        self.assertTrue(machine.isNimbySafeToRunJobs())
+        self.assertTrue(self.machine.isNimbySafeToRunJobs())
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs_noFreeMem(self):
-        rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
-        rqCore.nimby.active = True
-        rqCore.nimby.locked = True
-        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
         self.fs.create_file('/proc/meminfo', contents=MEMINFO_NONE_FREE)
-        machine = rqd.rqmachine.Machine(rqCore, coreDetail)
 
-        self.assertFalse(machine.isNimbySafeToRunJobs())
+        self.assertFalse(self.machine.isNimbySafeToRunJobs())
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs_noFreeSwap(self):
-        rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        rqCore.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
-        rqCore.nimby.active = True
-        rqCore.nimby.locked = True
-        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail()
         self.fs.create_file('/proc/meminfo', contents=MEMINFO_NO_SWAP)
-        machine = rqd.rqmachine.Machine(rqCore, coreDetail)
 
-        self.assertFalse(machine.isNimbySafeToRunJobs())
+        self.assertFalse(self.machine.isNimbySafeToRunJobs())
+
+    @mock.patch.object(
+        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=True))
+    def test_isNimbySafeToUnlock(self):
+        self.loadavg.set_contents(LOADAVG_LOW_USAGE)
+        rqd.rqconstants.MAXIMUM_LOAD = 5
+
+        self.assertTrue(self.machine.isNimbySafeToUnlock())
+
+    @mock.patch.object(
+        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=False))
+    def test_isNimbySafeToUnlock_unsafeToRunJobs(self):
+        self.assertFalse(self.machine.isNimbySafeToUnlock())
+
+    @mock.patch.object(
+        rqd.rqmachine.Machine, 'isNimbySafeToRunJobs', new=mock.MagicMock(return_value=True))
+    def test_isNimbySafeToUnlock_loadTooHigh(self):
+        self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
+        rqd.rqconstants.MAXIMUM_LOAD = 5
+
+        self.assertFalse(self.machine.isNimbySafeToUnlock())
+
+    def test_isDesktop_inittabDesktop(self):
+        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
+        self.fs.create_file(rqd.rqconstants.PATH_INITTAB, contents=INITTAB_DESKTOP)
+
+        self.assertTrue(self.machine.isDesktop())
+
+    def test_isDesktop_inittabServer(self):
+        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
+        self.fs.create_file(rqd.rqconstants.PATH_INITTAB, contents=INITTAB_SERVER)
+
+        self.assertFalse(self.machine.isDesktop())
+
+    def test_isDesktop_initTarget(self):
+        rqd.rqconstants.OVERRIDE_IS_DESKTOP = False
+        self.fs.create_file(rqd.rqconstants.PATH_INITTAB)
+        symlink_target = '/lib/systemd/system/graphical.target'
+        self.fs.create_file(symlink_target)
+        self.fs.create_symlink(rqd.rqconstants.PATH_INIT_TARGET, symlink_target)
+
+        self.assertTrue(self.machine.isDesktop())
+
+    def test_isDesktop_override(self):
+        rqd.rqconstants.OVERRIDE_IS_DESKTOP = True
+
+        self.assertTrue(self.machine.isDesktop())
+
+    def test_isUserLoggedIn(self):
+        # create file /tmp/.X11-unix/X20
+        # mock /usr/bin/who to return
+        # <username> :20           2017-11-07 18:21 (:20)
+
+        # other case, mock psutil to return gnome-session as running
+
+        self.machine.isUserLoggedIn()
 
 
 class CpuinfoTests(unittest.TestCase):
