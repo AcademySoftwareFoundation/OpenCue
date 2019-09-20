@@ -171,6 +171,7 @@ class AbstractActions(object):
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])
+        return self.__actionCache[key]
 
     def cuebotCall(self, functionToCall, errorMessageTitle, *args):
         """Makes the given call to the Cuebot, displaying exception info if needed.
@@ -226,6 +227,12 @@ class JobActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
             self.app.view_object.emit(job)
+
+    viewOutputInItview_info = ["View Output in Itview", None, "view"]
+    def viewOutputInItview(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            cuegui.Utils.viewOutputInItview(jobs[0], None, self._caller)
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -839,6 +846,12 @@ class LayerActions(AbstractActions):
         if layers:
             cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
+    viewOutputInItview_info = ["View Output in Itview", None, "view"]
+    def viewOutputInItview(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            cuegui.Utils.viewOutputInItview(self._getSource(), layers, self._caller)
+
     reorder_info = ["Reorder Frames...", None, "configure"]
 
     def reorder(self, rpcObjects=None):
@@ -1028,6 +1041,12 @@ class FrameActions(AbstractActions):
     def viewDepends(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         cuegui.DependDialog.DependDialog(frames[0], self._caller).show()
+
+    viewOutputInItview_info = ["View Output in Itview", None, "view"]
+    def viewOutputInItview(self, rpcObjects=None):
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        if frames:
+            cuegui.Utils.viewOutputInItview(self._getSource(), frames, self._caller)
 
     getWhatDependsOnThis_info = ["print getWhatDependsOnThis", None, "log"]
 

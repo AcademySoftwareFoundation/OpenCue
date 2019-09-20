@@ -530,6 +530,56 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
                     command += " --title1 %s %s" % (frame.data.name, getFrameLogFile(job, frame))
             shellOut(command)
 
+################################################################################
+# View output in itview functions
+################################################################################
+
+def viewOutputInItview(job, items, parent):
+    """Views the output of a job, layers or frames in itview
+    @type  job: Job
+    @param job: The job with the output to view
+    @type  items: list<Layer> or list<Frame> or None
+    @param items: Either a list of layers or a list of frames or None to view
+                  the entire job's outputs
+    @type  parent: QWidget
+    @param parent: The calling parent"""
+    paths = []
+    if not items:
+        paths = getOutputFromLayers(job, job.getLayers())
+    elif isLayer(items[0]):
+        paths = getOutputFromLayers(job, items)
+    elif isFrame(items[0]):
+        all_layers = dict([(layer.data.name, layer)
+                           for layer in job.getLayers()])
+        for frame in items:
+            paths.extend(getOutputFromFrame(job,
+                                            all_layers[frame.data.layer_name],
+                                            frame))
+
+    # Only load a stereo output once, itview will load the other
+    if len(paths) == 2:
+        if len(set([path.replace('_rt_', '_lf_') for path in paths])) == 1:
+            paths.pop()
+
+    if paths:
+        split = paths[0].split("shots")[1].split("/")
+
+        show = split[1]
+        shot = split[2]
+        colorio = '/shots/{0}/home/lib/lut/colorspaces.xml'.format(show)
+        ocio = '/shots/{0}/home/lib/lut/current/config.ocio'.format(show)
+
+        cmd = 'env SHOW={0} SHOT={1} COLOR_IO={2} OCIO={3}'.format(show, shot, colorio, ocio)
+        cmd += ' itview {0}'.format(' '.join(paths))
+
+        msg = 'Launching Itview: {0}'.format(cmd)
+        QtGui.qApp.emit(QtCore.SIGNAL('status(PyQt_PyObject)'), msg)
+        print(msg)
+        shellOut(cmd)
+    else:
+        showErrorMessageBox("Sorry, unable to find any completed frames with known output paths",
+                            title="Unable to find completed frames")
+
 
 ################################################################################
 # Drag and drop functions

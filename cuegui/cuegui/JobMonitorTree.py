@@ -392,6 +392,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
+        it_view_action = self.__menuActions.jobs().addAction(menu, "viewOutputInItview")
+        it_view_action.setDisabled(__count == 0)
+        it_view_action.setToolTip("Open ItView for the selected items")
+
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
         self.__menuActions.jobs().addAction(depend_menu, "dependWizard")
