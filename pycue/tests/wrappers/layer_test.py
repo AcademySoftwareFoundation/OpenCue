@@ -306,7 +306,7 @@ class LayerTests(unittest.TestCase):
         dependId = 'dddd-ddd-dddd'
         layerId = 'llll-lll-llll'
         stubMock = mock.Mock()
-        stubMock.CreateFrameByFrameDepend.return_value = \
+        stubMock.CreateFrameByFrameDependency.return_value = \
             job_pb2.LayerCreateFrameByFrameDependResponse(depend=depend_pb2.Depend(id=dependId))
         getStubMock.return_value = stubMock
 
@@ -316,7 +316,7 @@ class LayerTests(unittest.TestCase):
             job_pb2.Layer(id=layerId))
         depend = layer.createFrameByFrameDependency(dependLayer)
 
-        stubMock.CreateFrameByFrameDepend.assert_called_with(
+        stubMock.CreateFrameByFrameDependency.assert_called_with(
             job_pb2.LayerCreateFrameByFrameDependRequest(layer=layer.data,
                                                          depend_layer=dependLayer.data,
                                                          any_frame=False),
