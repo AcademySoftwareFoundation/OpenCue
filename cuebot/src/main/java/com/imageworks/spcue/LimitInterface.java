@@ -17,27 +17,10 @@
 
 
 
-package com.imageworks.spcue.service;
+package com.imageworks.spcue;
 
-import java.util.List;
+public interface LimitInterface extends EntityInterface {
 
-import com.imageworks.spcue.JobInterface;
-
-public interface HistoricalManager {
-
-    /**
-     * Returns a list of jobs ready to be archived.
-     *
-     * @return List<Job>
-     */
-    List<JobInterface> getFinishedJobs();
-
-    /**
-     * Transfers data from the live to the historical tables.
-     *
-     * @param job
-     */
-    void transferJob(JobInterface job);
+    public String getLimitId();
 
 }
-

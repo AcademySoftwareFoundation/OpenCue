@@ -37,7 +37,7 @@
 <!-- ================================================================= -->
 
 <!ELEMENT layers            (layer+)>
-<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,gpu?,tags?,env*,services?)>
+<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,gpu?,tags?,limits?,env*,services?)>
 <!ATTLIST layer
     name                    NMTOKEN                #REQUIRED
     type                    (Render | Util | Post) #REQUIRED
@@ -50,6 +50,7 @@
 <!ELEMENT memory            (#PCDATA)*>
 <!ELEMENT gpu               (#PCDATA)*>
 <!ELEMENT tags              (#PCDATA)*>
+<!ELEMENT limits            (limit+)>
 <!ELEMENT services          (service+)>
 <!ELEMENT env               (key*)>
 
@@ -58,6 +59,11 @@
 <!-- Layer Services                                                    -->
 <!-- ================================================================= -->
 <!ELEMENT service           (#PCDATA)*>
+
+<!-- ================================================================= -->
+<!-- Layer Limits                                                    -->
+<!-- ================================================================= -->
+<!ELEMENT limit           (#PCDATA)*>
 
 <!-- ================================================================= -->
 <!-- Environment Variables -->

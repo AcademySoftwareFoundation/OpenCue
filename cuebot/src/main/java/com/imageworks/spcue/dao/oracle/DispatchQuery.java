@@ -64,6 +64,27 @@ public class DispatchQuery {
                 "AND layer.int_gpu_min              BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
                 "AND CATSEARCH(host.str_tags, layer.str_tags, ?) > 0 " +
+                "AND layer.pk_layer IN (" +
+                    "SELECT " +
+                        "l.pk_layer " +
+                    "FROM " +
+                        "layer l " +
+                    "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
+                    "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                    "LEFT JOIN (" +
+                        "SELECT " +
+                            "limit_record.pk_limit_record, " +
+                            "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                        "FROM " +
+                            "layer_limit " +
+                        "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                        "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                        "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                    "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                    "WHERE " +
+                        "sum_running.int_sum_running < limit_record.int_max_value " +
+                        "OR sum_running.int_sum_running IS NULL " +
+                ") " +
         ") WHERE rank < ?";
 
 
@@ -137,7 +158,30 @@ public class DispatchQuery {
                     "l.int_mem_min <= host_local.int_mem_idle " +
                 "AND " +
                     "l.int_gpu_min <= host_local.int_gpu_idle " +
-        ")) WHERE rank < 5";
+                "AND " +
+                    "l.pk_layer IN (" +
+                        "SELECT " +
+                            "la.pk_layer " +
+                        "FROM " +
+                            "layer la " +
+                        "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                        "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                        "LEFT JOIN (" +
+                            "SELECT " +
+                                "limit_record.pk_limit_record, " +
+                                "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                            "FROM " +
+                                "layer_limit " +
+                            "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                            "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                            "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                        "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                        "WHERE " +
+                            "sum_running.int_sum_running < limit_record.int_max_value " +
+                            "OR sum_running.int_sum_running IS NULL " +
+                    ") " +
+            ") " +
+        ") WHERE rank < 5";
 
     /**
      * This query is run before a proc is dispatched to the next frame.
@@ -212,7 +256,30 @@ public class DispatchQuery {
                 "AND " +
                     "l.int_gpu_min = ? " +
                 "AND " +
-                    "CATSEARCH(h.str_tags, l.str_tags, ?) > 0) " +
+                    "CATSEARCH(h.str_tags, l.str_tags, ?) > 0" +
+                "AND " +
+                    "l.pk_layer IN (" +
+                        "SELECT " +
+                            "la.pk_layer " +
+                        "FROM " +
+                            "layer la " +
+                        "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                        "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                        "LEFT JOIN (" +
+                            "SELECT " +
+                                "limit_record.pk_limit_record, " +
+                                "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                            "FROM " +
+                                "layer_limit " +
+                            "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                            "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                            "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                        "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                        "WHERE " +
+                            "sum_running.int_sum_running < limit_record.int_max_value " +
+                            "OR sum_running.int_sum_running IS NULL " +
+                    ") " +
+            ") " +
     "AND ROWNUM < 2 ";
 
     /**
@@ -284,7 +351,30 @@ public class DispatchQuery {
                         "AND " +
                             "l.int_gpu_min = ? " +
                         "AND " +
-                            "CATSEARCH(h.str_tags, l.str_tags, ?) > 0) " +
+                            "CATSEARCH(h.str_tags, l.str_tags, ?) > 0" +
+                        "AND " +
+                            "l.pk_layer IN (" +
+                                "SELECT " +
+                                    "la.pk_layer " +
+                                "FROM " +
+                                    "layer la " +
+                                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                                "LEFT JOIN (" +
+                                    "SELECT " +
+                                        "limit_record.pk_limit_record, " +
+                                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                                    "FROM " +
+                                        "layer_limit " +
+                                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                                "WHERE " +
+                                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                                    "OR sum_running.int_sum_running IS NULL " +
+                            ") " +
+                    ") " +
                 "AND ROWNUM < 2 ";
 
     /**
@@ -379,7 +469,30 @@ public class DispatchQuery {
                 "l.pk_job= ? " +
             "AND " +
                 "CATSEARCH(h.str_tags, l.str_tags, ?) > 0 "+
-        ")) WHERE LINENUM <= ?";
+            ") " +
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
+        ") WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
@@ -477,6 +590,28 @@ public class DispatchQuery {
             "AND " +
                 "CATSEARCH(h.str_tags, l.str_tags,?) > 0 "+
         ") " +
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
 
@@ -557,6 +692,28 @@ public class DispatchQuery {
             "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
+        "AND " +
+            "layer.pk_layer IN (" +
+            "SELECT " +
+                "la.pk_layer " +
+            "FROM " +
+                "layer la " +
+            "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+            "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+            "LEFT JOIN (" +
+                "SELECT " +
+                    "limit_record.pk_limit_record, " +
+                    "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                "FROM " +
+                    "layer_limit " +
+                "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+            "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+            "WHERE " +
+                "sum_running.int_sum_running < limit_record.int_max_value " +
+                "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
     /**
@@ -639,6 +796,28 @@ public class DispatchQuery {
             "frame.str_state='WAITING' " +
         "AND " +
             "job.pk_job=? "+
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
 
@@ -737,7 +916,28 @@ public class DispatchQuery {
                 "l.pk_layer= ? " +
             "AND " +
                 "CATSEARCH(h.str_tags, l.str_tags, ?) > 0 "+
-        ")) WHERE LINENUM <= ?";
+        ") " +
+        "AND layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL) " +
+        ") WHERE LINENUM <= ?";
 
     /**
      * Find the next frame in a job for a host.
@@ -835,6 +1035,28 @@ public class DispatchQuery {
             "AND " +
                 "CATSEARCH(h.str_tags, l.str_tags,?) > 0 "+
         ") " +
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
 
@@ -915,6 +1137,28 @@ public class DispatchQuery {
             "frame.str_state='WAITING' " +
         "AND " +
             "layer.pk_layer =? "+
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
     /**
@@ -997,6 +1241,28 @@ public class DispatchQuery {
             "frame.str_state='WAITING' " +
         "AND " +
             "layer.pk_layer=? "+
+        "AND " +
+            "layer.pk_layer IN (" +
+                "SELECT " +
+                    "la.pk_layer " +
+                "FROM " +
+                    "layer la " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = la.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
         ") WHERE LINENUM <= ?";
 
     /**

@@ -17,27 +17,25 @@
 
 
 
-package com.imageworks.spcue.service;
+package com.imageworks.spcue;
 
-import java.util.List;
+import com.imageworks.spcue.grpc.limit.Limit;
 
-import com.imageworks.spcue.JobInterface;
+public class LimitEntity extends Entity implements LimitInterface {
 
-public interface HistoricalManager {
+    public int maxValue;
+    public int currentRunning;
 
-    /**
-     * Returns a list of jobs ready to be archived.
-     *
-     * @return List<Job>
-     */
-    List<JobInterface> getFinishedJobs();
+    public LimitEntity() {}
 
-    /**
-     * Transfers data from the live to the historical tables.
-     *
-     * @param job
-     */
-    void transferJob(JobInterface job);
+    public LimitEntity(Limit grpcLimit) {
+        this.id = grpcLimit.getId();
+        this.name = grpcLimit.getName();
+        this.maxValue = grpcLimit.getMaxValue();
+        this.currentRunning = grpcLimit.getCurrentRunning();
+    }
 
+    public String getLimitId() {
+        return id;
+    }
 }
-

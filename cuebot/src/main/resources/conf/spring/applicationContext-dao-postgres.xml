@@ -45,6 +45,10 @@
         <property name="dataSource" ref="cueDataSource" />
     </bean>
 
+    <bean id="limitDao" class="com.imageworks.spcue.dao.postgres.LimitDaoJdbc">
+        <property name="dataSource" ref="cueDataSource" />
+    </bean>
+
     <bean id="frameDao" class="com.imageworks.spcue.dao.postgres.FrameDaoJdbc">
         <property name="dataSource" ref="cueDataSource" />
     </bean>

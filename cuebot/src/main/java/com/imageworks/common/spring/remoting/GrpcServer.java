@@ -25,6 +25,7 @@ import com.imageworks.spcue.servant.ManageGroup;
 import com.imageworks.spcue.servant.ManageHost;
 import com.imageworks.spcue.servant.ManageJob;
 import com.imageworks.spcue.servant.ManageLayer;
+import com.imageworks.spcue.servant.ManageLimit;
 import com.imageworks.spcue.servant.ManageMatcher;
 import com.imageworks.spcue.servant.ManageOwner;
 import com.imageworks.spcue.servant.ManageProc;
@@ -87,6 +88,7 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageHost", ManageHost.class))
                 .addService(applicationContext.getBean("manageJob", ManageJob.class))
                 .addService(applicationContext.getBean("manageLayer", ManageLayer.class))
+                .addService(applicationContext.getBean("manageLimit", ManageLimit.class))
                 .addService(applicationContext.getBean("manageMatcher", ManageMatcher.class))
                 .addService(applicationContext.getBean("manageOwner", ManageOwner.class))
                 .addService(applicationContext.getBean("manageProc", ManageProc.class))

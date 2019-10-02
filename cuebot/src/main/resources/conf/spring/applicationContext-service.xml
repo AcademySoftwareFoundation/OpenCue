@@ -169,6 +169,7 @@
     <property name="dependManager" ref="dependManager" />
     <property name="filterManager" ref="filterManager" />
     <property name="hostDao" ref="hostDao" />
+    <property name="limitDao" ref="limitDao" />
   </bean>
 
   <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
@@ -226,6 +227,7 @@
     <property name="allocationDao" ref="allocationDao" />
     <property name="subscriptionDao" ref="subscriptionDao" />
     <property name="facilityDao" ref="facilityDao" />
+    <property name="limitDao" ref="limitDao" />
     <property name="groupManager" ref="groupManager"/>
   </bean>
 

@@ -22,6 +22,7 @@ package com.imageworks.spcue.test.dao.postgres;
 import java.io.File;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Resource;
 
@@ -40,12 +41,16 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.BuildableLayer;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
@@ -78,6 +83,9 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     LayerDao layerDao;
 
     @Resource
+    LimitDao limitDao;
+
+    @Resource
     JobManager jobManager;
 
     @Resource
@@ -94,6 +102,11 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     private static String ROOT_SHOW = "00000000-0000-0000-0000-000000000000";
     private static String LAYER_NAME = "pass_1";
     private static String JOB_NAME = "pipe-dev.cue-testuser_shell_v1";
+    private static String LIMIT_NAME = "test-limit";
+    private static String LIMIT_TEST_A = "testlimita";
+    private static String LIMIT_TEST_B = "testlimitb";
+    private static String LIMIT_TEST_C = "testlimitc";
+    private static int LIMIT_MAX_VALUE = 32;
 
     @Before
     public void testMode() {
@@ -112,6 +125,10 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         jobDao.insertJob(job);
 
         LayerDetail lastLayer= null;
+        String limitId = limitDao.createLimit(LIMIT_NAME, LIMIT_MAX_VALUE);
+        limitDao.createLimit(LIMIT_TEST_A, 1);
+        limitDao.createLimit(LIMIT_TEST_B, 2);
+        limitDao.createLimit(LIMIT_TEST_C, 3);
 
         for (BuildableLayer buildableLayer: spec.getJobs().get(0).getBuildableLayers()) {
 
@@ -127,6 +144,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
             layerDao.insertLayerDetail(layer);
             layerDao.insertLayerEnvironment(layer, buildableLayer.env);
+            layerDao.addLimit(layer, limitId);
             lastLayer = layer;
         }
 
@@ -135,6 +153,10 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
     public JobDetail getJob() {
         return jobDao.findJobDetail(JOB_NAME);
+    }
+
+    public String getTestLimitId(String name) {
+        return limitDao.findLimit(name).getLimitId();
     }
 
     @Test
@@ -179,6 +201,15 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         LayerDetail l2 = layerDao.getLayerDetail(layer);
         LayerDetail l3 = layerDao.getLayerDetail(layer.id);
         assertEquals(l2, l3);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLayerDetails() {
+        LayerDetail layer = getLayer();
+        List<LayerDetail> ld = layerDao.getLayerDetails(getJob());
+        assertEquals(ld.get(0).name, LAYER_NAME);
     }
 
     @Test
@@ -651,6 +682,60 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         layerDao.insertLayerOutput(layer, "filespec2");
         layerDao.insertLayerOutput(layer, "filespec3");
         assertEquals(3, layerDao.getLayerOutputs(layer).size());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLimits() {
+        LayerDetail layer = getLayer();
+        List<LimitEntity> limits = layerDao.getLimits(layer);
+        assertEquals(limits.size(), 1);
+        assertEquals(limits.get(0).id, getTestLimitId(LIMIT_NAME));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLimitNames() {
+        LayerDetail layer = getLayer();
+        List<String> limits = layerDao.getLimitNames(layer);
+        assertEquals(limits.size(), 1);
+        assertEquals(limits.get(0), LIMIT_NAME);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testAddLimit() {
+        LayerDetail layer = getLayer();
+        layerDao.addLimit(layer, getTestLimitId(LIMIT_TEST_A));
+        layerDao.addLimit(layer, getTestLimitId(LIMIT_TEST_B));
+        layerDao.addLimit(layer, getTestLimitId(LIMIT_TEST_C));
+        LayerInterface layerResult = layerDao.getLayer(layer.getLayerId());
+        List<LimitEntity> limits = layerDao.getLimits(layerResult);
+        assertEquals(limits.size(), 4);
+        assertEquals(limits.get(0).id, getTestLimitId(LIMIT_NAME));
+        assertEquals(limits.get(1).id, getTestLimitId(LIMIT_TEST_A));
+        assertEquals(limits.get(2).id, getTestLimitId(LIMIT_TEST_B));
+        assertEquals(limits.get(3).id, getTestLimitId(LIMIT_TEST_C));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDropLimit() {
+        LayerDetail layer = getLayer();
+        layerDao.addLimit(layer, getTestLimitId(LIMIT_TEST_A));
+        layerDao.dropLimit(layer, getTestLimitId(LIMIT_NAME));
+        LayerInterface layerResult = layerDao.getLayer(layer.getLayerId());
+        List<LimitEntity> limits = layerDao.getLimits(layerResult);
+        assertEquals(limits.size(), 1);
+        assertEquals(limits.get(0).id, getTestLimitId(LIMIT_TEST_A));
+        layerDao.dropLimit(layer, getTestLimitId(LIMIT_TEST_A));
+        LayerInterface layerResultB = layerDao.getLayer(layer.getLayerId());
+        List<LimitEntity> limitsB = layerDao.getLimits(layerResultB);
+        assertEquals(limitsB.size(), 0);
     }
 }
 

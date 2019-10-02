@@ -488,4 +488,22 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         FrameInterface frame = jobManager.findFrame(layer, 1);
         assertEquals("0001-pass_1", frame.getName());
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testAddLayerLimit() {
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
+        jobManager.addLayerLimit(layer, "0001-limit-1");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLayerLimits() {
+        JobInterface job = getJob3();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
+        jobManager.getLayerLimits(layer);
+    }
 }

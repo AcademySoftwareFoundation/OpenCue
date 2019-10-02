@@ -70,6 +70,7 @@ import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.MatcherDao;
 import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ProcDao;
@@ -103,6 +104,7 @@ import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.grpc.job.Layer;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
@@ -164,6 +166,9 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     LayerDao layerDao;
+
+    @Resource
+    LimitDao limitDao;
 
     @Resource
     DepartmentDao departmentDao;
@@ -287,6 +292,16 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
     }
 
+    public JobDetail launchLimitJob() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_limit.xml"));
+        return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
+    }
+
+    private void createTestLimits() {
+        limitDao.createLimit("util", 15);
+        limitDao.createLimit("arnold", 20);
+    }
 
     @Test
     @Transactional
@@ -533,6 +548,52 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         assertTrue(dispatchSupport.stopFrame(dframe, FrameState.SUCCEEDED, 0));
         dispatchSupport.updateUsageCounters(frame, 0);
         whiteboardDao.getLayers(job);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLimits() {
+        createTestLimits();
+        List<Limit> limits = whiteboardDao.getLimits();
+        assertEquals(limits.size(), 2);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLayerLimits() {
+        createTestLimits();
+        JobDetail job = launchLimitJob();
+        LayerInterface layer = layerDao.findLayer(job, "pass_1");
+        List<Limit> limits = whiteboardDao.getLimits(layer);
+        assertEquals(limits.size(), 1);
+        assertEquals(limits.get(0).getName(), "arnold");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetLimit() {
+        String limitName = "testing";
+        int limitMaxValue = 20;
+        String limitId = limitDao.createLimit(limitName, limitMaxValue);
+        Limit limit = whiteboardDao.getLimit(limitId);
+        assertEquals(limit.getName(), limitName);
+        assertEquals(limit.getMaxValue(), limitMaxValue);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindLimit() {
+        String limitName = "testing";
+        int limitMaxValue = 20;
+        String limitId = limitDao.createLimit(limitName, limitMaxValue);
+        Limit limit = whiteboardDao.findLimit(limitName);
+        assertEquals(limit.getName(), limitName);
+        assertEquals(limit.getMaxValue(), limitMaxValue);
+        assertEquals(limit.getId(), limitId);
     }
 
     @Test

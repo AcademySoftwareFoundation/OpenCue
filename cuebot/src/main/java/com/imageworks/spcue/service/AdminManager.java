@@ -23,6 +23,7 @@ import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
@@ -77,5 +78,16 @@ public interface AdminManager {
     DepartmentInterface getDepartment(DepartmentInterface d);
     DepartmentInterface createDepartment(String name);
     void removeDepartment(DepartmentInterface d);
+
+    /*
+     * Limits
+     */
+    String createLimit(String name, int maxValue);
+    void deleteLimit(LimitInterface limit);
+    LimitInterface findLimit(String name);
+    LimitInterface getLimit(String id);
+    void setLimitName(LimitInterface limit, String name);
+    void setLimitMaxValue(LimitInterface limit, int maxValue);
+
 }
 

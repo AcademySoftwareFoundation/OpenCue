@@ -29,6 +29,7 @@ import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.FacilityEntity;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.GroupDetail;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.SubscriptionEntity;
@@ -36,6 +37,7 @@ import com.imageworks.spcue.SubscriptionInterface;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.DepartmentDao;
 import com.imageworks.spcue.dao.FacilityDao;
+import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
 
@@ -56,6 +58,8 @@ public class AdminManagerService implements AdminManager {
     private FacilityDao facilityDao;
 
     private GroupManager groupManager;
+
+    private LimitDao limitDao;
 
     public void setShowActive(ShowInterface show, boolean value) {
         showDao.updateActive(show, value);
@@ -226,6 +230,35 @@ public class AdminManagerService implements AdminManager {
         allocationDao.updateAllocationBillable(alloc, value);
     }
 
+    @Override
+    public String createLimit(String name, int maxValue) {
+        return limitDao.createLimit(name, maxValue);
+    }
+
+    public void deleteLimit(LimitInterface limit) {
+        limitDao.deleteLimit(limit);
+    }
+
+    @Override
+    public LimitInterface findLimit(String name) {
+        return limitDao.findLimit(name);
+    }
+
+    @Override
+    public LimitInterface getLimit(String id){
+        return limitDao.getLimit(id);
+    }
+
+    @Override
+    public void setLimitName(LimitInterface limit, String name){
+        limitDao.setLimitName(limit, name);
+    }
+
+    @Override
+    public void setLimitMaxValue(LimitInterface limit, int maxValue) {
+        limitDao.setMaxValue(limit, maxValue);
+    }
+
     public AllocationDao getAllocationDao() {
         return allocationDao;
     }
@@ -272,6 +305,14 @@ public class AdminManagerService implements AdminManager {
 
     public void setFacilityDao(FacilityDao facilityDao) {
         this.facilityDao = facilityDao;
+    }
+
+    public LimitDao getLimitDao() {
+        return limitDao;
+    }
+
+    public void setLimitDao(LimitDao limitDao) {
+        this.limitDao = limitDao;
     }
 }
 

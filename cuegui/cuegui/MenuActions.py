@@ -587,6 +587,7 @@ class LayerActions(AbstractActions):
         if layers:
             dialog = cuegui.LayerDialog.LayerPropertiesDialog(layers)
             dialog.exec_()
+            self._update()
 
     setTags_info = ["Set Tags", None, "configure"]
     def setTags(self, rpcObjects=None):
@@ -1582,6 +1583,64 @@ class TaskActions(AbstractActions):
                 for task in tasks:
                     task.delete()
                 self._update()
+          
+
+class LimitActions(AbstractActions):
+    def __init__(self, *args):
+        AbstractActions.__init__(self, *args)
+
+    create_info = ["Creaet Limit", None, "configure"]
+    def create(self, rpcObjects=None):
+        title = "Add Limit"
+        body = "Enter a name for the new limit."
+        
+        (limit, choice) = self.getText(title, body, "")
+        if choice:
+            limit = limit.strip()
+            self.cuebotCall(opencue.api.createLimit,
+                            "Creating Limit {} has Failed.".format(limit),
+                            *[limit, 0])
+            self._update()
+
+    delete_info = ["Delete Limit", None, "kill"]
+    def delete(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits:
+            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
+                                             "Delete selected limits?",
+                                             [limit.data.name for limit in limits]):
+                for limit in limits:
+                    limit.delete()
+                self._update()
+
+    editMaxValue_info = ["Edit Max Value", None, "configure"]
+    def editMaxValue(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits:
+            current = max([limit.data.max_value for limit in limits])
+            title = "Edit Max Value"
+            body = "Please enter the new Limit max value:"
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 999999999, 0)
+            if choice:
+                for limit in limits:
+                    self.cuebotCall(limit.setMaxValue,
+                                    "Set Max Value on Limit %s Failed" % limit.data.name,
+                                    int(value))
+                self._update()
+        
+    rename_info = ["Rename", None, "configure"]
+    def rename(self, rpcObjects=None):
+        limits = self._getSelected(rpcObjects)
+        if limits and len(limits) == 1:
+            title = "Rename a Limit"
+            body = "Please enter the new Limit name:"
+            (value, choice) = QtWidgets.QInputDialog.getText(self._caller, title, body)
+            if choice:
+                self.cuebotCall(limits[0].rename, "Rename failed.", value)
+            self._update()
 
 
 class MenuActions(object):
@@ -1682,3 +1741,8 @@ class MenuActions(object):
         if not hasattr(self, "_tasks"):
             self._tasks = TaskActions(*self.__getArgs())
         return self._tasks
+    
+    def limits(self):
+        if not hasattr(self, "_limits"):
+            self._limits = LimitActions(*self.__getArgs())
+        return self._limits

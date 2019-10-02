@@ -83,6 +83,8 @@ def buildLayer(layerData, command, lastLayer=None):
                   threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
+    if layerData.limits:
+        layer.set_limits(layerData.limits)
     if layerData.dependType and lastLayer:
         if layerData.dependType == 'Layer':
             layer.depend_all(lastLayer)

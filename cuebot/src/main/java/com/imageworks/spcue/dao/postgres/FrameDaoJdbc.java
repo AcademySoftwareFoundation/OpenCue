@@ -157,7 +157,29 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "AND " +
             "str_state = ? " +
         "AND " +
-            "int_version = ?";
+            "int_version = ? " +
+        "AND " +
+            "frame.pk_layer IN (" +
+                "SELECT " +
+                    "layer.pk_layer " +
+                "FROM " +
+                    "layer " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = layer.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ")";
 
     private static final String UPDATE_FRAME_RETRIES =
         "UPDATE " +

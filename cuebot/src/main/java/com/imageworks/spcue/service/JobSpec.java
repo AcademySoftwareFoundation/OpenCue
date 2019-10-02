@@ -637,6 +637,26 @@ public class JobSpec {
             services.add(primaryService.name);
         }
 
+        Element t_limits = layerTag.getChild("limits");
+        List<String> limits = new ArrayList<String>();
+
+        if (t_limits != null) {
+            for (Object tmp : t_limits.getChildren()) {
+                Element t_limit = (Element) tmp;
+                String limitName = t_limit.getTextTrim();
+
+                if (limitName.length() == 0) {
+                    continue;
+                }
+
+                if (limits.contains(limitName)) {
+                    continue;
+                }
+                limits.add(limitName);
+            }
+        }
+
+
         logger.info("primary service: " + primaryService.getName() + " " +
                 layer.getName());
 
@@ -650,6 +670,7 @@ public class JobSpec {
         layer.minimumGpu = primaryService.minGpu;
         layer.tags.addAll(primaryService.tags);
         layer.services.addAll(services);
+        layer.limits.addAll(limits);
     }
 
     /**
