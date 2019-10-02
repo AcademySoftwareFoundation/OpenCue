@@ -821,5 +821,3 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "kill")
         self.__menuActions.frames().addAction(self, "eatandmarkdone")
 
-    def exec_(self, position):
-        super(FrameContextMenu, self).exec_(position)
