@@ -29,8 +29,10 @@ mock.patch('rqd.rqutil.Memoize', lambda x: x).start()
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
+import rqd.rqnetwork
 import rqd.rqnimby
 import rqd.compiled_proto.report_pb2
+import rqd.compiled_proto.rqd_pb2
 
 
 CPUINFO = """processor	: 0
@@ -111,7 +113,7 @@ SwapFree:              0 kB
 
 LOADAVG_LOW_USAGE = '0.25 0.16 0.11 2/1655 50733'
 
-LOADAVG_HIGH_USAGE = '10.38 10.12 10.22 2/1655 50733'
+LOADAVG_HIGH_USAGE = '20.38 20.12 20.22 2/1655 50733'
 
 
 INITTAB_DESKTOP = '''rc::bootwait:/etc/rc
@@ -130,16 +132,40 @@ id:3:initdefault:
 4:1:respawn:/etc/getty 9600 tty4
 '''
 
+PROC_STAT = '''cpu  116544 0 86685 104701644 11860 0 3755 0 0 0
+cpu0 17957 0 12259 17453918 1175 0 1777 0 0 0
+cpu1 21940 0 16589 17425773 2560 0 476 0 0 0
+cpu2 18385 0 14660 17459681 2924 0 435 0 0 0
+cpu3 18664 0 14591 17456724 1604 0 336 0 0 0
+cpu4 18138 0 14408 17450097 1984 0 402 0 0 0
+cpu5 21460 0 14178 17455448 1610 0 329 0 0 0
+intr 39473717 33 0 0 16 277 0 0 0 1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1227 399900 2792 48 2685 0 1000486 1 0 1202082 2007718 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
+ctxt 76857443
+btime 1569882758
+processes 19948
+procs_running 1
+procs_blocked 0
+softirq 10802040 0 3958368 410 1972314 394501 0 1 3631586 0 844860
+'''
+
+
+PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
+             '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
+             '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
+             '140725890743420 140725890743420 140725890744298 0')
+
 
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
-@mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=9876))
+@mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=1569882758))
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
         self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
         self.loadavg = self.fs.create_file('/proc/loadavg', contents=LOADAVG_LOW_USAGE)
+        self.fs.create_file('/proc/stat', contents=PROC_STAT)
+        self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
         self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
@@ -152,19 +178,19 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs(self):
-        self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
+        self.meminfo.set_contents(MEMINFO_MODERATE_USAGE)
 
         self.assertTrue(self.machine.isNimbySafeToRunJobs())
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs_noFreeMem(self):
-        self.fs.create_file('/proc/meminfo', contents=MEMINFO_NONE_FREE)
+        self.meminfo.set_contents(MEMINFO_NONE_FREE)
 
         self.assertFalse(self.machine.isNimbySafeToRunJobs())
 
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def test_isNimbySafeToRunJobs_noFreeSwap(self):
-        self.fs.create_file('/proc/meminfo', contents=MEMINFO_NO_SWAP)
+        self.meminfo.set_contents(MEMINFO_NO_SWAP)
 
         self.assertFalse(self.machine.isNimbySafeToRunJobs())
 
@@ -215,14 +241,58 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertTrue(self.machine.isDesktop())
 
-    def test_isUserLoggedIn(self):
-        # create file /tmp/.X11-unix/X20
-        # mock /usr/bin/who to return
-        # <username> :20           2017-11-07 18:21 (:20)
+    @mock.patch('subprocess.check_output')
+    def test_isUserLoggedInWithDisplay(self, checkOutputMock):
+        displayNum = 20
+        self.fs.create_file('/tmp/.X11-unix/X%d' % displayNum)
 
-        # other case, mock psutil to return gnome-session as running
+        def checkOutputReturn(cmd):
+            if cmd == ['/usr/bin/who']:
+                return '<username> :%d           2017-11-07 18:21 (:%d)\n' % (displayNum, displayNum)
+            raise ValueError('unexpected cmd %s' % cmd)
 
-        self.machine.isUserLoggedIn()
+        checkOutputMock.side_effect = checkOutputReturn
+
+        self.assertTrue(self.machine.isUserLoggedIn())
+
+    @mock.patch('psutil.process_iter')
+    def test_isUserLoggedInWithRunningProcess(self, processIterMock):
+        gnomeProcess = mock.MagicMock()
+        gnomeProcess.name.return_value = 'gnome-session'
+        processIterMock.return_value = [gnomeProcess]
+
+        self.assertTrue(self.machine.isUserLoggedIn())
+
+    @mock.patch('psutil.process_iter')
+    def test_isUserLoggedInWithNoDisplayOrProcess(self, processIterMock):
+        gnomeProcess = mock.MagicMock()
+        gnomeProcess.name.return_value = 'some-random-process'
+        processIterMock.return_value = [gnomeProcess]
+
+        self.assertFalse(self.machine.isUserLoggedIn())
+
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdate(self):
+        rqd.rqconstants.SYS_HERTZ = 100
+        rqd.rqconstants.ENABLE_PTREE = True
+        pid = 105
+        frameId = 'unused-frame-id'
+        self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
+        runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore, rqd.compiled_proto.rqd_pb2.RunFrame())
+        runningFrame.pid = pid
+        frameCache = {frameId: runningFrame}
+
+        self.machine.rssUpdate(frameCache)
+
+        updatedFrameInfo = frameCache[frameId].runningFrameInfo()
+        self.assertEqual(616, updatedFrameInfo.max_rss)
+        self.assertEqual(616, updatedFrameInfo.rss)
+        self.assertEqual(4356, updatedFrameInfo.max_vsize)
+        self.assertEqual(4356, updatedFrameInfo.vsize)
+        self.assertEqual('0.034444696691', updatedFrameInfo.attributes['pcpu'])
+        self.assertEqual(
+            "{'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]}",
+            updatedFrameInfo.attributes['ptree'])
 
 
 class CpuinfoTests(unittest.TestCase):

@@ -42,7 +42,7 @@ import tempfile
 import time
 import traceback
 
-if platform.system() == 'Linux':
+if platform.system() in ('Linux', 'Darwin'):
     import resource
     import yaml
 
@@ -186,9 +186,8 @@ class Machine:
         for pid in os.listdir("/proc"):
             if pid.isdigit():
                 try:
-                    statFile = open("/proc/%s/stat" % pid,"r")
-                    statFields = statFile.read().split()
-                    statFile.close()
+                    with open("/proc/%s/stat" % pid, "r") as statFile:
+                        statFields = statFile.read().split()
 
                     # See "man proc"
                     pids[pid] = {
@@ -202,9 +201,11 @@ class Machine:
                         "cstime": statFields[16],
                         # The time in jiffies the process started
                         # after system boot.
-                        "start_time": statFields[21]}
-                except Exception, e:
-                    pass
+                        "start_time": statFields[21],
+                    }
+
+                except Exception as e:
+                    log.exception('failed to read stat file for pid %s' % pid)
 
         try:
             now = int(time.time())
@@ -251,7 +252,7 @@ class Machine:
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
                                 if rqconstants.ENABLE_PTREE:
-                                    ptree.append({"pid":pid, "seconds":seconds, "total_time":totalTime})
+                                    ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
                             except Exception as e:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
@@ -273,7 +274,8 @@ class Machine:
 
             # Store the current data for the next check
             self.__pidHistory = pidData
-        except Exception, e:
+
+        except Exception as e:
             log.exception('Failure with rss update due to: {0}'.format(e))
 
     def getLoadAvg(self):
