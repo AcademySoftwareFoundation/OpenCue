@@ -31,6 +31,7 @@ import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
+import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
 import rqd.compiled_proto.rqd_pb2
 
@@ -155,16 +156,19 @@ PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1
              '140725890743420 140725890743420 140725890744298 0')
 
 
+CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
+
+
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
-@mock.patch.object(rqd.rqmachine.Machine, 'getBootTime', new=mock.MagicMock(return_value=1569882758))
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
+
     def setUp(self):
         self.setUpPyfakefs()
         self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
         self.loadavg = self.fs.create_file('/proc/loadavg', contents=LOADAVG_LOW_USAGE)
-        self.fs.create_file('/proc/stat', contents=PROC_STAT)
+        self.procStat = self.fs.create_file('/proc/stat', contents=PROC_STAT)
         self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
@@ -294,6 +298,84 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
             "{'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]}",
             updatedFrameInfo.attributes['ptree'])
 
+    @mock.patch.object(
+        rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
+    def test_getLoadAvg(self):
+        self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
+
+        self.assertEqual(2038, self.machine.getLoadAvg())
+
+    @mock.patch.object(
+        rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
+    def test_getLoadAvgHT(self):
+        self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
+
+        self.assertEqual(1019, self.machine.getLoadAvg())
+
+    def test_getBootTime(self):
+        self.procStat.set_contents(PROC_STAT)
+
+        self.assertEqual(1569882758, self.machine.getBootTime())
+
+    @mock.patch(
+        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    def test_getGpuMemoryTotal(self):
+        if hasattr(self.machine, 'gpuNotSupported'):
+            delattr(self.machine, 'gpuNotSupported')
+        if hasattr(self.machine, 'gpuResults'):
+            delattr(self.machine, 'gpuResults')
+        rqd.rqconstants.ALLOW_GPU = True
+
+        self.assertEqual(1048576, self.machine.getGpuMemoryTotal())
+
+    @mock.patch(
+        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    def test_getGpuMemory(self):
+        if hasattr(self.machine, 'gpuNotSupported'):
+            delattr(self.machine, 'gpuNotSupported')
+        if hasattr(self.machine, 'gpuResults'):
+            delattr(self.machine, 'gpuResults')
+        rqd.rqconstants.ALLOW_GPU = True
+
+        self.assertEqual(991232, self.machine.getGpuMemory())
+
+    def test_getPathEnv(self):
+        self.assertEqual(
+            '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
+            self.machine.getPathEnv())
+
+    @mock.patch('tempfile.gettempdir')
+    def test_getTempPath(self, gettempdirMock):
+        tmpDir = '/some/random/tmpdir'
+        gettempdirMock.return_value = tmpDir
+
+        self.assertEqual('%s/' % tmpDir, self.machine.getTempPath())
+
+    def test_getTempPathMcp(self):
+        self.fs.create_dir('/mcp')
+
+        self.assertEqual('/mcp/', self.machine.getTempPath())
+
+    @mock.patch('subprocess.Popen', autospec=True)
+    def test_reboot(self, popenMock):
+        self.machine.reboot()
+
+        popenMock.assert_called_with(['/usr/bin/sudo','/sbin/reboot', '-f'])
+
+    @mock.patch(
+        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    def test_getHostInfo(self):
+        hostInfo = self.machine.getHostInfo()
+
+        self.assertEqual(4105212, hostInfo.free_swap)
+        self.assertEqual(25699176, hostInfo.free_mem)
+        self.assertEqual('991232', hostInfo.attributes['freeGpu'])
+        self.assertEqual('0', hostInfo.attributes['swapout'])
+        self.assertEqual(25, hostInfo.load)
+        self.assertEqual(False, hostInfo.nimby_enabled)
+        self.assertEqual(False, hostInfo.nimby_locked)
+        self.assertEqual(rqd.compiled_proto.host_pb2.UP, hostInfo.state)
+
 
 class CpuinfoTests(unittest.TestCase):
 
@@ -323,9 +405,6 @@ class CpuinfoTests(unittest.TestCase):
 
     def test_8600(self):
         self.__cpuinfoTestHelper('_cpuinfo_hp8600_8-4-2')
-
-    def test_dub(self):
-        self.__cpuinfoTestHelper('_cpuinfo_dub_8-4-2')
 
     def test_srdsvr05(self):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr05_ht_12-6-2-2')

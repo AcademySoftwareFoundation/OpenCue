@@ -334,7 +334,7 @@ class Machine:
                     self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
                     self.gpuResults['free'] = int(results[4]) * KILOBYTE
                     self.gpuResults['updated'] = time.time()
-            except Exception, e:
+            except Exception as e:
                 log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
                             (e, traceback.extract_tb(sys.exc_info()[2])))
         return self.gpuResults
