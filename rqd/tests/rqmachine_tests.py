@@ -24,13 +24,14 @@ import pyfakefs.fake_filesystem_unittest
 # Decorators are applied at import time, so we have to mock Memoize here; it's
 # a function that caches results of method calls and makes it difficult to mock
 # methods that use it.
-mock.patch('rqd.rqutil.Memoize', lambda x: x).start()
+#mock.patch('rqd.rqutil.Memoize', lambda x: x).start()
 
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
+import rqd.rqutil
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
 import rqd.compiled_proto.rqd_pb2
@@ -159,6 +160,7 @@ PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1
 CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
 
 
+@mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
