@@ -21,11 +21,6 @@ import unittest
 
 import pyfakefs.fake_filesystem_unittest
 
-# Decorators are applied at import time, so we have to mock Memoize here; it's
-# a function that caches results of method calls and makes it difficult to mock
-# methods that use it.
-#mock.patch('rqd.rqutil.Memoize', lambda x: x).start()
-
 import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
