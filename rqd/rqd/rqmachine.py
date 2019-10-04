@@ -64,9 +64,9 @@ class Machine:
     """Gathers information about the machine and resources"""
     def __init__(self, rqCore, coreInfo):
         """Machine class initialization
-        @type   rqCore: RqCore
+        @type   rqCore: rqd.rqcore.RqCore
         @param  rqCore: Main RQD Object, used to access frames and nimby states
-        @type  coreInfo: report_pb2.CoreDetail
+        @type  coreInfo: rqd.compiled_proto.report_pb2.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
         """
         self.__rqCore = rqCore
@@ -556,8 +556,6 @@ class Machine:
             # Reads dynamic information from /proc/meminfo
             with open(rqconstants.PATH_MEMINFO, "r") as fp:
                 meminfoLines = fp.readlines()
-            #meminfoFile = open(rqconstants.PATH_MEMINFO, "r")
-            #for line in meminfoFile:
             for line in meminfoLines:
                 if line.startswith("MemFree"):
                     freeMem = int(line.split()[1])
@@ -567,7 +565,7 @@ class Machine:
                     cachedMem = int(line.split()[1])
                 elif line.startswith("MemTotal"):
                     self.__renderHost.total_mem = int(line.split()[1])
-            #meminfoFile.close()
+
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
             self.__renderHost.attributes['freeGpu'] = str(self.getGpuMemory())
@@ -612,7 +610,6 @@ class Machine:
 
     def getBootReport(self):
         """Updates and returns the bootReport struct"""
-        # .hostInfo
         self.__bootReport.host.CopyFrom(self.getHostInfo())
 
         return self.__bootReport

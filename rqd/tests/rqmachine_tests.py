@@ -376,6 +376,56 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(False, hostInfo.nimby_locked)
         self.assertEqual(rqd.compiled_proto.host_pb2.UP, hostInfo.state)
 
+    def test_getHostReport(self):
+        frame1 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
+        frame1Info = rqd.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-1')
+        frame1.runningFrameInfo.return_value = frame1Info
+        frame2 = mock.MagicMock(spec=rqd.rqnetwork.RunningFrame)
+        frame2Info = rqd.compiled_proto.report_pb2.RunningFrameInfo(resource_id='arbitrary-id-2')
+        frame2.runningFrameInfo.return_value = frame2Info
+        frameIds = ['frame1', 'frame2']
+        frames = {
+            frameIds[0]: frame1,
+            frameIds[1]: frame2,
+        }
+        self.rqCore.getFrameKeys.return_value = frameIds
+        self.rqCore.getFrame.side_effect = lambda frameId: frames[frameId]
+        coreDetail = rqd.compiled_proto.report_pb2.CoreDetail(
+            total_cores=152, idle_cores=57, locked_cores=30, booked_cores=65)
+        self.rqCore.getCoreInfo.return_value = coreDetail
+
+        hostReport = self.machine.getHostReport()
+
+        # Verify host info was copied into the report.
+        self.assertEqual(4105212, hostReport.host.free_swap)
+        self.assertEqual(25699176, hostReport.host.free_mem)
+        # Verify frames were copied into the report.
+        self.assertEqual(frame1Info, hostReport.frames[0])
+        self.assertEqual(frame2Info, hostReport.frames[1])
+        # Verify core info was copied into the report.
+        self.assertEqual(coreDetail, hostReport.core_info)
+
+    def test_getBootReport(self):
+        bootReport = self.machine.getBootReport()
+
+        # Verify host info was copied into the report.
+        self.assertEqual(4105212, bootReport.host.free_swap)
+        self.assertEqual(25699176, bootReport.host.free_mem)
+
+    def test_reserveHT(self):
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
+        self.fs.add_real_file(cpuInfo)
+        self.machine.testInitMachineStats(cpuInfo)
+
+        self.machine.setupHT()
+        tasksets = self.machine.reserveHT(300)
+
+        self.assertEqual('0,8,1,9,2,10', tasksets)
+
+        self.machine.releaseHT(tasksets)
+
+        self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
+
 
 class CpuinfoTests(unittest.TestCase):
 
