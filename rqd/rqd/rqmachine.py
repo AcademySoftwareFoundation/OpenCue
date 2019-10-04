@@ -110,7 +110,7 @@ class Machine:
             return False
         return True
 
-    @rqutil.Memoize
+    #@rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
            by checking /etc/inittab. False if not."""
@@ -374,6 +374,7 @@ class Machine:
             return win32api.GetTempPath()
         elif os.path.isdir("/mcp/"):
             return "/mcp/"
+        print('GETTEMPDIR: %s' % tempfile.gettempdir())
         return '%s/' % tempfile.gettempdir()
 
     def reboot(self):
