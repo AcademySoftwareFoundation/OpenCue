@@ -72,6 +72,7 @@ import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
@@ -281,6 +282,14 @@ public interface WhiteboardDao {
      * @return Layer
      */
     Layer getLayer(String id);
+
+    /**
+     * Returns a list of limits for the specified layer.
+     *
+     * @param  id String
+     * @return Layer
+     */
+    List<Limit> getLimits(LayerInterface layer);
 
     /**
      *
@@ -667,5 +676,29 @@ public interface WhiteboardDao {
      * @return Service
      */
     Service findService(String name);
+
+    /**
+     * Find a limit by name.
+     *
+     * @param name String
+     * @return Service
+     */
+    Limit findLimit(String name);
+
+    /**
+     * Return a service by ID.
+     *
+     * @param id String
+     * @return Limit
+     */
+    Limit getLimit(String id);
+
+    /**
+     * Returns a list of all limits.
+     *
+     * @param  id String
+     * @return Layer
+     */
+    List<Limit> getLimits();
 }
 

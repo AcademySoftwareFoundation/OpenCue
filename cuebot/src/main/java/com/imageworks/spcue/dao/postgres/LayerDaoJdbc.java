@@ -40,6 +40,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.LayerDao;
@@ -231,21 +233,27 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
      @Override
      public LayerDetail getLayerDetail(String id) {
-         return getJdbcTemplate().queryForObject(GET_LAYER_DETAIL + " AND layer.pk_layer=?",
-                 LAYER_DETAIL_MAPPER, id);
+         LayerDetail layerDetail = getJdbcTemplate().queryForObject(GET_LAYER_DETAIL +
+                 " AND layer.pk_layer=?", LAYER_DETAIL_MAPPER, id);
+         layerDetail.limits.addAll(getLimitNames(layerDetail));
+         return layerDetail;
      }
 
      @Override
      public LayerDetail getLayerDetail(LayerInterface layer) {
-         return getJdbcTemplate().queryForObject(GET_LAYER_DETAIL + " AND layer.pk_layer=?",
-                 LAYER_DETAIL_MAPPER, layer.getLayerId());
+         LayerDetail layerDetail = getJdbcTemplate().queryForObject(GET_LAYER_DETAIL +
+                 " AND layer.pk_layer=?", LAYER_DETAIL_MAPPER, layer.getLayerId());
+         layerDetail.limits.addAll(getLimitNames(layerDetail));
+         return layerDetail;
      }
 
      @Override
      public LayerDetail findLayerDetail(JobInterface job, String name) {
-         return getJdbcTemplate().queryForObject(
+         LayerDetail layerDetail = getJdbcTemplate().queryForObject(
                  GET_LAYER_DETAIL + " AND layer.pk_job=? AND layer.str_name=?",
                  LAYER_DETAIL_MAPPER, job.getJobId(), name);
+         layerDetail.limits.addAll(getLimitNames(layerDetail));
+         return layerDetail;
      }
 
      @Override
@@ -262,9 +270,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
      @Override
      public List<LayerDetail> getLayerDetails(JobInterface job) {
-         return getJdbcTemplate().query(
+         List<LayerDetail> layers = getJdbcTemplate().query(
                  GET_LAYER_DETAIL + " AND layer.pk_job=?",
                  LAYER_DETAIL_MAPPER, job.getJobId());
+         layers.stream()
+                 .forEach(layerDetail -> layerDetail.limits.addAll(getLimitNames(layerDetail)));
+         return layers;
      }
 
      @Override
@@ -743,5 +754,75 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                         layer.getLayerId());
         }
     }
-}
 
+    private static final String INSERT_LIMIT =
+            "INSERT INTO " +
+                "layer_limit (pk_layer_limit,pk_layer,pk_limit_record)" +
+            "VALUES (?,?,?)";
+
+    private static final String GET_LIMITS =
+            "SELECT " +
+                "limit_record.pk_limit_record, " +
+                "limit_record.str_name, " +
+                "limit_record.int_max_value " +
+            "FROM " +
+                "layer_limit," +
+                "limit_record " +
+            "WHERE " +
+                "layer_limit.pk_layer = ? " +
+                "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+
+    private static final String GET_LIMIT_NAMES =
+            "SELECT " +
+                "limit_record.str_name " +
+            "FROM " +
+                "layer_limit, " +
+                "limit_record " +
+            "WHERE " +
+                "layer_limit.pk_layer = ? " +
+                "AND limit_record.pk_limit_record = layer_limit.pk_limit_record";
+
+    private static final RowMapper<LimitEntity> LIMIT_MAPPER =
+            new RowMapper<LimitEntity>() {
+                public LimitEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    LimitEntity limit = new LimitEntity();
+                    limit.id = rs.getString("pk_limit_record");
+                    limit.name = rs.getString("str_name");
+                    limit.maxValue = rs.getInt("int_max_value");
+                    return limit;
+                }
+            };
+
+    private static final RowMapper<String> LIMIT_NAME_MAPPER =
+            new RowMapper<String>() {
+                public String mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    return rs.getString("str_name");
+                }
+            };
+
+    @Override
+    public void addLimit(LayerInterface layer, String limitId) {
+        getJdbcTemplate().update(INSERT_LIMIT, UUID.randomUUID().toString(), layer.getLayerId(),
+                limitId);
+    }
+
+    @Override
+    public void dropLimit(LayerInterface layer, String limitId) {
+        getJdbcTemplate().update(
+                "DELETE FROM layer_limit WHERE pk_limit_record = ? AND pk_layer = ?",
+                limitId,
+                layer.getLayerId());
+    }
+
+    @Override
+    public List<LimitEntity> getLimits(LayerInterface layer) {
+        return getJdbcTemplate().query(GET_LIMITS,
+                LIMIT_MAPPER, layer.getLayerId());
+    }
+
+    @Override
+    public List<String> getLimitNames(LayerInterface layer) {
+        return getJdbcTemplate().query(GET_LIMIT_NAMES,
+                LIMIT_NAME_MAPPER, layer.getLayerId());
+    }
+}

@@ -160,6 +160,7 @@ public class CoreUnitDispatcherTests extends TransactionalTest {
         JobDetail job = getJob();
 
         List<VirtualProc> procs =  dispatcher.dispatchHost(host, job);
+
         assertEquals(1, procs.size());
     }
 
@@ -203,7 +204,7 @@ public class CoreUnitDispatcherTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void dispatchProcToJob() {
+    public void testDispatchProcToJob() {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 

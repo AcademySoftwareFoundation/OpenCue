@@ -32,6 +32,7 @@ import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.CheckpointState;
@@ -441,5 +442,28 @@ public interface JobManager {
      * @param coreUnits
      */
     void setLayerMinCores(LayerInterface layer, int coreUnits);
+
+    /**
+     * Add a limit to the given layer.
+     *
+     * @param layer
+     * @param limitId
+     */
+    void addLayerLimit(LayerInterface layer, String limitId);
+
+    /**
+     * Remove a limit from the given layer.
+     *
+     * @param layer
+     * @param limitId
+     */
+    void dropLayerLimit(LayerInterface layer, String limitId);
+
+    /**
+     * Return a list of limits for the given layer.
+     *
+     * @param layer
+     */
+    List<LimitEntity> getLayerLimits(LayerInterface layer);
 }
 

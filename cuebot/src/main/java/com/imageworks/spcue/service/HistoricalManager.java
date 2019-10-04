@@ -33,7 +33,7 @@ public interface HistoricalManager {
     List<JobInterface> getFinishedJobs();
 
     /**
-     * Transfers data from the lives to the historical tables.
+     * Transfers data from the live to the historical tables.
      *
      * @param job
      */

@@ -34,6 +34,7 @@ from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
+from opencue.compiled_proto import limit_pb2
 from opencue.compiled_proto import renderPartition_pb2
 from opencue.compiled_proto import report_pb2
 from opencue.compiled_proto import service_pb2
@@ -52,6 +53,7 @@ from .wrappers.group import Group
 from .wrappers.host import Host, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
+from .wrappers.limit import Limit
 from .wrappers.owner import Owner
 from .wrappers.proc import Proc
 from .wrappers.service import Service
@@ -645,3 +647,27 @@ def getProcs(**options):
     @return: a list of procs"""
     procSeq = search.ProcSearch.byOptions(**options).procs
     return [Proc(p) for p in procSeq.procs]
+
+#
+# Limits
+#
+@util.grpcExceptionParser
+def createLimit(name, maxValue):
+    """Create a new Limit with the given name and max value.
+    @type name: str
+    @param name: Name of the new Limit.
+    @type maxValue: int
+    @param maxValue: Maximum number of running frames for this limit.
+    @rtype: opencue.wrappers.limit.Limit
+    @return: The newly created Limit
+    """
+    return Limit(Cuebot.getStub('limit').Create(
+        limit_pb2.LimitCreateRequest(name=name, max_value=maxValue), timeout=Cuebot.Timeout))
+
+@util.grpcExceptionParser
+def getLimits():
+    """Return a list of all known Limits.
+    @rtype: list<Limit>
+    @return: List of limit objects."""
+    return [Limit(limit) for limit in Cuebot.getStub('limit').GetAll(
+        limit_pb2.LimitGetAllRequest(), timeout=Cuebot.Timeout).limits]

@@ -133,6 +133,11 @@
         <property name="frameSearchFactory" ref="frameSearchFactory" />
     </bean>
 
+    <bean scope="prototype" id="manageLimit" class="com.imageworks.spcue.servant.ManageLimit">
+        <property name="adminManager" ref="adminManager" />
+        <property name="whiteboard" ref="whiteboard" />
+    </bean>
+
     <bean scope="prototype" id="manageMatcher" class="com.imageworks.spcue.servant.ManageMatcher">
         <property name="filterManager" ref="filterManager" />
         <property name="whiteboard" ref="whiteboard" />

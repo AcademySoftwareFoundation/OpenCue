@@ -1,0 +1,85 @@
+<?xml version="1.0"?>
+<!--
+   Copyright (c) 2018 Sony Pictures Imageworks Inc.
+
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+-->
+
+
+
+
+<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.5.dtd">
+<spec>
+
+    <show>pipe</show>
+    <shot>dev.cue</shot>
+    <user>testuser</user>
+    <uid>9860</uid>
+
+    <job name="pipe-dev.cue-testuser_shell_v1">
+        <paused>true</paused>
+        <maxretries>0</maxretries>
+        <env>
+            <key name="VNP_VCR_SESSION">9000</key>
+        </env>
+        <layers>
+            <layer name="pass_1_preprocess" type="UTIL">
+                <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
+                <range>1</range>
+                <chunk>1</chunk>
+                <cores>25</cores>
+                <tags>general</tags>
+                <limits>
+                    <limit>util</limit>
+                </limits>
+                <env>
+                    <key name="VNP_VCR_SESSION">9000</key>
+                </env>
+                <services>
+                    <service>shell</service>
+                    <service>shell</service>
+                </services>
+            </layer>
+
+            <layer name="pass_1" type="RENDER">
+                <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
+                <range>1-10</range>
+                <chunk>1</chunk>
+                <cores>100</cores>
+                <tags>general</tags>
+                <limits>
+                    <limit>arnold</limit>
+                </limits>
+                <env>
+                    <key name="VNP_VCR_SESSION">9000</key>
+                </env>
+                <services>
+                    <service>shell</service>
+                    <service>shell</service>
+                </services>
+            </layer>
+        </layers>
+    </job>
+
+    <depends>
+        <depend type="LAYER_ON_LAYER">
+            <depjob>pipe-dev.cue-testuser_shell_v1</depjob>
+            <deplayer>pass_1</deplayer>
+            <onjob>pipe-dev.cue-testuser_shell_v1</onjob>
+            <onlayer>pass_1_preprocess</onlayer>
+        </depend>
+    </depends>
+</spec>
+
+
+

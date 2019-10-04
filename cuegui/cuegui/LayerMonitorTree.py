@@ -55,66 +55,69 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("Services", 100, id=3,
                        data=lambda layer: ",".join(layer.data.services),
                        tip="The underlying application being run within the frames.")
-        self.addColumn("Range", 150, id=4,
+        self.addColumn("Limits", 100, id=4,
+                       data=lambda layer: ",".join(layer.data.limits),
+                       tip="The limits that have been applied to this layer's frames.")
+        self.addColumn("Range", 150, id=5,
                        data=lambda layer: displayRange(layer),
                        tip="The range of frames that the layer should render.")
-        self.addColumn("Cores", 45, id=5,
+        self.addColumn("Cores", 45, id=6,
                        data=lambda layer: "%.2f" % layer.data.min_cores,
                        sort=lambda layer: layer.data.min_cores,
                        tip="The number of cores that the frames in this layer\n"
                            "will reserve as a minimum.")
-        self.addColumn("Memory", 60, id=6,
+        self.addColumn("Memory", 60, id=7,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
                        sort=lambda layer: layer.data.min_memory,
                        tip="The amount of memory that each frame in this layer\n"
                            "will reserve for its use. If the frame begins to use\n"
                            "more memory than this, the cuebot will increase this\n"
                            "number.")
-        self.addColumn("Gpu", 40, id=7,
+        self.addColumn("Gpu", 40, id=8,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_gpu),
                        sort=lambda layer: layer.data.min_gpu,
                        tip="The amount of gpu memory each frame in this layer\n"
                            "will reserve for its use. Note that we may not have\n"
                            "machines as much gpu memory as you request.")
-        self.addColumn("MaxRss", 60, id=8,
+        self.addColumn("MaxRss", 60, id=9,
                        data=lambda layer: cuegui.Utils.memoryToString(layer.data.layer_stats.max_rss),
                        sort=lambda layer: layer.data.layer_stats.max_rss,
                        tip="Maximum amount of memory used by any frame in\n"
                            "this layer at any time since the job was launched.")
-        self.addColumn("Total", 40, id=9,
+        self.addColumn("Total", 40, id=10,
                        data=lambda layer: layer.data.layer_stats.total_frames,
                        sort=lambda layer: layer.data.layer_stats.total_frames,
                        tip="Total number of frames in this layer.")
-        self.addColumn("Done", 40, id=10,
+        self.addColumn("Done", 40, id=11,
                        data=lambda layer: layer.data.layer_stats.succeeded_frames,
                        sort=lambda layer: layer.data.layer_stats.succeeded_frames,
                        tip="Total number of done frames in this layer.")
-        self.addColumn("Run", 40, id=11,
+        self.addColumn("Run", 40, id=12,
                        data=lambda layer: layer.data.layer_stats.running_frames,
                        sort=lambda layer: layer.data.layer_stats.running_frames,
                        tip="Total number or running frames in this layer.")
-        self.addColumn("Depend", 53, id=12,
+        self.addColumn("Depend", 53, id=13,
                        data=lambda layer: layer.data.layer_stats.depend_frames,
                        sort=lambda layer: layer.data.layer_stats.depend_frames,
                        tip="Total number of dependent frames in this layer.")
-        self.addColumn("Wait", 40, id=13,
+        self.addColumn("Wait", 40, id=14,
                        data=lambda layer: layer.data.layer_stats.waiting_frames,
                        sort=lambda layer: layer.data.layer_stats.waiting_frames,
                        tip="Total number of waiting frames in this layer.")
-        self.addColumn("Eaten", 40, id=14,
+        self.addColumn("Eaten", 40, id=15,
                        data=lambda layer: layer.data.layer_stats.eaten_frames,
                        sort=lambda layer: layer.data.layer_stats.eaten_frames,
                        tip="Total number of eaten frames in this layer.")
-        self.addColumn("Dead", 40, id=15,
+        self.addColumn("Dead", 40, id=16,
                        data=lambda layer: layer.data.layer_stats.dead_frames,
                        sort=lambda layer: layer.data.layer_stats.dead_frames,
                        tip="Total number of dead frames in this layer.")
-        self.addColumn("Avg", 65, id=16,
+        self.addColumn("Avg", 65, id=17,
                        data=lambda layer: cuegui.Utils.secondsToHHMMSS(layer.data.layer_stats.avg_frame_sec),
                        sort=lambda layer: layer.data.layer_stats.avg_frame_sec,
                        tip="Average number of HOURS:MINUTES:SECONDS per frame\n"
                            "in this layer.")
-        self.addColumn("Tags", 100, id=17,
+        self.addColumn("Tags", 100, id=18,
                        data=lambda layer: " | ".join(layer.data.tags),
                        tip="The tags define what resources may be booked on\n"
                            "frames in this layer.")

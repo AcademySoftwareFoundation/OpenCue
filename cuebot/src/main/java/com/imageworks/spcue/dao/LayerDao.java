@@ -28,6 +28,7 @@ import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.grpc.job.LayerType;
@@ -375,6 +376,36 @@ public interface LayerDao {
      * @param val
      */
     void updateLayerMaxCores(LayerInterface layer, int val);
+
+    /**
+     * Add a limit to the given layer.
+     *
+     * @param layer
+     * @param limit_id
+     */
+    void addLimit(LayerInterface layer, String limitId);
+
+    /**
+     * Remove a limit to the given layer.
+     *
+     * @param layer
+     * @param limit_id
+     */
+    void dropLimit(LayerInterface layer, String limitId);
+
+    /**
+     * Return a list of limits on the layer.
+     *
+     * @param layer
+     */
+    List<LimitEntity> getLimits(LayerInterface layer);
+
+    /**
+     * Return a list of limit names on the layer.
+     *
+     * @param layer
+     */
+    List<String> getLimitNames(LayerInterface layer);
 
 }
 

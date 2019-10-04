@@ -41,6 +41,7 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
 
     public Set<String> tags = new LinkedHashSet<String>();
     public Set<String> services = new LinkedHashSet<String>();
+    public Set<String> limits = new LinkedHashSet<String>();
 
     /*
      *

@@ -80,6 +80,7 @@ import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.NestedGroup;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
 import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
@@ -503,6 +504,26 @@ public class WhiteboardService implements Whiteboard {
     public ServiceOverride getServiceOverride(ShowInterface show,
             String name) {
         return whiteboardDao.getServiceOverride(show, name);
+    }
+
+    @Override
+    public Limit findLimit(String name) {
+        return whiteboardDao.findLimit(name);
+    }
+
+    @Override
+    public Limit getLimit(String id) {
+        return whiteboardDao.getLimit(id);
+    }
+
+    @Override
+    public List<Limit> getLimits() {
+        return whiteboardDao.getLimits();
+    }
+
+    @Override
+    public List<Limit> getLimits(LayerInterface layer) {
+        return whiteboardDao.getLimits(layer);
     }
 }
 

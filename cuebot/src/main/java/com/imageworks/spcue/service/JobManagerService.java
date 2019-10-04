@@ -43,6 +43,8 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.JobLaunchException;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.LimitEntity;
+import com.imageworks.spcue.LimitInterface;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -51,6 +53,7 @@ import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -58,6 +61,7 @@ import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Order;
+import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
@@ -71,6 +75,7 @@ public class JobManagerService implements JobManager {
     private ShowDao showDao;
     private FrameDao frameDao;
     private LayerDao layerDao;
+    private LimitDao limitDao;
     private HostDao hostDao;
     private DependManager dependManager;
     private FilterManager filterManager;
@@ -266,6 +271,8 @@ public class JobManagerService implements JobManager {
                 logger.info("creating layer " + layer.name + " range: " + layer.range);
                 layerDao.insertLayerDetail(layer);
                 layerDao.insertLayerEnvironment(layer, buildableLayer.env);
+                layer.limits.stream()
+                        .forEach(ln -> addLayerLimit(layer, limitDao.findLimit(ln).getLimitId()));
                 frameDao.insertFrames(layer, frames);
             }
 
@@ -434,6 +441,21 @@ public class JobManagerService implements JobManager {
     }
 
     @Override
+    public void addLayerLimit(LayerInterface layer, String limitId) {
+        layerDao.addLimit(layer, limitId);
+    }
+
+    @Override
+    public void dropLayerLimit(LayerInterface layer, String limitId) {
+        layerDao.dropLimit(layer, limitId);
+    }
+
+    @Override
+    public List<LimitEntity> getLayerLimits(LayerInterface layer) {
+        return layerDao.getLimits(layer);
+    }
+
+    @Override
     public void registerLayerOutput(LayerInterface layer, String filespec) {
         try {
             layerDao.insertLayerOutput(layer, filespec);
@@ -539,6 +561,14 @@ public class JobManagerService implements JobManager {
 
     public void setLayerDao(LayerDao layerDao) {
         this.layerDao = layerDao;
+    }
+
+    public LimitDao getLimitDao() {
+        return limitDao;
+    }
+
+    public void setLimitDao(LimitDao limitDao) {
+        this.limitDao = limitDao;
     }
 
     public ShowDao getShowDao() {

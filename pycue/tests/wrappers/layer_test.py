@@ -81,6 +81,34 @@ class LayerTests(unittest.TestCase):
         stubMock.MarkdoneFrames.assert_called_with(
             job_pb2.LayerMarkdoneFramesRequest(layer=layer.data), timeout=mock.ANY)
 
+    def testAddLimit(self, getStubMock):
+        test_limit_id = 'lll-llll-lll'
+        stubMock = mock.Mock()
+        stubMock.AddLimit.return_value = job_pb2.LayerAddLimitResponse()
+        getStubMock.return_value = stubMock
+
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.addLimit(test_limit_id)
+
+        stubMock.AddLimit.assert_called_with(
+            job_pb2.LayerAddLimitRequest(layer=layer.data, limit_id=test_limit_id),
+            timeout=mock.ANY)
+
+    def testDropLimit(self, getStubMock):
+        test_limit_id = 'lll-llll-lll'
+        stubMock = mock.Mock()
+        stubMock.DropLimit.return_value = job_pb2.LayerDropLimitResponse()
+        getStubMock.return_value = stubMock
+
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.dropLimit(test_limit_id)
+
+        stubMock.DropLimit.assert_called_with(
+            job_pb2.LayerDropLimitRequest(layer=layer.data, limit_id=test_limit_id),
+            timeout=mock.ANY)
+
     def testEnableMemoryOptimizerTrue(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.EnableMemoryOptimizer.return_value = job_pb2.LayerEnableMemoryOptimizerResponse()
@@ -306,7 +334,7 @@ class LayerTests(unittest.TestCase):
         dependId = 'dddd-ddd-dddd'
         layerId = 'llll-lll-llll'
         stubMock = mock.Mock()
-        stubMock.CreateFrameByFrameDepend.return_value = \
+        stubMock.CreateFrameByFrameDependency.return_value = \
             job_pb2.LayerCreateFrameByFrameDependResponse(depend=depend_pb2.Depend(id=dependId))
         getStubMock.return_value = stubMock
 
@@ -316,7 +344,7 @@ class LayerTests(unittest.TestCase):
             job_pb2.Layer(id=layerId))
         depend = layer.createFrameByFrameDependency(dependLayer)
 
-        stubMock.CreateFrameByFrameDepend.assert_called_with(
+        stubMock.CreateFrameByFrameDependency.assert_called_with(
             job_pb2.LayerCreateFrameByFrameDependRequest(layer=layer.data,
                                                          depend_layer=dependLayer.data,
                                                          any_frame=False),
