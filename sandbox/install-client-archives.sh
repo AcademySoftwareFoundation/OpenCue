@@ -4,7 +4,7 @@ set -e
 
 # To run this script, you must first set the version number.
 # For example, to set the version to 0.2.31, run:
-# VERSION=0.2.31
+# export VERSION=0.2.31
 # For additional requirements, see https://www.opencue.io/docs/quick-starts/
 
 if [[ -z "${VERSION}" ]]; then
