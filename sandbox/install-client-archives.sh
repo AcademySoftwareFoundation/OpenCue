@@ -27,7 +27,7 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
     # older versions of OpenCue provided a slightly different download URL
     # format.
     wget ${BASE_URL}${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz \
-        || ${BASE_URL}v${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
+        || wget ${BASE_URL}v${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
     tar xvzf ${PACKAGE}-${VERSION}-all.tar.gz
     pip install -r ${PACKAGE}-${VERSION}-all/requirements.txt
     cd ${PACKAGE}-${VERSION}-all
