@@ -3,24 +3,31 @@
 set -e
 
 # To run this script, you must first set the version number.
-# For more information, see README.md
+# For example, to set the version to 0.2.31, run:
+# VERSION=0.2.31
+# For additional requirements, see https://www.opencue.io/docs/quick-starts/
 
 if [[ -z "${VERSION}" ]]; then
     echo "You must set the release version number. For example:"
-    echo "export VERSION=0.2.31" 1>&2
+    echo "export VERSION=0.2.31"
+    echo "For a list of OpenCue version numbers, visit the following URL:"
+    echo "https://github.com/AcademySoftwareFoundation/OpenCue/releases/" 1>&2
     exit 1
 fi
 
-CLIENT_PACKAGES=( cueadmin cuegui cuesubmit pycue pyoutline )
+CLIENT_PACKAGES=( pycue pyoutline cueadmin cuegui cuesubmit  )
 
-BASE_URL=https://github.com/AcademySoftwareFoundation/OpenCue/releases/download/v
+BASE_URL=https://github.com/AcademySoftwareFoundation/OpenCue/releases/download/
 
 mkdir opencue-downloads
 
 cd opencue-downloads
 
 for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
-    wget ${BASE_URL}${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
+    # older versions of OpenCue provided a slightly different download URL
+    # format.
+    wget ${BASE_URL}${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz \
+        || ${BASE_URL}v${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
     tar xvzf ${PACKAGE}-${VERSION}-all.tar.gz
     pip install -r ${PACKAGE}-${VERSION}-all/requirements.txt
     cd ${PACKAGE}-${VERSION}-all
