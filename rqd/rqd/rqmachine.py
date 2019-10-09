@@ -555,16 +555,15 @@ class Machine:
 
             # Reads dynamic information from /proc/meminfo
             with open(rqconstants.PATH_MEMINFO, "r") as fp:
-                meminfoLines = fp.readlines()
-            for line in meminfoLines:
-                if line.startswith("MemFree"):
-                    freeMem = int(line.split()[1])
-                elif line.startswith("SwapFree"):
-                    freeSwapMem = int(line.split()[1])
-                elif line.startswith("Cached"):
-                    cachedMem = int(line.split()[1])
-                elif line.startswith("MemTotal"):
-                    self.__renderHost.total_mem = int(line.split()[1])
+                for line in fp:
+                    if line.startswith("MemFree"):
+                        freeMem = int(line.split()[1])
+                    elif line.startswith("SwapFree"):
+                        freeSwapMem = int(line.split()[1])
+                    elif line.startswith("Cached"):
+                        cachedMem = int(line.split()[1])
+                    elif line.startswith("MemTotal"):
+                        self.__renderHost.total_mem = int(line.split()[1])
 
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
