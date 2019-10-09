@@ -11,7 +11,7 @@ if [[ -z "${VERSION}" ]]; then
     echo "You must set the release version number. For example:"
     echo "export VERSION=0.2.31"
     echo "For a list of OpenCue version numbers, visit the following URL:"
-    echo "https://github.com/AcademySoftwareFoundation/OpenCue/releases/" 1>&2
+    echo "https://github.com/AcademySoftwareFoundation/OpenCue/releases/"
     exit 1
 fi
 
