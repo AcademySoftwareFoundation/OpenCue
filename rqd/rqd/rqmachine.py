@@ -42,7 +42,7 @@ import tempfile
 import time
 import traceback
 
-if platform.system() == 'Linux':
+if platform.system() in ('Linux', 'Darwin'):
     import resource
     import yaml
 
@@ -64,9 +64,9 @@ class Machine:
     """Gathers information about the machine and resources"""
     def __init__(self, rqCore, coreInfo):
         """Machine class initialization
-        @type   rqCore: RqCore
+        @type   rqCore: rqd.rqcore.RqCore
         @param  rqCore: Main RQD Object, used to access frames and nimby states
-        @type  coreInfo: report_pb2.CoreDetail
+        @type  coreInfo: rqd.compiled_proto.report_pb2.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
         """
         self.__rqCore = rqCore
@@ -186,9 +186,8 @@ class Machine:
         for pid in os.listdir("/proc"):
             if pid.isdigit():
                 try:
-                    statFile = open("/proc/%s/stat" % pid,"r")
-                    statFields = statFile.read().split()
-                    statFile.close()
+                    with open("/proc/%s/stat" % pid, "r") as statFile:
+                        statFields = statFile.read().split()
 
                     # See "man proc"
                     pids[pid] = {
@@ -202,9 +201,11 @@ class Machine:
                         "cstime": statFields[16],
                         # The time in jiffies the process started
                         # after system boot.
-                        "start_time": statFields[21]}
-                except Exception, e:
-                    pass
+                        "start_time": statFields[21],
+                    }
+
+                except Exception as e:
+                    log.exception('failed to read stat file for pid %s' % pid)
 
         try:
             now = int(time.time())
@@ -251,7 +252,7 @@ class Machine:
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
                                 if rqconstants.ENABLE_PTREE:
-                                    ptree.append({"pid":pid, "seconds":seconds, "total_time":totalTime})
+                                    ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
                             except Exception as e:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
@@ -273,7 +274,8 @@ class Machine:
 
             # Store the current data for the next check
             self.__pidHistory = pidData
-        except Exception, e:
+
+        except Exception as e:
             log.exception('Failure with rss update due to: {0}'.format(e))
 
     def getLoadAvg(self):
@@ -332,7 +334,7 @@ class Machine:
                     self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
                     self.gpuResults['free'] = int(results[4]) * KILOBYTE
                     self.gpuResults['updated'] = time.time()
-            except Exception, e:
+            except Exception as e:
                 log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
                             (e, traceback.extract_tb(sys.exc_info()[2])))
         return self.gpuResults
@@ -552,17 +554,17 @@ class Machine:
                                          * mcpStat[statvfs.F_BSIZE]) / KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
-            meminfoFile = open(rqconstants.PATH_MEMINFO, "r")
-            for line in meminfoFile:
-                if line.startswith("MemFree"):
-                    freeMem = int(line.split()[1])
-                elif line.startswith("SwapFree"):
-                    freeSwapMem = int(line.split()[1])
-                elif line.startswith("Cached"):
-                    cachedMem = int(line.split()[1])
-                elif line.startswith("MemTotal"):
-                    self.__renderHost.total_mem =int(line.split()[1])
-            meminfoFile.close()
+            with open(rqconstants.PATH_MEMINFO, "r") as fp:
+                for line in fp:
+                    if line.startswith("MemFree"):
+                        freeMem = int(line.split()[1])
+                    elif line.startswith("SwapFree"):
+                        freeSwapMem = int(line.split()[1])
+                    elif line.startswith("Cached"):
+                        cachedMem = int(line.split()[1])
+                    elif line.startswith("MemTotal"):
+                        self.__renderHost.total_mem = int(line.split()[1])
+
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
             self.__renderHost.attributes['freeGpu'] = str(self.getGpuMemory())
@@ -607,7 +609,6 @@ class Machine:
 
     def getBootReport(self):
         """Updates and returns the bootReport struct"""
-        # .hostInfo
         self.__bootReport.host.CopyFrom(self.getHostInfo())
 
         return self.__bootReport

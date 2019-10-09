@@ -44,24 +44,29 @@ HIGH_PERMISSION_GROUPS = os.getgroups()
 
 
 class Memoize(object):
-    """From: https://gist.github.com/267733/8f5d2e3576b6a6f221f6fb7e2e10d395ad7303f9"""
     def __init__(self, func):
         self.func = func
         self.memoized = {}
         self.methodCache = {}
+
     def __call__(self, *args):
-        return self.cacheGet(self.memoized, args,
-            lambda: self.func(*args))
+        return self.cacheGet(
+            self.memoized, args, lambda: self.func(*args))
+
     def __get__(self, obj, objtype):
-        return self.cacheGet(self.methodCache, obj,
-            lambda: self.__class__(functools.partial(self.func, obj)))
+        return self.cacheGet(
+            self.methodCache, obj, lambda: self.__class__(functools.partial(self.func, obj)))
+
+    def isCached(self, cache, key):
+        """Mocked in tests to disable caching as needed."""
+        if key in cache:
+            return True
+        return False
+
     def cacheGet(self, cache, key, func):
-        try:
-            return cache[key]
-        except KeyError:
-            result = func()
-            cache[key] = result
-            return result
+        if not self.isCached(cache, key):
+            cache[key] = func()
+        return cache[key]
 
 
 def permissionsHigh():
