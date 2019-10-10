@@ -62,8 +62,7 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
         QtGui.qApp.view_object.connect(self.__setJob)
         QtGui.qApp.unmonitor.connect(self.__unmonitor)
         QtGui.qApp.facility_changed.connect(self.__setJob)
-        self.__monitorLayers.handle_filter_layers_byLayer.connect(
-            self.__monitorFrames.handle_filter_layers_byLayer.emit)
+        self.__monitorLayers.handle_filter_layers_byLayer.connect(self.handleLayerFilter)
         self.__splitter.splitterMoved.connect(self.__splitterMoved)
 
 
@@ -82,6 +81,9 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
                                      ("layerColumnWidths",
                                       self.__monitorLayers.getColumnWidths,
                                       self.__monitorLayers.setColumnWidths)])
+
+    def handleLayerFilter(self, names):
+        self.__monitorFrames.filterLayersFromDoubleClick(names)
 
     def __splitterMoved(self, pos, index):
         self.__monitorLayers.disableUpdate = not bool(pos)

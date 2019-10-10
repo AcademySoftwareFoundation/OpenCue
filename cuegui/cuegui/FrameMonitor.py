@@ -92,6 +92,9 @@ class FrameMonitor(QtWidgets.QWidget):
     def setColumnVisibility(self, settings):
         self.frameMonitorTree.setColumnVisibility(settings)
 
+    def filterLayersFromDoubleClick(self, layerNames):
+        self._filterLayersHandleByLayer(layerNames)
+
 # ==============================================================================
 # Frame range bar to filter by frame range
 # ==============================================================================
