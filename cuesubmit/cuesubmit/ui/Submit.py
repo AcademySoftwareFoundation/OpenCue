@@ -268,8 +268,8 @@ class CueSubmitWidget(QtWidgets.QWidget):
             chunk=self.chunkInput.text(),
             cores=self.coresInput.text(),
             env=None,
-            services=[i.strip() for i in self.servicesSelector.text().split(',')],
-            limits=[i.strip() for i in self.limitsSelector.text().split(',')],
+            services=self.servicesSelector.getChecked(),
+            limits=self.limitsSelector.getChecked(),
             dependType=self.dependSelector.text(),
             dependsOn=None
         )
