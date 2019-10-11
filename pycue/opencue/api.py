@@ -281,13 +281,13 @@ def getJobs(**options):
     getJobs(show=["pipe"]) would return only pipe jobs.
 
     Possible args:
-        - job: job names
-        - match:  job name substring match
-        - regex: a job name search by regular expression
-        - id: a job search by unique id
-        - show: show names
-        - shot: shot names
-        - user: user names
+        - job: job names - list
+        - match:  job name substring match - str
+        - regex: a job name search by regular expression - str
+        - id: a job search by unique id - str
+        - show: show names - list
+        - shot: shot names - list
+        - user: user names - list
 
     @rtype:  List<Job>
     @return: a list of jobs
@@ -464,11 +464,11 @@ def getHosts(**options):
     getHosts(match=["vrack"]) would return all vrack procs.
 
     Possible args:
-       - host: host names
-       - match: host name substring match
-       - regex: a host name search by regular expression
-       - id: a search by unique id
-       - alloc: search by allocation.
+       - host: host names - list
+       - match: host name substring match - str
+       - regex: a host name search by regular expression - str
+       - id: a search by unique id - str
+       - alloc: search by allocation. - list
 
     @rtype:  List<Host>
     @return: a list of hosts
@@ -629,16 +629,16 @@ def getProcs(**options):
     getProcs(show=["pipe"]) would return procs running pipe jobs.
 
     Possible args:
-       - host: host names
-       - jobs: job names
-       - layer: layer names
-       - show: show names
-       - alloc: allocation names
-       - memory: used memory in gigabytes
+       - host: host names - list
+       - jobs: job names - list
+       - layer: layer names - list
+       - show: show names - list
+       - alloc: allocation names - list
+       - memory: used memory in gigabytes - str
          - "gt5" is greater than 5 gigs
          - "lt5" is less than 5 gigs
          - "5-10" is range of 5 to 10 gigs
-       - duration: run time in hours
+       - duration: run time in hours - str
          - "gt5" is greater than 5 hours
          - "lt5" is less than 5 hours
          - "5-10" is range of 5 to 10 hours
