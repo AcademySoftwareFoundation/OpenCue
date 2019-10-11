@@ -1,8 +1,7 @@
 **Link the Issue(s) this Pull Request is related to.**
 One line for each Issue. If merging this Pull Request should auto-close the Issue on that line,
-preface the Issue URL/Number with "Fixes".
-
-Every Pull Request should have at least one Issue linked.
+preface the Issue URL/Number with "Fixes". Every Pull Request should have at least one Issue
+linked.
 
 **Summarize your change.**
 If it's a simple change, a sentence or two is probably sufficient. If it's a complex change,
@@ -10,8 +9,8 @@ adding a list of the three or four main points can be helpful.
 
 It's also helpful to describe **why** you're making this change.
 
-**Checklist**
-You can remove this section before creating your Pull Request.
+<!--
+**PR Checklist**
 
 1. Add a Pull Request title. A descriptive single sentence.
 
@@ -29,7 +28,7 @@ You can remove this section before creating your Pull Request.
    If you feel like your change is ready to be merged or close to that, create a normal Pull
    Request.
 
-   If you feel like your change isn't ready to be merged -- maybe it's just an idea you have -- but
+   If you feel like your change isn't ready to be merged — maybe it's just an idea you have — but
    you want feedback anyway, feel free to create a Draft Pull Request and add any needed reviewers
    (Code Owners will not be automatically added as they are for regular Pull Requests). Draft
 
@@ -43,3 +42,5 @@ You can remove this section before creating your Pull Request.
    After you create your Pull Request, a presubmit check will be run to determine whether you've
    signed the OpenCue CLA. If you haven't, the presubmit check will display instructions for
    how to proceed.
+-->
+
