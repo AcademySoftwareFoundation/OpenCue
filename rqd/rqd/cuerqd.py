@@ -137,7 +137,7 @@ class RqdHost:
         self.frameStub.Kill(run_frame=runFrame, message=message)
 
 
-if __name__ == "__main__":
+def main():
     if len(sys.argv) < 2:
         print __doc__
         sys.exit()
@@ -218,9 +218,6 @@ if __name__ == "__main__":
             runFrame.shot = "trn_jwelborn"
             runFrame.uid = 10164
 
-            #report = rqdHost.status()
-            #if report.coreInfo.idleCores >= 100
-
             runFrame.num_cores = 100
 
             rqdHost.launchFrame(runFrame)
@@ -240,9 +237,6 @@ if __name__ == "__main__":
             runFrame.show = "swtest"
             runFrame.shot = "home"
             runFrame.uid = 10164
-            #runFrame.type = CueIce.LayerType.Render
-            #report = rqdHost.status()
-            #if report.coreInfo.idleCores >= 100
             runFrame.num_cores = 50
 
             rqdHost.launchFrame(runFrame)
@@ -262,9 +256,10 @@ if __name__ == "__main__":
             runFrame.show = "swtest"
             runFrame.shot = "home"
             runFrame.uid = 10164
-            #report = rqdHost.status()
-            #if report.coreInfo.idleCores >= 100
-            runFrame.num_cores = 1.0
+            runFrame.num_cores = 1
 
             rqdHost.launchFrame(runFrame)
 
+
+if __name__ == "__main__":
+    main()
