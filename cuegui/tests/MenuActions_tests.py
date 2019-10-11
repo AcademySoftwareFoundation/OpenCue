@@ -233,7 +233,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.eatDead(rpcObjects=[job])
 
-        job.eatFrames.assert_called_with(state=opencue.compiled_proto.job_pb2.DEAD)
+        job.eatFrames.assert_called_with(state=[opencue.compiled_proto.job_pb2.DEAD])
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=False)
     def test_eatDeadCanceled(self, yesNoMock):
@@ -252,7 +252,7 @@ class JobActionsTests(unittest.TestCase):
         self.job_actions.autoEatOn(rpcObjects=[job])
 
         job.setAutoEat.assert_called_with(True)
-        job.eatFrames.assert_called_with(state=opencue.compiled_proto.job_pb2.DEAD)
+        job.eatFrames.assert_called_with(state=[opencue.compiled_proto.job_pb2.DEAD])
 
     def test_autoEatOff(self):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
