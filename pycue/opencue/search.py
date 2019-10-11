@@ -263,34 +263,57 @@ def _createCriterion(search, searchType, convert=None):
     raise ValueError("Unable to parse this format: %s" % search)
 
 
+def _raiseIfNotType(searchOption, value, expectedType):
+    if not isinstance(value, list):
+        raise TypeError("Failed to set search option: '{}'. Expects type '{}', but got {}.".format(
+            searchOption, expectedType, type(value)))
+
+
+def raiseIfNotList(searchOption, value):
+    _raiseIfNotType(searchOption, value, list)
+
+
 def _setOptions(criteria, options):
 
     for k, v in options.items():
         if k == "job" or (k == "name" and isinstance(criteria, job_pb2.JobSearchCriteria)):
+            raiseIfNotList(k, v)
             criteria.jobs.extend(v)
         elif k == "host" or (k == "name" and isinstance(criteria, host_pb2.HostSearchCriteria)):
+            raiseIfNotList(k, v)
             criteria.hosts.extend(v)
         elif k == "frames" or (k == "name" and isinstance(criteria, job_pb2.FrameSearchCriteria)):
+            raiseIfNotList(k, v)
             criteria.frames.extend(v)
         elif k in("match", "substr"):
+            raiseIfNotList(k, v)
             criteria.substr.extend(v)
         elif k == "regex":
+            raiseIfNotList(k, v)
             criteria.regex.extend(v)
         elif k == "id":
+            raiseIfNotList(k, v)
             criteria.ids.extend(v)
         elif k == "show":
+            raiseIfNotList(k, v)
             criteria.shows.extend(v)
         elif k == "shot":
+            raiseIfNotList(k, v)
             criteria.shots.extend(v)
         elif k == "user":
+            raiseIfNotList(k, v)
             criteria.users.extend(v)
         elif k == "state" and isinstance(criteria, job_pb2.FrameSearchCriteria):
+            raiseIfNotList(k, v)
             criteria.states.frame_states.extend(v)
         elif k == "state" and isinstance(criteria, host_pb2.HostSearchCriteria):
+            raiseIfNotList(k, v)
             criteria.states.state.extend(v)
         elif k == "layer":
+            raiseIfNotList(k, v)
             criteria.layers.extend(v)
         elif k == "alloc":
+            raiseIfNotList(k, v)
             criteria.allocs.extend(v)
         elif k in ("range", "frames"):
             if not v:
