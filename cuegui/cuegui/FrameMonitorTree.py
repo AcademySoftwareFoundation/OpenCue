@@ -84,9 +84,11 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The number of the frame.")
         self.addColumn("Layer", 250, id=3,
                        data=lambda job, frame: frame.data.layer_name,
+                       sort=lambda job, frame: frame.data.layer_name,
                        tip="The layer that the frame is in.")
         self.addColumn("Status", 100, id=4,
                        data=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
+                       sort=lambda job, frame: job_pb2.FrameState.Name(frame.data.state),
                        tip="The status of the frame:\n"
                            "Succeeded: \t The frame finished without errors.\n"
                            "Running: \t The frame is currently running.\n"
@@ -100,6 +102,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The number of cores a frame is using")
         self.addColumn("Host", 120, id=6,
                        data=lambda job, frame: frame.data.last_resource,
+                       sort=lambda job, frame: frame.data.last_resource,
                        tip="The last or current resource that the frame used or is using.")
         self.addColumn("Retries", 55, id=7,
                        data=lambda job, frame: frame.data.retry_count,
@@ -168,13 +171,18 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.addColumn("Start Time", 100, id=14,
                        data=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
+                       sort=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        tip="The time the frame was started or retried.")
         self.addColumn("Stop Time", 100, id=15,
                        data=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
+                       sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
         self.addColumn("Last Line", 0, id=16,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
+                                                self.frameLogDataBuffer.getLastLineData(
+                                                    job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
                        tip="The last line of a running frame's log file.")
