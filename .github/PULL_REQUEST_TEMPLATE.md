@@ -10,7 +10,6 @@ adding a list of the three or four main points can be helpful.
 It's also helpful to describe **why** you're making this change.
 
 <!--
-For a step-by-step list to walk you through the pull request process, see our
-[CONTRIBUTING doc](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/CONTRIBUTING.md#development-and-pull-requests)
+For a step-by-step list to walk you through the pull request process, see
+https://www.opencue.io/contributing/.
 -->
-
