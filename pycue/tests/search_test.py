@@ -69,6 +69,18 @@ class JobSearchTests(unittest.TestCase):
             job_pb2.JobGetJobsRequest(r=job_pb2.JobSearchCriteria(shows=['pipe'], substr=['v6'])),
             timeout=mock.ANY)
 
+    def testRaiseIfNotList(self, getStubMock):
+        with self.assertRaises(TypeError):
+            opencue.search.raiseIfNotList('user', 'iamnotalist')
+
+        with self.assertRaises(TypeError):
+            opencue.search.raiseIfNotList('user', 42)
+
+        with self.assertRaises(TypeError):
+            opencue.search.raiseIfNotList('user', set(['iamnotalist']))
+
+        self.assertIsNone(opencue.search.raiseIfNotList('user', ['iamnotalist']))
+
 
 if __name__ == '__main__':
     unittest.main()
