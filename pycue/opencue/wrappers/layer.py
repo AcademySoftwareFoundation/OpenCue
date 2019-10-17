@@ -176,7 +176,7 @@ class Layer(object):
         @param job: the job you want this job to depend on
         @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
-        response = self.stub.CreateDependOnJob(
+        response = self.stub.CreateDependencyOnJob(
             job_pb2.LayerCreateDependOnJobRequest(layer=self.data, job=job.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
@@ -187,7 +187,7 @@ class Layer(object):
         @param layer: the layer you want this layer to depend on
         @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
-        response = self.stub.CreateDependOnLayer(
+        response = self.stub.CreateDependencyOnLayer(
             job_pb2.LayerCreateDependOnLayerRequest(layer=self.data, depend_on_layer=layer.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
@@ -198,7 +198,7 @@ class Layer(object):
         @param frame: the frame you want this layer to depend on
         @rtype:  opencue.wrappers.depend.Depend
         @return: the new dependency"""
-        response = self.stub.CreateDependOnFrame(
+        response = self.stub.CreateDependencyOnFrame(
             job_pb2.LayerCreateDependOnFrameRequest(layer=self.data, frame=frame.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
