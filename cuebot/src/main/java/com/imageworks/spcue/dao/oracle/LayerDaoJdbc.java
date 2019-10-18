@@ -779,7 +779,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     private static final String GET_LIMIT_NAMES =
             "SELECT " +
-                "limit_record.str_name, " +
+                "limit_record.str_name " +
             "FROM " +
                 "layer_limit," +
                 "limit_record " +

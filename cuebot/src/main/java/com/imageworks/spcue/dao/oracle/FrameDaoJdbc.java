@@ -172,7 +172,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                         "layer_limit " +
                     "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
                     "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
-                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                    "GROUP BY limit_record.pk_limit_record) sum_running " +
                 "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
                 "WHERE " +
                     "sum_running.int_sum_running < limit_record.int_max_value " +
