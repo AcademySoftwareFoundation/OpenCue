@@ -3,7 +3,7 @@
 # Packages code from a commit into distributable artifacts i.e. Docker images, tarballs, etc.
 
 variables:
-  ARTIFACT_DIRECTORY: ./build
+  ARTIFACT_DIRECTORY: $(Build.ArtifactStagingDirectory)
 
 # Trigger the pipeline on every commit to master. Don't run it for PRs.
 trigger:
@@ -28,57 +28,53 @@ jobs:
       containerRegistry: 'Docker Hub (build)'
       command: 'login'
 
-  - bash: mkdir -p $(ARTIFACT_DIRECTORY)
-    name: createArtifactDirectory
-    displayName: Create Artifact Directory
-
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'cuebot'
       displayName: 'Cuebot'
       artifactPath: '/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'rqd'
       displayName: 'RQD'
       artifactPath: '/opt/opencue/rqd-$(setBuildId.buildId)-all.tar.gz'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'pycue'
       displayName: 'PyCue'
       artifactPath: '/opt/opencue/pycue-$(setBuildId.buildId)-all.tar.gz'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'pyoutline'
       displayName: 'PyOutline'
       artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'cuegui'
       displayName: 'CueGUI'
       artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'cuesubmit'
       displayName: 'CueSubmit'
       artifactPath: '/opt/opencue/cuesubmit-$(setBuildId.buildId)-all.tar.gz'
 
-  - template: ci/templates/build_docker.yml
+  - template: templates/build_docker.yml
     parameters:
       imageName: 'cueadmin'
       displayName: 'CueAdmin'
       artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
 
-  - bash: ci/extract_artifacts.sh $(setBuildId.buildId) ./$(ARTIFACT_DIRECTORY)
+  - bash: ci/extract_artifacts.sh $(setBuildId.buildId) $(ARTIFACT_DIRECTORY)
     name: extractArtifacts
     displayName: Extract Build Artifacts
 
-  - bash: ci/extract_schema.sh $(setBuildId.buildId) ./$(ARTIFACT_DIRECTORY)
+  - bash: ci/extract_schema.sh $(setBuildId.buildId) $(ARTIFACT_DIRECTORY)
     name: extractSchema
     displayName: Extract Database Schema
 
