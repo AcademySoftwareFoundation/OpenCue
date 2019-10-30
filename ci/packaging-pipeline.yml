@@ -1,11 +1,12 @@
-# OpenCue Packaging Pipeline
+# OpenCue packaging pipeline
 
 # Packages code from a commit into distributable artifacts i.e. Docker images, tarballs, etc.
 
 variables:
   ARTIFACT_DIRECTORY: $(Build.ArtifactStagingDirectory)
 
-# Trigger the pipeline on every commit to master. Don't run it for PRs.
+# Only run this pipeline after new commits are merged into master. Don't run for
+# PRs, which is the default behavior.
 trigger:
 - master
 pr: none

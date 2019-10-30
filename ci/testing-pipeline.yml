@@ -1,0 +1,29 @@
+# OpenCue testing pipeline
+
+# Runs tests for all components.
+
+# Trigger the pipeline on every commit to master. Pull Requests to any branch will trigger
+# the pipeline as well, by default.
+trigger:
+- master
+
+jobs:
+- job: testPython
+  displayName: Test Python Components
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container: aswf/ci-opencue:2019.0
+  steps:
+  - bash: ci/run_python_tests.sh
+    name: runTests
+    displayName: Run Python Tests
+
+- job: testCuebot
+  displayName: Test Cuebot
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container: aswf/ci-opencue:2019.0
+  steps:
+  - bash: cd cuebot && ./gradlew build --stacktrace
+    name: test
+    displayName: Build and Test Cuebot
