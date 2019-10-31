@@ -282,6 +282,12 @@ class Layer(object):
         @return: Layer frame range"""
         return self.data.range
 
+    def chunkSize(self):
+        """Returns the number of frames per task
+        @rtype:  int
+        @return: the chunks size"""
+        return self.data.chunk_size
+
     def tags(self):
         """Returns the tags applied to the layer
         TODO: Document syntax
