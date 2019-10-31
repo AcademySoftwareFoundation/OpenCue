@@ -83,7 +83,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
     def addJob(self, object):
         if cuegui.Utils.isProc(object):
-            object = cuegui.Utils.findJob(object.data.jobName)
+            object = cuegui.Utils.findJob(object.data.job_name)
         elif not cuegui.Utils.isJob(object):
             return
         self.jobMonitor.addJob(object)
