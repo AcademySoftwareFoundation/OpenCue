@@ -90,7 +90,7 @@ class CommentListDialog(QtWidgets.QDialog):
         layout.addLayout(btnLayout)
 
         self.__treeSubjects.itemSelectionChanged.connect(self.__itemChanged)
-        self.__comboMacro.currentIndexChanged.connect(self.__macroHandle)
+        self.__comboMacro.currentTextChanged.connect(self.__macroHandle)
         self.__btnSave.pressed.connect(self.__saveComment)
         self.__btnDel.pressed.connect(self.__deleteSelectedComment)
         self.__btnNew.pressed.connect(self.__createNewComment)
