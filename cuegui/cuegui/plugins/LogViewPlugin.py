@@ -379,14 +379,14 @@ class LogViewWidget(QtWidgets.QWidget):
         search_layout.addWidget(self._search_box)
         self._search_box.show()
         self._search_box.editingFinished.connect(self._find_text)
-        search_button = QtWidgets.QPushButton('Find', self)
-        search_layout.addWidget(search_button)
-        prev_button = QtWidgets.QPushButton('Prev')
-        prev_button.clicked.connect(self._move_to_prev_match)
-        next_button = QtWidgets.QPushButton('Next')
-        next_button.clicked.connect(self._move_to_next_match)
-        search_layout.addWidget(next_button)
-        search_layout.addWidget(prev_button)
+        self._search_button = QtWidgets.QPushButton('Find', self)
+        search_layout.addWidget(self._search_button)
+        self._prev_button = QtWidgets.QPushButton('Prev')
+        self._prev_button.clicked.connect(self._move_to_prev_match)
+        self._next_button = QtWidgets.QPushButton('Next')
+        self._next_button.clicked.connect(self._move_to_next_match)
+        search_layout.addWidget(self._next_button)
+        search_layout.addWidget(self._prev_button)
         search_refresh_button = QtWidgets.QPushButton('Refresh', self)
         search_layout.addWidget(search_refresh_button)
         search_refresh_button.clicked.connect(self._move_to_search_box)
@@ -394,7 +394,7 @@ class LogViewWidget(QtWidgets.QWidget):
         clear_search_button = QtWidgets.QPushButton('Clr', self)
         search_layout.addWidget(clear_search_button)
         clear_search_button.clicked.connect(self._clear_search_text)
-        search_button.clicked.connect(self._find_text)
+        self._search_button.clicked.connect(self._find_text)
 
         matches_widget = QtWidgets.QWidget(self)
         matches_layout = QtWidgets.QHBoxLayout(matches_widget)
@@ -529,7 +529,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
     def _move_to_next_match(self):
         """
-        Moves the cursor to the next occurance of search pattern match,
+        Moves the cursor to the next occurrence of search pattern match,
         scrolling up/down through the content to display the cursor position.
         When the cursor is not set and this method is called, the cursor will
         be moved to the first match. Subsequent calls move the cursor through
@@ -550,7 +550,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
     def _move_to_prev_match(self):
         """
-        Moves the cursor to the previous occurance of search pattern match,
+        Moves the cursor to the previous occurrence of search pattern match,
         scrolling up/down through the content to display the cursor position.
         When called the first time, it moves the cursor to the last match,
         subsequent calls move the cursor backwards through the matches. When
@@ -600,7 +600,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
     def _move_to_search_box(self):
         """
-        Case-sensetive checkbox state has changed. Trigger a new search
+        Case-sensitive checkbox state has changed. Trigger a new search
 
         @postcondition: All previous search data is cleared, a new search is
                         performed and focus is given to the search box
@@ -681,8 +681,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         # Update matches around the current one (300 before and 300 after)
         highlight = self._matches[max(self._current_match - 300, 0):
-                                  min(self._current_match + 300,
-                                      len(self._matches) - 1)]
+                                  min(self._current_match + 300, len(self._matches))]
 
         matches = list(set(highlight).intersection(self._matches_to_highlight))
         for match in matches:
@@ -861,5 +860,5 @@ class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
         """
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(
             self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
-        self.__logview_widget = LogViewWidget(self)
-        self.layout().addWidget(self.__logview_widget)
+        self.logview_widget = LogViewWidget(self)
+        self.layout().addWidget(self.logview_widget)
