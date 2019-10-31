@@ -685,7 +685,7 @@ class LayerActionsTests(unittest.TestCase):
         layer_name = 'arbitrary-name'
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(name=layer_name))
-        layer.parent = self.job
+        layer.parent = lambda : self.job
 
         self.layer_actions.retryDead(rpcObjects=[layer])
 

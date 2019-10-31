@@ -637,8 +637,8 @@ class LayerActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Retry all DEAD frames in selected layers?",
                                              [layer.data.name for layer in layers]):
-                layers[-1].parent.retryFrames(layer=[layer.data.name for layer in layers],
-                                              state=[opencue.api.job_pb2.DEAD])
+                layers[-1].parent().retryFrames(layer=[layer.data.name for layer in layers],
+                                                state=[opencue.api.job_pb2.DEAD])
                 self._update()
 
     markdone_info = ["Mark done", None, "markdone"]

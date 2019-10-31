@@ -27,6 +27,7 @@ import opencue.search
 import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.limit
+import opencue.api
 
 
 class Layer(object):
@@ -409,3 +410,6 @@ class Layer(object):
         @rtype:  int
         @return: the number of seconds of estimated core time remaining"""
         return self.data.layer_stats.remaining_core_sec
+
+    def parent(self):
+        return opencue.api.getJob(self.data.parent_id)
