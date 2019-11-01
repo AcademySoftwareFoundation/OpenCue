@@ -247,7 +247,7 @@ def findJob(job):
         return None
     if isStringId(job):
         return opencue.api.getJob(job)
-    if not re.search("^([a-z0-9]+)\-([a-z0-9\.]+)\-", job, re.IGNORECASE):
+    if not re.search("^([a-z0-9\_]+)\-([a-z0-9\_]+)\-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)
