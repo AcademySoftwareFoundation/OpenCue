@@ -55,13 +55,14 @@ def buildBlenderCmd(layerData):
     if not blenderFile:
         raise ValueError('No Blender file provided. Cannot submit job.')
     
-    renderCommand = '{renderCmd} -b -noaudio {blenderFile} -f {frameToken}'.format(
-        renderCmd=Constants.BLENDER_RENDER_CMD, blenderFile=blenderFile,
-        frameToken=Constants.FRAME_TOKEN)
+    renderCommand = '{renderCmd} -b -noaudio {blenderFile}'.format(
+        renderCmd=Constants.BLENDER_RENDER_CMD, blenderFile=blenderFile)
     if outputPath:
         renderCommand += ' -o {}'.format(outputPath)
     if outputFormat:
         renderCommand += ' -F {}'.format(outputFormat)
+    # The render frame must come after the scene and output
+    renderCommand += ' -f {frameToken}'.format(frameToken=Constants.FRAME_TOKEN)
     return renderCommand
 
 
