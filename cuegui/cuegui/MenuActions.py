@@ -979,8 +979,8 @@ class FrameActions(AbstractActions):
                                                   frames[0].data.layer_name)
                     if layer.data.layer_stats.total_frames == 1:
                         # Single frame selected of single frame layer, mark done and eat it all
-                        layer.eatFrames()
-                        layer.markdoneFrames()
+                        layer.eat()
+                        layer.markdone()
 
                         self._update()
                         return
