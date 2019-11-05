@@ -83,6 +83,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self, self.updateSoon, self.selectedObjects)
 
         self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
 
         # Don't use the standard space bar to refresh
         QtGui.qApp.request_update.connect(self.updateRequest)
@@ -119,6 +120,15 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         selected = [proc.data.name for proc in self.selectedObjects() if cuegui.Utils.isProc(proc)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
+
+    def __itemDoubleClickedViewLog(self, item, col):
+        """Called when a proc is double clicked
+        @type  item: QTreeWidgetItem
+        @param item: The item double clicked on
+        @type  col: int
+        @param col: Column number double clicked on"""
+        job_name = item.rpcObject.data.job_name
+        QtGui.qApp.view_object.emit(opencue.api.findJob(job_name))
 
     def clearFilters(self):
         self.clearSelection()
