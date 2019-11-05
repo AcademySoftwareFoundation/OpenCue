@@ -31,8 +31,7 @@ import opencue.compiled_proto.job_pb2
 import opencue.wrappers.frame
 import opencue.wrappers.job
 
-
-_instance = None
+from . import test_utils
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
@@ -40,10 +39,7 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
-        global _instance
-        if _instance is None:
-            _instance = cuegui.Main.CueGuiApplication()
-        self.app = _instance
+        test_utils.createApplication()
 
         PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
