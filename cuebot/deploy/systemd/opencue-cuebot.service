@@ -1,0 +1,21 @@
+[Unit]
+Description=OpenCue Cuebot Service
+Wants=network.target
+After=network.target
+
+[Service]
+Environment=DB_URL=jdbc:postgresql://localhost:5432/cuebot_local
+Environment=DB_USER=cuebot
+Environment=DB_PASS=<changeme>
+Environment=OPTIONS=
+Environment=JAR_PATH=/opt/OpenCue/cuebot/cuebot-latest.jar
+EnvironmentFile=-/etc/sysconfig/opencue-cuebot
+ExecStart=/bin/bash -c "/usr/bin/java -jar ${JAR_PATH} --datasource.cueDataSource.url=${DB_URL} --datasource.cueDataSource.username=${DB_USER} --datasource.cueDataSource.password=${DB_PASS} ${OPTIONS}"
+LimitNOFILE=500000
+LimitNPROC=500000
+StandardOutput=syslog+console
+StandardError=syslog+console
+SyslogIdentifier=cuebot
+
+[Install]
+WantedBy=multi-user.target
