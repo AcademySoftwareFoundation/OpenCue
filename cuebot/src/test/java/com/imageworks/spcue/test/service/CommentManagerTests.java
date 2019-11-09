@@ -54,7 +54,6 @@ public class CommentManagerTests extends AbstractTransactionalJUnit4SpringContex
     CommentManager commentManager;
 
     public JobDetail launchJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
         jobManager.setJobPaused(d, false);

@@ -102,13 +102,6 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Resource
     Whiteboard whiteboard;
 
-
-    @Before
-    public void setTestMode() {
-        localDispatcher.setTestMode(true);
-        rqdClient.setTestMode(true);
-    }
-
     public DispatchHost createHost() {
 
         RenderHost host = RenderHost.newBuilder()
@@ -139,7 +132,6 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
     }
 
     public JobDetail launchJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
         jobManager.setJobPaused(d, false);
@@ -147,7 +139,6 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
     }
 
     public JobDetail launchJob2() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail d = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
         jobManager.setJobPaused(d, false);

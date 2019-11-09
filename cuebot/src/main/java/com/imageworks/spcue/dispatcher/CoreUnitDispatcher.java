@@ -96,8 +96,6 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     private HostManager hostManager;
 
-    public boolean testMode = false;
-
     @Autowired
     private Environment env;
 
@@ -369,20 +367,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         /*
          * Communicate with RQD to run the frame.
          */
-        if (!testMode) {
-            dispatchSupport.runFrame(proc,frame);
-        }
-    }
-
-    @Override
-    public boolean isTestMode() {
-        return testMode;
-    }
-
-
-    @Override
-    public void setTestMode(boolean enabled) {
-        testMode = enabled;
+        dispatchSupport.runFrame(proc,frame);
     }
 
     /**

@@ -105,11 +105,6 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     private static String ROOT_SHOW = "00000000-0000-0000-0000-000000000000";
     private static String JOB_NAME = "pipe-dev.cue-testuser_shell_v1";
 
-    @Before
-    public void testMode() {
-        jobLauncher.testMode = true;
-    }
-
     public JobDetail buildJobDetail() {
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         return spec.getJobs().get(0).detail;

@@ -74,11 +74,6 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
     @Resource
     FrameSearchFactory frameSearchFactory;
 
-    @Before
-    public void setTestMode() {
-        jobLauncher.testMode = true;
-    }
-
     @Test
     @Transactional
     @Rollback(true)

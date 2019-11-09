@@ -107,11 +107,6 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     private static String LIMIT_TEST_C = "testlimitc";
     private static int LIMIT_MAX_VALUE = 32;
 
-    @Before
-    public void testMode() {
-        jobLauncher.testMode = true;
-    }
-
     public LayerDetail getLayer() {
 
         JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));

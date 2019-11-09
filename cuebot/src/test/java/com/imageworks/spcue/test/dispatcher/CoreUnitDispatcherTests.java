@@ -85,13 +85,7 @@ public class CoreUnitDispatcherTests extends TransactionalTest {
 
     @Before
     public void launchJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-    }
-
-    @Before
-    public void setTestMode() {
-        dispatcher.setTestMode(true);
     }
 
     @Before

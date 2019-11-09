@@ -221,11 +221,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     private static final String HOST = "testest";
     private static final String SHOW = "pipe";
 
-    @Before
-    public void testMode() {
-        jobLauncher.testMode = true;
-    }
-
     public ShowEntity getShow() {
         return showDao.findShowDetail(SHOW);
     }
@@ -287,13 +282,11 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
     }
 
     public JobDetail launchJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
     }
 
     public JobDetail launchLimitJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_limit.xml"));
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
     }
@@ -534,7 +527,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.showId = frame.showId;
 
         DispatchFrame dframe = frameDao.getDispatchFrame(frame.getId());
-        dispatcher.setTestMode(true);
         dispatcher.dispatch(dframe, proc);
 
         try {
@@ -621,7 +613,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.showId = frame.showId;
 
         DispatchFrame dframe = frameDao.getDispatchFrame(frame.getId());
-        dispatcher.setTestMode(true);
         dispatcher.dispatch(dframe, proc);
 
         try {
@@ -664,7 +655,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.showId = frame.showId;
 
         DispatchFrame dframe = frameDao.getDispatchFrame(frame.getId());
-        dispatcher.setTestMode(true);
         dispatcher.dispatch(dframe, proc);
 
         try {

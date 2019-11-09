@@ -75,11 +75,6 @@ public class TaskDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Resource
     JobLauncher jobLauncher;
 
-    @Before
-    public void testMode() {
-        jobLauncher.testMode = true;
-    }
-
     @Test
     @Transactional
     @Rollback(true)

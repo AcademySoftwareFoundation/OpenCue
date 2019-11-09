@@ -54,12 +54,7 @@ public class JobLauncher implements ApplicationContextAware {
     private JmsMover jmsMover;
     private LocalBookingSupport localBookingSupport;
 
-    /**
-     * When true, disables log path creation and
-     * proc points sync.
-     */
-    public volatile boolean testMode = false;
-
+    
     @Override
     public void setApplicationContext(ApplicationContext context)
             throws BeansException {
@@ -128,16 +123,14 @@ public class JobLauncher implements ApplicationContextAware {
              * a job with dependencies, so the transaction should not
              * touch any rows that are currently in the "live" data set.
              */
-            if (!testMode) {
-                Set<String> depts = new HashSet<String>();
-                for (BuildableJob job: spec.getJobs()) {
-                    JobDetail d = jobManager.getJobDetail(job.detail.id);
-                    jmsMover.send(d);
-                    if (departmentManager.isManaged(d)) {
-                        if (!depts.contains(d.deptId)) {
-                            departmentManager.syncJobsWithTask(d);
-                            depts.add(d.deptId);
-                        }
+            Set<String> depts = new HashSet<String>();
+            for (BuildableJob job: spec.getJobs()) {
+                JobDetail d = jobManager.getJobDetail(job.detail.id);
+                jmsMover.send(d);
+                if (departmentManager.isManaged(d)) {
+                    if (!depts.contains(d.deptId)) {
+                        departmentManager.syncJobsWithTask(d);
+                        depts.add(d.deptId);
                     }
                 }
             }

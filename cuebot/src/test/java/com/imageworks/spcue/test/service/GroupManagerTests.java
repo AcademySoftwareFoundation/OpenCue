@@ -73,11 +73,6 @@ public class GroupManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Resource
     ShowDao showDao;
 
-    @Before
-    public void setTestMode() {
-        jobLauncher.testMode = true;
-    }
-
     @Test
     @Transactional
     @Rollback(true)

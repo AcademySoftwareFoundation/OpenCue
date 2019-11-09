@@ -87,7 +87,6 @@ public class FrameSearchTests extends AbstractTransactionalJUnit4SpringContextTe
         File file = new File(
                 classLoader.getResource("conf/jobspec/jobspec_depend_test.xml").getFile());
 
-        jobLauncher.testMode = true;
         jobLauncher.launch(file);
     }
 

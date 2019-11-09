@@ -38,8 +38,6 @@ public abstract class AbstractDispatcher {
     public DispatchSupport dispatchSupport;
     public RqdClient rqdClient;
 
-    public boolean testMode = false;
-
     public boolean dispatchProc(DispatchFrame frame, VirtualProc proc) {
 
         try {
@@ -210,10 +208,7 @@ public abstract class AbstractDispatcher {
         /*
          * Communicate with RQD to run the frame.
          */
-        if (!testMode) {
-            dispatchSupport.runFrame(proc, frame);
-        }
-
+        dispatchSupport.runFrame(proc, frame);
     }
 
     private static void dispatchSummary(VirtualProc p, DispatchFrame f, String type) {
@@ -244,13 +239,4 @@ public abstract class AbstractDispatcher {
     public void setRqdClient(RqdClient rqdClient) {
         this.rqdClient = rqdClient;
     }
-
-    public boolean isTestMode() {
-        return testMode;
-    }
-
-    public void setTestMode(boolean testMode) {
-        this.testMode = testMode;
-    }
 }
-

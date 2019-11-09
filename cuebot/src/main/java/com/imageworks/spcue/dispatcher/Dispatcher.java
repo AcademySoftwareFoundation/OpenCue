@@ -116,9 +116,6 @@ public interface Dispatcher {
     // A higher number gets more deep booking but less spread on the cue.
     public static final int DEFAULT_MAX_FRAMES_PER_PASS = 4;
 
-    // Disable RQD communication.
-    public static boolean testMode = false;
-
     // The time in seconds it takes for a proc or frame to orphan.
     public static final int ORPHANED_SECONDS = 300;
 
@@ -194,20 +191,6 @@ public interface Dispatcher {
      * @throws DispatcherException if an error occurs.
      */
     void dispatchProcToJob(VirtualProc proc, JobInterface job);
-
-    /**
-     * Return true if the dispatcher should not talk to RQD
-     *
-     * @return
-     */
-    boolean isTestMode();
-
-    /**
-     * Return true if the dispatcher should not talk to RQD
-     *
-     * @return
-     */
-    void setTestMode(boolean enabled);
 
     /**
      * Handles assigning a processor to a specified frame.

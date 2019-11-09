@@ -56,8 +56,6 @@ public final class RqdClientGrpc implements RqdClient {
     private final int rqdServerPort;
     private LoadingCache<String, ManagedChannel> channelCache;
 
-    private boolean testMode = false;
-
 
     public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration) {
         this.rqdServerPort = rqdServerPort;
@@ -148,10 +146,6 @@ public final class RqdClientGrpc implements RqdClient {
     public void rebootWhenIdle(HostInterface host) {
         RqdStaticRebootIdleRequest request = RqdStaticRebootIdleRequest.newBuilder().build();
 
-        if (testMode) {
-            return;
-        }
-
         try {
             getStub(host.getName()).rebootIdle(request);
         } catch (StatusRuntimeException | ExecutionException e) {
@@ -166,10 +160,6 @@ public final class RqdClientGrpc implements RqdClient {
     public void killFrame(String host, String frameId, String message) {
         RqdStaticKillRunningFrameRequest request =
                 RqdStaticKillRunningFrameRequest.newBuilder().setFrameId(frameId).build();
-
-        if (testMode) {
-            return;
-        }
 
         try {
             logger.info("killing frame on " + host + ", source: " + message);
@@ -202,20 +192,10 @@ public final class RqdClientGrpc implements RqdClient {
         RqdStaticLaunchFrameRequest request =
                 RqdStaticLaunchFrameRequest.newBuilder().setRunFrame(frame).build();
 
-        if (testMode) {
-            return;
-        }
-
         try {
             getStub(proc.hostName).launchFrame(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to launch frame", e);
         }
     }
-
-    @Override
-    public void setTestMode(boolean testMode) {
-        this.testMode = testMode;
-    }
 }
-

@@ -60,11 +60,6 @@ public class HostReportHandlerTests extends TransactionalTest {
     private static final String HOSTNAME = "beta";
 
     @Before
-    public void setTestMode() {
-        dispatcher.setTestMode(true);
-    }
-
-    @Before
     public void createHost() {
         hostManager.createHost(getRenderHost(),
                 adminManager.findAllocationDetail("spi","general"));

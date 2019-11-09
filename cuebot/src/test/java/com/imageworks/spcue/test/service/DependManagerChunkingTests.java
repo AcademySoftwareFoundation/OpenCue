@@ -77,7 +77,6 @@ public class DependManagerChunkingTests extends TransactionalTest {
 
     @Before
     public void launchTestJobs() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/chunk_depend.xml"));
     }
 

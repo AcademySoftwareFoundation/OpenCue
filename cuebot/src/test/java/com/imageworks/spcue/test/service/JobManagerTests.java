@@ -153,8 +153,6 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
     @BeforeTransaction
     public void init() {
-        jobLauncher.testMode = true;
-
         for (String jobName : ImmutableList.of(JOB1, JOB2, JOB3)) {
             try {
                 JobInterface job = jobDao.findJob(jobName);

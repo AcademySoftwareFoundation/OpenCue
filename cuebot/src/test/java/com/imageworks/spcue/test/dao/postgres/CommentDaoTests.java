@@ -71,8 +71,7 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     HostManager hostManager;
 
     @Before
-    public void testMode() {
-        jobLauncher.testMode = true;
+    public void testLaunchSpec() {
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
     }
 

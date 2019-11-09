@@ -88,7 +88,6 @@ public class DependManagerTests extends TransactionalTest {
 
     @Before
     public void launchTestJobs() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_depend_test.xml"));
     }
 

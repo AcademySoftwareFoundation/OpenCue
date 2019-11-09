@@ -96,7 +96,6 @@ public class DependDaoTests extends AbstractTransactionalJUnit4SpringContextTest
 
     @Before
     public void launchTestJobs() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_depend_test.xml"));
     }
 

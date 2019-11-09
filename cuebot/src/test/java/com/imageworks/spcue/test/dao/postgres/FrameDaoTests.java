@@ -142,7 +142,6 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     }
 
     public JobDetail launchJob() {
-        jobLauncher.testMode = true;
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
     }

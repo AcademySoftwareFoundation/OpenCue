@@ -127,11 +127,6 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
         return hostDao.findDispatchHost(HOST_NAME);
     }
 
-    @Before
-    public void setTestMode() {
-        jobLauncher.testMode = true;
-    }
-
     /**
      * Test that moves a host from one allocation to another.
      */

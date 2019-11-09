@@ -324,13 +324,8 @@ public class RedirectManager {
                     logger.info("redirecting proc " + proc
                             + " to job " + job.getName());
 
-                    if (dispatcher.isTestMode()) {
-                        dispatcher.dispatchHost(host, job);
-                    }
-                    else {
-                        bookingQueue.execute(new
+                    bookingQueue.execute(new
                                 DispatchBookHost(host, job, dispatcher));
-                    }
                     return true;
 
                 case GROUP_REDIRECT:
@@ -340,13 +335,8 @@ public class RedirectManager {
                     logger.info("redirecting group " + proc +
                             " to job " + group.getName());
 
-                    if (dispatcher.isTestMode()) {
-                        dispatcher.dispatchHost(host, group);
-                    }
-                    else {
-                        bookingQueue.execute(new DispatchBookHost(host,
+                    bookingQueue.execute(new DispatchBookHost(host,
                                 group, dispatcher));
-                    }
                     return true;
 
                 default:

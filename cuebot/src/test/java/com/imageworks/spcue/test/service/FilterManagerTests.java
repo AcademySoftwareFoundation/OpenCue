@@ -103,11 +103,6 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
 
     private static String FILTER_NAME = "test_filter";
 
-    @Before
-    public void setTestMode() {
-        jobLauncher.testMode = true;
-    }
-
     public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }

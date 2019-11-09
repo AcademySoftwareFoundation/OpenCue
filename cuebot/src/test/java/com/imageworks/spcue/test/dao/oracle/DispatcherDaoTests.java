@@ -137,8 +137,6 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Before
     public void launchJob() {
-        dispatcher.setTestMode(true);
-        jobLauncher.testMode = true;
         jobLauncher.launch(
                 new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
     }

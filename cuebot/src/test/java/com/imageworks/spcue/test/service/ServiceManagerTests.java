@@ -63,11 +63,6 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
     @Resource
     LayerDao layerDao;
 
-    @Before
-    public void setTestMode() {
-        jobLauncher.testMode = true;
-    }
-
     @Test
     @Transactional
     @Rollback(true)

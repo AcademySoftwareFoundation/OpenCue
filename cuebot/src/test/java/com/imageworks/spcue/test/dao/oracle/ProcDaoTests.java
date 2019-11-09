@@ -146,12 +146,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         return jobManager.findJobDetail("pipe-dev.cue-testuser_shell_v1");
     }
 
-    @Before
-    public void setDispatcherTestMode() {
-        dispatcher.setTestMode(true);
-        jobLauncher.testMode = true;
-    }
-
     @Test
     @Transactional
     @Rollback(true)

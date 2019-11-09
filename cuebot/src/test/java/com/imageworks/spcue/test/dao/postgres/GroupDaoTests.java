@@ -75,11 +75,6 @@ public class GroupDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Resource
     JobLauncher jobLauncher;
 
-    @Before
-    public void before() {
-        jobLauncher.testMode = true;
-    }
-
     public ShowInterface getShow() {
         return showDao.getShowDetail("00000000-0000-0000-0000-000000000000");
     }

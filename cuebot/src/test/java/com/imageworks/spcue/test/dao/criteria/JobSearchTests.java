@@ -62,7 +62,6 @@ public class JobSearchTests extends AbstractTransactionalJUnit4SpringContextTest
     @Before
     public void launchTestJobs() {
         ClassLoader classLoader = getClass().getClassLoader();
-        jobLauncher.testMode = true;
 
         File file = new File(
                 classLoader.getResource("conf/jobspec/jobspec.xml").getFile());

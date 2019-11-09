@@ -26,13 +26,6 @@ import com.imageworks.spcue.grpc.rqd.RunFrame;
 public interface RqdClient {
 
     /**
-     * Setting to true pretends all remote procedures execute perfectly.
-     *
-     * @param tests
-     */
-    public void setTestMode(boolean tests);
-
-    /**
      * Returns a RunningFrameInfo
      *
      * @param proc

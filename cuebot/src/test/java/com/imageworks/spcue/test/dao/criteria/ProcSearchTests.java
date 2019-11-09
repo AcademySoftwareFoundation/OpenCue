@@ -92,11 +92,6 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     @Resource
     GroupManager groupManager;
 
-    @Before
-    public void setTestMode() {
-        dispatcher.setTestMode(true);
-    }
-
     @Test
     @Transactional
     @Rollback
@@ -202,7 +197,6 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
 
     private void launchJobs() {
         ClassLoader classLoader = getClass().getClassLoader();
-        jobLauncher.testMode = true;
         File file = new File(
                 classLoader.getResource("conf/jobspec/jobspec_dispatch_test.xml").getFile());
         jobLauncher.launch(file);
