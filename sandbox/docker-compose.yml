@@ -55,3 +55,4 @@ services:
       - "8444:8444"
     volumes:
       - /tmp/rqd/logs:/tmp/rqd/logs
+      - /tmp/rqd/shots:/tmp/rqd/shots
