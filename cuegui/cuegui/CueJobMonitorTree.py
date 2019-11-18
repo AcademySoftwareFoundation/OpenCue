@@ -270,20 +270,14 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                 if result == QtWidgets.QMessageBox.Yes:
                     if job_ids:
-                        item.rpcObject.reparentJobs(job_ids)
-                        # If no exception, then move was allowed, so do it locally:
-                        for id_ in job_ids:
-                            proxy = cuegui.Utils.getObjectKey(opencue.util.proxy(id_, "Job"))
-                            self._items[proxy].update(self._items[proxy].rpcObject, item)
+                        jobs = [opencue.api.getJob(id_) for id_ in job_ids]
+                        item.rpcObject.asGroup().reparentJobs(jobs)
 
                     if group_ids:
-                        item.rpcObject.reparentGroupIds(group_ids)
-                        # If no exception, then move was allowed, so do it locally:
-                        for id_ in group_ids:
-                            proxy = cuegui.Utils.getObjectKey(opencue.util.proxy(id_, "Group"))
-                            self._items[proxy].update(self._items[proxy].rpcObject, item)
+                        groups = [opencue.api.getGroup(id_) for id_ in group_ids]
+                        item.rpcObject.asGroup().reparentGroupIds(groups)
 
-                    self.updateSoon()
+                    self.updateRequest()
 
     def addShow(self, show, update = True):
         """Adds a show to the list of monitored shows
