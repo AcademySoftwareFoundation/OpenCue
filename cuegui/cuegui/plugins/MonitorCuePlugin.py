@@ -169,7 +169,19 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         """Handles adding or removing shows via the show selection menu
         @type  action: QAction
         @param action: Click action"""
-        if action.isChecked():
+        if action.text() == 'All Shows':
+            try:
+                shows = sorted([show.name() for show in opencue.api.getActiveShows()])
+            except opencue.CueException as e:
+                logger.critical(e)
+                shows = []
+            for show in shows:
+                self.__monitorCue.addShow(show)
+            self.__showMenuUpdate()
+        elif action.text() == 'Clear':
+            self.__monitorCue.removeAllShows()
+            self.__showMenuUpdate()
+        elif action.isChecked():
             self.__monitorCue.addShow(action.text())
         else:
             self.__monitorCue.removeShow(action.text())
@@ -178,6 +190,15 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         """Updates the show selection menu with the known shows"""
         self.__showMenu.clear()
         self.__showMenuActions = {}
+
+        action = QtWidgets.QAction('All Shows', self.__showMenu)
+        self.__showMenu.addAction(action)
+        self.__showMenuActions['All Shows'] = action
+
+        action = QtWidgets.QAction('Clear', self.__showMenu)
+        self.__showMenu.addAction(action)
+        self.__showMenuActions['Clear'] = action
+        self.__showMenu.addSeparator()
 
         try:
             shows = sorted([show.name() for show in opencue.api.getActiveShows()])
