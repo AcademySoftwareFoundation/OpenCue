@@ -54,6 +54,7 @@ from opencue.compiled_proto import subscription_pb2
 from opencue.compiled_proto import subscription_pb2_grpc
 from opencue.compiled_proto import task_pb2
 from opencue.compiled_proto import task_pb2_grpc
+from opencue.exception import ConnectionException
 from opencue.exception import CueException
 
 
@@ -179,8 +180,8 @@ class Cuebot(object):
                 continue
             atexit.register(Cuebot.closeChannel)
             return None
-        raise CueException('No grpc connection could be established. ' +
-                           'Please check configured cuebot hosts.')
+        raise ConnectionException('No grpc connection could be established. ' +
+                                  'Please check configured cuebot hosts.')
 
     @staticmethod
     def closeChannel():

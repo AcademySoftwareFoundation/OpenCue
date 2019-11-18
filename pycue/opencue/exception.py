@@ -22,27 +22,59 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import grpc
+
+import opencue
+
 
 class CueException(Exception):
     """A Base class for all client side cue exceptions"""
-    pass
+    retryBackoff = 0.5  # seconds
 
 
 class DeadlineExceededException(CueException):
     """Raised when the deadline for response has been exceeded."""
-    pass
+    failMsg = 'Request deadline exceeded. {details}'
+    retryMsg = 'Request deadline exceeded, checking again...'
+    retryable = False
 
 
 class EntityAlreadyExistsException(CueException):
     """Raised when the entity was not created because it already exists on the server"""
-    pass
+    failMsg = 'Object already exists. {details}'
+    retryMsg = 'Object already exists, checking again...'
+    retryable = False
 
 
 class EntityNotFoundException(CueException):
     """Raised when the entity was not found on the server."""
-    pass
+    failMsg = 'Object does not exist. {details}'
+    retryMsg = 'Object does not exist, checking again...'
+    retryable = False
 
 
 class CueInternalErrorException(CueException):
     """Raised when the server encountered a catchable error"""
-    pass
+    failMsg = 'Server caught an internal exception. {details}'
+    retryMsg = 'Server caught an internal exception, checking again...'
+    retryable = False
+
+class ConnectionException(CueException):
+    """Raised when unable to connect to grpc server."""
+    failMsg = 'Unable to contact grpc server. {details}'
+    retryMsg = 'Unable to contact grpc server, checking again...'
+    retryable = True
+
+
+def getRetryCount():
+    return opencue.cuebot.Cuebot.getConfig().get('cuebot.exception_retries', 3)
+
+
+EXCEPTION_MAP = {
+    grpc.StatusCode.NOT_FOUND: EntityNotFoundException,
+    grpc.StatusCode.ALREADY_EXISTS: EntityAlreadyExistsException,
+    grpc.StatusCode.DEADLINE_EXCEEDED: DeadlineExceededException,
+    grpc.StatusCode.INTERNAL: CueInternalErrorException,
+    grpc.StatusCode.UNAVAILABLE: ConnectionException
+}
+

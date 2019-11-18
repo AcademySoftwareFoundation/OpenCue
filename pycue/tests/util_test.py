@@ -64,6 +64,13 @@ class ProxyTests(unittest.TestCase):
         self.assertRaises(opencue.exception.CueInternalErrorException,
                           lambda: testRaise(response))
 
+    def testConnectionExceptionParser(self):
+        response = grpc.RpcError()
+        response.code = lambda: grpc.StatusCode.UNAVAILABLE
+        response.details = lambda: "Connection Error"
+        self.assertRaises(opencue.exception.ConnectionException,
+                          lambda: testRaise(response))
+
     def testUnknownExceptionParser(self):
         response = grpc.RpcError()
         response.code = lambda: "unknown"
