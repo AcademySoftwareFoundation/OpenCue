@@ -29,6 +29,9 @@ import opencue
 
 class CueException(Exception):
     """A Base class for all client side cue exceptions"""
+    failMsg = 'Caught an unknown server exception. Please check the server logs. {details}'
+    retryMsg = 'Caught an unknown server exception, checking again...'
+    retryable = False
     retryBackoff = 0.5  # seconds
 
 
@@ -36,28 +39,24 @@ class DeadlineExceededException(CueException):
     """Raised when the deadline for response has been exceeded."""
     failMsg = 'Request deadline exceeded. {details}'
     retryMsg = 'Request deadline exceeded, checking again...'
-    retryable = False
 
 
 class EntityAlreadyExistsException(CueException):
     """Raised when the entity was not created because it already exists on the server"""
     failMsg = 'Object already exists. {details}'
     retryMsg = 'Object already exists, checking again...'
-    retryable = False
 
 
 class EntityNotFoundException(CueException):
     """Raised when the entity was not found on the server."""
     failMsg = 'Object does not exist. {details}'
     retryMsg = 'Object does not exist, checking again...'
-    retryable = False
 
 
 class CueInternalErrorException(CueException):
     """Raised when the server encountered a catchable error"""
     failMsg = 'Server caught an internal exception. {details}'
     retryMsg = 'Server caught an internal exception, checking again...'
-    retryable = False
 
 class ConnectionException(CueException):
     """Raised when unable to connect to grpc server."""
