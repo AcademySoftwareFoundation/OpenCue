@@ -41,7 +41,7 @@ def grpcExceptionParser(grpcFunc):
     """Decorator to wrap functions making GRPC calls.
     Attempts to throw the appropriate exception based on grpc status code."""
     def _decorator(*args, **kwargs):
-        triesRemaining = opencue.exception.getRetryCount()
+        triesRemaining = opencue.exception.getRetryCount() + 1
         while triesRemaining > 0:
             triesRemaining -= 1
             try:
