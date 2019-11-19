@@ -22,6 +22,7 @@ from builtins import range
 import grpc
 import mock
 import unittest
+import uuid
 
 import opencue
 from opencue.compiled_proto import job_pb2
@@ -30,6 +31,7 @@ from opencue.wrappers.job import Job
 
 @opencue.util.grpcExceptionParser
 def testRaise(exc):
+    uuid.uuid4()
     raise exc
 
 
@@ -63,6 +65,26 @@ class ProxyTests(unittest.TestCase):
         response.details = lambda: "Internal Error"
         self.assertRaises(opencue.exception.CueInternalErrorException,
                           lambda: testRaise(response))
+
+    @mock.patch('uuid.uuid4')
+    def testConnectionExceptionParser(self, mockUuid):
+        with mock.patch('opencue.exception.getRetryCount', return_value=3):
+            response = grpc.RpcError()
+            response.code = lambda: grpc.StatusCode.UNAVAILABLE
+            response.details = lambda: "Connection Error"
+            self.assertRaises(opencue.exception.ConnectionException,
+                              lambda: testRaise(response))
+        self.assertEqual(mockUuid.call_count, 4)
+
+    @mock.patch('uuid.uuid4')
+    def testConnectionExceptionZeroRetries(self, mockUuid):
+        with mock.patch('opencue.exception.getRetryCount', return_value=0):
+            response = grpc.RpcError()
+            response.code = lambda: grpc.StatusCode.UNAVAILABLE
+            response.details = lambda: "Connection Error"
+            self.assertRaises(opencue.exception.ConnectionException,
+                              lambda: testRaise(response))
+        self.assertEqual(mockUuid.call_count, 1)
 
     def testUnknownExceptionParser(self):
         response = grpc.RpcError()

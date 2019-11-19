@@ -30,6 +30,7 @@ import grpc
 import logging
 import os
 import six
+import time
 
 import opencue
 
@@ -40,27 +41,27 @@ def grpcExceptionParser(grpcFunc):
     """Decorator to wrap functions making GRPC calls.
     Attempts to throw the appropriate exception based on grpc status code."""
     def _decorator(*args, **kwargs):
-        try:
-            return grpcFunc(*args, **kwargs)
-        except grpc.RpcError as exc:
-            code = exc.code()
-            details = exc.details() or "No details found. Check server logs."
-            if code == grpc.StatusCode.NOT_FOUND:
-                future.utils.raise_with_traceback(opencue.exception.EntityNotFoundException(
-                    "Object does not exist. {}".format(details)))
-            elif code == grpc.StatusCode.ALREADY_EXISTS:
-                future.utils.raise_with_traceback(opencue.exception.EntityAlreadyExistsException(
-                    "Object already exists. {}".format(details)))
-            elif code == grpc.StatusCode.DEADLINE_EXCEEDED:
-                future.utils.raise_with_traceback(opencue.exception.DeadlineExceededException(
-                    "Request deadline exceeded. {}".format(details)))
-            elif code == grpc.StatusCode.INTERNAL:
-                future.utils.raise_with_traceback(opencue.exception.CueInternalErrorException(
-                    "Server caught an internal exception. {}".format(details)))
-            else:
-                future.utils.raise_with_traceback(opencue.exception.CueException(
-                    "Encountered a server error. {code} : {details}".format(
-                        code=code, details=details)))
+        triesRemaining = opencue.exception.getRetryCount() + 1
+        while triesRemaining > 0:
+            triesRemaining -= 1
+            try:
+                return grpcFunc(*args, **kwargs)
+            except grpc.RpcError as exc:
+                code = exc.code()
+                details = exc.details() or "No details found. Check server logs."
+                exception = opencue.exception.EXCEPTION_MAP.get(code)
+                if exception:
+                    if exception.retryable and triesRemaining >= 1:
+                        logger.warning(exception.retryMsg)
+                        time.sleep(exception.retryBackoff)
+                    else:
+                        future.utils.raise_with_traceback(
+                            exception(exception.failMsg.format(details=details)))
+                else:
+                    future.utils.raise_with_traceback(opencue.exception.CueException(
+                        "Encountered a server error. {code} : {details}".format(
+                            code=code, details=details)))
+
     return functools.wraps(grpcFunc)(_decorator)
 
 
