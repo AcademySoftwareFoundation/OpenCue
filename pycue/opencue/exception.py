@@ -66,6 +66,8 @@ class ConnectionException(CueException):
 
 
 def getRetryCount():
+    """Return the configured number of retries a cuebot call can make.
+    If not specified in the config, all retryable calls will be called once and retried 3 times."""
     return opencue.cuebot.Cuebot.getConfig().get('cuebot.exception_retries', 3)
 
 
