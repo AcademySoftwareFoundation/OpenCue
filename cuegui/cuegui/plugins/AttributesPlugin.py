@@ -203,6 +203,14 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
         self.addTopLevelItem(root)
         self.expandAll()
 
+        self.itemSelectionChanged.connect(self.itemSingleClickedCopy)
+
+    def itemSingleClickedCopy(self):
+        selected = self.selectedItems()
+
+        if selected:
+            QtWidgets.QApplication.clipboard().setText(str(selected[0].text(1)))
+
 
 class LayerAttributes(AbstractAttributes):
     NAME = "LayerAttributes"
