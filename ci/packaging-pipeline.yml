@@ -121,10 +121,10 @@ jobs:
 - job: createOtherArtifacts
   displayName: Create Other Build Artifacts
   dependsOn: setBuildId
-    pool:
-      vmImage: 'ubuntu-16.04'
-    variables:
-      buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
   steps:
   - bash: ci/generate_version_number.sh > VERSION
     name: generateVersionFile
