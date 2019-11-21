@@ -51,69 +51,69 @@ jobs:
     parameters:
       imageName: 'cuebot'
       displayName: 'Cuebot'
-      artifactPath: '/opt/opencue/cuebot-$(setBuildId.buildId)-all.jar'
+      artifactPath: '/opt/opencue/cuebot-$(buildId)-all.jar'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'rqd'
       displayName: 'RQD'
-      artifactPath: '/opt/opencue/rqd-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/rqd-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'pycue'
       displayName: 'PyCue'
-      artifactPath: '/opt/opencue/pycue-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/pycue-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'pyoutline'
       displayName: 'PyOutline'
-      artifactPath: '/opt/opencue/pyoutline-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/pyoutline-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'cuegui'
       displayName: 'CueGUI'
-      artifactPath: '/opt/opencue/cuegui-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/cuegui-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'cuesubmit'
       displayName: 'CueSubmit'
-      artifactPath: '/opt/opencue/cuesubmit-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/cuesubmit-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'cueadmin'
       displayName: 'CueAdmin'
-      artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
+      artifactPath: '/opt/opencue/cueadmin-$(buildId)-all.tar.gz'
 
-  - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(setBuildId.buildId)-all.jar
+  - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(buildId)-all.jar
       artifact: Cuebot JAR
       displayName: Publish Cuebot JAR
 
-  - publish: $(ARTIFACT_DIRECTORY)/rqd-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/rqd-$(buildId)-all.tar.gz
     artifact: RQD Tarball
     displayName: Publish RQD Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/pycue-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/pycue-$(buildId)-all.tar.gz
     artifact: PyCue Tarball
     displayName: Publish PyCue Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/pyoutline-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/pyoutline-$(buildId)-all.tar.gz
     artifact: PyOutline Tarball
     displayName: Publish PyOutline Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(buildId)-all.tar.gz
     artifact: CueGUI Tarball
     displayName: Publish CueGUI Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(buildId)-all.tar.gz
     artifact: CueSubmit Tarball
     displayName: Publish CueSubmit Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/cueadmin-$(setBuildId.buildId)-all.tar.gz
+  - publish: $(ARTIFACT_DIRECTORY)/cueadmin-$(buildId)-all.tar.gz
     artifact: CueAdmin Tarball
     displayName: Publish CueAdmin Tarball
 
