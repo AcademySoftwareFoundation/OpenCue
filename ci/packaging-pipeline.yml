@@ -119,7 +119,7 @@ jobs:
 
 
 - job: createOtherArtifacts
-  displayName: Build Docker Images
+  displayName: Create Other Build Artifacts
   dependsOn: setBuildId
     pool:
       vmImage: 'ubuntu-16.04'
@@ -134,8 +134,8 @@ jobs:
       set -e
       cp LICENSE VERSION "$(ARTIFACT_DIRECTORY)/"
       echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "$(ARTIFACT_DIRECTORY)/build_metadata.json"
-    name: createOtherArtifacts
-    displayName: Create Other Build Artifacts
+    name: createMetadataArtifacts
+    displayName: Create Metadata Artifacts
 
   - bash: ci/extract_schema.sh $(buildId) $(ARTIFACT_DIRECTORY)
     name: extractSchema
