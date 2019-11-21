@@ -20,7 +20,11 @@ RUN yum -y install \
   which \
   Xvfb
 
-RUN yum -y install python-pip
+RUN yum -y install \
+  python-pip \
+  python36 \
+  python36-devel \
+  python36-pip
 
 RUN dbus-uuidgen > /etc/machine-id
 
@@ -28,6 +32,8 @@ COPY LICENSE ./
 COPY requirements.txt ./
 
 RUN pip install -r requirements.txt
+
+RUN pip3.6 install -r requirements.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
@@ -55,9 +61,13 @@ RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 RUN cd pycue && python setup.py install
 
+RUN cd pycue && python3.6 setup.py install
+
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
 RUN cd cuegui && xvfb-run python setup.py test
+
+RUN cd cuegui && xvfb-run python3.6 setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 
