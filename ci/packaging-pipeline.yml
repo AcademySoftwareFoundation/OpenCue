@@ -27,17 +27,14 @@ jobs:
     displayName: Set Build Id
 
 
-- job: buildDockerImages
-  displayName: Build Docker Images
+- job: buildDockerImages1
+  displayName: Build Docker Images, Part 1
   dependsOn: setBuildId
   pool:
     vmImage: 'ubuntu-16.04'
   variables:
     buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
   steps:
-  - bash: echo $(buildId)
-    name: echoVar
-
   - bash: ci/generate_version_number.sh > VERSION
     name: generateVersionFile
     displayName: Generate Version File
@@ -59,6 +56,60 @@ jobs:
       displayName: 'RQD'
       artifactPath: '/opt/opencue/rqd-$(buildId)-all.tar.gz'
 
+  - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(buildId)-all.jar
+    artifact: Cuebot JAR
+    displayName: Publish Cuebot JAR
+
+  - publish: $(ARTIFACT_DIRECTORY)/rqd-$(buildId)-all.tar.gz
+    artifact: RQD Tarball
+    displayName: Publish RQD Tarball
+
+
+- job: buildDockerImages2
+  displayName: Build Docker Images, Part 2
+  dependsOn: setBuildId
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
+  steps:
+  - bash: ci/generate_version_number.sh > VERSION
+    name: generateVersionFile
+    displayName: Generate Version File
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: 'Docker Hub (build)'
+      command: 'login'
+
+  - template: templates/build_docker.yml
+    parameters:
+      imageName: 'cuegui'
+      displayName: 'CueGUI'
+      artifactPath: '/opt/opencue/cuegui-$(buildId)-all.tar.gz'
+
+  - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(buildId)-all.tar.gz
+    artifact: CueGUI Tarball
+    displayName: Publish CueGUI Tarball
+
+
+- job: buildDockerImages3
+  displayName: Build Docker Images, Part 3
+  dependsOn: setBuildId
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
+  steps:
+  - bash: ci/generate_version_number.sh > VERSION
+    name: generateVersionFile
+    displayName: Generate Version File
+
+  - task: Docker@2
+    inputs:
+      containerRegistry: 'Docker Hub (build)'
+      command: 'login'
+
   - template: templates/build_docker.yml
     parameters:
       imageName: 'pycue'
@@ -73,12 +124,6 @@ jobs:
 
   - template: templates/build_docker.yml
     parameters:
-      imageName: 'cuegui'
-      displayName: 'CueGUI'
-      artifactPath: '/opt/opencue/cuegui-$(buildId)-all.tar.gz'
-
-  - template: templates/build_docker.yml
-    parameters:
       imageName: 'cuesubmit'
       displayName: 'CueSubmit'
       artifactPath: '/opt/opencue/cuesubmit-$(buildId)-all.tar.gz'
@@ -89,14 +134,6 @@ jobs:
       displayName: 'CueAdmin'
       artifactPath: '/opt/opencue/cueadmin-$(buildId)-all.tar.gz'
 
-  - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(buildId)-all.jar
-    artifact: Cuebot JAR
-    displayName: Publish Cuebot JAR
-
-  - publish: $(ARTIFACT_DIRECTORY)/rqd-$(buildId)-all.tar.gz
-    artifact: RQD Tarball
-    displayName: Publish RQD Tarball
-
   - publish: $(ARTIFACT_DIRECTORY)/pycue-$(buildId)-all.tar.gz
     artifact: PyCue Tarball
     displayName: Publish PyCue Tarball
@@ -104,10 +141,6 @@ jobs:
   - publish: $(ARTIFACT_DIRECTORY)/pyoutline-$(buildId)-all.tar.gz
     artifact: PyOutline Tarball
     displayName: Publish PyOutline Tarball
-
-  - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(buildId)-all.tar.gz
-    artifact: CueGUI Tarball
-    displayName: Publish CueGUI Tarball
 
   - publish: $(ARTIFACT_DIRECTORY)/cuesubmit-$(buildId)-all.tar.gz
     artifact: CueSubmit Tarball
