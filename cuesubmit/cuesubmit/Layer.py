@@ -18,7 +18,9 @@ from __future__ import division
 from __future__ import absolute_import
 
 
-class DependType:
+from builtins import str
+from builtins import object
+class DependType(object):
     """Types of Dependencies available in the UI."""
 
     Null = ''
