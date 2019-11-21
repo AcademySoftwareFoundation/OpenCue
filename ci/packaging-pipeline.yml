@@ -90,8 +90,8 @@ jobs:
       artifactPath: '/opt/opencue/cueadmin-$(buildId)-all.tar.gz'
 
   - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(buildId)-all.jar
-      artifact: Cuebot JAR
-      displayName: Publish Cuebot JAR
+    artifact: Cuebot JAR
+    displayName: Publish Cuebot JAR
 
   - publish: $(ARTIFACT_DIRECTORY)/rqd-$(buildId)-all.tar.gz
     artifact: RQD Tarball
