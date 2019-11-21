@@ -12,8 +12,10 @@ trigger:
 pr: none
 
 jobs:
-- job: build
-  displayName: Build
+
+
+- job: setBuildId
+  displayName: Set Build Id
   pool:
     vmImage: 'ubuntu-16.04'
   steps:
@@ -22,7 +24,23 @@ jobs:
       ci/generate_version_number.sh > VERSION
       echo "##vso[task.setvariable variable=buildId;isOutput=true]$(cat ./VERSION)"
     name: setBuildId
-    displayName: Generate Build ID
+    displayName: Set Build Id
+
+
+- job: buildDockerImages
+  displayName: Build Docker Images
+  dependsOn: setBuildId
+  pool:
+    vmImage: 'ubuntu-16.04'
+  variables:
+    buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
+  steps:
+  - bash: echo $(buildId)
+    name: echoVar
+
+  - bash: ci/generate_version_number.sh > VERSION
+    name: generateVersionFile
+    displayName: Generate Version File
 
   - task: Docker@2
     inputs:
@@ -71,29 +89,9 @@ jobs:
       displayName: 'CueAdmin'
       artifactPath: '/opt/opencue/cueadmin-$(setBuildId.buildId)-all.tar.gz'
 
-  - bash: ci/extract_artifacts.sh $(setBuildId.buildId) $(ARTIFACT_DIRECTORY)
-    name: extractArtifacts
-    displayName: Extract Build Artifacts
-
-  - bash: ci/extract_schema.sh $(setBuildId.buildId) $(ARTIFACT_DIRECTORY)
-    name: extractSchema
-    displayName: Extract Database Schema
-
-  - publish: $(ARTIFACT_DIRECTORY)/LICENSE
-    artifact: License
-    displayName: Publish LICENSE
-
-  - publish: $(ARTIFACT_DIRECTORY)/VERSION
-    artifact: Version
-    displayName: Publish VERSION
-
-  - publish: $(ARTIFACT_DIRECTORY)/build_metadata.json
-    artifact: Build Metadata
-    displayName: Publish Build Metadata
-
   - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(setBuildId.buildId)-all.jar
-    artifact: Cuebot JAR
-    displayName: Publish Cuebot JAR
+      artifact: Cuebot JAR
+      displayName: Publish Cuebot JAR
 
   - publish: $(ARTIFACT_DIRECTORY)/rqd-$(setBuildId.buildId)-all.tar.gz
     artifact: RQD Tarball
@@ -119,10 +117,46 @@ jobs:
     artifact: CueAdmin Tarball
     displayName: Publish CueAdmin Tarball
 
-  - publish: $(ARTIFACT_DIRECTORY)/schema-$(setBuildId.buildId).sql
+
+- job: createOtherArtifacts
+  displayName: Build Docker Images
+  dependsOn: setBuildId
+    pool:
+      vmImage: 'ubuntu-16.04'
+    variables:
+      buildId: $[ dependencies.setBuildId.outputs['setBuildId.buildId'] ]
+  steps:
+  - bash: ci/generate_version_number.sh > VERSION
+    name: generateVersionFile
+    displayName: Generate Version File
+
+  - bash: |
+      set -e
+      cp LICENSE VERSION "$(ARTIFACT_DIRECTORY)/"
+      echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "$(ARTIFACT_DIRECTORY)/build_metadata.json"
+    name: createOtherArtifacts
+    displayName: Create Other Build Artifacts
+
+  - bash: ci/extract_schema.sh $(buildId) $(ARTIFACT_DIRECTORY)
+    name: extractSchema
+    displayName: Extract Database Schema
+
+  - publish: $(ARTIFACT_DIRECTORY)/LICENSE
+    artifact: License
+    displayName: Publish LICENSE
+
+  - publish: $(ARTIFACT_DIRECTORY)/VERSION
+    artifact: Version
+    displayName: Publish VERSION
+
+  - publish: $(ARTIFACT_DIRECTORY)/build_metadata.json
+    artifact: Build Metadata
+    displayName: Publish Build Metadata
+
+  - publish: $(ARTIFACT_DIRECTORY)/schema-$(buildId).sql
     artifact: Database Schema
     displayName: Publish Database Schema
 
-  - publish: $(ARTIFACT_DIRECTORY)/demo_data-$(setBuildId.buildId).sql
+  - publish: $(ARTIFACT_DIRECTORY)/demo_data-$(buildId).sql
     artifact: Demo SQL Data
     displayName: Publish Demo SQL Data
