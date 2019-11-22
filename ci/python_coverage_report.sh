@@ -12,7 +12,7 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
 PYTHONPATH=pycue coverage run -a --source=pyoutline/outline/ pyoutline/setup.py test
 PYTHONPATH=pycue coverage run -a --source=cueadmin/cueadmin/ cueadmin/setup.py test
-PYTHONPATH=pycue xvfb-run coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
+PYTHONPATH=pycue xvfb-run -d coverage run -a --source=cuegui/cuegui/ cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline coverage run -a --source=cuesubmit/cuesubmit/ cuesubmit/setup.py test
 coverage run -a --source=rqd/rqd/ --omit=rqd/rqd/compiled_proto/* rqd/setup.py test
 
