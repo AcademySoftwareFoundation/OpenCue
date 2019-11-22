@@ -16,9 +16,10 @@ allocates the necessary computational resources.
 
 # OpenCue features
 
-OpenCue provides features to manage rendering management at scale:
+OpenCue provides the following features to help manage rendering jobs at scale:
 
-- Sony Imageworks in-house render manager used on hundreds of films.
+- [Sony Pictures Imageworks in-house render manager](https://www.opencue.io/docs/concepts/spi-case-study/)
+  used on hundreds of films.
 - Highly-scalable architecture supporting numerous concurrent machines.
 - Tagging systems allow you to allocate specific jobs to specific machine
   types.
