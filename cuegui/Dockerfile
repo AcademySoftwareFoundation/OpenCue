@@ -65,9 +65,9 @@ RUN cd pycue && python3.6 setup.py install
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
-RUN cd cuegui && xvfb-run python setup.py test
+RUN cd cuegui && xvfb-run -d python setup.py test
 
-RUN cd cuegui && xvfb-run python3.6 setup.py test
+RUN cd cuegui && xvfb-run -d python3.6 setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cuegui/
 
