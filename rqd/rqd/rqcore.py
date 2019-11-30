@@ -80,7 +80,6 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["LOGNAME"] = self.runFrame.user_name
         self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
         self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
-        self.frameEnv["mcp"] = "1"
         self.frameEnv["show"] = self.runFrame.show
         self.frameEnv["shot"] = self.runFrame.shot
         self.frameEnv["jobid"] = self.runFrame.job_name

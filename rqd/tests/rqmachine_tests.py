@@ -354,11 +354,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertEqual('%s/' % tmpDir, self.machine.getTempPath())
 
-    def test_getTempPathMcp(self):
-        self.fs.create_dir('/mcp')
-
-        self.assertEqual('/mcp/', self.machine.getTempPath())
-
     @mock.patch('subprocess.Popen', autospec=True)
     def test_reboot(self, popenMock):
         self.machine.reboot()

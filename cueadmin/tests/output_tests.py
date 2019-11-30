@@ -92,7 +92,7 @@ class OutputTests(unittest.TestCase):
                     nimby_enabled=False,
                     free_memory=3500000,
                     free_swap=1040000,
-                    free_mcp=84782900,
+                    free_scratch=84782900,
                     cores=6,
                     memory=4500000,
                     idle_cores=5,
@@ -109,7 +109,7 @@ class OutputTests(unittest.TestCase):
             cueadmin.output.displayHosts(hosts)
 
         self.assertEqual(
-            'Host            Load NIMBY freeMem  freeSwap freeMcp   Cores Mem   Idle             Os       Uptime   State  Locked    Alloc      Thread \n'
+            'Host            Load NIMBY freeMem  freeSwap freeScratch Cores Mem   Idle             Os       Uptime   State  Locked    Alloc      Thread \n'
             'host1           25   False 3.3G     1015M    80.9G     6.0   4.3G  [ 5.00 / 2.9G ]  Linux    00:02    DOWN   LOCKED    alloc01    ALL    \n',
             out.getvalue())
 

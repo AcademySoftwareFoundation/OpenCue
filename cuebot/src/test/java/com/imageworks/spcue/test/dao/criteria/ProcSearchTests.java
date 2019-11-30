@@ -209,11 +209,11 @@ public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     private RenderHost.Builder buildRenderHost() {
         return RenderHost.newBuilder()
                 .setBootTime(1192369572)
-                .setFreeMcp(76020)
+                .setFreeScratch(76020)
                 .setFreeMem(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
-                .setTotalMcp(195430)
+                .setTotalScratch(195430)
                 .setTotalMem(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)

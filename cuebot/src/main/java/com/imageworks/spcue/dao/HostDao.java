@@ -256,8 +256,8 @@ public interface HostDao {
      * @param freeMemory  long
      * @param totalSwap   long
      * @param freeSwap    long
-     * @param totalMcp    long
-     * @param freeMcp     long
+     * @param totalScratch    long
+     * @param freeScratch     long
      * @param totalGpu    long
      * @param freeGpu     long
      * @param load        int
@@ -266,7 +266,7 @@ public interface HostDao {
     void updateHostStats(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
+            long totalScratch, long freeScratch,
             long totalGpu, long freeGpu,
             int load, Timestamp bootTime, String os);
 

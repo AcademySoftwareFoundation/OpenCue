@@ -16,7 +16,7 @@ endif
 set dir=$1
 
 # Reset the value of TMPDIR
-setenv framedir /mcp/${CUE_JOB}/${CUE_FRAME}
+setenv framedir /tmp/${CUE_JOB}/${CUE_FRAME}
 rm -rf $framedir
 mkdir -p $framedir
 if ($? != 0) then
@@ -46,7 +46,7 @@ eval $argv
 set result = $status
 echo "Process completed with exit status: $result"
 
-# Remove the framedir in MCP
+# Remove the framedir in tmp
 rm -rf $framedir
 
 if ("$result" < 256) then

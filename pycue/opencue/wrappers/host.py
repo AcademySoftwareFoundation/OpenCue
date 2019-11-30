@@ -333,26 +333,26 @@ class Host(object):
         """
         return self.data.free_swap
 
-    def mcpUsed(self):
+    def scratchUsed(self):
         """
         :rtype: int
-        :return: amount of mcp used
+        :return: amount of scratch used
         """
-        return self.mcpTotal() - self.mcpFree()
+        return self.scratchTotal() - self.scratchFree()
 
-    def mcpTotal(self):
+    def scratchTotal(self):
         """
         :rtype: int
-        :return: total amount of mcp
+        :return: total amount of scratch
         """
-        return self.data.total_mcp
+        return self.data.total_scratch
 
-    def mcpFree(self):
+    def scratchFree(self):
         """
         :rtype: int
-        :return: amount of mcp free
+        :return: amount of scratch free
         """
-        return self.data.free_mcp
+        return self.data.free_scratch
 
     def load(self):
         """Returns the load on the host

@@ -263,10 +263,10 @@ message Host {
     int64 total_swap = 12;
     int64 total_memory = 13;
     int64 total_gpu = 14;
-    int64 total_mcp = 15;
+    int64 total_scratch = 15;
     int64 free_swap = 16;
     int64 free_memory = 17;
-    int64 free_mcp = 18;
+    int64 free_scratch = 18;
     int64 free_gpu = 19;
     int32 load = 20;
     int32 boot_time = 21;
@@ -306,10 +306,10 @@ message NestedHost {
     int64 total_swap = 12;
     int64 total_memory = 13;
     int64 total_gpu = 14;
-    int64 total_mcp = 15;
+    int64 total_scratch = 15;
     int64 free_swap = 16;
     int64 free_memory = 17;
-    int64 free_mcp = 18;
+    int64 free_scratch = 18;
     int64 free_gpu = 19;
     int32 load = 20;
     int32 boot_time = 21;

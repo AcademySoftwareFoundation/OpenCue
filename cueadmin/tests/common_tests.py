@@ -424,7 +424,7 @@ class HostTests(unittest.TestCase):
                     nimby_enabled=False,
                     free_memory=3500000,
                     free_swap=1040000,
-                    free_mcp=84782900,
+                    free_scratch=84782900,
                     cores=6,
                     memory=4500000,
                     idle_cores=5,

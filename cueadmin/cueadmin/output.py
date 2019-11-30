@@ -53,14 +53,14 @@ def displayHosts(hosts):
     @param hosts: Hosts to display information about
     """
     host_format = "%-15s %-4s %-5s %-8s %-8s %-9s %-5s %-5s %-16s %-8s %-8s %-6s %-9s %-10s %-7s"
-    print(host_format % ("Host", "Load", "NIMBY", "freeMem", "freeSwap", "freeMcp", "Cores", "Mem",
+    print(host_format % ("Host", "Load", "NIMBY", "freeMem", "freeSwap", "freeScratch", "Cores", "Mem",
                          "Idle", "Os", "Uptime", "State", "Locked", "Alloc", "Thread"))
     for host in sorted(hosts, key=lambda v: v.data.name):
         print(host_format % (host.data.name, host.data.load,
                              host.data.nimby_enabled,
                              cueadmin.format.formatMem(host.data.free_memory),
                              cueadmin.format.formatMem(host.data.free_swap),
-                             cueadmin.format.formatMem(host.data.free_mcp),
+                             cueadmin.format.formatMem(host.data.free_scratch),
                              host.data.cores,
                              cueadmin.format.formatMem(host.data.memory),
                              "[ %0.2f / %s ]" % (host.data.idle_cores,

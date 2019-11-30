@@ -402,16 +402,16 @@ class HostAttributes(AbstractAttributes):
                          "Swap Free": str(host.data.free_swap),
                          "__childOrder": ["Swap Total KB","Swap Used KB","Swap Free KB"]
                         },
-                "mcp": {
-                        "MCP Total" : str(host.data.total_mcp),
-                        "MCP Used":  str(host.data.total_mcp - host.data.free_mcp),
-                        "MCP Free": str(host.data.free_mcp),
-                        "__childOrder": ["MCP Total","MCP Used","MCP Free"]
+                "scratch": {
+                        "Scratch Total" : str(host.data.total_scratch),
+                        "Scratch Used":  str(host.data.total_scratch - host.data.free_scratch),
+                        "Scratch Free": str(host.data.free_scratch),
+                        "__childOrder": ["Scratch Total","Scratch Used","Scratch Free"]
                        },
                 "raw": {
                         "icePacket": str(host),
                 },
                 "__childOrder":["id","hostname","os","alloc","tags","nimby","state",
                                 "lock","load","bootTime","pingTime","pingLast","cores",
-                                "memory","swap","mcp","raw"],
+                                "memory","swap","scratch","raw"],
             }

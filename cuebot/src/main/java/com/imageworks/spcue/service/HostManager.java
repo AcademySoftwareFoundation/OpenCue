@@ -110,8 +110,8 @@ public interface HostManager {
      * @param freeMemory
      * @param totalSwap
      * @param freeSwap
-     * @param totalMcp
-     * @param freeMcp
+     * @param totalScratch
+     * @param freeScratch
      * @param totalGpu
      * @param freeGpu
      * @param load
@@ -121,7 +121,7 @@ public interface HostManager {
     void setHostStatistics(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
+            long totalScratch, long freeScratch,
             long totalGpu, long freeGpu,
             int load, Timestamp bootTime, String os);
 

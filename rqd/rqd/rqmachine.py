@@ -368,11 +368,9 @@ class Machine(object):
 
     @rqd.rqutil.Memoize
     def getTempPath(self):
-        """Returns the correct mcp path for the given machine"""
+        """Returns the correct temp path for the given machine"""
         if platform.system() == "win32":
             return win32api.GetTempPath()
-        elif os.path.isdir("/mcp/"):
-            return "/mcp/"
         return '%s/' % tempfile.gettempdir()
 
     def reboot(self):
@@ -414,9 +412,9 @@ class Machine(object):
 
         __numProcs = __totalCores = 0
         if platform.system() == "Linux" or pathCpuInfo is not None:
-            # Reads static information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
+            # Reads static information for temp
+            scratchStat = os.statvfs(self.getTempPath())
+            self.__renderHost.total_scratch = scratchStat.f_blocks * scratchStat.f_frsize / KILOBYTE
 
             # Reads static information from /proc/cpuinfo
             with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r") as cpuinfoFile:
@@ -452,7 +450,7 @@ class Machine(object):
             # Windows memory information
             stat = self.getWindowsMemory()
             TEMP_DEFAULT = 1048576
-            self.__renderHost.total_mcp = TEMP_DEFAULT
+            self.__renderHost.total_scratch = TEMP_DEFAULT
             self.__renderHost.total_mem = int(stat.ullTotalPhys / 1024)
             self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
 
@@ -550,9 +548,10 @@ class Machine(object):
     def updateMachineStats(self):
         """Updates dynamic machine information during runtime"""
         if platform.system() == "Linux":
-            # Reads dynamic information for mcp
-            mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
+            # Reads dynamic information for scratch
+            scratchStat = os.statvfs(self.getTempPath())
+            self.__renderHost.free_scratch = (scratchStat[statvfs.F_BAVAIL]
+                                         * scratchStat[statvfs.F_BSIZE]) / KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
             with open(rqd.rqconstants.PATH_MEMINFO, "r") as fp:
@@ -577,7 +576,7 @@ class Machine(object):
         elif platform.system() == 'Windows':
             TEMP_DEFAULT = 1048576
             stats = self.getWindowsMemory()
-            self.__renderHost.free_mcp = TEMP_DEFAULT
+            self.__renderHost.free_scratch = TEMP_DEFAULT
             self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
             self.__renderHost.free_mem = int(stats.ullAvailPhys / 1024)
 

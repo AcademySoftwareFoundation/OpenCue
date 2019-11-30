@@ -294,8 +294,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "int_gpu_free,"+
             "int_swap_total, " +
             "int_swap_free,"+
-            "int_mcp_total, " +
-            "int_mcp_free,"+
+            "int_scratch_total, " +
+            "int_scratch_free,"+
             "int_load, " +
             "ts_booted, " +
             "str_state, " +
@@ -369,7 +369,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 hid, hid, host.getTotalMem(), host.getFreeMem(),
                 totalGpu, freeGpu,
                 host.getTotalSwap(), host.getFreeSwap(),
-                host.getTotalMcp(), host.getFreeMcp(),
+                host.getTotalScratch(), host.getFreeScratch(),
                 host.getLoad(), new Timestamp(host.getBootTime() * 1000l),
                 host.getState().toString(), os);
     }
@@ -393,8 +393,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "int_mem_free=?, " +
             "int_swap_total=?, " +
             "int_swap_free=?, "+
-            "int_mcp_total=?, " +
-            "int_mcp_free=?, " +
+            "int_scratch_total=?, " +
+            "int_scratch_free=?, " +
             "int_gpu_total=?, " +
             "int_gpu_free=?, " +
             "int_load=?," +
@@ -408,7 +408,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public void updateHostStats(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
+            long totalScratch, long freeScratch,
             long totalGpu, long freeGpu,
             int load, Timestamp bootTime,
             String os) {
@@ -419,7 +419,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(UPDATE_RENDER_HOST,
                 totalMemory, freeMemory, totalSwap,
-                freeSwap, totalMcp, freeMcp, totalGpu, freeGpu, load,
+                freeSwap, totalScratch, freeScratch, totalGpu, freeGpu, load,
                 bootTime, os, host.getHostId());
     }
 

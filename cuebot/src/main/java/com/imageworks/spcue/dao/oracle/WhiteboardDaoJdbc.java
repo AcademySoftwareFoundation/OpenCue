@@ -1007,7 +1007,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 .setName(SqlUtil.getString(rs, "host_name"))
                 .setAllocName(SqlUtil.getString(rs, "alloc_name"))
                 .setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000))
-                .setFreeMcp(rs.getLong("int_mcp_free"))
+                .setFreeScratch(rs.getLong("int_scratch_free"))
                 .setFreeMemory(rs.getLong("int_mem_free"))
                 .setFreeSwap(rs.getLong("int_swap_free"))
                 .setFreeGpu(rs.getLong("int_gpu_free"))
@@ -1020,7 +1020,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 .setGpu(rs.getLong("int_gpu"))
                 .setIdleGpu(rs.getLong("int_gpu_idle"))
                 .setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")))
-                .setTotalMcp(rs.getLong("int_mcp_total"))
+                .setTotalScratch(rs.getLong("int_scratch_total"))
                 .setTotalMemory(rs.getLong("int_mem_total"))
                 .setTotalSwap(rs.getLong("int_swap_total"))
                 .setTotalGpu(rs.getLong("int_gpu_total"))
@@ -1042,7 +1042,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setName(SqlUtil.getString(rs, "host_name"));
         builder.setAllocName(SqlUtil.getString(rs, "alloc_name"));
         builder.setBootTime((int) (rs.getTimestamp("ts_booted").getTime() / 1000));
-        builder.setFreeMcp(rs.getLong("int_mcp_free"));
+        builder.setFreeScratch(rs.getLong("int_scratch_free"));
         builder.setFreeMemory(rs.getLong("int_mem_free"));
         builder.setFreeSwap(rs.getLong("int_swap_free"));
         builder.setFreeGpu(rs.getLong("int_gpu_free"));
@@ -1055,7 +1055,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         builder.setGpu(rs.getLong("int_gpu"));
         builder.setIdleGpu(rs.getLong("int_gpu_idle"));
         builder.setState(HardwareState.valueOf(SqlUtil.getString(rs, "host_state")));
-        builder.setTotalMcp(rs.getLong("int_mcp_total"));
+        builder.setTotalScratch(rs.getLong("int_scratch_total"));
         builder.setTotalMemory(rs.getLong("int_mem_total"));
         builder.setTotalSwap(rs.getLong("int_swap_total"));
         builder.setTotalGpu(rs.getLong("int_gpu_total"));
@@ -2065,8 +2065,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host_stat.int_mem_free,"+
             "host_stat.int_swap_total,"+
             "host_stat.int_swap_free,"+
-            "host_stat.int_mcp_total,"+
-            "host_stat.int_mcp_free,"+
+            "host_stat.int_scratch_total,"+
+            "host_stat.int_scratch_free,"+
             "host_stat.int_gpu_total,"+
             "host_stat.int_gpu_free,"+
             "host_stat.int_load, " +

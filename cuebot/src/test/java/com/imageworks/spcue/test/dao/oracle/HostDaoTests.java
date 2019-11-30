@@ -87,12 +87,12 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         RenderHost host = RenderHost.newBuilder()
                 .setName(name)
                 .setBootTime(1192369572)
-                .setFreeMcp(7602)
+                .setFreeScratch(7602)
                 .setFreeMem(15290520)
                 .setFreeSwap((int) CueUtil.MB512)
                 .setLoad(1)
                 .setNimbyEnabled(false)
-                .setTotalMcp(19543)
+                .setTotalScratch(19543)
                 .setTotalMem((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
@@ -393,9 +393,9 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(CueUtil.GB8, ((BigDecimal)
                 (result.get("int_swap_free"))).longValue());
         assertEquals(CueUtil.GB8, ((BigDecimal)
-                (result.get("int_mcp_total"))).longValue());
+                (result.get("int_scratch_total"))).longValue());
         assertEquals(CueUtil.GB8, ((BigDecimal)
-                (result.get("int_mcp_free"))).longValue());
+                (result.get("int_scratch_free"))).longValue());
         assertEquals(100, ((BigDecimal)
                 (result.get("int_load"))).intValue());
         assertEquals(new Timestamp(1247526000 * 1000l),

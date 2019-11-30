@@ -61,10 +61,10 @@ message RenderHost {
     int32 cores_per_proc = 6; // the number of cores per proc
     int32 total_swap = 7; // the total size of the swap in kB
     int32 total_mem = 8; // the total size of the main memory pool in kB
-    int32 total_mcp = 9; // the total size of MCP in kB
+    int32 total_scratch = 9; // the total size of /tmp in kB
     int32 free_swap = 10; // the current amount of free swap in kB
     int32 free_mem = 11; // the current amount of free memory in kB
-    int32 free_mcp = 12; // the current amount of free MCP in kB
+    int32 free_scratch = 12; // the current amount of free /tmp in kB
     int32 load = 13; // the current load on the proc
     int32 boot_time = 14; // the time the proc was booted
     repeated string tags = 15; // an array of default tags that are added to the host record

@@ -307,8 +307,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "host_stat.int_mem_free, " +
             "host_stat.int_swap_total, " +
             "host_stat.int_swap_free, " +
-            "host_stat.int_mcp_total, " +
-            "host_stat.int_mcp_free, " +
+            "host_stat.int_scratch_total, " +
+            "host_stat.int_scratch_free, " +
             "host_stat.int_gpu_total, " +
             "host_stat.int_gpu_free, " +
             "host_stat.int_load, " +

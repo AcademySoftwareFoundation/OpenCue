@@ -85,10 +85,10 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda host: host.data.free_gpu,
                        delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
-        self.addColumn("freeMcp", 60, id=7,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_mcp),
-                       sort=lambda host: host.data.free_mcp,
-                       tip="The amount of free space in /mcp/")
+        self.addColumn("freeScratch", 60, id=7,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_scratch),
+                       sort=lambda host: host.data.free_scratch,
+                       tip="The amount of free space in /tmp/")
         self.addColumn("Cores", 45, id=8,
                        data=lambda host: "%.2f" % host.data.cores,
                        sort=lambda host: host.data.cores,

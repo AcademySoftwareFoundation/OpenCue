@@ -122,7 +122,7 @@ public class HostManagerService implements HostManager {
     public void setHostStatistics(HostInterface host,
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
-            long totalMcp, long freeMcp,
+            long totalScratch, long freeScratch,
             long totalGpu, long freeGpu,
             int load, Timestamp bootTime,
             String os) {
@@ -130,7 +130,7 @@ public class HostManagerService implements HostManager {
         hostDao.updateHostStats(host,
                 totalMemory, freeMemory,
                 totalSwap, freeSwap,
-                totalMcp, freeMcp,
+                totalScratch, freeScratch,
                 totalGpu, freeGpu,
                 load, bootTime, os);
     }
