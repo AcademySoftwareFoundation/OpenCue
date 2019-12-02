@@ -1,12 +1,15 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
-
+from builtins import object
 from PySide2 import QtCore, QtGui, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit.ui import Style
 
 
-class SpacerTypes:
+class SpacerTypes(object):
     """Utility object for defining types of Spacers."""
     VERTICAL = (QtWidgets.QSizePolicy.Minimum,
                 QtWidgets.QSizePolicy.Expanding)

@@ -1,4 +1,9 @@
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
 
+from builtins import str
+from builtins import range
 import getpass
 
 from PySide2 import QtCore, QtGui, QtWidgets
@@ -441,7 +446,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.updateCompleters()
         try:
             jobs = Submission.submitJob(jobData)
-        except opencue.exception.CueException, e:
+        except opencue.exception.CueException as e:
             message = "Failed to submit job!\n" + e.message
             Widgets.messageBox(message, title="Failed Job Submission", parent=self).show()
             raise e
