@@ -24,11 +24,11 @@ steps:
 
     branch_name=${SYSTEM_PULLREQUEST_SOURCEBRANCH:-$BUILD_SOURCEBRANCHNAME}
 
-    build_image_for_build_id="opencuebuild/${{ parameters.imageName }}-build:$(setBuildId.buildId)"
+    build_image_for_build_id="opencuebuild/${{ parameters.imageName }}-build:$(buildId)"
     build_image_for_branch="opencuebuild/${{ parameters.imageName }}-build:${branch_name}"
     build_image_latest="opencuebuild/${{ parameters.imageName }}-build:latest"
 
-    runtime_image_for_build_id="opencuebuild/${{ parameters.imageName }}:$(setBuildId.buildId)"
+    runtime_image_for_build_id="opencuebuild/${{ parameters.imageName }}:$(buildId)"
     runtime_image_for_branch="opencuebuild/${{ parameters.imageName }}:${branch_name}"
     runtime_image_latest="opencuebuild/${{ parameters.imageName }}:latest"
 

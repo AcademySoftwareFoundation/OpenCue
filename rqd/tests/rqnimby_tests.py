@@ -42,6 +42,7 @@ class RqNimbyTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.nimby.daemon = True
 
         self.nimby.start()
+        self.nimby.join()
 
         # Initial state should be "unlocked and idle".
         unlockedIdleMock.assert_called()

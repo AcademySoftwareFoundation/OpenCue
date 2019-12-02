@@ -11,6 +11,6 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 python pycue/setup.py test
 PYTHONPATH=pycue python pyoutline/setup.py test
 PYTHONPATH=pycue python cueadmin/setup.py test
-PYTHONPATH=pycue xvfb-run python cuegui/setup.py test
+PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
