@@ -22,6 +22,8 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
+from builtins import str
+from builtins import object
 import logging as log
 import os
 import platform
@@ -407,6 +409,8 @@ class FrameAttendantThread(threading.Thread):
 
         runFrame = self.runFrame
 
+        # TODO(bcipriano) Don't use a special log path on Windows. The log directory should come
+        #   from the job submission as it does for other jobs.
         # Windows has a special log path
         if platform.system() == "Windows":
             runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
@@ -638,7 +642,7 @@ class RqCore(object):
         """Gets a list of all keys from the cache
         @rtype:  list
         @return: List of all frameIds running on host"""
-        return self.__cache.keys()
+        return list(self.__cache.keys())
 
     def storeFrame(self, frameId, runningFrame):
         """Stores a frame in the cache and adds the network adapter
@@ -676,9 +680,9 @@ class RqCore(object):
         while self.__cache:
             if reason.startswith("NIMBY"):
                 # Since this is a nimby kill, ignore any frames that are ignoreNimby
-                frameKeys = [frame.frameId for frame in self.__cache.values() if not frame.ignoreNimby]
+                frameKeys = [frame.frameId for frame in list(self.__cache.values()) if not frame.ignoreNimby]
             else:
-                frameKeys = self.__cache.keys()
+                frameKeys = list(self.__cache.keys())
 
             if not frameKeys:
                 # No frames left to kill

@@ -22,7 +22,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import commands
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
+from builtins import range
+from builtins import object
+
 import errno
 import logging as log
 import math
@@ -30,7 +35,6 @@ import os
 import platform
 import psutil
 import re
-import statvfs
 import subprocess
 import sys
 import tempfile
@@ -55,7 +59,7 @@ import rqd.rqutil
 KILOBYTE = 1024
 
 
-class Machine:
+class Machine(object):
     """Gathers information about the machine and resources"""
     def __init__(self, rqCore, coreInfo):
         """Machine class initialization
@@ -207,7 +211,7 @@ class Machine:
             pidData = {"time": now}
             bootTime = self.getBootTime()
 
-            values = frames.values()
+            values = list(frames.values())
 
             for frame in values:
                 if frame.pid > 0:
@@ -217,7 +221,7 @@ class Machine:
                     pcpu = 0
                     if rqd.rqconstants.ENABLE_PTREE:
                         ptree = []
-                    for pid, data in pids.iteritems():
+                    for pid, data in pids.items():
                         if data["session"] == session:
                             try:
                                 rss += int(data["rss"])
@@ -319,7 +323,7 @@ class Machine:
             try:
                 # /shots/spi/home/bin/spinux1/cudaInfo
                 # /shots/spi/home/bin/rhel7/cudaInfo
-                cudaInfo = commands.getoutput('/usr/local/spi/rqd3/cudaInfo')
+                cudaInfo = subprocess.getoutput('/usr/local/spi/rqd3/cudaInfo')
                 if 'There is no device supporting CUDA' in cudaInfo:
                     self.gpuNotSupported = True
                 else:
@@ -415,32 +419,32 @@ class Machine:
             self.__renderHost.total_mcp = mcpStat.f_blocks * mcpStat.f_frsize // KILOBYTE
 
             # Reads static information from /proc/cpuinfo
-            cpuinfoFile = open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r")
-            singleCore = {}
-            procsFound = []
-            for line in cpuinfoFile:
-                lineList = line.strip().replace("\t","").split(": ")
-                # A normal entry added to the singleCore dictionary
-                if len(lineList) >= 2:
-                    singleCore[lineList[0]] = lineList[1]
-                # The end of a processor block
-                elif lineList == ['']:
-                    # Check for hyper-threading
-                    hyperthreadingMultiplier = (int(singleCore.get('siblings', '1'))
-                                                // int(singleCore.get('cpu cores', '1')))
+            with open(pathCpuInfo or rqd.rqconstants.PATH_CPUINFO, "r") as cpuinfoFile:
+                singleCore = {}
+                procsFound = []
+                for line in cpuinfoFile:
+                    lineList = line.strip().replace("\t","").split(": ")
+                    # A normal entry added to the singleCore dictionary
+                    if len(lineList) >= 2:
+                        singleCore[lineList[0]] = lineList[1]
+                    # The end of a processor block
+                    elif lineList == ['']:
+                        # Check for hyper-threading
+                        hyperthreadingMultiplier = (int(singleCore.get('siblings', '1'))
+                                                    // int(singleCore.get('cpu cores', '1')))
 
-                    __totalCores += rqd.rqconstants.CORE_VALUE
-                    if "core id" in singleCore \
-                       and "physical id" in singleCore \
-                       and not singleCore["physical id"] in procsFound:
-                        procsFound.append(singleCore["physical id"])
-                        __numProcs += 1
-                    elif "core id" not in singleCore:
-                        __numProcs += 1
-                    singleCore = {}
-                # An entry without data
-                elif len(lineList) == 1:
-                    singleCore[lineList[0]] = ""
+                        __totalCores += rqd.rqconstants.CORE_VALUE
+                        if "core id" in singleCore \
+                           and "physical id" in singleCore \
+                           and not singleCore["physical id"] in procsFound:
+                            procsFound.append(singleCore["physical id"])
+                            __numProcs += 1
+                        elif "core id" not in singleCore:
+                            __numProcs += 1
+                        singleCore = {}
+                    # An entry without data
+                    elif len(lineList) == 1:
+                        singleCore[lineList[0]] = ""
         else:
             hyperthreadingMultiplier = 1
 
@@ -512,7 +516,7 @@ class Machine:
         return self.__windowsStat
 
     def updateMacMemory(self):
-        memsizeOutput = commands.getoutput('sysctl hw.memsize').strip()
+        memsizeOutput = subprocess.getoutput('sysctl hw.memsize').strip()
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
         if memsizeMatch:
@@ -520,7 +524,7 @@ class Machine:
         else:
             self.__renderHost.total_mem = 0
 
-        vmStatLines = commands.getoutput('vm_stat').split('\n')
+        vmStatLines = subprocess.getoutput('vm_stat').split('\n')
         lineRegex = re.compile(r'^(?P<field>.+):[\s]+(?P<pages>[\d]+).$')
         vmStats = {}
         for line in vmStatLines[1:-2]:
@@ -532,7 +536,7 @@ class Machine:
         inactiveMemory = vmStats.get("Pages inactive", 0) // 1024
         self.__renderHost.free_mem = freeMemory + inactiveMemory
 
-        swapStats = commands.getoutput('sysctl vm.swapusage').strip()
+        swapStats = subprocess.getoutput('sysctl vm.swapusage').strip()
         swapRegex = re.compile(r'^.* free = (?P<freeMb>[\d]+)M .*$')
         swapMatch = swapRegex.match(swapStats)
         if swapMatch:
@@ -545,8 +549,7 @@ class Machine:
         if platform.system() == "Linux":
             # Reads dynamic information for mcp
             mcpStat = os.statvfs(self.getTempPath())
-            self.__renderHost.free_mcp = (mcpStat[statvfs.F_BAVAIL]
-                                         * mcpStat[statvfs.F_BSIZE]) // KILOBYTE
+            self.__renderHost.free_mcp = (mcpStat.f_bavail * mcpStat.f_bsize) // KILOBYTE
 
             # Reads dynamic information from /proc/meminfo
             with open(rqd.rqconstants.PATH_MEMINFO, "r") as fp:

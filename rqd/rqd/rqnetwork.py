@@ -22,6 +22,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+from builtins import object
 from concurrent import futures
 from random import shuffle
 import atexit
