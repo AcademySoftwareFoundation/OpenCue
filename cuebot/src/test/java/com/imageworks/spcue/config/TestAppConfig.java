@@ -21,7 +21,7 @@ package com.imageworks.spcue.config;
 
 import javax.sql.DataSource;
 
-import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -44,7 +44,7 @@ import org.springframework.context.annotation.PropertySource;
 public class TestAppConfig {
 
     @Bean
-    @ConfigurationProperties(prefix="datasource.trackitDataSource")
+    @ConfigurationProperties(prefix="datasource.trackit-data-source")
     public DataSource trackitDataSource() {
         return DataSourceBuilder.create().build();
     }

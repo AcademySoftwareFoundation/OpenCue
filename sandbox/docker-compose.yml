@@ -41,7 +41,7 @@ services:
     restart: always
     environment:
       - CUE_FRAME_LOG_DIR=$CUE_FRAME_LOG_DIR
-    command: --datasource.cueDataSource.url=jdbc:postgresql://db/cuebot --datasource.cueDataSource.username=cuebot --datasource.cueDataSource.password=$POSTGRES_PASSWORD
+    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=$POSTGRES_PASSWORD
 
   rqd:
     image: opencue/rqd

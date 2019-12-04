@@ -1,0 +1,95 @@
+version: '3'
+
+volumes:
+  prometheus_data: {}
+
+services:
+  db:
+    image: postgres:9.6
+    environment:
+      - POSTGRES_USER=cuebot
+      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_DB=cuebot
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sandbox/db-data:/var/lib/postgresql/data
+
+  flyway:
+    build:
+      context: ./
+      dockerfile: ./sandbox/flyway.Dockerfile
+    links:
+      - db
+    depends_on:
+      - db
+    environment:
+      - PGUSER=cuebot
+      - PGPASSWORD=$POSTGRES_PASSWORD
+      - PGDATABASE=cuebot
+      - PGHOST=db
+      - PGPORT=5432
+    command: /opt/scripts/migrate.sh
+
+  cuebot:
+#    image: opencue/cuebot
+    build:
+      context: ./
+      dockerfile: ./cuebot/Dockerfile
+    links:
+      - db
+    ports:
+      - "8443:8443"
+      - "8080:8080"
+      - "61616:61616"
+      - "8161:8161"
+    depends_on:
+      - db
+      - flyway
+    restart: always
+    environment:
+      - CUE_FRAME_LOG_DIR=$CUE_FRAME_LOG_DIR
+    command: --datasource.cueDataSource.url=jdbc:postgresql://db/cuebot --datasource.cueDataSource.username=cuebot --datasource.cueDataSource.password=$POSTGRES_PASSWORD
+
+  rqd:
+    build:
+      context: ./
+      dockerfile: ./rqd/Dockerfile
+#    image: opencue/rqd
+    environment:
+      - CUEBOT_HOSTNAME=cuebot
+    depends_on:
+      - cuebot
+    links:
+      - cuebot
+    ports:
+      - "8444:8444"
+      - "9100:9100"
+    volumes:
+      - /tmp/rqd/logs:/tmp/rqd/logs
+
+  prometheus:
+    image: prom/prometheus
+    volumes:
+      - ./prometheus/:/etc/prometheus/
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    ports:
+      - 9090:9090
+    restart: always
+
+  pushgateway:
+    image: prom/pushgateway:v0.4.0
+    ports:
+      - 9091:9091
+
+  grafana:
+    image: grafana/grafana:4.6.2
+    ports:
+      - 3000:3000
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=password

@@ -22,8 +22,8 @@ package com.imageworks.spcue.config;
 import com.imageworks.spcue.servlet.JobLaunchServlet;
 
 import javax.sql.DataSource;
-import org.springframework.boot.autoconfigure.jdbc.DataSourceBuilder;
-import org.springframework.boot.context.embedded.ServletRegistrationBean;
+import org.springframework.boot.jdbc.DataSourceBuilder;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
@@ -58,13 +58,13 @@ public class AppConfig {
 
     @Bean
     @Primary
-    @ConfigurationProperties(prefix="datasource.cueDataSource")
+    @ConfigurationProperties(prefix="datasource.cue-data-source")
     public DataSource cueDataSource() {
         return DataSourceBuilder.create().build();
     }
 
     @Bean
-    @ConfigurationProperties(prefix="datasource.trackitDataSource")
+    @ConfigurationProperties(prefix="datasource.trackit-data-source")
     public DataSource trackitDataSource() {
         return DataSourceBuilder.create().build();
     }
