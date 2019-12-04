@@ -56,12 +56,13 @@ To build and view the HTML reference docs:
     pip install -r requirements.txt
     ```
 
-1.  Install the `opencue` and `outline` Python packages in
-    the `pycue` and `pyoutline` directories:
+1.  Compile the OpenCue Cuebot protos, as these are dependencies for the
+    Python packages:
 
     ```
-    cd pycue && python setup.py install
-    cd ../pyoutline && python setup.py install
+    cd proto
+    python -m grpc_tools.protoc -I=. --python_out=../pycue/opencue/compiled_proto --grpc_python_out=../pycue/opencue/compiled_proto ./*.proto
+    cd ..
     ```
 
 1.  Change to the `docs` directory:
@@ -79,7 +80,7 @@ To build and view the HTML reference docs:
 1.  To view the HTML output from Sphinx, open the following HTML file in a
     browser:
 
-    Note: Currently, Sphinx is only coinfigured to generate HTML docs for the
+    Note: Currently, Sphinx is only configured to generate HTML docs for the
     `outline` package.
 
     ```
