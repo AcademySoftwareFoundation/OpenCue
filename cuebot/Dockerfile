@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM gradle:jdk11 as build
+FROM gradle:6.0.1-jdk11 as build
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot build stage"

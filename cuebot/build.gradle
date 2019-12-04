@@ -102,7 +102,7 @@ bootJar {
 }
 
 jacoco {
-    toolVersion = "0.8.4"
+    toolVersion = "0.8.5"
 }
 
 jacocoTestReport {
@@ -115,17 +115,17 @@ jacocoTestReport {
 
     // Exclude files from test coverage.
     afterEvaluate {
-        classDirectories = files(classDirectories.files.collect {
+        classDirectories.setFrom(files(classDirectories.files.collect {
             fileTree(dir: it,
-                     exclude: [
-                        // Exclude proto files' generated Java code.
-                        'com/imageworks/spcue/grpc/**',
-                        // Exclude Oracle classes; our standard test environment isn't currently
-                        // able to run Oracle unit tests, so coverage of those files will always
-                        // read as 0% even though tests do exist.
-                        'com/imageworks/spcue/dao/oracle/**',
-                        'com/imageworks/spcue/dao/criteria/oracle/**',])
-        })
+                    exclude: [
+                            // Exclude proto files' generated Java code.
+                            'com/imageworks/spcue/grpc/**',
+                            // Exclude Oracle classes; our standard test environment isn't currently
+                            // able to run Oracle unit tests, so coverage of those files will always
+                            // read as 0% even though tests do exist.
+                            'com/imageworks/spcue/dao/oracle/**',
+                            'com/imageworks/spcue/dao/criteria/oracle/**',])
+        }))
     }
 }
 
