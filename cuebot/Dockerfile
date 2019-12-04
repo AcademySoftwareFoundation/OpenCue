@@ -3,6 +3,8 @@
 # -----------------
 FROM gradle:6.0.1-jdk11 as build
 
+USER gradle
+
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot build stage"
 
@@ -11,7 +13,7 @@ COPY --chown=gradle:gradle ./proto /home/gradle/proto/
 
 WORKDIR /home/gradle/cuebot
 
-RUN su gradle -c "gradle build --stacktrace"
+RUN gradle build --stacktrace
 
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION

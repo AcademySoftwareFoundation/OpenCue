@@ -36,6 +36,9 @@ repositories {
     jcenter()
 }
 
+// Spring dependency versions are managed by the io.spring.dependency-management plugin.
+// Appropriate versions will be pulled based on the spring boot version specified in the
+// spring-boot-gradle-plugin.
 dependencies {
     compile group: 'com.google.code.gson', name: 'gson', version: '2.8.6'
     compile group: 'com.google.guava', name: 'guava', version: '26.0-android'
