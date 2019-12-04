@@ -30,6 +30,7 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
         || wget ${BASE_URL}v${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
     tar xvzf ${PACKAGE}-${VERSION}-all.tar.gz
     pip install -r ${PACKAGE}-${VERSION}-all/requirements.txt
+    pip install -r ${PACKAGE}-${VERSION}-all/requirements_gui.txt
     cd ${PACKAGE}-${VERSION}-all
     python setup.py install
     cd ..
