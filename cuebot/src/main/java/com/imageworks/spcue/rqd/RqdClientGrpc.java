@@ -165,7 +165,10 @@ public final class RqdClientGrpc implements RqdClient {
 
     public void killFrame(String host, String frameId, String message) {
         RqdStaticKillRunningFrameRequest request =
-                RqdStaticKillRunningFrameRequest.newBuilder().setFrameId(frameId).build();
+                RqdStaticKillRunningFrameRequest.newBuilder()
+                .setFrameId(frameId)
+                .setMessage(message)
+                .build();
 
         if (testMode) {
             return;

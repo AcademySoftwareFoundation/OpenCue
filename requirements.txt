@@ -8,7 +8,6 @@ pathlib==1.0.1;python_version<"3.4"
 pexpect==4.6.0
 psutil==5.4.7
 pyfakefs==3.6
-PySide2==5.11.2
 PyYAML==5.1
 simplejson==3.16.0
 six==1.11.0

@@ -22,10 +22,11 @@ RUN yum -y install \
 
 COPY LICENSE ./
 COPY requirements.txt ./
+COPY requirements_gui.txt ./
 
-RUN pip install -r requirements.txt
+RUN pip install -r requirements.txt -r requirements_gui.txt
 
-RUN pip3.6 install -r requirements.txt
+RUN pip3.6 install -r requirements.txt -r requirements_gui.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
@@ -73,7 +74,7 @@ RUN cd cuesubmit && python setup.py test
 
 RUN cd cuesubmit && python3.6 setup.py test
 
-RUN cp LICENSE requirements.txt VERSION cuesubmit/
+RUN cp LICENSE requirements.txt requirements_gui.txt VERSION cuesubmit/
 
 RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
   && mv cuesubmit $versioned_name \

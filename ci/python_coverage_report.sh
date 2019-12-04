@@ -2,7 +2,7 @@
 
 set -e
 
-pip install --user -r requirements.txt
+pip install --user -r requirements.txt -r requirements_gui.txt
 
 # Protos need to have their Python code generated in order for tests to pass.
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto

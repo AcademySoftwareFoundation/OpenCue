@@ -2,7 +2,7 @@
 
 set -e
 
-pip install -r requirements.txt
+pip install -r requirements.txt -r requirements_gui.txt
 
 # Compile the proto used to communicate with the Cuebot server
 cd proto
