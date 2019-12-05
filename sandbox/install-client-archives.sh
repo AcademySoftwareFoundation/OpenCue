@@ -33,12 +33,10 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
     REQUIREMENTS_GUI=${PACKAGE}-${VERSION}-all/requirements_gui.txt
 
     # requirements vary across the Python packages
-    if [ -f ${REQUIREMENTS} ]; then
-        pip install -r ${REQUIREMENTS}
-    fi
     if [ -f ${REQUIREMENTS_GUI} ]; then
         pip install -r ${REQUIREMENTS_GUI}
     fi
+    pip install -r ${REQUIREMENTS}
     cd ${PACKAGE}-${VERSION}-all
     python setup.py install
     cd ..
