@@ -35,10 +35,10 @@ def init():
     application and configures the palette and style for the Plastique
     color scheme"""
     QtGui.qApp.setPalette(DarkPalette())
-    if platform.system() in ["Darwin", "Linux"]:
+    if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
-    elif platform.system() == "Windows":
-        QtGui.qApp.setStyle("Fusion")
+    elif platform.system() == 'Windows':
+        QtGui.qApp.setStyle('Fusion')
     else:
         QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
 
