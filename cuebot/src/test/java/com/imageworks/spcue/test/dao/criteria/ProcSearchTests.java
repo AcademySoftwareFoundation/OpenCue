@@ -29,7 +29,6 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
-import org.springframework.test.context.transaction.TransactionConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
@@ -58,7 +57,6 @@ import static org.junit.Assert.assertNotEquals;
 
 @Transactional
 @ContextConfiguration(classes= TestAppConfig.class, loader= AnnotationConfigContextLoader.class)
-@TransactionConfiguration(transactionManager="transactionManager")
 public class ProcSearchTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     private static final String FIRST_HOST = "beta01";

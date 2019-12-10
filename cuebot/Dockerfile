@@ -1,73 +1,38 @@
 # -----------------
 # BUILD
 # -----------------
-FROM centos:7 as build
+FROM gradle:6.0.1-jdk11 as build
+
+USER gradle
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot build stage"
 
-RUN yum install -y \
-      java-1.8.0-openjdk.x86_64 \
-      java-1.8.0-openjdk-devel.x86_64 \
-      libaio \
-      which \
-    && yum clean all
+COPY --chown=gradle:gradle ./cuebot /home/gradle/cuebot/
+COPY --chown=gradle:gradle ./proto /home/gradle/proto/
 
-WORKDIR /src
+WORKDIR /home/gradle/cuebot
 
-ENV CUEBOT_DB_ENGINE=postgres
-
-RUN adduser builduser
-
-RUN mkdir logs
-
-COPY cuebot/build.gradle cuebot/
-COPY cuebot/gradlew cuebot/
-COPY cuebot/gradlew.bat cuebot/
-COPY cuebot/settings.gradle cuebot/
-COPY cuebot/gradle/ cuebot/gradle/
-
-COPY proto/ proto/
-COPY cuebot/src/main/resources/ cuebot/src/main/resources/
-COPY cuebot/src/test/ cuebot/src/test/
-COPY cuebot/src/main/java/ cuebot/src/main/java/
-
-RUN chmod -R 777 .
-
-# Tests must be run as a non-root user as the embedded Postgres server will not
-# work otherwise.
-RUN su -c "cd cuebot && ./gradlew build --stacktrace" builduser
-
-RUN su -c "cd cuebot && ./gradlew shadowJar --stacktrace" builduser
+RUN gradle build --stacktrace
 
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
-
-RUN mv cuebot/build/libs/cuebot-all.jar cuebot/build/libs/cuebot-$(cat ./VERSION)-all.jar
-
+RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 
 # -----------------
 # RUN
 # -----------------
-FROM centos:7
+FROM openjdk:11-jre-slim
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot runtime stage"
-
-RUN yum install -y \
-      java-1.8.0-openjdk.x86_64 \
-      java-1.8.0-openjdk-devel.x86_64 \
-      libaio \
-      which \
-    && yum clean all
 
 ARG CUEBOT_GRPC_CUE_PORT=8443
 ARG CUEBOT_GRPC_RQD_PORT=8444
 
 WORKDIR /opt/opencue
 
-COPY --from=build /src/cuebot/build/libs/cuebot-*-all.jar ./
-
+COPY --from=build /home/gradle/cuebot/build/libs/cuebot-*-all.jar ./
 RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
 
 # TODO(bcipriano) Implement a new GRPC-based health check.
@@ -82,4 +47,3 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 EXPOSE $grpc_cue_port
 
 ENTRYPOINT ["java", "-jar", "/opt/opencue/cuebot-latest.jar"]
-
