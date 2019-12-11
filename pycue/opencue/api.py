@@ -260,10 +260,10 @@ def findJob(name):
 
 @util.grpcExceptionParser
 def getJob(uniq):
-    """Returns a Job object for the given job name.
+    """Returns a Job object for the given job id.
     This will only return one or zero active job.
-    @type  name: str
-    @param name: A job name
+    @type  uniq: a unique identifier.
+    @param uniq: id
     @rtype:  Job
     @return: Job object"""
     return Job(Cuebot.getStub('job').GetJob(
@@ -415,8 +415,8 @@ def getFrame(uniq):
 @util.grpcExceptionParser
 def getFrames(job, **options):
     """Finds frames in a job that match the search critieria
-    @type job: A unique job identifier.
-    @param: An id
+    @type job: str
+    @param job: the job name
     @rtype: List<Frame>
     @return: a list of matching frames"""
     criteria = search.FrameSearch.criteriaFromOptions(**options)
