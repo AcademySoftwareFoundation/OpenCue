@@ -37,6 +37,8 @@ def init():
     QtGui.qApp.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
+    elif platform.system() == 'Windows':
+        QtGui.qApp.setStyle('Fusion')
     else:
         QtGui.qApp.setStyle(QtWidgets.QStyleFactory.create(cuegui.Constants.COLOR_THEME))
 
