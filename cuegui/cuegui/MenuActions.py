@@ -1139,7 +1139,7 @@ class SubscriptionActions(AbstractActions):
             (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                                title, body,
                                                                current,
-                                                               0, 50000, 0)
+                                                               0, 9999999999, 0)
             if choice:
                 msg = QtWidgets.QMessageBox()
                 msg.setText("You are about to modify a number that can effect a shows billing. Are you in PSR-Resources?")
@@ -1165,7 +1165,7 @@ class SubscriptionActions(AbstractActions):
             (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
                                                                title, body,
                                                                current,
-                                                               0, 50000, 0)
+                                                               0, 9999999999, 0)
             if choice:
                 for sub in subs:
                     self.cuebotCall(sub.setBurst,
