@@ -58,4 +58,5 @@ RUN versioned_name="rqd-$(cat ./VERSION)-all" \
 # RQD gRPC server
 EXPOSE 8444
 
-ENTRYPOINT ["rqd"]
+# NOTE: This shell out is needed to avoid RQD getting PID 0 which leads to leaking child processes.
+ENTRYPOINT ["/bin/bash", "-c", "set -e && rqd"]

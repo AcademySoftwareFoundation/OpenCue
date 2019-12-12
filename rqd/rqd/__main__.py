@@ -48,12 +48,11 @@ from __future__ import absolute_import
 from __future__ import division
 
 import getopt
-import logging as log
+import logging
+import logging.handlers
 import os
 import platform
-import socket
 import sys
-from logging.handlers import SysLogHandler
 
 import rqd.rqconstants
 import rqd.rqcore
@@ -65,18 +64,25 @@ def setupLogging():
        Logs to /var/log/messages"""
     # TODO(bcipriano) These should be config based. (Issue #72)
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel  = log.DEBUG
+    consoleLevel  = logging.DEBUG
     fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel     = log.WARNING # Equal to or greater than the consoleLevel
+    fileLevel     = logging.WARNING # Equal to or greater than the consoleLevel
 
-    log.basicConfig(level=consoleLevel, format=consoleFormat)
-    try:
-        logfile = SysLogHandler(address='/dev/log')
-    except socket.error:
-        logfile = SysLogHandler()
+    logging.basicConfig(level=consoleLevel, format=consoleFormat)
+    if platform.system() in ('Linux', 'Darwin'):
+        if platform.system() == 'Linux':
+            syslogAddress = '/dev/log'
+        else:
+            syslogAddress = '/var/run/syslog'
+        if os.path.exists(syslogAddress):
+            logfile = logging.handlers.SysLogHandler(address=syslogAddress)
+        else:
+            logfile = logging.handlers.SysLogHandler()
+    else:
+        logfile = logging.handlers.SysLogHandler()
     logfile.setLevel(fileLevel)
-    logfile.setFormatter(log.Formatter(fileFormat))
-    log.getLogger('').addHandler(logfile)
+    logfile.setFormatter(logging.Formatter(fileFormat))
+    logging.getLogger('').addHandler(logfile)
 
 
 def usage():
@@ -94,7 +100,7 @@ def main():
     setupLogging()
 
     if platform.system() == 'Linux' and os.getuid() != 0:
-        log.critical("Please run launch as root")
+        logging.critical("Please run launch as root")
         sys.exit(1)
 
     try:
@@ -119,7 +125,7 @@ def main():
 
     rqd.rqutil.permissionsLow()
 
-    log.warning('RQD Starting Up')
+    logging.warning('RQD Starting Up')
 
     if rqd.rqconstants.FACILITY == 'abq':
         os.environ['TZ'] = 'PST8PDT'
