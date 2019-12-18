@@ -15,9 +15,9 @@
 
 
 """
-The OpenUue Static API.  This is exported into the package namespace.
+The opencue Static API.  This is exported into the package namespace.
 
-Project: OpenCue library
+Project: opencue library
 """
 from __future__ import absolute_import
 from __future__ import print_function
