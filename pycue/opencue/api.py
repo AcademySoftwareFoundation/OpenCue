@@ -146,24 +146,24 @@ def getFacility(name):
 
 
 @util.grpcExceptionParser
+def renameFacility(facility, new_name):
     """Rename a given facility by name or unique ID.
     @type facility: str
     @param facility: an existing facility name or unique ID
     @type new_name: str
     @param new_name: a new facility name or unique ID
     """
-def renameFacility(facility, new_name):
     Cuebot.getStub('facility').Rename(
         facility_pb2.FacilityRenameRequest(facility=facility, new_name=new_name),
         timeout=Cuebot.Timeout)
 
 
 @util.grpcExceptionParser
+def deleteFacility(name):
     """Delete a given facility by name or unique ID.
     @type name: str
     @param name: a facility name or unique ID
     """
-def deleteFacility(name):
     Cuebot.getStub('facility').Delete(
         facility_pb2.FacilityDeleteRequest(name=name), timeout=Cuebot.Timeout)
 
