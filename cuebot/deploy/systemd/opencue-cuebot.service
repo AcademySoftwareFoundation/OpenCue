@@ -10,7 +10,7 @@ Environment=DB_PASS=<changeme>
 Environment=OPTIONS=
 Environment=JAR_PATH=/opt/OpenCue/cuebot/cuebot-latest.jar
 EnvironmentFile=-/etc/sysconfig/opencue-cuebot
-ExecStart=/bin/bash -c "/usr/bin/java -jar ${JAR_PATH} --datasource.cueDataSource.url=${DB_URL} --datasource.cueDataSource.username=${DB_USER} --datasource.cueDataSource.password=${DB_PASS} ${OPTIONS}"
+ExecStart=/bin/bash -c "/usr/bin/java -jar ${JAR_PATH} --datasource.cue-data-source.jdbc-url=${DB_URL} --datasource.cue-data-source.username=${DB_USER} --datasource.cue-data-source.password=${DB_PASS} ${OPTIONS}"
 LimitNOFILE=500000
 LimitNPROC=500000
 StandardOutput=syslog+console

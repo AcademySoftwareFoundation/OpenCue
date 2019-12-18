@@ -29,8 +29,14 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
     wget ${BASE_URL}${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz \
         || wget ${BASE_URL}v${VERSION}/${PACKAGE}-${VERSION}-all.tar.gz
     tar xvzf ${PACKAGE}-${VERSION}-all.tar.gz
-    pip install -r ${PACKAGE}-${VERSION}-all/requirements.txt
-    pip install -r ${PACKAGE}-${VERSION}-all/requirements_gui.txt
+    REQUIREMENTS=${PACKAGE}-${VERSION}-all/requirements.txt
+    REQUIREMENTS_GUI=${PACKAGE}-${VERSION}-all/requirements_gui.txt
+
+    pip install -r ${REQUIREMENTS}
+    # requirements vary across the Python packages
+    if [ -f ${REQUIREMENTS_GUI} ]; then
+        pip install -r ${REQUIREMENTS_GUI}
+    fi
     cd ${PACKAGE}-${VERSION}-all
     python setup.py install
     cd ..
