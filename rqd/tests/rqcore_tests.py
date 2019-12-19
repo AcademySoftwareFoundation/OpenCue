@@ -259,8 +259,9 @@ class RqCoreTests(unittest.TestCase):
         self.rqcore.onIntervalThread.cancel.assert_called()
         self.rqcore.updateRssThread.cancel.assert_called()
 
+    @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('sys.exit')
-    def test_handleExit(self, exitMock):
+    def test_handleExit(self, networkMock, exitMock):
         self.rqcore = rqd.rqcore.RqCore()
 
         self.rqcore.handleExit(None, None)

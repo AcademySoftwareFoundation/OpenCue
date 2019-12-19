@@ -169,16 +169,33 @@ class GrpcServer(object):
             servicerClass = getattr(rqdservicers, servicer)
             addFunc(servicerClass(self.rqCore), self.server)
 
+    def connectGrpcWithRetries(self):
+        while True:
+            try:
+                self.rqCore.grpcConnected()
+                break
+            except grpc.RpcError as exc:
+                if exc.code() == grpc.StatusCode.UNAVAILABLE:
+                    log.warning('GRPC connection failed. Retrying in {} seconds'.format(
+                        rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP))
+                    time.sleep(rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP)
+                else:
+                    raise exc
+
     def serve(self):
         self.addServicers()
         self.server.start()
-        self.rqCore.grpcConnected()
+        if rqconstants.RQD_GRPC_RETRY_CONNECTION:
+            self.connectGrpcWithRetries()
+        else:
+            self.rqCore.grpcConnected()
 
     def serveForever(self):
         self.serve()
         self.stayAlive()
 
     def shutdown(self):
+        log.info('Stopping grpc server.')
         self.server.stop(0)
 
     def stayAlive(self):
@@ -200,6 +217,10 @@ class Network(object):
     def start_grpc(self):
         self.grpcServer = GrpcServer(self.rqCore)
         self.grpcServer.serveForever()
+
+    def stopGrpc(self):
+        self.grpcServer.shutdown()
+        del self.grpcServer
 
     def closeChannel(self):
         self.channel.close()

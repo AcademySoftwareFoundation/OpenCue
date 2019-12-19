@@ -741,6 +741,7 @@ class RqCore(object):
     def handleExit(self, signalnum, flag):
         """Shutdown threads and exit RQD."""
         self.shutdown()
+        self.network.stopGrpc()
         sys.exit()
 
     def launchFrame(self, runFrame):
