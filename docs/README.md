@@ -7,10 +7,9 @@ www.opencue.io, but in the meantime you can build the reference HTML locally.
 This guide is also useful if you want to build the HTML reference during
 development.
 
-Currently, OpenCue supports building HTML reference docs for the `outline`
-package. The `outline` package is the primary package for submitting and
-managing jobs in OpenCue. We'll add support for building additional
-packages soon.
+Currently, OpenCue supports building HTML reference docs for the
+`FileSequence`, `opencue`, and `outline` packages. The `outline` package
+is the primary package for submitting and managing jobs in OpenCue.
 
 ## Before you begin
 
