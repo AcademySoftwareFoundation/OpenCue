@@ -68,7 +68,7 @@ To build and view the HTML reference docs:
 1.  Change to the `docs` directory:
 
     ```
-    cd ../docs
+    cd docs
     ```
 
 1.  Build the docs:
@@ -81,7 +81,7 @@ To build and view the HTML reference docs:
     browser:
 
     Note: Currently, Sphinx is only configured to generate HTML docs for the
-    `outline` package.
+    `FileSequence`, `opencue`, and `outline` packages.
 
     ```
     <path-to-OpenCue>/OpenCue/docs/_build/html/index.html
