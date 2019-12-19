@@ -7,10 +7,9 @@ www.opencue.io, but in the meantime you can build the reference HTML locally.
 This guide is also useful if you want to build the HTML reference during
 development.
 
-Currently, OpenCue supports building HTML reference docs for the `outline`
-package. The `outline` package is the primary package for submitting and
-managing jobs in OpenCue. We'll add support for building additional
-packages soon.
+Currently, OpenCue supports building HTML reference docs for the
+`FileSequence`, `opencue`, and `outline` packages. The `outline` package
+is the primary package for submitting and managing jobs in OpenCue.
 
 ## Before you begin
 
@@ -68,7 +67,7 @@ To build and view the HTML reference docs:
 1.  Change to the `docs` directory:
 
     ```
-    cd ../docs
+    cd docs
     ```
 
 1.  Build the docs:
@@ -81,7 +80,7 @@ To build and view the HTML reference docs:
     browser:
 
     Note: Currently, Sphinx is only configured to generate HTML docs for the
-    `outline` package.
+    `FileSequence`, `opencue`, and `outline` packages.
 
     ```
     <path-to-OpenCue>/OpenCue/docs/_build/html/index.html
