@@ -57,5 +57,12 @@ setup(
         ]
     },
     test_suite='tests',
+    install_requires=[
+        'grpcio',
+        'grpcio-tools',
+        'pexpect',
+        'PySide2',
+        'PyYAML',
+    ]
 )
 

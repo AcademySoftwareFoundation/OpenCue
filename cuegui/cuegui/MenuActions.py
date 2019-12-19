@@ -1136,10 +1136,11 @@ class SubscriptionActions(AbstractActions):
             body = "Please enter the new subscription size value:\nThis " \
                    "should only be changed by administrators.\nPlease " \
                    "contact the resource department."
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
-                                                               title, body,
-                                                               current,
-                                                               0, 50000, 0)
+            minSize = 0
+            decimalPlaces = 0
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+                                                               minSize, cuegui.Constants.QT_MAX_INT,
+                                                               decimalPlaces)
             if choice:
                 msg = QtWidgets.QMessageBox()
                 msg.setText("You are about to modify a number that can effect a shows billing. Are you in PSR-Resources?")
@@ -1162,10 +1163,11 @@ class SubscriptionActions(AbstractActions):
             title = "Edit Subscription Burst"
             body = "Please enter the maximum number of cores that this " \
                    "subscription should be allowed to reach:"
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
-                                                               title, body,
-                                                               current,
-                                                               0, 50000, 0)
+            minSize = 0
+            decimalPlaces = 0
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+                                                               minSize, cuegui.Constants.QT_MAX_INT,
+                                                               decimalPlaces)
             if choice:
                 for sub in subs:
                     self.cuebotCall(sub.setBurst,

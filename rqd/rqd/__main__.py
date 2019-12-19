@@ -18,56 +18,16 @@
 """
 Initializes and starts rqd.
 
-Project: RQD
+- RQD allows the cuebot to launch frames on a remote host.
+- RQD monitors the resources on a machine.
+- Frames can be monitored or killed.
+- Status updates are sent to the cuebot every 60 seconds.
+- Nimby built into RQD allows a desktop to be used as a render machine when
+  not in use.
+- See the rqnetwork module for a description of ICE interfaces.
 
-Module: rqd.py
-
-Project Description:
-  - RQD allows the cuebot to launch frames on a remote host.
-  - RQD monitors the resources on a machine.
-  - Frames can be monitored or killed.
-  - Status updates are sent to the cuebot every 60 seconds.
-  - Nimby built into RQD allows a desktop to be used as a render machine when
-    not in use.
-  - See the rqnetwork module for a description of ICE interfaces.
-
-SVN Path:
-   - http://softboss/svn/repos/middle-tier/rqd/trunk
-Requires: ./spi-slice from:
-   - http://softboss/svn/repos/middle-tier/cuebot/branches/jwelborn/spi-slice
-Requires: ./slice from:
-   - http://softboss/svn/repos/middle-tier/cuebot/branches/jwelborn/slice
-
-Contact: Middle-Tier
-
-For RQD Maintainer only:
-========================
-  To install rqd on a machine manually:
-  -------------------------------------
-    - sudo mkdir /usr/local/spi/bin/rqd3
-    - cd /usr/local/spi/bin/rqd3
-    - sudo icepatch2client --IcePatch2.Endpoints="tcp -h genosis -p 12000" -t
-    - sudo ln -s /usr/local/spi/bin/rqd3/rqd3_init.d /etc/init.d/rqd3
-    - sudo /sbin/chkconfig --add rqd3
-
-  To create the rpm: (don't do this)
-  ----------------------------------
-    - cd /net/yum/jwelborn/rpm-rhel40
-    - mkdir -p /var/tmp/yum-rpm-build-scratch/$USER/BUILD_i386
-    - nano ./SPECS/spi-rqd3.spec
-    - rpmbuild -ba ./SPECS/spi-rqd3.spec
-
-  To install on a machine with rpm:
-  ---------------------------------
-    - sudo rsh HOSTNAME rpm -ivh
-      /net/yum/jwelborn/rpm-rhel40/RPMS/i386/spi-rqd3-0.1.0-1.i386.rpm
-
-  To uninstall from a machine with rpm:
-  -------------------------------------
-    - sudo rsh HOSTNAME rpm -e spi-rqd3-0.1.0-1
-
-  Optional configuration file:
-  ----------------------------
+Optional configuration file:
+----------------------------
 in /etc/rqd3/rqd3.conf:
 [Override]
 OVERRIDE_CORES = 2
@@ -80,18 +40,23 @@ OVERRIDE_NIMBY = False
 GPU = True
 # True will force 256mb gpu memory
 PLAYBLAST = True
-
-SVN: $Id$
 """
 
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+
 import getopt
-import logging as log
+import logging
+import logging.handlers
 import os
 import platform
-import socket
 import sys
-from logging.handlers import SysLogHandler
+
+import rqd.rqconstants
+import rqd.rqcore
+import rqd.rqutil
 
 
 def setupLogging():
@@ -99,39 +64,43 @@ def setupLogging():
        Logs to /var/log/messages"""
     # TODO(bcipriano) These should be config based. (Issue #72)
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel  = log.DEBUG
+    consoleLevel  = logging.DEBUG
     fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel     = log.WARNING # Equal to or greater than the consoleLevel
+    fileLevel     = logging.WARNING # Equal to or greater than the consoleLevel
 
-    log.basicConfig(level=consoleLevel, format=consoleFormat)
-    try:
-        logfile = SysLogHandler(address='/dev/log')
-    except socket.error:
-        logfile = SysLogHandler()
+    logging.basicConfig(level=consoleLevel, format=consoleFormat)
+    if platform.system() in ('Linux', 'Darwin'):
+        if platform.system() == 'Linux':
+            syslogAddress = '/dev/log'
+        else:
+            syslogAddress = '/var/run/syslog'
+        if os.path.exists(syslogAddress):
+            logfile = logging.handlers.SysLogHandler(address=syslogAddress)
+        else:
+            logfile = logging.handlers.SysLogHandler()
+    else:
+        logfile = logging.handlers.SysLogHandler()
     logfile.setLevel(fileLevel)
-    logfile.setFormatter(log.Formatter(fileFormat))
-    log.getLogger('').addHandler(logfile)
+    logfile.setFormatter(logging.Formatter(fileFormat))
+    logging.getLogger('').addHandler(logfile)
 
-setupLogging()
-
-from rqcore import RqCore
-import rqutil
-import rqconstants
 
 def usage():
     """Prints command line syntax"""
     s = sys.stderr
-    print >> s, "SYNOPSIS"
-    print >> s, "  ", sys.argv[0], "[options]\n"
-    print >> s, "  -d | --daemon          => Run as daemon"
-    print >> s, "       --nimbyoff        => Disables nimby activation"
-    print >> s, "  -c                     => Provide an alternate config file"
-    print >> s, "                            Defaults to /etc/rqd3/rqd3.conf"
-    print >> s, "                            Config file is optional"
+    print("SYNOPSIS", file=s)
+    print("  ", sys.argv[0], "[options]\n", file=s)
+    print("  -d | --daemon          => Run as daemon", file=s)
+    print("       --nimbyoff        => Disables nimby activation", file=s)
+    print("  -c                     => Provide an alternate config file", file=s)
+    print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
+    print("                            Config file is optional", file=s)
 
 def main():
+    setupLogging()
+
     if platform.system() == 'Linux' and os.getuid() != 0:
-        log.critical("Please run launch as root")
+        logging.critical("Please run launch as root")
         sys.exit(1)
 
     try:
@@ -154,15 +123,15 @@ def main():
         if o in ["--nimbyoff"]:
             optNimbyOff = True
 
-    rqutil.permissionsLow()
+    rqd.rqutil.permissionsLow()
 
-    log.warning('RQD Starting Up')
+    logging.warning('RQD Starting Up')
 
-    if rqconstants.FACILITY in ('abq'):
+    if rqd.rqconstants.FACILITY == 'abq':
         os.environ['TZ'] = 'PST8PDT'
 
-    rqd = RqCore(optNimbyOff)
-    rqd.start()
+    rqCore = rqd.rqcore.RqCore(optNimbyOff)
+    rqCore.start()
 
 
 if __name__ == "__main__":

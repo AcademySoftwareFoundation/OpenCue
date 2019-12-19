@@ -18,7 +18,13 @@ Constants.
 """
 
 
-import commands
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from future import standard_library
+standard_library.install_aliases()
+import subprocess
 import logging
 import os
 import platform
@@ -107,7 +113,7 @@ ALLOW_GPU = False
 ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
-if commands.getoutput('/bin/su --help').find('session-command') != -1:
+if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
     SU_ARGUEMENT = '--session-command'
 else:
     SU_ARGUEMENT = '-c'
@@ -150,8 +156,8 @@ try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
         __section = "Override"
-        import ConfigParser
-        config = ConfigParser.RawConfigParser()
+        import configparser
+        config = configparser.RawConfigParser()
         config.read(CONFIG_FILE)
         if config.has_option(__section, "OVERRIDE_CORES"):
             OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")
@@ -175,6 +181,6 @@ try:
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
-except Exception, e:
+except Exception as e:
     logging.warning("Failed to read values from config file %s due to %s at %s" % (CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2])))
 
