@@ -11,13 +11,13 @@ Submodules
 ----------
 
 opencue.compiled_proto.comment_pb2_grpc module
------------------------------------------------
+----------------------------------------------
 
 .. automodule:: opencue.compiled_proto.comment_pb2_grpc
     :members:
 
 opencue.compiled_proto.comment_pb2 module
-------------------------------------------
+-----------------------------------------
 
 .. automodule:: opencue.compiled_proto.comment_pb2
     :members:
@@ -38,6 +38,12 @@ opencue.compiled_proto.cue_pb2_grpc module
 -------------------------------------------
 
 .. automodule:: opencue.compiled_proto.cue_pb2_grpc
+    :members:
+
+opencue.compiled_proto.cue_pb2 module
+-------------------------------------
+
+.. automodule:: opencue.compiled_proto.cue_pb2
     :members:
 
 opencue.compiled_proto.department_pb2_grpc module
@@ -94,7 +100,6 @@ opencue.compiled_proto.host_pb2_grpc module
 .. automodule:: opencue.compiled_proto.host_pb2_grpc
     :members:
 
-
 opencue.compiled_proto.host_pb2 module
 --------------------------------------
 
@@ -118,7 +123,6 @@ opencue.compiled_proto.limit_pb2_grpc module
 
 .. automodule:: opencue.compiled_proto.limit_pb2_grpc
     :members:
-
 
 opencue.compiled_proto.limit_pb2 module
 ---------------------------------------
@@ -195,7 +199,7 @@ opencue.compiled_proto.subscription_pb2_grpc module
 opencue.compiled_proto.subscription_pb2 module
 ----------------------------------------------
 
-.. automodule:: opencue.compiled_proto.subscription_pb2_grpc
+.. automodule:: opencue.compiled_proto.subscription_pb2
     :members:
 
 opencue.compiled_proto.task_pb2_grpc module
@@ -207,5 +211,5 @@ opencue.compiled_proto.task_pb2_grpc module
 opencue.compiled_proto.task_pb2 module
 --------------------------------------
 
-.. automodule:: opencue.compiled_proto.task_pb2_grpc
+.. automodule:: opencue.compiled_proto.task_pb2
     :members:
