@@ -43,11 +43,15 @@
       --test_script_frame     => Same as above but launches a 5 second python script
       --test_script_frame_mac => Same as above but for mac host
 \nDESCRIPTION
-      Displays information from or sends a command to an RQD host
-\nCONTACT
-     Middle-Tier Group"""
+      Displays information from or sends a command to an RQD host"""
 
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+
+from builtins import str
+from builtins import object
 import os
 import sys
 import getopt
@@ -57,80 +61,82 @@ import logging as log
 
 import grpc
 
-from compiled_proto import rqd_pb2
-from compiled_proto import rqd_pb2_grpc
-import rqconstants
+import rqd.compiled_proto.rqd_pb2
+import rqd.compiled_proto.rqd_pb2_grpc
+import rqd.rqconstants
 
 
-class RqdHost:
-    def __init__(self, rqdHost, rqdPort=rqconstants.RQD_GRPC_PORT):
+class RqdHost(object):
+    def __init__(self, rqdHost, rqdPort=rqd.rqconstants.RQD_GRPC_PORT):
         self.rqdHost = rqdHost
         self.rqdPort = rqdPort
 
         channel = grpc.insecure_channel('%s:%s' % (self.rqdHost, self.rqdPort))
-        self.stub = rqd_pb2_grpc.RqdInterfaceStub(channel)
-        self.frameStub = rqd_pb2_grpc.RunningFrameStub(channel)
+        self.stub = rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceStub(channel)
+        self.frameStub = rqd.compiled_proto.rqd_pb2_grpc.RunningFrameStub(channel)
 
     def status(self):
-        return self.stub.ReportStatus(rqd_pb2.RqdStaticReportStatusRequest())
+        return self.stub.ReportStatus(rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusRequest())
 
     def getRunningFrame(self, frameId):
-        return self.stub.GetRunFrame(rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
+        return self.stub.GetRunFrame(
+            rqd.compiled_proto.rqd_pb2.RqdStaticGetRunFrameRequest(frame_id=frameId))
 
     def nimbyOff(self):
-        print self.rqdHost, "Turning off Nimby"
+        print(self.rqdHost, "Turning off Nimby")
         log.info("rqd nimbyoff by {0}".format(os.environ.get("USER")))
-        self.stub.NimbyOff(rqd_pb2.RqdStaticNimbyOffRequest())
+        self.stub.NimbyOff(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
-        print self.rqdHost, "Turning on Nimby"
+        print(self.rqdHost, "Turning on Nimby")
         log.info("rqd nimbyon by {0}".format(os.environ.get("USER")))
-        self.stub.NimbyOn(rqd_pb2.RqdStaticNimbyOnRequest())
+        self.stub.NimbyOn(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOnRequest())
 
     def lockAll(self):
-        print self.rqdHost,"Locking all cores"
-        self.stub.LockAll(rqd_pb2.RqdStaticLockAllRequest())
+        print(self.rqdHost,"Locking all cores")
+        self.stub.LockAll(rqd.compiled_proto.rqd_pb2.RqdStaticLockAllRequest())
 
     def unlockAll(self):
-        print self.rqdHost,"Unlocking all cores"
-        self.stub.UnlockAll(rqd_pb2.RqdStaticUnlockAllRequest())
+        print(self.rqdHost,"Unlocking all cores")
+        self.stub.UnlockAll(rqd.compiled_proto.rqd_pb2.RqdStaticUnlockAllRequest())
 
     def lock(self, cores):
         cores = int(cores)
-        print self.rqdHost,"Locking %d cores" % cores
-        self.stub.Lock(rqd_pb2.RqdStaticLockRequest(cores=cores))
+        print(self.rqdHost,"Locking %d cores" % cores)
+        self.stub.Lock(rqd.compiled_proto.rqd_pb2.RqdStaticLockRequest(cores=cores))
 
     def unlock(self, cores):
         cores = int(cores)
-        print self.rqdHost,"Unlocking %d cores" % cores
-        self.stub.Unlock(rqd_pb2.RqdStaticUnlockRequest(cores=cores))
+        print(self.rqdHost,"Unlocking %d cores" % cores)
+        self.stub.Unlock(rqd.compiled_proto.rqd_pb2.RqdStaticUnlockRequest(cores=cores))
 
     def shutdownRqdIdle(self):
-        print self.rqdHost,"Sending shutdownRqdIdle command"
-        self.stub.ShutdownRqdIdle(rqd_pb2.RqdStaticShutdownIdleRequest())
+        print(self.rqdHost,"Sending shutdownRqdIdle command")
+        self.stub.ShutdownRqdIdle(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownIdleRequest())
 
     def shutdownRqdNow(self):
-        print self.rqdHost,"Sending shutdownRqdNow command"
-        self.stub.ShutdownRqdNow(rqd_pb2.RqdStaticShutdownNowRequest())
+        print(self.rqdHost,"Sending shutdownRqdNow command")
+        self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
 
     def restartRqdIdle(self):
-        print self.rqdHost,"Sending restartRqdIdle command"
-        self.stub.RestartRqdIdle(rqd_pb2.RqdStaticRestartIdleRequest())
+        print(self.rqdHost,"Sending restartRqdIdle command")
+        self.stub.RestartRqdIdle(rqd.compiled_proto.rqd_pb2.RqdStaticRestartIdleRequest())
 
     def restartRqdNow(self):
-        print self.rqdHost,"Sending restartRqdNow command"
-        self.stub.RestartRqdNow(rqd_pb2.RqdStaticRestartNowRequest())
+        print(self.rqdHost,"Sending restartRqdNow command")
+        self.stub.RestartRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticRestartNowRequest())
 
     def rebootIdle(self):
-        print self.rqdHost,"Sending rebootIdle command"
-        self.stub.RebootIdle(rqd_pb2.RqdStaticRebootIdleRequest())
+        print(self.rqdHost,"Sending rebootIdle command")
+        self.stub.RebootIdle(rqd.compiled_proto.rqd_pb2.RqdStaticRebootIdleRequest())
 
     def rebootNow(self):
-        print self.rqdHost,"Sending rebootNow command"
-        self.stub.RebootNow(rqd_pb2.RqdStaticRebootNowRequest())
+        print(self.rqdHost,"Sending rebootNow command")
+        self.stub.RebootNow(rqd.compiled_proto.rqd_pb2.RqdStaticRebootNowRequest())
 
     def launchFrame(self, frame):
-        self.stub.LaunchFrame(rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
+        self.stub.LaunchFrame(
+            rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
 
     def killFrame(self, frameId, message):
         runFrame = self.getRunningFrame(frameId)
@@ -139,7 +145,7 @@ class RqdHost:
 
 def main():
     if len(sys.argv) < 2:
-        print __doc__
+        print(__doc__)
         sys.exit()
     elif sys.argv[1].startswith("-"):
         hostname = "localhost"
@@ -157,22 +163,22 @@ def main():
         newargs = [re.sub(r"^(-\w{2,})$", r"-\1", arg) for arg in startArgv]
         opts, argv = getopt.getopt(newargs, SHORT_ARGS, LONG_ARGS)
     except getopt.GetoptError:
-        print __doc__
+        print(__doc__)
         sys.exit(1)
 
     rqdHost = RqdHost(hostname)
 
     for o, a in opts:
         if o in ("-h", "--help"):
-            print __doc__
+            print(__doc__)
             sys.exit(0)
         if o in ("-s", "--s"):
-            print rqdHost.status()
+            print(rqdHost.status())
         if o in ("-v",):
             tagPrefix = 'rqdv-'
             for tag in rqdHost.status().host.tags:
                 if tag.startswith(tagPrefix):
-                    print "version =", tag[len(tagPrefix):]
+                    print("version =", tag[len(tagPrefix):])
         if o == "--nimbyoff":
             rqdHost.nimbyOff()
         if o == "--nimbyon":
@@ -199,14 +205,14 @@ def main():
             rqdHost.rebootNow()
         if o == "--getproxy":
             frameProxy = rqdHost.getRunningFrame(a)
-            print frameProxy
+            print(frameProxy)
         if o == "--kill":
             rqdHost.killFrame(a, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
 
         if o == "--test_edu_frame":
-            print "Launching edu test frame (logs to /mcp)"
+            print("Launching edu test frame (logs to /mcp)")
             frameNum = "0001"
-            runFrame = rqd_pb2.RunFrame()
+            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
             runFrame.job_id = "SD6F3S72DJ26236KFS"
             runFrame.job_name = "edu-trn_jwelborn-jwelborn_teapot_bty"
             runFrame.frame_id = "FD1S3I154O646UGSNN%s" % frameNum
@@ -223,8 +229,8 @@ def main():
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame":
-            print "Launching script test frame (logs to /mcp)"
-            runFrame = rqd_pb2.RunFrame()
+            print("Launching script test frame (logs to /mcp)")
+            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
             runFrame.resource_id = "8888888877777755555"
             runFrame.job_id = "SD6F3S72DJ26236KFS"
             runFrame.job_name = "swtest-home-jwelborn_rqd_test"
@@ -242,8 +248,8 @@ def main():
             rqdHost.launchFrame(runFrame)
 
         if o == "--test_script_frame_mac":
-            print "Launching script test frame (logs to /tmp)"
-            runFrame = rqd_pb2.RunFrame()
+            print("Launching script test frame (logs to /tmp)")
+            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
             runFrame.resource_id = "2222222277777755555"
             runFrame.job_id = "SD6F3S72DJ26236KFS"
             runFrame.job_name = "swtest-home-jwelborn_rqd_test"

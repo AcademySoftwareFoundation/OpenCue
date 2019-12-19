@@ -17,6 +17,13 @@
 Main RQD module, handles gRPC function implementation and job launching.
 """
 
+
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import division
+
+from builtins import str
+from builtins import object
 import logging as log
 import os
 import platform
@@ -29,18 +36,14 @@ import threading
 import time
 import traceback
 
-import rqconstants
-import rqutil
-from compiled_proto import host_pb2
-from compiled_proto import report_pb2
-from rqexceptions import CoreReservationFailureException
-from rqexceptions import DuplicateFrameViolationException
-from rqexceptions import InvalidUserException
-from rqexceptions import RqdException
+import rqd.compiled_proto.host_pb2
+import rqd.compiled_proto.report_pb2
+import rqd.rqconstants
+import rqd.rqexceptions
 import rqd.rqmachine
 import rqd.rqnetwork
-from rqnetwork import RunningFrame
 import rqd.rqnimby
+import rqd.rqutil
 
 
 class FrameAttendantThread(threading.Thread):
@@ -119,9 +122,9 @@ class FrameAttendantThread(threading.Thread):
             self._tempLocations.append(commandFile)
             rqexe.write(command)
             rqexe.close()
-            os.chmod(commandFile, 0777)
+            os.chmod(commandFile, 0o777)
             return commandFile
-        except Exception, e:
+        except Exception as e:
             log.critical("Unable to make command file: %s due to %s at %s" % (
                 commandFile, e, traceback.extract_tb(sys.exc_info()[2])))
 
@@ -131,29 +134,29 @@ class FrameAttendantThread(threading.Thread):
         self.startTime = time.time()
 
         try:
-            print >> self.rqlog, "="*59
-            print >> self.rqlog, "RenderQ JobSpec     ", time.ctime(self.startTime), "\n"
-            print >> self.rqlog, "proxy               ", "RunningFrame/%s -t:tcp -h %s -p 10021" % (
+            print("="*59, file=self.rqlog)
+            print("RenderQ JobSpec     ", time.ctime(self.startTime), "\n", file=self.rqlog)
+            print("proxy               ", "rqd.rqnetwork.RunningFrame/%s -t:tcp -h %s -p 10021" % (
                 self.runFrame.frame_id,
-                self.rqCore.machine.getHostname())
-            print >> self.rqlog, "%-21s%s" % ("command", self.runFrame.command)
-            print >> self.rqlog, "%-21s%s" % ("uid", self.runFrame.uid)
-            print >> self.rqlog, "%-21s%s" % ("gid", self.runFrame.gid)
-            print >> self.rqlog, "%-21s%s" % ("logDestination",
-                                              self.runFrame.log_dir_file)
-            print >> self.rqlog, "%-21s%s" % ("cwd", self.runFrame.frame_temp_dir)
-            print >> self.rqlog, "%-21s%s" % ("renderHost",
-                                              self.rqCore.machine.getHostname())
-            print >> self.rqlog, "%-21s%s" % ("jobId", self.runFrame.job_id)
-            print >> self.rqlog, "%-21s%s" % ("frameId", self.runFrame.frame_id)
+                self.rqCore.machine.getHostname()), file=self.rqlog)
+            print("%-21s%s" % ("command", self.runFrame.command), file=self.rqlog)
+            print("%-21s%s" % ("uid", self.runFrame.uid), file=self.rqlog)
+            print("%-21s%s" % ("gid", self.runFrame.gid), file=self.rqlog)
+            print("%-21s%s" % ("logDestination",
+                                              self.runFrame.log_dir_file), file=self.rqlog)
+            print("%-21s%s" % ("cwd", self.runFrame.frame_temp_dir), file=self.rqlog)
+            print("%-21s%s" % ("renderHost",
+                                              self.rqCore.machine.getHostname()), file=self.rqlog)
+            print("%-21s%s" % ("jobId", self.runFrame.job_id), file=self.rqlog)
+            print("%-21s%s" % ("frameId", self.runFrame.frame_id), file=self.rqlog)
             for env in sorted(self.frameEnv):
-                print >> self.rqlog, "%-21s%s=%s" % ("env", env, self.frameEnv[env])
-            print >> self.rqlog, "="*59
+                print("%-21s%s=%s" % ("env", env, self.frameEnv[env]), file=self.rqlog)
+            print("="*59, file=self.rqlog)
 
             if 'CPU_LIST' in self.runFrame.attributes:
-                print >> self.rqlog, 'Hyper-threading enabled'
+                print('Hyper-threading enabled', file=self.rqlog)
 
-        except Exception, e:
+        except Exception as e:
             log.critical("Unable to write header to rqlog: "
                          "%s due to %s at %s" %
                          (self.runFrame.log_dir_file, e,
@@ -165,29 +168,29 @@ class FrameAttendantThread(threading.Thread):
         self.endTime = time.time()
         self.frameInfo.runTime = int(self.endTime - self.startTime)
         try:
-            print >> self.rqlog, "\n", "="*59
-            print >> self.rqlog, "RenderQ Job Complete\n"
-            print >> self.rqlog, "%-20s%s" % ("exitStatus", self.frameInfo.exitStatus)
-            print >> self.rqlog, "%-20s%s" % ("exitSignal", self.frameInfo.exitSignal)
+            print("\n", "="*59, file=self.rqlog)
+            print("RenderQ Job Complete\n", file=self.rqlog)
+            print("%-20s%s" % ("exitStatus", self.frameInfo.exitStatus), file=self.rqlog)
+            print("%-20s%s" % ("exitSignal", self.frameInfo.exitSignal), file=self.rqlog)
             if self.frameInfo.killMessage:
-                print >> self.rqlog, "%-20s%s" % ("killMessage", self.frameInfo.killMessage)
-            print >> self.rqlog, "%-20s%s" % ("startTime",
-                                         time.ctime(self.startTime))
-            print >> self.rqlog, "%-20s%s" % ("endTime",
-                                         time.ctime(self.endTime))
-            print >> self.rqlog, "%-20s%s" % ("maxrss", self.frameInfo.maxRss)
-            print >> self.rqlog, "%-20s%s" % ("utime", self.frameInfo.utime)
-            print >> self.rqlog, "%-20s%s" % ("stime", self.frameInfo.stime)
-            print >> self.rqlog, "%-20s%s" % ("renderhost", self.rqCore.machine.getHostname())
-            print >> self.rqlog, "="*59
-        except Exception, e:
+                print("%-20s%s" % ("killMessage", self.frameInfo.killMessage), file=self.rqlog)
+            print("%-20s%s" % ("startTime",
+                                         time.ctime(self.startTime)), file=self.rqlog)
+            print("%-20s%s" % ("endTime",
+                                         time.ctime(self.endTime)), file=self.rqlog)
+            print("%-20s%s" % ("maxrss", self.frameInfo.maxRss), file=self.rqlog)
+            print("%-20s%s" % ("utime", self.frameInfo.utime), file=self.rqlog)
+            print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
+            print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
+            print("="*59, file=self.rqlog)
+        except Exception as e:
             log.critical("Unable to write footer: %s due to %s at %s" %
                          (self.runFrame.log_dir_file, e,
                           traceback.extract_tb(sys.exc_info()[2])))
 
     def __sendFrameCompleteReport(self):
         """Send report to cuebot that frame has finished"""
-        report = report_pb2.FrameCompleteReport()
+        report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
         report.host.CopyFrom(self.rqCore.machine.getHostInfo())
         report.frame.CopyFrom(self.frameInfo.runningFrameInfo())
 
@@ -202,28 +205,28 @@ class FrameAttendantThread(threading.Thread):
         # If nimby is active, then frame must have been killed by nimby
         # Set the exitSignal to indicate this event
         if self.rqCore.nimby.locked and not self.runFrame.ignore_nimby:
-            report.exit_status = rqconstants.EXITSTATUS_FOR_NIMBY_KILL
+            report.exit_status = rqd.rqconstants.EXITSTATUS_FOR_NIMBY_KILL
 
         self.rqCore.network.reportRunningFrameCompletion(report)
 
     def __cleanup(self):
         """Cleans up temporary files"""
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             for location in self._tempLocations:
                 if os.path.isfile(location):
                     try:
                         os.remove(location)
-                    except Exception, e:
+                    except Exception as e:
                         log.warning("Unable to delete file: %s due to %s at %s" % (
                             location, e, traceback.extract_tb(sys.exc_info()[2])))
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         # Close log file
         try:
             self.rqlog.close()
-        except Exception, e:
+        except Exception as e:
             log.warning("Unable to close file: %s due to %s at %s" % (
                 self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2])))
 
@@ -234,10 +237,10 @@ class FrameAttendantThread(threading.Thread):
 
         self.__createEnvVariables()
         self.__writeHeader()
-        if rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
-            rqutil.permissionsHigh()
-            rqutil.checkAndCreateUser(runFrame.user_name)
-            rqutil.permissionsLow()
+        if rqd.rqconstants.RQD_CREATE_USER_IF_NOT_EXISTS:
+            rqd.rqutil.permissionsHigh()
+            rqd.rqutil.checkAndCreateUser(runFrame.user_name)
+            rqd.rqutil.permissionsLow()
 
         tempStatFile = "%srqd-stat-%s-%s" % (self.rqCore.machine.getTempPath(),
                                              frameInfo.frameId,
@@ -251,9 +254,9 @@ class FrameAttendantThread(threading.Thread):
         if 'CPU_LIST' in runFrame.attributes:
             tempCommand += ['taskset', '-c', runFrame.attributes['CPU_LIST']]
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
-            tempCommand += ["/bin/su", runFrame.user_name, rqconstants.SU_ARGUEMENT,
+            tempCommand += ["/bin/su", runFrame.user_name, rqd.rqconstants.SU_ARGUEMENT,
                             '"' + self._createCommandFile(runFrame.command) + '"']
 
             # Actual cwd is set by /shots/SHOW/home/perl/etc/qwrap.cuerun
@@ -266,12 +269,12 @@ class FrameAttendantThread(threading.Thread):
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
         if not self.rqCore.updateRssThread.isAlive():
-            self.rqCore.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL,
+            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                            self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
@@ -325,7 +328,7 @@ class FrameAttendantThread(threading.Thread):
         frameInfo.pid = frameInfo.forkedCommand.pid
 
         if not self.rqCore.updateRssThread.isAlive():
-            self.rqCore.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL,
+            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
@@ -350,7 +353,7 @@ class FrameAttendantThread(threading.Thread):
         self.__createEnvVariables()
         self.__writeHeader()
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
                            self._createCommandFile(frameInfo.runFrame.command) + '"']
@@ -363,12 +366,12 @@ class FrameAttendantThread(threading.Thread):
                                                        stderr=self.rqlog,
                                                        preexec_fn=os.setsid)
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
         if not self.rqCore.updateRssThread.isAlive():
-            self.rqCore.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL,
+            self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
 
@@ -406,6 +409,8 @@ class FrameAttendantThread(threading.Thread):
 
         runFrame = self.runFrame
 
+        # TODO(bcipriano) Don't use a special log path on Windows. The log directory should come
+        #   from the job submission as it does for other jobs.
         # Windows has a special log path
         if platform.system() == "Windows":
             runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
@@ -422,10 +427,10 @@ class FrameAttendantThread(threading.Thread):
 
             try: # Exception block for all exceptions
                 # Do everything as launching user
-                runFrame.gid = rqconstants.LAUNCH_FRAME_USER_GID
+                runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
 
                 # Change to job user
-                rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+                rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
                 try:
                     #
                     # Setup proc to allow launching of frame
@@ -436,8 +441,8 @@ class FrameAttendantThread(threading.Thread):
                         msg = "No Error"
                         try:
                             os.makedirs(runFrame.log_dir)
-                            os.chmod(runFrame.log_dir, 0777)
-                        except Exception, e:
+                            os.chmod(runFrame.log_dir, 0o777)
+                        except Exception as e:
                             # This is expected to fail when called in abq
                             # But the directory should now be visible
                             msg = e
@@ -445,38 +450,38 @@ class FrameAttendantThread(threading.Thread):
                         if not os.access(runFrame.log_dir, os.F_OK):
                             err = "Unable to see log directory: %s, mkdir failed with: %s" % (
                                 runFrame.log_dir, msg)
-                            raise RuntimeError, err
+                            raise RuntimeError(err)
 
                     if not os.access(runFrame.log_dir, os.W_OK):
                         err = "Unable to write to log directory %s" % runFrame.log_dir
-                        raise RuntimeError, err
+                        raise RuntimeError(err)
 
                     try:
                         # Rotate any old logs to a max of MAX_LOG_FILES:
                         if os.path.isfile(runFrame.log_dir_file):
                             rotateCount = 1
                             while (os.path.isfile("%s.%s" % (runFrame.log_dir_file, rotateCount))
-                                   and rotateCount < rqconstants.MAX_LOG_FILES):
+                                   and rotateCount < rqd.rqconstants.MAX_LOG_FILES):
                                 rotateCount += 1
                             os.rename(runFrame.log_dir_file,
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
-                    except Exception, e:
+                    except Exception as e:
                         err = "Unable to rotate previous log file due to %s" % e
-                        raise RuntimeError, err
+                        raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 0)
+                        self.rqlog = open(runFrame.log_dir_file, "w", 1)
                         self.waitForFile(runFrame.log_dir_file)
-                    except Exception, e:
+                    except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
-                        raise RuntimeError, err
+                        raise RuntimeError(err)
                     try:
-                        os.chmod(runFrame.log_dir_file, 0666)
-                    except Exception, e:
+                        os.chmod(runFrame.log_dir_file, 0o666)
+                    except Exception as e:
                         err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
                         log.warning(err)
 
                 finally:
-                    rqutil.permissionsLow()
+                    rqd.rqutil.permissionsLow()
 
                 # Store frame in cache and register servant
                 self.rqCore.storeFrame(runFrame.frame_id, self.frameInfo)
@@ -492,12 +497,12 @@ class FrameAttendantThread(threading.Thread):
                 else:
                     self.runUnknown()
 
-            except Exception, e:
+            except Exception as e:
                 log.critical("Failed launchFrame: For %s due to: \n%s" % (
                     runFrame.frame_id,
                     ''.join(traceback.format_exception(*sys.exc_info()))))
                 # Notifies the cuebot that there was an error launching
-                self.frameInfo.exitStatus = rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
+                self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
                 # Delay keeps the cuebot from spamming failing booking requests
                 time.sleep(10)
         finally:
@@ -507,9 +512,9 @@ class FrameAttendantThread(threading.Thread):
 
             self.__sendFrameCompleteReport()
             time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
-            if time_till_next > (2 * rqconstants.RQD_MIN_PING_INTERVAL_SEC):
+            if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
                 self.rqCore.onIntervalThread.cancel()
-                self.rqCore.onInterval(rqconstants.RQD_MIN_PING_INTERVAL_SEC)
+                self.rqCore.onInterval(rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC)
 
             log.info("Monitor frame ended for frameId=%s",
                      self.runFrame.frame_id)
@@ -528,7 +533,7 @@ class RqCore(object):
 
         self.__optNimbyoff = optNimbyoff
 
-        self.cores = report_pb2.CoreDetail(
+        self.cores = rqd.compiled_proto.report_pb2.CoreDetail(
             total_cores=0,
             idle_cores=0,
             locked_cores=0,
@@ -546,7 +551,7 @@ class RqCore(object):
         self.updateRssThread = None
         self.onIntervalThread = None
         self.intervalStartTime = None
-        self.intervalSleepTime = rqconstants.RQD_MIN_PING_INTERVAL_SEC
+        self.intervalSleepTime = rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC
 
         self.__cluster = None
         self.__session = None
@@ -560,14 +565,14 @@ class RqCore(object):
         if self.machine.isDesktop():
             if self.__optNimbyoff:
                 log.warning('Nimby startup has been disabled via --nimbyoff')
-            elif not rqconstants.OVERRIDE_NIMBY:
-                if rqconstants.OVERRIDE_NIMBY is None:
+            elif not rqd.rqconstants.OVERRIDE_NIMBY:
+                if rqd.rqconstants.OVERRIDE_NIMBY is None:
                     log.warning('OVERRIDE_NIMBY is not defined, Nimby startup has been disabled')
                 else:
                     log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
             else:
                 self.nimbyOn()
-        elif rqconstants.OVERRIDE_NIMBY:
+        elif rqd.rqconstants.OVERRIDE_NIMBY:
             log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
             self.nimbyOn()
         self.network.start_grpc()
@@ -576,7 +581,7 @@ class RqCore(object):
         """After gRPC connects to the cuebot, this function is called"""
         self.network.reportRqdStartup(self.machine.getBootReport())
 
-        self.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
+        self.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
         self.updateRssThread.start()
 
         self.onIntervalThread = threading.Timer(self.intervalSleepTime, self.onInterval)
@@ -590,8 +595,8 @@ class RqCore(object):
            every interval"""
         if sleepTime is None:
             self.intervalSleepTime = random.randint(
-                rqconstants.RQD_MIN_PING_INTERVAL_SEC,
-                rqconstants.RQD_MAX_PING_INTERVAL_SEC)
+                rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC,
+                rqd.rqconstants.RQD_MAX_PING_INTERVAL_SEC)
         else:
             self.intervalSleepTime = sleepTime
         try:
@@ -622,33 +627,33 @@ class RqCore(object):
             try:
                 self.machine.rssUpdate(self.__cache)
             finally:
-                self.updateRssThread = threading.Timer(rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
+                self.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
                 self.updateRssThread.start()
 
     def getFrame(self, frameId):
         """Gets a frame from the cache based on frameId
         @type  frameId: string
         @param frameId: A frame's unique Id
-        @rtype:  RunningFrame
-        @return: RunningFrame object"""
+        @rtype:  rqd.rqnetwork.RunningFrame
+        @return: rqd.rqnetwork.RunningFrame object"""
         return self.__cache[frameId]
 
     def getFrameKeys(self):
         """Gets a list of all keys from the cache
         @rtype:  list
         @return: List of all frameIds running on host"""
-        return self.__cache.keys()
+        return list(self.__cache.keys())
 
     def storeFrame(self, frameId, runningFrame):
         """Stores a frame in the cache and adds the network adapter
         @type  frameId: string
         @param frameId: A frame's unique Id
         @type  runningFrame: rqd.rqnetwork.RunningFrame
-        @param runningFrame: RunningFrame object"""
+        @param runningFrame: rqd.rqnetwork.RunningFrame object"""
         self.__threadLock.acquire()
         try:
-            if self.__cache.has_key(frameId):
-                raise RqdException("frameId " + frameId + " is already running on this machine")
+            if frameId in self.__cache:
+                raise rqd.rqexceptions.RqdException("frameId " + frameId + " is already running on this machine")
             self.__cache[frameId] = runningFrame
         finally:
             self.__threadLock.release()
@@ -659,7 +664,7 @@ class RqCore(object):
         @param frameId: A frame's unique Id"""
         self.__threadLock.acquire()
         try:
-            if self.__cache.has_key(frameId):
+            if frameId in self.__cache:
                 del self.__cache[frameId]
         finally:
             self.__threadLock.release()
@@ -675,9 +680,9 @@ class RqCore(object):
         while self.__cache:
             if reason.startswith("NIMBY"):
                 # Since this is a nimby kill, ignore any frames that are ignoreNimby
-                frameKeys = [frame.frameId for frame in self.__cache.values() if not frame.ignoreNimby]
+                frameKeys = [frame.frameId for frame in list(self.__cache.values()) if not frame.ignoreNimby]
             else:
-                frameKeys = self.__cache.keys()
+                frameKeys = list(self.__cache.keys())
 
             if not frameKeys:
                 # No frames left to kill
@@ -756,35 +761,35 @@ class RqCore(object):
         # Check for reasons to abort launch
         #
 
-        if self.machine.state != host_pb2.UP:
+        if self.machine.state != rqd.compiled_proto.host_pb2.UP:
             err = "Not launching, rqd HardwareState is not Up"
             log.info(err)
-            raise CoreReservationFailureException(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         if self.__whenIdle:
             err = "Not launching, rqd is waiting for idle to shutdown"
             log.info(err)
-            raise CoreReservationFailureException(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         if self.nimby.locked and not runFrame.ignore_nimby:
             err = "Not launching, rqd is lockNimby"
             log.info(err)
-            raise CoreReservationFailureException(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
 
-        if self.__cache.has_key(runFrame.frame_id):
+        if runFrame.frame_id in self.__cache:
             err = "Not launching, frame is already running on this proc %s" % runFrame.frame_id
             log.critical(err)
-            raise DuplicateFrameViolationException(err)
+            raise rqd.rqexceptions.DuplicateFrameViolationException(err)
 
         if runFrame.uid <= 0:
             err = "Not launching, will not run frame as uid=%d" % runFrame.uid
             log.warning(err)
-            raise InvalidUserException(err)
+            raise rqd.rqexceptions.InvalidUserException(err)
 
         if runFrame.num_cores <= 0:
             err = "Not launching, numCores must be > 0"
             log.warning(err)
-            raise CoreReservationFailureException(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         # See if all requested cores are available
         self.__threadLock.acquire()
@@ -792,7 +797,7 @@ class RqCore(object):
             if self.cores.idle_cores < runFrame.num_cores:
                 err = "Not launching, insufficient idle cores"
                 log.critical(err)
-                raise CoreReservationFailureException(err)
+                raise rqd.rqexceptions.CoreReservationFailureException(err)
 
             if runFrame.environment.get('CUE_THREADABLE') == '1':
                 reserveHT = self.machine.reserveHT(runFrame.num_cores)
@@ -805,7 +810,7 @@ class RqCore(object):
         finally:
             self.__threadLock.release()
 
-        runningFrame = RunningFrame(self, runFrame)
+        runningFrame = rqd.rqnetwork.RunningFrame(self, runFrame)
         runningFrame.frameAttendantThread = FrameAttendantThread(self, runFrame, runningFrame)
         runningFrame.frameAttendantThread.start()
 
@@ -825,7 +830,7 @@ class RqCore(object):
 
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
-        self.machine.state = host_pb2.DOWN
+        self.machine.state = rqd.compiled_proto.host_pb2.DOWN
         self.lockAll()
         self.killAllFrame("shutdownRqdNow Command")
         if not self.__cache:
@@ -861,7 +866,7 @@ class RqCore(object):
             err = ('Rebooting via RQD is not supported for a desktop machine '
                    'when a user is logged in')
             log.warning(err)
-            raise RqdException(err)
+            raise rqd.rqexceptions.RqdException(err)
         self.__reboot = True
         self.shutdownRqdNow()
 
@@ -889,7 +894,7 @@ class RqCore(object):
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
                 log.warning(err)
-                raise RqdException(err)
+                raise rqd.rqexceptions.RqdException(err)
 
     def nimbyOff(self):
         """Deactivates nimby and unlocks any nimby lock"""
@@ -959,13 +964,13 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != host_pb2.UP:
+        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != rqd.compiled_proto.host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
         self.__respawn = False
-        self.machine.state = host_pb2.UP
+        self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         self.__threadLock.acquire()
         try:
@@ -989,13 +994,13 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != host_pb2.UP:
+        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != rqd.compiled_proto.host_pb2.UP:
             sendUpdate = True
 
         self.__whenIdle = False
         self.__reboot = False
         self.__respawn = False
-        self.machine.state = host_pb2.UP
+        self.machine.state = rqd.compiled_proto.host_pb2.UP
 
         self.__threadLock.acquire()
         try:

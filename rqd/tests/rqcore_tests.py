@@ -15,8 +15,16 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
 import mock
+import os.path
 import unittest
+
+import pyfakefs.fake_filesystem_unittest
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -532,25 +540,21 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
-@mock.patch('os.chmod', new=mock.MagicMock())
-@mock.patch('os.path.exists', new=mock.MagicMock(return_value=True))
-@mock.patch('os.path.isfile', new=mock.MagicMock(return_value=False))
 @mock.patch('rqd.rqutil.checkAndCreateUser', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.permissionsHigh', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.permissionsLow', new=mock.MagicMock())
 @mock.patch('subprocess.Popen')
 @mock.patch('time.time')
-@mock.patch('__builtin__.open')
-@mock.patch('os.makedirs')
 @mock.patch('rqd.rqutil.permissionsUser', spec=True)
-class FrameAttendantThreadTests(unittest.TestCase):
+class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
+        self.setUpPyfakefs()
         rqd.rqconstants.SU_ARGUEMENT = '-c'
 
-    @mock.patch('os.access', new=mock.MagicMock(side_effect=[False, True, True]))
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')
-    def test_runLinux(self, getTempDirMock, permsUser, mkdirMock, openMock, timeMock, popenMock):
+    def test_runLinux(self, getTempDirMock, permsUser, timeMock, popenMock): # mkdirMock, openMock,
+        # given
         currentTime = 1568070634.3
         jobTempPath = '/job/temp/path/'
         logDir = '/path/to/log/dir/'
@@ -562,12 +566,17 @@ class FrameAttendantThreadTests(unittest.TestCase):
         frameUsername = 'my-random-user'
         returnCode = 0
         renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
+
+        self.fs.create_dir(tempDir)
 
         timeMock.return_value = currentTime
         getTempDirMock.return_value = tempDir
         popenMock.return_value.wait.return_value = returnCode
 
         rqCore = mock.MagicMock()
+        rqCore.intervalStartTime = 20
+        rqCore.intervalSleepTime = 40
         rqCore.machine.getTempPath.return_value = jobTempPath
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
@@ -582,12 +591,13 @@ class FrameAttendantThreadTests(unittest.TestCase):
             log_dir=logDir)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
+        # when
         attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
         attendantThread.start()
         attendantThread.join()
 
+        # then
         permsUser.assert_called_with(frameUid, mock.ANY)
-        mkdirMock.assert_called_with(logDir)
         popenMock.assert_called_with(
             [
                 '/bin/nice', '/usr/bin/time', '-p', '-o',
@@ -598,10 +608,16 @@ class FrameAttendantThreadTests(unittest.TestCase):
             env=mock.ANY,
             cwd=jobTempPath,
             stdin=mock.ANY,
-            stdout=openMock.return_value,
-            stderr=openMock.return_value,
+            stdout=mock.ANY,
+            stderr=mock.ANY,
             close_fds=mock.ANY,
             preexec_fn=mock.ANY)
+
+        self.assertTrue(os.path.exists(logDir))
+        self.assertTrue(os.path.isfile(logFile))
+        _, kwargs = popenMock.call_args
+        self.assertEqual(logFile, kwargs['stdout'].name)
+        self.assertEqual(logFile, kwargs['stderr'].name)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
@@ -610,14 +626,16 @@ class FrameAttendantThreadTests(unittest.TestCase):
                     job_name=jobName, frame_id=frameId, frame_name=frameName),
                 exit_status=returnCode))
 
-    @mock.patch('os.access', new=mock.MagicMock(side_effect=[False, True, True]))
+    # TODO(bcipriano) Re-enable this test once Windows is supported. The main sticking point here
+    #   is that the log directory is always overridden on Windows which makes mocking difficult.
     @mock.patch('platform.system', new=mock.Mock(return_value='Windows'))
-    def test_runWindows(self, permsUser, mkdirMock, openMock, timeMock, popenMock):
+    def disabled__test_runWindows(self, permsUser, timeMock, popenMock):
         currentTime = 1568070634.3
         jobTempPath = '/job/temp/path/'
         logDir = '/path/to/log/dir/'
         tempDir = 'C:\\temp'
         frameId = 'arbitrary-frame-id'
+        jobId = 'arbitrary-job-id'
         jobName = 'arbitrary-job-name'
         frameName = 'arbitrary-frame-name'
         frameUid = 928
@@ -629,6 +647,8 @@ class FrameAttendantThreadTests(unittest.TestCase):
         popenMock.return_value.returncode = returnCode
 
         rqCore = mock.MagicMock()
+        rqCore.intervalStartTime = 20
+        rqCore.intervalSleepTime = 40
         rqCore.machine.getTempPath.return_value = jobTempPath
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
@@ -636,6 +656,7 @@ class FrameAttendantThreadTests(unittest.TestCase):
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
+            job_id=jobId,
             job_name=jobName,
             frame_name=frameName,
             uid=frameUid,
@@ -649,12 +670,12 @@ class FrameAttendantThreadTests(unittest.TestCase):
         attendantThread.join()
 
         permsUser.assert_called_with(frameUid, mock.ANY)
-        mkdirMock.assert_called_with('//intrender/render/logs/' + jobName + '--')
         popenMock.assert_called_with(
             [tempDir + '/rqd-cmd-' + frameId + '-' + str(currentTime) + '.bat'],
             stdin=mock.ANY,
-            stdout=openMock.return_value,
-            stderr=openMock.return_value)
+            stdout=mock.ANY,
+            stderr=mock.ANY)
+        # TODO(bcipriano) Verify the log directory was created and used for stdout/stderr.
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
@@ -663,10 +684,10 @@ class FrameAttendantThreadTests(unittest.TestCase):
                     job_name=jobName, frame_id=frameId, frame_name=frameName),
                 exit_status=returnCode))
 
-    @mock.patch('os.access', new=mock.MagicMock(side_effect=[False, True, True]))
     @mock.patch('platform.system', new=mock.Mock(return_value='Darwin'))
     @mock.patch('tempfile.gettempdir')
-    def test_runDarwin(self, getTempDirMock, permsUser, mkdirMock, openMock, timeMock, popenMock):
+    def test_runDarwin(self, getTempDirMock, permsUser, timeMock, popenMock):
+        # given
         currentTime = 1568070634.3
         jobTempPath = '/job/temp/path/'
         logDir = '/path/to/log/dir/'
@@ -678,12 +699,17 @@ class FrameAttendantThreadTests(unittest.TestCase):
         frameUsername = 'my-random-user'
         returnCode = 0
         renderHost = rqd.compiled_proto.report_pb2.RenderHost(name='arbitrary-host-name')
+        logFile = os.path.join(logDir, '%s.%s.rqlog' % (jobName, frameName))
+
+        self.fs.create_dir(tempDir)
 
         timeMock.return_value = currentTime
         getTempDirMock.return_value = tempDir
         popenMock.return_value.returncode = returnCode
 
         rqCore = mock.MagicMock()
+        rqCore.intervalStartTime = 20
+        rqCore.intervalSleepTime = 40
         rqCore.machine.getTempPath.return_value = jobTempPath
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
@@ -698,12 +724,13 @@ class FrameAttendantThreadTests(unittest.TestCase):
             log_dir=logDir)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
+        # when
         attendantThread = rqd.rqcore.FrameAttendantThread(rqCore, runFrame, frameInfo)
         attendantThread.start()
         attendantThread.join()
 
+        # then
         permsUser.assert_called_with(frameUid, mock.ANY)
-        mkdirMock.assert_called_with(logDir)
         popenMock.assert_called_with(
             [
                 '/usr/bin/su', frameUsername, '-c',
@@ -712,9 +739,15 @@ class FrameAttendantThreadTests(unittest.TestCase):
             env=mock.ANY,
             cwd=jobTempPath,
             stdin=mock.ANY,
-            stdout=openMock.return_value,
-            stderr=openMock.return_value,
+            stdout=mock.ANY,
+            stderr=mock.ANY,
             preexec_fn=mock.ANY)
+
+        self.assertTrue(os.path.exists(logDir))
+        self.assertTrue(os.path.isfile(logFile))
+        _, kwargs = popenMock.call_args
+        self.assertEqual(logFile, kwargs['stdout'].name)
+        self.assertEqual(logFile, kwargs['stderr'].name)
 
         rqCore.network.reportRunningFrameCompletion.assert_called_with(
             rqd.compiled_proto.report_pb2.FrameCompleteReport(

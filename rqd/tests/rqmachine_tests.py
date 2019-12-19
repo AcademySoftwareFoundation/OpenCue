@@ -15,6 +15,10 @@
 #  limitations under the License.
 
 
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
 import mock
 import os
 import unittest
@@ -30,7 +34,6 @@ import rqd.rqutil
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
 import rqd.compiled_proto.rqd_pb2
-
 
 CPUINFO = """processor	: 0
 vendor_id	: GenuineIntel
@@ -88,7 +91,6 @@ power management:
 
 """
 
-
 MEMINFO_MODERATE_USAGE = """MemTotal:       32942144 kB
 MemFree:         5339060 kB
 Cached:         20360116 kB
@@ -107,11 +109,9 @@ Cached:         20360116 kB
 SwapFree:              0 kB
 """
 
-
 LOADAVG_LOW_USAGE = '0.25 0.16 0.11 2/1655 50733'
 
 LOADAVG_HIGH_USAGE = '20.38 20.12 20.22 2/1655 50733'
-
 
 INITTAB_DESKTOP = '''rc::bootwait:/etc/rc
 id:5:initdefault:
@@ -145,22 +145,24 @@ procs_blocked 0
 softirq 10802040 0 3958368 410 1972314 394501 0 1 3631586 0 844860
 '''
 
-
 PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
-             '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
-             '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
-             '140725890743420 140725890743420 140725890744298 0')
-
+                 '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
+                 '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
+                 '140725890743420 140725890743420 140725890744298 0')
 
 CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
 
 
+@mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
+    @mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
+    @mock.patch('os.statvfs', new=mock.MagicMock())
+    @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def setUp(self):
         self.setUpPyfakefs()
         self.fs.create_file('/proc/cpuinfo', contents=CPUINFO)
@@ -249,7 +251,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         def checkOutputReturn(cmd):
             if cmd == ['/usr/bin/who']:
-                return '<username> :%d           2017-11-07 18:21 (:%d)\n' % (displayNum, displayNum)
+                return '<username> :%d           2017-11-07 18:21 (:%d)\n' % (
+                    displayNum, displayNum)
             raise ValueError('unexpected cmd %s' % cmd)
 
         checkOutputMock.side_effect = checkOutputReturn
@@ -279,7 +282,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         pid = 105
         frameId = 'unused-frame-id'
         self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
-        runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore, rqd.compiled_proto.rqd_pb2.RunFrame())
+        runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore,
+                                                  rqd.compiled_proto.rqd_pb2.RunFrame())
         runningFrame.pid = pid
         frameCache = {frameId: runningFrame}
 
@@ -290,10 +294,10 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(616, updatedFrameInfo.rss)
         self.assertEqual(4356, updatedFrameInfo.max_vsize)
         self.assertEqual(4356, updatedFrameInfo.vsize)
-        self.assertEqual('0.034444696691', updatedFrameInfo.attributes['pcpu'])
+        self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
         self.assertEqual(
-            "{'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]}",
-            updatedFrameInfo.attributes['ptree'])
+            {'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]},
+            eval(updatedFrameInfo.attributes['ptree']))
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
@@ -315,7 +319,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(1569882758, self.machine.getBootTime())
 
     @mock.patch(
-        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+        'subprocess.getoutput',
+        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getGpuMemoryTotal(self):
         if hasattr(self.machine, 'gpuNotSupported'):
             delattr(self.machine, 'gpuNotSupported')
@@ -326,7 +331,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(1048576, self.machine.getGpuMemoryTotal())
 
     @mock.patch(
-        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+        'subprocess.getoutput',
+        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getGpuMemory(self):
         if hasattr(self.machine, 'gpuNotSupported'):
             delattr(self.machine, 'gpuNotSupported')
@@ -357,10 +363,11 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def test_reboot(self, popenMock):
         self.machine.reboot()
 
-        popenMock.assert_called_with(['/usr/bin/sudo','/sbin/reboot', '-f'])
+        popenMock.assert_called_with(['/usr/bin/sudo', '/sbin/reboot', '-f'])
 
     @mock.patch(
-        'commands.getoutput', new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+        'subprocess.getoutput',
+        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getHostInfo(self):
         hostInfo = self.machine.getHostInfo()
 
@@ -428,10 +435,10 @@ class CpuinfoTests(unittest.TestCase):
 
     def setUp(self):
         self.rqd = rqd.rqcore.RqCore()
-    
+
     def test_shark(self):
         self.__cpuinfoTestHelper('_cpuinfo_shark_ht_8-4-2-2')
-        
+
     def test_shark_ht(self):
         self.__cpuinfoTestHelper('_cpuinfo_shark_8-4-2')
 

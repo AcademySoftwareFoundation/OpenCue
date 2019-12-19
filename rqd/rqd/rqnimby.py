@@ -1,5 +1,3 @@
-#!/usr/bin/python
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -18,6 +16,10 @@
 """Nimby allows a desktop to be used as a render host when not used."""
 
 
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import os
 import select
 import time
@@ -25,8 +27,8 @@ import signal
 import threading
 import logging as log
 
-import rqconstants
-import rqutil
+import rqd.rqconstants
+import rqd.rqutil
 
 
 class Nimby(threading.Thread):
@@ -77,18 +79,18 @@ class Nimby(threading.Thread):
         """Opens the /dev/input/event* files so nimby can monitor them"""
         self._closeEvents()
 
-        rqutil.permissionsHigh()
+        rqd.rqutil.permissionsHigh()
         try:
             for device in os.listdir("/dev/input/"):
                 if device.startswith("event") or device.startswith("mice"):
                     log.debug("Found device: %s" % device)
                     try:
                         self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
-                    except IOError, e:
+                    except IOError as e:
                         # Bad device found
                         log.debug("IOError: Failed to open %s, %s" % ("/dev/input/%s" % device, e))
         finally:
-            rqutil.permissionsLow()
+            rqd.rqutil.permissionsLow()
 
     def _closeEvents(self):
         """Closes the /dev/input/event* files"""
@@ -114,19 +116,18 @@ class Nimby(threading.Thread):
             self.lockedIdle()
         elif self.active:
             self._closeEvents()
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
     def lockedIdle(self):
         """Nimby State: Machine is idle,
                         waiting for sufficient idle time to unlock"""
-        log.debug("locked_idle")
         self._openEvents()
         waitStartTime = time.time()
         try:
             self.results = select.select(self.fileObjList, [], [],
-                                         rqconstants.MINIMUM_IDLE)
+                                         rqd.rqconstants.MINIMUM_IDLE)
         except:
             pass
         if self.active and self.results[0] == [] and \
@@ -136,15 +137,13 @@ class Nimby(threading.Thread):
             self.unlockedIdle()
         elif self.active:
             self._closeEvents()
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
     def unlockedIdle(self):
         """Nimby State: Machine is idle, host is unlocked,
                         waiting for user activity"""
-        log.debug("unlockedIdle")
-
         while self.active and \
               self.results[0] == [] and \
               self.rqCore.machine.isNimbySafeToRunJobs():
@@ -160,19 +159,17 @@ class Nimby(threading.Thread):
         if self.active:
             self._closeEvents()
             self.lockNimby()
-            self.thread = threading.Timer(rqconstants.CHECK_INTERVAL_LOCKED,
+            self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
             self.thread.start()
 
     def run(self):
         """Starts the Nimby thread"""
-        log.debug("nimby.run()")
         self.active = True
         self.unlockedIdle()
 
     def stop(self):
         """Stops the Nimby thread"""
-        log.debug("nimby.stop()")
         if self.thread:
             self.thread.cancel()
         self.active = False

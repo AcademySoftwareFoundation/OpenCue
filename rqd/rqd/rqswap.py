@@ -1,6 +1,3 @@
-#!/usr/bin/python
-
-
 #  Copyright (c) 2018 Sony Pictures Imageworks Inc.
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,10 +19,20 @@ Utility classes and functions to get virtual memory page out number.
 
 
 from __future__ import with_statement
+from __future__ import print_function
+from __future__ import division
+from __future__ import absolute_import
+
+from builtins import str
+from builtins import range
+from builtins import object
 import logging as log
 import re
 import threading
 import time
+
+
+PGPGOUT_RE = re.compile(r"^pgpgout (\d+)")
 
 
 class VmStatException(Exception):
@@ -33,7 +40,6 @@ class VmStatException(Exception):
     Something for clients to catch if something
     goes wrong in here.
     """
-
     pass
 
 
@@ -77,10 +83,6 @@ class RepeatedTimer(threading.Thread):
     """
 
     def __init__(self, interval, function, *args, **kwargs):
-        """
-        Constructor.
-        """
-
         threading.Thread.__init__(self)
         self.__interval = interval
         self.__callable = function
@@ -90,10 +92,6 @@ class RepeatedTimer(threading.Thread):
         self.__event.set()
 
     def run(self):
-        """
-        Override run() method in threading.Thread class.
-        """
-
         while self.__event.is_set():
             try:
                 timer = threading.Timer(self.__interval,
@@ -113,17 +111,12 @@ class RepeatedTimer(threading.Thread):
         self.__event.clear()
 
 
-PGPGOUT_RE = re.compile(r"^pgpgout (\d+)")
 class VmStat(object):
     """
     A simple class to return pgpgout number from /proc/vmstat.
     """
 
     def __init__(self):
-        """
-        Constructor.
-        """
-
         self.__interval = 15
         self.__sampleSize = 10
         self.__lock = threading.Lock()
@@ -135,10 +128,6 @@ class VmStat(object):
         self.__repeatedTimer.start()
 
     def __getSampleDataCopy(self):
-        """
-        Return a copy of self.__sampleData.
-        """
-
         with self.__lock:
             currentSampleData = list(self.__sampleData)
         return currentSampleData
@@ -147,7 +136,6 @@ class VmStat(object):
         """
         Read /proc/vmstat file and get pgpgout number.
         """
-
         foundPgpgout = False
         pgpgoutNum = 0
         try:
@@ -170,10 +158,6 @@ class VmStat(object):
             log.warn("Could not get pgpgout number.")
 
     def getPgoutRate(self):
-        """
-        Return page out rate.
-        """
-
         currentSampleData = self.__getSampleDataCopy()
         currentTime = time.time()
         sampleDataLen = len(currentSampleData)
@@ -185,7 +169,7 @@ class VmStat(object):
         weightedSum = 0
         for i in range(1, sampleDataLen):
             if (currentSampleData[i].get_epoch_time() <
-                    currentTime - self.__sample_size * self.__interval - 2):
+                    currentTime - self.__sampleSize * self.__interval - 2):
                 continue
             weightedSum += \
                    weight * (currentSampleData[i].getPgoutNumber() - currentSampleData[i - 1].getPgoutNumber()) / \
@@ -196,32 +180,20 @@ class VmStat(object):
         return weightedSum / (totalWeight * self.__interval)
 
     def getRecentPgoutRate(self):
-        """
-        Return the most recent page out rate.
-        """
-
         currentSampleData = self.__getSampleDataCopy()
         sampleDataLen = len(currentSampleData)
         if sampleDataLen < 2:
             return 0
 
         index = sampleDataLen - 1
-        return (currentSampleData[index].getPgoutNumber() - \
-                currentSampleData[index - 1].getPgoutNumber()) / \
-               (currentSampleData[index].getEpochTime() - \
-                currentSampleData[index - 1].getEpochTime()) / \
-               self.__interval
+        return ((currentSampleData[index].getPgoutNumber() -
+                 currentSampleData[index - 1].getPgoutNumber()) /
+                (currentSampleData[index].getEpochTime() -
+                 currentSampleData[index - 1].getEpochTime()) /
+                self.__interval)
 
     def stopSample(self):
         """
         Stop the repeated timer.
         """
-
         self.__repeatedTimer.cancel()
-
-if __name__ == "__main__":
-    vmstat = VmStat()
-    while 1:
-        time.sleep(2)
-        print vmstat.getPgoutRate(), vmstat.getRecentPgoutRate()
-
