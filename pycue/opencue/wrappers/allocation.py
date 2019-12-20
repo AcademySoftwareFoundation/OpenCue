@@ -26,6 +26,7 @@ import opencue.wrappers.subscription
 
 
 class Allocation(object):
+    """This class contains the grpc implementation related to an Allocation."""
 
     def __init__(self, allocation=None):
         self.data = allocation
@@ -40,8 +41,9 @@ class Allocation(object):
 
     def getHosts(self):
         """Returns the list of hosts for this allocation.
-        @rtype: list<opencue.wrappers.host.Host>
-        @return: list of hosts
+
+        :rtype: list<opencue.wrappers.host.Host>
+        :return: list of hosts
         """
         hostSeq = self.stub.GetHosts(facility_pb2.AllocGetHostsRequest(allocation=self.data),
                                      timeout=Cuebot.Timeout).hosts
@@ -49,8 +51,9 @@ class Allocation(object):
 
     def getSubscriptions(self):
         """Get the subscriptions of this allocation.
-        @rtype: list<opencue.wrappers.subscription.Subscription>
-        @return: a list of subscriptions
+
+        :rtype: list<opencue.wrappers.subscription.Subscription>
+        :return: a list of subscriptions
         """
         subscriptionSeq = self.stub.GetSubscriptions(
             facility_pb2.AllocGetSubscriptionsRequest(allocation=self.data),
@@ -59,8 +62,9 @@ class Allocation(object):
 
     def reparentHosts(self, hosts):
         """Moves the given hosts to the allocation
-        @type  hosts: list<opencue.wrappers.host.Host>
-        @param hosts: The hosts to move to this allocation
+
+        :type  hosts: list<opencue.wrappers.host.Host>
+        :param hosts: The hosts to move to this allocation
         """
         hostSeq = host_pb2.HostSeq()
         hostSeq.hosts.extend([host.data for host in hosts])
@@ -71,16 +75,18 @@ class Allocation(object):
       
     def reparentHostIds(self, hostIds):
         """Moves the given hosts to the allocation
-        @type  hostIds: list<str>
-        @param hostIds: The host ids to move to this allocation
+
+        :type  hostIds: list<str>
+        :param hostIds: The host ids to move to this allocation
         """
         hosts = [opencue.wrappers.host.Host(host_pb2.Host(id=hostId)) for hostId in hostIds]
         self.reparentHosts(hosts)
 
     def setName(self, name):
         """Sets a new name for the allocation.
-        @type name: str
-        @param name: the new name
+
+        :type name: str
+        :param name: the new name
         """
         self.stub.SetName(
             facility_pb2.AllocSetNameRequest(allocation=self.data, name=name),
@@ -88,8 +94,9 @@ class Allocation(object):
 
     def setTag(self, tag):
         """Sets a new tag for the allocation.
-        @type name: str
-        @param name: the new tag
+
+        :type name: str
+        :param name: the new tag
         """
         self.stub.SetTag(
             facility_pb2.AllocSetTagRequest(allocation=self.data, tag=tag),
@@ -98,52 +105,59 @@ class Allocation(object):
 
     def id(self):
         """Returns the id of the allocation
-        @rtype:  str
-        @return: Allocation uuid
+
+        :rtype:  str
+        :return: Allocation uuid
         """
         return self.data.id
 
     def name(self):
         """Returns the name of the allocation
-        @rtype:  str
-        @return: Allocation name
+
+        :rtype:  str
+        :return: Allocation name
         """
         return self.data.name
 
     def tag(self):
         """Returns the allocation tag
-        @rtype:  str
-        @return: Allocation tag
+
+        :rtype:  str
+        :return: Allocation tag
         """
         return self.data.tag
 
     def totalCores(self):
         """Returns the total number of cores in the allocation.
-        @rtype:  float
-        @return: Total number of cores in the allocation
+
+        :rtype:  float
+        :return: Total number of cores in the allocation
         """
         return self.data.stats.cores
 
     def totalAvailableCores(self):
         """Returns the total number of cores available for
         booking in the allocation.
-        @rtype:  float
-        @return: Total number of cores in the allocation
+
+        :rtype:  float
+        :return: Total number of cores in the allocation
         """
         return self.data.stats.available_cores
 
     def totalIdleCores(self):
         """Returns the total number of idle cores in the allocation.
-        @rtype:  float
-        @return: Total number of idle cores in the allocation
+
+        :rtype:  float
+        :return: Total number of idle cores in the allocation
         """
         return self.data.stats.idle_cores
 
     def totalRunningCores(self):
         """Returns the total number of running cores in the allocation.
         Each 100 returned is the same as 1 physical core.
-        @rtype:  float
-        @return: Total number of running cores in the allocation
+
+        :rtype:  float
+        :return: Total number of running cores in the allocation
         """
         # All core reserved
         return self.data.stats.running_cores
@@ -151,27 +165,31 @@ class Allocation(object):
     def totalLockedCores(self):
         """Returns the total number of locked cores in the allocation.
         Each 100 returned is the same as 1 physical core.
-        @rtype:  float
-        @return: Total number of locked cores in the allocation
+
+        :rtype:  float
+        :return: Total number of locked cores in the allocation
         """
         return self.data.stats.locked_cores
 
     def totalHosts(self):
-        """Returns the total number of hosts in the allocation
-        @rtype:  int
-        @return: Total number of hosts in the allocation
+        """Returns the total number of hosts in the allocation.
+
+        :rtype:  int
+        :return: Total number of hosts in the allocation
         """
         return self.data.stats.hosts
 
     def totalLockedHosts(self):
-        """Returns the total number of locked hosts in the allocation
-        @rtype:  int
-        @return: Total number of locked hosts in the allocation"""
+        """Returns the total number of locked hosts in the allocation.
+
+        :rtype:  int
+        :return: Total number of locked hosts in the allocation"""
         return self.data.stats.locked_hosts
 
     def totalDownHosts(self):
-        """Returns the total number of down hosts in the allocation
-        @rtype:  int
-        @return: Total number of down hosts in the allocation
+        """Returns the total number of down hosts in the allocation.
+
+        :rtype:  int
+        :return: Total number of down hosts in the allocation
         """
         return self.data.stats.down_hosts

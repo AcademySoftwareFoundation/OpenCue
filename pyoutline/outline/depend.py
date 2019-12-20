@@ -83,8 +83,8 @@ class Depend(object):
         """
         Return the dependant layer.
 
-        @rtype: L{Layer}
-        @return: The layer that is depending.
+        :rtype: L{Layer}
+        :return: The layer that is depending.
         """
         return self.__depend_er
 
@@ -92,8 +92,8 @@ class Depend(object):
         """
         Return the layer to depend on.
 
-        @rtype: L{Layer}
-        @return: The layer that is being depended on.
+        :rtype: L{Layer}
+        :return: The layer that is being depended on.
         """
         return self.__depend_on
 
@@ -101,8 +101,8 @@ class Depend(object):
         """
         The type of depend.
 
-        @rtype: str
-        @return: The type of dependency.
+        :rtype: str
+        :return: The type of dependency.
         """
         return self.__type
 
@@ -116,8 +116,8 @@ class Depend(object):
         Depends that are automatically setup between L{LayerPreProcess} and
         a L{Layer} are propigated dependencies.
 
-        @rtype: boolean
-        @return: True if he depend is propigated, false if it is not.
+        :rtype: boolean
+        :return: True if he depend is propigated, false if it is not.
 
         """
         return self.__propigate
@@ -127,7 +127,7 @@ class Depend(object):
         If any-frame is true only a single frame in the entire
         layer has to complete for the whole dependency to be satisfied.
 
-        @rtype: boolean
-        @return: True if the depend is an any frame depend.
+        :rtype: boolean
+        :return: True if the depend is an any frame depend.
         """
         return self.__any_frame

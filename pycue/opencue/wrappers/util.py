@@ -25,7 +25,7 @@ import time
 
 def format_time(epoch, format="%m/%d %H:%M", default="--/-- --:--"):
     """Formats time using time formatting standards
-    see: http://docs.python.org/library/time.html"""
+    see: https://docs.python.org/3/library/time.html"""
     if not epoch:
         return default
     return time.strftime(format, time.localtime(epoch))
@@ -33,8 +33,9 @@ def format_time(epoch, format="%m/%d %H:%M", default="--/-- --:--"):
 
 def dateToMMDDHHMM(sec):
     """Returns date in the format %m/%d %H:%M
-    @rtype:  str
-    @return: Date in the format %m/%d %H:%M"""
+
+    :rtype:  str
+    :return: Date in the format %m/%d %H:%M"""
     if sec == 0:
         return "--/-- --:--"
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
@@ -42,8 +43,9 @@ def dateToMMDDHHMM(sec):
 
 def __splitTime(sec):
     """Returns time in the format H:MM:SS
-    @rtype:  str
-    @return: Time in the format H:MM:SS"""
+
+    :rtype:  str
+    :return: Time in the format H:MM:SS"""
     min, sec = divmod(sec, 60)
     hour, min = divmod(min, 60)
     return (hour, min, sec)
@@ -51,33 +53,37 @@ def __splitTime(sec):
 
 def secondsToHHMMSS(sec):
     """Returns time in the format HH:MM:SS
-    @rtype:  str
-    @return: Time in the format HH:MM:SS"""
+
+    :rtype:  str
+    :return: Time in the format HH:MM:SS"""
     return "%02d:%02d:%02d" % __splitTime(sec)
 
 
 def secondsToHMMSS(sec):
     """Returns time in the format H:MM:SS
-    @rtype:  str
-    @return: Time in the format H:MM:SS"""
+
+    :rtype:  str
+    :return: Time in the format H:MM:SS"""
     return "%d:%02d:%02d" % __splitTime(sec)
 
 
 def secondsToHHHMM(sec):
     """Returns time in the format HHH:MM
-    @rtype:  str
-    @return: Time in the format HHH:MM"""
+
+    :rtype:  str
+    :return: Time in the format HHH:MM"""
     return "%03d:%02d" % __splitTime(sec)[:2]
 
 
 def secondsDiffToHMMSS(secA, secB):
     """Returns time difference of arguements in the format H:MM:SS
-    @type  secA: int or float
-    @param secA: Seconds. 0 will be replaced with current time
-    @type  secB: int or float
-    @param secB: Seconds. 0 will be replaced with current time
-    @rtype:  str
-    @return: Time difference of arguments in the format H:MM:SS"""
+
+    :type  secA: int or float
+    :param secA: Seconds. 0 will be replaced with current time
+    :type  secB: int or float
+    :param secB: Seconds. 0 will be replaced with current time
+    :rtype:  str
+    :return: Time difference of arguments in the format H:MM:SS"""
     if secA == 0:
         secA = time.time()
     if secB == 0:

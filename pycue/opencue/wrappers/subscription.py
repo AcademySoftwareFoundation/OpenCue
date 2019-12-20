@@ -25,6 +25,7 @@ from opencue.cuebot import Cuebot
 
 
 class Subscription(object):
+    """This class contains the grpc implementation related to a Subscription."""
 
     def __init__(self, subscription=None):
         self.data = subscription
@@ -58,44 +59,51 @@ class Subscription(object):
             timeout=Cuebot.Timeout)
 
     def id(self):
-        """Returns the id of the subscription
-        @rtype:  str
-        @return: Frame uuid"""
+        """Returns the id of the subscription.
+
+        :rtype:  str
+        :return: Frame uuid"""
         return self.data.id
 
     def name(self):
-        """Returns the name of the subscription
-        @rtype:  str
-        @return: Subscription name"""
+        """Returns the name of the subscription.
+
+        :rtype:  str
+        :return: Subscription name"""
         return self.data.name
 
     def size(self):
-        """Returns the subscription size
-        @rtype:  int
-        @return: Subscription size"""
+        """Returns the subscription size.
+
+        :rtype:  int
+        :return: Subscription size"""
         return self.data.size
 
     def burst(self):
-        """Returns the subscription burst
-        @rtype:  int
-        @return: Allowed burst"""
+        """Returns the subscription burst.
+
+        :rtype:  int
+        :return: Allowed burst"""
         return self.data.burst
 
     def reservedCores(self):
-        """Returns the current number reserved in this subscription
-        @rtype:  float
-        @return: Total running cores"""
+        """Returns the current number reserved in this subscription.
+
+        :rtype:  float
+        :return: Total running cores"""
         return self.data.reserved_cores
 
     def show(self):
-        """Returns the show that this subscription is for
-        @rtype:  str
-        @return: The show that this subscription is for"""
+        """Returns the show that this subscription is for.
+
+        :rtype:  str
+        :return: The show that this subscription is for"""
         return self.data.show_name
 
     def allocation(self):
-        """Returns the allocation that this subscription is subscribed to
-        @rtype:  str
-        @return: The allocation subscribed to"""
+        """Returns the allocation that this subscription is subscribed to.
+
+        :rtype:  str
+        :return: The allocation subscribed to"""
         return self.data.allocation_name
 

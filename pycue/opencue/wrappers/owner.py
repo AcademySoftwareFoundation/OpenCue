@@ -27,6 +27,8 @@ from opencue.compiled_proto import host_pb2
 
 
 class Owner(object):
+    """This class contains the grpc implementation related to an Owner."""
+
     def __init__(self, owner=None):
         """Host class initialization"""
         self.data = owner
@@ -37,34 +39,38 @@ class Owner(object):
         self.stub.Delete(host_pb2.OwnerDeleteRequest(owner=self.data), timeout=Cuebot.Timeout)
 
     def getDeeds(self):
-        """Return the list of deeds for the owner
-        @rtype:  List<opencue.wrappers..deed.Deed Wrapper>
-        @return: The list of deeds associated with this owner."""
+        """Return the list of deeds for the owner.
+
+        :rtype:  List<opencue.wrappers..deed.Deed Wrapper>
+        :return: The list of deeds associated with this owner."""
         response = self.stub.GetDeeds(host_pb2.OwnerGetDeedsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
         return [opencue.wrappers.deed.Deed(deed) for deed in response.deeds.deeds]
 
     def getHosts(self):
         """Get a list of all hosts this owner is responsible for.
-        @rtype:  List<opencue.wrappers.host.Host Wrapper>
-        @return: List of hosts the owned by this owner."""
+
+        :rtype:  List<opencue.wrappers.host.Host Wrapper>
+        :return: List of hosts the owned by this owner."""
         response = self.stub.GetHosts(host_pb2.OwnerGetHostsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
         return [opencue.wrappers.host.Host(host) for host in response.hosts.hosts]
 
     def getOwner(self, name):
         """Return an owner by name.
-        @type:   str
-        @param:  Name of the owner
-        @rtype:  opencue.wrappers.owner.Owner
-        @return: Owner that matches the specified name"""
+
+        :type:   str
+        :param:  Name of the owner
+        :rtype:  opencue.wrappers.owner.Owner
+        :return: Owner that matches the specified name"""
         return Owner(self.stub.GetOwner(host_pb2.OwnerGetOwnerRequest(name=name),
                                         timeout=Cuebot.Timeout).owner)
 
     def setShow(self, show):
         """Set the show for the owner.
-        @type:  str
-        @param: name of the show"""
+
+        :type:  str
+        :param: name of the show"""
         self.stub.SetShow(host_pb2.OwnerSetShowRequest(owner=self.data, show=show),
                           timeout=Cuebot.Timeout)
 

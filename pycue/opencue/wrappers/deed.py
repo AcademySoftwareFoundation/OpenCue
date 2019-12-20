@@ -27,6 +27,7 @@ from opencue.cuebot import Cuebot
 
 
 class Deed(object):
+    """This class contains the grpc implementation related to a Deed."""
 
     def __init__(self, comment=None):
         self.data = comment
@@ -37,27 +38,30 @@ class Deed(object):
         self.stub.Delete(host_pb2.DeedDeleteRequest(deed=self.data), timeout=Cuebot.Timeout)
 
     def getHost(self):
-        """Return the host for this deed
-        @rtype:  opencue.wrappers.host.Host Wrapper
-        @return: Host associated with this deed"""
+        """Return the host for this deed.
+
+        :rtype:  opencue.wrappers.host.Host Wrapper
+        :return: Host associated with this deed"""
         return opencue.wrappers.host.Host(
             self.stub.GetHost(host_pb2.DeedGetHostRequest(deed=self.data),
                               timeout=Cuebot.Timeout).host)
 
     def getOwner(self):
         """Returns the owner for these settings.
-        @rtype: opencue.wrappers.host.Host
-        @return Owner of this deed"""
+
+        :rtype: opencue.wrappers.host.Host
+        :return: Owner of this deed"""
         return opencue.wrappers.owner.Owner(
             self.stub.GetOwner(host_pb2.DeedGetOwnerRequest(deed=self.data),
                                timeout=Cuebot.Timeout).owner)
 
     def setBlackoutTime(self, startTime, stopTime):
         """Sets a blackout time for the host.
-        @type startTime: int
-        @param startTime: blackout start time
-        @type stopTime: int
-        @param stopTime: blackout stop time"""
+
+        :type startTime: int
+        :param startTime: blackout start time
+        :type stopTime: int
+        :param stopTime: blackout stop time"""
         self.stub.SetBlackoutTime(
             host_pb2.DeedSetBlackoutTimeRequest(deed=self.data,
                                                 start_time=startTime,
@@ -66,8 +70,9 @@ class Deed(object):
 
     def setBlackoutTimeEnabled(self, enabled):
         """Enable/Disable blackout time without changing the times.
-        @type enabled: bool
-        @param enabled: enable/disable blackout time"""
+
+        :type enabled: bool
+        :param enabled: enable/disable blackout time"""
         self.stub.SetBlackoutTimeEnabled(
             host_pb2.DeedSetBlackoutTimeEnabledRequest(deed=self.data,
                                                        enabled=enabled),

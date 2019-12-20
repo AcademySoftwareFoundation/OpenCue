@@ -32,6 +32,7 @@ import opencue.wrappers.layer
 
 
 class Proc(object):
+    """This class contains the grpc implementation related to a Proc."""
 
     class RedirectType(enum.IntEnum):
         JOB_REDIRECT = host_pb2.JOB_REDIRECT
@@ -60,102 +61,116 @@ class Proc(object):
 
     def getHost(self):
         """Return the host this proc is allocated from.
-        @rtype:  opencue.wrappers.host.Host
-        @return: The host this proc is allocated from."""
+
+        :rtype:  opencue.wrappers.host.Host
+        :return: The host this proc is allocated from."""
         response = self.stub.GetHost(host_pb2.ProcGetHostRequest(proc=self.data),
                                      timeout=Cuebot.Timeout)
         return opencue.wrappers.host.Host(response.host)
 
     def getFrame(self):
         """Return the frame this proc is running.
-        @rtype:  opencue.wrappers.frame.Frame
-        @return: The fame this proc is running."""
+
+        :rtype:  opencue.wrappers.frame.Frame
+        :return: The fame this proc is running."""
         response = self.stub.GetFrame(host_pb2.ProcGetFrameRequest(proc=self.data),
                                       timeout=Cuebot.Timeout)
         return opencue.wrappers.frame.Frame(response.frame)
 
     def getLayer(self):
         """Return the layer this proc is running.
-        @rtype:  opencue.wrappers.layer.Layer
-        @return: The layer this proc is running."""
+
+        :rtype:  opencue.wrappers.layer.Layer
+        :return: The layer this proc is running."""
         response = self.stub.GetLayer(host_pb2.ProcGetLayerRequest(proc=self.data),
                                       timeout=Cuebot.Timeout)
         return opencue.wrappers.layer.Layer(response.layer)
 
     def getJob(self):
         """Return the job this proc is running.
-        @rtype:  opencue.wrappers.job.Job
-        @return: The job this proc is running."""
+
+        :rtype:  opencue.wrappers.job.Job
+        :return: The job this proc is running."""
         response = self.stub.GetJob(host_pb2.ProcGetJobRequest(proc=self.data),
                                     timeout=Cuebot.Timeout)
         return opencue.wrappers.job.Job(response.job)
 
     def id(self):
-        """Returns the id of the proc
-        @rtype:  str
-        @return: Proc uuid"""
+        """Returns the id of the proc.
+
+        :rtype:  str
+        :return: Proc uuid"""
         return self.data.id
 
     def name(self):
-        """Returns the name of the proc
-        @rtype:  str
-        @return: Proc name"""
+        """Returns the name of the proc.
+
+        :rtype:  str
+        :return: Proc name"""
         return self.data.name
 
     def jobName(self):
-        """Returns the job name of the frame running on the proc
-        @rtype:  str
-        @return: Job name"""
+        """Returns the job name of the frame running on the proc.
+
+        :rtype:  str
+        :return: Job name"""
         return self.data.job_name
 
     def frameName(self):
-        """Returns the name of the frame on the proc
-        @rtype:  str
-        @return: Frame name"""
+        """Returns the name of the frame on the proc.
+
+        :rtype:  str
+        :return: Frame name"""
         return self.data.frame_name
 
     def showName(self):
-        """Returns the name of the show whos frame is running on the proc
-        @rtype:  str
-        @return: Frames show name"""
+        """Returns the name of the show whos frame is running on the proc.
+
+        :rtype:  str
+        :return: Frames show name"""
         return self.data.show_name
 
     def coresReserved(self):
-        """The number of cores reserved for this frame
-        @rtype:  float
-        @return: Cores reserved for the running frame"""
+        """The number of cores reserved for this frame.
+
+        :rtype:  float
+        :return: Cores reserved for the running frame"""
         return self.data.reserved_cores
 
     def memReserved(self):
-        """The amount of memory reserved for the running frame
-        @rtype:  int
-        @return: Kb memory reserved for the running frame"""
+        """The amount of memory reserved for the running frame.
+
+        :rtype:  int
+        :return: Kb memory reserved for the running frame"""
         return self.data.reserved_memory
 
     def memUsed(self):
-        """The amount of memory used by the running frame
-        @rtype:  int
-        @return: Kb memory used by the running frame"""
+        """The amount of memory used by the running frame.
+
+        :rtype:  int
+        :return: Kb memory used by the running frame"""
         return self.data.used_memory
      
     def bookedTime(self):
         """The last time this proc was assigned to a job in epoch seconds.
-        @rtype: int"""
+        :rtype: int"""
         return self.data.booked_time
 
     def dispatchTime(self):
         """The last time this proc was assigned to a job in epoch seconds.
-        @rtype: int"""
+        :rtype: int"""
         return self.data.dispatch_time
     
     def isUnbooked(self):
-        """Returns true if this proc is unbooked
-        @rtype: boolean"""
+        """Returns true if this proc is unbooked.
+
+        :rtype: boolean"""
         return self.data.unbooked
 
 
 class NestedProc(Proc):
     """This class contains information and actions related to a nested job."""
+
     def __init__(self, nestedProc):
         super(NestedProc, self).__init__(nestedProc)
         ## job children are most likely empty but its possible to

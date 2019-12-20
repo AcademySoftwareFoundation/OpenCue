@@ -86,13 +86,13 @@ def launch(ol, use_pycuerun=True, **args):
       - B{backend}: Sets the queing system backend.  See L{config} for the
         default queueing system.
 
-    @type ol: L{Outline}
-    @param ol: The outline file to launch.
-    @type use_pycuerun: bool
-    @param use_pycuerun: True will wrap the command using pycuerun
+    :type ol: Outline
+    :param ol: The outline file to launch.
+    :type use_pycuerun: bool
+    :param use_pycuerun: True will wrap the command using pycuerun
 
-    @type args: keyword arguments
-    @param args: A dictionary of keyword arguments that control launch
+    :type args: keyword arguments
+    :param args: A dictionary of keyword arguments that control launch
                  parameters.
     """
     launcher = OutlineLauncher(ol, **args)
@@ -106,11 +106,12 @@ class OutlineLauncher(object):
     as serialize() and launch() methods which call into the
     supplied backend module
 
-    To launch an outline:
-    launcher = OutlineLauncher(ol)
-    launcher.set_flag("pause", True)
-    launcher.set_flag("range", "1-10")
-    launcher.launch()
+    To launch an outline::
+
+        launcher = OutlineLauncher(ol)
+        launcher.set_flag("pause", True)
+        launcher.set_flag("range", "1-10")
+        launcher.launch()
 
     """
     def __init__(self, outline, **args):

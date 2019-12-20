@@ -25,6 +25,7 @@ from opencue.cuebot import Cuebot
 
 
 class Task(object):
+    """This class contains the grpc implementation related to a Task."""
 
     def __init__(self, task=None):
         self.data = task
@@ -35,9 +36,10 @@ class Task(object):
         return self.data.id
 
     def setMinCores(self, minCores):
-        """Sets the minimum amount of cores for the task
-        @type  minCores: int
-        @param minCores: the minimum number of cores the task needs"""
+        """Sets the minimum amount of cores for the task.
+
+        :type  minCores: int
+        :param minCores: the minimum number of cores the task needs"""
         self.stub.SetMinCores(
             task_pb2.TaskSetMinCoresRequest(task=self.data, new_min_cores=minCores),
             timeout=Cuebot.Timeout)

@@ -33,11 +33,11 @@ def build_command(ol, layer, frame):
     """
     Build and return a pycurun shell command for the given layer frame.
 
-    @type  layer : Layer
-    @param layer : The layer to build a command for.
+    :type  layer : Layer
+    :param layer : The layer to build a command for.
 
-    @rtype: string
-    @return: The shell command to run for a the given layer.
+    :rtype: string
+    :return: The shell command to run for a the given layer.
     """
     command = []
     command.append("%s/local_wrap_frame" % config.get("outline","wrapper_dir"))

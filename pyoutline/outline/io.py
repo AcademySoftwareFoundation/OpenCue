@@ -69,11 +69,11 @@ def system(cmd, ignore_error=False, frame=None):
     """
     Shell out to the given command and wait for it to finish.
 
-    @type  cmd: list<str>
-    @param cmd: The command to execute.
+    :type  cmd: list<str>
+    :param cmd: The command to execute.
 
-    @type ignore_error: boolean
-    @param ignore_error: Ignore any L{OSError} or shell command failures.
+    :type ignore_error: boolean
+    :param ignore_error: Ignore any L{OSError} or shell command failures.
     """
     cmd = prep_shell_command(cmd, frame)
     str_cmd = " ".join(map(str, cmd))
@@ -96,8 +96,8 @@ def resolve(path):
     """
     Resolve a realtive path or shot tree URI to a full path.
 
-    @rtype: str
-    @return: the full path
+    :rtype: str
+    :return: the full path
     """
     path = str(path)
 
@@ -153,8 +153,8 @@ class Path(object):
         """
         Return true if the path exists.
 
-        @rtype: boolean
-        @return: true if path exists.
+        :rtype: boolean
+        :return: true if path exists.
         """
         return os.path.exists(self.__path)
 
@@ -162,8 +162,8 @@ class Path(object):
         """
         Return the file's base name.
 
-        @rtype: string
-        @return: the base name of the path.
+        :rtype: string
+        :return: the base name of the path.
         """
         return os.path.basename(self.__path)
 
@@ -172,8 +172,8 @@ class Path(object):
         Return the file's directory.  If the path is a
         directory, it retrns itself.
 
-        @rtype: string
-        @return: the full path to the directory
+        :rtype: string
+        :return: the full path to the directory
         """
         if os.path.isdir(self.__path):
             return self.__path
@@ -184,8 +184,8 @@ class Path(object):
         """
         Return the file extention.
 
-        @rtype:  string
-        @return: the file extension.
+        :rtype:  string
+        :return: the file extension.
         """
         return os.path.splitext(self.__path)[1]
 
@@ -193,8 +193,8 @@ class Path(object):
         """
         Return the full path.
 
-        @rtype: string
-        @return: full path to this file
+        :rtype: string
+        :return: full path to this file
         """
         return self.__path
     
@@ -232,8 +232,8 @@ class FileSpec(Path):
         Return true if the image or all images in
         the sequence exist.
 
-        @rtype:  boolean
-        @return: true if image(s) exist
+        :rtype:  boolean
+        :return: true if image(s) exist
         """
         def exists(path):
             logger.info("checking for existance of path: %s" % path)
@@ -291,8 +291,8 @@ class FileSpec(Path):
         basename does not include the frame range
         or file extension.
 
-        @rtype:  string
-        @return: the base name of the image
+        :rtype:  string
+        :return: the base name of the image
         """
         return self.__fs.getBasename()
 
@@ -300,8 +300,8 @@ class FileSpec(Path):
         """
         Return the path to the directory for this image.
 
-        @rtype:  string
-        @return: the full directory path
+        :rtype:  string
+        :return: the full directory path
         """
         return self.__fs.getDirname()[0:-1]
 
@@ -309,8 +309,8 @@ class FileSpec(Path):
         """
         Return the file extention.
 
-        @rtype:  string
-        @return: the file extension.
+        :rtype:  string
+        :return: the file extension.
         """
         return self.__fs.getSuffix()
 
@@ -318,8 +318,8 @@ class FileSpec(Path):
         """
         Return the color space.
 
-        @rtype:  string
-        @return: the image color space
+        :rtype:  string
+        :return: the image color space
         """
         rep = self.get_rep().split("_")
         if len(rep) in (2,3):
@@ -332,8 +332,8 @@ class FileSpec(Path):
         """
         Return the resolution data for this image.
 
-        @rtype:  ResolutionTableEntry
-        @return: The resolution table entry.
+        :rtype:  ResolutionTableEntry
+        :return: The resolution table entry.
         """
         rep = self.get_rep().split("_")
         if len(rep) in (2,3):
@@ -353,8 +353,8 @@ class FileSpec(Path):
         Return the repesentation.  The repesentation is
         the oav_resolution_colorspace.
 
-        @rtype:  string
-        @return: the repesentation.
+        :rtype:  string
+        :return: the repesentation.
         """
         return self.__fs.getDirname().rsplit("/", 2)[1]
 
@@ -362,8 +362,8 @@ class FileSpec(Path):
         """
         Return the element directory path.
 
-        @rtype:  string
-        @return: the element directory.
+        :rtype:  string
+        :return: the element directory.
         """
         return self.__fs.getDirname().rsplit("/", 2)[0] + "/"
 
@@ -371,8 +371,8 @@ class FileSpec(Path):
         """
         Return the path to a particular frame of this FileSpec.
 
-        @rtype: FrameSet
-        @return: A path to an individual frame with this file spec.
+        :rtype: FrameSet
+        :return: A path to an individual frame with this file spec.
         """
         return self.__fs(num)
 
@@ -397,8 +397,8 @@ class FileSpec(Path):
         """
         Return the sequence's frame set object.
 
-        @rtype: FrameSet
-        @return: The current framet set.
+        :rtype: FrameSet
+        :return: The current framet set.
         """
         return FileSequence.FrameSet(str(self.__fs.frameSet))
 
@@ -408,8 +408,8 @@ class FileSpec(Path):
         result has no frame range.  If the fs argument is specified,
         the result will contain a frame range.
 
-        @rtype: str
-        @return: A file spec.
+        :rtype: str
+        :return: A file spec.
         """
         e = self.get_path().split(".")
         if fs:

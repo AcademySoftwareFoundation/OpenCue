@@ -9,6 +9,8 @@ Welcome to the OpenCue API documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
+   
+   OpenCue packages <modules/modules.rst>
 
 Indices and tables
 ==================

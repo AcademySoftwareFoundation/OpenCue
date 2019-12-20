@@ -15,33 +15,37 @@
 
 """
 Client side implementation of search criteria.
-The basic premise here is we provide some easy factory
-methods to do common things but expose
-lower level rpc functionality for procedural searches.
+This module provides some easy factory
+methods to do common search operations. It also exposes
+lower level RPC functionality for procedural searches.
 
-Examples:
+==============
+Usage examples
+==============
 
-Simple example using high level API
-jobs = getJobs(show=["pipe"])
+The following example illustrates searching using the high level API::
 
-Procedural examples using gRPC
+    jobs = getJobs(show=["pipe"])
 
-Procedural Example 1:
-s = JobSearch()
-s.shows.append("pipe")
-s.users.append("chambers")
-jobs = s.find()
+An example of a procedural search::
 
-Procedural Example 2:
-s = JobSearch()
-s.includeFinished = True
-s.regex.append("blah")
-for job in s.find():
-    print job
+    s = JobSearch()
+    s.shows.append("pipe")
+    s.users.append("chambers")
+    jobs = s.find()
+    
+A procedural example searching by regular expression::
 
-Procedural Example 3:
-for job in JobSearch.byUser(["chambers","jwelborn"]):
-    job.proxy.kill()
+    s = JobSearch()
+    s.includeFinished = True
+    s.regex.append("blah")
+    for job in s.find():
+        print job
+
+Another procedural example::
+
+    for job in JobSearch.byUser(["chambers","jwelborn"]):
+        job.proxy.kill()
 
 """
 from __future__ import absolute_import
@@ -220,16 +224,17 @@ def _createCriterion(search, searchType, convert=None):
             gt<value> - GreaterThan[searchType]SearchCriterion
             lt<value> - LessThan[searchType]SearchCriterion
             min-max  - InRange[searchType]SearchCriterion
-    @type  search: String or Int or Float
-    @param search: The search desired: 'gt#', 'lt#', '#-#'.
+
+    :type  search: String or Int or Float
+    :param search: The search desired: 'gt#', 'lt#', '#-#'.
                    '#' or # is assumed greater than.
-    @type  searchType: Int or Float
-    @param searchType: The type of search criterion required
-    @type  convert: callable
-    @param convert: Optional callable to convert the input to the units the
+    :type  searchType: Int or Float
+    :param searchType: The type of search criterion required
+    :type  convert: callable
+    :param convert: Optional callable to convert the input to the units the
                     cuebot uses. ie: hours to seconds.
-    @rtype:  SearchCriterion
-    @return: A SearchCriterion object"""
+    :rtype:  SearchCriterion
+    :return: A SearchCriterion object"""
     def _convert(val):
         if not convert:
             return searchType(val)

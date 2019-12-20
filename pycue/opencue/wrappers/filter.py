@@ -60,14 +60,15 @@ class Filter(object):
 
     def createMatcher(self, subject, matchType, query):
         """Creates a matcher for this filter
-        @type  subject: filter_pb2.MatchSubject.*
-        @param subject: The job attribute to match
-        @type  matchType: filter_pb2.MatchType.*
-        @param matchType: The type of match to perform
-        @type  query: string
-        @param query: The value to match
-        @rtype:  Matcher
-        @return: The new matcher object"""
+
+        :type  subject: filter_pb2.MatchSubject.*
+        :param subject: The job attribute to match
+        :type  matchType: filter_pb2.MatchType.*
+        :param matchType: The type of match to perform
+        :type  query: string
+        :param query: The value to match
+        :rtype:  Matcher
+        :return: The new matcher object"""
         matcher = MatcherData(
             subject=subject,
             type=matchType,
@@ -79,12 +80,13 @@ class Filter(object):
 
     def createAction(self, actionType, value):
         """Creates an action for this filter.
-        @type  actionType: filter_pb2.ActionType.*
-        @param actionType: The action to perform
-        @type  value: Group or str, or int or bool
-        @param value: Value relevant to the type selected
-        @rtype:  Action
-        @return: The new Action object"""
+
+        :type  actionType: filter_pb2.ActionType.*
+        :param actionType: The action to perform
+        :type  value: Group or str, or int or bool
+        :param value: Value relevant to the type selected
+        :rtype:  Action
+        :return: The new Action object"""
         action = ActionData(
             type=actionType,
             group_value=None,
@@ -117,17 +119,19 @@ class Filter(object):
             timeout=Cuebot.Timeout).action)
 
     def getActions(self):
-        """Returns the actions in this filter
-        @rtype: list<Action>
-        @return: A list of the actions in this filter"""
+        """Returns the actions in this filter.
+
+        :rtype: list<Action>
+        :return: A list of the actions in this filter"""
         response = self.stub.GetActions(filter_pb2.FilterGetActionsRequest(filter=self.data),
                                         timeout=Cuebot.Timeout)
         return [Action(action) for action in response.actions.actions]
 
     def getMatchers(self):
-        """Returns the matchers in this filter
-        @rtype:  list<Matcher>
-        @return: A list of the matchers in this filter"""
+        """Returns the matchers in this filter.
+
+        :rtype:  list<Matcher>
+        :return: A list of the matchers in this filter"""
         response = self.stub.GetMatchers(filter_pb2.FilterGetMatchersRequest(filter=self.data),
                                          timeout=Cuebot.Timeout)
         return [Matcher(matcher) for matcher in response.matchers.matchers]
@@ -153,40 +157,45 @@ class Filter(object):
                             timeout=Cuebot.Timeout)
 
     def runFilterOnGroup(self, group):
-        """Runs the filter on the group provided
-        @type  group: list<opencue.wrapper.group.Group>
-        @param group: The group to run the filter on"""
+        """Runs the filter on the group provided.
+
+        :type  group: list<opencue.wrapper.group.Group>
+        :param group: The group to run the filter on"""
         self.stub.RunFilterOnGroup(
             filter_pb2.FilterRunFilterOnGroupRequest(filter=self.data, group=group.data),
             timeout=Cuebot.Timeout)
 
     def runFilterOnJobs(self, jobs):
-        """Runs the filter on the list of jobs provided
-        @type  jobs: list<opencue.wrapper.job.Job>
-        @param jobs: The jobs to run the filter on"""
+        """Runs the filter on the list of jobs provided.
+
+        :type  jobs: list<opencue.wrapper.job.Job>
+        :param jobs: The jobs to run the filter on"""
         jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
         self.stub.RunFilterOnJobs(
             filter_pb2.FilterRunFilterOnJobsRequest(filter=self.data, jobs=jobSeq),
             timeout=Cuebot.Timeout)
 
     def setEnabled(self, value):
-        """Enables or disables the filter
-        @type  value: bool
-        @param value: True to enable the filter and false to disable it"""
+        """Enables or disables the filter.
+
+        :type  value: bool
+        :param value: True to enable the filter and false to disable it"""
         self.stub.SetEnabled(filter_pb2.FilterSetEnabledRequest(filter=self.data, enabled=value),
                              timeout=Cuebot.Timeout)
 
     def setName(self, name):
-        """Sets the name of this filter
-        @type  name: str
-        @param name: The new name for this filter"""
+        """Sets the name of this filter.
+
+        :type  name: str
+        :param name: The new name for this filter"""
         self.stub.SetName(filter_pb2.FilterSetNameRequest(filter=self.data, name=name),
                           timeout=Cuebot.Timeout)
 
     def setType(self, filterType):
-        """Changes the filter type
-        @type  filterType: filter_pb2.FilterType
-        @param filterType: The new filter type"""
+        """Changes the filter type.
+
+        :type  filterType: filter_pb2.FilterType
+        :param filterType: The new filter type"""
         self.stub.SetType(filter_pb2.FilterSetTypeRequest(filter=self.data, type=filterType),
                           timeout=Cuebot.Timeout)
 
@@ -207,13 +216,15 @@ class Filter(object):
         return self.data.enabled
 
     def id(self):
-        """Returns the id of the filter
-        @rtype:  str
-        @return: Filter uuid"""
+        """Returns the id of the filter.
+
+        :rtype:  str
+        :return: Filter uuid"""
         return self.data.id
 
 
 class Action(object):
+    """This class contains the grpc implementation related to an Action."""
 
     class ActionType(enum.IntEnum):
         MOVE_JOB_TO_GROUP = filter_pb2.MOVE_JOB_TO_GROUP
@@ -320,13 +331,15 @@ class Action(object):
         self.commit()
 
     def id(self):
-        """Returns the id of the action
-        @rtype:  str
-        @return: Action uuid"""
+        """Returns the id of the action.
+
+        :rtype:  str
+        :return: Action uuid"""
         return self.data.id
 
 
 class Matcher(object):
+    """This class contains the grpc implementation related to a Matcher."""
 
     class MatchSubject(enum.IntEnum):
         JOB_NAME = filter_pb2.JOB_NAME
@@ -384,9 +397,10 @@ class Matcher(object):
         return self.data.input
 
     def id(self):
-        """Returns the id of the matcher
-        @rtype:  str
-        @return: Matcher uuid"""
+        """Returns the id of the matcher.
+
+        :rtype:  str
+        :return: Matcher uuid"""
         return self.data.id
 
     def setSubject(self, value):

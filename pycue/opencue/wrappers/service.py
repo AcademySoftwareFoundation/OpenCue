@@ -28,6 +28,7 @@ from opencue.cuebot import Cuebot
 
 
 class Service(object):
+    """This class contains the grpc implementation related to a Service."""
 
     def __init__(self, service=None):
         self.data = service or service_pb2.Service()
@@ -69,91 +70,105 @@ class Service(object):
             timeout=Cuebot.Timeout)
 
     def id(self):
-        """Returns the id of the service
-        @rtype:  str
-        @return: Frame uuid"""
+        """Returns the id of the service.
+
+        :rtype:  str
+        :return: Frame uuid"""
         return self.data.id
 
     def name(self):
-        """Returns the name of the service
-        @rtype:  str
-        @return: service name"""
+        """Returns the name of the service.
+
+        :rtype:  str
+        :return: service name"""
         return self.data.name
 
     def setName(self, name):
         """Set the name field of the message.
-        @type: string
-        @param: name to set"""
+
+        :type: string
+        :param: name to set"""
         self.data.name = name
 
     def threadable(self):
-        """Returns if the service is threadable
-        @rtype:  bool
-        @return: is service threadable"""
+        """Returns if the service is threadable.
+
+        :rtype:  bool
+        :return: is service threadable"""
         return self.data.threadable
 
     def setThreadable(self, threadable):
         """Set the threadabel field of the message.
-        @type: bool
-        @param: whether or not the service should be threadable"""
+
+        :type: bool
+        :param: whether or not the service should be threadable"""
         self.data.threadable = threadable
 
     def minCores(self):
-        """Returns the min_cores of the service
-        @rtype:  int
-        @return: min_cores"""
+        """Returns the min_cores of the service.
+
+        :rtype:  int
+        :return: min_cores"""
         return self.data.min_cores
 
     def setMinCores(self, minCores):
         """Set the minCores field of the message.
-        @type: int
-        @param: min_cores"""
+
+        :type: int
+        :param: min_cores"""
         self.data.min_cores = minCores
 
     def maxCores(self):
-        """Returns the max_cores of the service
-        @rtype:  int
-        @return: max_cores"""
+        """Returns the max_cores of the service.
+
+        :rtype:  int
+        :return: max_cores"""
         return self.data.max_cores
 
     def setMaxCores(self, maxCores):
         """Set the maxCores field of the message.
-        @type: int
-        @param: max_cores"""
+
+        :type: int
+        :param: max_cores"""
         self.data.max_cores = maxCores
 
     def minMemory(self):
-        """Returns the min_memory of the service
-        @rtype:  int
-        @return: min_memory"""
+        """Returns the min_memory of the service.
+
+        :rtype:  int
+        :return: min_memory"""
         return self.data.min_memory
 
     def setMinMemory(self, minMemory):
         """Set the minMemory field of the message.
-        @type: int
-        @param: min_memory"""
+
+        :type: int
+        :param: min_memory"""
         self.data.min_memory = minMemory
 
     def minGpu(self):
-        """Returns the min_gpu of the service
-        @rtype:  int
-        @return: min_gpu"""
+        """Returns the min_gpu of the service.
+
+        :rtype:  int
+        :return: min_gpu"""
         return self.data.min_gpu
 
     def setMinGpu(self, minGpu):
         """Set the minGpu field of the message.
-        @type: int
-        @param: min_gpu"""
+
+        :type: int
+        :param: min_gpu"""
         self.data.min_gpu = minGpu
 
     def tags(self):
-        """Returns the list of tags for the service
-        @rtype:  list<string>
-        @return: tags"""
+        """Returns the list of tags for the service.
+
+        :rtype:  list<string>
+        :return: tags"""
         return self.data.tags
 
     def setTags(self, tags):
         """Clear and set the tags.
-        @type: list<string>
-        @param: list of tags to set"""
+        :type: list<string>
+        :param: list of tags to set"""
         self.data.tags[:] = tags

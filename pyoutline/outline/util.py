@@ -35,10 +35,10 @@ def deaggregate_frame_set(frameset):
     the user specifies duplicates, which they tend to do even though
     they don't want duplicates.
 
-    @type    frameset: FileSequence.FrameSet
-    @param   frameset: The frameset to deaggregate
-    @rtype:            List
-    @return:           The list of deaggregated frames.
+    :type    frameset: FileSequence.FrameSet
+    :param   frameset: The frameset to deaggregate
+    :rtype:            List
+    :return:           The list of deaggregated frames.
     """
     # This is not a Set because sets are unordered.
 
@@ -70,11 +70,11 @@ def make_frame_set(frames, normalize=True):
     Takes an array of integers and makes a normalized
     FrameSet object.
 
-    @type  frames: List<int>
-    @param frames: The frame list to change into a FrameSet
+    :type  frames: List<int>
+    :param frames: The frame list to change into a FrameSet
 
-    @rtype: FrameSet
-    @return: a normalized FileSequence.FrameSet
+    :rtype: FrameSet
+    :return: a normalized FileSequence.FrameSet
     """
     fs = FileSequence.FrameSet(",".join([str(f) for f in frames]))
     if normalize:

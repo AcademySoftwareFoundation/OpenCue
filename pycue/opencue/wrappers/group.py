@@ -24,6 +24,7 @@ import opencue.wrappers.job
 
 
 class Group(object):
+    """This class contains the grpc implementation related to a Group."""
 
     def __init__(self, group=None):
         self.data = group
@@ -70,17 +71,19 @@ class Group(object):
         return [Group(g) for g in response.groups.groups]
 
     def getJobs(self):
-        """Returns the jobs in this group
-        @rtype:  list<opencue.wrappers.job.Job>
-        @return: List of jobs in this group"""
+        """Returns the jobs in this group.
+
+        :rtype:  list<opencue.wrappers.job.Job>
+        :return: List of jobs in this group"""
         response = self.stub.GetJobs(job_pb2.GroupGetJobsRequest(group=self.data),
                                      timeout=Cuebot.Timeout)
         return [opencue.wrappers.job.Job(j) for j in response.jobs.jobs]
 
     def reparentJobs(self, jobs):
-        """Moves the given jobs into this group
-        @type  jobs: list<opencue.wrappers.job.Job>
-        @param jobs: The jobs to add to this group"""
+        """Moves the given jobs into this group.
+
+        :type  jobs: list<opencue.wrappers.job.Job>
+        :param jobs: The jobs to add to this group"""
         jobsToReparent = []
         for job in jobs:
             if isinstance(job, opencue.wrappers.job.NestedJob):
@@ -91,18 +94,20 @@ class Group(object):
                                timeout=Cuebot.Timeout)
 
     def reparentGroups(self, groups):
-        """Moves the given groups into this group
-        @type  groups: list<opencue.wrappers.group.Group>
-        @param groups: The groups to move into"""
+        """Moves the given groups into this group.
+
+        :type  groups: list<opencue.wrappers.group.Group>
+        :param groups: The groups to move into"""
         groupSeq = job_pb2.GroupSeq(groups=[group.data for group in groups])
         self.stub.ReparentGroups(
             job_pb2.GroupReparentGroupsRequest(group=self.data, groups=groupSeq),
             timeout=Cuebot.Timeout)
 
     def reparentGroupIds(self, groupIds):
-        """Moves the given group ids into this group
-        @type  groups: list<str>
-        @param groups: The group ids to move into"""
+        """Moves the given group ids into this group.
+
+        :type  groups: list<str>
+        :param groups: The group ids to move into"""
         groups = [opencue.wrappers.group.Group(job_pb2.Group(id=groupId)) for groupId in groupIds]
         self.reparentGroups(groups)
 
@@ -112,24 +117,27 @@ class Group(object):
         will inherit the new department name.  See AdminStatic for getting a list
         of allowed department names.  Department names are maintained by the
         middle-tier group.
-        @type name: string
-        @param name: a valid department name"""
+
+        :type name: string
+        :param name: a valid department name"""
         self.stub.SetDepartment(job_pb2.GroupSetDeptRequest(group=self.data, dept=name),
                                 timeout=Cuebot.Timeout)
         self.data.department = name
 
     def setGroup(self, parentGroup):
         """Sets this group's parent to parentGroup.
-        @type  parentGroup: opencue.wrappers.group.Group
-        @param parentGroup: Group to parent under"""
+
+        :type  parentGroup: opencue.wrappers.group.Group
+        :param parentGroup: Group to parent under"""
         self.stub.SetGroup(job_pb2.GroupSetGroupRequest(group=self.data,
                                                         parent_group=parentGroup.data),
                            timeout=Cuebot.Timeout)
 
     def id(self):
-        """Returns the id of the group
-        @rtype:  str
-        @return: Group uuid"""
+        """Returns the id of the group.
+
+        :rtype:  str
+        :return: Group uuid"""
         return self.data.id
 
     def name(self):
@@ -154,38 +162,44 @@ class Group(object):
         return self.data.min_cores
 
     def reservedCores(self):
-        """Returns the total number of reserved cores for the group
-        @rtype: int
-        @return: total numnber of frames"""
+        """Returns the total number of reserved cores for the group.
+
+        :rtype: int
+        :return: total numnber of frames"""
         return self.data.group_stats.reserved_cores
 
     def totalRunning(self):
-        """Returns the total number of running frames under this object
-        @rtype:  int
-        @return: Total number of running frames"""
+        """Returns the total number of running frames under this object.
+
+        :rtype:  int
+        :return: Total number of running frames"""
         return self.data.group_stats.running_frames
 
     def totalDead(self):
-        """Returns the total number of deads frames under this object
-        @rtype:  int
-        @return: Total number of dead frames"""
+        """Returns the total number of deads frames under this object.
+
+        :rtype:  int
+        :return: Total number of dead frames"""
         return self.data.group_stats.dead_frames
 
     def totalPending(self):
         """Returns the total number of pending (dependent and waiting) frames
         under this object.
-        @rtype:  int
-        @return: Total number of pending (dependent and waiting) frames"""
+
+        :rtype:  int
+        :return: Total number of pending (dependent and waiting) frames"""
         return self.data.group_stats.pending_frames
 
     def pendingJobs(self):
-        """Returns the total number of running jobs
-        @rtype: int
-        @return: total number of running jobs"""
+        """Returns the total number of running jobs.
+
+        :rtype: int
+        :return: total number of running jobs"""
         return self.data.group_stats.pending_jobs
 
 
 class NestedGroup(Group):
+    """This class contains information and actions related to a nested group."""
 
     def __init__(self, group):
         super(NestedGroup, self).__init__(group)

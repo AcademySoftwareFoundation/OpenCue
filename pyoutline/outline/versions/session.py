@@ -139,8 +139,9 @@ class Session(with_metaclass(Singleton, object)):
     def clean(self, shutil_ptr):
         """
         Unloads all modules.
-        @type shutil_ptr: shutil module
-        @param shutil_ptr: reference to the shutil module. Only needed for Py2.7 compatibility.
+
+        :type shutil_ptr: shutil module
+        :param shutil_ptr: reference to the shutil module. Only needed for Py2.7 compatibility.
         """
         self.__modules.clear()
         shutil_ptr.rmtree(self.get_path())
