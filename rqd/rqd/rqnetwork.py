@@ -149,8 +149,8 @@ class GrpcServer(object):
             except grpc.RpcError as exc:
                 if exc.code() == grpc.StatusCode.UNAVAILABLE:
                     log.warning('GRPC connection failed. Retrying in {} seconds'.format(
-                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP))
-                    time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP)
+                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC))
+                    time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
                 else:
                     raise exc
 
@@ -173,7 +173,7 @@ class GrpcServer(object):
     def stayAlive(self):
         try:
             while True:
-                time.sleep(rqd.rqconstants.RQD_GRPC_SLEEP)
+                time.sleep(rqd.rqconstants.RQD_GRPC_SLEEP_SEC)
         except KeyboardInterrupt:
             self.server.stop(0)
 
