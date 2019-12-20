@@ -149,15 +149,15 @@ class GrpcServer(object):
             except grpc.RpcError as exc:
                 if exc.code() == grpc.StatusCode.UNAVAILABLE:
                     log.warning('GRPC connection failed. Retrying in {} seconds'.format(
-                        rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP))
-                    time.sleep(rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP)
+                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP))
+                    time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP)
                 else:
                     raise exc
 
     def serve(self):
         self.addServicers()
         self.server.start()
-        if rqconstants.RQD_GRPC_RETRY_CONNECTION:
+        if rqd.rqconstants.RQD_GRPC_RETRY_CONNECTION:
             self.connectGrpcWithRetries()
         else:
             self.rqCore.grpcConnected()
