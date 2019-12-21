@@ -22,7 +22,7 @@ jobs:
   displayName: Test Python Components (CY 2020)
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswf/ci-opencue:2020.0
+  container: aswftesting/ci-opencue:2020.0
   steps:
   - bash: ci/run_python_tests.sh
     name: runTests
@@ -42,7 +42,7 @@ jobs:
   displayName: Test Cuebot (CY 2020)
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswf/ci-opencue:2020.0
+  container: aswftesting/ci-opencue:2020.0
   steps:
   - bash: cd cuebot && ./gradlew build --stacktrace
     name: test
