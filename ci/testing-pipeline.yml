@@ -8,8 +8,8 @@ trigger:
 - master
 
 jobs:
-- job: testPython
-  displayName: Test Python Components
+- job: testPython2019
+  displayName: Test Python Components (CY 2019)
   pool:
     vmImage: 'ubuntu-16.04'
   container: aswf/ci-opencue:2019.0
@@ -18,11 +18,31 @@ jobs:
     name: runTests
     displayName: Run Python Tests
 
-- job: testCuebot
-  displayName: Test Cuebot
+- job: testPython2020
+  displayName: Test Python Components (CY 2020)
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container: aswftesting/ci-opencue:2020
+  steps:
+  - bash: ci/run_python_tests.sh
+    name: runTests
+    displayName: Run Python Tests
+
+- job: testCuebot2019
+  displayName: Test Cuebot (CY 2019)
   pool:
     vmImage: 'ubuntu-16.04'
   container: aswf/ci-opencue:2019.0
+  steps:
+  - bash: cd cuebot && ./gradlew build --stacktrace
+    name: test
+    displayName: Build and Test Cuebot
+
+- job: testCuebot2020
+  displayName: Test Cuebot (CY 2020)
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container: aswftesting/ci-opencue:2020
   steps:
   - bash: cd cuebot && ./gradlew build --stacktrace
     name: test
