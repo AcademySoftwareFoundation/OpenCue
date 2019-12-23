@@ -25,7 +25,7 @@ from opencue.compiled_proto import limit_pb2
 
 
 class Limit(object):
-    """This class contains the ice implementation related to a Limit."""
+    """This class contains the grpc implementation related to a Limit."""
 
     def __init__(self, limit=None):
         """Limit class initialization"""
