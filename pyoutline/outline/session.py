@@ -42,11 +42,11 @@ def is_session_path(folder):
     """
     Return true if the specified folder contains an outline session.
 
-    @type  folder: str
-    @param folder: The folder to check.
+    :type  folder: str
+    :param folder: The folder to check.
 
-    @rtype: boolean
-    @return: true if the given folder contains an outline session.
+    :rtype: boolean
+    :return: true if the given folder contains an outline session.
     """
     if not folder:
         return False
@@ -154,8 +154,8 @@ class Session(object):
         Return the name of the session.  The session name format is:
         I{non-unique id/unique uuid}
 
-        @rtype: str
-        @return: The name of the session.
+        :rtype: str
+        :return: The name of the session.
         """
         return str(self.__name)
 
@@ -173,8 +173,8 @@ class Session(object):
         Helper funtion to conform an layer object or name
         into a string.
 
-        @rtype: str
-        @return: the name of the given layer.
+        :rtype: str
+        :return: the name of the given layer.
         """
         from outline import Layer
         if isinstance(layer, (Layer)):
@@ -188,17 +188,17 @@ class Session(object):
         of the symlink. If the destination file already
         exists it will be deleted first.
         
-        @type  src: str
-        @param src: The source path for the file to symlink.
+        :type  src: str
+        :param src: The source path for the file to symlink.
 
-        @type  layer: L{Layer} or str
-        @param layer: Layer to copy file into. [Optional]
+        :type  layer: L{Layer} or str
+        :param layer: Layer to copy file into. [Optional]
 
-        @type  rename: str
-        @param rename: A new name for the file. [Optional]
+        :type  rename: str
+        :param rename: A new name for the file. [Optional]
 
-        @rtype: str
-        @return: The full path to the new file in the session.
+        :rtype: str
+        :return: The full path to the new file in the session.
         """
         dst = [self.get_path(layer)]
         if rename:
@@ -230,17 +230,17 @@ class Session(object):
 
            - I{path = session.get_file("scene")}
 
-        @type  src: str
-        @param src: The source path for the file to copy.
+        :type  src: str
+        :param src: The source path for the file to copy.
 
-        @type  layer: L{Layer} or str
-        @param layer: Layer to copy file into. [Optional]
+        :type  layer: L{Layer} or str
+        :param layer: Layer to copy file into. [Optional]
 
-        @type  rename: str
-        @param rename: A new name for the file. [Optional]
+        :type  rename: str
+        :param rename: A new name for the file. [Optional]
 
-        @rtype: str
-        @return: The full path to the new file in the session.
+        :rtype: str
+        :return: The full path to the new file in the session.
         """
 
         dst = [self.get_path(layer)]
@@ -259,27 +259,27 @@ class Session(object):
     def get_file(self, name, layer=None, check=True, new=False):
         """
         Retrieve the full path to the given file name previously stored
-        with put_file.
+        with :meth:`put_file`.
 
-        @type  name: str
-        @param name: The unique identifier for the file.
+        :type  name: str
+        :param name: The unique identifier for the file.
 
-        @type  layer: L{Layer} or str
-        @param layer: Layer or name of layer.  [Optional]
+        :type  layer: outline.layer.Layer or str
+        :param layer: outline.layer.Layer or name of layer, optional
 
-        @type check: boolean<True>
-        @param check: If check is set, an exception is thrown if
-                      the file does not exist.
+        :type check: bool
+        :param check: If check is set, an exception is thrown if
+                      the file does not exist, defaults to `True`
 
-        @type new: boolean <False>
-        @param new: If new is set and the file your getting already
+        :type new: bool
+        :param new: If new is set and the file your getting already
                     exists, a SessionException is thrown.  This ensures
                     if your getting a new path to open in the session that
                     the file does not already exist. If new is specified,
-                    check is automatically set to false.
+                    check is automatically set to false, defaults to `False`
 
-        @rtype: str
-        @return: the full path to the file stored under the
+        :rtype: str
+        :return: The full path to the file stored under the
                  given name.
         """
         # If new is activated then check should obviously be false.
@@ -303,18 +303,18 @@ class Session(object):
         Serialize a primitive variable or structure and store
         it into the session under the specified name.
 
-        This can be used to pass data from frame to frame.
+        Call this to pass data from frame to frame.
 
-        @type  name: str
-        @param name: A unique name for the data
-        @type  data: mixed
-        @param data: Any python object that can be pickled.
-        @type  layer: L{Layer} or str
-        @param layer: The layer to store the data under. Leave this
+        :type  name: str
+        :param name: A unique name for the data
+        :type  data: mixed
+        :param data: Any python object that can be pickled.
+        :type  layer: outline.layer.Layer or str
+        :param layer: The layer to store the data under. Leave this
                       as None if the data is for the whole job.
                       [Optional]
-        @type  force: boolean
-        @param force: Overwrite data with the same name if it exists.
+        :type  force: bool
+        :param force: Overwrite data with the same name if it exists.
                       [Optional]
         """
 
@@ -334,13 +334,13 @@ class Session(object):
         Retrieve previously stored session data stored
         under the specified name.
 
-        @type  name: str
-        @param name: The name given to the data.
-        @type  layer: L{Layer} or str
-        @param layer: The layer the data was stored under. [Optional]
+        :type  name: str
+        :param name: The name given to the data.
+        :type  layer: L{Layer} or str
+        :param layer: The layer the data was stored under. [Optional]
 
-        @rtype: mixed
-        @return: Previously stored data.
+        :rtype: mixed
+        :return: Previously stored data.
         """
 
         path = "%s/%s" % (self.get_path(layer), name)
@@ -369,11 +369,11 @@ class Session(object):
         So, you must use get_path(layer) to obtain the layer session path
         or it may not exist if you construct the path on your own.
 
-        @type  layer: L{Layer} or str
-        @param layer: Specifiy the layer to get its sesstion path. [Optional]
+        :type  layer: L{Layer} or str
+        :param layer: Specifiy the layer to get its sesstion path. [Optional]
 
-        @rtype: str
-        @return: The path where session data is stored.
+        :rtype: str
+        :return: The path where session data is stored.
 
         """
         if not self.__name:

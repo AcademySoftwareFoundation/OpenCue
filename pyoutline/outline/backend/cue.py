@@ -50,14 +50,14 @@ def build_command(launcher, layer):
     """
     Build and return a pycurun shell command for the given layer
 
-    @type  launcher : OutlineLauncher
-    @param launcher : The outline launcher.
+    :type  launcher : OutlineLauncher
+    :param launcher : The outline launcher.
 
-    @type  layer : Layer
-    @param layer : The layer to build a command for.
+    :type  layer : Layer
+    :param layer : The layer to build a command for.
 
-    @rtype: list
-    @return: The shell command to run for a the given layer.
+    :rtype: list
+    :return: The shell command to run for a the given layer.
         """
     command = []
 
@@ -100,13 +100,13 @@ def launch(launcher, use_pycuerun=True):
     """
     Launch the given L{OutlineLauncher}.
 
-    @type launcher: L{OutlineLauncher}
-    @param launcher: The OutlineLauncher to launch.
-    @type use_pycuerun: bool
-    @param use_pycuerun: Enable/Disable pycuerun.
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The OutlineLauncher to launch.
+    :type use_pycuerun: bool
+    :param use_pycuerun: Enable/Disable pycuerun.
 
-    @rtype: opencue.Entity.Job
-    @return: The opencue job that was launched.
+    :rtype: opencue.Entity.Job
+    :return: The opencue job that was launched.
     """
 
     if launcher.get("server"):
@@ -129,8 +129,8 @@ def test(job):
     when the given job completes, or throws an L{OutlineException}
     if the job fails in any way.
 
-    @type job: opencue.Entity.Job
-    @param job: The job to test.
+    :type job: opencue.Entity.Job
+    :param job: The job to test.
     """
     logging.basicConfig(level=logging.DEBUG)
     logger.info("Entering test mode for job: %s" % job.data.name)
@@ -162,8 +162,8 @@ def wait(job):
     """
     Wait for the given job to complete before returning.
 
-    @type job: opencue.Entity.Job
-    @param job: The job to wait on.
+    :type job: opencue.Entity.Job
+    :param job: The job to wait on.
     """
     while True:
         try:
@@ -194,11 +194,11 @@ def _serialize(launcher, use_pycuerun):
     Serialize the outline part of the given L{OutlineLauncher} into a
     opencue job specification.
 
-    @type launcher: L{OutlineLauncher}
-    @param launcher: The outline launcher being used to launch the job.
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The outline launcher being used to launch the job.
 
-    @rtype: str
-    @return: A opencue job specification.
+    :rtype: str
+    :return: A opencue job specification.
     """
     ol = launcher.get_outline()
 

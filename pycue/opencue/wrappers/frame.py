@@ -29,6 +29,7 @@ import opencue.wrappers.depend
 
 
 class Frame(object):
+    """This class contains the grpc implementation related to a Frame."""
 
     class CheckpointState(enum.IntEnum):
         DISABLED = job_pb2.DISABLED
@@ -72,51 +73,56 @@ class Frame(object):
             self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
 
     def getWhatDependsOnThis(self):
-        """Returns a list of dependencies that depend directly on this frame
-        @rtype:  list<Depend>
-        @return: List of dependencies that depend directly on this frame"""
+        """Returns a list of dependencies that depend directly on this frame.
+
+        :rtype:  list<Depend>
+        :return: List of dependencies that depend directly on this frame"""
         response = self.stub.GetWhatDependsOnThis(
             job_pb2.FrameGetWhatDependsOnThisRequest(frame=self.data),
             timeout=Cuebot.Timeout)
         return [opencue.wrappers.depend.Depend(dep) for dep in response.depends.depends]
 
     def getWhatThisDependsOn(self):
-        """Returns a list of dependencies that this frame depends on
-        @rtype:  list<Depend>
-        @return: List of dependencies that this frame depends on"""
+        """Returns a list of dependencies that this frame depends on.
+
+        :rtype:  list<Depend>
+        :return: List of dependencies that this frame depends on"""
         response = self.stub.GetWhatThisDependsOn(
             job_pb2.FrameGetWhatThisDependsOnRequest(frame=self.data),
             timeout=Cuebot.Timeout)
         return [opencue.wrappers.depend.Depend(dep) for dep in response.depends.depends]
 
     def createDependencyOnJob(self, job):
-        """Create and return a frame on job dependency
-        @type  job: opencue.wrappers.job.Job
-        @param job: the job you want this frame to depend on
-        @rtype:  opencue.wrappers.depend.Depend
-        @return: The new dependency"""
+        """Create and return a frame on job dependency.
+
+        :type  job: opencue.wrappers.job.Job
+        :param job: the job you want this frame to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The new dependency"""
         response = self.stub.CreateDependencyOnJob(
             job_pb2.FrameCreateDependencyOnJobRequest(frame=self.data, job=job.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnLayer(self, layer):
-        """Create and return a frame on layer dependency
-        @type layer: opencue.wrappers.layer.Layer
-        @param layer: the layer you want this frame to depend on
-        @rtype:  opencue.wrappers.depend.Depend
-        @return: The new dependency"""
+        """Create and return a frame on layer dependency.
+
+        :type layer: opencue.wrappers.layer.Layer
+        :param layer: the layer you want this frame to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The new dependency"""
         response = self.stub.CreateDependencyOnLayer(
             job_pb2.FrameCreateDependencyOnLayerRequest(frame=self.data, layer=layer.data),
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
     def createDependencyOnFrame(self, frame):
-        """Create and return a frame on frame dependency
-        @type frame: opencue.wrappers.frame.Frame
-        @param frame: the frame you want this frame to depend on
-        @rtype:  opencue.wrappers.depend.Depend
-        @return: The new dependency"""
+        """Create and return a frame on frame dependency.
+
+        :type frame: opencue.wrappers.frame.Frame
+        :param frame: the frame you want this frame to depend on
+        :rtype:  opencue.wrappers.depend.Depend
+        :return: The new dependency"""
         response = self.stub.CreateDependencyOnFrame(
             job_pb2.FrameCreateDependencyOnFrameRequest(frame=self.data,
                                                         depend_on_frame=frame.data),
@@ -131,100 +137,114 @@ class Frame(object):
             timeout=Cuebot.Timeout)
 
     def id(self):
-        """Returns the id of the frame
-        @rtype:  str
-        @return: Frame uuid"""
+        """Returns the id of the frame.
+        :rtype:  str
+        :return: Frame uuid"""
         return self.data.id
 
     def name(self):
-        """Returns the name of the frame
-        @rtype:  str
-        @return: Frame name"""
+        """Returns the name of the frame.
+        :rtype:  str
+        :return: Frame name"""
         return "%04d-%s" % (self.data.number, self.data.layer_name)
 
     def layer(self):
-        """Returns the name of the layer name that the frame belongs to
-        @rtype:  str
-        @return: Layer name"""
+        """Returns the name of the layer name that the frame belongs to.
+
+        :rtype:  str
+        :return: Layer name"""
         return self.data.layer_name
 
     def frame(self):
-        """Returns the frames number as a padded string
-        @rtype:  str
-        @return: Frame number string"""
+        """Returns the frames number as a padded string.
+
+        :rtype:  str
+        :return: Frame number string"""
         return "%04d" % self.data.number
 
     def number(self):
-        """Returns the frames number
-        @rtype:  int
-        @return: Frame number"""
+        """Returns the frames number.
+
+        :rtype:  int
+        :return: Frame number"""
         return self.data.number
 
     def dispatchOrder(self):
-        """Returns the frames dispatch order
-        @rtype:  int
-        @return: Frame dispatch order"""
+        """Returns the frames dispatch order.
+
+        :rtype:  int
+        :return: Frame dispatch order"""
         return self.data.dispatch_order
 
     def startTime(self):
-        """Returns the epoch timestamp of the frame's start time
-        @rtype:  int
-        @return: Job start time in epoch"""
+        """Returns the epoch timestamp of the frame's start time.
+
+        :rtype:  int
+        :return: Job start time in epoch"""
         return self.data.start_time
 
     def stopTime(self):
-        """Returns the epoch timestamp of the frame's stop time
-        @rtype:  int
-        @return: Frame stop time in epoch"""
+        """Returns the epoch timestamp of the frame's stop time.
+
+        :rtype:  int
+        :return: Frame stop time in epoch"""
         return self.data.stop_time
 
     def resource(self):
         """Returns the most recent resource that the frame has started running on.
         Ex: vrack999/1.0 = host/proc:cores
-        @rtype:  str
-        @return: Most recent running resource"""
+
+        :rtype:  str
+        :return: Most recent running resource"""
         return self.data.last_resource
 
     def retries(self):
-        """Returns the number of retries
-        @rtype:  int
-        @return: Number of retries"""
+        """Returns the number of retries.
+
+        :rtype:  int
+        :return: Number of retries"""
         return self.data.retry_count
 
     def exitStatus(self):
-        """Returns the frame's exitStatus
-        @rtype:  int
-        @return: Frames last exit status"""
+        """Returns the frame's exitStatus.
+
+        :rtype:  int
+        :return: Frames last exit status"""
         return self.data.exit_status
 
     def maxRss(self):
-        """Returns the frame's maxRss
-        @rtype:  long
-        @return: Max RSS in Kb"""
+        """Returns the frame's maxRss.
+
+        :rtype:  long
+        :return: Max RSS in Kb"""
         return self.data.max_rss
 
     def memUsed(self):
-        """Returns the frame's currently used memory
-        @rtype:  long
-        @return: Current used memory in Kb"""
+        """Returns the frame's currently used memory.
+
+        :rtype:  long
+        :return: Current used memory in Kb"""
         return self.data.used_memory
 
     def memReserved(self):
-        """Returns the frame's currently reserved memory
-        @rtype:  long
-        @return: Current used memory in Kb"""
+        """Returns the frame's currently reserved memory.
+
+        :rtype:  long
+        :return: Current used memory in Kb"""
         return self.data.reserved_memory
 
     def state(self): # call it status?
-        """Returns the state of the frame
-        @rtype:  opencue.FrameState
-        @return: Frame state"""
+        """Returns the state of the frame.
+
+        :rtype:  opencue.FrameState
+        :return: Frame state"""
         return self.data.state
 
     def runTime(self):
-        """Returns the number of seconds that the frame has been (or was) running
-        @rtype:  int
-        @return: Job runtime in seconds"""
+        """Returns the number of seconds that the frame has been (or was) running.
+
+        :rtype:  int
+        :return: Job runtime in seconds"""
         if self.data.start_time == 0:
             return 0
         if self.data.stop_time == 0:

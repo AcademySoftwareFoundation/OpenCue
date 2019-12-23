@@ -17,7 +17,7 @@
 """
 Project: opencue Library
 
-Module: depend.py - opencue Library implementation of a allocation
+Module: depend.py - opencue Library implementation of a Depend
 """
 
 
@@ -28,6 +28,7 @@ from opencue.cuebot import Cuebot
 
 
 class Depend(object):
+    """This class contains the grpc implementation related to a Depend."""
 
     class DependType(enum.IntEnum):
         JOB_ON_JOB = depend_pb2.JOB_ON_JOB
@@ -64,14 +65,16 @@ class Depend(object):
         """Returns the depdendency's unique id.  Dependencies are one of the only
         entities without a unique name so the unique ID is exposed to act
         as the name.  This is mainly to make command line tools easier to use.
-        @rtype: str
-        @return: the dependencies unique id"""
+
+        :rtype: str
+        :return: the dependencies unique id"""
         return self.data.id
 
     def isInternal(self):
         """Returns true if the dependency is internal to the depender job, false if not.
-        @rtype: bool
-        @returns: true"""
+
+        :rtype: bool
+        :returns: true"""
         if self.data.depend_er_job == self.data.depend_on_job:
             return True
         return False

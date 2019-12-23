@@ -57,13 +57,14 @@ def load_outline(path):
     Load an outline script. The path can be either an
     outline script or serialized outline script.
 
-    @type  path: str
-    @param path: The path to the outline file. Serialized
-    outline files must be named with the .yaml extension.
-    Anything else is considered a python outline script.
+    :type  path: str
+    :param path: The path to the outline file. Serialized
+                 outline files must be named with the .yaml
+                 extension. Anything else is considered a python
+                 outline script.
 
-    @rtype: L{Outline}
-    @return: The resutling Outline object.
+    :rtype: Outline
+    :return: The resutling Outline object.
     """
     logger.info("loading outline: %s" % path)
 
@@ -96,11 +97,11 @@ def load_json(json):
     """
     Parse a json repesentation of an outline file.
 
-    @type  json: str
-    @param json: A json string.
+    :type  json: str
+    :param json: A json string.
 
-    @rtype: L{Outline}
-    @return: The resulting outline object.
+    :rtype: L{Outline}
+    :return: The resulting outline object.
     """
 
     def decode_layer(layer):
@@ -158,8 +159,8 @@ def parse_outline_script(path):
     outline scripts as you want and the resulting layers become
     part of the current outline.
 
-    @type  path: str
-    @param path: The path to the outline file.
+    :type  path: str
+    :param path: The path to the outline file.
     """
     try:
         logger.info("parsing outline file %s" % path)
@@ -181,8 +182,8 @@ def current_outline():
     I{outline = Outline()}
     I{outline.add_layer(Shell("shell_cmd",["/bin/ls"]))}
 
-    @rtype: L{Outline}
-    @return: The current Outline object.
+    :rtype: L{Outline}
+    :return: The current Outline object.
     """
     return Outline.current
 
@@ -192,11 +193,11 @@ def quick_outline(layer):
     Create an instance of an outline, add the given
     layer, and return the outline.
 
-    @type  layer: L{Layer}
-    @param layer: A L{Layer} object.
+    :type  layer: L{Layer}
+    :param layer: A L{Layer} object.
 
-    @rtype: L{Outline}
-    @return: An outline file containing the given layer.
+    :rtype: L{Outline}
+    :return: An outline file containing the given layer.
     """
     ol = Outline(name=layer.get_name(), current=True)
     ol.add_layer(layer)
@@ -214,33 +215,33 @@ class Outline(object):
                  serialize=True, name_unique=False, current=False,
                  shot=None, show=None, user=None):
         """
-        @type  name: string
-        @param name: A name for the outline instance.  This will become
+        :type  name: string
+        :param name: A name for the outline instance.  This will become
                      part of the job name.
 
-        @type  path: string
-        @param path: An optional path to a native outline script.  If your
+        :type  path: string
+        :param path: An optional path to a native outline script.  If your
                      building an outline procedurally this argument
                      is not required.  If a name is not set, the name of
                      the file becomes the name.
 
-        @type  frame_range: string
-        @param frame_range: The frame range. Defaults to a single frame.
+        :type  frame_range: string
+        :param frame_range: The frame range. Defaults to a single frame.
 
-        @type  current: boolean
-        @param current: If true, all newly created layers are
+        :type  current: boolean
+        :param current: If true, all newly created layers are
                         automatically parented to this instance.
                         Default to false.
-        @type  shot: string
-        @param shot: The shot name for this outline instance. If a shot
+        :type  shot: string
+        :param shot: The shot name for this outline instance. If a shot
                      is not provided, it will be looked up using the
                      util.get_shot function.
-        @type  show: string
-        @param show: The show name for this outline instance. If a show
+        :type  show: string
+        :param show: The show name for this outline instance. If a show
                      is not provided, it will be looked up using the
                      util.get_show function.
-        @type  user: string
-        @param user: The user name for this outline instance. If a user
+        :type  user: string
+        :param user: The user name for this outline instance. If a user
                      name is not provided, it will be looked up using
                      the util.get_user function.
         """
@@ -573,8 +574,8 @@ class Outline(object):
     def set_shot(self, shot):
         """Set the shot name for this outline instance.
 
-        @type shot: string
-        @param shot: The name of shot to set.
+        :type shot: string
+        :param shot: The name of shot to set.
         """
         self.__shot = shot
 
@@ -588,8 +589,8 @@ class Outline(object):
     def set_show(self, show):
         """Set the show name for this outline instance.
 
-        @type show: string
-        @param show: The name of show to set.
+        :type show: string
+        :param show: The name of show to set.
         """
         self.__show = show
 
@@ -603,8 +604,8 @@ class Outline(object):
     def set_user(self, user):
         """Set the user name for this outline instance.
 
-        @type user: string
-        @param user: The name of user to set.
+        :type user: string
+        :param user: The name of user to set.
         """
         self.__user = user
 
@@ -627,8 +628,8 @@ class Outline(object):
         Return the session object.  An OutlineException is raised if the
         session has not been setup.
 
-        @rtype: Session
-        @return: The outline's session object.
+        :rtype: outline.session.Session
+        :return: The outline's session object.
         """
         if not self.__session:
             raise SessionException("A session has not been created yet.")
@@ -638,8 +639,8 @@ class Outline(object):
         """Set the outline's frame set.  The frame set must be
         assigned before the outline can go into the setup phase.
 
-        @type   frame_range: str or list or set or tuple or FileSequence.FrameSet
-        @param  frame_range: The frame range for this outline.
+        :type   frame_range: str or list or set or tuple or FileSequence.FrameSet
+        :param  frame_range: The frame range for this outline.
         """
         if isinstance(frame_range, FileSequence.FrameSet):
             self.__frame_range = str(frame_range)
@@ -652,8 +653,8 @@ class Outline(object):
     def get_frame_range(self):
         """Return the outline's default frame range.
 
-        @rtype: String
-        @return: The full frame range for the outline.
+        :rtype: String
+        :return: The full frame range for the outline.
 
         """
         return self.__frame_range
@@ -663,14 +664,14 @@ class Outline(object):
         Set an environment variable that is propigated to
         every frame.
 
-        @type  key:  str
-        @param key: Name of environement variable.
+        :type  key:  str
+        :param key: Name of environement variable.
 
-        @type value: str
-        @param value: Value to associate with the name.
+        :type value: str
+        :param value: Value to associate with the name.
 
-        @type pre: boolean
-        @param pre: If this value is set to true, the environement
+        :type pre: boolean
+        :param pre: If this value is set to true, the environement
                     variable is applied pre-setshot.  The default
                     is for the environment variable to be set
                     post set shot.
@@ -694,8 +695,8 @@ class Outline(object):
         """
         Return the environement hash setup using set_env.
 
-        @rtype: dict
-        @return: the dictionary of values that will be propigated into
+        :rtype: dict
+        :return: the dictionary of values that will be propigated into
                  every frame's environement on the cue.
         """
         if key:
@@ -707,8 +708,8 @@ class Outline(object):
         """
         Return the full dictionary of user defined outline arguments.
 
-        @rtype: dict
-        @return: a dict of arbitrary user defined outline arguments.
+        :rtype: dict
+        :return: a dict of arbitrary user defined outline arguments.
         """
         return dict(self.__args)
 
@@ -717,11 +718,11 @@ class Outline(object):
         Associate a value with the given key.  Print a warning
         if the key is already associated with another value.
 
-        @type  key:  string
-        @param key: Name for the argument.
+        :type  key:  string
+        :param key: Name for the argument.
 
-        @type value: mixed
-        @param value: Value to associate with the given key.
+        :type value: mixed
+        :param value: Value to associate with the given key.
         """
         if key in self.__args:
             logger.warn("Overwriting outline argument: %s, from %s to %s",
@@ -737,11 +738,11 @@ class Outline(object):
 
         If the default value is None, an OutlineException is thrown.
 
-        @type  key:  string
-        @param key: The name of the argument.
+        :type  key:  string
+        :param key: The name of the argument.
 
-        @rtype: mixed
-        @return: The value associated with the given key.
+        :rtype: mixed
+        :return: The value associated with the given key.
         """
         try:
             if default == None:
@@ -758,14 +759,14 @@ class Outline(object):
         the optional rename argument is set, the file will be
         renamed during the copy.
 
-        @type src:  string
-        @param src: The path to the source file.
+        :type src:  string
+        :param src: The path to the source file.
 
-        @type rename: string
-        @param rename: Rename the src file during the copy.
+        :type rename: string
+        :param rename: Rename the src file during the copy.
 
-        @rtype: str
-        @return: The full path to the new file in the session.
+        :rtype: str
+        :return: The full path to the new file in the session.
         """
         return self.__session.put_file(src, rename=rename)
 
@@ -774,22 +775,22 @@ class Outline(object):
         Retrieve the sesion path path to the given file.  The
         file does not have to exist.
 
-        @type name: str
-        @param name: The base name of the file.
+        :type name: str
+        :param name: The base name of the file.
 
-        @type check: boolean<True>
-        @param check: If check is set, an exception is thrown if
+        :type check: boolean<True>
+        :param check: If check is set, an exception is thrown if
                       the file does not exist.
 
-        @type new: boolean <False>
-        @param new: If new is set and the file your getting already
+        :type new: boolean <False>
+        :param new: If new is set and the file your getting already
                     exists, a SessionException is thrown.  This ensures
                     if your getting a new path to open in the session that
                     the file does not already exist. If new is specified,
                     check is automatically set to false.
 
-        @rtype: str
-        @return: the full path to the file stored under the given name.
+        :rtype: str
+        :return: the full path to the file stored under the given name.
         """
         return self.__session.get_file(name, check=check, new=new)
 
@@ -797,10 +798,10 @@ class Outline(object):
         """
         Copy a variable into the layer's session.
 
-        @type   key: string
-        @param  key: a unique name for the data.
-        @type   value: object
-        @param  value: the variable you wish to store.
+        :type   key: string
+        :param  key: a unique name for the data.
+        :type   value: object
+        :param  value: the variable you wish to store.
         """
         self.get_session().put_data(key, value, force=force)
 
@@ -808,8 +809,8 @@ class Outline(object):
         """
         Retrieve a previously saved variable from the session.
 
-        @type  key: string
-        @param key: the name that was used to store the value.
+        :type  key: string
+        :param key: the name that was used to store the value.
         """
         return self.get_session().get_data(key)
 

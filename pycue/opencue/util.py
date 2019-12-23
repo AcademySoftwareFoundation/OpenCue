@@ -86,12 +86,13 @@ def id(value):
 @grpcExceptionParser
 def proxy(idOrObject, cls):
     """Helper function for getting proto objects back from Cuebot.
-    @type  idOrObject: str, list<str>, protobuf Message, list<protobuf Message>
-    @param idOrObject: The id/item, or list of ids/items to look up
-    @type cls: str
-    @param cls: The Name of the protobuf message class to use.
-    @rtype:  protobuf Message or list
-    @return: Cue object or list of objects"""
+
+    :type  idOrObject: str, list<str>, protobuf Message, list<protobuf Message>
+    :param idOrObject: The id/item, or list of ids/items to look up
+    :type cls: str
+    :param cls: The Name of the protobuf message class to use.
+    :rtype:  protobuf Message or list
+    :return: Cue object or list of objects"""
     def _proxy(idString):
         proto = opencue.Cuebot.PROTO_MAP.get(cls.lower())
         if proto:

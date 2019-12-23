@@ -209,11 +209,11 @@ class Layer(with_metaclass(LayerType, object)):
 
         @see: L{io.system}
 
-        @type  cmd: list<str>
-        @param cmd: The command to execute.
+        :type  cmd: list<str>
+        :param cmd: The command to execute.
 
-        @type ignore_error: boolean
-        @param ignore_error: Ignore any L{OSError} or shell command failures.
+        :type ignore_error: boolean
+        :param ignore_error: Ignore any L{OSError} or shell command failures.
         """
         io.system(cmd, ignore_error, frame)
 
@@ -316,8 +316,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Set the layer's name.
 
-        @type name: str
-        @param name: A name for the layer.
+        :type name: str
+        :param name: A name for the layer.
         """
         if self.__outline and self.__outline.get_mode() > 1:
             msg = "Layer names may only be changed in outline init mode."
@@ -328,9 +328,10 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Returns the general scope or purpose of the Layer.  Allowed
         types are:
-           - Render: a general purpose rendering layer, has inputs and outputs.
-           - Util: a setup/cleanup frame or trival shell command.
-           - Post: a post layer which is kicked off after all other layers have completed.
+
+            - Render: a general purpose rendering layer, has inputs and outputs.
+            - Util: a setup/cleanup frame or trival shell command.
+            - Post: a post layer which is kicked off after all other layers have completed.
         """
         return self.__type
 
@@ -381,8 +382,8 @@ class Layer(with_metaclass(LayerType, object)):
         Executes the local frame set.  This typically happens
         on a cluster node.
 
-        @type    frame: int
-        @param   frame: The frame to execute.
+        :type    frame: int
+        :param   frame: The frame to execute.
         """
         # Set the current frame number
         self.__frame = frame
@@ -450,8 +451,10 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Load the args_override data from the session and set them as the args.
         Useful for when you don't know some args until after launching.
-        They are created using:
-        layer.put_data('args_override', {'katana_node': 'blah.blah'})
+        They are created using::
+
+            layer.put_data('args_override', {'katana_node': 'blah.blah'})
+
         """
         try:
             args_override = self.get_data('args_override')
@@ -535,8 +538,8 @@ class Layer(with_metaclass(LayerType, object)):
         is the primary application being run in the
         layer.
 
-        @rtype: str
-        @return: Name of service.
+        :rtype: str
+        :return: Name of service.
         """
         return self.__service
 
@@ -546,24 +549,24 @@ class Layer(with_metaclass(LayerType, object)):
         is the name of the primary application being
         run in the layer.
 
-        @type service: string
-        @param service: The name of the primary application.
+        :type service: string
+        :param service: The name of the primary application.
         """
         self.__service = service
 
     def get_limits(self):
         """
         Return a list limits for this layer.
-        @rtype: string
-        @return: list of limits
+        :rtype: string
+        :return: list of limits
         """
         return self.__limits
 
     def set_limits(self, limits):
         """
         Set the limits for this layer.
-        @type  limits: string
-        @param limits: list of Limit names
+        :type  limits: string
+        :param limits: list of Limit names
         """
         self.__limits = limits
 
@@ -571,10 +574,10 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Copy a variable into the layer's session.
 
-        @type   key: string
-        @param  key: a unique name for the data.
-        @type   value: object
-        @param  value: the variable you wish to store.
+        :type   key: string
+        :param  key: a unique name for the data.
+        :type   value: object
+        :param  value: the variable you wish to store.
         """
         self.__outline.get_session().put_data(key, value, self, force=force)
 
@@ -582,8 +585,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Retrieve a previously saved variable from the session.
 
-        @type  key: string
-        @param key: the name that was used to store the value.
+        :type  key: string
+        :param key: the name that was used to store the value.
         """
         return self.__outline.get_session().get_data(key, self)
 
@@ -593,14 +596,14 @@ class Layer(with_metaclass(LayerType, object)):
         the optional rename argument is set, the file will be
         renamed during the copy.
 
-        @type src:  string
-        @param src: The path to the source file.
+        :type src:  string
+        :param src: The path to the source file.
 
-        @type rename: string
-        @param rename: Rename the src file during the symlink.
+        :type rename: string
+        :param rename: Rename the src file during the symlink.
 
-        @rtype: str
-        @return: The full path to the new file in the session.
+        :rtype: str
+        :return: The full path to the new file in the session.
         """
         return self.__outline.get_session().sym_file(src,
                                                      layer=self,
@@ -611,14 +614,14 @@ class Layer(with_metaclass(LayerType, object)):
         the optional rename argument is set, the file will be
         renamed during the copy.
 
-        @type src:  string
-        @param src: The path to the source file.
+        :type src:  string
+        :param src: The path to the source file.
 
-        @type rename: string
-        @param rename: Rename the src file during the copy.
+        :type rename: string
+        :param rename: Rename the src file during the copy.
 
-        @rtype: str
-        @return: The full path to the new file in the session.
+        :rtype: str
+        :return: The full path to the new file in the session.
         """
         return self.__outline.get_session().put_file(src,
                                                      layer=self,
@@ -629,22 +632,22 @@ class Layer(with_metaclass(LayerType, object)):
         Retrieve the sesion path path to the given file.  The
         file does not have to exist.
 
-        @type name: str
-        @param name: The base name of the file.
+        :type name: str
+        :param name: The base name of the file.
 
-        @type check: boolean<True>
-        @param check: If check is set, an exception is thrown if
+        :type check: boolean<True>
+        :param check: If check is set, an exception is thrown if
                       the file does not exist.
 
-        @type new: boolean <False>
-        @param new: If new is set and the file your getting already
+        :type new: boolean <False>
+        :param new: If new is set and the file your getting already
                     exists, a SessionException is thrown.  This ensures
                     if your getting a new path to open in the session that
                     the file does not already exist. If new is specified,
                     check is automatically set to false.
 
-        @rtype: str
-        @return: the full path to the file stored under the given name.
+        :rtype: str
+        :return: the full path to the file stored under the given name.
         """
         return self.__outline.get_session().get_file(name,
                                                      layer=self,
@@ -667,8 +670,8 @@ class Layer(with_metaclass(LayerType, object)):
         parent outline file have incompatible frame ranges,
         return None.
 
-        @rtype:    String
-        @return:   The layer's frame range;
+        :rtype:    String
+        :return:   The layer's frame range;
 
         """
         if self.__args["range"]:
@@ -725,8 +728,8 @@ class Layer(with_metaclass(LayerType, object)):
         frame set can have more than one frame when chunk_size is greater
         than 1.
 
-        @type    start_frame: int
-        @param   start_frame: the starting of the frame set.
+        :type    start_frame: int
+        :param   start_frame: the starting of the frame set.
         """
         chunk = self.get_chunk_size()
 
@@ -764,8 +767,8 @@ class Layer(with_metaclass(LayerType, object)):
         Set the event's chunk size.  The chunk size determines how many frames
         each execute is going to handle.
 
-        @type    size: int
-        @param   size: The size of the chunks
+        :type    size: int
+        :param   size: The size of the chunks
         """
         self.__args["chunk"] = int(size)
 
@@ -773,8 +776,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Return the chunk size
 
-        @rtype: int
-        @returns: The event's chunk size.
+        :rtype: int
+        :returns: The event's chunk size.
         """
         return int(self.__args["chunk"])
 
@@ -782,8 +785,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Setup a previous frame depende on the given layer.
 
-        @type on_layer: L{Layer}
-        @param on_layer: The L{Layer} to depend on.
+        :type on_layer: L{Layer}
+        :param on_layer: The L{Layer} to depend on.
         """
         self.depend_on(on_layer, DependType.PreviousFrame)
 
@@ -791,15 +794,15 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Setup a layer on layer depend on the given layer.
 
-        @type on_layer: L{Layer}
-        @param on_layer: The L{Layer} to depend on.
+        :type on_layer: L{Layer}
+        :param on_layer: The L{Layer} to depend on.
 
-        @type propigate: boolean
-        @param propigate: Whether or not to propigate the depend to
+        :type propigate: boolean
+        :param propigate: Whether or not to propigate the depend to
                           other layers. Default to False.
 
-        @type any_frame: boolean
-        @param any_frame: Wheaether or not to setup a depend any.
+        :type any_frame: boolean
+        :param any_frame: Wheaether or not to setup a depend any.
                           Default to False.
         """
         self.depend_on(self.__resolve_layer_name(on_layer),
@@ -810,15 +813,15 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Setup a frame by frame on layer depend on the given layer.
 
-        @type on_layer: L{Layer}
-        @param on_layer: The L{Layer} to depend on.
+        :type on_layer: L{Layer}
+        :param on_layer: The L{Layer} to depend on.
 
-        @type propigate: boolean
-        @param propigate: Whether or not to propigate the depend to
+        :type propigate: boolean
+        :param propigate: Whether or not to propigate the depend to
                           other layers. Default to False.
 
-        @type any_frame: boolean
-        @param any_frame: Wheaether or not to setup a depend any.
+        :type any_frame: boolean
+        :param any_frame: Wheaether or not to setup a depend any.
                           Default to False.
         """
         # Check for duplicates.
@@ -967,8 +970,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Return dictionary of registered inputs.
 
-        @rtype:  dict
-        @return: dictionary of registered inputs.
+        :rtype:  dict
+        :return: dictionary of registered inputs.
         """
         return dict(self.__input)
 
@@ -976,8 +979,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Return dictionary of registered outputs.
 
-        @rtype: dict
-        @return: dictionary of registered outputs.
+        :rtype: dict
+        :return: dictionary of registered outputs.
         """
         return dict(self.__output)
 
@@ -985,8 +988,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Return the named input.
 
-        @rtype:  outline.io.Path
-        @return: the assoicated io.Path object from the given name.
+        :rtype:  outline.io.Path
+        :return: the assoicated io.Path object from the given name.
         """
         try:
             return self.__input[name]
@@ -997,8 +1000,8 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Return the named output.
 
-        @rtype:  outline.io.Path
-        @return: the assoicated io.Path object from the given name.
+        :rtype:  outline.io.Path
+        :return: the assoicated io.Path object from the given name.
         """
         try:
             return self.__output[name]
@@ -1122,8 +1125,8 @@ class Frame(Layer):
         removed from the job if they do not instersect with
         the job's frame range.
 
-        @rtype:    String
-        @return:   The frame number.
+        :rtype:    String
+        :return:   The frame number.
         """
         # An outline's frame range might be None, in that case
         # just return the default frame.
@@ -1179,8 +1182,8 @@ class LayerPreProcess(Frame):
         layer has no valid range then the pre-process
         range should be None as well.
 
-        @rtype:    String
-        @return:   The frame number.
+        :rtype:    String
+        :return:   The frame number.
         """
         seq = self.__creator.get_frame_range()
         if not seq:

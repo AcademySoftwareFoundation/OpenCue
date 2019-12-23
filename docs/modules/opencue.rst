@@ -7,7 +7,7 @@ Subpackages
 .. toctree::
 
     opencue.compiled_proto
-    opencue.wrapper
+    opencue.wrappers
 
 Module contents
 ---------------

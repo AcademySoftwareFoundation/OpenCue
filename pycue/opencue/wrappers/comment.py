@@ -26,6 +26,7 @@ from opencue.cuebot import Cuebot
 
 
 class Comment(object):
+    """This class contains the grpc implementation related to a Comment."""
 
     def __init__(self, comment=None):
         self.data = comment
@@ -41,37 +42,43 @@ class Comment(object):
 
     def message(self):
         """Message of the comment
-        @rtype:  str
-        @return: comment message"""
+
+        :rtype:  str
+        :return: comment message"""
         return self.data.message
 
     def subject(self):
         """Subject of the comment
-        @rtype:  str
-        @return: comment subject"""
+
+        :rtype:  str
+        :return: comment subject"""
         return self.data.subject
 
     def user(self):
-        """Returns the username of the user who submitted the comment
-        @rtype:  str
-        @return: Username of submitter"""
+        """Returns the username of the user who submitted the comment.
+
+        :rtype:  str
+        :return: Username of submitter"""
         return self.data.user
 
     def timestamp(self):
-        """Returns the timestamp for the comment as an epoch
-        @rtype:  int
-        @return: The time the comment was submitted as an epoch"""
+        """Returns the timestamp for the comment as an epoch.
+
+        :rtype:  int
+        :return: The time the comment was submitted as an epoch"""
         return self.data.timestamp
 
     def setMessage(self, message):
-        """set a new message for the comment
-        @type  message: str
-        @param message: a new message"""
+        """Set a new message for the comment.
+
+        :type  message: str
+        :param message: a new message"""
         self.data.message = message
 
     def setSubject(self, subject):
-        """set a new subject for the comment
-        @type  subject: str
-        @param subject: a new subject"""
+        """Set a new subject for the comment.
+
+        :type  subject: str
+        :param subject: a new subject"""
         self.data.subject = subject
 
