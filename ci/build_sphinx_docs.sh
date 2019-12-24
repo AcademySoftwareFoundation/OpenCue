@@ -11,4 +11,4 @@ python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto 
 pip show sphinx
 
 # Build the docs and treat warnings as errors
-./local/bin/sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
+.local/bin/sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
