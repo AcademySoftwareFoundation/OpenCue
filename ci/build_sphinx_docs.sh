@@ -9,4 +9,4 @@ pip install --user -r requirements.txt -r docs/requirements.txt
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
 
 # Build the docs and treat warnings as errors
-sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
+./local/bin/sphinx-build -W -b html -d docs/_build/doctrees docs docs/_build/html
