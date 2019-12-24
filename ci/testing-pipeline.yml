@@ -47,3 +47,13 @@ jobs:
   - bash: cd cuebot && ./gradlew build --stacktrace
     name: test
     displayName: Build and Test Cuebot
+
+- job: testSphinx2020
+  displayName: Test docs build (CY 2020)
+  pool:
+    vmImage: 'ubuntu-16.04'
+  container: aswftesting/ci-opencue:2020
+  steps:
+  - bash: ci/build_sphinx_docs.sh
+    name: buildDocs
+    displayName: Run sphinx build
