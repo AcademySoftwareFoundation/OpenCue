@@ -49,10 +49,10 @@ jobs:
     displayName: Build and Test Cuebot
 
 - job: testSphinx2020
-  displayName: Test docs build (CY 2020)
+  displayName: Test docs build (CY 2019)
   pool:
     vmImage: 'ubuntu-16.04'
-  container: aswftesting/ci-opencue:2020
+  container: aswf/ci-opencue:2019.0
   steps:
   - bash: ci/build_sphinx_docs.sh
     name: buildDocs
