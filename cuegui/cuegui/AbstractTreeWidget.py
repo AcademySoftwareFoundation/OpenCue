@@ -106,6 +106,17 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.updateRequest()
         self.setUpdateInterval(10)
 
+    def closeEvent(self, event):
+        if hasattr(self, '_timer'):
+            self._timer.stop()
+            del self._timer
+
+        if hasattr(self, '__ticksTimer'):
+            self.__ticksTimer.stop()
+            del self.__ticksTimer
+
+        event.accept()
+
     def startColumnsForType(self, itemType):
         """Start column definitions for the given item type. The first call to
         this defines the primary column type used to populate the column headers.
