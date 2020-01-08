@@ -457,11 +457,14 @@ class Machine(object):
             self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
 
             # Windows CPU information
-            import multiprocessing
-            __totalCores = multiprocessing.cpu_count() * 100
-            if __totalCores > 1200:
-                __totalCores = __totalCores // 2
-                __numProcs = 2
+            import psutil
+            logical_core_count = psutil.cpu_count(logical=True)
+            actual_core_count = psutil.cpu_count(logical=False)
+            hyperthreadingMultiplier = logical_core_count // actual_core_count
+
+            __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
+            __numProcs = 1  # TODO: figure out how to count sockets in Python
+
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
