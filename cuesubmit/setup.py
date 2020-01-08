@@ -54,4 +54,12 @@ setup(
         ]
     },
     test_suite='tests',
+    install_requires=[
+        'future',
+        'grpcio',
+        'grpcio-tools',
+        'PySide2',
+        'PyYAML',
+        'simplejson'
+    ]
 )

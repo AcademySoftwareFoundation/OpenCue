@@ -51,5 +51,12 @@ setup(
         ]
     },
     test_suite='tests',
+    install_requires=[
+        'future',
+        'grpcio',
+        'grpcio-tools',
+        'psutil',
+        'pywin32; platform_system == "Windows"'
+    ]
 )
 
