@@ -308,10 +308,6 @@ class FrameAttendantThread(threading.Thread):
         self.__writeFooter()
         self.__cleanup()
 
-    def runWin32(self):
-        """The steps required to handle a frame under windows"""
-        pass
-
     def runWindows(self):
         """The steps required to handle a frame under windows"""
         frameInfo = self.frameInfo
@@ -488,8 +484,6 @@ class FrameAttendantThread(threading.Thread):
 
                 if platform.system() == "Linux":
                     self.runLinux()
-                elif platform.system() == "win32":
-                    self.runWin32()
                 elif platform.system() == "Windows":
                     self.runWindows()
                 elif platform.system() == "Darwin":
