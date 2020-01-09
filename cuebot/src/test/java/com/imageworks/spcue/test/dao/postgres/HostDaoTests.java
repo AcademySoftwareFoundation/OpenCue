@@ -498,7 +498,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         String tag = jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class, host.id);
-        assertEquals("unassigned beta frick jack", tag);
+        assertEquals("unassigned beta 64bit frick jack linux", tag);
     }
 
     @Test
@@ -520,18 +520,18 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         String tag = jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class, host.id);
-        assertEquals("unassigned beta", tag);
+        assertEquals("unassigned beta 64bit linux", tag);
 
         hostDao.removeTag(host, "linux");
         hostDao.recalcuateTags(host.id);
 
-        assertEquals("unassigned beta", jdbcTemplate.queryForObject(
+        assertEquals("unassigned beta 64bit", jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class, host.id));
 
-        hostDao.tagHost(host, "32bit",HostTagType.MANUAL);
+        hostDao.tagHost(host, "32bit", HostTagType.MANUAL);
         hostDao.recalcuateTags(host.id);
 
-        assertEquals("unassigned beta 32bit", jdbcTemplate.queryForObject(
+        assertEquals("unassigned beta 32bit 64bit", jdbcTemplate.queryForObject(
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class, host.id));
     }
 

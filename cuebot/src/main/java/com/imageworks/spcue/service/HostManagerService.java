@@ -164,6 +164,12 @@ public class HostManagerService implements HostManager {
         hostDao.tagHost(host, alloc.tag, HostTagType.ALLOC);
         hostDao.tagHost(host, host.name, HostTagType.HOSTNAME);
 
+        if (rhost.getTagsCount() > 0) {
+            for (String tag : rhost.getTagsList()) {
+                hostDao.tagHost(host, tag, HostTagType.MANUAL);
+            }
+        }
+
         // Don't tag anything with hardware yet, we don't watch new procs
         // that report in to automatically start running frames.
 
