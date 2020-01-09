@@ -103,7 +103,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
-        shows = Util.getShows()
+        shows = Util.getShows() or ['no-show-exists'] # to limit out of range error if no show exists
         self.showSelector = Widgets.CueSelectPulldown(
             'Show:', shows[0],
             options=shows,
