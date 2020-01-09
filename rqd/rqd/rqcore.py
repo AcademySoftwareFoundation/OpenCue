@@ -110,11 +110,18 @@ class FrameAttendantThread(threading.Thread):
         @param command: The command specified in the runFrame request
         @rtype:  string
         @return: Command file location"""
+        # TODO: this should use tempfile to create the files and clean them up afterwards
         try:
             if platform.system() == "Windows":
+                rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')
+                try:
+                    os.mkdir(rqd_tmp_dir)
+                except FileExistsError:
+                    pass  # okay, already exists
+
                 commandFile = os.path.join(
-                    'C:\\temp',
-                    'rqd-cmd-%s-%s.bat' % (self.runFrame.frame_id, time.time()))
+                    rqd_tmp_dir,
+                    'cmd-%s-%s.bat' % (self.runFrame.frame_id, time.time()))
             else:
                 commandFile = os.path.join(tempfile.gettempdir(),
                                            'rqd-cmd-%s-%s' % (self.runFrame.frame_id, time.time()))
@@ -584,6 +591,7 @@ class RqCore(object):
         log.warning('RQD Started')
 
     def onInterval(self, sleepTime=None):
+
         """This is called by self.grpcConnected as a timer thread to execute
            every interval"""
         if sleepTime is None:

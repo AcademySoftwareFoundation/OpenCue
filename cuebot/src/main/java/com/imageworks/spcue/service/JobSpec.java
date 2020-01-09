@@ -277,7 +277,7 @@ public class JobSpec {
         job.user = user;
         job.uid = uid;
         job.email = email;
-        job.os = null;
+        job.os = null; // default to no OS specified
         job.showName = show;
         job.facilityName = facility;
         job.deptName = jobTag.getChildTextTrim("dept");
