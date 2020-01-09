@@ -409,13 +409,6 @@ class FrameAttendantThread(threading.Thread):
 
         runFrame = self.runFrame
 
-        # TODO(bcipriano) Don't use a special log path on Windows. The log directory should come
-        #   from the job submission as it does for other jobs.
-        # Windows has a special log path
-        if platform.system() == "Windows":
-            runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
-                                                                   runFrame.job_id)
-
         try:
             runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
                                                  runFrame.job_name)

@@ -100,7 +100,11 @@ PATH_MEMINFO = "/proc/meminfo"
 if platform.system() == 'Linux':
     SYS_HERTZ = os.sysconf('SC_CLK_TCK')
 
-CONFIG_FILE = '/etc/opencue/rqd.conf'
+if platform.system() == 'Windows':
+    CONFIG_FILE = os.path.expandvars('$LOCALAPPDATA/OpenCue/rqd.conf')
+else:
+    CONFIG_FILE = '/etc/opencue/rqd.conf'
+
 if '-c' in sys.argv:
     CONFIG_FILE = sys.argv[sys.argv.index('-c') + 1]
 
@@ -158,6 +162,7 @@ try:
         __section = "Override"
         import configparser
         config = configparser.RawConfigParser()
+        print('Loading config {}'.format(CONFIG_FILE))
         config.read(CONFIG_FILE)
         if config.has_option(__section, "OVERRIDE_CORES"):
             OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")

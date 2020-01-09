@@ -56,7 +56,12 @@ public class DispatchQuery {
                 "AND job.b_paused                   = false " +
                 "AND job.pk_show                    = ? " +
                 "AND job.pk_facility                = ? " +
-                "AND job.str_os                     = ? " +
+                "AND " +
+                    "(" +
+                        "job.str_os IS NULL OR job.str_os = '' " +
+                    "OR " +
+                        "job.str_os = ? " +
+                    ") " +
                 "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
                 "AND layer.int_cores_min            <= ? " +
                 "AND layer.int_mem_min              <= ? " +
