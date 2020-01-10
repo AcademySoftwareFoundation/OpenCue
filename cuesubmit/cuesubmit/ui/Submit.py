@@ -103,7 +103,12 @@ class CueSubmitWidget(QtWidgets.QWidget):
             validators=[Validators.matchNoSpecialCharactersOnly, Validators.moreThan3Chars,
                         Validators.matchNoSpaces]
         )
-        shows = Util.getShows() or ['no-show-exists'] # to limit out of range error if no show exists
+        shows = Util.getShows()
+        if not shows:
+            message = "No shows exist yet. Please create some or contact your OpenCue administrator to create one!\n" +\
+                      "You won't be able to submit job for non-existent show!\n"
+            Widgets.messageBox(message, title="No Shows Exist", parent=self).show()
+            shows = ['no-shows-exist']  # to allow building UI
         self.showSelector = Widgets.CueSelectPulldown(
             'Show:', shows[0],
             options=shows,
