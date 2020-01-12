@@ -109,13 +109,15 @@ def get_shot():
 
 
 def get_user():
-    """A shortcut for getting the shot from the environment.
-
-    Raises an Exception if the shot environment is not found
-    alluding to a setshot error.
     """
-    return os.environ.get('USER', getpass.getuser())
+    Returns the current username
+    """
+    if platform.system() == 'Windows':
+        domain = os.environ.get('USERDOMAIN', None)
+        user = getpass.getuser()
+        return '{}\\{}'.format(domain, user) if domain else user
 
+    return os.environ.get('USER', getpass.getuser())
 
 def get_uid():
     """
