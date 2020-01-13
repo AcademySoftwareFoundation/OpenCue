@@ -120,7 +120,7 @@ def buildShellLayer(layerData, lastLayer):
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
     outline = Outline(jobData['name'], shot=jobData['shot'], show=jobData['show'],
-                      user=jobData['username'], facility=jobData['facility'])
+                      user=jobData['username'])
     lastLayer = None
     for layerData in jobData['layers']:
         if layerData.layerType == JobTypes.JobTypes.MAYA:
@@ -135,4 +135,8 @@ def submitJob(jobData):
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
         lastLayer = layer
+
+    if 'facility' in jobData:
+        outline.set_facility(jobData['facility'])
+
     return cuerun.launch(outline, use_pycuerun=False)
