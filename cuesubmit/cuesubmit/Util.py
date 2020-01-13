@@ -54,22 +54,3 @@ def getFacilities(allocations):
     default_facilities = [Facility.DEFAULT_FACILITY]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)
-
-def getTags(allocations, facility):
-    """Return a list of tags for the given facility and allocations."""
-    if not facility or facility == Facility.DEFAULT_FACILITY:
-        return [Facility.ANY_TAGS]
-
-    tags = [Facility.ANY_TAGS]
-    facility_tags = {}
-
-    for alloc in allocations:
-        facility = alloc.data.facility
-        if facility not in facility_tags:
-            facility_tags[facility] = set()
-        facility_tags[facility].add(alloc.data.tag)
-
-    if facility in facility_tags:
-        tags.extend(list(facility_tags[facility]))
-
-    return tags

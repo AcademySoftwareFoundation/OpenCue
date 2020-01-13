@@ -87,10 +87,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout = QtWidgets.QHBoxLayout()
         self.servicesLayout = QtWidgets.QHBoxLayout()
         self.showLayout = QtWidgets.QGridLayout()
-
-        self.allocationInfoLayout = QtWidgets.QVBoxLayout()
-        self.allocationInfoLayout.setContentsMargins(20, 0, 0, 0)
-        self.allocationLayout = QtWidgets.QHBoxLayout()
+        self.facilityLayout = QtWidgets.QGridLayout()
 
         self.titleLogo = QtWidgets.QLabel()
         self.titleLogo.setPixmap(QtGui.QPixmap('{}/images/OpenCue.png'.format(Constants.DIR_PATH)))
@@ -174,13 +171,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
             multiselect=False)
         self.facilitySelector.setChecked(selected_facility)
 
-        tags = Util.getTags(allocations, selected_facility)
-        self.tagsSelector = Widgets.CueSelectPulldown(
-            'Tags:',
-            Facility.ANY_TAGS,
-            options=tags,
-            multiselect=True)
-
         self.settingsWidget = self.jobTypes.build(self.primaryWidgetType, *args, **kwargs)
         self.jobTreeWidget = Job.CueJobWidget()
         self.submitButtons = CueSubmitButtons()
@@ -202,8 +192,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
-        self.facilitySelector.optionsMenu.triggered.connect(self.facilityChanged)
-        self.tagsSelector.optionsMenu.triggered.connect(self.tagsChanged)
 
     def setupUi(self):
         self.setLayout(self.mainLayout)
@@ -217,6 +205,12 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.showLayout.addWidget(self.showSelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
         self.showLayout.addWidget(self.shotInput, 0, 1, 1, 2)
         self.jobInfoLayout.addLayout(self.showLayout)
+
+        self.facilityLayout.setHorizontalSpacing(20)
+        self.facilityLayout.setColumnStretch(1, 1)
+        self.facilityLayout.addWidget(self.facilitySelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.jobInfoLayout.addLayout(self.facilityLayout, QtCore.Qt.AlignLeft)
+
         self.scrollingLayout.addLayout(self.jobInfoLayout)
 
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
@@ -239,14 +233,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
         self.layerInfoLayout.addLayout(self.coresLayout)
         self.scrollingLayout.addLayout(self.layerInfoLayout)
-
-        self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
-        self.scrollingLayout.addWidget(Widgets.CueLabelLine('Allocation Details'))
-        self.allocationLayout.addWidget(self.facilitySelector, QtCore.Qt.AlignLeft)
-        self.allocationLayout.addWidget(self.tagsSelector)
-        self.allocationLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
-        self.allocationInfoLayout.addLayout(self.allocationLayout)
-        self.scrollingLayout.addLayout(self.allocationInfoLayout)
 
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Submission Details'))
@@ -275,8 +261,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         }
         facility = self.facilitySelector.text()
         jobData['facility'] = facility if facility and facility != Facility.DEFAULT_FACILITY else None
-        tags = self.tagsSelector.text()
-        jobData['tags'] = tags if tags and tags != Facility.ANY_TAGS else None
         return jobData
 
     def jobLayerSelectionChanged(self, layerObject):
@@ -323,21 +307,6 @@ class CueSubmitWidget(QtWidgets.QWidget):
         """Action when the job type is changed."""
         self.updateSettingsWidget(self.jobTypeSelector.text())
         self.jobDataChanged()
-
-    def facilityChanged(self):
-        """Action when the job type is changed."""
-        selected_facility = self.facilitySelector.getChecked()
-        allocations = Util.getAllocations()
-        tags = Util.getTags(allocations, selected_facility[0] if selected_facility else None)
-        self.tagsSelector.setOptions(tags)
-        self.tagsSelector.setChecked([])
-
-    def tagsChanged(self):
-        """Action when the tags are changed."""
-        selected_tags = self.tagsSelector.getChecked()
-        if selected_tags and Facility.ANY_TAGS in selected_tags:
-            # Prevent tag + [Any] multi-selection
-            self.tagsSelector.setChecked([])
 
     def updateJobTypeSelector(self, layerType):
         """Update the job type selector to the given layerType.
