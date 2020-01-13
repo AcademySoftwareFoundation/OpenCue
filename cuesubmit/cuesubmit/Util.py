@@ -12,17 +12,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import os
+
 import opencue
+from cuesubmit import Facility
 
 
 def getLimits():
     """Return a list of limit names from cuebot."""
     return [limit.name() for limit in opencue.api.getLimits()]
+
 
 def getServices():
     """Return a list of service names from cuebot."""
@@ -32,3 +35,41 @@ def getServices():
 def getShows():
     """Return a list of show names from cuebot."""
     return [show.name() for show in opencue.api.getShows()]
+
+
+def getAllocations():
+    """Return a list of Allocations from cuebot."""
+    return opencue.api.getAllocations()
+
+
+def getPresetFacility():
+    if os.getenv('RENDER_TO', None):
+        return os.environ['RENDER_TO']
+    if os.getenv('FACILITY', None):
+        return os.environ['FACILITY']
+    return None
+
+def getFacilities(allocations):
+    """Return a list of facility names from the allocations."""
+    default_facilities = [Facility.DEFAULT_FACILITY]
+    facilities = set(alloc.data.facility for alloc in allocations)
+    return default_facilities + list(facilities)
+
+def getTags(allocations, facility):
+    """Return a list of tags for the given facility and allocations."""
+    if not facility or facility == Facility.DEFAULT_FACILITY:
+        return [Facility.ANY_TAGS]
+
+    tags = [Facility.ANY_TAGS]
+    facility_tags = {}
+
+    for alloc in allocations:
+        facility = alloc.data.facility
+        if facility not in facility_tags:
+            facility_tags[facility] = set()
+        facility_tags[facility].add(alloc.data.tag)
+
+    if facility in facility_tags:
+        tags.extend(list(facility_tags[facility]))
+
+    return tags
