@@ -260,7 +260,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             'layers': self.jobTreeWidget.getAllLayers()
         }
         facility = self.facilitySelector.text()
-        jobData['facility'] = facility if facility and facility != Facility.DEFAULT_FACILITY else None
+        jobData['facility'] = facility if facility and facility != Facility.DEFAULT_FACILITY_TEXT else None
         return jobData
 
     def jobLayerSelectionChanged(self, layerObject):

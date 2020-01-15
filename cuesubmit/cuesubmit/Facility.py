@@ -1,2 +1,2 @@
 
-DEFAULT_FACILITY = '[Default]'
+DEFAULT_FACILITY_TEXT = '[Default]'

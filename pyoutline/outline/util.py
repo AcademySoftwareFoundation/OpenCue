@@ -120,5 +120,4 @@ def get_uid():
     """
     Return the current users id
     """
-    #return os.getuid()
-    return 12345
+    return os.getuid()

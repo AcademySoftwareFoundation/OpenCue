@@ -51,6 +51,6 @@ def getPresetFacility():
 
 def getFacilities(allocations):
     """Return a list of facility names from the allocations."""
-    default_facilities = [Facility.DEFAULT_FACILITY]
+    default_facilities = [Facility.DEFAULT_FACILITY_TEXT]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)
