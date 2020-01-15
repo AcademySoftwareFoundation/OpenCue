@@ -87,7 +87,7 @@ def permissionsLow():
        RQD_GID and RQD_UID"""
     if platform.system() == 'Windows':
         return
-    if os.getegid() != rqd.rqconstants.RQD_GID or os.getegid() != rqd.rqconstants.RQD_GID:
+    if os.getegid() != rqd.rqconstants.RQD_GID or os.geteuid() != rqd.rqconstants.RQD_UID:
         __becomeRoot()
         os.setegid(rqd.rqconstants.RQD_GID)
         os.seteuid(rqd.rqconstants.RQD_UID)
