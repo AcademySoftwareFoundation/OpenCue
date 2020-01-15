@@ -10,7 +10,6 @@ from PySide2 import QtCore, QtGui, QtWidgets
 
 import opencue
 from cuesubmit import Constants
-from cuesubmit import Facility
 from cuesubmit import JobTypes
 from cuesubmit import Layer
 from cuesubmit import Submission
@@ -260,7 +259,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
             'layers': self.jobTreeWidget.getAllLayers()
         }
         facility = self.facilitySelector.text()
-        jobData['facility'] = facility if facility and facility != Facility.DEFAULT_FACILITY_TEXT else None
+        jobData['facility'] = facility if facility and facility != Constants.DEFAULT_FACILITY_TEXT else None
         return jobData
 
     def jobLayerSelectionChanged(self, layerObject):

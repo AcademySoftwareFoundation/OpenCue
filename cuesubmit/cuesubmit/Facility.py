@@ -1,2 +1,0 @@
-
-DEFAULT_FACILITY_TEXT = '[Default]'

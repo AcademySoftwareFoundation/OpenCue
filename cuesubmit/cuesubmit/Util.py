@@ -19,7 +19,7 @@ from __future__ import absolute_import
 import os
 
 import opencue
-from cuesubmit import Facility
+from cuesubmit import Constants
 
 
 def getLimits():
@@ -51,6 +51,6 @@ def getPresetFacility():
 
 def getFacilities(allocations):
     """Return a list of facility names from the allocations."""
-    default_facilities = [Facility.DEFAULT_FACILITY_TEXT]
+    default_facilities = [Constants.DEFAULT_FACILITY_TEXT]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)
