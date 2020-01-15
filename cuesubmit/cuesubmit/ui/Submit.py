@@ -56,6 +56,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def __init__(self, settingsWidgetType, jobTypes=JobTypes.JobTypes, parent=None, *args, **kwargs):
         super(CueSubmitWidget, self).__init__(parent)
+        self.startupErrors = list()
         self.skipDataChangedEvent = False
         self.settings = QtCore.QSettings('opencue', 'cuesubmit')
         self.clearMessageShown = False
@@ -105,10 +106,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
         )
         shows = Util.getShows()
         if not shows:
-            message = "No shows exist yet. Please create some or contact your OpenCue administrator to create one!\n" +\
-                      "You won't be able to submit job for non-existent show!\n"
-            Widgets.messageBox(message, title="No Shows Exist", parent=self).show()
-            shows = ['no-shows-exist']  # to allow building UI
+            self.startupErrors.append("No shows exist yet. Please create some or contact your OpenCue administrator to create one!\n" +\
+                      "You won't be able to submit job for non-existent show!\n")
+            shows = ['']  # to allow building UI
         self.showSelector = Widgets.CueSelectPulldown(
             'Show:', shows[0],
             options=shows,
@@ -169,6 +169,16 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.setupUi()
         self.setupConnections()
         self.jobDataChanged()
+
+    def showEvent(self, event):
+        if self.startupErrors:
+            for startupError in self.startupErrors:
+                msgBox = Widgets.messageBox(startupError, title="No Shows Exist", parent=self, centerOnScreen=True)
+                msgBox.show()
+
+            # Raise at least one of the errors so the user gets feedback in the event the GUI wasn't built
+            # or shown properly.
+            raise opencue.exception.CueException(self.startupErrors[0])
 
     def setupConnections(self):
         self.submitButtons.cancelled.connect(self.cancel)
