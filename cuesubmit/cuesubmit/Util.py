@@ -49,6 +49,7 @@ def getPresetFacility():
         return os.environ['FACILITY']
     return None
 
+
 def getFacilities(allocations):
     """Return a list of facility names from the allocations."""
     default_facilities = [Constants.DEFAULT_FACILITY_TEXT]

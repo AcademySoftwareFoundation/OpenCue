@@ -58,16 +58,11 @@ def import_backend_module(name):
     return __import__("outline.backend.%s" % name,
                       globals(), locals(), [name])
 
-def get_launch_facility(facility=None):
+
+def get_launch_facility():
     """
     Return the name of the default launch facility.
-
-    :type facility: string
-    :param facility: Optional facility name.
     """
-    if facility:
-        return facility
-
     fac = os.environ.get("RENDER_TO", None)
     if not fac:
         fac = os.environ.get("FACILITY",
