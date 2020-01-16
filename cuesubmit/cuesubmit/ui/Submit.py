@@ -173,8 +173,9 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def showEvent(self, event):
         if self.startupErrors:
             for startupError in self.startupErrors:
-                msgBox = Widgets.messageBox(startupError, title="No Shows Exist", parent=self, centerOnScreen=True)
+                msgBox = Widgets.CueMessageBox(startupError, title="No Shows Exist", parent=self)
                 msgBox.show()
+                msgBox.centerOnScreen() #  explicitly center on desktop center as parent is not shown yet
 
             # Raise at least one of the errors so the user gets feedback in the event the GUI wasn't built
             # or shown properly.
@@ -322,7 +323,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.settingsLayout.addWidget(self.settingsWidget)
 
     def errorInJobData(self, message):
-        Widgets.messageBox(message, title="Error in Job Data", parent=self).show()
+        Widgets.CueMessageBox(message, title="Error in Job Data", parent=self).show()
         return False
 
     def validate(self, jobData):
@@ -378,7 +379,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def errorReadingSettings(self):
         """Display an error message and clear the QSettings object."""
         if not self.clearMessageShown:
-            Widgets.messageBox(
+            Widgets.CueMessageBox(
                 "Previous submission history cannot be read from the QSettings."
                 "Clearing submission history.",
                 title="Cannot Read History",
@@ -463,13 +464,13 @@ class CueSubmitWidget(QtWidgets.QWidget):
             jobs = Submission.submitJob(jobData)
         except opencue.exception.CueException as e:
             message = "Failed to submit job!\n" + e.message
-            Widgets.messageBox(message, title="Failed Job Submission", parent=self).show()
+            Widgets.CueMessageBox(message, title="Failed Job Submission", parent=self).show()
             raise e
 
         message = "Submitted Job to OpenCue."
         for job in jobs:
             message += "\nJob ID: {}\nJob Name: {}".format(job.id(), job.name())
-        Widgets.messageBox(message, title="Submitted Job Data", parent=self).show()
+        Widgets.CueMessageBox(message, title="Submitted Job Data", parent=self).show()
 
     def cancel(self):
         """Action called when the cancel button is clicked."""

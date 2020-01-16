@@ -415,7 +415,7 @@ def separatorLine():
     return line
 
 
-def messageBox(message, title=None, parent=None, centerOnScreen=False):
+class CueMessageBox(QtWidgets.QMessageBox):
     ''' Display QMessageBox with message and OK button.
         @type message: str
         @param message: error message
@@ -427,16 +427,19 @@ def messageBox(message, title=None, parent=None, centerOnScreen=False):
         @param centerOnScreen: useful mainly for rare cases that parent is not shown yet for centering on desktop
                               If parent is shown,  QMessageBox gets centered into it properly.
     '''
-    messageBox = QtWidgets.QMessageBox(parent)
-    messageBox.setIcon(QtWidgets.QMessageBox.Information)
-    messageBox.setText(message)
-    messageBox.setWindowTitle(title)
-    messageBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
+    def __init__(self, message, title=None, parent=None):
+        super(CueMessageBox, self).__init__(parent)
 
-    if centerOnScreen:
-        size = messageBox.sizeHint()
+        self.setIcon(QtWidgets.QMessageBox.Information)
+        self.setText(message)
+        self.setWindowTitle(title)
+        self.setStandardButtons(QtWidgets.QMessageBox.Ok)
+
+    def centerOnScreen(self):
+        ''' Useful mainly for rare cases that parent is not shown yet for centering on desktop
+                              If parent is shown,  QMessageBox gets centered into it properly.'''
+        size = self.size()
         desktopSize = QtWidgets.QDesktopWidget().screenGeometry()
         top = (desktopSize.height() / 2) - (size.height() / 2)
         left = (desktopSize.width() / 2) - (size.width() / 2)
-        messageBox.move(left, top)
-    return messageBox
+        self.move(left, top)
