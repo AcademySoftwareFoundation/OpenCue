@@ -389,6 +389,9 @@ public class DispatchSupportService implements DispatchSupport {
                         frame.command
                                 .replaceAll("#ZFRAME#", zFrameNumber)
                                 .replaceAll("#IFRAME#",  String.valueOf(frameNumber))
+                                .replaceAll("#FRAME_START#",  String.valueOf(frameNumber))
+                                .replaceAll("#FRAME_END#",  String.valueOf(frameNumber+frame.chunkSize-1))
+                                .replaceAll("#FRAME_CHUNK#",  String.valueOf(frame.chunkSize))
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
                                 .replaceAll("#FRAMESPEC#",  frameSpec)
