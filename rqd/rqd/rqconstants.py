@@ -162,7 +162,7 @@ try:
         __section = "Override"
         import configparser
         config = configparser.RawConfigParser()
-        print('Loading config {}'.format(CONFIG_FILE))
+        logging.info('Loading config {}'.format(CONFIG_FILE))
         config.read(CONFIG_FILE)
         if config.has_option(__section, "OVERRIDE_CORES"):
             OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")
