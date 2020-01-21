@@ -29,6 +29,8 @@ mkdir -p $RPM_BUILD_ROOT/opt/opencue/cuebot/lib
 mkdir -p $RPM_BUILD_ROOT/etc/sysconfig
 mkdir -p $RPM_BUILD_ROOT/usr/lib/systemd/system
 
+cp /home/rpmbuilder/LICENSE $RPM_BUILD_ROOT/opt/opencue/cuebot
+cp /home/rpmbuilder/VERSION $RPM_BUILD_ROOT/opt/opencue/cuebot
 cp /home/rpmbuilder/cuebot-%version%-all.jar $RPM_BUILD_ROOT/opt/opencue/cuebot/lib
 cp /home/rpmbuilder/opencue-cuebot.service $RPM_BUILD_ROOT/usr/lib/systemd/system
 cp /home/rpmbuilder/opencue-cuebot $RPM_BUILD_ROOT/etc/sysconfig
@@ -37,6 +39,7 @@ exit
 
 
 %files
+%attr(0644, root, root) /opt/opencue/cuebot/*
 %attr(0644, root, root) /opt/opencue/cuebot/lib/*
 %attr(0644, root, root) /usr/lib/systemd/system/opencue-cuebot.service
 %attr(0600, root, root) /etc/sysconfig/opencue-cuebot

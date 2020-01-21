@@ -31,6 +31,8 @@ USER rpmbuilder
 
 RUN echo "Cuebot RPM Stage"
 
+COPY --chown=rpmbuilder:rpmbuilder LICENSE ./
+
 COPY --from=build \
         --chown=rpmbuilder:rpmbuilder \
         /home/gradle/cuebot/VERSION \
