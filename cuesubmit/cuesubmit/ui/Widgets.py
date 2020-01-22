@@ -368,11 +368,11 @@ class CueHelpWidget(QtWidgets.QWidget):
             self.helpVisible = True
 
     def hideHelpText(self):
-        """collapse the help text area."""
+        """Collapse the help text area."""
         self.helpTextField.setMaximumHeight(0)
 
     def showHelpText(self):
-        """expand the help text area."""
+        """Expand the help text area."""
         self.helpTextField.setMaximumHeight(250)
 
 
@@ -407,7 +407,7 @@ class CueLabelLine(QtWidgets.QWidget):
 
 
 def separatorLine():
-    """Retrun a simple sperator line."""
+    """Return a simple separator line."""
     line = QtWidgets.QGroupBox()
     line.setFixedHeight(2)
     line.setAutoFillBackground(True)
@@ -415,10 +415,31 @@ def separatorLine():
     return line
 
 
-def messageBox(message, title=None, parent=None):
-    messageBox = QtWidgets.QMessageBox(parent)
-    messageBox.setIcon(QtWidgets.QMessageBox.Information)
-    messageBox.setText(message)
-    messageBox.setWindowTitle(title)
-    messageBox.setStandardButtons(QtWidgets.QMessageBox.Ok)
-    return messageBox
+class CueMessageBox(QtWidgets.QMessageBox):
+    ''' Display QMessageBox with message and OK button.
+        @type message: str
+        @param message: error message
+        @type title: str
+        @param title: box title
+        @type parent: QWidget
+        @param parent: parent object, used for centering, deleting
+        @type centerOnScreen: bool
+        @param centerOnScreen: useful mainly for rare cases that parent is not shown yet for centering on desktop
+                              If parent is shown,  QMessageBox gets centered into it properly.
+    '''
+    def __init__(self, message, title=None, parent=None):
+        super(CueMessageBox, self).__init__(parent)
+
+        self.setIcon(QtWidgets.QMessageBox.Information)
+        self.setText(message)
+        self.setWindowTitle(title)
+        self.setStandardButtons(QtWidgets.QMessageBox.Ok)
+
+    def centerOnScreen(self):
+        ''' Useful mainly for rare cases that parent is not shown yet for centering on desktop
+                              If parent is shown,  QMessageBox gets centered into it properly.'''
+        size = self.size()
+        desktopSize = QtWidgets.QDesktopWidget().screenGeometry()
+        top = (desktopSize.height() / 2) - (size.height() / 2)
+        left = (desktopSize.width() / 2) - (size.width() / 2)
+        self.move(left, top)

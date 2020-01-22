@@ -162,14 +162,14 @@ public class JobLauncher implements ApplicationContextAware {
             if (!s.active) {
                 throw new EntityCreationError("The " + spec.getShow() +
                         " show has been deactivated.  Please contact " +
-                        "psr-resources@imageworks.com to reactivate " +
+                        "administrator of your OpenCue deployment to reactivate " +
                         "this show.");
             }
         }
         catch (EmptyResultDataAccessException e) {
             throw new EntityCreationError("The " + spec.getShow() +
                     " does not exist. Please contact " +
-                    "psr-resources@imageworks.com to have this show " +
+                    "administrator of your OpenCue deployment to have this show " +
                     "created.");
         }
     }
