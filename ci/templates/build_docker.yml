@@ -48,9 +48,9 @@ steps:
     # Create a temporary container from the runtime image but don't start it -- it's just
     # used to extract the packaged component for archiving and later release.
     container_id=$(docker create ${runtime_image_for_build_id})
-    
+
     artifacts="${{ parameters.artifactPaths }}"
-    
+
     for artifact in $artifacts; do
         docker cp $container_id:${artifact} "$(ARTIFACT_DIRECTORY)/"
     done
