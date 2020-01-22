@@ -35,6 +35,7 @@ import cuegui.SplashWindow
 import cuegui.Style
 import cuegui.ThreadPool
 import cuegui.Utils
+import cuegui.GarbageCollector
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -120,7 +121,10 @@ def startup(app_name, app_version, argv):
 
     # End splash screen
     splash.hide()
-
+    
+    # TODO(#609) Refactor the CueGUI classes to make this garbage collector
+    #   replacement unnecessary.
+    gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)
     app.aboutToQuit.connect(closingTime)
     app.exec_()
 
