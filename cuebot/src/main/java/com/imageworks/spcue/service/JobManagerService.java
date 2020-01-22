@@ -338,6 +338,11 @@ public class JobManagerService implements JobManager {
         return layerDao.getLayer(id);
     }
 
+    @Transactional(propagation = Propagation.REQUIRED)
+    public void updateJobState(JobInterface job, JobState state) {
+        jobDao.updateState(job, state);
+    }
+
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public FrameDetail getFrameDetail(String id) {
         return frameDao.getFrameDetail(id);

@@ -44,6 +44,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.rqd.RqdClient;
@@ -432,6 +433,10 @@ public class JobManagerSupport {
                 (LayerInterface) frame, false)) {
             dependManager.unsatisfyDepend(depend);
         }
+
+        // set the job back to pending.
+        jobManager.updateJobState(jobManager.getJob(frame.getJobId()), JobState.PENDING);
+
     }
 
     /**

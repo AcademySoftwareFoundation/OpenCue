@@ -37,6 +37,7 @@ import com.imageworks.spcue.ThreadStats;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.util.FrameSet;
 
@@ -224,6 +225,15 @@ public interface JobManager {
      * @param state
      */
     public void updateFrameState(FrameInterface frame, FrameState state);
+
+    /**
+     * Updates specified job to new state.
+     *
+     * @param job
+     * @param state
+     */
+    public void updateJobState(JobInterface job, JobState state);
+
 
     /**
      * Reorders the specified layer.
