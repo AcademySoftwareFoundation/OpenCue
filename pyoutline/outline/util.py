@@ -23,6 +23,7 @@ from __future__ import division
 from builtins import str
 import getpass
 import os
+import platform
 
 import FileSequence
 
@@ -108,16 +109,21 @@ def get_shot():
 
 
 def get_user():
-    """A shortcut for getting the shot from the environment.
-
-    Raises an Exception if the shot environment is not found
-    alluding to a setshot error.
     """
-    return os.environ.get('USER', getpass.getuser())
+    Returns the current username
+    """
+    if platform.system() == 'Windows':
+        domain = os.environ.get('USERDOMAIN', None)
+        user = getpass.getuser()
+        return '{}\\{}'.format(domain, user) if domain else user
 
+    return os.environ.get('USER', getpass.getuser())
 
 def get_uid():
     """
     Return the current users id
     """
+    if platform.system() == 'Windows':
+        return 12345  # TODO: this value is currently not used, but it might be in future
+
     return os.getuid()

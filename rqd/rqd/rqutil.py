@@ -25,22 +25,23 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
-import crypt
 import functools
-import grp
 import os
 import platform
-import pwd
 import random
 import socket
 import subprocess
 import threading
+import uuid
 
 import rqd.rqconstants
 
+if platform.system() != 'Windows':
+    import pwd
+    import grp
 
-PERMISSIONS = threading.Lock()
-HIGH_PERMISSION_GROUPS = os.getgroups()
+    PERMISSIONS = threading.Lock()
+    HIGH_PERMISSION_GROUPS = os.getgroups()
 
 
 class Memoize(object):
@@ -132,7 +133,7 @@ def checkAndCreateUser(username):
     except KeyError:
         subprocess.check_call([
             'useradd',
-            '-p', crypt.crypt(username, str(random.randint(1, 10000))),
+            '-p', str(uuid.uuid4()), # generate a random password
             username
         ])
 

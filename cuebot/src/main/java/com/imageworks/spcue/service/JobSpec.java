@@ -101,9 +101,6 @@ public class JobSpec {
 
     public static final String DEFAULT_SERVICE = "default";
 
-    // The default value for a job's OS property.
-    public static final String DEFAULT_OS = "Linux";
-
     private List<BuildableJob> jobs = new ArrayList<BuildableJob>();
 
     private List<BuildableDependency> depends = new ArrayList<BuildableDependency>();
@@ -280,7 +277,7 @@ public class JobSpec {
         job.user = user;
         job.uid = uid;
         job.email = email;
-        job.os = DEFAULT_OS;
+        job.os = null; // default to no OS specified
         job.showName = show;
         job.facilityName = facility;
         job.deptName = jobTag.getChildTextTrim("dept");

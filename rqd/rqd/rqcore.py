@@ -110,11 +110,18 @@ class FrameAttendantThread(threading.Thread):
         @param command: The command specified in the runFrame request
         @rtype:  string
         @return: Command file location"""
+        # TODO: this should use tempfile to create the files and clean them up afterwards
         try:
             if platform.system() == "Windows":
+                rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')
+                try:
+                    os.mkdir(rqd_tmp_dir)
+                except FileExistsError:
+                    pass  # okay, already exists
+
                 commandFile = os.path.join(
-                    'C:\\temp',
-                    'rqd-cmd-%s-%s.bat' % (self.runFrame.frame_id, time.time()))
+                    rqd_tmp_dir,
+                    'cmd-%s-%s.bat' % (self.runFrame.frame_id, time.time()))
             else:
                 commandFile = os.path.join(tempfile.gettempdir(),
                                            'rqd-cmd-%s-%s' % (self.runFrame.frame_id, time.time()))
@@ -301,10 +308,6 @@ class FrameAttendantThread(threading.Thread):
         self.__writeFooter()
         self.__cleanup()
 
-    def runWin32(self):
-        """The steps required to handle a frame under windows"""
-        pass
-
     def runWindows(self):
         """The steps required to handle a frame under windows"""
         frameInfo = self.frameInfo
@@ -409,13 +412,6 @@ class FrameAttendantThread(threading.Thread):
 
         runFrame = self.runFrame
 
-        # TODO(bcipriano) Don't use a special log path on Windows. The log directory should come
-        #   from the job submission as it does for other jobs.
-        # Windows has a special log path
-        if platform.system() == "Windows":
-            runFrame.log_dir = '//intrender/render/logs/%s--%s' % (runFrame.job_name,
-                                                                   runFrame.job_id)
-
         try:
             runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
                                                  runFrame.job_name)
@@ -488,8 +484,6 @@ class FrameAttendantThread(threading.Thread):
 
                 if platform.system() == "Linux":
                     self.runLinux()
-                elif platform.system() == "win32":
-                    self.runWin32()
                 elif platform.system() == "Windows":
                     self.runWindows()
                 elif platform.system() == "Darwin":
@@ -591,6 +585,7 @@ class RqCore(object):
         log.warning('RQD Started')
 
     def onInterval(self, sleepTime=None):
+
         """This is called by self.grpcConnected as a timer thread to execute
            every interval"""
         if sleepTime is None:
