@@ -46,4 +46,6 @@ ENV grpc_rqd_port ${CUEBOT_GRPC_RQD_PORT}
 
 EXPOSE $grpc_cue_port
 
+RUN echo "foo"
+
 ENTRYPOINT ["java", "-jar", "/opt/opencue/cuebot-latest.jar"]
