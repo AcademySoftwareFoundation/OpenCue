@@ -12,6 +12,9 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
+RUN pip install --upgrade setuptools
+RUN pip3.6 install --upgrade setuptools
+
 WORKDIR /opt/opencue
 
 COPY LICENSE ./
