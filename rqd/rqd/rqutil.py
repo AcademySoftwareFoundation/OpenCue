@@ -115,7 +115,7 @@ def permissionsUser(uid, gid):
 
 def __becomeRoot():
     """Sets the effective gid/uid to the initial privileged settings"""
-    if os.getegid() != os.getgid() or os.getegid() != os.getuid():
+    if os.getegid() != os.getgid() or os.geteuid() != os.getuid():
         os.setegid(os.getgid())
         os.seteuid(os.getuid())
         try:
