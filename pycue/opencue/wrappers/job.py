@@ -24,6 +24,7 @@ Module: job.py - opencue Library implementation of a job
 import enum
 import os
 import time
+from typing import Optional
 
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2
@@ -390,9 +391,9 @@ class Job(object):
     def uid(self):
         """Returns the uid of the person who owns the job.
 
-        :rtype:  int
+        :rtype:  Optional[int]
         :return: Uid of job owner"""
-        return self.data.uid
+        return self.data.uid if self.data.HasField("uid") else None
 
     def user(self):
         """Returns the username of the person who owns the job.
