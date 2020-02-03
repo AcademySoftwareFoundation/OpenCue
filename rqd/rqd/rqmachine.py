@@ -375,6 +375,48 @@ class Machine(object):
             return "/mcp/"
         return '%s/' % tempfile.gettempdir()
 
+    @rqd.rqutil.Memoize
+    def __getWindowsSocketCount(self):
+        """Counts the actual number of physical CPUs on Windows"""
+
+        import ctypes
+
+        # see: https://docs.microsoft.com/en-nz/windows/win32/api/winnt/ns-winnt-system_logical_processor_information_ex
+        class SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX(ctypes.Structure):
+            _fields_ = [
+                ("Relationship", ctypes.c_int),
+                ("Size", ctypes.c_ulong),
+                # ignore other fields, we don't need them
+            ]
+
+        # see: https://docs.microsoft.com/en-nz/windows/win32/api/sysinfoapi/nf-sysinfoapi-getlogicalprocessorinformationex
+        glpie = ctypes.windll.kernel32.GetLogicalProcessorInformationEx
+        glpie.argtypes = [ctypes.c_int, ctypes.POINTER(ctypes.c_byte), ctypes.POINTER(ctypes.c_ulong)]
+        glpie.restype = ctypes.c_int  # Win32 BOOL is an int
+
+        # find required buffer size by invoking with NULL buffer:
+        buffer_size = ctypes.c_ulong(0)
+        relationship_type = 3  # 3 == RelationProcessorPackage
+        if glpie(relationship_type, None, ctypes.byref(buffer_size)) == 0:
+            if ctypes.GetLastError() != 122:
+                # 122 = ERROR_INSUFFICIENT_BUFFER, which is expected for this call
+                raise Exception(ctypes.FormatError())
+
+        # allocate required buffer size & re-invoke:
+        buffer = (ctypes.c_byte * buffer_size.value)()
+        if glpie(relationship_type, buffer, ctypes.byref(buffer_size)) == 0:
+            raise Exception(ctypes.FormatError())
+
+        # count the items in the resulting array; this will be the number of physical processors:
+        offset = 0
+        num_procs = 0
+        while offset < buffer_size.value:
+            num_procs += 1
+            proc_info = SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX.from_buffer(buffer, offset)
+            offset += proc_info.Size
+
+        return num_procs
+
     def reboot(self):
         """Reboots the machine immediately"""
         if platform.system() == "Linux":
@@ -463,7 +505,7 @@ class Machine(object):
             hyperthreadingMultiplier = logical_core_count // actual_core_count
 
             __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
-            __numProcs = 1  # TODO: figure out how to count sockets in Python
+            __numProcs = self.__getWindowsSocketCount()
 
 
         # All other systems will just have one proc/core
