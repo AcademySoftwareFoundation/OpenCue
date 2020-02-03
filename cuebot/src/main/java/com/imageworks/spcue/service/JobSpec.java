@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -63,7 +64,7 @@ public class JobSpec {
 
     private String email;
 
-    private int uid;
+    private Optional<Integer> uid;
 
     private int totalFrames = 0;
 
@@ -194,13 +195,14 @@ public class JobSpec {
         if (facility != null) {
             facility = facility.toLowerCase();
         }
+
         show = rootElement.getChildTextTrim("show");
         shot = rootElement.getChildTextTrim("shot");
         user = rootElement.getChildTextTrim("user");
-        uid = Integer.parseInt(rootElement.getChildTextTrim("uid"));
+        uid = Optional.ofNullable(rootElement.getChildTextTrim("uid")).map(Integer::parseInt);
         email = rootElement.getChildTextTrim("email");
 
-        if (user == "root" || uid == 0) {
+        if (user == "root" || uid.equals(Optional.of(0))) {
             throw new SpecBuilderException("Cannot launch jobs as root.");
         }
     }
@@ -214,6 +216,7 @@ public class JobSpec {
         if (elements == null) {
             return;
         }
+
         for (Object tmpElement : elements) {
             Element jobElement = (Element) tmpElement;
             jobs.add(handleJobTag(jobElement));
@@ -880,7 +883,7 @@ public class JobSpec {
         return show;
     }
 
-    public int getUid() {
+    public Optional<Integer> getUid() {
         return uid;
     }
 

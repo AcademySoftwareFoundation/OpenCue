@@ -546,7 +546,9 @@ message Job {
     string group = 7;
     string facility = 8;
     string os = 9;
-    int32 uid = 10;
+    oneof uid_optional {
+        int32 uid = 10;
+    }
     int32 priority = 11;
     float min_cores = 12;
     float max_cores = 13;
@@ -680,7 +682,9 @@ message NestedJob {
     string group = 7;
     string facility = 8;
     string os = 9;
-    int32 uid = 10;
+    oneof uid_optional {
+        int32 uid = 10;
+    }
     int32 priority = 11;
     float min_cores = 12;
     float max_cores = 13;
