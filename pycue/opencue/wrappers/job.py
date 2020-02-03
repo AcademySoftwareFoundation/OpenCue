@@ -24,7 +24,6 @@ Module: job.py - opencue Library implementation of a job
 import enum
 import os
 import time
-from typing import Optional
 
 from opencue import Cuebot
 from opencue.compiled_proto import comment_pb2

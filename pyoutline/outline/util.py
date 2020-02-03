@@ -21,7 +21,6 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
-from typing import Optional
 
 import getpass
 import os
@@ -122,7 +121,7 @@ def get_user():
     return os.environ.get('USER', getpass.getuser())
 
 
-def get_uid():  # type: () -> Optional[int]
+def get_uid():
     """
     Return the current users id
     """
