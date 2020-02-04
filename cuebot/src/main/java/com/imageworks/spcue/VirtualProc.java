@@ -127,18 +127,11 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
                 proc.coresReserved = wholeCores * 100;
             } else {
                 if (frame.threadable) {
-                    // The following condition checks to see if the service being invoked is arnold. If it is, take up all the remaining
-                    // cores.
-                    if ("arnold".equals(frame.services)) {
+                    if (host.idleMemory - frame.minMemory
+                            <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
                         proc.coresReserved = wholeCores * 100;
                     } else {
-                        if (host.idleMemory - frame.minMemory
-                                <= Dispatcher.MEM_STRANDED_THRESHHOLD) {
-                            proc.coresReserved = wholeCores * 100;
-                        }
-                        else {
-                            proc.coresReserved = getCoreSpan(host, frame.minMemory);
-                        }
+                        proc.coresReserved = getCoreSpan(host, frame.minMemory);
                     }
 
                     if (host.threadMode == ThreadMode.VARIABLE_VALUE

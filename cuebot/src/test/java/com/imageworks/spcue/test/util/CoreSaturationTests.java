@@ -40,23 +40,6 @@ public class CoreSaturationTests extends TestCase {
 
     public void testCoreAndMemorySaturation1() {
         host.memory = CueUtil.GB32;
-        host.idleMemory = CueUtil.GB16;
-        host.cores = 800;
-        host.idleCores = 700;
-
-        DispatchFrame frame = new DispatchFrame();
-        frame.services = "arnold";
-        frame.minCores = 100;
-        frame.minMemory = CueUtil.GB;
-        frame.threadable = true;
-
-        VirtualProc proc = VirtualProc.build(host, frame);
-        assertEquals(700, proc.coresReserved);
-        assertEquals(CueUtil.GB, proc.memoryReserved);
-    }
-
-    public void testCoreAndMemorySaturation2() {
-        host.memory = CueUtil.GB32;
         host.idleMemory = CueUtil.GB8;
         host.cores = 800;
         host.idleCores = 700;
