@@ -518,8 +518,8 @@ class FilterWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, object, parent)
         self.updateWidgets()
 
-    def setType(self, text):
-        self.rpcObject.setType(getattr(opencue.api.filter_pb2, str(text)))
+    def setType(self, filterType):
+        self.rpcObject.setType(filterType)
 
     def setEnabled(self, value):
         self.rpcObject.setEnabled(bool(value))
@@ -551,7 +551,7 @@ class FilterWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             combo.currentIndexChanged.connect(self.setType)
             self.__widgets["type"] = combo
 
-        self.__widgets["type"].setCurrentIndex(FILTERTYPE.index(str(self.rpcObject.type())))
+        self.__widgets["type"].setCurrentIndex(self.rpcObject.type())
         if self.rpcObject.isEnabled():
             state = QtCore.Qt.Checked
         else:
@@ -570,11 +570,11 @@ class MatcherWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, object, parent)
         self.updateWidgets()
 
-    def setType(self, text):
-        self.rpcObject.setType(getattr(opencue.api.filter_pb2, str(text)))
+    def setType(self, matcherType):
+        self.rpcObject.setType(matcherType)
 
-    def setSubject(self, text):
-        self.rpcObject.setSubject(getattr(opencue.api.filter_pb2, str(text)))
+    def setSubject(self, matcherSubject):
+        self.rpcObject.setSubject(matcherSubject)
 
     def setInput(self):
         text = str(self.__widgets["input"].text())
@@ -621,8 +621,8 @@ class MatcherWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             btn.clicked.connect(self.delete)
             self.__widgets["delete"]  = btn
 
-        self.__widgets["subject"].setCurrentIndex(MATCHSUBJECT.index(str(self.rpcObject.subject())))
-        self.__widgets["type"].setCurrentIndex(MATCHTYPE.index(str(self.rpcObject.type())))
+        self.__widgets["subject"].setCurrentIndex(self.rpcObject.subject())
+        self.__widgets["type"].setCurrentIndex(self.rpcObject.type())
         # Only update input if user is not currently editing the value
         if not self.__widgets["input"].hasFocus() or \
            not self.__widgets["input"].isModified():
