@@ -26,6 +26,7 @@ from builtins import str
 from builtins import map
 import getpass
 import os
+import platform
 import re
 import subprocess
 import sys
@@ -269,7 +270,7 @@ def checkShellOut(cmdList, lockGui=False):
     @type: bool
     @param: True will lock the gui while the cmd is executed, otherwise it is run in the background.
     """
-    if not lockGui:
+    if not lockGui and platform.system() != "Windows":
         cmdList.append('&')
     try:
         subprocess.check_call(cmdList)
