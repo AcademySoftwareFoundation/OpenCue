@@ -37,7 +37,7 @@ class MEMORYSTATUSEX(ctypes.Structure):
         super(MEMORYSTATUSEX, self).__init__()
 
 
-def _getWindowsSocketCount():
+def _getWindowsProcessorCount():
     """Counts the actual number of physical CPUs on Windows"""
 
     # see: https://docs.microsoft.com/en-nz/windows/win32/api/winnt/ns-winnt-system_logical_processor_information_ex
@@ -80,7 +80,7 @@ def _getWindowsSocketCount():
 class WindowsPlatform(rqplatform.Platform):
     def __init__(self):
         self.__windowsStat = MEMORYSTATUSEX()
-        self.__socketCount = _getWindowsSocketCount()
+        self.__socketCount = _getWindowsProcessorCount()
 
     def getHostname(self) -> str:
         return socket.gethostname()
