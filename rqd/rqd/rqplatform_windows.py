@@ -59,12 +59,12 @@ def _getWindowsProcessorCount():
     if glpie(relationship_type, None, ctypes.byref(buffer_size)) == 0:
         if ctypes.GetLastError() != 122:
             # 122 = ERROR_INSUFFICIENT_BUFFER, which is expected for this call
-            raise Exception(ctypes.FormatError())
+            raise RuntimeError(ctypes.FormatError())
 
     # allocate required buffer size & re-invoke:
     buffer = (ctypes.c_byte * buffer_size.value)()
     if glpie(relationship_type, buffer, ctypes.byref(buffer_size)) == 0:
-        raise Exception(ctypes.FormatError())
+        raise RuntimeError(ctypes.FormatError())
 
     # count the items in the resulting array; this will be the number of physical processors:
     offset = 0
