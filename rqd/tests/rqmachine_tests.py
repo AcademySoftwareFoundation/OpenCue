@@ -29,6 +29,8 @@ import rqd.rqconstants
 import rqd.rqcore
 import rqd.rqmachine
 import rqd.rqnetwork
+import rqd.rqplatform
+from rqd.rqplatform_linux import LinuxPlatform
 import rqd.rqnimby
 import rqd.rqutil
 import rqd.compiled_proto.host_pb2
@@ -418,17 +420,17 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_reserveHT(self):
         cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
-        self.fs.add_real_file(cpuInfo)
-        self.machine.testInitMachineStats(cpuInfo)
+        with mock.patch.object(rqd.rqplatform, 'current_platform', return_value=LinuxPlatform(cpuInfo)):
+            self.fs.add_real_file(cpuInfo)
 
-        self.machine.setupHT()
-        tasksets = self.machine.reserveHT(300)
+            self.machine.setupHT()
+            tasksets = self.machine.reserveHT(300)
 
-        self.assertEqual('0,8,1,9,2,10', tasksets)
+            self.assertEqual('0,8,1,9,2,10', tasksets)
 
-        self.machine.releaseHT(tasksets)
+            self.machine.releaseHT(tasksets)
 
-        self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
+            self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
 
 
 class CpuinfoTests(unittest.TestCase):
@@ -466,20 +468,21 @@ class CpuinfoTests(unittest.TestCase):
     def test_srdsvr09(self):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
-    def __cpuinfoTestHelper(self, pathCpuInfo):
+    def __test(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
-        pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
-        renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
-        totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
-        self.assertEqual(renderHost.num_procs, int(numProcs))
-        self.assertEqual(renderHost.cores_per_proc, int(coresPerProc) * 100)
-        self.assertEqual(coreInfo.total_cores, int(totalCores) * 100)
-        self.assertEqual(coreInfo.idle_cores, int(totalCores) * 100)
-        self.assertEqual(coreInfo.locked_cores, 0)
-        self.assertEqual(coreInfo.booked_cores, 0)
-        if '_ht_' in pathCpuInfo:
-            self.assertEqual(
-                renderHost.attributes['hyperthreadingMultiplier'], pathCpuInfo.split('-')[3])
+        with mock.patch.object(rqd.rqplatform, 'current_platform', return_value=LinuxPlatform(pathCpuInfo)):
+            renderHost = self.rqd.machine.__renderHost
+            coreInfo = self.rqd.machine.__coreInfo
+            totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
+            self.assertEqual(renderHost.num_procs, int(numProcs))
+            self.assertEqual(renderHost.cores_per_proc, int(coresPerProc) * 100)
+            self.assertEqual(coreInfo.total_cores, int(totalCores) * 100)
+            self.assertEqual(coreInfo.idle_cores, int(totalCores) * 100)
+            self.assertEqual(coreInfo.locked_cores, 0)
+            self.assertEqual(coreInfo.booked_cores, 0)
+            if '_ht_' in pathCpuInfo:
+                self.assertEqual(
+                    renderHost.attributes['hyperthreadingMultiplier'], pathCpuInfo.split('-')[3])
 
 
 if __name__ == '__main__':
