@@ -159,7 +159,7 @@ CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
-@mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
+@mock.patch('rqd.rqplatform_base.Platform.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
@@ -301,15 +301,16 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
             {'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]},
             eval(updatedFrameInfo.attributes['ptree']))
 
-    @mock.patch.object(
-        rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
+    # Test load avg on a machine without hyper-threading:
+    @mock.patch('rqd.rqplatform.current_platform', LinuxPlatform(os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_8-4-2')))
     def test_getLoadAvg(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
         self.assertEqual(2038, self.machine.getLoadAvg())
 
-    @mock.patch.object(
-        rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
+    # Test load avg on a machine with hyper-threading:
+    # (Should be half the above value, with 2 HTs)
+    @mock.patch('rqd.rqplatform.current_platform', LinuxPlatform(os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')))
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
@@ -323,24 +324,20 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch(
         'subprocess.getoutput',
         new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    @mock.patch('rqd.rqconstants.ALLOW_GPU', True)
+    # Test with new platform to clear cached GPU information:
+    @mock.patch('rqd.rqplatform.current_platform', LinuxPlatform())
     def test_getGpuMemoryTotal(self):
-        if hasattr(self.machine, 'gpuNotSupported'):
-            delattr(self.machine, 'gpuNotSupported')
-        if hasattr(self.machine, 'gpuResults'):
-            delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
 
         self.assertEqual(1048576, self.machine.getGpuMemoryTotal())
 
     @mock.patch(
         'subprocess.getoutput',
         new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    @mock.patch('rqd.rqconstants.ALLOW_GPU', True)
+    # Test with new platform to clear cached GPU information:
+    @mock.patch('rqd.rqplatform.current_platform', LinuxPlatform())
     def test_getGpuMemory(self):
-        if hasattr(self.machine, 'gpuNotSupported'):
-            delattr(self.machine, 'gpuNotSupported')
-        if hasattr(self.machine, 'gpuResults'):
-            delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
 
         self.assertEqual(991232, self.machine.getGpuMemory())
 
@@ -370,6 +367,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch(
         'subprocess.getoutput',
         new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
+    @mock.patch('rqd.rqconstants.ALLOW_GPU', True)
+    # Test with new platform to clear cached GPU information:
+    @mock.patch('rqd.rqplatform.current_platform', LinuxPlatform())
     def test_getHostInfo(self):
         hostInfo = self.machine.getHostInfo()
 
@@ -377,7 +377,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(25699176, hostInfo.free_mem)
         self.assertEqual('991232', hostInfo.attributes['freeGpu'])
         self.assertEqual('0', hostInfo.attributes['swapout'])
-        self.assertEqual(25, hostInfo.load)
+        self.assertEqual(12, hostInfo.load)
         self.assertEqual(False, hostInfo.nimby_enabled)
         self.assertEqual(False, hostInfo.nimby_locked)
         self.assertEqual(rqd.compiled_proto.host_pb2.UP, hostInfo.state)
@@ -420,8 +420,10 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_reserveHT(self):
         cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
-        with mock.patch.object(rqd.rqplatform, 'current_platform', return_value=LinuxPlatform(cpuInfo)):
-            self.fs.add_real_file(cpuInfo)
+        self.fs.add_real_file(cpuInfo)
+        with mock.patch('rqd.rqplatform.current_platform', LinuxPlatform(cpuInfo)):
+            # recreate machine as it has cached platform values:
+            self.machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
 
             self.machine.setupHT()
             tasksets = self.machine.reserveHT(300)
@@ -434,9 +436,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
 
 class CpuinfoTests(unittest.TestCase):
-
-    def setUp(self):
-        self.rqd = rqd.rqcore.RqCore()
 
     def test_shark(self):
         self.__cpuinfoTestHelper('_cpuinfo_shark_ht_8-4-2-2')
@@ -468,11 +467,13 @@ class CpuinfoTests(unittest.TestCase):
     def test_srdsvr09(self):
         self.__cpuinfoTestHelper('_cpuinfo_srdsvr09_48-12-4')
 
-    def __test(self, pathCpuInfo):
+    def __cpuinfoTestHelper(self, pathCpuInfo):
         # File format: _cpuinfo_dub_x-x-x where x-x-x is totalCores-coresPerProc-numProcs
-        with mock.patch.object(rqd.rqplatform, 'current_platform', return_value=LinuxPlatform(pathCpuInfo)):
-            renderHost = self.rqd.machine.__renderHost
-            coreInfo = self.rqd.machine.__coreInfo
+        pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
+        with mock.patch('rqd.rqplatform.current_platform', LinuxPlatform(pathCpuInfo)):
+            core = rqd.rqcore.RqCore()
+            renderHost = core.machine.getHostInfo()
+            coreInfo = core.machine.getCoreInfo()
             totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
             self.assertEqual(renderHost.num_procs, int(numProcs))
             self.assertEqual(renderHost.cores_per_proc, int(coresPerProc) * 100)

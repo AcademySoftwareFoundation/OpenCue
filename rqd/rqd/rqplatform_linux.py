@@ -29,7 +29,7 @@ class LinuxPlatform(rqplatform_unix.UnixPlatform):
         self.__vmstat = rqswap.VmStat()
 
         cpuInfo = super(LinuxPlatform, self).getCpuInfo()
-        self.__hyperthreadingMultipler = cpuInfo.hyperthreading_multiplier
+        self.__hyperthreadingMultiplier = cpuInfo.hyperthreading_multiplier
 
     def getMemoryInfo(self):  # type: () -> rqplatform_base.MemoryInfo
         total_mem = 0
@@ -72,7 +72,7 @@ class LinuxPlatform(rqplatform_unix.UnixPlatform):
     def getLoadAvg(self):  # type: () -> int
         loadAvgFile = open(rqconstants.PATH_LOADAVG, "r")
         loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
-        loadAvg = loadAvg // self.__hyperthreadingMultipler
+        loadAvg = loadAvg // self.__hyperthreadingMultiplier
         loadAvg = loadAvg + rqconstants.LOAD_MODIFIER
         loadAvg = max(loadAvg, 0)
         return loadAvg
