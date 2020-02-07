@@ -12,7 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from . import rqplatform
+from . import rqplatform_base
 from . import rqplatform_unix
 
 import re
@@ -21,10 +21,10 @@ import subprocess
 
 class DarwinPlatform(rqplatform_unix.UnixPlatform):
 
-    def __init__(self, pathCpuInfo: str = None):
-        super().__init__(pathCpuInfo)
+    def __init__(self, pathCpuInfo=None):  # type: (Optional[str]) -> None
+        super(DarwinPlatform, self).__init__(pathCpuInfo)
 
-    def getMemoryInfo(self) -> rqplatform.MemoryInfo:
+    def getMemoryInfo(self):  # type: () -> rqplatform_base.MemoryInfo
         memsizeOutput = subprocess.getoutput('sysctl hw.memsize').strip()
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
@@ -54,7 +54,7 @@ class DarwinPlatform(rqplatform_unix.UnixPlatform):
 
         gpu_values = self._getGpuValues()
 
-        return rqplatform.MemoryInfo(
+        return rqplatform_base.MemoryInfo(
             total_mem=total_mem,
             free_mem=freeMemory + inactiveMemory,
             total_swap=0,  # TODO
@@ -63,8 +63,8 @@ class DarwinPlatform(rqplatform_unix.UnixPlatform):
             free_gpu=gpu_values['free'],
             swap_out=0)  # TODO
 
-    def getLoadAvg(self) -> int:
+    def getLoadAvg(self):  # type: () -> int
         return 0  # TODO
 
-    def getBootTime(self) -> int:
+    def getBootTime(self):  # type: () -> int
         return 0  # TODO

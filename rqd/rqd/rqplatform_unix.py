@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 from . import rqconstants
-from . import rqplatform
+from . import rqplatform_base
 from . import rqutil
 
 import logging as log
@@ -28,13 +28,13 @@ import traceback
 KILOBYTE = 1024
 
 
-class UnixPlatform(rqplatform.Platform):
+class UnixPlatform(rqplatform_base.Platform):
     """Base for shared implementations between Linux/Darwin."""
 
-    def __init__(self, pathCpuInfo: str = None):
+    def __init__(self, pathCpuInfo=None):  # type: (Optional[str]) -> None
         self.__pathCpuInfo = pathCpuInfo or rqconstants.PATH_CPUINFO
 
-    def getHostname(self) -> str:
+    def getHostname(self):  # type: () -> str
         if rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return rqutil.getHostIp()
         else:
@@ -69,7 +69,7 @@ class UnixPlatform(rqplatform.Platform):
                             (e, traceback.extract_tb(sys.exc_info()[2])))
         return self.gpuResults
 
-    def getCpuInfo(self) -> rqplatform.CpuInfo:
+    def getCpuInfo(self):  # type: () -> rqplatform_base.CpuInfo
         totalCores = 0
         numProcs = 0
         hyperthreadingMultiplier = 1
@@ -102,4 +102,4 @@ class UnixPlatform(rqplatform.Platform):
                 elif len(lineList) == 1:
                     singleCore[lineList[0]] = ""
 
-        return rqplatform.CpuInfo(totalCores, numProcs, hyperthreadingMultiplier)
+        return rqplatform_base.CpuInfo(totalCores, numProcs, hyperthreadingMultiplier)

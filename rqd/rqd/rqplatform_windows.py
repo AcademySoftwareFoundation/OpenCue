@@ -16,7 +16,7 @@ import ctypes
 import psutil
 import socket
 
-from . import rqplatform
+from . import rqplatform_base
 
 
 # From http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
@@ -77,19 +77,19 @@ def _getWindowsProcessorCount():
     return num_procs
 
 
-class WindowsPlatform(rqplatform.Platform):
+class WindowsPlatform(rqplatform_base.Platform):
     def __init__(self):
         self.__windowsStat = MEMORYSTATUSEX()
         self.__socketCount = _getWindowsProcessorCount()
 
-    def getHostname(self) -> str:
+    def getHostname(self):  # type: () -> str
         return socket.gethostname()
 
-    def getMemoryInfo(self) -> rqplatform.MemoryInfo:
+    def getMemoryInfo(self):  # type: () -> rqplatform_base.MemoryInfo
         stats = MEMORYSTATUSEX()
         ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stats))
 
-        return rqplatform.MemoryInfo(
+        return rqplatform_base.MemoryInfo(
             total_mem=int(stats.ullTotalPhys / 1024),
             free_mem=int(stats.ullAvailPhys / 1024),
             total_swap=int(stats.ullTotalPageFile / 1024),
@@ -99,18 +99,18 @@ class WindowsPlatform(rqplatform.Platform):
             swap_out=0,
         )
 
-    def getCpuInfo(self) -> rqplatform.CpuInfo:
+    def getCpuInfo(self):  # type: () -> rqplatform_base.CpuInfo
         total_cores = psutil.cpu_count(logical=True)
         physical_cores = psutil.cpu_count(logical=False)
         hyperthreading_multiplier = total_cores // physical_cores
 
-        return rqplatform.CpuInfo(
+        return rqplatform_base.CpuInfo(
             total_cores,
             self.__socketCount,
             hyperthreading_multiplier)
 
-    def getLoadAvg(self) -> int:
+    def getLoadAvg(self):  # type: () -> int
         return 0  # TODO
 
-    def getBootTime(self) -> int:
+    def getBootTime(self): # type: () -> int
         return 0  # TODO

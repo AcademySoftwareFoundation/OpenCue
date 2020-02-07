@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 from . import rqconstants
-from . import rqplatform
+from . import rqplatform_base
 from . import rqplatform_unix
 from . import rqswap
 
@@ -23,14 +23,20 @@ KILOBYTE = 1024
 
 class LinuxPlatform(rqplatform_unix.UnixPlatform):
 
-    def __init__(self, pathCpuInfo: str = None):
-        super().__init__(pathCpuInfo)
+    def __init__(self, pathCpuInfo=None):  # type: (Optional[str]) -> None
+        super(LinuxPlatform, self).__init__(pathCpuInfo)
+
         self.__vmstat = rqswap.VmStat()
 
-        cpuInfo = super().getCpuInfo()
+        cpuInfo = super(LinuxPlatform, self).getCpuInfo()
         self.__hyperthreadingMultipler = cpuInfo.hyperthreading_multiplier
 
-    def getMemoryInfo(self) -> rqplatform.MemoryInfo:
+    def getMemoryInfo(self):  # type: () -> rqplatform_base.MemoryInfo
+        total_mem = 0
+        freeMem = 0
+        totalSwapMem = 0
+        freeSwapMem = 0
+        cachedMem = 0
 
         # Reads dynamic information from /proc/meminfo:
         with open(rqconstants.PATH_MEMINFO, "r") as fp:
@@ -48,7 +54,7 @@ class LinuxPlatform(rqplatform_unix.UnixPlatform):
 
         gpu_values = self._getGpuValues()
 
-        return rqplatform.MemoryInfo(
+        return rqplatform_base.MemoryInfo(
             total_mem=total_mem,
             free_mem=freeMem + cachedMem,
             total_swap=totalSwapMem,
@@ -63,7 +69,7 @@ class LinuxPlatform(rqplatform_unix.UnixPlatform):
         except:
             return str(0)
 
-    def getLoadAvg(self) -> int:
+    def getLoadAvg(self):  # type: () -> int
         loadAvgFile = open(rqconstants.PATH_LOADAVG, "r")
         loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
         loadAvg = loadAvg // self.__hyperthreadingMultipler
@@ -71,7 +77,7 @@ class LinuxPlatform(rqplatform_unix.UnixPlatform):
         loadAvg = max(loadAvg, 0)
         return loadAvg
 
-    def getBootTime(self) -> int:
+    def getBootTime(self):  # type: () -> int
         statFile = open(rqconstants.PATH_STAT, "r")
         for line in statFile:
             if line.startswith("btime"):

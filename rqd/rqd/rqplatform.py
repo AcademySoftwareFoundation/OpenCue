@@ -12,81 +12,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-from abc import ABC, abstractmethod
+
 import logging as log
-import os
 import platform
-import shutil
-import tempfile
 
 from . import rqconstants
+from . import rqplatform_base
 
 
-class CpuInfo(object):
-    """Contains static CPU information."""
-    def __init__(self, logical_cores, physical_cpus, hyperthreading_multiplier):
-        self.logical_cores = logical_cores
-        self.physical_cpus = physical_cpus
-        self.hyperthreading_multiplier = hyperthreading_multiplier
-
-
-class DiskInfo(object):
-    """Contains dynamic disk space for temp path, in kilobytes."""
-    def __init__(self, total_mcp, free_mcp):
-        self.total_mcp = total_mcp
-        self.free_mcp = free_mcp
-
-
-class MemoryInfo(object):
-    """Contains static and dynamic information about memory usage, in bytes."""
-    def __init__(self, total_mem, free_mem, total_swap, free_swap, total_gpu, free_gpu, swap_out):
-        self.total_mem = total_mem
-        self.free_mem = free_mem
-        self.total_swap = total_swap
-        self.free_swap = free_swap
-        self.total_gpu = total_gpu
-        self.free_gpu = free_gpu
-        self.swap_out = swap_out
-
-
-class Platform(ABC):
-    """Abstracts over platform-specific functionality."""
-
-    # Note that these two functions are no longer platform-specific,
-    # but we have them here for consistency with the other operations:
-    def getTempPath(self) -> str:
-        """Returns the correct mcp path for the given machine"""
-        if os.path.isdir("/mcp/"):
-            return "/mcp/"
-        return '%s/' % tempfile.gettempdir()
-
-    def getDiskInfo(self) -> DiskInfo:
-        tmp = self.getTempPath()
-        total, used, free = shutil.disk_usage(tmp)
-        return DiskInfo(total_mcp=(total // 1024), free_mcp=(free // 1024))
-
-    @abstractmethod
-    def getHostname(self) -> str: ...
-
-    @abstractmethod
-    def getMemoryInfo(self) -> MemoryInfo: ...
-
-    @abstractmethod
-    def getCpuInfo(self) -> CpuInfo: ...
-
-    @abstractmethod
-    def getBootTime(self) -> int: ...
-
-    @abstractmethod
-    def getLoadAvg(self) -> int: ...
-
-
-class ApplyConfigOverrides(Platform):
+class ApplyConfigOverrides(rqplatform_base.Platform):
     """Overrides specific values with values from the configuration:"""
-    def __init__(self, inner: Platform):
+    def __init__(self, inner):  # type: (rqplatform_base.Platform) -> ApplyConfigOverrides
         self.__inner = inner
 
-    def getMemoryInfo(self) -> MemoryInfo:
+    def getMemoryInfo(self):  # type: () -> rqplatform_base.MemoryInfo
         mem_info = self.__inner.getMemoryInfo()
 
         if rqconstants.OVERRIDE_MEMORY is not None:
@@ -95,7 +34,7 @@ class ApplyConfigOverrides(Platform):
 
         return mem_info
 
-    def getCpuInfo(self) -> CpuInfo:
+    def getCpuInfo(self):  # type: () -> rqplatform_base.CpuInfo
         cpu_info = self.__inner.getCpuInfo()
 
         if rqconstants.OVERRIDE_CORES is not None:
@@ -108,18 +47,18 @@ class ApplyConfigOverrides(Platform):
 
         return cpu_info
 
-    def getHostname(self) -> str:
+    def getHostname(self):  # type: () -> str
         return self.__inner.getHostname()
 
-    def getLoadAvg(self) -> int:
+    def getLoadAvg(self):  # type: () -> int
         return self.__inner.getLoadAvg()
 
-    def getBootTime(self) -> int:
+    def getBootTime(self):  # type: () -> int
         return self.__inner.getBootTime()
 
 
 # define a globally-accessible instance:
-def create_platform() -> Platform:
+def create_platform():  # type: () -> rqplatform_base.Platform
 
     system = platform.system()
     if system == 'Windows':
