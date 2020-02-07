@@ -24,17 +24,13 @@ from __future__ import division
 
 from builtins import map
 from builtins import str
-import re
 
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
-from opencue.compiled_proto.filter_pb2 import ActionType
-from opencue.compiled_proto.filter_pb2 import FilterType
-from opencue.compiled_proto.filter_pb2 import MatchSubject
-from opencue.compiled_proto.filter_pb2 import MatchType
+import opencue.compiled_proto.filter_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -47,12 +43,12 @@ import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
 
-MATCHSUBJECT = MatchSubject.keys()
+MATCHSUBJECT = opencue.compiled_proto.filter_pb2.MatchSubject.keys()
 DEFAULT_MATCHSUBJECT = MATCHSUBJECT.index('SHOT')
-MATCHTYPE = MatchType.keys()
+MATCHTYPE = opencue.compiled_proto.filter_pb2.MatchType.keys()
 DEFAULT_MATCHTYPE = MATCHTYPE.index('IS')
-ACTIONTYPE = ActionType.keys()
-FILTERTYPE = FilterType.keys()
+ACTIONTYPE = opencue.compiled_proto.filter_pb2.ActionType.keys()
+FILTERTYPE = opencue.compiled_proto.filter_pb2.FilterType.keys()
 PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
 
@@ -233,14 +229,14 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return []
 
     def __getMatcherSubjectDialog(self):
-        return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
-                                              "Please select the type of item to match",
-                                              MatchSubject.keys(), DEFAULT_MATCHSUBJECT, False)
+        return QtWidgets.QInputDialog.getItem(
+            self, "Create Matcher", "Please select the type of item to match",
+            opencue.compiled_proto.filter_pb2.MatchSubject.keys(), DEFAULT_MATCHSUBJECT, False)
 
     def __getMatcherTypeDialog(self):
-        return QtWidgets.QInputDialog.getItem(self, "Create Matcher",
-                                              "Please select the type of match to perform",
-                                              MatchSubject.keys(), DEFAULT_MATCHTYPE, False)
+        return QtWidgets.QInputDialog.getItem(
+            self, "Create Matcher", "Please select the type of match to perform",
+            opencue.compiled_proto.filter_pb2.MatchType.keys(), DEFAULT_MATCHTYPE, False)
 
     def createMatcher(self):
         """Prompts the user to create a new Matcher"""
@@ -309,7 +305,7 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if not dialog.exec_():
             return
 
-        shots = self.__parseShotList(dialog.results().toAscii())
+        shots = self.__parseShotList(dialog.results())
 
         if not shots:
             return
@@ -324,9 +320,10 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 oldMatchers = []
 
             for shot in shots:
-                self.__filter.createMatcher(getattr(MatchSubject, str(matchSubject)),
-                                            getattr(MatchType, str(matchType)),
-                                            shot)
+                self.__filter.createMatcher(
+                    opencue.compiled_proto.filter_pb2.MatchSubject.Value(matchSubject),
+                    opencue.compiled_proto.filter_pb2.MatchType.Value(matchType),
+                    shot)
             if deleteExisting:
                 for matcher in oldMatchers:
                     matcher.delete()
@@ -341,7 +338,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, show, filter, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_ACTION)
         self.addColumn("Action Type", 210, id=1,
-                       data=lambda action:(addSpaces(str(action.type()))))
+                       data=lambda action:(opencue.compiled_proto.filter_pb2.ActionType.Name(action.type())))
         self.addColumn("", 180, id=2)
         self.addColumn("", 20, id=3)
 
@@ -394,8 +391,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Prompts the user to create a new action"""
         if self.__filter:
             (actionType, choice) = QtWidgets.QInputDialog.getItem(
-                self, "Create Action", "Please select the type of action to add:",
-                [addSpaces(action) for action in ACTIONTYPE], 0, False)
+                self, "Create Action", "Please select the type of action to add:", ACTIONTYPE, 0, False)
             if choice:
                 value = None
                 actionType = getattr(opencue.api.filter_pb2, str(actionType).replace(" ", ""))
@@ -676,9 +672,10 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             value = str(widget.text())
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
-            group = self.treeWidget().groupNames[str(value)]
-            if self.rpcObject.value() != group:
-                self.rpcObject.setTypeAndValue(self.rpcObject.type(), group)
+            groupName = list(self.treeWidget().groupNames.keys())[value]
+            group = self.treeWidget().groupNames[groupName]
+            if self.rpcObject.value() != group.id():
+                self.rpcObject.setTypeAndValue(self.rpcObject.type(), group.data)
             return
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
@@ -761,9 +758,9 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__widgets["ActionValue"].setValue(float(str(self.rpcObject.value())))
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
-            name = self.treeWidget().groupIds[self.rpcObject.value()].name()
-            index = list(self.treeWidget().groupNames.keys()).index(name)
-            self.__widgets["ActionValue"].setCurrentIndex(index)
+            groupName = self.treeWidget().groupIds[self.rpcObject.value()].name()
+            listIndex = list(self.treeWidget().groupNames.keys()).index(groupName)
+            self.__widgets["ActionValue"].setCurrentIndex(listIndex)
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
             self.__widgets["ActionValue"].setCurrentIndex(int(not self.rpcObject.value()))
@@ -794,6 +791,3 @@ class NoWheelSpinBox(QtWidgets.QSpinBox):
 
     def wheelEvent(self, event):
         event.ignore()
-
-def addSpaces(value):
-    return re.sub(r'([a-z]*)([A-Z])',r'\1 \2', value).strip()
