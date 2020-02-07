@@ -155,10 +155,10 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Creates and returns the proper item"""
         return FilterWidgetItem(object, self)
 
-    def _update(self):
+    def _processUpdate(self, work, rpcObjects):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
-        cuegui.AbstractTreeWidget.AbstractTreeWidget._update(self)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, rpcObjects)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def _getUpdate(self):

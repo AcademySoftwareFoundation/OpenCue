@@ -90,7 +90,7 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         column = self.treeWidget().sortColumn()
         if sortLambda:
             try:
-                return sortLambda(self.rpcObject) > sortLambda(other.rpcObject)
+                return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
             except:
                 logger.warning("Sort failed on column {}, using text sort.".format(column))
-        return str(self.text(column)) > str(other.text(column))
+        return str(self.text(column)) < str(other.text(column))
