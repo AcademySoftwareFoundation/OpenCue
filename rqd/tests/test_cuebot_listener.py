@@ -20,12 +20,6 @@ THIS IS FOR TESTING rqd.py ONLY
 """
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-
-from builtins import str
-from builtins import object
 from concurrent import futures
 import time
 import sys
@@ -88,18 +82,18 @@ class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInt
     def _trackUpdateTime(self, report):
         now = time.time()
         self.statusCheckin[report.host.name] = {"last": now, "report": report}
-        print("-" * 20, time.asctime(time.localtime(now)), "-" * 20)
+        print "-" * 20, time.asctime(time.localtime(now)), "-" * 20
         for host in sorted(self.statusCheckin.keys()):
             secondsSinceLast = now - self.statusCheckin[host]["last"]
             if host == report.host.name:
-               print(" >", end=' ')
+               print " >",
             else:
-               print("  ", end=' ')
-            print(host.ljust(15) \
+               print "  ",
+            print host.ljust(15) \
                   , str(int(secondsSinceLast)).ljust(10) \
                   , str(self.statusCheckin[host]["report"].host.load).ljust(5) \
                   , str(self.statusCheckin[host]["report"].host.freeMem).ljust(10) \
-                  , ",".join(self.statusCheckin[host]["report"].host.tags))
+                  , ",".join(self.statusCheckin[host]["report"].host.tags)
 
     def ReportRqdStartup(self, request, context):
         report = request.bootReport
@@ -116,8 +110,8 @@ class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInt
             print "%s : startup.host    - tags = %s, state = %s" % (report.host.name, report.host.tags, report.host.state)
             print "%s : startup.coreInfo - totalCores = %s, idleCores = %s, lockedCores = %s, bookedCores = %s" % (report.host.name, report.coreInfo.totalCores, report.coreInfo.idleCores, report.coreInfo.lockedCores, report.coreInfo.bookedCores)
         elif self.verbose == 3:
-            print("Receiving reportRqdStartup")
-            print(report)
+            print "Receiving reportRqdStartup"
+            print report
         elif self.verbose == 4:
             self._trackUpdateTime(report)
 
@@ -135,11 +129,11 @@ class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInt
             print "%s : status.host    - totalSwap = %s, totalMem = %s, totalScratch = %s, freeSwap = %s, freeMem = %s, freeScratch = %s" % (report.host.name, report.host.totalSwap, report.host.totalMem, report.host.totalScratch, report.host.freeSwap, report.host.freeMem, report.host.freeScratch)
             print "%s : status.host    - tags = %s, state = %s" % (report.host.name, report.host.tags, report.host.state)
             for job in report.frames:
-                print("%s : status.frames[x] - frameId = %s, jobId = %s, numCores = %d, usedMem = %s" % (report.host.name, job.frameId, job.jobId, job.numCores, job.usedMem))
-            print("%s : status.coreInfo - totalCores = %s, idleCores = %s, lockedCores = %s, bookedCores = %s" % (report.host.name, report.coreInfo.totalCores, report.coreInfo.idleCores, report.coreInfo.lockedCores, report.coreInfo.bookedCores))
+                print "%s : status.frames[x] - frameId = %s, jobId = %s, numCores = %d, usedMem = %s" % (report.host.name, job.frameId, job.jobId, job.numCores, job.usedMem)
+            print "%s : status.coreInfo - totalCores = %s, idleCores = %s, lockedCores = %s, bookedCores = %s" % (report.host.name, report.coreInfo.totalCores, report.coreInfo.idleCores, report.coreInfo.lockedCores, report.coreInfo.bookedCores)
         elif self.verbose == 3:
-            print("Receiving reportStatus")
-            print(report)
+            print "Receiving reportStatus"
+            print report
         elif self.verbose == 4:
             self._trackUpdateTime(report)
 
@@ -159,5 +153,5 @@ class RqdReportInterfaceServicer(rqd.compiled_proto.report_pb2_grpc.RqdReportInt
             print "%s : FrameCompletion.frame   - jobId = %s, frameId = %s, numCores = %d, usedMem = %d" % (report.host.name, report.frame.jobId, report.frame.frameId, report.frame.numCores, report.frame.usedMem)
             print "%s : FrameCompletion         - exitStatus = %s, exitSignal = %s, runTime = %s, maxRss = %s" % (report.host.name, report.exitStatus, report.exitSignal, report.runTime, report.maxRss)
         elif self.verbose == 3:
-            print("Receiving reportRunningFrameCompletion")
-            print(report)
+            print "Receiving reportRunningFrameCompletion"
+            print report
