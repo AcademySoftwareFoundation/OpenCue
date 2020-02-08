@@ -329,12 +329,11 @@ class ActionTests(unittest.TestCase):
         actionInt = opencue.wrappers.filter.Action(filter_pb2.Action(
             id=TEST_ACTION_ID, type=filter_pb2.PAUSE_JOB, value_type=filter_pb2.INTEGER_TYPE,
             integer_value=22))
-        expected = "1 22"
-        self.assertEqual(actionInt.name(), expected)
+        self.assertEqual(actionInt.name(), "PAUSE_JOB 22")
 
         actionNone = opencue.wrappers.filter.Action(filter_pb2.Action(
             id=TEST_ACTION_ID, type=filter_pb2.PAUSE_JOB, value_type=filter_pb2.NONE_TYPE))
-        self.assertEqual(actionNone.name(), str(actionNone.type()))
+        self.assertEqual(actionNone.name(), "PAUSE_JOB")
 
     def testValue(self, getStubMock):
         groupValue = 'testGroup'
