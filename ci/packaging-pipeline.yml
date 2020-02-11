@@ -48,17 +48,23 @@ jobs:
     parameters:
       imageName: 'cuebot'
       displayName: 'Cuebot'
-      artifactPath: '/opt/opencue/cuebot-$(buildId)-all.jar'
+      artifactPaths: |
+        /opt/opencue/cuebot-$(buildId)-all.jar
+        /opt/opencue/opencue-cuebot-$(buildId)-1.noarch.rpm
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'rqd'
       displayName: 'RQD'
-      artifactPath: '/opt/opencue/rqd-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/rqd-$(buildId)-all.tar.gz'
 
   - publish: $(ARTIFACT_DIRECTORY)/cuebot-$(buildId)-all.jar
     artifact: Cuebot JAR
     displayName: Publish Cuebot JAR
+
+  - publish: $(ARTIFACT_DIRECTORY)/opencue-cuebot-$(buildId)-1.noarch.rpm
+    artifact: Cuebot RPM
+    displayName: Publish Cuebot RPM
 
   - publish: $(ARTIFACT_DIRECTORY)/rqd-$(buildId)-all.tar.gz
     artifact: RQD Tarball
@@ -86,7 +92,7 @@ jobs:
     parameters:
       imageName: 'cuegui'
       displayName: 'CueGUI'
-      artifactPath: '/opt/opencue/cuegui-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/cuegui-$(buildId)-all.tar.gz'
 
   - publish: $(ARTIFACT_DIRECTORY)/cuegui-$(buildId)-all.tar.gz
     artifact: CueGUI Tarball
@@ -114,25 +120,25 @@ jobs:
     parameters:
       imageName: 'pycue'
       displayName: 'PyCue'
-      artifactPath: '/opt/opencue/pycue-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/pycue-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'pyoutline'
       displayName: 'PyOutline'
-      artifactPath: '/opt/opencue/pyoutline-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/pyoutline-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'cuesubmit'
       displayName: 'CueSubmit'
-      artifactPath: '/opt/opencue/cuesubmit-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/cuesubmit-$(buildId)-all.tar.gz'
 
   - template: templates/build_docker.yml
     parameters:
       imageName: 'cueadmin'
       displayName: 'CueAdmin'
-      artifactPath: '/opt/opencue/cueadmin-$(buildId)-all.tar.gz'
+      artifactPaths: '/opt/opencue/cueadmin-$(buildId)-all.tar.gz'
 
   - publish: $(ARTIFACT_DIRECTORY)/pycue-$(buildId)-all.tar.gz
     artifact: PyCue Tarball
@@ -169,7 +175,6 @@ jobs:
       echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "$(ARTIFACT_DIRECTORY)/build_metadata.json"
     name: createMetadataArtifacts
     displayName: Create Metadata Artifacts
-
   - bash: ci/extract_schema.sh $(buildId) $(ARTIFACT_DIRECTORY)
     name: extractSchema
     displayName: Extract Database Schema
