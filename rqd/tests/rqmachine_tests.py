@@ -423,7 +423,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
         self.fs.add_real_file(cpuInfo)
 
-        # recreate machine with new platform:
         machine = self.machine(cpuInfo)
 
         machine.setupHT()
