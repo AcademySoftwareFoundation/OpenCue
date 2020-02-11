@@ -34,6 +34,7 @@ import rqd.rqcore
 import rqd.rqexceptions
 import rqd.rqnetwork
 import rqd.rqnimby
+import rqd.rqplatform
 
 
 class RqCoreTests(unittest.TestCase):
@@ -45,7 +46,7 @@ class RqCoreTests(unittest.TestCase):
         self.machineMock = machineMock
         self.networkMock = networkMock
         self.nimbyMock = nimbyMock
-        self.rqcore = rqd.rqcore.RqCore()
+        self.rqcore = rqd.rqcore.RqCore(rqd.rqplatform.create_platform())
 
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOn')
     def test_startServer(self, nimbyOnMock):
@@ -103,7 +104,7 @@ class RqCoreTests(unittest.TestCase):
     def test_startDesktopNimbyOffWithFlag(self, nimbyOnMock, machineMock, networkMock):
         rqd.rqconstants.OVERRIDE_NIMBY = True
         machineMock.return_value.isDesktop.return_value = True
-        rqcore = rqd.rqcore.RqCore(optNimbyoff=True)
+        rqcore = rqd.rqcore.RqCore(rqd.rqplatform.create_platform(), optNimbyoff=True)
 
         rqcore.start()
 
@@ -270,7 +271,7 @@ class RqCoreTests(unittest.TestCase):
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('sys.exit')
     def test_handleExit(self, networkMock, exitMock):
-        self.rqcore = rqd.rqcore.RqCore()
+        self.rqcore = rqd.rqcore.RqCore(rqd.rqplatform.create_platform())
 
         self.rqcore.handleExit(None, None)
 

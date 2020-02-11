@@ -43,6 +43,7 @@ import rqd.rqexceptions
 import rqd.rqmachine
 import rqd.rqnetwork
 import rqd.rqnimby
+import rqd.rqplatform
 import rqd.rqutil
 
 
@@ -519,7 +520,7 @@ class RqCore(object):
        the setup and launching of a frame and acts on all gRPC calls
        that are passed from the Network module."""
 
-    def __init__(self, optNimbyoff=False):
+    def __init__(self, current_platform, optNimbyoff=False):
         """RqCore class initialization"""
         self.__whenIdle = False
         self.__respawn = False
@@ -536,7 +537,7 @@ class RqCore(object):
 
         self.nimby = rqd.rqnimby.Nimby(self)
 
-        self.machine = rqd.rqmachine.Machine(self, self.cores)
+        self.machine = rqd.rqmachine.Machine(self, self.cores, current_platform)
 
         self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()

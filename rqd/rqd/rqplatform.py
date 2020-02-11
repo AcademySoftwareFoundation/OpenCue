@@ -74,6 +74,3 @@ def create_platform():  # type: () -> rqplatform_base.Platform
         raise RuntimeError("Unsupported platform: %s" % platform.system())
 
     return ApplyConfigOverrides(result)
-
-
-current_platform = create_platform()

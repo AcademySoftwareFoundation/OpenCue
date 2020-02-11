@@ -56,6 +56,7 @@ import sys
 
 import rqd.rqconstants
 import rqd.rqcore
+import rqd.rqplatform
 import rqd.rqutil
 
 
@@ -98,6 +99,7 @@ def usage():
 
 def main():
     setupLogging()
+    current_platform = rqd.rqplatform.create_platform()
 
     if platform.system() == 'Linux' and os.getuid() != 0:
         logging.critical("Please run launch as root")
@@ -130,7 +132,7 @@ def main():
     if rqd.rqconstants.FACILITY == 'abq':
         os.environ['TZ'] = 'PST8PDT'
 
-    rqCore = rqd.rqcore.RqCore(optNimbyOff)
+    rqCore = rqd.rqcore.RqCore(current_platform, optNimbyOff)
     rqCore.start()
 
 

@@ -46,7 +46,7 @@ import rqd.compiled_proto.host_pb2
 from rqd.compiled_proto import report_pb2
 import rqd.rqconstants
 import rqd.rqexceptions
-import rqd.rqplatform # do not use from... import current_platform here, as we need to mock it
+import rqd.rqplatform
 import rqd.rqutil
 
 KILOBYTE = 1024
@@ -55,15 +55,18 @@ KILOBYTE = 1024
 class Machine(object):
 
     """Gathers information about the machine and resources"""
-    def __init__(self, rqCore, coreInfo):
+    def __init__(self, rqCore, coreInfo, platform):
         """Machine class initialization
         @type   rqCore: rqd.rqcore.RqCore
         @param  rqCore: Main RQD Object, used to access frames and nimby states
         @type  coreInfo: rqd.compiled_proto.report_pb2.CoreDetail
         @param coreInfo: Object contains information on the state of all cores
+        @type  platform: rqd.rqplatform.Platform
+        @param platform: Platform-specific operations.
         """
         self.__rqCore = rqCore
         self.__coreInfo = coreInfo
+        self.__platform = platform
         self.__tasksets = set()
 
         self.state = rqd.compiled_proto.host_pb2.UP
@@ -271,21 +274,21 @@ class Machine(object):
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served
            for the last 1 minute multiplied by 100."""
-        return rqd.rqplatform.current_platform.getLoadAvg()
+        return self.__platform.getLoadAvg()
 
     @rqd.rqutil.Memoize
     def getBootTime(self):
         """Returns epoch when the system last booted"""
-        return rqd.rqplatform.current_platform.getBootTime()
+        return self.__platform.getBootTime()
 
     @rqd.rqutil.Memoize
     def getGpuMemoryTotal(self):
         """Returns the total gpu memory in kb for CUE_GPU_MEMORY"""
-        return rqd.rqplatform.current_platform.getMemoryInfo().total_gpu
+        return self.__platform.getMemoryInfo().total_gpu
 
     def getGpuMemory(self):
         """Returns the available gpu memory in kb for CUE_GPU_MEMORY"""
-        return rqd.rqplatform.current_platform.getMemoryInfo().free_gpu
+        return self.__platform.getMemoryInfo().free_gpu
 
     @rqd.rqutil.Memoize
     def getTimezone(self):
@@ -298,7 +301,7 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getHostname(self):
         """Returns the machine's fully qualified domain name"""
-        return rqd.rqplatform.current_platform.getHostname()
+        return self.__platform.getHostname()
 
     @rqd.rqutil.Memoize
     def getPathEnv(self):
@@ -309,7 +312,7 @@ class Machine(object):
 
     @rqd.rqutil.Memoize
     def getTempPath(self):
-        return rqd.rqplatform.current_platform.getTempPath()
+        return self.__platform.getTempPath()
 
     def reboot(self):
         """Reboots the machine immediately"""
@@ -344,7 +347,7 @@ class Machine(object):
 
         self.updateMachineStats(self.__renderHost)
 
-        cpuInfo = rqd.rqplatform.current_platform.getCpuInfo()
+        cpuInfo = self.__platform.getCpuInfo()
         totalCores = cpuInfo.logical_cores * rqd.rqconstants.CORE_VALUE
         numProcs = cpuInfo.physical_cpus
         hyperthreadingMultiplier = cpuInfo.hyperthreading_multiplier
@@ -364,11 +367,11 @@ class Machine(object):
         # type: (report_pb2.RenderHost) -> None
         """Updates dynamic machine information during runtime"""
 
-        diskInfo = rqd.rqplatform.current_platform.getDiskInfo()
+        diskInfo = self.__platform.getDiskInfo()
         renderHost.total_mcp = diskInfo.total_mcp
         renderHost.free_mcp = diskInfo.free_mcp
 
-        memInfo = rqd.rqplatform.current_platform.getMemoryInfo()
+        memInfo = self.__platform.getMemoryInfo()
         renderHost.total_mem = memInfo.total_mem
         renderHost.free_mem = memInfo.free_mem
         renderHost.total_swap = memInfo.total_swap
