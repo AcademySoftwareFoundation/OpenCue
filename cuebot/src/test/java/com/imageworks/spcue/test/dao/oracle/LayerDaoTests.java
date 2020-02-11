@@ -95,6 +95,9 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Resource
     FacilityDao facilityDao;
 
+    @Resource
+    JobLogUtil jobLogUtil;
+
     private static String ROOT_FOLDER = "A0000000-0000-0000-0000-000000000000";
     private static String ROOT_SHOW = "00000000-0000-0000-0000-000000000000";
     private static String LAYER_NAME = "pass_1";
@@ -116,10 +119,10 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         JobDetail job =  spec.getJobs().get(0).detail;
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
-        job.logDir = JobLogUtil.getJobLogPath(job);
+        job.logDir = jobLogUtil.getJobLogPath(job);
         job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId = facilityDao.getDefaultFacility().getId();
-        jobDao.insertJob(job);
+        jobDao.insertJob(job, jobLogUtil);
 
         LayerDetail lastLayer= null;
         String limitId = limitDao.createLimit(LIMIT_NAME, LIMIT_MAX_VALUE);

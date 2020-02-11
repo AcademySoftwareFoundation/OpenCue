@@ -159,6 +159,8 @@
     <property name="jobDao" ref="jobDao" />
   </bean>
 
+  <bean id="jobLogUtil" class="com.imageworks.spcue.util.JobLogUtil" />
+
   <bean id="jobManager" class="com.imageworks.spcue.service.JobManagerService">
     <property name="jobDao" ref="jobDao" />
     <property name="showDao" ref="showDao" />
@@ -170,6 +172,7 @@
     <property name="filterManager" ref="filterManager" />
     <property name="hostDao" ref="hostDao" />
     <property name="limitDao" ref="limitDao" />
+    <property name="jobLogUtil" ref="jobLogUtil" />
   </bean>
 
   <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
