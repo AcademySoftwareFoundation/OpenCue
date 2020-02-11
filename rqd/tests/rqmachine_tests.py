@@ -372,7 +372,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(25699176, hostInfo.free_mem)
         self.assertEqual('991232', hostInfo.attributes['freeGpu'])
         self.assertEqual('0', hostInfo.attributes['swapout'])
-        self.assertEqual(12, hostInfo.load)
+        self.assertEqual(25, hostInfo.load)
         self.assertEqual(False, hostInfo.nimby_enabled)
         self.assertEqual(False, hostInfo.nimby_locked)
         self.assertEqual(rqd.compiled_proto.host_pb2.UP, hostInfo.state)
