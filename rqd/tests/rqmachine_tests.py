@@ -308,7 +308,10 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def test_getLoadAvg(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
-        machine = self.machine(os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_8-4-2'))
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_8-4-2')
+        self.fs.add_real_file(cpuInfo)
+        machine = self.machine(cpuInfo)
+
         self.assertEqual(2038, machine.getLoadAvg())
 
     # Test load avg on a machine with hyper-threading:
@@ -316,7 +319,10 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
-        machine = self.machine(os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2'))
+        cpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', '_cpuinfo_shark_ht_8-4-2-2')
+        self.fs.add_real_file(cpuInfo)
+        machine = self.machine(cpuInfo)
+        
         self.assertEqual(1019, machine.getLoadAvg())
 
     def test_getBootTime(self):
