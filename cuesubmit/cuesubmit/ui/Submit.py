@@ -463,7 +463,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         try:
             jobs = Submission.submitJob(jobData)
         except opencue.exception.CueException as e:
-            message = "Failed to submit job!\n" + e.message
+            message = "Failed to submit job!\n" + str(e)
             Widgets.CueMessageBox(message, title="Failed Job Submission", parent=self).show()
             raise e
 
