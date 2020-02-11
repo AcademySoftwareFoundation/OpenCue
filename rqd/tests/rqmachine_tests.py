@@ -23,6 +23,10 @@ import mock
 import os
 import unittest
 
+# Patch mock for missing magic method:
+mock._mock._magics.add('__round__')
+mock._mock._all_magics.add('__round__')
+
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.rqconstants
