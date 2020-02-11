@@ -57,8 +57,11 @@ class ApplyConfigOverrides(rqplatform_base.Platform):
         return self.__inner.getBootTime()
 
 
-# define a globally-accessible instance:
 def create_platform():  # type: () -> rqplatform_base.Platform
+    """
+    Create an appropriate Platform instance for the current platform,
+    with overrides from the config applied.
+    """
 
     system = platform.system()
     if system == 'Windows':
