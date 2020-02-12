@@ -1,0 +1,3 @@
+DB_URL=jdbc:postgresql://localhost:5432/cuebot_local
+DB_USER=cuebot
+DB_PASS=changeme

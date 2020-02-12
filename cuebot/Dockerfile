@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM gradle:6.0.1-jdk11 as build
+FROM gradle:6.0.1-jdk11 AS build
 
 USER gradle
 
@@ -19,6 +19,33 @@ COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 
+
+# -----------------
+# RPM
+# -----------------
+FROM jc21/rpmbuild-centos7:latest AS rpm
+
+# Random first line after from
+
+USER rpmbuilder
+
+RUN echo "Cuebot RPM Stage"
+
+COPY --chown=rpmbuilder:rpmbuilder LICENSE ./
+
+COPY --from=build \
+        --chown=rpmbuilder:rpmbuilder \
+        /home/gradle/cuebot/VERSION \
+        /home/gradle/cuebot/build/libs/cuebot-*-all.jar \
+        /home/gradle/cuebot/deploy/systemd/opencue-cuebot.service \
+        /home/gradle/cuebot/deploy/opencue-cuebot \
+        /home/gradle/cuebot/packaging/rpm/cuebot.spec \
+        /home/gradle/cuebot/packaging/rpm/create_rpm.sh \
+        ./
+
+RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
+
+
 # -----------------
 # RUN
 # -----------------
@@ -33,6 +60,8 @@ ARG CUEBOT_GRPC_RQD_PORT=8444
 WORKDIR /opt/opencue
 
 COPY --from=build /home/gradle/cuebot/build/libs/cuebot-*-all.jar ./
+COPY --from=rpm /home/rpmbuilder/rpmbuild/RPMS/noarch/opencue-cuebot-*.noarch.rpm ./
+
 RUN ln -s $(ls ./cuebot-*-all.jar) ./cuebot-latest.jar
 
 # TODO(bcipriano) Implement a new GRPC-based health check.
