@@ -56,7 +56,9 @@ def _getWindowsProcessorCount():
     # find required buffer size by invoking with NULL buffer:
     buffer_size = ctypes.c_ulong(0)
     relationship_type = 3  # 3 == RelationProcessorPackage
-    if glpie(relationship_type, None, ctypes.byref(buffer_size)) == 0:
+    if glpie(relationship_type, None, ctypes.byref(buffer_size)) == 1:
+        raise RuntimeError("Expected to get a failure!")
+    else:
         if ctypes.GetLastError() != 122:
             # 122 = ERROR_INSUFFICIENT_BUFFER, which is expected for this call
             raise RuntimeError(ctypes.FormatError())
