@@ -40,6 +40,7 @@ import opencue.wrappers.group
 import opencue.wrappers.host
 import opencue.wrappers.job
 import opencue.wrappers.layer
+import opencue.wrappers.proc
 import opencue.wrappers.show
 import opencue.wrappers.subscription
 
@@ -1069,12 +1070,11 @@ class GroupActionsTests(unittest.TestCase):
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_deleteGroup(self):
         group = opencue.wrappers.group.Group(group=opencue.compiled_proto.job_pb2.Group())
-        deleteMock = mock.MagicMock()
-        group.delete = deleteMock
+        group.delete = mock.MagicMock()
 
         self.group_actions.deleteGroup(rpcObjects=[opencue.wrappers.layer.Layer(), group])
 
-        deleteMock.assert_called()
+        group.delete.assert_called()
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
@@ -1091,39 +1091,36 @@ class SubscriptionActionsTests(unittest.TestCase):
     def test_editSize(self, getDoubleMock, qMessageBoxMock):
         sub = opencue.wrappers.subscription.Subscription(
             opencue.compiled_proto.subscription_pb2.Subscription(size=382))
-        setSizeMock = mock.MagicMock()
-        sub.setSize = setSizeMock
+        sub.setSize = mock.MagicMock()
         newSize = 8479
         getDoubleMock.return_value = (newSize, True)
         qMessageBoxMock.return_value.exec_.return_value = PySide2.QtWidgets.QMessageBox.Yes
 
         self.subscription_actions.editSize(rpcObjects=[sub])
 
-        setSizeMock.assert_called_with(newSize)
+        sub.setSize.assert_called_with(newSize)
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_editBurst(self, getDoubleMock):
         sub = opencue.wrappers.subscription.Subscription(
             opencue.compiled_proto.subscription_pb2.Subscription(burst=922))
-        setBurstMock = mock.MagicMock()
-        sub.setBurst = setBurstMock
+        sub.setBurst = mock.MagicMock()
         newSize = 1078
         getDoubleMock.return_value = (newSize, True)
 
         self.subscription_actions.editBurst(rpcObjects=[sub])
 
-        setBurstMock.assert_called_with(newSize)
+        sub.setBurst.assert_called_with(newSize)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):
         sub = opencue.wrappers.subscription.Subscription(
             opencue.compiled_proto.subscription_pb2.Subscription(name='arbitrary-name'))
-        deleteMock = mock.MagicMock()
-        sub.delete = deleteMock
+        sub.delete = mock.MagicMock()
 
         self.subscription_actions.delete(rpcObjects=[sub])
 
-        deleteMock.assert_called()
+        sub.delete.assert_called()
 
 
 class AllocationActionsTests(unittest.TestCase):
@@ -1177,22 +1174,20 @@ class HostActionsTests(unittest.TestCase):
     def test_lock(self):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
-        lockMock = mock.MagicMock()
-        host.lock = lockMock
+        host.lock = mock.MagicMock()
 
         self.host_actions.lock(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        lockMock.assert_called()
+        host.lock.assert_called()
 
     def test_unlock(self):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
-        unlockMock = mock.MagicMock()
-        host.unlock = unlockMock
+        host.unlock = mock.MagicMock()
 
         self.host_actions.unlock(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        unlockMock.assert_called()
+        host.unlock.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):
@@ -1201,25 +1196,23 @@ class HostActionsTests(unittest.TestCase):
         rp1 = mock.MagicMock()
         rp2 = mock.MagicMock()
         host.getRenderPartitions = lambda: [rp1, rp2]
-        deleteMock = mock.MagicMock()
-        host.delete = deleteMock
+        host.delete = mock.MagicMock()
 
         self.host_actions.delete(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
         rp1.delete.assert_called()
         rp2.delete.assert_called()
-        deleteMock.assert_called()
+        host.delete.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_rebootWhenIdle(self):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
-        rebootWhenIdleMock = mock.MagicMock()
-        host.rebootWhenIdle = rebootWhenIdleMock
+        host.rebootWhenIdle = mock.MagicMock()
 
         self.host_actions.rebootWhenIdle(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        rebootWhenIdleMock.assert_called()
+        host.rebootWhenIdle.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_addTags(self, getTextMock):
@@ -1227,12 +1220,11 @@ class HostActionsTests(unittest.TestCase):
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
         tagsText = 'firstTag anotherTag,oneMoreTag'
         getTextMock.return_value = (tagsText, True)
-        addTagsMock = mock.MagicMock()
-        host.addTags = addTagsMock
+        host.addTags = mock.MagicMock()
 
         self.host_actions.addTags(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        addTagsMock.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
+        host.addTags.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_removeTags(self, getTextMock):
@@ -1240,12 +1232,11 @@ class HostActionsTests(unittest.TestCase):
             opencue.compiled_proto.host_pb2.Host(
                 id='arbitrary-id', tags=['firstTag', 'anotherTag', 'oneMoreTag', 'tagToKeep']))
         getTextMock.return_value = ('firstTag anotherTag,oneMoreTag', True)
-        removeTagsMock = mock.MagicMock()
-        host.removeTags = removeTagsMock
+        host.removeTags = mock.MagicMock()
 
         self.host_actions.removeTags(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        removeTagsMock.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
+        host.removeTags.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
@@ -1256,12 +1247,11 @@ class HostActionsTests(unittest.TestCase):
         newTagName = 'newTagName'
         getItemMock.return_value = (oldTagName, True)
         getTextMock.return_value = (newTagName, True)
-        renameTagMock = mock.MagicMock()
-        host.renameTag = renameTagMock
+        host.renameTag = mock.MagicMock()
 
         self.host_actions.renameTag(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        renameTagMock.assert_called_with(oldTagName, newTagName)
+        host.renameTag.assert_called_with(oldTagName, newTagName)
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
     @mock.patch('opencue.api.getAllocations')
@@ -1276,48 +1266,93 @@ class HostActionsTests(unittest.TestCase):
         ]
         getAllocationsMock.return_value = allocs
         getItemMock.return_value = ('alloc2', True)
-        setAllocationMock = mock.MagicMock()
-        host.setAllocation = setAllocationMock
+        host.setAllocation = mock.MagicMock()
 
         self.host_actions.changeAllocation(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        setAllocationMock.assert_called_with(allocs[1])
+        host.setAllocation.assert_called_with(allocs[1])
 
     def test_setRepair(self):
         activeHost = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(
                 id='active-host', state=opencue.api.host_pb2.UP))
-        activeHostSetHardwareStateMock = mock.MagicMock()
-        activeHost.setHardwareState = activeHostSetHardwareStateMock
+        activeHost.setHardwareState = mock.MagicMock()
         repairingHost = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(
                 id='repairing-host', state=opencue.api.host_pb2.REPAIR))
-        repairingHostSetHardwareStateMock = mock.MagicMock()
-        repairingHost.setHardwareState = repairingHostSetHardwareStateMock
+        repairingHost.setHardwareState = mock.MagicMock()
 
         self.host_actions.setRepair(
             rpcObjects=[opencue.wrappers.layer.Layer, activeHost, repairingHost])
 
-        activeHostSetHardwareStateMock.assert_called_with(opencue.api.host_pb2.REPAIR)
-        repairingHostSetHardwareStateMock.assert_not_called()
+        activeHost.setHardwareState.assert_called_with(opencue.api.host_pb2.REPAIR)
+        repairingHost.setHardwareState.assert_not_called()
 
     def test_clearRepair(self):
         activeHost = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(
                 id='active-host', state=opencue.api.host_pb2.UP))
-        activeHostSetHardwareStateMock = mock.MagicMock()
-        activeHost.setHardwareState = activeHostSetHardwareStateMock
+        activeHost.setHardwareState = mock.MagicMock()
         repairingHost = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(
                 id='repairing-host', state=opencue.api.host_pb2.REPAIR))
-        repairingHostSetHardwareStateMock = mock.MagicMock()
-        repairingHost.setHardwareState = repairingHostSetHardwareStateMock
+        repairingHost.setHardwareState = mock.MagicMock()
 
         self.host_actions.clearRepair(
             rpcObjects=[opencue.wrappers.layer.Layer, activeHost, repairingHost])
 
-        repairingHostSetHardwareStateMock.assert_called_with(opencue.api.host_pb2.DOWN)
-        activeHostSetHardwareStateMock.assert_not_called()
+        repairingHost.setHardwareState.assert_called_with(opencue.api.host_pb2.DOWN)
+        activeHost.setHardwareState.assert_not_called()
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class ProcActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.proc_actions = cuegui.MenuActions.ProcActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('PySide2.QtGui.qApp')
+    @mock.patch('opencue.api.findJob')
+    def test_view(self, findJobMock, qAppMock):
+        jobName = 'arbitraryJobName'
+        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))
+        proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc(job_name=jobName))
+        findJobMock.return_value = job
+
+        self.proc_actions.view(rpcObjects=[opencue.wrappers.layer.Layer, proc])
+
+        qAppMock.view_object.emit.assert_called_once_with(job)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_kill(self):
+        proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc())
+        proc.kill = mock.MagicMock()
+
+        self.proc_actions.kill(rpcObjects=[opencue.wrappers.layer.Layer, proc])
+
+        proc.kill.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_unbook(self):
+        proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc())
+        proc.unbook = mock.MagicMock()
+
+        self.proc_actions.unbook(rpcObjects=[opencue.wrappers.layer.Layer, proc])
+
+        proc.unbook.assert_called_with(False)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_unbookKill(self):
+        proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc())
+        proc.unbook = mock.MagicMock()
+
+        self.proc_actions.unbookKill(rpcObjects=[opencue.wrappers.layer.Layer, proc])
+
+        proc.unbook.assert_called_with(True)
+
 
 
 if __name__ == '__main__':
