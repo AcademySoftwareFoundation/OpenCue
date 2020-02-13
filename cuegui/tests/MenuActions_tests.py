@@ -1354,6 +1354,31 @@ class ProcActionsTests(unittest.TestCase):
         proc.unbook.assert_called_with(True)
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class DependenciesActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.dep_actions = cuegui.MenuActions.DependenciesActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    def test_satisfy(self):
+        dep = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+        dep.satisfy = mock.MagicMock()
+
+        self.dep_actions.satisfy(rpcObjects=[dep])
+
+        dep.satisfy.assert_called()
+
+    def test_unsatisfy(self):
+        dep = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+        dep.unsatisfy = mock.MagicMock()
+
+        self.dep_actions.unsatisfy(rpcObjects=[dep])
+
+        dep.unsatisfy.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()
