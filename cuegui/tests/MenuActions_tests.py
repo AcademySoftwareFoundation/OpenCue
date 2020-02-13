@@ -30,11 +30,13 @@ import cuegui.Main
 import cuegui.MenuActions
 import opencue.compiled_proto.depend_pb2
 import opencue.compiled_proto.facility_pb2
+import opencue.compiled_proto.filter_pb2
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
 import opencue.compiled_proto.subscription_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.depend
+import opencue.wrappers.filter
 import opencue.wrappers.frame
 import opencue.wrappers.group
 import opencue.wrappers.host
@@ -1379,6 +1381,127 @@ class DependenciesActionsTests(unittest.TestCase):
 
         dep.unsatisfy.assert_called()
 
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class FilterActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.filter_actions = cuegui.MenuActions.FilterActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_rename(self, getTextMock):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.setName = mock.MagicMock()
+        newName = 'newFilterName'
+        getTextMock.return_value = (newName, True)
+
+        self.filter_actions.rename(rpcObjects=[filter])
+
+        filter.setName.assert_called_with(newName)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.delete = mock.MagicMock()
+
+        self.filter_actions.delete(rpcObjects=[filter])
+
+        filter.delete.assert_called()
+
+    def test_raiseOrder(self):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.raiseOrder = mock.MagicMock()
+
+        self.filter_actions.raiseOrder(rpcObjects=[filter])
+
+        filter.raiseOrder.assert_called()
+
+    def test_lowerOrder(self):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.lowerOrder = mock.MagicMock()
+
+        self.filter_actions.lowerOrder(rpcObjects=[filter])
+
+        filter.lowerOrder.assert_called()
+
+    def test_orderFirst(self):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.orderFirst = mock.MagicMock()
+
+        self.filter_actions.orderFirst(rpcObjects=[filter])
+
+        filter.orderFirst.assert_called()
+
+    def test_orderLast(self):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.orderLast = mock.MagicMock()
+
+        self.filter_actions.orderLast(rpcObjects=[filter])
+
+        filter.orderLast.assert_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    def test_setOrder(self, getTextMock):
+        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter.setOrder = mock.MagicMock()
+        newOrder = 47
+        getTextMock.return_value = (newOrder, True)
+
+        self.filter_actions.setOrder(rpcObjects=[filter])
+
+        filter.setOrder.assert_called_with(newOrder)
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class MatcherActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.matcher_actions = cuegui.MenuActions.MatcherActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        matcher = opencue.wrappers.filter.Matcher(opencue.compiled_proto.filter_pb2.Matcher())
+        matcher.delete = mock.MagicMock()
+
+        self.matcher_actions.delete(rpcObjects=[matcher])
+
+        matcher.delete.assert_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_setValue(self, getTextMock):
+        matcher = opencue.wrappers.filter.Matcher(opencue.compiled_proto.filter_pb2.Matcher())
+        matcher.setValue = mock.MagicMock()
+        newValue = 'newMatcherValue'
+        getTextMock.return_value = (newValue, True)
+
+        self.matcher_actions.setValue(rpcObjects=[matcher])
+
+        matcher.setValue.assert_called_with(newValue)
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class ActionActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.action_actions = cuegui.MenuActions.ActionActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        action = opencue.wrappers.filter.Action(opencue.compiled_proto.filter_pb2.Action())
+        action.delete = mock.MagicMock()
+
+        self.action_actions.delete(rpcObjects=[action])
+
+        action.delete.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

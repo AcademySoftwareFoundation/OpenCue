@@ -1516,7 +1516,7 @@ class MatcherActions(AbstractActions):
         if matchers:
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Delete selected matchers?",
-                                             [matcher.data.name for matcher in matchers]):
+                                             [matcher.name() for matcher in matchers]):
                 for matcher in matchers:
                     matcher.delete()
                 self._update()
@@ -1544,7 +1544,7 @@ class ActionActions(AbstractActions):
         if actions:
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Delete selected actions?",
-                                             [action.data.name for action in actions]):
+                                             [action.name() for action in actions]):
                 for action in actions:
                     action.delete()
                 self._update()
