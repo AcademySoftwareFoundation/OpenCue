@@ -34,6 +34,7 @@ import opencue.compiled_proto.filter_pb2
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
 import opencue.compiled_proto.subscription_pb2
+import opencue.compiled_proto.task_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.depend
 import opencue.wrappers.filter
@@ -45,6 +46,7 @@ import opencue.wrappers.layer
 import opencue.wrappers.proc
 import opencue.wrappers.show
 import opencue.wrappers.subscription
+import opencue.wrappers.task
 
 
 _GB_TO_KB = 1024 * 1024
@@ -1502,6 +1504,45 @@ class ActionActionsTests(unittest.TestCase):
         self.action_actions.delete(rpcObjects=[action])
 
         action.delete.assert_called()
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class TaskActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.task_actions = cuegui.MenuActions.TaskActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    def test_setMinCores(self, getDoubleMock):
+        task = opencue.wrappers.task.Task(opencue.compiled_proto.task_pb2.Task(min_cores=10))
+        task.setMinCores = mock.MagicMock()
+        newCoreCount = 28
+        getDoubleMock.return_value = (newCoreCount, True)
+
+        self.task_actions.setMinCores(rpcObjects=[task])
+
+        task.setMinCores.assert_called_with(newCoreCount)
+
+    def test_clearAdjustment(self):
+        task = opencue.wrappers.task.Task(opencue.compiled_proto.task_pb2.Task())
+        task.clearAdjustment = mock.MagicMock()
+
+        self.task_actions.clearAdjustment(rpcObjects=[task])
+
+        task.clearAdjustment.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        task = opencue.wrappers.task.Task(opencue.compiled_proto.task_pb2.Task())
+        task.delete = mock.MagicMock()
+
+        self.task_actions.delete(rpcObjects=[task])
+
+        task.delete.assert_called()
+
 
 if __name__ == '__main__':
     unittest.main()
