@@ -29,9 +29,11 @@ import cuegui.CueJobMonitorTree
 import cuegui.Main
 import cuegui.MenuActions
 import opencue.compiled_proto.depend_pb2
+import opencue.compiled_proto.facility_pb2
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
 import opencue.compiled_proto.subscription_pb2
+import opencue.wrappers.allocation
 import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.group
@@ -1232,6 +1234,90 @@ class HostActionsTests(unittest.TestCase):
 
         addTagsMock.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
 
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_removeTags(self, getTextMock):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(
+                id='arbitrary-id', tags=['firstTag', 'anotherTag', 'oneMoreTag', 'tagToKeep']))
+        getTextMock.return_value = ('firstTag anotherTag,oneMoreTag', True)
+        removeTagsMock = mock.MagicMock()
+        host.removeTags = removeTagsMock
+
+        self.host_actions.removeTags(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        removeTagsMock.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_renameTag(self, getItemMock, getTextMock):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        oldTagName = 'tagToRename'
+        newTagName = 'newTagName'
+        getItemMock.return_value = (oldTagName, True)
+        getTextMock.return_value = (newTagName, True)
+        renameTagMock = mock.MagicMock()
+        host.renameTag = renameTagMock
+
+        self.host_actions.renameTag(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        renameTagMock.assert_called_with(oldTagName, newTagName)
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('opencue.api.getAllocations')
+    def test_changeAllocation(self, getAllocationsMock, getItemMock):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        allocs = [
+            opencue.wrappers.allocation.Allocation(
+                opencue.compiled_proto.facility_pb2.Allocation(name='alloc1')),
+            opencue.wrappers.allocation.Allocation(
+                opencue.compiled_proto.facility_pb2.Allocation(name='alloc2')),
+        ]
+        getAllocationsMock.return_value = allocs
+        getItemMock.return_value = ('alloc2', True)
+        setAllocationMock = mock.MagicMock()
+        host.setAllocation = setAllocationMock
+
+        self.host_actions.changeAllocation(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        setAllocationMock.assert_called_with(allocs[1])
+
+    def test_setRepair(self):
+        activeHost = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(
+                id='active-host', state=opencue.api.host_pb2.UP))
+        activeHostSetHardwareStateMock = mock.MagicMock()
+        activeHost.setHardwareState = activeHostSetHardwareStateMock
+        repairingHost = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(
+                id='repairing-host', state=opencue.api.host_pb2.REPAIR))
+        repairingHostSetHardwareStateMock = mock.MagicMock()
+        repairingHost.setHardwareState = repairingHostSetHardwareStateMock
+
+        self.host_actions.setRepair(
+            rpcObjects=[opencue.wrappers.layer.Layer, activeHost, repairingHost])
+
+        activeHostSetHardwareStateMock.assert_called_with(opencue.api.host_pb2.REPAIR)
+        repairingHostSetHardwareStateMock.assert_not_called()
+
+    def test_clearRepair(self):
+        activeHost = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(
+                id='active-host', state=opencue.api.host_pb2.UP))
+        activeHostSetHardwareStateMock = mock.MagicMock()
+        activeHost.setHardwareState = activeHostSetHardwareStateMock
+        repairingHost = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(
+                id='repairing-host', state=opencue.api.host_pb2.REPAIR))
+        repairingHostSetHardwareStateMock = mock.MagicMock()
+        repairingHost.setHardwareState = repairingHostSetHardwareStateMock
+
+        self.host_actions.clearRepair(
+            rpcObjects=[opencue.wrappers.layer.Layer, activeHost, repairingHost])
+
+        repairingHostSetHardwareStateMock.assert_called_with(opencue.api.host_pb2.DOWN)
+        activeHostSetHardwareStateMock.assert_not_called()
 
 
 if __name__ == '__main__':
