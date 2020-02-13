@@ -33,6 +33,7 @@ import opencue.compiled_proto.facility_pb2
 import opencue.compiled_proto.filter_pb2
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
+import opencue.compiled_proto.limit_pb2
 import opencue.compiled_proto.subscription_pb2
 import opencue.compiled_proto.task_pb2
 import opencue.wrappers.allocation
@@ -43,6 +44,7 @@ import opencue.wrappers.group
 import opencue.wrappers.host
 import opencue.wrappers.job
 import opencue.wrappers.layer
+import opencue.wrappers.limit
 import opencue.wrappers.proc
 import opencue.wrappers.show
 import opencue.wrappers.subscription
@@ -1542,6 +1544,58 @@ class TaskActionsTests(unittest.TestCase):
         self.task_actions.delete(rpcObjects=[task])
 
         task.delete.assert_called()
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class LimitActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.limit_actions = cuegui.MenuActions.LimitActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('opencue.api.createLimit')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_create(self, getTextMock, createLimitMock):
+        limitName = 'newLimitName'
+        getTextMock.return_value = ('%s \t ' % limitName, True)
+
+        self.limit_actions.create()
+
+        createLimitMock.assert_called_with(limitName, 0)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        limit = opencue.wrappers.limit.Limit(opencue.compiled_proto.limit_pb2.Limit())
+        limit.delete = mock.MagicMock()
+
+        self.limit_actions.delete(rpcObjects=[limit])
+
+        limit.delete.assert_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    def test_editMaxValue(self, getDoubleMock):
+        limit = opencue.wrappers.limit.Limit(opencue.compiled_proto.limit_pb2.Limit(max_value=920))
+        limit.setMaxValue = mock.MagicMock()
+
+        newMaxValue = 527
+        getDoubleMock.return_value = (newMaxValue, True)
+
+        self.limit_actions.editMaxValue(rpcObjects=[limit])
+
+        limit.setMaxValue.assert_called_with(newMaxValue)
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_rename(self, getTextMock):
+        limit = opencue.wrappers.limit.Limit(opencue.compiled_proto.limit_pb2.Limit())
+        limit.rename = mock.MagicMock()
+        newName = 'newLimitName'
+        getTextMock.return_value = (newName, True)
+
+        self.limit_actions.rename(rpcObjects=[limit])
+
+        limit.rename.assert_called_with(newName)
 
 
 if __name__ == '__main__':
