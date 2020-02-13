@@ -167,7 +167,6 @@ public class HostReportHandler {
                         rhost.getAttributes().get("SP_OS"));
 
                 changeHardwareState(host, report.getHost().getState());
-                changeLockState(host, report.getCoreInfo());
                 changeNimbyState(host, report.getHost());
 
                 /**
