@@ -1143,7 +1143,9 @@ class SubscriptionActions(AbstractActions):
                                                                decimalPlaces)
             if choice:
                 msg = QtWidgets.QMessageBox()
-                msg.setText("You are about to modify a number that can effect a shows billing. Are you in PSR-Resources?")
+                msg.setText(
+                    "You are about to modify a number that can affect a show's billing. Are you "
+                    "sure you want to do this?")
                 msg.setStandardButtons(QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
                 msg.setDefaultButton(QtWidgets.QMessageBox.No)
                 if msg.exec_() == QtWidgets.QMessageBox.No:

@@ -21,6 +21,9 @@ from builtins import *
 import mock
 import unittest
 
+import PySide2.QtGui
+import PySide2.QtWidgets
+
 import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.Main
@@ -28,6 +31,7 @@ import cuegui.MenuActions
 import opencue.compiled_proto.depend_pb2
 import opencue.compiled_proto.host_pb2
 import opencue.compiled_proto.job_pb2
+import opencue.compiled_proto.subscription_pb2
 import opencue.wrappers.depend
 import opencue.wrappers.frame
 import opencue.wrappers.group
@@ -35,6 +39,7 @@ import opencue.wrappers.host
 import opencue.wrappers.job
 import opencue.wrappers.layer
 import opencue.wrappers.show
+import opencue.wrappers.subscription
 
 
 _GB_TO_KB = 1024 * 1024
@@ -994,6 +999,239 @@ class FrameActionsTests(unittest.TestCase):
         self.job.eatFrames.assert_called_with(name=['frame1', 'frame2'])
         self.job.markdoneFrames.assert_called_with(name=['frame1', 'frame2'])
         markdoneMock.assert_called_with(layer)
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class ShowActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.show_actions = cuegui.MenuActions.ShowActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('cuegui.ShowDialog.ShowDialog')
+    def test_properties(self, showDialogMock):
+        show = opencue.wrappers.show.Show()
+
+        self.show_actions.properties(rpcObjects=[opencue.wrappers.layer.Layer(), show])
+
+        showDialogMock.assert_called_with(show, mock.ANY)
+        showDialogMock.return_value.show.assert_called()
+
+    @mock.patch('cuegui.CreatorDialog.SubscriptionCreatorDialog')
+    def test_createSubscription(self, subscriptionCreatorDialogMock):
+        show = opencue.wrappers.show.Show()
+
+        self.show_actions.createSubscription(rpcObjects=[opencue.wrappers.layer.Layer(), show])
+
+        subscriptionCreatorDialogMock.assert_called_with(show=show)
+        subscriptionCreatorDialogMock.return_value.exec_.assert_called()
+
+    @mock.patch('cuegui.TasksDialog.TasksDialog')
+    def test_viewTasks(self, tasksDialogMock):
+        show = opencue.wrappers.show.Show()
+
+        self.show_actions.viewTasks(rpcObjects=[opencue.wrappers.layer.Layer(), show])
+
+        tasksDialogMock.assert_called_with(show, mock.ANY)
+        tasksDialogMock.return_value.show.assert_called()
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class GroupActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.group_actions = cuegui.MenuActions.GroupActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('cuegui.GroupDialog.ModifyGroupDialog')
+    def test_properties(self, modifyGroupDialogMock):
+        group = opencue.wrappers.group.Group(group=opencue.compiled_proto.job_pb2.Group())
+
+        self.group_actions.properties(rpcObjects=[opencue.wrappers.layer.Layer(), group])
+
+        modifyGroupDialogMock.assert_called_with(group, mock.ANY)
+        modifyGroupDialogMock.return_value.show.assert_called()
+
+    @mock.patch('cuegui.GroupDialog.NewGroupDialog')
+    def test_createGroup(self, newGroupDialogMock):
+        group = opencue.wrappers.group.Group(group=opencue.compiled_proto.job_pb2.Group())
+
+        self.group_actions.createGroup(rpcObjects=[opencue.wrappers.layer.Layer(), group])
+
+        newGroupDialogMock.assert_called_with(group, mock.ANY)
+        newGroupDialogMock.return_value.show.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_deleteGroup(self):
+        group = opencue.wrappers.group.Group(group=opencue.compiled_proto.job_pb2.Group())
+        deleteMock = mock.MagicMock()
+        group.delete = deleteMock
+
+        self.group_actions.deleteGroup(rpcObjects=[opencue.wrappers.layer.Layer(), group])
+
+        deleteMock.assert_called()
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class SubscriptionActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.subscription_actions = cuegui.MenuActions.SubscriptionActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('PySide2.QtWidgets.QMessageBox')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    def test_editSize(self, getDoubleMock, qMessageBoxMock):
+        sub = opencue.wrappers.subscription.Subscription(
+            opencue.compiled_proto.subscription_pb2.Subscription(size=382))
+        setSizeMock = mock.MagicMock()
+        sub.setSize = setSizeMock
+        newSize = 8479
+        getDoubleMock.return_value = (newSize, True)
+        qMessageBoxMock.return_value.exec_.return_value = PySide2.QtWidgets.QMessageBox.Yes
+
+        self.subscription_actions.editSize(rpcObjects=[sub])
+
+        setSizeMock.assert_called_with(newSize)
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
+    def test_editBurst(self, getDoubleMock):
+        sub = opencue.wrappers.subscription.Subscription(
+            opencue.compiled_proto.subscription_pb2.Subscription(burst=922))
+        setBurstMock = mock.MagicMock()
+        sub.setBurst = setBurstMock
+        newSize = 1078
+        getDoubleMock.return_value = (newSize, True)
+
+        self.subscription_actions.editBurst(rpcObjects=[sub])
+
+        setBurstMock.assert_called_with(newSize)
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        sub = opencue.wrappers.subscription.Subscription(
+            opencue.compiled_proto.subscription_pb2.Subscription(name='arbitrary-name'))
+        deleteMock = mock.MagicMock()
+        sub.delete = deleteMock
+
+        self.subscription_actions.delete(rpcObjects=[sub])
+
+        deleteMock.assert_called()
+
+
+class AllocationActionsTests(unittest.TestCase):
+    def test_init(self):
+        self.widgetMock = mock.Mock()
+        cuegui.MenuActions.AllocationActions(self.widgetMock, mock.Mock(), None, None)
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class HostActionsTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.host_actions = cuegui.MenuActions.HostActions(
+            self.widgetMock, mock.Mock(), None, None)
+
+    @mock.patch('cuegui.Comments.CommentListDialog')
+    def test_viewComments(self, commentListDialogMock):
+        host = opencue.wrappers.host.Host(opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+
+        self.host_actions.viewComments(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        commentListDialogMock.assert_called_with(host, mock.ANY)
+        commentListDialogMock.return_value.show.assert_called()
+
+    @mock.patch('PySide2.QtGui.qApp')
+    def test_viewProc(self, qAppMock):
+        hostName = 'arbitrary-name'
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=hostName))
+
+        self.host_actions.viewProc(rpcObjects=[opencue.wrappers.layer.Layer, host, host])
+
+        qAppMock.view_procs.emit.assert_called_with([hostName])
+
+    @mock.patch('PySide2.QtWidgets.QMessageBox')
+    @mock.patch('pexpect.run')
+    def test_hinv(self, runMock, qMessageBoxMock):
+        hostName = 'arbitrary-name'
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=hostName))
+        rshResponse = 'response line one\nanother response line'
+        runMock.return_value = rshResponse
+
+        self.host_actions.hinv(rpcObjects=[host])
+
+        qMessageBoxMock.information.assert_called_with(
+            mock.ANY, '%s hinv' % hostName, rshResponse, mock.ANY)
+
+    def test_lock(self):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        lockMock = mock.MagicMock()
+        host.lock = lockMock
+
+        self.host_actions.lock(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        lockMock.assert_called()
+
+    def test_unlock(self):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        unlockMock = mock.MagicMock()
+        host.unlock = unlockMock
+
+        self.host_actions.unlock(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        unlockMock.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_delete(self):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        rp1 = mock.MagicMock()
+        rp2 = mock.MagicMock()
+        host.getRenderPartitions = lambda: [rp1, rp2]
+        deleteMock = mock.MagicMock()
+        host.delete = deleteMock
+
+        self.host_actions.delete(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        rp1.delete.assert_called()
+        rp2.delete.assert_called()
+        deleteMock.assert_called()
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_rebootWhenIdle(self):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        rebootWhenIdleMock = mock.MagicMock()
+        host.rebootWhenIdle = rebootWhenIdleMock
+
+        self.host_actions.rebootWhenIdle(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        rebootWhenIdleMock.assert_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    def test_addTags(self, getTextMock):
+        host = opencue.wrappers.host.Host(
+            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
+        tagsText = 'firstTag anotherTag,oneMoreTag'
+        getTextMock.return_value = (tagsText, True)
+        addTagsMock = mock.MagicMock()
+        host.addTags = addTagsMock
+
+        self.host_actions.addTags(rpcObjects=[opencue.wrappers.layer.Layer, host])
+
+        addTagsMock.assert_called_with(['firstTag', 'anotherTag', 'oneMoreTag'])
+
 
 
 if __name__ == '__main__':
