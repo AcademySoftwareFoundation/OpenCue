@@ -60,6 +60,9 @@ class JobActionsTests(unittest.TestCase):
         self.widgetMock = mock.Mock()
         self.job_actions = cuegui.MenuActions.JobActions(self.widgetMock, mock.Mock(), None, None)
 
+    def test_jobs(self):
+        print(cuegui.MenuActions.MenuActions(self.widgetMock, None, None, None).jobs())
+
     def test_unmonitor(self):
         self.job_actions.unmonitor()
 
@@ -1596,6 +1599,110 @@ class LimitActionsTests(unittest.TestCase):
         self.limit_actions.rename(rpcObjects=[limit])
 
         limit.rename.assert_called_with(newName)
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class MenuActionsTests(unittest.TestCase):
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.args = [self.widgetMock, lambda: None, lambda: None, lambda: None]
+        self.menuActions = cuegui.MenuActions.MenuActions(*self.args)
+
+    @mock.patch('cuegui.MenuActions.JobActions')
+    def test_jobs(self, jobActionsMock):
+        self.menuActions.jobs()
+
+        jobActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.LayerActions')
+    def test_layers(self, layerActionsMock):
+        self.menuActions.layers()
+
+        layerActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.FrameActions')
+    def test_frames(self, frameActionsMock):
+        self.menuActions.frames()
+
+        frameActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.ShowActions')
+    def test_shows(self, showActionsMock):
+        self.menuActions.shows()
+
+        showActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.RootGroupActions')
+    def test_rootgroups(self, rootGroupActionsMock):
+        self.menuActions.rootgroups()
+
+        rootGroupActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.GroupActions')
+    def test_groups(self, groupActionsMock):
+        self.menuActions.groups()
+
+        groupActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.SubscriptionActions')
+    def test_subscriptions(self, subscriptionActionsMock):
+        self.menuActions.subscriptions()
+
+        subscriptionActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.AllocationActions')
+    def test_allocations(self, allocationActionsMock):
+        self.menuActions.allocations()
+
+        allocationActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.HostActions')
+    def test_hosts(self, hostActionsMock):
+        self.menuActions.hosts()
+
+        hostActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.ProcActions')
+    def test_procs(self, procActionsMock):
+        self.menuActions.procs()
+
+        procActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.DependenciesActions')
+    def test_dependencies(self, dependenciesActionsMock):
+        self.menuActions.dependencies()
+
+        dependenciesActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.FilterActions')
+    def test_filters(self, filterActionsMock):
+        self.menuActions.filters()
+
+        filterActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.MatcherActions')
+    def test_matchers(self, matcherActionsMock):
+        self.menuActions.matchers()
+
+        matcherActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.ActionActions')
+    def test_actions(self, actionActionsMock):
+        self.menuActions.actions()
+
+        actionActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.TaskActions')
+    def test_tasks(self, taskActionsMock):
+        self.menuActions.tasks()
+
+        taskActionsMock.assert_called_with(*self.args)
+
+    @mock.patch('cuegui.MenuActions.LimitActions')
+    def test_limits(self, limitActionsMock):
+        self.menuActions.limits()
+
+        limitActionsMock.assert_called_with(*self.args)
 
 
 if __name__ == '__main__':
