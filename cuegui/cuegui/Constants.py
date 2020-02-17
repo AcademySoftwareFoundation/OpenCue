@@ -23,6 +23,7 @@ from __future__ import division
 from __future__ import absolute_import
 
 import os
+import platform
 
 from PySide2 import QtCore
 from PySide2 import QtGui
@@ -68,7 +69,10 @@ URL_USERGUIDE = "https://www.opencue.io/docs/"
 URL_SUGGESTION = "https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md"
 URL_BUG = "https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md"
 
-DEFAULT_EDITOR = "gview -R -m -M -U %s/gvimrc +" % DEFAULT_INI_PATH
+if platform.system() == "Windows":
+    DEFAULT_EDITOR = "notepad"
+else:
+    DEFAULT_EDITOR = "gview -R -m -M -U %s/gvimrc +" % DEFAULT_INI_PATH
 
 EMPTY_INDEX = QtCore.QModelIndex()
 
