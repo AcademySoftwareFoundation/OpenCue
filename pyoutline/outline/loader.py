@@ -213,7 +213,7 @@ class Outline(object):
 
     def __init__(self, name=None, frame_range=None, path=None,
                  serialize=True, name_unique=False, current=False,
-                 shot=None, show=None, user=None):
+                 shot=None, show=None, user=None, facility=None):
         """
         :type  name: string
         :param name: A name for the outline instance.  This will become
@@ -244,6 +244,10 @@ class Outline(object):
         :param user: The user name for this outline instance. If a user
                      name is not provided, it will be looked up using
                      the util.get_user function.
+        :type  facility: string
+        :param facility: The launch facility to be used. If not specified
+                     the RENDER_TO and FACILITY environment variables
+                     will be checked.
         """
         object.__init__(self)
 
@@ -305,6 +309,11 @@ class Outline(object):
         # to modify setshot behavior.
         #
         self.__env = {}
+
+        #
+        # The launch facility to use, or None.
+        #
+        self.__facility = facility
 
         #
         # The outline session.  The session is setup during the setup
@@ -608,6 +617,18 @@ class Outline(object):
         :param user: The name of user to set.
         """
         self.__user = user
+
+    def get_facility(self):
+        """Return the launch facility for this outline."""
+        return self.__facility
+
+    def set_facility(self, facility):
+        """Set the launch facility for this outline instance.
+
+        :type facility: string
+        :param facility: The name of the facility to set.
+        """
+        self.__facility = facility
 
     def get_mode(self):
         """Return the current mode of this outline object.

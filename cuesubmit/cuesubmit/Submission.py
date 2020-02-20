@@ -135,4 +135,8 @@ def submitJob(jobData):
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
         outline.add_layer(layer)
         lastLayer = layer
+
+    if 'facility' in jobData:
+        outline.set_facility(jobData['facility'])
+
     return cuerun.launch(outline, use_pycuerun=False)

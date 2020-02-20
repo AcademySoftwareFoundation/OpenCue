@@ -58,6 +58,7 @@ def import_backend_module(name):
     return __import__("outline.backend.%s" % name,
                       globals(), locals(), [name])
 
+
 def get_launch_facility():
     """
     Return the name of the default launch facility.
@@ -133,11 +134,12 @@ class OutlineLauncher(object):
                         "os": False,
                         "env": [],
                         "maxretries": config.get("outline", "maxretries"),
-                        "backend": config.get("outline", "backend"),
-                        "facility": get_launch_facility()}
-
+                        "backend": config.get("outline", "backend")}
         self.__flags.update(args)
         self.__backend = None
+        facility = self.__outline.get_facility() if self.__outline.get_facility() \
+            else get_launch_facility()
+        self.set_flag("facility", facility)
 
     def set_flag(self, key, value):
         """
