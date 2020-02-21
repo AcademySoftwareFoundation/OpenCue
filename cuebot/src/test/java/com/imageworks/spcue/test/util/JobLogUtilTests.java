@@ -15,37 +15,53 @@
  */
 
 
-
 package com.imageworks.spcue.test.util;
 
-import junit.framework.TestCase;
-import org.junit.Before;
-
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.util.JobLogUtil;
+import org.junit.Before;
+import org.junit.Test;
+import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
+import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
-public class JobLogUtilTests extends TestCase {
+import javax.annotation.Resource;
+
+import static org.junit.Assert.assertEquals;
+
+@ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
+public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTests {
+
+    @Resource
+    private JobLogUtil jobLogUtil;
+
+    private String logRoot;
 
     @Before
     public void setUp() {
-        JobLogUtil.jobLogRootDir = "/shots";
+        // This value should match what's defined in test/resources/opencue.properties.
+        logRoot = "/arbitraryLogDirectory";
     }
 
+    @Test
     public void testGetJobLogRootDir() {
-        assertEquals(JobLogUtil.getJobLogRootDir(), "/shots");
+        assertEquals(logRoot, jobLogUtil.getJobLogRootDir());
     }
 
+    @Test
     public void testGetJobLogDir() {
-        assertEquals(JobLogUtil.getJobLogDir("show", "shot"), "/shots/show/shot/logs");
+        assertEquals(logRoot + "/show/shot/logs", jobLogUtil.getJobLogDir("show", "shot"));
     }
 
+    @Test
     public void testGetJobLogPath() {
         JobDetail jobDetail = new JobDetail();
         jobDetail.id = "id";
         jobDetail.name = "name";
         jobDetail.showName = "show";
         jobDetail.shot = "shot";
-        assertEquals(JobLogUtil.getJobLogPath(jobDetail), "/shots/show/shot/logs/name--id");
+        assertEquals(logRoot + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
     }
 }
 

@@ -37,6 +37,7 @@ import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.grpc.job.JobState;
+import com.imageworks.spcue.util.JobLogUtil;
 
 public interface JobDao {
 
@@ -115,7 +116,7 @@ public interface JobDao {
      *
      * @param j
      */
-    void insertJob(JobDetail j);
+    void insertJob(JobDetail j, JobLogUtil jobLogUtil);
 
     /**
      * Finds a Job from its name.  This method returns only

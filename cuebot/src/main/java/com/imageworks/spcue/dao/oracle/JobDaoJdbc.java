@@ -441,9 +441,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
-    public void insertJob(JobDetail j) {
+    public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
         j.id = SqlUtil.genKeyRandom();
-        j.logDir = JobLogUtil.getJobLogPath(j);
+        j.logDir = jobLogUtil.getJobLogPath(j);
         if (j.minCoreUnits < 100) { j.minCoreUnits = 100; }
 
         getJdbcTemplate().update(INSERT_JOB,

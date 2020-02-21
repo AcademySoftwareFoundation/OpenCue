@@ -99,6 +99,9 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
     @Resource
     DepartmentDao departmentDao;
 
+    @Resource
+    JobLogUtil jobLogUtil;
+
     private static String ROOT_FOLDER = "A0000000-0000-0000-0000-000000000000";
     private static String ROOT_SHOW = "00000000-0000-0000-0000-000000000000";
     private static String JOB_NAME = "pipe-dev.cue-testuser_shell_v1";
@@ -117,11 +120,11 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobDetail job = this.buildJobDetail();
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
-        job.logDir = JobLogUtil.getJobLogPath(job);
+        job.logDir = jobLogUtil.getJobLogPath(job);
         job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId = facilityDao.getDefaultFacility().getId();
         job.state = JobState.PENDING;
-        jobDao.insertJob(job);
+        jobDao.insertJob(job, jobLogUtil);
         return job;
     }
 
@@ -156,10 +159,10 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobDetail job = this.buildJobDetail();
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
-        job.logDir = JobLogUtil.getJobLogPath(job);
+        job.logDir = jobLogUtil.getJobLogPath(job);
         job.deptId = departmentDao.getDefaultDepartment().getId();
         job.facilityId= facilityDao.getDefaultFacility().getId();
-        jobDao.insertJob(job);
+        jobDao.insertJob(job, jobLogUtil);
         assertNotNull(job.id);
     }
 

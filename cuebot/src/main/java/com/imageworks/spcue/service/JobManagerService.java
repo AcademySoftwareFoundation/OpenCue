@@ -81,6 +81,7 @@ public class JobManagerService implements JobManager {
     private FilterManager filterManager;
     private GroupDao groupDao;
     private FacilityDao facilityDao;
+    private JobLogUtil jobLogUtil;
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean isJobComplete(JobInterface job) {
@@ -242,7 +243,7 @@ public class JobManagerService implements JobManager {
 
             resolveFacility(job);
 
-            jobDao.insertJob(job);
+            jobDao.insertJob(job, jobLogUtil);
             jobDao.insertEnvironment(job, buildableJob.env);
 
             for (BuildableLayer buildableLayer: buildableJob.getBuildableLayers()) {
@@ -366,7 +367,7 @@ public class JobManagerService implements JobManager {
      */
     @Transactional(propagation = Propagation.NEVER)
     public void createJobLogDirectory(JobDetail job) {
-        if (!JobLogUtil.createJobLogDirectory(job.logDir)) {
+        if (!jobLogUtil.createJobLogDirectory(job.logDir)) {
             throw new JobLaunchException("error launching job, unable to create log directory");
         }
     }
@@ -622,6 +623,14 @@ public class JobManagerService implements JobManager {
 
     public void setHostDao(HostDao hostDao) {
         this.hostDao = hostDao;
+    }
+
+    public JobLogUtil getJobLogUtil() {
+        return jobLogUtil;
+    }
+
+    public void setJobLogUtil(JobLogUtil jobLogUtil) {
+        this.jobLogUtil = jobLogUtil;
     }
 }
 
