@@ -24,7 +24,7 @@ def convert_sys_args_from_olrun():
         '-retry': '-m',
         '-jobid': '-j'
     }
-    for k, v in translation_dict.iteritems():
+    for k, v in translation_dict.items():
         if k in sys.argv:
             logger.warn('olrun params detected, converting {0} to {1}'.format(
                 k, v))
@@ -127,7 +127,7 @@ def inspect_script(outline):
     print("%s" % outline.get_full_name())
     for layer in outline.get_layers():
         print(" + %s" % layer.get_name())
-        for key, val in layer.get_args().iteritems():
+        for key, val in layer.get_args().items():
             print("   - %s = %s" % (key, val))
 
 
