@@ -197,13 +197,13 @@ class Group(object):
         :return: total number of running jobs"""
         return self.data.group_stats.pending_jobs
 
-    def hasParent(self):
-        """Whether this Group/NestedGroup has a parent group.
+    def isRootGroup(self):
+        """Whether this Group/NestedGroup is a root group.
 
         :rtype: bool
-        :return: whether the group has a parent
+        :return: whether the group is a root group.
         """
-        return self.data.HasField('parent')
+        return hasattr(self.data, 'parent') and not self.data.HasField('parent')
 
 
 class NestedGroup(Group):
