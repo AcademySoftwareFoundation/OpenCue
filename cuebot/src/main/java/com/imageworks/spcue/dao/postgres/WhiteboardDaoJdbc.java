@@ -1163,13 +1163,17 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             .setFacility(SqlUtil.getString(rs,"facility_name"))
                             .setGroup(SqlUtil.getString(rs,"group_name"))
                             .setState(JobState.valueOf(SqlUtil.getString(rs,"str_state")))
-                            .setUid(rs.getInt("int_uid"))
                             .setUser(SqlUtil.getString(rs,"str_user"))
                             .setIsPaused(rs.getBoolean("b_paused"))
                             .setHasComment(rs.getBoolean("b_comment"))
                             .setAutoEat(rs.getBoolean("b_autoeat"))
                             .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
                             .setOs(SqlUtil.getString(rs,"str_os"));
+
+                    int uid = rs.getInt("int_uid");
+                    if (!rs.wasNull()) {
+                        jobBuilder.setUid(uid);
+                    }
 
                     Timestamp ts = rs.getTimestamp("ts_stopped");
                     if (ts != null) {

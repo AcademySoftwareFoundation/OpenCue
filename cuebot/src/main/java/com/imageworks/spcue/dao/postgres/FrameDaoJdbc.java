@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -267,7 +268,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.shot = rs.getString("str_shot");
             frame.show = rs.getString("show_name");
             frame.owner = rs.getString("str_user");
-            frame.uid = rs.getInt("int_uid");
+            int uid = rs.getInt("int_uid");
+            frame.uid = rs.wasNull() ? Optional.empty() : Optional.of(uid);
             frame.state = FrameState.valueOf(rs.getString("frame_state"));
             frame.minCores = rs.getInt("int_cores_min");
             frame.maxCores = rs.getInt("int_cores_max");

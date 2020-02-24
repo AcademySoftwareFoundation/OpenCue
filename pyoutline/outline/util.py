@@ -21,6 +21,7 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
+
 import getpass
 import os
 import platform
@@ -119,11 +120,12 @@ def get_user():
 
     return os.environ.get('USER', getpass.getuser())
 
+
 def get_uid():
     """
     Return the current users id
     """
     if platform.system() == 'Windows':
-        return 12345  # TODO: this value is currently not used, but it might be in future
+        return None
 
     return os.getuid()

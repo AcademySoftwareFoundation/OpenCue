@@ -351,11 +351,10 @@ public class DispatchSupportService implements DispatchSupport {
         int startFrameIndex = fs.index(frameNumber);
         String frameSpec = fs.getChunk(startFrameIndex, frame.chunkSize);
 
-        return RunFrame.newBuilder()
+        RunFrame.Builder builder = RunFrame.newBuilder()
                 .setShot(frame.shot)
                 .setShow(frame.show)
                 .setUserName(frame.owner)
-                .setUid(frame.uid)
                 .setLogDir(frame.logDir)
                 .setJobId(frame.jobId)
                 .setJobName(frame.jobName)
@@ -395,8 +394,11 @@ public class DispatchSupportService implements DispatchSupport {
                                 .replaceAll("#LAYER#", frame.layerName)
                                 .replaceAll("#JOB#",  frame.jobName)
                                 .replaceAll("#FRAMESPEC#",  frameSpec)
-                                .replaceAll("#FRAME#",  frame.name))
-                .build();
+                                .replaceAll("#FRAME#",  frame.name));
+
+        frame.uid.ifPresent(builder::setUid);
+
+        return builder.build();
     }
 
 
