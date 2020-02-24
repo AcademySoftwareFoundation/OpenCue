@@ -35,6 +35,8 @@ from opencue.compiled_proto.filter_pb2 import FilterType
 from opencue.compiled_proto.filter_pb2 import MatchSubject
 from opencue.compiled_proto.filter_pb2 import MatchType
 from opencue.compiled_proto.filter_pb2 import Matcher as MatcherData
+import opencue.wrappers.group
+
 
 __all__ = ["Filter", "Action", "Matcher",
            "FilterData", "ActionData", "MatcherData",
@@ -96,9 +98,9 @@ class Filter(object):
             boolean_value=False
         )
 
-        if isinstance(value, job_pb2.Group):
+        if isinstance(value, opencue.wrappers.group.Group):
             action.value_type = filter_pb2.GROUP_TYPE
-            action.group_value = value.id
+            action.group_value = value.id()
         elif isinstance(value, str):
             action.value_type = filter_pb2.STRING_TYPE
             action.string_value = value
@@ -271,9 +273,9 @@ class Action(object):
 
     def name(self):
         if self.value() is None:
-            return "%s" % self.type()
+            return "%s" % ActionType.Name(self.type())
         else:
-            return "%s %s" % (self.type(), self.value())
+            return "%s %s" % (ActionType.Name(self.type()), self.value())
 
     def value(self):
         valueType = self.data.value_type
@@ -385,7 +387,7 @@ class Matcher(object):
         return self.data is None
 
     def name(self):
-        return "%s %s %s" % (self.data.subject, self.data.type, self.data.input)
+        return "%s %s %s" % (MatchSubject.Name(self.data.subject), MatchType.Name(self.data.type), self.data.input)
 
     def subject(self):
         return self.data.subject

@@ -141,14 +141,14 @@ def isRootGroup(object):
     """Returns true if the object is a root, false if not
     @return: If the object is a root group
     @rtype:  bool"""
-    return object.__class__.__name__ in ["NestedGroup", "Group"] and not object.parent
+    return object.__class__.__name__ in ["NestedGroup", "Group"] and not object.hasParent()
 
 
 def isGroup(object):
     """Returns true if the object is a group, false if not
     @return: If the object is a group
     @rtype:  bool"""
-    return object.__class__.__name__ in ["NestedGroup", "Group"] and (not hasattr(object, "parent") or object.parent)
+    return object.__class__.__name__ in ["NestedGroup", "Group"] and object.hasParent()
 
 
 def isHost(object):
