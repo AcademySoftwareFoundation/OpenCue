@@ -150,7 +150,7 @@ def isGroup(object):
     @return: If the object is a group
     @rtype:  bool"""
     return (
-        isinstance(object, opencue.wrappers.group.Group) or
+        type(object) == opencue.wrappers.group.Group or
         (isinstance(object, opencue.wrappers.group.NestedGroup) and not object.isRootGroup()))
 
 
