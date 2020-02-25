@@ -142,7 +142,7 @@ def isRootGroup(object):
     """Returns true if the object is a root, false if not
     @return: If the object is a root group
     @rtype:  bool"""
-    return isinstance(object, opencue.wrappers.group.NestedGroup) and object.isRootGroup()
+    return isinstance(object, opencue.wrappers.group.NestedGroup) and not object.hasParent()
 
 
 def isGroup(object):
@@ -151,7 +151,7 @@ def isGroup(object):
     @rtype:  bool"""
     return (
         type(object) == opencue.wrappers.group.Group or
-        (isinstance(object, opencue.wrappers.group.NestedGroup) and not object.isRootGroup()))
+        (isinstance(object, opencue.wrappers.group.NestedGroup) and object.hasParent()))
 
 
 def isHost(object):

@@ -233,10 +233,10 @@ class NestedGroup(Group):
             group_stats=self.data.stats,
         ))
 
-    def isRootGroup(self):
-        """Whether this Group/NestedGroup is a root group.
+    def hasParent(self):
+        """Whether this NestedGroup has a parent group.
 
         :rtype: bool
-        :return: whether the group is a root group.
+        :return: whether the group has a parent group.
         """
-        return hasattr(self.data, 'parent') and not self.data.HasField('parent')
+        return self.data.HasField('parent')
