@@ -40,6 +40,7 @@ import yaml
 from yaml.scanner import ScannerError
 
 import opencue
+import opencue.wrappers.group
 
 import cuegui.ConfirmationDialog
 import cuegui.Constants
@@ -141,14 +142,16 @@ def isRootGroup(object):
     """Returns true if the object is a root, false if not
     @return: If the object is a root group
     @rtype:  bool"""
-    return object.__class__.__name__ in ["NestedGroup", "Group"] and not object.hasParent()
+    return isinstance(object, opencue.wrappers.group.NestedGroup) and not object.hasParent()
 
 
 def isGroup(object):
     """Returns true if the object is a group, false if not
     @return: If the object is a group
     @rtype:  bool"""
-    return object.__class__.__name__ in ["NestedGroup", "Group"] and object.hasParent()
+    return (
+        type(object) == opencue.wrappers.group.Group or
+        (isinstance(object, opencue.wrappers.group.NestedGroup) and object.hasParent()))
 
 
 def isHost(object):
