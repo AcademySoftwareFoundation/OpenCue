@@ -43,6 +43,7 @@ class FilterDialogTests(unittest.TestCase):
         self.show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
         filterProto = opencue.compiled_proto.filter_pb2.Filter(
                 id='filter-one-id', name='filterOne', order=1, enabled=True)
+        self.filter = opencue.wrappers.filter.Filter(filterProto)
 
         getStubMock.return_value.GetFilters.return_value = opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
             filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
@@ -80,7 +81,7 @@ class FilterDialogTests(unittest.TestCase):
 
         self.show.createFilter.assert_not_called()
 
-    def test_filterSelectionShouldUpdateMatchersAndActions(self):
+    def test_shouldUpdateMatchersAndActions(self):
         self.filterDialog._FilterDialog__matchers.setObject = mock.Mock()
         self.filterDialog._FilterDialog__actions.setObject = mock.Mock()
         filterMonitorTree = self.filterDialog._FilterDialog__filters
@@ -92,8 +93,57 @@ class FilterDialogTests(unittest.TestCase):
             PySide2.QtCore.Qt.NoModifier,
             filterMonitorTree.visualItemRect(filterBeingSelected).center())
 
-        self.filterDialog._FilterDialog__matchers.setObject.assert_called()
-        self.filterDialog._FilterDialog__actions.setObject.assert_called()
+        self.filterDialog._FilterDialog__matchers.setObject.assert_called_with(self.filter)
+        self.filterDialog._FilterDialog__actions.setObject.assert_called_with(self.filter)
+
+    def test_shouldTriggerAddMultipleMatchers(self):
+        self.filterDialog._FilterDialog__matchers.addMultipleMatchers = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnAddMultipleMatchers.click()
+
+        self.filterDialog._FilterDialog__matchers.addMultipleMatchers.assert_called()
+
+    def test_shouldTriggerReplaceAllMatchers(self):
+        self.filterDialog._FilterDialog__matchers.replaceAllMatchers = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnReplaceAllMatchers.click()
+
+        self.filterDialog._FilterDialog__matchers.replaceAllMatchers.assert_called()
+
+    def test_shouldTriggerDeleteAllMatchers(self):
+        self.filterDialog._FilterDialog__matchers.deleteAllMatchers = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnDeleteAllMatchers.click()
+
+        self.filterDialog._FilterDialog__matchers.deleteAllMatchers.assert_called()
+
+    def test_shouldTriggerCreateMatcher(self):
+        self.filterDialog._FilterDialog__matchers.createMatcher = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnAddMatcher.click()
+
+        self.filterDialog._FilterDialog__matchers.createMatcher.assert_called()
+
+    def test_shouldTriggerDeleteAllActions(self):
+        self.filterDialog._FilterDialog__actions.deleteAllActions = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnDeleteAllActions.click()
+
+        self.filterDialog._FilterDialog__actions.deleteAllActions.assert_called()
+
+    def test_shouldTriggerCreateAction(self):
+        self.filterDialog._FilterDialog__actions.createAction = mock.Mock()
+
+        self.filterDialog._FilterDialog__btnAddAction.click()
+
+        self.filterDialog._FilterDialog__actions.createAction.assert_called()
+
+    def test_shouldCloseDialog(self):
+        self.assertEqual(PySide2.QtWidgets.QDialog.DialogCode.Rejected, self.filterDialog.result())
+
+        self.filterDialog._FilterDialog__btnDone.click()
+
+        self.assertEqual(PySide2.QtWidgets.QDialog.DialogCode.Accepted, self.filterDialog.result())
 
 
 class FilterMonitorTreeTests(unittest.TestCase):
@@ -118,7 +168,7 @@ class FilterMonitorTreeTests(unittest.TestCase):
         self.filterDialog = cuegui.FilterDialog.FilterDialog(show, parent=self.parentWidget)
         self.filterMonitorTree = self.filterDialog._FilterDialog__filters
 
-    def test_filtersListShouldBePopulated(self):
+    def test_shouldPopulateFiltersList(self):
         self.assertEqual(2, self.filterMonitorTree.topLevelItemCount())
         firstItem = self.filterMonitorTree.topLevelItem(0)
         self.assertEqual('1', firstItem.text(0))
@@ -126,6 +176,63 @@ class FilterMonitorTreeTests(unittest.TestCase):
         secondItem = self.filterMonitorTree.topLevelItem(1)
         self.assertEqual('2', secondItem.text(0))
         self.assertEqual(False, self.filterMonitorTree.itemWidget(secondItem, 1).isChecked())
+
+    @mock.patch('PySide2.QtWidgets.QMenu')
+    def test_shouldRaiseContextMenu(self, qMenuMock):
+        filterBeingSelected = self.filterMonitorTree.topLevelItem(0)
+
+        self.filterMonitorTree.contextMenuEvent(
+            PySide2.QtGui.QContextMenuEvent(
+                PySide2.QtGui.QContextMenuEvent.Reason.Mouse,
+                self.filterMonitorTree.visualItemRect(filterBeingSelected).center()))
+
+        qMenuMock.return_value.exec_.assert_called()
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub')
+class MatcherMonitorTreeTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def setUp(self, getStubMock):
+        test_utils.createApplication()
+        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        cuegui.Style.init()
+
+        self.matchers = [
+            opencue.compiled_proto.filter_pb2.Matcher(
+                id='matcher-one-id',
+                subject=opencue.compiled_proto.filter_pb2.SHOW,
+                type=opencue.compiled_proto.filter_pb2.IS,
+                input='showName'),
+            opencue.compiled_proto.filter_pb2.Matcher(
+                id='matcher-two-id',
+                subject=opencue.compiled_proto.filter_pb2.JOB_NAME,
+                type=opencue.compiled_proto.filter_pb2.CONTAINS,
+                input='jobNameSnippet'),
+        ]
+
+        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.matcherMonitorTree = cuegui.FilterDialog.MatcherMonitorTree(None, self.parentWidget)
+
+    def test_shouldPopulateMatchersList(self, getStubMock):
+        #filterProto = opencue.compiled_proto.filter_pb2.Filter(
+        #    id='filter-one-id', name='filterOne', order=1, enabled=True)
+        #filter = opencue.wrappers.filter.Filter(filterProto)
+        getStubMock.return_value.GetMatchers.return_value = opencue.compiled_proto.filter_pb2.FilterGetMatchersResponse(
+            matchers=opencue.compiled_proto.filter_pb2.MatcherSeq(matchers=self.matchers))
+
+        self.matcherMonitorTree.setObject(
+            opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter()))
+
+        self.assertEqual(2, self.matcherMonitorTree.topLevelItemCount())
+        firstItem = self.matcherMonitorTree.topLevelItem(0)
+        self.assertEqual('JOB_NAME', self.matcherMonitorTree.itemWidget(firstItem, 0).currentText())
+        self.assertEqual('CONTAINS', self.matcherMonitorTree.itemWidget(firstItem, 1).currentText())
+        self.assertEqual('jobNameSnippet', self.matcherMonitorTree.itemWidget(firstItem, 2).text())
+        secondItem = self.matcherMonitorTree.topLevelItem(1)
+        self.assertEqual('SHOW', self.matcherMonitorTree.itemWidget(secondItem, 0).currentText())
+        self.assertEqual('IS', self.matcherMonitorTree.itemWidget(secondItem, 1).currentText())
+        self.assertEqual('showName', self.matcherMonitorTree.itemWidget(secondItem, 2).text())
 
 
 if __name__ == '__main__':

@@ -56,6 +56,11 @@ class Filter(object):
         self.data = filter
         self.stub = Cuebot.getStub('filter')
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.data == other.data
+
     def delete(self):
         """Deletes the filter"""
         self.stub.Delete(filter_pb2.FilterDeleteRequest(filter=self.data), timeout=Cuebot.Timeout)
