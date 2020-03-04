@@ -86,7 +86,7 @@ def permissionsHigh():
 def permissionsLow():
     """Sets the effective gid/uid to one with less permissions:
        RQD_GID and RQD_UID"""
-    if platform.system() == 'Windows':
+    if platform.system() in ('Windows', 'Darwin'):
         return
     if os.getegid() != rqd.rqconstants.RQD_GID or os.geteuid() != rqd.rqconstants.RQD_UID:
         __becomeRoot()
@@ -99,7 +99,7 @@ def permissionsLow():
 
 def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
-    if platform.system() == 'Windows':
+    if platform.system() in ('Windows', 'Darwin'):
         return
     PERMISSIONS.acquire()
     __becomeRoot()
