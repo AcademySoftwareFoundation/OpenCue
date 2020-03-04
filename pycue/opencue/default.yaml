@@ -11,14 +11,14 @@ cuebot.timeout: 10000
 cuebot.max_message_bytes: 104857600
 cuebot.exception_retries: 3
 
-cuebot.facility_default: cloud
+cuebot.facility_default: local
 cuebot.facility:
+    local:
+        - localhost:8443
     dev:
         - cuetest02-vm.example.com:8443
     cloud:
         - cuebot1.example.com:8443
         - cuebot2.example.com:8443
         - cuebot3.example.com:8443
-    local:
-        - cuebot1-vm.maa.example.com:8443
-        - cuebot2-vm.maa.example.com:8443
+
