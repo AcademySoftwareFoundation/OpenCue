@@ -16,7 +16,6 @@
  */
 
 
-
 package com.imageworks.spcue.servant;
 
 import io.grpc.stub.StreamObserver;
@@ -42,7 +41,11 @@ public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
 
     @Override
     public void delete(ActionDeleteRequest request, StreamObserver<ActionDeleteResponse> responseObserver) {
-        filterManager.deleteAction(ActionEntity.build(request.getAction()));
+        Action requestAction = request.getAction();
+        ActionEntity existingAction = filterManager.getAction(requestAction.getId());
+        FilterEntity filterEntity = filterManager.getFilter(existingAction);
+        ActionEntity actionToDelete = ActionEntity.build(filterEntity, requestAction, requestAction.getId());
+        filterManager.deleteAction(actionToDelete);
         responseObserver.onNext(ActionDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -58,8 +61,8 @@ public class ManageAction extends ActionInterfaceGrpc.ActionInterfaceImplBase {
     @Override
     public void commit(ActionCommitRequest request, StreamObserver<ActionCommitResponse> responseObserver) {
         Action requestAction = request.getAction();
-        ActionEntity requestEntity = ActionEntity.build(requestAction);
-        FilterEntity filterEntity = filterManager.getFilter(requestEntity);
+        ActionEntity existingAction = filterManager.getAction(requestAction.getId());
+        FilterEntity filterEntity = filterManager.getFilter(existingAction);
         ActionEntity newAction = ActionEntity.build(filterEntity, requestAction, requestAction.getId());
         filterManager.updateAction(newAction);
         responseObserver.onNext(ActionCommitResponse.newBuilder().build());

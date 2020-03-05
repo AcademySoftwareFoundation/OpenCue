@@ -40,3 +40,6 @@ BLENDER_OUTPUT_OPTIONS_URL = \
   'https://docs.blender.org/manual/en/latest/advanced/command_line/arguments.html#render-options'
 
 DIR_PATH = os.path.dirname(__file__)
+
+# Dropdown label to specify the default Facility, i.e. let Cuebot decide.
+DEFAULT_FACILITY_TEXT = '[Default]'

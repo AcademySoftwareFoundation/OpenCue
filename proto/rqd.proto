@@ -102,7 +102,9 @@ message RunFrame {
     string log_file = 14;
     string log_dir_file = 15;
     int64 start_time = 16;
-    int32 uid = 17;
+    oneof uid_optional {
+        int32 uid = 17;
+    }
     int32 num_cores = 18;
     int32 gid = 19;
     bool ignore_nimby = 20;

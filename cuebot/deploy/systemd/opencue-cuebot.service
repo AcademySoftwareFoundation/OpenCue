@@ -8,7 +8,7 @@ Environment=DB_URL=jdbc:postgresql://localhost:5432/cuebot_local
 Environment=DB_USER=cuebot
 Environment=DB_PASS=<changeme>
 Environment=OPTIONS=
-Environment=JAR_PATH=/opt/OpenCue/cuebot/cuebot-latest.jar
+Environment=JAR_PATH=/opt/opencue/cuebot/lib/cuebot-latest.jar
 EnvironmentFile=-/etc/sysconfig/opencue-cuebot
 ExecStart=/bin/bash -c "/usr/bin/java -jar ${JAR_PATH} --datasource.cue-data-source.jdbc-url=${DB_URL} --datasource.cue-data-source.username=${DB_USER} --datasource.cue-data-source.password=${DB_PASS} ${OPTIONS}"
 LimitNOFILE=500000

@@ -15,9 +15,9 @@
  * limitations under the License.
  */
 
-
-
 package com.imageworks.spcue;
+
+import java.util.Optional;
 
 import com.imageworks.spcue.grpc.job.JobState;
 
@@ -28,7 +28,7 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
     public String shot;
     public String user;
     public String email;
-    public int uid;
+    public Optional<Integer> uid;
     public String logDir;
     public boolean isPaused;
     public boolean isAutoEat;

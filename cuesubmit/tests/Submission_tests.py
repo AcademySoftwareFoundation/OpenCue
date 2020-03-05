@@ -143,6 +143,32 @@ class SubmissionTests(unittest.TestCase):
         self.assertEqual(shellLayer, depend.get_dependant_layer())
         self.assertEqual(outline.depend.DependType.FrameByFrame, depend.get_type())
 
+    def testSubmitJobWithFacility(self, launchMock):
+        cuesubmit.Submission.submitJob({
+            'name': 'job-with-facility',
+            'shot': 'arbitrary-shot-name',
+            'show': 'arbitrary-show-name',
+            'username': 'arbitrary-user',
+            'layers': [cuesubmit.Layer.LayerData.buildFactory(**NUKE_LAYER_DATA)],
+            'facility': 'my-facility'
+        })
+
+        outline = launchMock.call_args[0][0]
+        facility = outline.get_facility()
+        self.assertEqual('my-facility', facility)
+
+    def testSubmitJobWithoutFacility(self, launchMock):
+        cuesubmit.Submission.submitJob({
+            'name': 'job-with-facility',
+            'shot': 'arbitrary-shot-name',
+            'show': 'arbitrary-show-name',
+            'username': 'arbitrary-user',
+            'layers': [cuesubmit.Layer.LayerData.buildFactory(**NUKE_LAYER_DATA)]
+        })
+
+        outline = launchMock.call_args[0][0]
+        self.assertIsNone(outline.get_facility())
+
 
 if __name__ == '__main__':
     unittest.main()

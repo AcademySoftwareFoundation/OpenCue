@@ -390,9 +390,9 @@ class Job(object):
     def uid(self):
         """Returns the uid of the person who owns the job.
 
-        :rtype:  int
+        :rtype:  Optional[int]
         :return: Uid of job owner"""
-        return self.data.uid
+        return self.data.uid if self.data.HasField("uid") else None
 
     def user(self):
         """Returns the username of the person who owns the job.
@@ -897,7 +897,7 @@ class NestedJob(Job):
             group=self.data.group,
             facility=self.data.facility,
             os=self.data.os,
-            uid=self.data.uid,
+            uid=self.data.uid if self.data.HasField("uid") else None,
             priority=self.data.priority,
             min_cores=self.data.min_cores,
             max_cores=self.data.max_cores,

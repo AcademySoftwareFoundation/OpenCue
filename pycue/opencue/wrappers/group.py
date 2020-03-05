@@ -232,3 +232,11 @@ class NestedGroup(Group):
             level=self.data.level,
             group_stats=self.data.stats,
         ))
+
+    def hasParent(self):
+        """Whether this NestedGroup has a parent group.
+
+        :rtype: bool
+        :return: whether the group has a parent group.
+        """
+        return self.data.HasField('parent')

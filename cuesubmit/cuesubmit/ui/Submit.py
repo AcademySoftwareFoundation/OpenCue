@@ -87,6 +87,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresLayout = QtWidgets.QHBoxLayout()
         self.servicesLayout = QtWidgets.QHBoxLayout()
         self.showLayout = QtWidgets.QGridLayout()
+        self.facilityLayout = QtWidgets.QGridLayout()
 
         self.titleLogo = QtWidgets.QLabel()
         self.titleLogo.setPixmap(QtGui.QPixmap('{}/images/OpenCue.png'.format(Constants.DIR_PATH)))
@@ -163,6 +164,17 @@ class CueSubmitWidget(QtWidgets.QWidget):
             options=[Layer.DependType.Null, Layer.DependType.Layer, Layer.DependType.Frame],
             multiselect=False)
 
+        allocations = Util.getAllocations()
+        facilities = Util.getFacilities(allocations)
+        preset_facility = Util.getPresetFacility()
+        selected_facility = preset_facility if preset_facility else facilities[0]
+        self.facilitySelector = Widgets.CueSelectPulldown(
+            'Facility:',
+            facilities[0],
+            options=facilities,
+            multiselect=False)
+        self.facilitySelector.setChecked(selected_facility)
+
         self.settingsWidget = self.jobTypes.build(self.primaryWidgetType, *args, **kwargs)
         self.jobTreeWidget = Job.CueJobWidget()
         self.submitButtons = CueSubmitButtons()
@@ -199,6 +211,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
     def setupUi(self):
         self.setLayout(self.mainLayout)
         self.scrollingLayout.addWidget(self.titleLogo)
+
         self.scrollingLayout.addWidget(Widgets.CueLabelLine('Job Info'))
         self.jobInfoLayout.addWidget(self.jobNameInput)
         self.jobInfoLayout.addWidget(self.userNameInput)
@@ -207,6 +220,12 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.showLayout.addWidget(self.showSelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
         self.showLayout.addWidget(self.shotInput, 0, 1, 1, 2)
         self.jobInfoLayout.addLayout(self.showLayout)
+
+        self.facilityLayout.setHorizontalSpacing(20)
+        self.facilityLayout.setColumnStretch(1, 1)
+        self.facilityLayout.addWidget(self.facilitySelector, 0, 0, 1, 1, QtCore.Qt.AlignLeft)
+        self.jobInfoLayout.addLayout(self.facilityLayout, QtCore.Qt.AlignLeft)
+
         self.scrollingLayout.addLayout(self.jobInfoLayout)
 
         self.scrollingLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.VERTICAL))
@@ -248,13 +267,16 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @rtype: dict
         @return: dictionary containing the job submission settings
         """
-        return {
+        jobData = {
             'name': self.jobNameInput.text(),
             'username': self.userNameInput.text(),
             'show': self.showSelector.text(),
             'shot': self.shotInput.text(),
             'layers': self.jobTreeWidget.getAllLayers()
         }
+        facility = self.facilitySelector.text()
+        jobData['facility'] = facility if facility and facility != Constants.DEFAULT_FACILITY_TEXT else None
+        return jobData
 
     def jobLayerSelectionChanged(self, layerObject):
         """Action called when the layer selection is changed."""

@@ -16,39 +16,31 @@
  */
 
 
-
 package com.imageworks.spcue.util;
 
-import java.io.File;
-
-import org.springframework.beans.factory.annotation.Value;
+import com.imageworks.spcue.JobDetail;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
-import com.imageworks.spcue.JobDetail;
+import java.io.File;
 
 @Component
 public class JobLogUtil {
 
-    public static String jobLogRootDir;
+    @Autowired
+    private Environment env;
 
-    public static boolean createJobLogDirectory(String path) {
+    public boolean createJobLogDirectory(String path) {
         File f = new File(path);
         f.mkdir();
         f.setWritable(true, false);
         return f.isDirectory();
     }
 
-    public static boolean shotLogDirectoryExists(String show, String shot) {
-        return new File(getJobLogDir(show, shot)).exists();
-    }
-
-    public static boolean jobLogDirectoryExists(JobDetail job) {
-        return new File(job.logDir).exists();
-    }
-
-    public static String getJobLogDir(String show, String shot) {
+    public String getJobLogDir(String show, String shot) {
         StringBuilder sb = new StringBuilder(512);
-        sb.append(jobLogRootDir);
+        sb.append(getJobLogRootDir());
         sb.append("/");
         sb.append(show);
         sb.append("/");
@@ -57,7 +49,7 @@ public class JobLogUtil {
         return sb.toString();
     }
 
-    public static String getJobLogPath(JobDetail job) {
+    public String getJobLogPath(JobDetail job) {
         StringBuilder sb = new StringBuilder(512);
         sb.append(getJobLogDir(job.showName, job.shot));
         sb.append("/");
@@ -67,13 +59,8 @@ public class JobLogUtil {
         return sb.toString();
     }
 
-    public static String getJobLogRootDir() {
-        return jobLogRootDir;
-    }
-
-    @Value("${log.frameLogDirRoot}")
-    public void setJobLogRootDir(String logRootDir) {
-        jobLogRootDir = logRootDir;
+    public String getJobLogRootDir() {
+        return env.getRequiredProperty("log.frame-log-root", String.class);
     }
 }
 

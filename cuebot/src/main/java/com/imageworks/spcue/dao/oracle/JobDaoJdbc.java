@@ -28,6 +28,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -119,7 +120,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.priority = rs.getInt("int_priority");
                 job.shot = rs.getString("str_shot");
                 job.state = JobState.valueOf(rs.getString("str_state"));
-                job.uid = rs.getInt("int_uid");
+                int uid = rs.getInt("int_uid");
+                job.uid = rs.wasNull() ? Optional.empty() : Optional.of(uid);
                 job.user = rs.getString("str_user");
                 job.email = rs.getString("str_email");
                 job.totalFrames = rs.getInt("int_frame_count");
@@ -441,15 +443,15 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
-    public void insertJob(JobDetail j) {
+    public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
         j.id = SqlUtil.genKeyRandom();
-        j.logDir = JobLogUtil.getJobLogPath(j);
+        j.logDir = jobLogUtil.getJobLogPath(j);
         if (j.minCoreUnits < 100) { j.minCoreUnits = 100; }
 
         getJdbcTemplate().update(INSERT_JOB,
                 j.id, j.showId, j.groupId, j.facilityId, j.deptId,
                 j.name, j.name, j.showName, j.shot, j.user, j.email, j.state.toString(),
-                j.logDir, j.os, j.uid, j.isPaused, j.isAutoEat, j.maxRetries);
+                j.logDir, j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries);
     }
 
     private static final String JOB_EXISTS =

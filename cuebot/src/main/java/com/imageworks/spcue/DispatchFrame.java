@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue;
 
+import java.util.Optional;
 import com.imageworks.spcue.grpc.job.FrameState;
 
 public class DispatchFrame extends FrameEntity implements FrameInterface {
@@ -29,7 +30,7 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public String show;
     public String shot;
     public String owner;
-    public int uid;
+    public Optional<Integer> uid;
     public String logDir;
     public String command;
     public String range;

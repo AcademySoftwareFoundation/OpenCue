@@ -215,7 +215,9 @@ def _serialize(launcher, use_pycuerun):
     if not launcher.get("nomail"):
         sub_element(root, "email", "%s@%s" % (user,
                                               config.get("outline", "domain")))
-    sub_element(root, "uid", str(util.get_uid()))
+    uid = util.get_uid()
+    if uid is not None:
+        sub_element(root, "uid", str(uid))
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
     sub_element(j, "paused", str(launcher.get("pause")))
@@ -314,7 +316,7 @@ def _serialize(launcher, use_pycuerun):
     xml = [
         '<?xml version="1.0"?>',
         '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-            '"http://localhost:8080/spcue/dtd/cjsl-1.8.dtd">',
+            '"http://localhost:8080/spcue/dtd/cjsl-1.9.dtd">',
         Et.tostring(root).decode()
     ]
 

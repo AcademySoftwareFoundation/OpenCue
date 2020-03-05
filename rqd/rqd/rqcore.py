@@ -421,12 +421,14 @@ class FrameAttendantThread(threading.Thread):
                                                  runFrame.frame_name)
             runFrame.log_dir_file = os.path.join(runFrame.log_dir, runFrame.log_file)
 
-            try: # Exception block for all exceptions
-                # Do everything as launching user
-                runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+            try:  # Exception block for all exceptions
 
-                # Change to job user
-                rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+                # Change to frame user if needed:
+                if runFrame.HasField("uid"):
+                    # Do everything as launching user:
+                    runFrame.gid = rqd.rqconstants.LAUNCH_FRAME_USER_GID
+                    rqd.rqutil.permissionsUser(runFrame.uid, runFrame.gid)
+
                 try:
                     #
                     # Setup proc to allow launching of frame
@@ -777,7 +779,7 @@ class RqCore(object):
             log.critical(err)
             raise rqd.rqexceptions.DuplicateFrameViolationException(err)
 
-        if runFrame.uid <= 0:
+        if runFrame.HasField("uid") and runFrame.uid <= 0:
             err = "Not launching, will not run frame as uid=%d" % runFrame.uid
             log.warning(err)
             raise rqd.rqexceptions.InvalidUserException(err)
