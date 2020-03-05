@@ -61,10 +61,10 @@ class DarwinPlatform(rqplatform_unix.UnixPlatform):
             free_swap=free_swap,
             total_gpu=gpu_values['total'],
             free_gpu=gpu_values['free'],
-            swap_out=0)  # TODO
+            swap_out=0)  # TODO: https://github.com/AcademySoftwareFoundation/OpenCue/issues/193
 
     def getLoadAvg(self):  # type: () -> int
-        return 0  # TODO
+        return 0  # TODO: https://github.com/AcademySoftwareFoundation/OpenCue/issues/193
 
     def getBootTime(self):  # type: () -> int
-        return 0  # TODO
+        return 0  # TODO: https://github.com/AcademySoftwareFoundation/OpenCue/issues/193
