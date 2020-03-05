@@ -43,7 +43,7 @@ if platform.system() in ('Linux', 'Darwin'):
     import yaml
 
 import rqd.compiled_proto.host_pb2
-from rqd.compiled_proto import report_pb2
+import rqd.compiled_proto.report_pb2
 import rqd.rqconstants
 import rqd.rqexceptions
 import rqd.rqplatform
@@ -71,14 +71,14 @@ class Machine(object):
 
         self.state = rqd.compiled_proto.host_pb2.UP
 
-        self.__renderHost = report_pb2.RenderHost()
+        self.__renderHost = rqd.compiled_proto.report_pb2.RenderHost()
         self.__initMachineTags()
         self.__initMachineStats()
 
-        self.__bootReport = report_pb2.BootReport()
+        self.__bootReport = rqd.compiled_proto.report_pb2.BootReport()
         self.__bootReport.core_info.CopyFrom(self.__coreInfo)
 
-        self.__hostReport = report_pb2.HostReport()
+        self.__hostReport = rqd.compiled_proto.report_pb2.HostReport()
         self.__hostReport.core_info.CopyFrom(self.__coreInfo)
 
         self.__pidHistory = {}
@@ -364,7 +364,7 @@ class Machine(object):
            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
     def updateMachineStats(self, renderHost):
-        # type: (report_pb2.RenderHost) -> None
+        # type: (rqd.compiled_proto.report_pb2.RenderHost) -> None
         """Updates dynamic machine information during runtime"""
 
         diskInfo = self.__platform.getDiskInfo()
