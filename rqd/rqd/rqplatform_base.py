@@ -56,7 +56,10 @@ class Platform(object):
         """Returns the correct mcp path for the given machine"""
         if os.path.isdir("/mcp/"):
             return "/mcp/"
-        return '%s/' % tempfile.gettempdir()
+        
+        # make sure path ends with directory separator,
+        # this will add one if it is not already present:
+        return os.path.join(tempfile.gettempdir(), '')
 
     def getDiskInfo(self):  # type: () -> DiskInfo
         tmp = self.getTempPath()
