@@ -96,8 +96,8 @@ class WindowsPlatform(rqplatform_base.Platform):
             free_mem=int(stats.ullAvailPhys / 1024),
             total_swap=int(stats.ullTotalPageFile / 1024),
             free_swap=int(stats.ullAvailPageFile / 1024),
-            free_gpu=0,  # TODO: GPU memory
-            total_gpu=0,  # TODO: GPU memory
+            free_gpu=0,  # TODO: GPU memory, https://github.com/AcademySoftwareFoundation/OpenCue/issues/61
+            total_gpu=0,  # TODO: GPU memory, https://github.com/AcademySoftwareFoundation/OpenCue/issues/61
             swap_out=0,
         )
 
@@ -112,7 +112,7 @@ class WindowsPlatform(rqplatform_base.Platform):
             hyperthreading_multiplier)
 
     def getLoadAvg(self):  # type: () -> int
-        return 0  # TODO
+        return 0  # TODO: https://github.com/AcademySoftwareFoundation/OpenCue/issues/61
 
     def getBootTime(self): # type: () -> int
-        return 0  # TODO
+        return 0  # TODO: https://github.com/AcademySoftwareFoundation/OpenCue/issues/61
