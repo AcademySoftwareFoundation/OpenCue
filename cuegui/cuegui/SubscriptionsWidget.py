@@ -155,14 +155,14 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda sub: (sub.data.size and
                                          sub.data.reserved_cores / sub.data.size or 0))
         self.addColumn("Size", 70, id=3,
-                       data=lambda sub: sub.data.size,
-                       sort=lambda sub: sub.data.size)
+                       data=lambda sub: (sub.data.size/100.0),
+                       sort=lambda sub: (sub.data.size/100.0))
         self.addColumn("Burst", 70, id=4,
-                       data=lambda sub: sub.data.burst,
-                       sort=lambda sub: sub.data.burst)
+                       data=lambda sub: (sub.data.burst/100.0),
+                       sort=lambda sub: (sub.data.burst/100.0))
         self.addColumn("Used", 70, id=5,
-                       data=lambda sub: ("%.2f" % sub.data.reserved_cores),
-                       sort=lambda sub: sub.data.reserved_cores)
+                       data=lambda sub: ("%.2f" % (sub.data.reserved_cores/100.0)),
+                       sort=lambda sub: (sub.data.reserved_cores/100.0))
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
