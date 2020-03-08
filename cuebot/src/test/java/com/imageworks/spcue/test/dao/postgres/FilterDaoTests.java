@@ -166,17 +166,17 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
         filterDao.insertFilter(f2);
 
         assertEquals(Integer.valueOf(currentFilters+1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(currentFilters+2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
 
         filterDao.updateSetFilterOrder(f2,1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
     }
 
@@ -224,21 +224,21 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
          * These could fail if the test DB has other filters.
          */
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
 
         filterDao.lowerFilterOrder(f2,1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
     }
 
@@ -260,21 +260,21 @@ public class FilterDaoTests extends AbstractTransactionalJUnit4SpringContextTest
          * These could fail if the test DB has other filters.
          */
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
 
         filterDao.raiseFilterOrder(f1, 1);
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f1.getFilterId()));
 
         assertEquals(Integer.valueOf(2), jdbcTemplate.queryForObject(
-                "SELECT f_order FROM filter WHERE pk_filter=?",
+                "SELECT int_order FROM filter WHERE pk_filter=?",
                 Integer.class, f2.getFilterId()));
     }
 

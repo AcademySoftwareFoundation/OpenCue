@@ -193,7 +193,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public FilterSeq getFilters(ShowInterface show) {
         return FilterSeq.newBuilder().addAllFilters(
                 getJdbcTemplate().query(
-                        GET_FILTER + " AND show.pk_show=? ORDER BY f_order ASC",
+                        GET_FILTER + " AND show.pk_show=? ORDER BY int_order ASC",
                         FILTER_MAPPER, show.getShowId())).build();
     }
 
@@ -396,7 +396,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     @Override
     public GroupSeq getGroups(GroupInterface group) {
         List<Group> groups = getJdbcTemplate().query(
-                 GET_GROUPS + " AND folder.pk_parent_folder=? ORDER BY folder_level.int_level ASC, folder.f_order DESC, folder.str_name ASC ",
+                 GET_GROUPS + " AND folder.pk_parent_folder=? ORDER BY folder_level.int_level ASC, folder.int_order DESC, folder.str_name ASC ",
                  GROUP_MAPPER, group.getGroupId());
         return GroupSeq.newBuilder().addAllGroups(groups).build();
     }
@@ -824,7 +824,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 return Filter.newBuilder()
                         .setId(SqlUtil.getString(rs, "pk_filter"))
                         .setType(FilterType.valueOf(SqlUtil.getString(rs, "str_type")))
-                        .setOrder(rs.getFloat("f_order"))
+                        .setOrder(rs.getFloat("int_order"))
                         .setName(SqlUtil.getString(rs, "str_name"))
                         .setEnabled(rs.getBoolean("b_enabled"))
                         .build();

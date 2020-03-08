@@ -62,7 +62,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         "AND " +
             "pk_show=? " +
         "ORDER BY " +
-            "f_order ASC";
+            "int_order ASC";
 
     private static final String GET_FILTERS =
         "SELECT " +
@@ -72,7 +72,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         "WHERE " +
             "pk_show=? " +
         "ORDER BY " +
-            "f_order ASC";
+            "int_order ASC";
 
     public static final RowMapper<FilterEntity> FILTER_DETAIL_MAPPER = new RowMapper<FilterEntity>() {
         public FilterEntity mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -82,7 +82,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
             d.name = rs.getString("str_name");
             d.showId = rs.getString("pk_show");
             d.enabled = rs.getBoolean("b_enabled");
-            d.order = rs.getFloat("f_order");
+            d.order = rs.getFloat("int_order");
             return d;
         }
     };
@@ -115,8 +115,8 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
             "pk_show,"+
             "str_name,"+
             "str_type,"+
-            "f_order "+
-        ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1.0) FROM filter WHERE pk_show=?))";
+            "int_order "+
+        ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(int_order)+1,1.0) FROM filter WHERE pk_show=?))";
 
     public void insertFilter(FilterEntity f) {
         f.id = SqlUtil.genKeyRandom();
@@ -139,7 +139,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
 
     public void updateSetFilterOrder(FilterInterface f, double order) {
         getJdbcTemplate().update(
-                "UPDATE filter SET f_order=? - 0.1 WHERE pk_filter=?",
+                "UPDATE filter SET int_order=? - 0.1 WHERE pk_filter=?",
                 order, f.getFilterId());
         reorderFilters(f);
     }
@@ -147,7 +147,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
     public void lowerFilterOrder(FilterInterface f, int by) {
         double lower_by = by + 0.1;
         getJdbcTemplate().update(
-                "UPDATE filter SET f_order=f_order + ? WHERE pk_filter=?",
+                "UPDATE filter SET int_order=int_order + ? WHERE pk_filter=?",
                 lower_by, f.getFilterId());
         reorderFilters(f);
     }
@@ -155,7 +155,7 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
     public void raiseFilterOrder(FilterInterface f, int by) {
         double raise_by = (by * -1) - 0.1;
         getJdbcTemplate().update(
-                "UPDATE filter SET f_order=f_order + ? WHERE pk_filter=?",
+                "UPDATE filter SET int_order=int_order + ? WHERE pk_filter=?",
                 raise_by, f.getFilterId());
         reorderFilters(f);
     }
