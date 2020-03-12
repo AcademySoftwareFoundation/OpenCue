@@ -36,6 +36,7 @@ import traceback
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
+import six
 import yaml
 from yaml.scanner import ScannerError
 
@@ -247,7 +248,7 @@ def findJob(job):
     @rtype:  job or None"""
     if isJob(job):
         return job
-    if not isinstance(job, str):
+    if not isinstance(job, six.string_types):
         return None
     if isStringId(job):
         return opencue.api.getJob(job)

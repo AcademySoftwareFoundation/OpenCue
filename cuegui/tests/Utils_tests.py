@@ -21,6 +21,7 @@ import opencue.wrappers.job
 import cuegui.Utils
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class UtilsTests(unittest.TestCase):
     def test_shouldReturnJobAsIs(self):
         originalJob = opencue.wrappers.job.Job()
