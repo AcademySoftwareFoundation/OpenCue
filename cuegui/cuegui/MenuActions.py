@@ -1138,7 +1138,7 @@ class SubscriptionActions(AbstractActions):
                    "contact the resource department."
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
                                                                minSize, cuegui.Constants.QT_MAX_INT,
                                                                decimalPlaces)
             if choice:
@@ -1167,7 +1167,7 @@ class SubscriptionActions(AbstractActions):
                    "subscription should be allowed to reach:"
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
                                                                minSize, cuegui.Constants.QT_MAX_INT,
                                                                decimalPlaces)
             if choice:
