@@ -12,18 +12,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import os,re
+import re
 from pathlib import Path
 
 conf_py = Path('./conf.py')
-version_in = Path('../VERSION.in')
+version_file = Path('../ci/VERSION')
+
+# Get version and release
+release = open(version_file, 'r').readline().strip().split('-')[0]
+version = '.'.join(release.split('.')[:2])
 
 with open(conf_py, 'r') as f:
     old_file = f.read()
-
-# Get version and release
-version = open(version_in, 'r').readline().strip()
-release = str(os.popen('git describe --tags').read()).strip()
 
 # Update version
 new_file = re.sub(r"version = u'[0-9.]+'", \
