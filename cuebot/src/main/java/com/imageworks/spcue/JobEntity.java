@@ -41,5 +41,10 @@ public class JobEntity extends Entity implements JobInterface {
     public String getFacilityId() {
         return facilityId;
     }
+    
+    // setter method
+    public void setId(String id){
+	   this.id = id;
+    }
 }
 
