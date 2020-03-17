@@ -12,26 +12,31 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import re
-from pathlib import Path
+import re, os
 
-conf_py = Path('./conf.py')
-version_file = Path('../ci/VERSION')
+def main():
+	cur_dir = os.path.dirname(__file__)
+	conf_py = os.path.realpath(os.path.join(cur_dir, 'conf.py'))
+	version = os.path.realpath(os.path.join(cur_dir, '..', 'VERSION'))
 
-# Get version and release
-release = open(version_file, 'r').readline().strip().split('-')[0]
-version = '.'.join(release.split('.')[:2])
+	# Get version and release
+	release = open(version, 'r').readline().strip().split('-')[0]
+	version = '.'.join(release.split('.')[:2])
 
-with open(conf_py, 'r') as f:
-    old_file = f.read()
+	with open(conf_py, 'r') as f:
+	    old_file = f.read()
 
-# Update version
-new_file = re.sub(r"version = u'[0-9.]+'", \
-	f"version = u'{version}'", old_file)
+	# Update version
+	new_file = re.sub(r"version = u'[0-9.]+'", \
+		"version = u'{0}'".format(version), old_file)
 
-# Update release
-new_file = re.sub(r"release = u'[0-9.]+'", \
-	f"release = u'{release}'", new_file)
+	# Update release
+	new_file = re.sub(r"release = u'[0-9.]+'", \
+		"release = u'{0}'".format(release), new_file)
 
-with open(conf_py, 'w') as f:
-    f.write(new_file)
+	with open(conf_py, 'w') as f:
+	    f.write(new_file)
+
+
+if __name__ == '__main__':
+	main()
