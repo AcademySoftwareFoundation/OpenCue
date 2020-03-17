@@ -17,10 +17,10 @@ import re, os
 def main():
 	cur_dir = os.path.dirname(__file__)
 	conf_py = os.path.realpath(os.path.join(cur_dir, 'conf.py'))
-	version = os.path.realpath(os.path.join(cur_dir, '..', 'VERSION'))
+	version_file = os.path.realpath(os.path.join(cur_dir, '..', 'VERSION'))
 
 	# Get version and release
-	release = open(version, 'r').readline().strip().split('-')[0]
+	release = open(version_file, 'r').readline().strip().split('-')[0]
 	version = '.'.join(release.split('.')[:2])
 
 	with open(conf_py, 'r') as f:
