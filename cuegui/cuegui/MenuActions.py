@@ -1154,7 +1154,7 @@ class SubscriptionActions(AbstractActions):
                 for sub in subs:
                     self.cuebotCall(sub.setSize,
                                     "Set Size on Subscription %s Failed" % sub.data.name,
-                                    int(value))
+                                    int(value*100.0))
                 self._update()
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
@@ -1174,7 +1174,7 @@ class SubscriptionActions(AbstractActions):
                 for sub in subs:
                     self.cuebotCall(sub.setBurst,
                                     "Set Burst on Subscription %s Failed" % sub.data.name,
-                                    int(value))
+                                    int(value*100.0))
                 self._update()
 
     delete_info = ["Delete Subscription", None, "configure"]
