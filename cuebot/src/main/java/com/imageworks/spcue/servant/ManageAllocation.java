@@ -178,6 +178,8 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
                 .map(HostEntity::new)
                 .collect(Collectors.toList());
         manageQueue.execute(new ManageReparentHosts(allocEntity, hostEntities, hostManager));
+        responseObserver.onNext(AllocReparentHostsResponse.newBuilder().build());
+        responseObserver.onCompleted();
     }
 
     @Override
