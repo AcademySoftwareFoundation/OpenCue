@@ -124,6 +124,10 @@ QTextEdit {
 }
 """
 
+POPUP_LIST_VIEW = """
+    background-color: rgb(70, 80, 90);
+"""
+
 INVALID_TEXT = """
 QLabel {
     color: rgb(220, 20, 20);

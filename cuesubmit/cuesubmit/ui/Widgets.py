@@ -116,6 +116,7 @@ class CueLineEdit(QtWidgets.QLineEdit):
         self.completer.setCaseSensitivity(QtCore.Qt.CaseInsensitive)
         self.completerModel.setStringList(self.completerStrings)
         self.completer.setModel(self.completerModel)
+        self.completer.popup().setStyleSheet(Style.POPUP_LIST_VIEW)
         self.setCompleter(self.completer)
 
     def keyPressEvent(self, event):
