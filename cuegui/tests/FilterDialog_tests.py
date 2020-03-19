@@ -146,6 +146,7 @@ class FilterDialogTests(unittest.TestCase):
         self.assertEqual(PySide2.QtWidgets.QDialog.DialogCode.Accepted, self.filterDialog.result())
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class FilterMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -189,6 +190,7 @@ class FilterMonitorTreeTests(unittest.TestCase):
         qMenuMock.return_value.exec_.assert_called()
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class MatcherMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
