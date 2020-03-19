@@ -268,8 +268,8 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return
 
         self.addObject(self.__filter.createMatcher(
-            getattr(opencue.api.filter_pb2, str(matchSubject)),
-            getattr(opencue.api.filter_pb2, str(matchType)),
+            opencue.compiled_proto.filter_pb2.MatchSubject.Value(str(matchSubject)),
+            opencue.compiled_proto.filter_pb2.MatchType.Value(str(matchType)),
             str(input)))
 
     def deleteAllMatchers(self):

@@ -210,20 +210,19 @@ class MatcherMonitorTreeTests(unittest.TestCase):
                 type=opencue.compiled_proto.filter_pb2.CONTAINS,
                 input='jobNameSnippet'),
         ]
+        self.matcherWrappers = [
+            opencue.wrappers.filter.Matcher(matcher) for matcher in self.matchers]
 
         self.parentWidget = PySide2.QtWidgets.QWidget()
         self.matcherMonitorTree = cuegui.FilterDialog.MatcherMonitorTree(None, self.parentWidget)
 
     def test_shouldPopulateMatchersList(self, getStubMock):
-        #filterProto = opencue.compiled_proto.filter_pb2.Filter(
-        #    id='filter-one-id', name='filterOne', order=1, enabled=True)
-        #filter = opencue.wrappers.filter.Filter(filterProto)
-        getStubMock.return_value.GetMatchers.return_value = opencue.compiled_proto.filter_pb2.FilterGetMatchersResponse(
-            matchers=opencue.compiled_proto.filter_pb2.MatcherSeq(matchers=self.matchers))
+        filterToSelect = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filterToSelect.getMatchers = mock.Mock(return_value=self.matcherWrappers)
 
-        self.matcherMonitorTree.setObject(
-            opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter()))
+        self.matcherMonitorTree.setObject(filterToSelect)
 
+        filterToSelect.getMatchers.assert_called()
         self.assertEqual(2, self.matcherMonitorTree.topLevelItemCount())
         firstItem = self.matcherMonitorTree.topLevelItem(0)
         self.assertEqual('JOB_NAME', self.matcherMonitorTree.itemWidget(firstItem, 0).currentText())
@@ -233,6 +232,85 @@ class MatcherMonitorTreeTests(unittest.TestCase):
         self.assertEqual('SHOW', self.matcherMonitorTree.itemWidget(secondItem, 0).currentText())
         self.assertEqual('IS', self.matcherMonitorTree.itemWidget(secondItem, 1).currentText())
         self.assertEqual('showName', self.matcherMonitorTree.itemWidget(secondItem, 2).text())
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_shouldAddMatcher(self, getItemMock, getTextMock, getStubMock):
+        matcherSubject = opencue.compiled_proto.filter_pb2.FACILITY
+        matcherType = opencue.compiled_proto.filter_pb2.CONTAINS
+        matcherText = 'facility-substring-to-match'
+        filterToSelect = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filterToSelect.getMatchers = mock.Mock(return_value=self.matcherWrappers)
+        filterToSelect.createMatcher = mock.Mock(
+            return_value=opencue.wrappers.filter.Matcher(
+                opencue.compiled_proto.filter_pb2.Matcher(
+                    id='matcher-three-id',
+                    subject=matcherSubject,
+                    type=matcherType,
+                    input=matcherText)))
+        getItemMock.side_effect = [
+            ('FACILITY', True),
+            ('CONTAINS', True),
+        ]
+        getTextMock.return_value = (matcherText, True)
+
+        self.matcherMonitorTree.setObject(filterToSelect)
+        self.matcherMonitorTree.createMatcher()
+
+        filterToSelect.createMatcher.assert_called_with(matcherSubject, matcherType, matcherText)
+        self.assertEqual(3, self.matcherMonitorTree.topLevelItemCount())
+        matcherWidget = self.matcherMonitorTree.topLevelItem(0)
+        self.assertEqual('FACILITY', self.matcherMonitorTree.itemWidget(matcherWidget, 0).currentText())
+        self.assertEqual('CONTAINS', self.matcherMonitorTree.itemWidget(matcherWidget, 1).currentText())
+        self.assertEqual(matcherText, self.matcherMonitorTree.itemWidget(matcherWidget, 2).text())
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_shouldCancelMatcherAdditionAtFirstPrompt(self, getItemMock, getTextMock, getStubMock):
+        filterToSelect = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filterToSelect.createMatcher = mock.Mock()
+        getItemMock.side_effect = [
+            ('FACILITY', False),
+            ('CONTAINS', True),
+        ]
+        getTextMock.return_value = ('unused', True)
+
+        self.matcherMonitorTree.setObject(filterToSelect)
+        self.matcherMonitorTree.createMatcher()
+
+        filterToSelect.createMatcher.assert_not_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_shouldCancelMatcherAdditionAtSecondPrompt(self, getItemMock, getTextMock, getStubMock):
+        filterToSelect = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filterToSelect.createMatcher = mock.Mock()
+        getItemMock.side_effect = [
+            ('FACILITY', True),
+            ('CONTAINS', False),
+        ]
+        getTextMock.return_value = ('unused', True)
+
+        self.matcherMonitorTree.setObject(filterToSelect)
+        self.matcherMonitorTree.createMatcher()
+
+        filterToSelect.createMatcher.assert_not_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    def test_shouldCancelMatcherAdditionAtThirdrompt(self, getItemMock, getTextMock, getStubMock):
+        filterToSelect = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filterToSelect.createMatcher = mock.Mock()
+        getItemMock.side_effect = [
+            ('FACILITY', True),
+            ('CONTAINS', True),
+        ]
+        getTextMock.return_value = ('unused', False)
+
+        self.matcherMonitorTree.setObject(filterToSelect)
+        self.matcherMonitorTree.createMatcher()
+
+        filterToSelect.createMatcher.assert_not_called()
 
 
 if __name__ == '__main__':
