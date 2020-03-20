@@ -86,12 +86,9 @@ class FilterDialogTests(unittest.TestCase):
         self.filterDialog._FilterDialog__actions.setObject = mock.Mock()
         filterMonitorTree = self.filterDialog._FilterDialog__filters
         filterBeingSelected = filterMonitorTree.topLevelItem(0)
+        unusedColumnNumber = 0
 
-        PySide2.QtTest.QTest.mouseClick(
-            filterMonitorTree.viewport(),
-            PySide2.QtCore.Qt.LeftButton,
-            PySide2.QtCore.Qt.NoModifier,
-            filterMonitorTree.visualItemRect(filterBeingSelected).center())
+        filterMonitorTree.itemClicked.emit(filterBeingSelected, unusedColumnNumber)
 
         self.filterDialog._FilterDialog__matchers.setObject.assert_called_with(self.filter)
         self.filterDialog._FilterDialog__actions.setObject.assert_called_with(self.filter)
