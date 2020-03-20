@@ -12,9 +12,6 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 
-# To set the following values to the latest version and
-# release, run `python3 docs/version_release_fix.py`
-
 
 import os
 import sys
@@ -27,6 +24,10 @@ sys.path.insert(0, os.path.abspath('../pyoutline'))
 project = u'OpenCue'
 copyright = u'2019, Academy Software Foundation'
 author = u'Academy Software Foundation'
+
+
+# To set the following values to the latest version and
+# release, run `python3 docs/version_release_fix.py`
 
 # The short X.Y version
 version = u'0.3.6'
