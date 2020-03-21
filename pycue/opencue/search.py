@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
 """
 Client side implementation of search criteria.
 This module provides some easy factory
@@ -71,7 +70,6 @@ __all__ = ["BaseSearch",
            "HostSearch",
            "JobSearch"]
 
-
 class BaseSearch(object):
     def __init__(self, **options):
         self.options = options
@@ -82,7 +80,6 @@ class BaseSearch(object):
     @classmethod
     def byOptions(cls, **options):
         raise NotImplementedError
-
 
 class ProcSearch(BaseSearch):
     """See: help(opencue.getProcs)"""
@@ -98,7 +95,6 @@ class ProcSearch(BaseSearch):
         criteria = cls.criteriaFromOptions(**options)
         return Cuebot.getStub('proc').GetProcs(
             host_pb2.ProcGetProcsRequest(r=criteria), timeout=Cuebot.Timeout)
-
 
 class FrameSearch(BaseSearch):
 
@@ -126,7 +122,6 @@ class FrameSearch(BaseSearch):
     @classmethod
     def byRange(cls, job, val):
         cls.byOptions(job, frame_range=val)
-
 
 class HostSearch(BaseSearch):
     def __init__(self, **options):
@@ -162,7 +157,6 @@ class HostSearch(BaseSearch):
     @classmethod
     def byAllocation(cls, val):
         return cls.byOptions(alloc=val)
-
 
 class JobSearch(BaseSearch):
     def __init__(self, **options):
@@ -206,13 +200,11 @@ class JobSearch(BaseSearch):
     def byUser(cls, val):
         return cls.byOptions(user=val)
 
-
 def _append(stuff, item):
     if isinstance(item, (tuple, list, set)):
         stuff.extend(item)
     else:
         stuff.append(item)
-
 
 def _createCriterion(search, searchType, convert=None):
     """handleCriterion
@@ -267,16 +259,13 @@ def _createCriterion(search, searchType, convert=None):
 
     raise ValueError("Unable to parse this format: %s" % search)
 
-
 def _raiseIfNotType(searchOption, value, expectedType):
     if not isinstance(value, list):
         raise TypeError("Failed to set search option: '{}'. Expects type '{}', but got {}.".format(
             searchOption, expectedType, type(value)))
 
-
 def raiseIfNotList(searchOption, value):
     _raiseIfNotType(searchOption, value, list)
-
 
 def _setOptions(criteria, options):
 
