@@ -18,18 +18,18 @@
 """SYNOPSIS
      cuerqd [hostname] [OPTIONS]
       [hostname]            => RQD hostname (defaults to localhost)
-      -s or --status        => Print rqd status
-      -v or --version       => Print rqd version
-      --lock <cores>        => Lock Cores
-      --unlock <cores>      => Unlock Cores
-      --lock all            => Lock Host (All Cores)
-      --unlock all          => Unlock Host (All Cores)
-      --nimby on            => Turn on Nimby
-      --nimby off           => Turn off Nimby
-      --exit                => Lock host, wait until machine is idle and then Shutdown RQD *
-      --exit now            => KILL ALL running frames and Shutdown RQD
-      --restart             => Lock host, wait until machine is idle and then Restart RQD *
-      --restart now         => KILL ALL running frames and Restart RQD
+      -s or --status        => Print RQD status
+      -v or --version       => Print RQD version
+      --lock <cores>        => Lock the specified cores
+      --unlock <cores>      => Unlock the specified cores
+      --lock all            => Lock all cores for the specified host
+      --unlock all          => Unlock all cores for the specified host
+      --nimby on            => Turn on 'Not in my back yard' (NIMBY) to stop processing on the specified host
+      --nimby off           => Turn off 'Not in my back yard' (NIMBY) to start processing on the specified host
+      --exit                => Lock host, wait until machine is idle and then shutdown RQD *
+      --exit now            => KILL ALL running frames and shutdown RQD
+      --restart             => Lock host, wait until machine is idle and then restart RQD *
+      --restart now         => KILL ALL running frames and restart RQD
       --reboot              => Lock host, wait until machine is idle and then REBOOT machine *
       --reboot now          => KILL ALL running frames and REBOOT machine
     print
