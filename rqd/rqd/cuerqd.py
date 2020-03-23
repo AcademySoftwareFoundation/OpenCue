@@ -135,8 +135,7 @@ class RqdHost(object):
         self.stub.RebootNow(rqd.compiled_proto.rqd_pb2.RqdStaticRebootNowRequest())
 
     def launchFrame(self, frame):
-        self.stub.LaunchFrame(
-            rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
+        self.stub.LaunchFrame(rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
 
     def killFrame(self, frameId, message):
         runFrame = self.getRunningFrame(frameId)
