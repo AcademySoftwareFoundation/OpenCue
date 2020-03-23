@@ -38,10 +38,10 @@
     print
      * Any unlock command will cancel this request
 \n FOR TESTING:
-      --test_edu_frame        => Launch a test edu frame on an idle core
+      --test edu_frame        => Launch a test edu frame on an idle core
                                 Use first core if none are available
-      --test_script_frame     => Same as above but launches a 5 second python script
-      --test_script_frame_mac => Same as above but for mac host
+      --test script_frame     => Same as above but launches a 5 second python script
+      --test script_frame_mac => Same as above but for mac host
 \nDESCRIPTION
       Displays information from or sends a command to an RQD host"""
 
@@ -186,15 +186,15 @@ if __name__ == "__main__":
             rqdHost.unlock(arg)
     if args.exit == 'now':
         rqdHost.shutdownRqdNow()
-    else:
+    elif args.exit == 'wait':
         rqdHost.shutdownRqdIdle()
     if args.restart == 'now':
         rqdHost.restartRqdNow()
-    else:
+    elif args.restart == 'wait':
         rqdHost.restartRqdIdle()
     if args.reboot == 'now':
         rqdHost.rebootNow()
-    else:
+    elif args.reboot == 'now':
         rqdHost.rebootIdle()
     For arg in args.kill::
         rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
