@@ -18,20 +18,20 @@
 """SYNOPSIS
      cuerqd [hostname] [OPTIONS]
       [hostname]            => RQD hostname (defaults to localhost)
-      -s                    => Print rqd status
-      -v                    => Print rqd version
-      --lp <cores>          => Lock Cores
-      --ulp <cores>         => Unlock Cores
-      --lh                  => Lock Host (All Cores)
-      --ulh                 => Unlock Host (All Cores)
-      --nimbyoff            => Turn on Nimby
-      --nimbyon             => Turn off Nimby
+      -s or --status        => Print rqd status
+      -v or --version       => Print rqd version
+      --lock <cores>        => Lock Cores
+      --unlock <cores>      => Unlock Cores
+      --lock all            => Lock Host (All Cores)
+      --unlock all          => Unlock Host (All Cores)
+      --nimby on            => Turn on Nimby
+      --nimby off           => Turn off Nimby
       --exit                => Lock host, wait until machine is idle and then Shutdown RQD *
-      --exit_now            => KILL ALL running frames and Shutdown RQD
+      --exit now            => KILL ALL running frames and Shutdown RQD
       --restart             => Lock host, wait until machine is idle and then Restart RQD *
-      --restart_now         => KILL ALL running frames and Restart RQD
+      --restart now         => KILL ALL running frames and Restart RQD
       --reboot              => Lock host, wait until machine is idle and then REBOOT machine *
-      --reboot_now          => KILL ALL running frames and REBOOT machine
+      --reboot now          => KILL ALL running frames and REBOOT machine
     print
       --kill <frameid>      => Attempts to kill the given frame via its ICE proxy
       --getproxy <frameid>  => Returns the proxy for the given frameid (debug)
@@ -54,7 +54,7 @@ from builtins import str
 from builtins import object
 import os
 import sys
-import getopt
+import argparse
 import re
 import random
 import logging as log
@@ -143,129 +143,118 @@ class RqdHost(object):
         self.frameStub.Kill(run_frame=runFrame, message=message)
 
 
-def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit()
-    elif sys.argv[1].startswith("-"):
-        hostname = "localhost"
-        startArgv = sys.argv[1:]
-    else:
-        hostname = sys.argv[1]
-        startArgv = sys.argv[2:]
-
-    try:
-        SHORT_ARGS = 'hsv'
-        LONG_ARGS = ['help', 'lh', 'ulh', 'ulp=', 'lp=', 'nimbyoff', 'nimbyon',
-                     'exit', 'exit_now', 'test_edu_frame', 'test_script_frame',
-                     'test_script_frame_mac', "kill=","restart", "restart_now",
-                     "reboot", "reboot_now", "getproxy=", "s"]
-        newargs = [re.sub(r"^(-\w{2,})$", r"-\1", arg) for arg in startArgv]
-        opts, argv = getopt.getopt(newargs, SHORT_ARGS, LONG_ARGS)
-    except getopt.GetoptError:
-        print(__doc__)
-        sys.exit(1)
-
-    rqdHost = RqdHost(hostname)
-
-    for o, a in opts:
-        if o in ("-h", "--help"):
-            print(__doc__)
-            sys.exit(0)
-        if o in ("-s", "--s"):
-            print(rqdHost.status())
-        if o in ("-v",):
-            tagPrefix = 'rqdv-'
-            for tag in rqdHost.status().host.tags:
-                if tag.startswith(tagPrefix):
-                    print("version =", tag[len(tagPrefix):])
-        if o == "--nimbyoff":
-            rqdHost.nimbyOff()
-        if o == "--nimbyon":
-            rqdHost.nimbyOn()
-        if o == "--lh":
-            rqdHost.lockAll()
-        if o == "--ulh":
-            rqdHost.unlockAll()
-        if o == "--lp":
-            rqdHost.lock(a)
-        if o == "--ulp":
-            rqdHost.unlock(a)
-        if o == "--exit":
-            rqdHost.shutdownRqdIdle()
-        if o == "--exit_now":
-            rqdHost.shutdownRqdNow()
-        if o == "--restart":
-            rqdHost.restartRqdIdle()
-        if o == "--restart_now":
-            rqdHost.restartRqdNow()
-        if o == "--reboot":
-            rqdHost.rebootIdle()
-        if o == "--reboot_now":
-            rqdHost.rebootNow()
-        if o == "--getproxy":
-            frameProxy = rqdHost.getRunningFrame(a)
-            print(frameProxy)
-        if o == "--kill":
-            rqdHost.killFrame(a, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
-
-        if o == "--test_edu_frame":
-            print("Launching edu test frame (logs to /mcp)")
-            frameNum = "0001"
-            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
-            runFrame.job_id = "SD6F3S72DJ26236KFS"
-            runFrame.job_name = "edu-trn_jwelborn-jwelborn_teapot_bty"
-            runFrame.frame_id = "FD1S3I154O646UGSNN%s" % frameNum
-            runFrame.frame_name = "%s-teapot_bty_3D" % frameNum
-            runFrame.command = "/usr/bin/env VNP_APPLICATION_TIME=1197683283873 /usr/bin/env VNP_VCR_SESSION=3411896 /usr/bin/env PROFILE=default /shots/edu/home/perl/etc/qwrap.cuerun /shots/edu/trn_jwelborn/cue/jwelborn olrun /shots/edu/trn_jwelborn/cue/cue_archive/edu-trn_jwelborn-jwelborn_teapot_bty/v4/teapot_bty.outline %d -batch -event teapot_bty_3D" % int(frameNum)
-            runFrame.user_name = "jwelborn"
-            runFrame.log_dir = "/mcp" # This would be on the shottree
-            runFrame.show = "edu"
-            runFrame.shot = "trn_jwelborn"
-            runFrame.uid = 10164
-
-            runFrame.num_cores = 100
-
-            rqdHost.launchFrame(runFrame)
-
-        if o == "--test_script_frame":
-            print("Launching script test frame (logs to /mcp)")
-            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
-            runFrame.resource_id = "8888888877777755555"
-            runFrame.job_id = "SD6F3S72DJ26236KFS"
-            runFrame.job_name = "swtest-home-jwelborn_rqd_test"
-            runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
-            runFrame.frame_name = "0001-preprocess"
-            # Script output is not buffered due to python -u option
-            runFrame.command = "/net/people/jwelborn/test_python_u -t 5 -e 0"
-            runFrame.user_name = "jwelborn"
-            runFrame.log_dir = "/mcp" # This would be on the shottree
-            runFrame.show = "swtest"
-            runFrame.shot = "home"
-            runFrame.uid = 10164
-            runFrame.num_cores = 50
-
-            rqdHost.launchFrame(runFrame)
-
-        if o == "--test_script_frame_mac":
-            print("Launching script test frame (logs to /tmp)")
-            runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
-            runFrame.resource_id = "2222222277777755555"
-            runFrame.job_id = "SD6F3S72DJ26236KFS"
-            runFrame.job_name = "swtest-home-jwelborn_rqd_test"
-            runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
-            runFrame.frame_name = "0001-preprocess"
-            # Script output is not buffered due to python -u option
-            runFrame.command = "/net/people/jwelborn/test_python_u_mac -t 5 -e 0"
-            runFrame.user_name = "jwelborn"
-            runFrame.log_dir = "/tmp" # This would be on the shottree
-            runFrame.show = "swtest"
-            runFrame.shot = "home"
-            runFrame.uid = 10164
-            runFrame.num_cores = 1
-
-            rqdHost.launchFrame(runFrame)
-
-
 if __name__ == "__main__":
-    main()
+     
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('host', nargs='?', default='localhost')
+    parser.add_argument('-s', '--status', action='store_true')
+    parser.add_argument('-v', '--version', action='store_true')
+    parser.add_argument('--nimby', metavar='action', choices=['ON','OFF'])
+    parser.add_argument('--lock', metavar='coreID', nargs='+')
+    parser.add_argument('--unlock', metavar='coreID', nargs='+')
+    parser.add_argument('--exit', nargs='?', const='wait')
+    parser.add_argument('--restart', nargs='?', const='wait')
+    parser.add_argument('--reboot', nargs='?', const='wait')
+    parser.add_argument('--kill', metavar='frameID', nargs='+')
+    parser.add_argument('--getproxy', metavar='frameID', nargs='+')
+    parser.add_argument('--test', choices=['edu_frame','script_frame','script_frame_mac'])
+     
+    args = parser.parse_args()
+
+    rqdHost = RqdHost(args.host)
+
+    if args.status:
+        print(rqdHost.status())
+    if args.version:
+        tagPrefix = 'rqdv-'
+        for tag in rqdHost.status().host.tags:
+            if tag.startswith(tagPrefix):
+                print("version =", tag[len(tagPrefix):])
+    if args.nimby == 'off':
+        rqdHost.nimbyOff()
+    elif args.nimby == 'on':
+        rqdHost.nimbyOn()
+    for arg in args.lock:
+        if arg == 'all':
+            rqdHost.lockAll()
+        else:
+            rqdHost.lock(arg)
+    for arg in args.unlock:
+        if arg == 'all':
+            rqdHost.unlockAll()
+        else:
+            rqdHost.unlock(arg)
+    if args.exit == 'now':
+        rqdHost.shutdownRqdNow()
+    else:
+        rqdHost.shutdownRqdIdle()
+    if args.restart == 'now':
+        rqdHost.restartRqdNow()
+    else:
+        rqdHost.restartRqdIdle()
+    if args.reboot == 'now':
+        rqdHost.rebootNow()
+    else:
+        rqdHost.rebootIdle()
+    For arg in args.kill::
+        rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
+    For arg in args.getproxy:
+        frameProxy = rqdHost.getRunningFrame(arg)
+        print(frameProxy)
+    
+    if args.test == 'edu_frame':
+        print("Launching edu test frame (logs to /mcp)")
+        frameNum = "0001"
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame.job_id = "SD6F3S72DJ26236KFS"
+        runFrame.job_name = "edu-trn_jwelborn-jwelborn_teapot_bty"
+        runFrame.frame_id = "FD1S3I154O646UGSNN%s" % frameNum
+        runFrame.frame_name = "%s-teapot_bty_3D" % frameNum
+        runFrame.command = "/usr/bin/env VNP_APPLICATION_TIME=1197683283873 /usr/bin/env VNP_VCR_SESSION=3411896 /usr/bin/env PROFILE=default /shots/edu/home/perl/etc/qwrap.cuerun /shots/edu/trn_jwelborn/cue/jwelborn olrun /shots/edu/trn_jwelborn/cue/cue_archive/edu-trn_jwelborn-jwelborn_teapot_bty/v4/teapot_bty.outline %d -batch -event teapot_bty_3D" % int(frameNum)
+        runFrame.user_name = "jwelborn"
+        runFrame.log_dir = "/mcp" # This would be on the shottree
+        runFrame.show = "edu"
+        runFrame.shot = "trn_jwelborn"
+        runFrame.uid = 10164
+        runFrame.num_cores = 100
+
+        rqdHost.launchFrame(runFrame)
+
+    if args.test == 'script_frame':
+        print("Launching script test frame (logs to /mcp)")
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame.resource_id = "8888888877777755555"
+        runFrame.job_id = "SD6F3S72DJ26236KFS"
+        runFrame.job_name = "swtest-home-jwelborn_rqd_test"
+        runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
+        runFrame.frame_name = "0001-preprocess"
+        # Script output is not buffered due to python -u option
+        runFrame.command = "/net/people/jwelborn/test_python_u -t 5 -e 0"
+        runFrame.user_name = "jwelborn"
+        runFrame.log_dir = "/mcp" # This would be on the shottree
+        runFrame.show = "swtest"
+        runFrame.shot = "home"
+        runFrame.uid = 10164
+        runFrame.num_cores = 50
+
+        rqdHost.launchFrame(runFrame)
+
+    if args.test == 'script_frame_mac':
+        print("Launching script test frame (logs to /tmp)")
+        runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
+        runFrame.resource_id = "2222222277777755555"
+        runFrame.job_id = "SD6F3S72DJ26236KFS"
+        runFrame.job_name = "swtest-home-jwelborn_rqd_test"
+        runFrame.frame_id = "FD1S3I154O646UGSNN" + str(random.randint(0, 99999))
+        runFrame.frame_name = "0001-preprocess"
+        # Script output is not buffered due to python -u option
+        runFrame.command = "/net/people/jwelborn/test_python_u_mac -t 5 -e 0"
+        runFrame.user_name = "jwelborn"
+        runFrame.log_dir = "/tmp" # This would be on the shottree
+        runFrame.show = "swtest"
+        runFrame.shot = "home"
+        runFrame.uid = 10164
+        runFrame.num_cores = 1
+
+        rqdHost.launchFrame(runFrame)
