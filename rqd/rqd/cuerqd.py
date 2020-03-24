@@ -179,7 +179,7 @@ def main():
                 rqdHost.lockAll()
             else:
                 rqdHost.lock(arg)
-    if arbs.unlock is not None:
+    if args.unlock is not None:
         for arg in args.unlock:
             if arg == 'all':
                 rqdHost.unlockAll()
