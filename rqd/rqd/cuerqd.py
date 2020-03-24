@@ -20,28 +20,28 @@
       [hostname]            => RQD hostname (defaults to localhost)
       -s or --status        => Print RQD status
       -v or --version       => Print RQD version
-      --lock <cores>        => Lock the specified cores
-      --unlock <cores>      => Unlock the specified cores
-      --lock all            => Lock all cores for the specified host
-      --unlock all          => Unlock all cores for the specified host
-      --nimby on            => Turn on 'Not in my back yard' (NIMBY) to stop processing on the specified host
-      --nimby off           => Turn off 'Not in my back yard' (NIMBY) to start processing on the specified host
+      --lp <cores>          => Lock the specified cores
+      --ulp <cores>         => Unlock the specified cores
+      --lh                  => Lock all cores for the specified host
+      --ulh                 => Unlock all cores for the specified host
+      --nimbyon             => Turn on 'Not in my back yard' (NIMBY) to stop processing on the specified host
+      --nimbyoff            => Turn off 'Not in my back yard' (NIMBY) to start processing on the specified host
       --exit                => Lock host, wait until machine is idle and then shutdown RQD *
-      --exit now            => KILL ALL running frames and shutdown RQD
+      --exit_now            => KILL ALL running frames and shutdown RQD
       --restart             => Lock host, wait until machine is idle and then restart RQD *
-      --restart now         => KILL ALL running frames and restart RQD
+      --restart_now         => KILL ALL running frames and restart RQD
       --reboot              => Lock host, wait until machine is idle and then REBOOT machine *
-      --reboot now          => KILL ALL running frames and REBOOT machine
+      --reboot_now          => KILL ALL running frames and REBOOT machine
     print
       --kill <frameid>      => Attempts to kill the given frame via its ICE proxy
       --getproxy <frameid>  => Returns the proxy for the given frameid (debug)
     print
      * Any unlock command will cancel this request
 \n FOR TESTING:
-      --test edu_frame        => Launch a test edu frame on an idle core
+      --test_edu_frame        => Launch a test edu frame on an idle core
                                 Use first core if none are available
-      --test script_frame     => Same as above but launches a 5 second python script
-      --test script_frame_mac => Same as above but for mac host
+      --test_script_frame     => Same as above but launches a 5 second python script
+      --test_script_frame_mac => Same as above but for mac host
 \nDESCRIPTION
       Displays information from or sends a command to an RQD host"""
 
@@ -146,64 +146,73 @@ def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('host', nargs='?', default='localhost')
-    parser.add_argument('-s', '--status', action='store_true')
-    parser.add_argument('-v', '--version', action='store_true')
-    parser.add_argument('--nimby', metavar='action', choices=['ON','OFF'])
-    parser.add_argument('--lock', metavar='coreID', nargs='+')
-    parser.add_argument('--unlock', metavar='coreID', nargs='+')
-    parser.add_argument('--exit', nargs='?', const='wait')
-    parser.add_argument('--restart', nargs='?', const='wait')
-    parser.add_argument('--reboot', nargs='?', const='wait')
-    parser.add_argument('--kill', metavar='frameID', nargs='?')
-    parser.add_argument('--getproxy', metavar='frameID', nargs='?')
-    parser.add_argument('--test', choices=['edu_frame','script_frame','script_frame_mac'])
+    parser.add_argument('-s', action='store_true')
+    parser.add_argument('-v', action='store_true')
+    parser.add_argument('--lp', metavar='coreID', default='', nargs='+')
+    parser.add_argument('--ulp', metavar='coreID', nargs='+')
+    parser.add_argument('--lh', action='store_true')
+    parser.add_argument('--ulh', action='store_true')
+    parser.add_argument('--nimbyon', action='store_true')
+    parser.add_argument('--nimbyoff', action='store_true')
+    parser.add_argument('--exit', action='store_true')
+    parser.add_argument('--exit_now', action='store_true')
+    parser.add_argument('--restart', action='store_true')
+    parser.add_argument('--restart_now', action='store_true')
+    parser.add_argument('--reboot', action='store_true')
+    parser.add_argument('--reboot_now', action='store_true')
+    parser.add_argument('--kill', metavar='frameID', nargs='+')
+    parser.add_argument('--getproxy', metavar='frameID', nargs='+')
+    parser.add_argument('--test_edu_frame',action='store_true')
+    parser.add_argument('--test_script_frame', action='store_true')
+    parser.add_argument('--test_script_frame_mac', action='store_true')
+    
      
     args = parser.parse_args()
 
     rqdHost = RqdHost(args.host)
 
-    if args.status:
+    if args.s:
         print(rqdHost.status())
-    if args.version:
+    if args.v:
         tagPrefix = 'rqdv-'
         for tag in rqdHost.status().host.tags:
             if tag.startswith(tagPrefix):
                 print("version =", tag[len(tagPrefix):])
-    if args.nimby == 'off':
+    if args.nimbyoff:
         rqdHost.nimbyOff()
-    elif args.nimby == 'on':
+    if args.nimbyon:
         rqdHost.nimbyOn()
-    if args.lock is not None:
-        for arg in args.lock:
-            if arg == 'all':
-                rqdHost.lockAll()
-            else:
-                rqdHost.lock(arg)
-    if args.unlock is not None:
-        for arg in args.unlock:
-            if arg == 'all':
-                rqdHost.unlockAll()
-            else:
-                rqdHost.unlock(arg)
-    if args.exit == 'now':
+    if args.lp is not None:
+        for arg in args.lp:
+            rqdHost.lock(arg)
+    if args.ulp is not None:
+         for arg in args.lp:
+            rqdHost.unlock(arg)
+    if args.lh is not None:
+        rqdHost.lockAll()
+    if args.ulh is not None:
+        rqdHost.unlockAll()
+    if args.exit_now:
         rqdHost.shutdownRqdNow()
-    elif args.exit == 'wait':
+    elif args.exit:
         rqdHost.shutdownRqdIdle()
-    if args.restart == 'now':
+    if args.restart_now:
         rqdHost.restartRqdNow()
-    elif args.restart == 'wait':
+    elif args.restart:
         rqdHost.restartRqdIdle()
-    if args.reboot == 'now':
+    if args.reboot_now:
         rqdHost.rebootNow()
-    elif args.reboot == 'wait':
+    elif args.reboot:
         rqdHost.rebootIdle()
     if args.kill is not None:
-        rqdHost.killFrame(args.kill, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
-    if args.getproxy is not None:
-        frameProxy = rqdHost.getRunningFrame(args.getproxy)
-        print(frameProxy)
-    
-    if args.test == 'edu_frame':
+        for arg in args.kill:
+            rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
+    if args.getproxy is not none:
+        for arg in args.getproxy:
+            frameProxy = rqdHost.getRunningFrame(arg)
+            print(frameProxy)
+               
+    if args.test_edu_frame:
         print("Launching edu test frame (logs to /mcp)")
         frameNum = "0001"
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
@@ -221,7 +230,7 @@ def main():
 
         rqdHost.launchFrame(runFrame)
 
-    if args.test == 'script_frame':
+    if args.test_script_frame:
         print("Launching script test frame (logs to /mcp)")
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
         runFrame.resource_id = "8888888877777755555"
@@ -240,7 +249,7 @@ def main():
 
         rqdHost.launchFrame(runFrame)
 
-    if args.test == 'script_frame_mac':
+    if args.test_script_frame_mac:
         print("Launching script test frame (logs to /tmp)")
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame()
         runFrame.resource_id = "2222222277777755555"
@@ -259,8 +268,6 @@ def main():
 
         rqdHost.launchFrame(runFrame)
      
-     
-         
      
 if __name__ == "__main__":
     main()
