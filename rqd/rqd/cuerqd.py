@@ -148,7 +148,7 @@ def main():
     parser.add_argument('host', nargs='?', default='localhost')
     parser.add_argument('-s', action='store_true')
     parser.add_argument('-v', action='store_true')
-    parser.add_argument('--lp', metavar='coreID', default='', nargs='+')
+    parser.add_argument('--lp', metavar='coreID', nargs='+')
     parser.add_argument('--ulp', metavar='coreID', nargs='+')
     parser.add_argument('--lh', action='store_true')
     parser.add_argument('--ulh', action='store_true')
@@ -186,7 +186,7 @@ def main():
         for arg in args.lp:
             rqdHost.lock(arg)
     if args.ulp is not None:
-         for arg in args.lp:
+         for arg in args.ulp:
             rqdHost.unlock(arg)
     if args.lh is not None:
         rqdHost.lockAll()
