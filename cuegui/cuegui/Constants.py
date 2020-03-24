@@ -32,12 +32,12 @@ from PySide2 import QtWidgets
 import opencue
 
 
-possible_version_paths = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'VERSION.in')
-if os.path.exists(possible_version_path):
-    with open(possible_version_path) as fp:
-        version = fp.read().strip()
-else:
-    version = 'UNKNOWN'
+possible_version_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'VERSION.in')
+
+with open(possible_version_path) as fp:
+    version = fp.read().strip()
+
+
 VERSION = version
 
 STARTUP_NOTICE_DATE = 0
