@@ -154,8 +154,8 @@ def main():
     parser.add_argument('--exit', nargs='?', const='wait')
     parser.add_argument('--restart', nargs='?', const='wait')
     parser.add_argument('--reboot', nargs='?', const='wait')
-    parser.add_argument('--kill', metavar='frameID', nargs='+')
-    parser.add_argument('--getproxy', metavar='frameID', nargs='+')
+    parser.add_argument('--kill', metavar='frameID', nargs='?')
+    parser.add_argument('--getproxy', metavar='frameID', nargs='?')
     parser.add_argument('--test', choices=['edu_frame','script_frame','script_frame_mac'])
      
     args = parser.parse_args()
@@ -173,16 +173,18 @@ def main():
         rqdHost.nimbyOff()
     elif args.nimby == 'on':
         rqdHost.nimbyOn()
-    for arg in args.lock:
-        if arg == 'all':
-            rqdHost.lockAll()
-        else:
-            rqdHost.lock(arg)
-    for arg in args.unlock:
-        if arg == 'all':
-            rqdHost.unlockAll()
-        else:
-            rqdHost.unlock(arg)
+    if args.lock is not None:
+        for arg in args.lock:
+            if arg == 'all':
+                rqdHost.lockAll()
+            else:
+                rqdHost.lock(arg)
+    if arbs.unlock is not None:
+        for arg in args.unlock:
+            if arg == 'all':
+                rqdHost.unlockAll()
+            else:
+                rqdHost.unlock(arg)
     if args.exit == 'now':
         rqdHost.shutdownRqdNow()
     elif args.exit == 'wait':
@@ -193,12 +195,12 @@ def main():
         rqdHost.restartRqdIdle()
     if args.reboot == 'now':
         rqdHost.rebootNow()
-    elif args.reboot == 'now':
+    elif args.reboot == 'wait':
         rqdHost.rebootIdle()
-    for arg in args.kill:
-        rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
-    for arg in args.getproxy:
-        frameProxy = rqdHost.getRunningFrame(arg)
+    if args.kill is not None:
+        rqdHost.killFrame(args.kill, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
+    if args.getproxy is not None:
+        frameProxy = rqdHost.getRunningFrame(args.getproxy)
         print(frameProxy)
     
     if args.test == 'edu_frame':
@@ -261,4 +263,4 @@ def main():
          
      
 if __name__ == "__main__":
-     main()
+    main()
