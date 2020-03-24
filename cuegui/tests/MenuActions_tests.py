@@ -1107,7 +1107,7 @@ class SubscriptionActionsTests(unittest.TestCase):
 
         self.subscription_actions.editSize(rpcObjects=[sub])
 
-        sub.setSize.assert_called_with(newSize)
+        sub.setSize.assert_called_with(newSize*100.0)
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
     def test_editBurst(self, getDoubleMock):
@@ -1119,7 +1119,7 @@ class SubscriptionActionsTests(unittest.TestCase):
 
         self.subscription_actions.editBurst(rpcObjects=[sub])
 
-        sub.setBurst.assert_called_with(newSize)
+        sub.setBurst.assert_called_with(newSize*100.0)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):

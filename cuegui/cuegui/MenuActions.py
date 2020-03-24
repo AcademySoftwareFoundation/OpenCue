@@ -1138,7 +1138,7 @@ class SubscriptionActions(AbstractActions):
                    "contact the resource department."
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
                                                                minSize, cuegui.Constants.QT_MAX_INT,
                                                                decimalPlaces)
             if choice:
@@ -1154,7 +1154,7 @@ class SubscriptionActions(AbstractActions):
                 for sub in subs:
                     self.cuebotCall(sub.setSize,
                                     "Set Size on Subscription %s Failed" % sub.data.name,
-                                    int(value))
+                                    int(value*100.0))
                 self._update()
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
@@ -1167,14 +1167,14 @@ class SubscriptionActions(AbstractActions):
                    "subscription should be allowed to reach:"
             minSize = 0
             decimalPlaces = 0
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current,
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller, title, body, current/100.0,
                                                                minSize, cuegui.Constants.QT_MAX_INT,
                                                                decimalPlaces)
             if choice:
                 for sub in subs:
                     self.cuebotCall(sub.setBurst,
                                     "Set Burst on Subscription %s Failed" % sub.data.name,
-                                    int(value))
+                                    int(value*100.0))
                 self._update()
 
     delete_info = ["Delete Subscription", None, "configure"]
