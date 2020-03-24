@@ -196,9 +196,9 @@ if __name__ == "__main__":
         rqdHost.rebootNow()
     elif args.reboot == 'now':
         rqdHost.rebootIdle()
-    For arg in args.kill::
+    for arg in args.kill:
         rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
-    For arg in args.getproxy:
+    for arg in args.getproxy:
         frameProxy = rqdHost.getRunningFrame(arg)
         print(frameProxy)
     
