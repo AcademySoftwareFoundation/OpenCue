@@ -142,8 +142,7 @@ class RqdHost(object):
         self.frameStub.Kill(run_frame=runFrame, message=message)
 
 
-if __name__ == "__main__":
-     
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('host', nargs='?', default='localhost')
@@ -257,3 +256,9 @@ if __name__ == "__main__":
         runFrame.num_cores = 1
 
         rqdHost.launchFrame(runFrame)
+     
+     
+         
+     
+if __name__ == "__main__":
+     main()
