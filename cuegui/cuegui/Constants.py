@@ -32,7 +32,7 @@ from PySide2 import QtWidgets
 import opencue
 
 
-possible_version_path = os.path.join(os.path.abspath(os.path.join(__file__ ,"../..")), 'VERSION.in')
+possible_version_path = os.path.join(os.path.abspath(os.path.join(__file__ ,"../../..")), 'VERSION.in')
 with open(possible_version_path) as fp:
     version = fp.read().strip()
 
