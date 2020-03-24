@@ -207,7 +207,7 @@ def main():
     if args.kill is not None:
         for arg in args.kill:
             rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
-    if args.getproxy is not none:
+    if args.getproxy is not None:
         for arg in args.getproxy:
             frameProxy = rqdHost.getRunningFrame(arg)
             print(frameProxy)
