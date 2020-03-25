@@ -15,8 +15,8 @@
 #  limitations under the License.
 #--------------------------------------------------------------------------
 
-""" Help
-       Use following at command line : cuerqd [-h or --help]
+""" 
+Displays information from or sends a command to an RQD host
 """      
 
 from __future__ import print_function
@@ -127,17 +127,17 @@ def main():
     parser.add_argument('--ulh', action='store_true', help='Unlock all cores for the specified host')
     parser.add_argument('--nimbyon', action='store_true', help="Turn on 'Not in my back yard' (NIMBY) to stop processing on the specified host")
     parser.add_argument('--nimbyoff', action='store_true', help="Turn off 'Not in my back yard' (NIMBY) to start processing on the specified host")
-    parser.add_argument('--exit', action='store_true', help='Lock host, wait until machine is idle and then shutdown RQD (Any unlock command will cancel this request)')
+    parser.add_argument('--exit', action='store_true', help='Lock host, wait until machine is idle, and then shutdown RQD. Any unlock command cancels this request.')
     parser.add_argument('--exit_now', action='store_true', help='KILL ALL running frames and shutdown RQD')
-    parser.add_argument('--restart', action='store_true', help='Lock host, wait until machine is idle and then restart RQD (Any unlock command will cancel this request)')
+    parser.add_argument('--restart', action='store_true', help='Lock host, wait until machine is idle, and then restart RQD. Any unlock command cancels this request')
     parser.add_argument('--restart_now', action='store_true', help='KILL ALL running frames and restart RQD')
-    parser.add_argument('--reboot', action='store_true', help='Lock host, wait until machine is idle and then REBOOT machine (Any unlock command will cancel this request)')
+    parser.add_argument('--reboot', action='store_true', help='Lock host, wait until machine is idle, and then REBOOT machine. Any unlock command cancels this request.')
     parser.add_argument('--reboot_now', action='store_true', help='KILL ALL running frames and REBOOT machine')
     parser.add_argument('--kill', metavar='frameID', nargs='+', help='Attempts to kill the given frame via its ICE proxy')
-    parser.add_argument('--getproxy', metavar='frameID', nargs='+', help='Returns the proxy for the given frameid (debug)')
-    parser.add_argument('--test_edu_frame',action='store_true', help='Launch a edu frame test on an idle core (or first core if none are available)')
+    parser.add_argument('--getproxy', metavar='frameID', nargs='+', help='Returns the proxy for the given frameid')
+    parser.add_argument('--test_edu_frame',action='store_true', help='Launch an edu frame test on an idle core (or first core if none are available)')
     parser.add_argument('--test_script_frame', action='store_true', help='Launch a script frame test on an idle core (or first core if none are available)')
-    parser.add_argument('--test_script_frame_mac', action='store_true', help='Launch a script frame test for mac on an idle core (or first core if none are available)')
+    parser.add_argument('--test_script_frame_mac', action='store_true', help='Launch a script frame test for macOS on an idle core (or first core if none are available)')
     
     args = parser.parse_args()
 
