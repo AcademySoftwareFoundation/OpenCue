@@ -13,7 +13,6 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-#--------------------------------------------------------------------------
 
 """ 
 Displays information from or sends a command to an RQD host
@@ -23,14 +22,14 @@ from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
 
+import argparse
 from builtins import str
 from builtins import object
-import os
-import sys
-import argparse
-import re
-import random
 import logging as log
+import os
+import random
+import re
+import sys
 
 import grpc
 
@@ -145,44 +144,60 @@ def main():
      
     if args.s:
         print(rqdHost.status())
+        
     if args.v:
         tagPrefix = 'rqdv-'
         for tag in rqdHost.status().host.tags:
             if tag.startswith(tagPrefix):
                 print("version =", tag[len(tagPrefix):])
+                
     if args.nimbyoff:
         rqdHost.nimbyOff()
+        
     if args.nimbyon:
         rqdHost.nimbyOn()
+        
     if args.lp is not None:
         for arg in args.lp:
             rqdHost.lock(arg)
+            
     if args.ulp is not None:
          for arg in args.ulp:
             rqdHost.unlock(arg)
+            
     if args.lh is not None:
         rqdHost.lockAll()
+        
     if args.ulh is not None:
         rqdHost.unlockAll()
+        
     if args.exit_now:
         rqdHost.shutdownRqdNow()
+        
     elif args.exit:
         rqdHost.shutdownRqdIdle()
+        
     if args.restart_now:
         rqdHost.restartRqdNow()
+        
     elif args.restart:
         rqdHost.restartRqdIdle()
+        
     if args.reboot_now:
         rqdHost.rebootNow()
+        
     elif args.reboot:
         rqdHost.rebootIdle()
+        
     if args.kill is not None:
         for arg in args.kill:
             rqdHost.killFrame(arg, "Killed by %s using cuerqd.py" % os.environ.get("USER"))
+            
     if args.getproxy is not None:
         for arg in args.getproxy:
             frameProxy = rqdHost.getRunningFrame(arg)
-            print(frameProxy)               
+            print(frameProxy)
+            
     if args.test_edu_frame:
         print("Launching edu test frame (logs to /mcp)")
         frameNum = "0001"
