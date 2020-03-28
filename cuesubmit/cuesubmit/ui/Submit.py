@@ -414,7 +414,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         @type setting: str
         @param setting: name of setting to get
         @rtype: list<str>
-        @return: A list of strings of setting values.
+        @return: A list of strings of setting values
         """
         size = self.settings.beginReadArray('history')
         previousValues = []
