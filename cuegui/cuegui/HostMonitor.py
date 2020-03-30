@@ -122,7 +122,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         btn = QtWidgets.QPushButton("Filter Allocation")
         btn.setMaximumHeight(FILTER_HEIGHT)
-        btn.setStyleSheet(" width: 12:0px;");
+        btn.setStyleSheet(" width: 120px;");
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         btn.setFlat(True)
