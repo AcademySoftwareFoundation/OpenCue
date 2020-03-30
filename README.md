@@ -10,7 +10,7 @@
 # Introduction
 
 OpenCue is an open source render management system. You can use OpenCue in
-visual effects and animation production to break down complex jobs into
+visual effects & animation production to break down complex jobs into
 individual tasks. You can submit jobs to a configurable dispatch queue that
 allocates the necessary computational resources.
 
@@ -23,22 +23,22 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 - Highly-scalable architecture supporting numerous concurrent machines.
 - Tagging systems allow you to allocate specific jobs to specific machine
   types.
-- Jobs are processed on a central render farm and don't rely on the artist's
+- Jobs are processed on a central render farm & don't rely on the artist's
   workstation.
-- Native multi-threading that supports Katana, Prman, and Arnold.
-- Support for multi facility, on-premisses, cloud, and hybrid deployments.
-- You can split a host into a large number of procs, each with their own
-  reserved core and memory requirements.
+- Native multi-threading that supports Katana, Prman, & Arnold.
+- Support for multi facility, on-premisses, cloud, & hybrid deployments.
+- You can split a host into a large number of processes, each with their own
+  reserved core & memory requirements.
 - Integrated automated booking.
-- No limit on the number of procs a job can have.
+- No limit on the number of processes a job can have.
 
 # Learn more
 
-For more information on installing, using, and administering OpenCue, visit
+For more information on installing, using, & administering OpenCue, visit
 [www.opencue.io](https://www.opencue.io).
 
 # Contact us
 
-To join the OpenCue discussion forum for users and admins, join the
+To join the OpenCue discussion forum for users & admins, join the
 [opencue-user mailing list](https://lists.aswf.io/g/opencue-user) or email the
 group directly at <opencue-user@lists.aswf.io>.
