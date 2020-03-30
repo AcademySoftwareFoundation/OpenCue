@@ -30,7 +30,7 @@ OpenCue provides the following features to help manage rendering jobs at scale:
 - You can split a host into a large number of procs, each with their own
   reserved core and memory requirements.
 - Integrated automated booking.
-- No limit on the number of procs a job can have.
+- No limit on the number of processes a job can have.
 
 # Learn more
 
