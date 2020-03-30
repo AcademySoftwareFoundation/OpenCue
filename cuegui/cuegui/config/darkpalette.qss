@@ -55,6 +55,11 @@ QPushButton:pressed {
     background-color: rgb(80, 80, 80);
 }
 
+QPushButton::menu-indicator {
+    right: 10px;
+    bottom: 5px;
+}
+
 QSpinBox {
     background-color: rgb(65, 65, 65);
     border: 1px solid rgb(22, 22, 22);
