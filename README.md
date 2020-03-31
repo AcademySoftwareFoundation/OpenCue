@@ -27,7 +27,7 @@ OpenCue provides the following features to help manage rendering jobs at scale:
   workstation.
 - Native multi-threading that supports Katana, Prman, and Arnold.
 - Support for multi facility, on-premisses, cloud, and hybrid deployments.
-- You can split a host into a large number of procs, each with their own
+- You can split a host into a large number of [procs](https://www.opencue.io/docs/concepts/glossary/#proc), each with their own
   reserved core and memory requirements.
 - Integrated automated booking.
 - No limit on the number of [procs](https://www.opencue.io/docs/concepts/glossary/#proc) a job can have.
