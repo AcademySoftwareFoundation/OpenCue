@@ -30,6 +30,7 @@ import cuegui.Logger
 
 
 log = cuegui.Logger.getLogger(__file__)
+settings = QtGui.qApp.settings
 
 FILTER_HEIGHT = 20
 
@@ -55,6 +56,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterAllocationSetup(hlayout)    # Menu to filter by allocation
         self.__filterHardwareStateSetup(hlayout) # Menu to filter by hardware state
         hlayout.addStretch()
+        self.__refreshTriggerCheckBoxSetup(hlayout) # Checkbox to disable triggered refresh on start
         self.__refreshToggleCheckBoxSetup(hlayout) # Checkbox to disable auto refresh
         self.__refreshButtonSetup(hlayout)         # Button to refresh
         self.__clearButtonSetup(hlayout)           # Button to clear all filters
@@ -240,6 +242,25 @@ class HostMonitor(QtWidgets.QWidget):
             __hostSearch.options['state'] = states
 
         self.hostMonitorTree.updateRequest()
+
+# ==============================================================================
+# Checkbox to trigger auto-refresh
+# ==============================================================================
+    def __refreshTriggerCheckBoxSetup(self, layout):
+        checkBox = QtWidgets.QCheckBox("Triggered-refresh", self)
+        layout.addWidget(checkBox)
+        if settings.value("TriggeredReferesh", 1).toInt():
+            checkBox.setCheckState(QtCore.Qt.Checked)
+        QtCore.QObject.connect(checkBox,
+                               QtCore.SIGNAL('stateChanged(int)'),
+                               self.__refreshTriggerCheckBoxHandle)
+        __refreshTriggerCheckBoxCheckBox = checkBox
+
+    def __refreshTriggerCheckBoxHandle(self, state):
+        if bool(state):
+            settings.setValue("TriggeredReferesh", 1)
+        else:
+            settings.setValue("TriggeredReferesh", 0)
 
 # ==============================================================================
 # Checkbox to toggle auto-refresh
