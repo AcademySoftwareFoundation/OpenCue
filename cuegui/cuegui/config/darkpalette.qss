@@ -49,6 +49,7 @@ QPushButton {
     margin-left: 5px;
     min-height: 15px;
     min-width: 5em;
+    padding: 0 15px 0 5px;
 }
 
 QPushButton:pressed {
