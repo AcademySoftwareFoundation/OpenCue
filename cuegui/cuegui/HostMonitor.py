@@ -52,19 +52,19 @@ class HostMonitor(QtWidgets.QWidget):
 
         # This hlayout would contain any filter/control buttons
         hlayout = QtWidgets.QHBoxLayout()
-        self.__filterByHostNameSetup(hlayout)      # Menu to filter by host name
-        self.__filterAllocationSetup(hlayout)    # Menu to filter by allocation
-        self.__filterHardwareStateSetup(hlayout) # Menu to filter by hardware state
+        self.__filterByHostNameSetup(hlayout)     # Menu to filter by host name
+        self.__filterAllocationSetup(hlayout)     # Menu to filter by allocation
+        self.__filterHardwareStateSetup(hlayout)     # Menu to filter by hardware state
         hlayout.addStretch()
-        self.__refreshTriggerCheckBoxSetup(hlayout) # Checkbox to disable triggered refresh on start
-        self.__refreshToggleCheckBoxSetup(hlayout) # Checkbox to disable auto refresh
-        self.__refreshButtonSetup(hlayout)         # Button to refresh
-        self.__clearButtonSetup(hlayout)           # Button to clear all filters
+        self.__refreshTriggerCheckBoxSetup(hlayout)     # Checkbox to enable/disable triggered refresh on lauch
+        self.__refreshToggleCheckBoxSetup(hlayout)     # Checkbox to enable/disable auto refresh
+        self.__refreshButtonSetup(hlayout)     # Button to refresh
+        self.__clearButtonSetup(hlayout)     # Button to clear all filters
 
         self.layout().addLayout(hlayout)
         self.layout().addWidget(self.hostMonitorTree)
 
-        self.__viewHostsSetup()                  # For view_hosts signal
+        self.__viewHostsSetup()     # For view_hosts signal
 
     def updateRequest(self):
         self.hostMonitorTree.updateRequest()
@@ -244,7 +244,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.updateRequest()
 
 # ==============================================================================
-# Checkbox to trigger auto-refresh
+# Checkbox to toggle trigger-refresh-on-launch
 # ==============================================================================
     def __refreshTriggerCheckBoxSetup(self, layout):
         checkBox = QtWidgets.QCheckBox("Triggered-refresh", self)
