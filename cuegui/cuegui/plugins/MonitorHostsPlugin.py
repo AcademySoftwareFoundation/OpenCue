@@ -57,5 +57,5 @@ class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.__monitorProcs.getColumnVisibility,
                                       self.__monitorProcs.setColumnVisibility)])
         
-        if QtGui.qApp.settings.value("TriggeredRefresh", 1).toInt():
+        if bool(QtGui.qApp.settings.value("TriggeredRefresh", 1)):
             self.__monitorHosts.updateRequest()
