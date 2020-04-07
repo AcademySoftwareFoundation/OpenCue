@@ -249,7 +249,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __refreshTriggerCheckBoxSetup(self, layout):
         checkBox = QtWidgets.QCheckBox("Triggered-refresh", self)
         layout.addWidget(checkBox)
-        if settings.value("TriggeredReferesh", 1).toInt():
+        if bool(settings.value("TriggeredReferesh", 1)):
             checkBox.setCheckState(QtCore.Qt.Checked)
         QtCore.QObject.connect(checkBox,
                                QtCore.SIGNAL('stateChanged(int)'),
