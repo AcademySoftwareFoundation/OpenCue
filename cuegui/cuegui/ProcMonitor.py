@@ -29,6 +29,7 @@ import cuegui.Utils
 
 
 log = cuegui.Logger.getLogger(__file__)
+settings = QtGui.qApp.settings
 
 FILTER_HEIGHT = 20
 
@@ -50,19 +51,22 @@ class ProcMonitor(QtWidgets.QWidget):
 
         # This hlayout would contain any filter/control buttons
         hlayout = QtWidgets.QHBoxLayout()
-        self.__filterByHostNameSetup(hlayout)   # Menu to filter by proc name
+        self.__filterByHostNameSetup(hlayout)     # Menu to filter by proc name
         hlayout.addStretch()
-        self.__refreshToggleCheckBoxSetup(hlayout) # Checkbox to disable auto refresh
-        self.__refreshButtonSetup(hlayout)    # Button to refresh
-        self.__clearButtonSetup(hlayout)      # Button to clear all filters
+        self.__refreshToggleCheckBoxSetup(hlayout)     # Checkbox to enable/disable auto refresh
+        self.__refreshButtonSetup(hlayout)     # Button to refresh
+        self.__clearButtonSetup(hlayout)     # Button to clear all filters
 
         self.layout().addLayout(hlayout)
         self.layout().addWidget(self.procMonitorTree)
 
-        self.__viewProcsSetup()               # For view_hosts signal
-        self.__hostDoubleClickedSetup()       # Views procs when a host is double clicked
+        self.__viewProcsSetup()     # For view_hosts signal
+        self.__hostDoubleClickedSetup()     # Views procs when a host is double clicked
 
-        self.__viewHostsSetup()               # For view_hosts signal
+        self.__viewHostsSetup()     # For view_hosts signal
+        
+        if bool(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1)):     # For refresh on launch
+            self.updateRequest()
 
     def updateRequest(self):
         self.procMonitorTree.updateRequest()
@@ -120,6 +124,7 @@ class ProcMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.procMonitorTree.enableRefresh = bool(state)
+        settings.setValue("AutoRefreshMonitorProc", int(state))
 
 # ==============================================================================
 # Button to refresh
