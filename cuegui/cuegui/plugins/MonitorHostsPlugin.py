@@ -19,7 +19,6 @@ from __future__ import absolute_import
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
-from PySide2 import QtGui
 
 import cuegui.AbstractDockWidget
 import cuegui.HostMonitor
@@ -57,5 +56,3 @@ class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.__monitorProcs.getColumnVisibility,
                                       self.__monitorProcs.setColumnVisibility)])
         
-        if bool(QtGui.qApp.settings.value("TriggeredRefresh", 1)):
-            self.__monitorHosts.updateRequest()
