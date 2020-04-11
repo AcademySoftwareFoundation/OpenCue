@@ -55,4 +55,3 @@ class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("procColumnVisibility",
                                       self.__monitorProcs.getColumnVisibility,
                                       self.__monitorProcs.setColumnVisibility)])
-        
