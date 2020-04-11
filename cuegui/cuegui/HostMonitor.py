@@ -56,7 +56,6 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterAllocationSetup(hlayout)     # Menu to filter by allocation
         self.__filterHardwareStateSetup(hlayout)     # Menu to filter by hardware state
         hlayout.addStretch()
-        self.__refreshTriggerCheckBoxSetup(hlayout)     # Checkbox to enable/disable triggered refresh on lauch
         self.__refreshToggleCheckBoxSetup(hlayout)     # Checkbox to enable/disable auto refresh
         self.__refreshButtonSetup(hlayout)     # Button to refresh
         self.__clearButtonSetup(hlayout)     # Button to clear all filters
@@ -65,6 +64,9 @@ class HostMonitor(QtWidgets.QWidget):
         self.layout().addWidget(self.hostMonitorTree)
 
         self.__viewHostsSetup()     # For view_hosts signal
+        
+        if bool(QtGui.qApp.settings.value("AutoRefresh", 1)):     # For refresh on launch
+            self.updateRequest()
 
     def updateRequest(self):
         self.hostMonitorTree.updateRequest()
@@ -244,25 +246,6 @@ class HostMonitor(QtWidgets.QWidget):
         self.hostMonitorTree.updateRequest()
 
 # ==============================================================================
-# Checkbox to toggle trigger-refresh-on-launch
-# ==============================================================================
-    def __refreshTriggerCheckBoxSetup(self, layout):
-        checkBox = QtWidgets.QCheckBox("Triggered-refresh", self)
-        layout.addWidget(checkBox)
-        if bool(settings.value("TriggeredReferesh", 1)):
-            checkBox.setCheckState(QtCore.Qt.Checked)
-        QtCore.QObject.connect(checkBox,
-                               QtCore.SIGNAL('stateChanged(int)'),
-                               self.__refreshTriggerCheckBoxHandle)
-        __refreshTriggerCheckBoxCheckBox = checkBox
-
-    def __refreshTriggerCheckBoxHandle(self, state):
-        if bool(state):
-            settings.setValue("TriggeredReferesh", 1)
-        else:
-            settings.setValue("TriggeredReferesh", 0)
-
-# ==============================================================================
 # Checkbox to toggle auto-refresh
 # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
@@ -277,6 +260,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
+        settings.setValue("AutoReferesh", int(state))
 
 # ==============================================================================
 # Button to refresh
