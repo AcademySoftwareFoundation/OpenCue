@@ -65,7 +65,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()     # For view_hosts signal
         
-        if bool(QtGui.qApp.settings.value("AutoRefresh", 1)):     # For refresh on launch
+        if bool(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)):     # For refresh on launch
             self.updateRequest()
 
     def updateRequest(self):
@@ -260,7 +260,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        settings.setValue("AutoReferesh", int(state))
+        settings.setValue("AutoRefreshMonitorHost", int(state))
 
 # ==============================================================================
 # Button to refresh
