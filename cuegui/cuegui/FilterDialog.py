@@ -55,6 +55,16 @@ MEMOPTTYPE = ["Enabled", "Disabled"]
 
 class FilterDialog(QtWidgets.QDialog):
     def __init__(self, show, parent=None):
+        """
+        Creates an instance of the FilterDialog.
+
+        Filters are segmented by show, so a show must be provided.
+
+        :type show: opencue.wrappers.show.Show
+        :param show: the show to manage filters for
+        :type parent: PySide2.QtWidgets.QWidget.QWidget
+        :param parent: the parent widget
+        """
         QtWidgets.QDialog.__init__(self, parent)
         self.__show = show
 
@@ -112,8 +122,8 @@ class FilterDialog(QtWidgets.QDialog):
 
     def __createFilter(self):
         """Prompts the user to create a new filter"""
-        (value, choice) = QtWidgets.QInputDialog.getText(self, "Add filter", "Filter name?",
-                                                     QtWidgets.QLineEdit.Normal, "")
+        (value, choice) = QtWidgets.QInputDialog.getText(
+            self, "Add filter", "Filter name?", QtWidgets.QLineEdit.Normal, "")
         if choice:
             self.__filters.addObject(self.__show.createFilter(str(value)))
 
@@ -258,8 +268,8 @@ class MatcherMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return
 
         self.addObject(self.__filter.createMatcher(
-            getattr(opencue.api.filter_pb2, str(matchSubject)),
-            getattr(opencue.api.filter_pb2, str(matchType)),
+            opencue.compiled_proto.filter_pb2.MatchSubject.Value(str(matchSubject)),
+            opencue.compiled_proto.filter_pb2.MatchType.Value(str(matchType)),
             str(input)))
 
     def deleteAllMatchers(self):
