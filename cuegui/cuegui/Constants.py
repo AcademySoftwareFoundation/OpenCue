@@ -32,7 +32,12 @@ from PySide2 import QtWidgets
 import opencue
 
 
-VERSION = "1.3.0"
+possible_version_path = os.path.join(os.path.abspath(os.path.join(__file__ , "../../..")), 'VERSION.in')
+if os.path.exists(possible_version_path):
+    with open(possible_version_path) as fp:
+        VERSION = fp.read().strip()
+else:
+    VERSION = "1.3.0"
 
 STARTUP_NOTICE_DATE = 0
 STARTUP_NOTICE_MSG = ""
