@@ -91,7 +91,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
         self.ticksWithoutUpdate = -1
-        self.enableRefresh = bool(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1))
+        self.enableRefresh = bool(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1).toInt())
 
     def tick(self):
         if self.ticksWithoutUpdate >= self.updateInterval and \
