@@ -30,7 +30,7 @@ import cuegui.Logger
 
 
 log = cuegui.Logger.getLogger(__file__)
-settings = QtGui.qApp.settings
+
 
 FILTER_HEIGHT = 20
 
@@ -260,7 +260,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        settings.setValue("AutoRefreshMonitorHost", int(state))
+        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(state))
 
 # ==============================================================================
 # Button to refresh
