@@ -29,8 +29,12 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: aswf/ci-opencue:2019.0
-      options: --user 1001
+      #options: --user 1001
     steps:
     - uses: actions/checkout@v2
     - name: Build with Gradle
-      run: cd cuebot && ./gradlew build --stacktrace --info
+      run: |
+        createuser builduser
+        chmod -R 777 .
+        cd cuebot
+        su -c "./gradlew build --stacktrace --info" builduser
