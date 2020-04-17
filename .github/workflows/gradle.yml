@@ -27,7 +27,9 @@ jobs:
 
   build_cuebot_2019:
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019.0
+    container:
+      image: aswf/ci-opencue:2019.0
+      options: --user 1001
     steps:
     - uses: actions/checkout@v2
     - name: Build with Gradle
