@@ -23,5 +23,5 @@ jobs:
     #- name: Grant execute permission for gradlew
     #  run: chmod +x gradlew
     - name: Build with Gradle
-      uses: docker://aswf/ci-opencue:2019.0
+      container: aswf/ci-opencue:2019.0
       run: cd cuebot && ./gradlew build
