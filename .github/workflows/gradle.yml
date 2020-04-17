@@ -34,7 +34,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Build with Gradle
       run: |
-        createuser builduser
+        adduser builduser
         chmod -R 777 .
         cd cuebot
         su -c "./gradlew build --stacktrace --info" builduser
