@@ -18,6 +18,13 @@ jobs:
       - name: Run Python Tests
         run: ci/run_python_tests.sh
 
+  build_cuebot_nodocker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build with Gradle
+        run: cd cuebot && ./gradlew build --stacktrace
+
   build_cuebot_2019:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2019.0
