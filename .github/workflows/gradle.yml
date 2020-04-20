@@ -35,4 +35,5 @@ jobs:
     - name: Build with Gradle
       run: |
         adduser builduser
+        chown -R builduser:builduser .
         su -c "cd cuebot && ./gradlew build --stacktrace --info" builduser
