@@ -35,6 +35,4 @@ jobs:
     - name: Build with Gradle
       run: |
         adduser builduser
-        chmod -R 777 .
-        cd cuebot
-        su -c "./gradlew build --stacktrace --info" builduser
+        su -c "cd cuebot && ./gradlew build --stacktrace --info" builduser
