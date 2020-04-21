@@ -65,7 +65,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()     # For view_hosts signal
         
-        if bool(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)):     # For refresh on launch
+        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):     # For refresh on launch
             self.updateRequest()
 
     def updateRequest(self):
