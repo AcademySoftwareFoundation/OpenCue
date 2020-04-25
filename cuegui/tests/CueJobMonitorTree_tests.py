@@ -39,13 +39,13 @@ class CueJobMonitorTreeTests(unittest.TestCase):
         PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
-        show_name = 'arbitrary-show-name'
-        job_name = 'arbitrary-job-name'
+        self.show_name = 'arbitrary-show-name'
+        self.jobs = ['arbitrary-job-name']
 
         # Show is specified by name, and show details are fetched using FindShow.
         get_stub_mock.return_value.FindShow.return_value = \
             opencue.compiled_proto.show_pb2.ShowFindShowResponse(
-                show=opencue.compiled_proto.show_pb2.Show(name=show_name))
+                show=opencue.compiled_proto.show_pb2.Show(name=self.show_name))
 
         # The widget loads the show's "whiteboard", a nested data structure containing
         # all groups and jobs in the show. The top-level item is the show though it
@@ -53,13 +53,13 @@ class CueJobMonitorTreeTests(unittest.TestCase):
         get_stub_mock.return_value.GetJobWhiteboard.return_value = \
             opencue.compiled_proto.show_pb2.ShowGetJobWhiteboardResponse(
                 whiteboard=opencue.compiled_proto.job_pb2.NestedGroup(
-                    name=show_name,
-                    jobs=[job_name]))
+                    name=self.show_name,
+                    jobs=self.jobs))
 
         self.main_window = PySide2.QtWidgets.QMainWindow()
         self.widget = cuegui.plugins.MonitorCuePlugin.MonitorCueDockWidget(self.main_window)
         self.cue_job_monitor_tree = cuegui.CueJobMonitorTree.CueJobMonitorTree(self.widget)
-        self.cue_job_monitor_tree.addShow(show_name)
+        self.cue_job_monitor_tree.addShow(self.show_name)
 
     def test_setup(self):
         pass
