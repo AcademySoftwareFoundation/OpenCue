@@ -38,4 +38,5 @@ jobs:
     - name: Build with Gradle
       run: |
         chown -R aswfuser:aswfgroup .
-        runuser -l aswfuser -c 'cd cuebot && ./gradlew build --stacktrace --info'
+        runuser -l aswfuser -c 'pwd'
+        runuser -l aswfuser -c 'cd ${GITHUB_WORKSPACE}/cuebot && ./gradlew build --stacktrace --info'
