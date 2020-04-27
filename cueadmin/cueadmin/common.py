@@ -719,7 +719,7 @@ def handleArgs(args):
         def moveHosts(hosts_, dst_):
             for host_ in hosts_:
                 logger.debug("moving %s to %s" % (opencue.rep(host_), opencue.rep(dst_)))
-                host_.setAllocation(dst_.data)
+                host_.setAllocation(dst_)
 
         confirm("Move %d hosts to %s" % (len(hosts), args.move),
                 args.force, moveHosts, hosts, opencue.api.findAllocation(args.move))

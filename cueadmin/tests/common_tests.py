@@ -391,16 +391,17 @@ class HostTests(unittest.TestCase):
     def testMoveHost(self, findAllocMock, getStubMock, hostSearchMock):
         allocName = '%s.%s' % (TEST_FACILITY, TEST_ALLOC)
         args = self.parser.parse_args(['-move', allocName, '-host', TEST_HOST, '-force'])
-        hostMock = mock.Mock()
-        hostSearchMock.byName.return_value = [hostMock]
-        allocMock = mock.Mock()
-        findAllocMock.return_value = allocMock
+        host = opencue.wrappers.host.Host(opencue.compiled_proto.host_pb2.Host())
+        host.setAllocation = mock.Mock()
+        hostSearchMock.byName.return_value = [host]
+        alloc = opencue.wrappers.allocation.Allocation()
+        findAllocMock.return_value = alloc
 
         cueadmin.common.handleArgs(args)
 
         hostSearchMock.byName.assert_called_with([TEST_HOST])
         findAllocMock.assert_called_with(allocName)
-        hostMock.setAllocation.assert_called_with(allocMock.data)
+        host.setAllocation.assert_called_with(alloc)
 
     def testInvalidMoveHost(self, getStubMock, hostSearchMock):
         args = self.parser.parse_args(['-move', TEST_ALLOC, '-force'])
