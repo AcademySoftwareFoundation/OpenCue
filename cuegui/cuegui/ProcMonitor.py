@@ -124,7 +124,7 @@ class ProcMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.procMonitorTree.enableRefresh = bool(state)
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorProc", int(state))
+        QtGui.qApp.settings.setValue("AutoRefreshMonitorProc", int(bool(state)))
 
 # ==============================================================================
 # Button to refresh
