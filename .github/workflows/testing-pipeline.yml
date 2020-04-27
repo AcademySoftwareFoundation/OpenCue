@@ -13,7 +13,7 @@ jobs:
   test_python_2019:
     name: Run Python Unit Tests (CY2019)
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019.3
+    container: aswf/ci-opencue:2019
     steps:
       - uses: actions/checkout@v2
       - name: Run Python Tests
@@ -23,11 +23,10 @@ jobs:
     name: Build Cuebot and Run Unit Tests (CY2019)
     runs-on: ubuntu-latest
     container:
-      image: aswf/ci-opencue:2019.3
+      image: aswf/ci-opencue:2019
     steps:
     - uses: actions/checkout@v2
     - name: Build with Gradle
       run: |
         chown -R aswfuser:aswfgroup .
-        su -c 'echo $GITHUB_WORKSPACE' aswfuser
         su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
