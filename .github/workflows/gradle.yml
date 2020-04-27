@@ -12,7 +12,7 @@ on:
 jobs:
   test_python_2019:
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019.0
+    container: aswf/ci-opencue:2019.3
     steps:
       - uses: actions/checkout@v2
       - name: Run Python Tests
@@ -32,11 +32,10 @@ jobs:
   build_cuebot_2019:
     runs-on: ubuntu-latest
     container:
-      image: aswf/ci-opencue:2019.0
+      image: aswf/ci-opencue:2019.3
     steps:
     - uses: actions/checkout@v2
     - name: Build with Gradle
       run: |
-        adduser builduser
-        chown -R builduser:builduser .
-        su -c "cd cuebot && ./gradlew build --stacktrace --info" builduser
+        chown -R aswfuser:aswfgroup .
+        runuser -l aswfuser -c 'cd cuebot && ./gradlew build --stacktrace --info'
