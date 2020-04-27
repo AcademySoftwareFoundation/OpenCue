@@ -260,7 +260,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(state))
+        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
 
 # ==============================================================================
 # Button to refresh
