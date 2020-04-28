@@ -3,8 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to the OpenCue API documentation!
-=========================================
+OpenCue API Python documentation
+================================
+
+OpenCue is an open source render management system.
+This documentation provides a detailed refence for
+the various Python packages included in OpenCue.
+For a general introduction and more information about
+using OpenCue for your rendering projects, visit the
+main `OpenCue <https://www.opencue.io>`_ site.
+
+:Version: |version|
+:Release: |release|
 
 .. toctree::
    :maxdepth: 2

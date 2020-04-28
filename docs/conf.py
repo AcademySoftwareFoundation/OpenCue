@@ -11,23 +11,18 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-
-
+#
 import os
+import sphinx_rtd_theme
 import sys
 sys.path.insert(0, os.path.abspath('../pycue'))
 sys.path.insert(0, os.path.abspath('../pyoutline'))
 
-
 # -- Project information -----------------------------------------------------
 
 project = u'OpenCue'
-copyright = u'2019, Academy Software Foundation'
+copyright = u'2020, Contributors to the OpenCue Project'
 author = u'Academy Software Foundation'
-
-
-# To set the following values to the latest version and
-# release, run `python3 docs/version_release_fix.py`
 
 # The short X.Y version
 version = u'0.3.6'
@@ -52,6 +47,7 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
     'sphinx.ext.ifconfig',
+    "sphinx_rtd_theme",
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -88,18 +84,30 @@ pygments_style = None
 # a list of builtin themes.
 #
 # The default theme
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
+# Logo (optional)
+html_logo = "images/opencue_logo_navbar.png"
+
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'canonical_url': 'https://www.opencue.io/',
+    'logo_only': True,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': True,
+    'style_nav_header_background': 'white',
+}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = []
+html_static_path = ['_static']
+
+html_style = 'css/api.css'
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

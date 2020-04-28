@@ -1,0 +1,16 @@
+/** css/api.css **/
+
+@import 'theme.css';       /* for the Read the Docs theme */
+
+.aswf-logo {
+  width: 200px;
+}
+
+.footer-logo {
+  margin-bottom: 1em;
+  margin-top: 2em;
+}
+
+.wy-side-nav-search>div.version {
+  color: black;
+}
