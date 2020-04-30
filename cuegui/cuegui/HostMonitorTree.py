@@ -165,7 +165,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
         self.ticksWithoutUpdate = -1
-        self.enableRefresh = False
+        self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)))
 
     def tick(self):
         if self.ticksWithoutUpdate >= self.updateInterval and \
