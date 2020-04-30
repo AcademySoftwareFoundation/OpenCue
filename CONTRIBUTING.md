@@ -169,6 +169,9 @@ the pull request's status check will display the next steps you should
 take. You'll log into the CLA tool which will walk you through the
 process.
 
+The full text of the OpenCue CLAs is available in
+[the `tsc/` directory of the main repository](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/tsc).
+
 ## Required Approvals
 
 Modifications of the contents of the OpenCue repository are made on a
