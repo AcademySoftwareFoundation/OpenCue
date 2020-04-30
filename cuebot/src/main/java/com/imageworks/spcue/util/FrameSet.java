@@ -81,13 +81,13 @@ public class FrameSet {
             return String.valueOf(frameList.get(startFrameIndex));
         }
         int finalFrameIndex = frameList.size() - 1;
-        int endFrameIndex = startFrameIndex + chunkSize;
+        int endFrameIndex = startFrameIndex + chunkSize - 1;
         if (endFrameIndex > finalFrameIndex) {
             // We don't have enough frames, so return the remaining frames.
             endFrameIndex = finalFrameIndex;
         }
 
-        return framesToFrameRanges(frameList.subList(startFrameIndex, endFrameIndex));
+        return framesToFrameRanges(frameList.subList(startFrameIndex, endFrameIndex+1));
     }
 
     /**

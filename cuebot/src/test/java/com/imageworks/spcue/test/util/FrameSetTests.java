@@ -8,7 +8,7 @@ import static org.junit.Assert.assertEquals;
 
 public class FrameSetTests {
     @Test
-    public void testMultipleSegments() {
+    public void shouldSplitListAndMaintainOrder() {
         FrameSet result = new FrameSet("57,1-3,4-2,12-15x2,76-70x-3,5-12y3,1-7:5");
 
         assertThat(result.getAll()).containsExactly(
@@ -16,21 +16,21 @@ public class FrameSetTests {
     }
 
     @Test
-    public void testSize() {
+    public void shouldReturnCorrectSize() {
         FrameSet result = new FrameSet("1-7");
 
         assertEquals(7, result.size());
     }
 
     @Test
-    public void testGet() {
+    public void shouldReturnSingleFrame() {
         FrameSet result = new FrameSet("1-7");
 
         assertEquals(5, result.get(4));
     }
 
     @Test
-    public void testIndex() {
+    public void shouldReturnCorrectIndexes() {
         FrameSet result = new FrameSet("1-7");
         
         assertEquals(5, result.index(6));
@@ -38,7 +38,7 @@ public class FrameSetTests {
     }
 
     @Test
-    public void testFramesToFrameRanges00() {
+    public void shouldReconstructSteppedRange() {
         FrameSet result = new FrameSet("1-10x2,11-100x20,103-108");
 
         // int[] intArray = {1, 3, 5, 7, 9, 11, 31, 51, 71, 91, 103, 104, 105, 106, 107, 108};
@@ -47,7 +47,7 @@ public class FrameSetTests {
     }
 
     @Test
-    public void testFramesToFrameRanges01() {
+    public void shouldCreateNewSteppedRangeAndNextFrame() {
         FrameSet result = new FrameSet("1-10x2,11-100x20,103-108");
 
         // int[] intArray = {1, 3, 5, 7, 9, 11, 31, 51, 71, 91, 103, 104, 105, 106, 107, 108};
@@ -56,7 +56,7 @@ public class FrameSetTests {
     }
 
     @Test
-    public void testFramesToFrameRanges02() {
+    public void shouldReturnCommaSeparatedList() {
         FrameSet result = new FrameSet("1-10x2,11-100x20,103-108");
 
         // int[] intArray = {1, 3, 5, 7, 9, 11, 31, 51, 71, 91, 103, 104, 105, 106, 107, 108};
@@ -65,16 +65,23 @@ public class FrameSetTests {
     }
 
     @Test
-    public void testFramesToFrameRanges03() {
+    public void shouldReturnSubsetOfSteppedRange() {
         FrameSet result = new FrameSet("1-100x3");
 
         assertEquals("28-34x3", result.getChunk(9, 3));
     }
 
     @Test
-    public void testFramesToFrameRanges04() {
+    public void shouldReturnSubsetOfRange() {
         FrameSet result = new FrameSet("1-100");
 
         assertEquals("10-12", result.getChunk(9, 3));
+    }
+
+    @Test
+    public void shouldStopBeforeTheEndOfTheRange() {
+        FrameSet result = new FrameSet("55-60");
+
+        assertEquals("55-60", result.getChunk(0, 10));
     }
 }
