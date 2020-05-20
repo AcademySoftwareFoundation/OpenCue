@@ -38,7 +38,7 @@ RUN python3.6 -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN sed -i 's/^\(import.*_pb2\)/from . \1/' rqd/rqd/compiled_proto/*.py
+RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
 # TODO(bcipriano) Lint the code here. (Issue #78)
 
