@@ -105,12 +105,13 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __filterByHostNameHandle(self):
         regex = str(self.__filterByHostName.text()).split()
-        if regex and regex != self.__filterByHostNameLastInput:
-            self.__filterByHostNameLastInput = regex
+        if regex:
             self.hostMonitorTree.hostSearch.options['regex'] = regex
         else:
             self.hostMonitorTree.hostSearch.options['regex'] = []
-        self.hostMonitorTree.updateRequest()
+        if regex != self.__filterByHostNameLastInput:
+            self.__filterByHostNameLastInput = regex
+            self.hostMonitorTree.updateRequest()
 
     def __filterByHostNameClear(self):
         self.__filterByHostNameLastInput = ""
