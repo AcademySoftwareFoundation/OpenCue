@@ -22,6 +22,7 @@ Module: frame.py - opencue Library implementation of a frame
 
 import enum
 import time
+import os
 
 from opencue import Cuebot
 from opencue.compiled_proto import job_pb2
@@ -71,6 +72,28 @@ class Frame(object):
         """Retry frame"""
         if self.data.state != job_pb2.FrameState.Value('WAITING'):
             self.stub.Retry(job_pb2.FrameRetryRequest(frame=self.data), timeout=Cuebot.Timeout)
+
+    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
+        """Add a render partition to the frame.
+        @type  hostname: str
+        @param hostname: hostname of the partition
+        @type  threads: int
+        @param threads: number of threads of the partition
+        @type  max_cores: int
+        @param max_cores: max cores enabled for the partition
+        @type  num_mem: int
+        @param num_mem: amount of memory reserved for the partition
+        @type  max_gpu: int
+        @param max_gpu: max gpu cores enabled for the partition
+        """
+        response = self.stub.AddRenderPartition(
+            job_pb2.FrameAddRenderPartitionRequest(frame=self.data,
+                                                   host=hostname,
+                                                   threads=threads,
+                                                   max_cores=max_cores,
+                                                   max_memory=num_mem,
+                                                   max_gpu=max_gpu,
+                                                   username=os.getenv("USER", "unknown")))
 
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this frame.
