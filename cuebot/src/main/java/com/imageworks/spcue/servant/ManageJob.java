@@ -580,8 +580,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                         .withDescription("Failed to allocate render partition to host.")
                         .asRuntimeException());
             }
-        }
-        else {
+        } else {
             responseObserver.onError(Status.INTERNAL
                     .withDescription("Failed to find suitable frames.")
                     .asRuntimeException());
