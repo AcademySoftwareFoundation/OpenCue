@@ -541,7 +541,8 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
 
-@mock.patch('rqd.rqutil.checkAndCreateUser', new=mock.MagicMock())
+@mock.patch('rqd.rqutil.createUser', new=mock.MagicMock())
+@mock.patch('rqd.rqutil.checkUserExists', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.permissionsHigh', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.permissionsLow', new=mock.MagicMock())
 @mock.patch('subprocess.Popen')
