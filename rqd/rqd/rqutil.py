@@ -123,20 +123,23 @@ def __becomeRoot():
         except Exception:
             pass
 
-
-def checkAndCreateUser(username):
-    """Check to see if the provided user exists, if not attempt to create it."""
+def checkUserExists(username):
+    """Check to see if the provided user exists."""
     # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
     try:
         pwd.getpwnam(username)
-        return
+        return True
     except KeyError:
-        subprocess.check_call([
-            'useradd',
-            '-p', str(uuid.uuid4()), # generate a random password
-            username
-        ])
+        return False
 
+def createUser(username):
+    """Create user."""
+    # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
+    subprocess.check_call([
+        'useradd',
+        '-p', str(uuid.uuid4()), # generate a random password
+        username
+    ])
 
 def getHostIp():
     """Returns the machine's local ip address"""

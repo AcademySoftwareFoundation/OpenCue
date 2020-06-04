@@ -186,6 +186,8 @@ try:
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
+        if config.has_option(__section, "RQD_CREATE_USER_IF_NOT_EXISTS"):
+            RQD_CREATE_USER_IF_NOT_EXISTS = config.getboolean(__section, "RQD_CREATE_USER_IF_NOT_EXISTS")
 except Exception as e:
     logging.warning("Failed to read values from config file %s due to %s at %s" % (CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2])))
 
