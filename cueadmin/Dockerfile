@@ -40,7 +40,7 @@ RUN python -m grpc_tools.protoc \
 
 # Fix imports to work in both Python 2 and 3. See
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
-RUN sed -i 's/^\(import.*_pb2\)/from . \1/' pycue/opencue/compiled_proto/*.py
+RUN 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 
 COPY cueadmin/README.md ./cueadmin/
 COPY cueadmin/setup.py ./cueadmin/
