@@ -128,7 +128,7 @@ class ProgressDialog(QtWidgets.QDialog):
                 self.__function(*work)
             except Exception as e:
                 logger.warning("Work unit returned exception:")
-                list(map(logger.warning, Utils.exceptionOutput(e)))
+                list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def __doneWork(self, work, result):
         """Called when a work unit is done, updates progress, exits if done
