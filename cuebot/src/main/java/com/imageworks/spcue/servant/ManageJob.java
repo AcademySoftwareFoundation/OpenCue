@@ -569,15 +569,22 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         lha.setType(RenderPartitionType.JOB_PARTITION);
 
         if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
-            RenderPartition renderPart = whiteboard.getRenderPartition(lha);
-            responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
-                    .setRenderPartition(renderPart)
-                    .build());
-            responseObserver.onCompleted();
+            try {
+                RenderPartition renderPart = whiteboard.getRenderPartition(lha);
+                responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
+                        .setRenderPartition(renderPart)
+                        .build());
+                responseObserver.onCompleted();
+            } catch (EmptyResultDataAccessException e) {
+                responseObserver.onError(Status.INTERNAL
+                        .withDescription("Failed to allocate render partition to host.")
+                        .asRuntimeException());
+            }
+        } else {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find suitable frames.")
+                    .asRuntimeException());
         }
-        responseObserver.onError(Status.INTERNAL
-                .withDescription("Failed to find suitable frames.")
-                .asRuntimeException());
     }
 
     @Override
