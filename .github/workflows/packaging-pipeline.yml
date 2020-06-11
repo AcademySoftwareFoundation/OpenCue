@@ -30,9 +30,12 @@ jobs:
         run: |
           # build cuebot image for the build ID
           echo $BUILD_ID
-    #parameters:
-    #  imageName: 'cuebot'
-    #  displayName: 'Cuebot'
-    #  artifactPaths: |
-    #    /opt/opencue/cuebot-$(buildId)-all.jar
-    #    /opt/opencue/opencue-cuebot-$(buildId)-1.noarch.rpm
+          image_name="opencuebuild/cuebot:${BUILD_ID}"
+          docker build -t ${image_name} -f cuebot/Dockerfile "."
+          docker push ${image_name}
+          container_id=$(docker create ${image_name})
+          artifacts="/opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm"
+          for artifact in $artifacts; do
+            docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
+          done
+          docker rm $container_id
