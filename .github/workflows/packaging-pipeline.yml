@@ -24,11 +24,12 @@ jobs:
       - uses: actions/checkout@v2
       - name: Set Build ID
         run: |
-          ci/generate_version_number.sh
+          ci/generate_version_number.sh > VERSION
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
       - name: Build Cuebot Docker
         run: |
           # build cuebot image for the build ID
-          echo $build_id
+          echo $BUILD_ID
     #parameters:
     #  imageName: 'cuebot'
     #  displayName: 'Cuebot'
