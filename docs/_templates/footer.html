@@ -1,0 +1,24 @@
+{# Import the theme's layout. #}
+{% extends "!footer.html" %}
+
+{% block extrafooter %}
+  <div class="text-center order-sm-2">
+          <a href="https://www.aswf.io"><img class="footer-logo aswf-logo"  src="/images/aswf_aqua.png" alt="Academy Software Foundation logo"></a><br>
+          <small class="text-white">Documentation Distributed under CC BY 4.0</small><br>
+          <small class="text-white">LF Projects, LLC uses various trademarks.
+          For our trademark, privacy and antitrust policies, code of conduct,
+          and terms of use, please click the applicable link below or see
+          <a href="https://lfprojects.org">https://www.lfprojects.org</a>.
+          <br>
+          <a href="https://lfprojects.org/policies/trademark-policy/">Trademark Policy</a> |
+          <a href="https://lfprojects.org/policies/privacy-policy/">Privacy Conduct</a> |
+          <a href="https://lfprojects.org/policies/antitrust-policy/">Antitrust Policy</a> |
+          <a href="https://lfprojects.org/policies/code-of-conduct/">Code of Conduct</a> |
+          <a href="https://lfprojects.org/policies/terms-of-use/">Terms of Use</a></small>{{ end }}
+          <br>
+          <a href="https://www.netlify.com">
+              <img class="footer-logo"  src="https://www.netlify.com/img/global/badges/netlify-light.svg" alt="Netlify logo">
+          </a>
+</div>
+  {{ super() }}
+{% endblock %}

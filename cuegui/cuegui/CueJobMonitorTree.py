@@ -279,7 +279,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                     self.updateRequest()
 
-    def addShow(self, show, update = True):
+    def addShow(self, show, update=True):
         """Adds a show to the list of monitored shows
         @type  show: Show name
         @param show: string
@@ -428,10 +428,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             for jobId in group.data.jobs:
                 job = opencue.api.getJob(jobId)
-                if job.id() in self._items:
-                    self._items[job.id()].update(job, groupItem)
-                else:
-                    self._items[job.id()] = JobWidgetItem(job, groupItem)
+                try:
+                    if job.id() in self._items:
+                        self._items[job.id()].update(job, groupItem)
+                    else:
+                        self._items[job.id()] = JobWidgetItem(job, groupItem)
+                except RuntimeError:
+                    logger.warning("Failed to create tree item. RootView might be closed", exc_info=True)
 
     def mouseDoubleClickEvent(self,event):
         objects = self.selectedObjects()

@@ -31,6 +31,7 @@ import cuegui.Logger
 
 log = cuegui.Logger.getLogger(__file__)
 
+
 FILTER_HEIGHT = 20
 
 
@@ -51,18 +52,21 @@ class HostMonitor(QtWidgets.QWidget):
 
         # This hlayout would contain any filter/control buttons
         hlayout = QtWidgets.QHBoxLayout()
-        self.__filterByHostNameSetup(hlayout)      # Menu to filter by host name
-        self.__filterAllocationSetup(hlayout)    # Menu to filter by allocation
-        self.__filterHardwareStateSetup(hlayout) # Menu to filter by hardware state
+        self.__filterByHostNameSetup(hlayout)     # Menu to filter by host name
+        self.__filterAllocationSetup(hlayout)     # Menu to filter by allocation
+        self.__filterHardwareStateSetup(hlayout)     # Menu to filter by hardware state
         hlayout.addStretch()
-        self.__refreshToggleCheckBoxSetup(hlayout) # Checkbox to disable auto refresh
-        self.__refreshButtonSetup(hlayout)         # Button to refresh
-        self.__clearButtonSetup(hlayout)           # Button to clear all filters
+        self.__refreshToggleCheckBoxSetup(hlayout)     # Checkbox to enable/disable auto refresh
+        self.__refreshButtonSetup(hlayout)     # Button to refresh
+        self.__clearButtonSetup(hlayout)     # Button to clear all filters
 
         self.layout().addLayout(hlayout)
         self.layout().addWidget(self.hostMonitorTree)
 
-        self.__viewHostsSetup()                  # For view_hosts signal
+        self.__viewHostsSetup()     # For view_hosts signal
+        
+        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):     # For refresh on launch
+            self.updateRequest()
 
     def updateRequest(self):
         self.hostMonitorTree.updateRequest()
@@ -101,12 +105,13 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __filterByHostNameHandle(self):
         regex = str(self.__filterByHostName.text()).split()
-        if regex and regex != self.__filterByHostNameLastInput:
-            self.__filterByHostNameLastInput = regex
+        if regex:
             self.hostMonitorTree.hostSearch.options['regex'] = regex
         else:
             self.hostMonitorTree.hostSearch.options['regex'] = []
-        self.hostMonitorTree.updateRequest()
+        if regex != self.__filterByHostNameLastInput:
+            self.__filterByHostNameLastInput = regex
+            self.hostMonitorTree.updateRequest()
 
     def __filterByHostNameClear(self):
         self.__filterByHostNameLastInput = ""
@@ -256,6 +261,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
+        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
 
 # ==============================================================================
 # Button to refresh

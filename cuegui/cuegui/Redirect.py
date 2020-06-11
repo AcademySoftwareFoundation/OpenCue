@@ -59,7 +59,7 @@ class ShowCombo(QtWidgets.QComboBox):
     def refresh(self):
         self.clear()
         shows = opencue.api.getActiveShows()
-        shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
+        shows.sort(key=lambda x, y: cmp(x.data.name, y.data.name))
 
         for show in shows:
             self.addItem(show.data.name, show)
@@ -92,7 +92,7 @@ class AllocFilter(QtWidgets.QPushButton):
         Refresh the full list of allocations.
         """
         allocs = opencue.api.getAllocations()
-        allocs.sort(lambda x,y: cmp(x.data.name, y.data.name))
+        allocs.sort(key=lambda x, y: cmp(x.data.name, y.data.name))
 
         self.__menu.clear()
         checked = 0
@@ -372,11 +372,11 @@ class RedirectWidget(QtWidgets.QWidget):
     Displays a table of procs that can be selected for redirect.
     """
 
-    HEADERS = ["Name","Cores","Memory","PrcTime", "Group","Service"]
+    HEADERS = ["Name", "Cores", "Memory", "PrcTime", "Group", "Service"]
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
-        self.__hosts = { }
+        self.__hosts = {}
 
         self.__controls = RedirectControls(self)
 
@@ -398,17 +398,17 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__controls.getClearButton().pressed.connect(self.clearTarget)
 
     def __get_selected_procs_by_alloc(self, selected_items):
-        '''
+        """
         Gathers and returns the selected procs, grouped by allocation their
         allocation names
 
         @param selected_items: The selected rows to analyze
-        @type selected_itmes: list<dict<str:varies>>
+        @type selected_items: list<dict<str:varies>>
 
-        @return: A dictionary with the allocation neames are the keys and the
+        @return: A dictionary with the allocation names are the keys and the
                  selected procs are the values.
         @rtype: dict<str:L{opencue.wrappers.proc.Proc}>
-        '''
+        """
 
         procs_by_alloc = {}
         for item in selected_items:
