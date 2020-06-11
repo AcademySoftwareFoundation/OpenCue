@@ -50,6 +50,7 @@ if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
   full_version="${version_major_minor}.${commit_count}"
 else
+  git fetch origin
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)
   echo "commit_count_in_master: $commit_count_in_master"
   commit_short_hash=$(git rev-parse --short HEAD)
