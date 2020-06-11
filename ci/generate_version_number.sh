@@ -30,7 +30,9 @@
 set -e
 
 script_dir="$(cd "$(dirname "$0")" && pwd)"
+echo "Script dir: ${script_dir}"
 toplevel_dir="$(dirname "$script_dir")"
+echo "toplevel dir: ${toplevel_dir}"
 
 version_in="$toplevel_dir/VERSION.in"
 
@@ -41,14 +43,17 @@ else
 fi
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
+echo "version_major_minor: $version_major_minor"
 current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
-
+echo "current branch: $current_branch"
 if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
   full_version="${version_major_minor}.${commit_count}"
 else
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)
+  echo "commit_count_in_master: $commit_count_in_master"
   commit_short_hash=$(git rev-parse --short HEAD)
+  echo "commit_short_hash: $commit_short_hash"
   full_version="${version_major_minor}.$((commit_count_in_master + 1))-${commit_short_hash}"
 fi
 
