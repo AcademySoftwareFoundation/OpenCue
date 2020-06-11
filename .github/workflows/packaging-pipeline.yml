@@ -1,0 +1,38 @@
+name: OpenCue Packaging Pipeline
+
+# TODO This should only run on commits to master
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test_python_2019:
+    name: Run Python Unit Tests (CY2019)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2019
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  build_cuebot:
+    name: Build Cuebot
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set Build ID
+        run: |
+          ci/generate_version_number.sh > VERSION
+          echo "::set-env name=build_id::$(cat ./VERSION)"
+      - name: Build Cuebot Docker
+        run: |
+          # build cuebot image for the build ID
+          echo $build_id
+    #parameters:
+    #  imageName: 'cuebot'
+    #  displayName: 'Cuebot'
+    #  artifactPaths: |
+    #    /opt/opencue/cuebot-$(buildId)-all.jar
+    #    /opt/opencue/opencue-cuebot-$(buildId)-1.noarch.rpm
