@@ -34,6 +34,7 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
+          dockerfile: cuebot/Dockerfile
           repository: opencuebuild/cuebot
           tags: ${{ env.BUILD_ID }}
       - name: Extract Cuebot Artifacts
