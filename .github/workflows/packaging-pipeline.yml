@@ -46,3 +46,7 @@ jobs:
         with:
           name: cuebot-rpm
           path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
+      - name: Fetch artifacts
+        run: |
+          set -e
+          echo "${{github.sha}}"
