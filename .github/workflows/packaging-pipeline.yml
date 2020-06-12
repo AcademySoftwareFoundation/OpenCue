@@ -36,6 +36,7 @@ jobs:
           image_name="opencuebuild/cuebot:${BUILD_ID}"
           container_id=$(docker create ${image_name})
           artifacts="/opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm"
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           for artifact in $artifacts; do
             docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
