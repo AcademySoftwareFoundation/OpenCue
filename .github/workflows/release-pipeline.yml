@@ -18,26 +18,26 @@ jobs:
       - name: Fetch artifacts
         run: |
           set -e
-          echo "${{github.sha}}"
-          #pr="$(echo '${{github.event.head_commit.message}}' | sed 's/^.*#\([0-9]*\).*/\1/;q')"
-          #git fetch origin "pull/$pr/head:pr"
-          #sha1="$(git rev-parse pr)"
-          #echo pr="$pr" sha1="$sha1"
-      #run_id=$(curl -s -H 'Accept: application/vnd.github.antiope-preview+json' https://api.github.com/repos/${{github.repository}}/actions/workflows/build-bottles.yml/runs \
-      #  | jq ".workflow_runs[] | select(.head_sha == \"$sha1\").id")
-      #artifact_id="$(curl -s -H 'Accept: application/vnd.github.antiope-preview+json' https://api.github.com/repos/${{github.repository}}/actions/runs/$run_id/artifacts \
-      #  | jq '.artifacts[0].id')"
-      #echo run_id="$run_id" artifact_id="$artifact_id"
-      #curl -L -o bottles.zip "https://${{secrets.GITHUB_PAT}}@api.github.com/repos/${{github.repository}}/actions/artifacts/$artifact_id/zip"
-      #- name: Create Release
-      #  uses: actions/create-release@v1
-      #  env:
-      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #  with:
-      #    tag_name: ${{ github.ref }}
-      #    release_name: Release ${{ github.ref }}
-      #    body: |
-      #      Changelog WIP
-      #    draft: true
-      #    prerelease: false
+          echo "SHA: ${{github.sha}}"
+          run_id=$(curl -s https://api.github.com/repos/${{github.repository}}/actions/runs \
+            | jq ".workflow_runs[] | select(.head_sha == \"${{github.sha}}\" and .workflow_id==1539149).id")
+          echo "Run ID: ${run_id}"
+          artifact_ids=$(curl -s https://api.github.com/repos/${{github.repository}}/actions/runs/${run_id}/artifacts \
+            | jq '.artifacts[].id')
+          echo "Artifact IDs: ${artifact_ids}"
+          for artifact_id in ${artifact_ids}; do
+            echo "Fetching artifact ${artifact_id}"
+            curl -L -O "https://${{secrets.GITHUB_TOKEN}}@api.github.com/repos/${{github.repository}}/actions/artifacts/$artifact_id/zip"
+          done
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: |
+            Changelog WIP
+          draft: true
+          prerelease: false
 
