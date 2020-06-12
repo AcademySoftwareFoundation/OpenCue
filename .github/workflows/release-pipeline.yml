@@ -1,0 +1,40 @@
+name: OpenCue Release Pipeline
+
+# TODO This should only run on pushing a new version tag
+on:
+  #push:
+  #  tags:
+  #    - 'v*'
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Fetch artifacts
+        run: |
+          set -e
+          sha1="$(git rev-parse HEAD)"
+          echo sha1="$sha1"
+      #run_id=$(curl -s -H 'Accept: application/vnd.github.antiope-preview+json' https://api.github.com/repos/${{github.repository}}/actions/workflows/build-bottles.yml/runs \
+      #  | jq ".workflow_runs[] | select(.head_sha == \"$sha1\").id")
+      #artifact_id="$(curl -s -H 'Accept: application/vnd.github.antiope-preview+json' https://api.github.com/repos/${{github.repository}}/actions/runs/$run_id/artifacts \
+      #  | jq '.artifacts[0].id')"
+      #echo run_id="$run_id" artifact_id="$artifact_id"
+      #curl -L -o bottles.zip "https://${{secrets.GITHUB_PAT}}@api.github.com/repos/${{github.repository}}/actions/artifacts/$artifact_id/zip"
+      #- name: Create Release
+      #  uses: actions/create-release@v1
+      #  env:
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #  with:
+      #    tag_name: ${{ github.ref }}
+      #    release_name: Release ${{ github.ref }}
+      #    body: |
+      #      Changelog WIP
+      #    draft: true
+      #    prerelease: false
+

@@ -13,11 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Set Build ID
+      - name: Set build ID
         run: |
           ci/generate_version_number.sh > VERSION
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
       - uses: docker/build-push-action@v1
+        name: Build Docker image
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
@@ -36,6 +37,12 @@ jobs:
           done
           docker rm $container_id
       - uses: actions/upload-artifact@v2
+        name: Upload JAR
         with:
-          name: cuebot
-          path: ${{ github.workspace }}/artifacts/*
+          name: cuebot-jar
+          path: ${{ github.workspace }}/artifacts/cuebot-*.jar
+      - uses: actions/upload-artifact@v2
+        name: Upload RPM
+        with:
+          name: cuebot-rpm
+          path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
