@@ -49,4 +49,6 @@ jobs:
       - name: Fetch artifacts
         run: |
           set -e
-          echo "${{github.sha}}"
+          run_id=$(curl -s https://api.github.com/repos/${{github.repository}}/actions/workflows/build-bottles.yml/runs \
+            | jq ".workflow_runs[] | select(.head_sha == \"${{github.sha}}\").id")
+          echo $run_id
