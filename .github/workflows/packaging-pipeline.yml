@@ -8,15 +8,6 @@ on:
     branches: [ master ]
 
 jobs:
-  test_python_2019:
-    name: Run Python Unit Tests (CY2019)
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
-    steps:
-      - uses: actions/checkout@v2
-      - name: Run Python Tests
-        run: ci/run_python_tests.sh
-
   build_cuebot:
     name: Build Cuebot
     runs-on: ubuntu-latest
@@ -26,16 +17,23 @@ jobs:
         run: |
           ci/generate_version_number.sh > VERSION
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+      #- uses: azure/docker-login@v1
+      #  name: Docker Hub login
+      #  with:
+      #    username: ${{ secrets.DOCKER_USER }}
+      #    password: ${{ secrets.DOCKER_PASS }}
       - name: Build Cuebot Docker
         run: |
           # build cuebot image for the build ID
           echo $BUILD_ID
           image_name="opencuebuild/cuebot:${BUILD_ID}"
           docker build -t ${image_name} -f cuebot/Dockerfile "."
-          docker push ${image_name}
+          # docker push ${image_name}
           container_id=$(docker create ${image_name})
           artifacts="/opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm"
           for artifact in $artifacts; do
             docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
+      - name: List Artifacts
+        run: ls "${GITHUB_WORKSPACE}/artifacts/"
