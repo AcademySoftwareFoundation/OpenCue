@@ -2,11 +2,11 @@ name: OpenCue Release Pipeline
 
 # TODO This should only run on pushing a new version tag
 on:
-  #push:
-  #  tags:
-  #    - 'v*'
-  pull_request:
-    branches: [ master ]
+  push:
+    tags:
+      - 'v*'
+  #pull_request:
+  #  branches: [ master ]
 
 jobs:
   build:
