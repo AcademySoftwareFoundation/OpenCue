@@ -151,7 +151,7 @@ class Machine(object):
                 for displayNum in displayNums:
                     if '(:{})'.format(displayNum) in line:
                         cols = line.split()
-                        # Whitelist a user called '(unknown)' as this
+                        # Acceptlist a user called '(unknown)' as this
                         # is what shows up when gdm is running and
                         # showing a login screen.
                         if cols[0] != '(unknown)':
