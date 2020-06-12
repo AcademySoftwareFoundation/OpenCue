@@ -17,19 +17,6 @@ jobs:
         run: |
           ci/generate_version_number.sh > VERSION
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
-      #- uses: azure/docker-login@v1
-      #  name: Docker Hub login
-      #  with:
-      #    username: ${{ secrets.DOCKER_USER }}
-      #    password: ${{ secrets.DOCKER_PASS }}
-      #- name: Build Cuebot Docker
-      #  run: |
-      #    set -e
-      #    # build cuebot image for the build ID
-      #    echo $BUILD_ID
-      #    image_name="opencuebuild/cuebot:${BUILD_ID}"
-      #    docker build -t ${image_name} -f cuebot/Dockerfile "."
-      #    docker push ${image_name}
       - uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USER }}
@@ -37,7 +24,7 @@ jobs:
           dockerfile: cuebot/Dockerfile
           repository: opencuebuild/cuebot
           tags: ${{ env.BUILD_ID }}
-      - name: Extract Cuebot Artifacts
+      - name: Extract Artifacts
         run: |
           set -e
           image_name="opencuebuild/cuebot:${BUILD_ID}"
@@ -48,5 +35,7 @@ jobs:
             docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
-      - name: List Artifacts
-        run: ls "${GITHUB_WORKSPACE}/artifacts/"
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cuebot
+          path: ${{ github.workspace }}/artifacts/*
