@@ -1,10 +1,8 @@
 name: OpenCue Packaging Pipeline
 
-# TODO This should only run on commits to master
+# Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
-  pull_request:
     branches: [ master ]
 
 jobs:
@@ -46,9 +44,10 @@ jobs:
         with:
           name: cuebot-rpm
           path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
-      - name: Fetch artifacts
+      # This step is temporary. This info will help us track this pipeline's artifacts as we
+      # attempt to download them later, in the release pipeline.
+      - name: Print environment information
         run: |
           set -e
-          run_id=$(curl -s https://api.github.com/repos/${{github.repository}}/actions/workflows/build-bottles.yml/runs \
-            | jq ".workflow_runs[] | select(.head_sha == \"${{github.sha}}\").id")
-          echo $run_id
+          echo "This SHA: ${{ github.sha }}"
+          echo "This workflow run: ${{ github.run_id }}"
