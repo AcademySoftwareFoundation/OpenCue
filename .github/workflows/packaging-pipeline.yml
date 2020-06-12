@@ -22,14 +22,20 @@ jobs:
       #  with:
       #    username: ${{ secrets.DOCKER_USER }}
       #    password: ${{ secrets.DOCKER_PASS }}
-      - name: Build Cuebot Docker
-        run: |
-          set -e
-          # build cuebot image for the build ID
-          echo $BUILD_ID
-          image_name="opencuebuild/cuebot:${BUILD_ID}"
-          docker build -t ${image_name} -f cuebot/Dockerfile "."
-          # docker push ${image_name}
+      #- name: Build Cuebot Docker
+      #  run: |
+      #    set -e
+      #    # build cuebot image for the build ID
+      #    echo $BUILD_ID
+      #    image_name="opencuebuild/cuebot:${BUILD_ID}"
+      #    docker build -t ${image_name} -f cuebot/Dockerfile "."
+      #    docker push ${image_name}
+      - uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+          repository: opencuebuild/cuebot
+          tags: ${{ env.BUILD_ID }}
       - name: Extract Cuebot Artifacts
         run: |
           set -e
