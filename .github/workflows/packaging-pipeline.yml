@@ -6,6 +6,10 @@ on:
     branches: [ master ]
 
 jobs:
+  # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add the other
+  #   packaging steps here. Things like building Docker images and extracting artifacts
+  #   will need to be generalized, but we need to test a few things in the master branch
+  #   first to make sure things are working as we expect.
   build_cuebot:
     name: Build Cuebot
     runs-on: ubuntu-latest
