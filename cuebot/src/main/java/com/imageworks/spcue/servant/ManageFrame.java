@@ -279,11 +279,12 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
                     .setRenderPartition(partition)
                     .build());
             responseObserver.onCompleted();
+        } else {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find suitable frames.")
+                    .augmentDescription("customException()")
+                    .asRuntimeException());
         }
-        responseObserver.onError(Status.INTERNAL
-                .withDescription("Failed to find suitable frames.")
-                .augmentDescription("customException()")
-                .asRuntimeException());
     }
 
     @Override
