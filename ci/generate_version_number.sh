@@ -42,6 +42,8 @@ else
   sed_cmd="sed"
 fi
 
+echo $(git status)
+
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 >&2 echo "Base version number: ${version_major_minor}"
 current_branch="$(git branch --show-current)"
