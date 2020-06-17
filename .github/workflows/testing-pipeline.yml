@@ -7,6 +7,14 @@ on:
     branches: [ master ]
 
 jobs:
+  print_version_number:
+    name: Print Version Number
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2019
+    steps:
+      - name: Run script
+        run: ci/generate_version_number.sh
+
   test_python_2019:
     name: Run Python Unit Tests (CY2019)
     runs-on: ubuntu-latest
