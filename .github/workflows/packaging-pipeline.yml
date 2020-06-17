@@ -48,8 +48,10 @@ jobs:
         with:
           name: cuebot-rpm
           path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
-      # This step is temporary. This info will help us track this pipeline's artifacts as we
-      # attempt to download them later, in the release pipeline.
+      # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Remove this step
+      #   in the next PR. This info will help us track this pipeline's artifacts as we attempt
+      #   to download them later, in the release pipeline. Once we know how the artifact tagging
+      #   works in the master branch it won't be needed anymore.
       - name: Print environment information
         run: |
           set -e
