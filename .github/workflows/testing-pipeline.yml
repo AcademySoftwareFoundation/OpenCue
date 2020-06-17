@@ -10,7 +10,7 @@ jobs:
   print_version_number:
     name: Print Version Number
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
+    #container: aswf/ci-opencue:2019
     steps:
       - uses: actions/checkout@v2
       - name: Run script

@@ -29,6 +29,8 @@
 
 set -e
 
+>&2 echo "Starting"
+
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 toplevel_dir="$(dirname "$script_dir")"
 
@@ -41,6 +43,7 @@ else
 fi
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
+>&2 echo "Base version number: ${version_major_minor}"
 current_branch="$(git branch --show-current)"
 >&2 echo "Current branch: ${current_branch}"
 
