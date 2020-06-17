@@ -43,6 +43,8 @@ fi
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
 
+git fetch origin
+
 if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
   full_version="${version_major_minor}.${commit_count}"

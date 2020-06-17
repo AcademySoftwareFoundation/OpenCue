@@ -1,0 +1,60 @@
+name: OpenCue Testing Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test_python_2019:
+    name: Run Python Unit Tests (CY2019)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2019
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  test_cuebot_2019:
+    name: Build Cuebot and Run Unit Tests (CY2019)
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2019
+    steps:
+    - uses: actions/checkout@v2
+    - name: Build with Gradle
+      run: |
+        chown -R aswfuser:aswfgroup .
+        su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+
+  test_python_2020:
+    name: Run Python Unit Tests (CY2020)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2020
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Python Tests
+        run: ci/run_python_tests.sh
+
+  test_cuebot_2020:
+    name: Build Cuebot and Run Unit Tests (CY2020)
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2020
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build with Gradle
+        run: |
+          chown -R aswfuser:aswfgroup .
+          su -c "cd cuebot && ./gradlew build --stacktrace --info" aswfuser
+
+  test_sphinx:
+    name: Test Documentation Build
+    runs-on: ubuntu-latest
+    container:
+      image: aswf/ci-opencue:2020
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run Sphinx build
+        run: ci/build_sphinx_docs.sh
