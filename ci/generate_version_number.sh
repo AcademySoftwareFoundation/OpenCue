@@ -41,7 +41,8 @@ else
 fi
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
-current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+current_branch="$(git branch --show-current)"
+>&2 echo "Current branch: ${current_branch}"
 
 git fetch origin
 
