@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2019
     steps:
+      - uses: actions/checkout@v2
       - name: Run script
         run: ci/generate_version_number.sh
 
