@@ -13,7 +13,7 @@ jobs:
     container: aswf/ci-opencue:2019
     steps:
       - name: Upgrade Git
-        run: yum -y install https://packages.endpoint.com/rhel/7/os/x86_64/endpoint-repo-1.7-1.x86_64.rpm && yum install git
+        run: yum -y install https://packages.endpoint.com/rhel/7/os/x86_64/endpoint-repo-1.7-1.x86_64.rpm && yum -y install git
       - uses: actions/checkout@v2
       - name: Run script
         run: ci/generate_version_number.sh
