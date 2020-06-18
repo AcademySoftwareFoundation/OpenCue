@@ -48,7 +48,9 @@ version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 >&2 echo "Base version number: ${version_major_minor}"
 
 current_branch="$(git branch --show-current)"
+>&2 echo "Current branch: ${current_branch}"
 if [[ ! -z "${current_branch}" ]]; then
+  >&2 echo "Falling back"
   current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
 fi
 >&2 echo "Current branch: ${current_branch}"
