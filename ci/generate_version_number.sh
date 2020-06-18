@@ -29,8 +29,6 @@
 
 set -e
 
->&2 echo "Starting"
-
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 toplevel_dir="$(dirname "$script_dir")"
 
@@ -41,8 +39,6 @@ if [[ "$(uname -s)" = "Darwin" ]]; then
 else
   sed_cmd="sed"
 fi
-
->&2 echo $(git status)
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 >&2 echo "Base version number: ${version_major_minor}"
@@ -59,6 +55,7 @@ git fetch origin
 
 if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
+  >&2 echo "Commit count since last release: ${commit_count}"
   full_version="${version_major_minor}.${commit_count}"
 else
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)

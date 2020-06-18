@@ -7,17 +7,6 @@ on:
     branches: [ master ]
 
 jobs:
-  print_version_number:
-    name: Print Version Number
-    runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2019
-    steps:
-      - name: Upgrade Git
-        run: yum -y install https://packages.endpoint.com/rhel/7/os/x86_64/endpoint-repo-1.7-1.x86_64.rpm && yum -y install git
-      - uses: actions/checkout@v2
-      - name: Run script
-        run: ci/generate_version_number.sh
-
   test_python_2019:
     name: Run Python Unit Tests (CY2019)
     runs-on: ubuntu-latest
