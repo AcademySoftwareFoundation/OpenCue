@@ -42,14 +42,15 @@ else
   sed_cmd="sed"
 fi
 
-echo $(git status)
-
-echo $(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')
-
+>&2 echo $(git status)
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
 >&2 echo "Base version number: ${version_major_minor}"
+
 current_branch="$(git branch --show-current)"
+if [[ ! -z "${current_branch}" ]]; then
+  current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+fi
 >&2 echo "Current branch: ${current_branch}"
 
 git fetch origin
