@@ -385,8 +385,13 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self._itemsLock.lockForWrite()
         try:
             updated = []
+
             for rpcObject in rpcObjects:
-                objectId = "{}.{}".format(rpcObject.__class__.__name__, rpcObject.id())
+                # Hack to get around the rpc objects type enforcement
+                try:
+                    objectId = "{}.{}".format(rpcObject.__class__.__name__, rpcObject.id())
+                except:
+                    objectId = "{}.{}".format(rpcObject.name, rpcObject.id)
                 updated.append(objectId)
 
                 # If id already exists, update it

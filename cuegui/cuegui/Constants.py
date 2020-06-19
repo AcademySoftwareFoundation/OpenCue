@@ -117,6 +117,7 @@ TYPE_DEPEND = QtWidgets.QTreeWidgetItem.UserType + 13
 TYPE_SUB = QtWidgets.QTreeWidgetItem.UserType + 14
 TYPE_TASK = QtWidgets.QTreeWidgetItem.UserType + 15
 TYPE_LIMIT = QtWidgets.QTreeWidgetItem.UserType + 16
+TYPE_CLOUDGROUP = QtWidgets.QTreeWidgetItem.UserType + 17
 
 COLUMN_INFO_DISPLAY = 2
 
