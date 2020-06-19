@@ -41,12 +41,21 @@ else
 fi
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
-current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+>&2 echo "Base version number: ${version_major_minor}"
+
+current_branch="$(git branch --show-current)"
+>&2 echo "Current branch: ${current_branch}"
+if [[ -z "${current_branch}" ]]; then
+  >&2 echo "Falling back"
+  current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+fi
+>&2 echo "Current branch: ${current_branch}"
 
 git fetch origin
 
 if [[ "$current_branch" = "master" ]]; then
   commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
+  >&2 echo "Commit count since last release: ${commit_count}"
   full_version="${version_major_minor}.${commit_count}"
 else
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)
