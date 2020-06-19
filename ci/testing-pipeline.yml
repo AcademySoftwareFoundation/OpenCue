@@ -6,6 +6,7 @@
 # the pipeline as well, by default.
 trigger:
 - master
+- fix-version-number
 
 jobs:
 - job: testPython2019
