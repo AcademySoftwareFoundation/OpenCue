@@ -78,6 +78,8 @@ def setupLogging():
             logfile = logging.handlers.SysLogHandler(address=syslogAddress)
         else:
             logfile = logging.handlers.SysLogHandler()
+    elif platform.system() == 'Windows':
+        logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
     else:
         logfile = logging.handlers.SysLogHandler()
     logfile.setLevel(fileLevel)

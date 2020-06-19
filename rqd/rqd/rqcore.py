@@ -116,7 +116,7 @@ class FrameAttendantThread(threading.Thread):
                 rqd_tmp_dir = os.path.join(tempfile.gettempdir(), 'rqd')
                 try:
                     os.mkdir(rqd_tmp_dir)
-                except FileExistsError:
+                except OSError:
                     pass  # okay, already exists
 
                 commandFile = os.path.join(
