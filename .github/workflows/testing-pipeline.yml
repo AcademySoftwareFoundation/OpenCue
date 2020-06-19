@@ -7,6 +7,18 @@ on:
     branches: [ master ]
 
 jobs:
+  test_build_id:
+    name: Test Build ID
+    runs-on: ubuntu-latest
+    #container: aswf/ci-opencue:2019
+    steps:
+      - uses: actions/checkout@v2
+      - name: Print Build ID
+        run: |
+          set -e
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+
   test_python_2019:
     name: Run Python Unit Tests (CY2019)
     runs-on: ubuntu-latest
