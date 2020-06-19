@@ -2,7 +2,7 @@ name: OpenCue Testing Pipeline
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, fix-version-number ]
   pull_request:
     branches: [ master ]
 
