@@ -58,6 +58,8 @@ if [[ "$current_branch" = "master" ]]; then
   >&2 echo "Commit count since last release: ${commit_count}"
   full_version="${version_major_minor}.${commit_count}"
 else
+  cmd="git log --follow -1 --pretty=%H \"$version_in\""
+  >&2 echo "cmd: $cmd"
   last_changed_commit=$(git log --follow -1 --pretty=%H "$version_in")
   >&2 echo "version file last changed commit: ${last_changed_commit}"
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)
