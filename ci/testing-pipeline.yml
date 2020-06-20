@@ -6,19 +6,8 @@
 # the pipeline as well, by default.
 trigger:
 - master
-- fix-version-number
 
 jobs:
-- job: testBuildId
-  displayName: Test Build ID
-  pool:
-    vmImage: 'ubuntu-16.04'
-  #container: aswf/ci-opencue:2019.0
-  steps:
-  - bash: ci/generate_version_number.sh
-    name: printBuildId
-    displayName: Print Build ID
-
 - job: testPython2019
   displayName: Test Python Components (CY 2019)
   pool:
