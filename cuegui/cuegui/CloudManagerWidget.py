@@ -46,6 +46,8 @@ class CloudManagerWidget(QtWidgets.QWidget):
         layout.addWidget(self.__btnAddCloudGroup, 0, 3)
         layout.addWidget(self.__viewCloudGroups, 2, 0, 3, 4)
 
+
+
     def getColumnVisibility(self):
         self.__viewCloudGroups.getColumnVisibility()
 
@@ -63,12 +65,12 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("Number of instances", 40, id=3,
                        data=lambda cig: (len(cig.instances)))
         self.addColumn("Status", 20, id=4,
-                       data=lambda cig: (cig.status))
+                       data=lambda cig: (cig.status()))
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.__registeredCloudProviders = cloud_api.CloudManager.get_registered_providers()
 
-        self.setUpdateInterval(300)
+        self.setUpdateInterval(60)
 
     def _createItem(self, object):
         """Creates and returns the proper item"""

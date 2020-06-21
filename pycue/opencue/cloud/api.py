@@ -21,9 +21,9 @@ class CloudInstanceGroup(object):
         self.data = data
         self.name = self.data["name"]
         self.id = self.data["id"]
-        self.status = self.data["status"].get("isStable")
+        # self.status = self.data["status"].get("isStable")
         self.instances = []
-        self.instances.extend([i for i in range(random.randint(0, 20))])
+        # self.instances.extend([i for i in range(random.randint(0, 20))])
         self.cloud_provider = self.data["cloud_provider"]
 
     @staticmethod
@@ -64,8 +64,6 @@ class CloudInstanceGroup(object):
 
         :return:
         """
-
-        # TODO: Return the status of the group when queried
 
 
 class CloudManager(object):

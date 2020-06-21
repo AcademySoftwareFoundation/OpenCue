@@ -33,11 +33,16 @@ class GoogleCloudGroup(CloudInstanceGroup):
     @staticmethod
     def get_all():
         cigs = []
+        print("Calling get_all..")
         request = service.instanceGroupManagers().list(project=project, zone=zone)
         while request is not None:
             response = request.execute()
             for instance_group_manager in response['items']:
-                cigs.append(GoogleCloudGroup(data=instance_group_manager))
+                new_cig = GoogleCloudGroup(data=instance_group_manager)
+                # Call get_instances to update the actual
+                # number of instances running for the group
+                new_cig.get_instances()
+                cigs.append(new_cig)
             request = service.instanceGroupManagers().list_next(previous_request=request, previous_response=response)
 
         return cigs
@@ -47,12 +52,15 @@ class GoogleCloudGroup(CloudInstanceGroup):
         pass
 
     def get_instances(self):
-        pass
+        request = service.instanceGroupManagers().listManagedInstances(project=project, zone=zone,
+                                                                       instanceGroupManager=self.name)
+        response = request.execute()
+        self.instances = response.get("managedInstances", [])
 
     def resize(self, number=None):
         pass
 
     def status(self):
-        pass
+        return self.data["status"].get("isStable")
 
 
