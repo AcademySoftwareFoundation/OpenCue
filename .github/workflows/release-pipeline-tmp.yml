@@ -43,6 +43,8 @@ jobs:
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
             curl -L "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" -o "${artifact_name}.zip"
+            file "${artifact_name}.zip"
+            du -sh "${artifact_name}.zip"
             unzip "${artifact_name}.zip"
           done
           ls -l
