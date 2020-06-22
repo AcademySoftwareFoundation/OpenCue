@@ -35,9 +35,13 @@ jobs:
             | jq '.artifacts[].id')
           echo "Artifact IDs: ${artifact_ids}"
           for artifact_id in ${artifact_ids}; do
+            api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
+            curl "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
+            artifact_name=$(curl "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}")
+            echo "artifact name: $artifact_name"
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
-            curl -L -O "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
+            curl -L "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" -o "${artifact_name}.zip"
           done
           ls -l
       - name: Generate release notes
@@ -46,6 +50,9 @@ jobs:
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
           echo "last_tagged_version: ${last_tagged_version}"
           commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          commits_since_last_release="${commits_since_last_release//'%'/'%25'}"
+          commits_since_last_release="${commits_since_last_release//$'\n'/'%25'}"
+          commits_since_last_release="${commits_since_last_release//$'\r'/'%25'}"
           echo "commits: ${commits_since_last_release}"
           echo "::set-output name=commits::${commits_since_last_release}"
       - name: Create release
