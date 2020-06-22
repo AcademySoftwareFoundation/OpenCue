@@ -34,14 +34,16 @@ jobs:
           artifact_ids=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${run_id}/artifacts \
             | jq '.artifacts[].id')
           echo "Artifact IDs: ${artifact_ids}"
+
           for artifact_id in ${artifact_ids}; do
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
-            curl -S "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
-            artifact_name=$(curl -S "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" | jq '.name')
+            curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
+            artifact_name=$(curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" | jq --raw-output '.name')
             echo "artifact name: $artifact_name"
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
             curl -L "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" -o "${artifact_name}.zip"
+            unzip "${artifact_name}.zip"
           done
           ls -l
       - name: Generate release notes
