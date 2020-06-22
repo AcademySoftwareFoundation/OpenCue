@@ -1,0 +1,66 @@
+name: OpenCue Release Pipeline Temp
+
+on:
+  push:
+    branches: [ more-release-pipeline ]
+
+jobs:
+  # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add another job to
+  #   release the Docker images.
+  create_release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Fetch artifacts
+        env:
+          PACKAGING_WORKFLOW_ID: 1539149
+        # Fetching artifacts from another pipeline, or even a different run of the same pipeline,
+        # is currently not well-supported in Github Actions. We must use the Github REST API to
+        # search for the correct workflow by commit SHA, then we can attempt to download the
+        # artifacts from that workflow run.
+        run: |
+          set -e
+
+          sha="84df7995debb3262c1d2c08b34ed9958d85f3fe3"
+
+
+          run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
+            | jq ".workflow_runs[] | select(.head_sha == \"${sha}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
+          echo "Packaging pipeline run ID: ${run_id}"
+          artifact_ids=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${run_id}/artifacts \
+            | jq '.artifacts[].id')
+          echo "Artifact IDs: ${artifact_ids}"
+          for artifact_id in ${artifact_ids}; do
+            api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
+            echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
+            curl -L -O "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
+          done
+          ls -l
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
+          echo "last_tagged_version: ${last_tagged_version}"
+          commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          echo "commits: ${commits_since_last_release}"
+          echo "::set-output name=commits::${commits_since_last_release}"
+      - name: Create release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v0.4.33
+          release_name: Release v0.4.33
+          body: |
+            To learn how to install and configure OpenCue, see our
+            [Getting Started guide](https://www.opencue.io/docs/getting-started/).
+
+            ## Changes:
+
+            ${{ steps.release_notes.outputs.commits }}
+          draft: true
+          prerelease: false
