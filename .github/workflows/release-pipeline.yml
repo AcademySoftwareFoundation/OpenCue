@@ -26,7 +26,7 @@ jobs:
           set -e
           echo "SHA: ${{ github.sha }}"
           run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
-            | jq ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\" and .workflow_id==${{ PACKAGING_WORKFLOW_ID }}).id")
+            | jq ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
           echo "Packaging pipeline run ID: ${run_id}"
           artifact_ids=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${run_id}/artifacts \
             | jq '.artifacts[].id')
