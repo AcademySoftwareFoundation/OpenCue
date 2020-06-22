@@ -45,6 +45,7 @@ jobs:
             curl -L "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" -o "${artifact_name}.zip"
             file "${artifact_name}.zip"
             du -sh "${artifact_name}.zip"
+            cat "${artifact_name}.zip"
             unzip "${artifact_name}.zip"
           done
           ls -l
