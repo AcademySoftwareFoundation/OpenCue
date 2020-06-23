@@ -30,7 +30,7 @@ jobs:
 
           sha="84df7995debb3262c1d2c08b34ed9958d85f3fe3"
 
-          mkdir -p "${ARTIFACTS_DIRECTORY}"
+          #mkdir -p "${ARTIFACTS_DIRECTORY}"
 
           run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
             | jq ".workflow_runs[] | select(.head_sha == \"${sha}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
@@ -46,7 +46,7 @@ jobs:
             download_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             artifact_destination="${ARTIFACTS_DIRECTORY}/${artifact_name}.zip"
             echo "Downloading artifact ${artifact_name} to ${artifact_destination}"
-            curl -s -S -L "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
+            curl -s -S -L --create-dirs "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
               -o "${artifact_destination}"
             unzip "${artifact_destination}"
             rm "${artifact_destination}"
