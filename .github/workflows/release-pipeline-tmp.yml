@@ -10,14 +10,17 @@ jobs:
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
+    env:
+      PACKAGING_WORKFLOW_ID: 1539149
+      ARTIFACTS_DIRECTORY: ./artifacts
+      CHANGELOG_FILE: ./changelog.txt
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
       - name: Fetch artifacts
-        env:
-          PACKAGING_WORKFLOW_ID: 1539149
+
         # Fetching artifacts from another pipeline, or even a different run of the same pipeline,
         # is currently not well-supported in Github Actions. We must use the Github REST API to
         # search for the correct workflow by commit SHA, then we can attempt to download the
@@ -26,7 +29,6 @@ jobs:
           set -e
 
           sha="84df7995debb3262c1d2c08b34ed9958d85f3fe3"
-
 
           run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
             | jq ".workflow_runs[] | select(.head_sha == \"${sha}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
@@ -37,25 +39,23 @@ jobs:
 
           for artifact_id in ${artifact_ids}; do
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
-            curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
-            artifact_name=$(curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" | jq --raw-output '.name')
-            echo "artifact name: $artifact_name"
-            api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
-            echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
-            curl -s -L "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" -o "${artifact_name}.zip"
-            du -sh "${artifact_name}.zip"
-            unzip "${artifact_name}.zip"
+            artifact_name=$(curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" \
+              | jq --raw-output '.name')
+            download_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
+            artifact_destination="${ARTIFACTS_DIRECTORY}/${artifact_name}.zip"
+            curl -s -L "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
+              -o "${artifact_destination}"
+            unzip "${artifact_destination}"
+            rm "${artifact_destination}"
           done
-          ls -l
+          ls -l "${ARTIFACTS_DIRECTORY}"
       - name: Generate release notes
         id: release_notes
         run: |
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
           echo "last_tagged_version: ${last_tagged_version}"
           commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
-          commits_since_last_release="${commits_since_last_release//'%'/'%25'}"
-          commits_since_last_release="${commits_since_last_release//$'\n'/'%25'}"
-          commits_since_last_release="${commits_since_last_release//$'\r'/'%25'}"
+          commits_since_last_release="${commits_since_last_release//$'\n'/'<br>'}"
           echo "commits: ${commits_since_last_release}"
           echo "::set-output name=commits::${commits_since_last_release}"
       - name: Create release
