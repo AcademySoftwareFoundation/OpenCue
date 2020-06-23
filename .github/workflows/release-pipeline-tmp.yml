@@ -39,11 +39,12 @@ jobs:
 
           for artifact_id in ${artifact_ids}; do
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
-            artifact_name=$(curl -s "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" \
+            artifact_name=$(curl -s -S "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" \
               | jq --raw-output '.name')
             download_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             artifact_destination="${ARTIFACTS_DIRECTORY}/${artifact_name}.zip"
-            curl -s -L "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
+            echo "Downloading artifact ${artifact_name} to ${artifact_destination}"
+            curl -s -S -L "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
               -o "${artifact_destination}"
             unzip "${artifact_destination}"
             rm "${artifact_destination}"
