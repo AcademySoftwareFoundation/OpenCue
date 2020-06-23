@@ -30,6 +30,8 @@ jobs:
 
           sha="84df7995debb3262c1d2c08b34ed9958d85f3fe3"
 
+          mkdir -p "${ARTIFACTS_DIRECTORY}"
+
           run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
             | jq ".workflow_runs[] | select(.head_sha == \"${sha}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
           echo "Packaging pipeline run ID: ${run_id}"
