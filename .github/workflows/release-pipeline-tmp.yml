@@ -43,10 +43,11 @@ jobs:
             api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}"
             artifact_name=$(curl -s -S "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}" \
               | jq --raw-output '.name')
+            curl -s -S "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
             download_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
             artifact_destination="${ARTIFACTS_DIRECTORY}/${artifact_name}.zip"
             echo "Downloading artifact ${artifact_name} to ${artifact_destination}"
-            curl -s -S -L --create-dirs "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
+            curl -L --create-dirs "https://${{ secrets.ARTIFACT_DOWNLOAD_PAT }}@api.github.com/${api_path}" \
               -o "${artifact_destination}"
             unzip "${artifact_destination}"
             rm "${artifact_destination}"
