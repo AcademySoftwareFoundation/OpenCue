@@ -13,6 +13,9 @@ jobs:
     container: aswf/ci-opencue:2020.5
     steps:
       # /opt/rh/rh-git218/root/usr/bin
+      - run: |
+          echo "echo foo" > script.txt
+          source script.txt
       - run: scl_source enable rh-git218
       - run: echo $PATH
       - uses: actions/checkout@v2
