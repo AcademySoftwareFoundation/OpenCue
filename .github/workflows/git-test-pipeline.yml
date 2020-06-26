@@ -10,7 +10,7 @@ jobs:
   git_checkout:
     name: Test Git Checkout
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2020.4
+    container: aswf/ci-opencue:2020.5
     steps:
       - uses: actions/checkout@v2
       - name: Test Git
