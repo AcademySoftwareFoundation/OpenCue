@@ -12,8 +12,9 @@ jobs:
     runs-on: ubuntu-latest
     container: aswf/ci-opencue:2020.5
     steps:
-      - run: echo $PATH
-      - run: source scl_source enable rh-git218
+      #- run: /opt/rh/rh-git218/root/usr/bin
+      - run: |
+          source scl_source enable rh-git218 2>&1
       - run: echo $PATH
       - uses: actions/checkout@v2
       - name: Test Git
