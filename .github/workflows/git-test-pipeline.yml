@@ -18,6 +18,6 @@ jobs:
       - run: echo $PATH
       - uses: actions/checkout@v2
         env:
-          LD_LIBRARY_PATH=/opt/rh/httpd24/root/usr/lib64
+          LD_LIBRARY_PATH: /opt/rh/httpd24/root/usr/lib64
       - name: Test Git
         run: git status
