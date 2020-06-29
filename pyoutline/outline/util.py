@@ -126,6 +126,6 @@ def get_uid():
     Return the current users id
     """
     if platform.system() == 'Windows':
-        return None
+        return 1
 
     return os.getuid()

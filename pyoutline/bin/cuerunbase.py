@@ -134,7 +134,11 @@ class AbstractCuerun(object):
         self.__evh = event.EventHandler(self)
 
         # Setup a sigbus signal handler.
-        signal.signal(signal.SIGBUS, signal_handler)
+        try:
+            signal.signal(signal.SIGBUS, signal_handler)
+        except ValueError:
+            # Not every system implements SIGBUS.
+            pass
 
     def add_my_options(self):
         """Implemented by subclass."""

@@ -32,7 +32,7 @@ set -e
 script_dir="$(cd "$(dirname "$0")" && pwd)"
 toplevel_dir="$(dirname "$script_dir")"
 
-version_in="$toplevel_dir/VERSION.in"
+version_in="${toplevel_dir}/VERSION.in"
 
 if [[ "$(uname -s)" = "Darwin" ]]; then
   sed_cmd="gsed"
@@ -41,15 +41,21 @@ else
 fi
 
 version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
-current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
 
-git fetch origin
+current_branch="$(git branch --show-current)"
+if [[ -z "${current_branch}" ]]; then
+  current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+fi
 
 if [[ "$current_branch" = "master" ]]; then
-  commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..HEAD)
+  commit_count=$(git rev-list --count $(git log --follow -1 --pretty=%H "${version_in}")..HEAD)
+  >&2 echo "Commit count since last release: ${commit_count}"
   full_version="${version_major_minor}.${commit_count}"
 else
+  last_changed_commit=$(git log --follow -1 --pretty=%H "${version_in}")
+  >&2 echo "version file last changed commit: ${last_changed_commit}"
   commit_count_in_master=$(git rev-list --count $(git log --follow -1 --pretty=%H "$version_in")..origin/master)
+  >&2 echo "Commit count since last release: ${commit_count_in_master}"
   commit_short_hash=$(git rev-parse --short HEAD)
   full_version="${version_major_minor}.$((commit_count_in_master + 1))-${commit_short_hash}"
 fi

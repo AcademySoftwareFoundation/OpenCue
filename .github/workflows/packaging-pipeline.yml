@@ -15,9 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
       - name: Set build ID
         run: |
+          set -e
           ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
       - uses: docker/build-push-action@v1
         name: Build Docker image
