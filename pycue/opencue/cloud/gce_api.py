@@ -25,15 +25,18 @@ zone = 'us-central1-a'
 
 
 class GoogleCloudGroup(CloudInstanceGroup):
+    __signature__ = "google"
 
     def __init__(self, data):
-        data["cloud_provider"] = "google"
         super(GoogleCloudGroup, self).__init__(data=data)
+
+    @staticmethod
+    def signature():
+        return "google"
 
     @staticmethod
     def get_all():
         cigs = []
-        print("Calling get_all..")
         request = service.instanceGroupManagers().list(project=project, zone=zone)
         while request is not None:
             response = request.execute()
@@ -48,8 +51,25 @@ class GoogleCloudGroup(CloudInstanceGroup):
         return cigs
 
     @staticmethod
-    def create_managed_group():
-        pass
+    def create_managed_group(name, size, template):
+        # TODO : Use request ID to handle multiple create button clicks
+        print("Creating group with", name, size, template)
+        template_url = template.get("selfLink")
+        request_body = {
+            "baseInstanceName": "{}-instance".format(name),
+            "name": name,
+            "targetSize": size,
+            "instanceTemplate": template_url
+        }
+        request = service.instanceGroupManagers().insert(project=project, zone=zone, body=request_body)
+        response = request.execute()
+
+        return response
+
+    def delete_cloud_group(self):
+        request = service.instanceGroupManagers().delete(project=project, zone=zone,
+                                                         instanceGroupManager=self.name)
+        response = request.execute()
 
     def get_instances(self):
         request = service.instanceGroupManagers().listManagedInstances(project=project, zone=zone,
@@ -57,10 +77,27 @@ class GoogleCloudGroup(CloudInstanceGroup):
         response = request.execute()
         self.instances = response.get("managedInstances", [])
 
-    def resize(self, number=None):
-        pass
+    @staticmethod
+    def list_templates():
+        templates = []
+        request = service.instanceTemplates().list(project=project)
+        while request is not None:
+            response = request.execute()
+
+            for instance_template in response['items']:
+                templates.append(instance_template)
+
+            request = service.instanceTemplates().list_next(previous_request=request, previous_response=response)
+
+        return templates
+
+    def resize(self, size=None):
+        request = service.instanceGroupManagers().resize(project=project, zone=zone,
+                                                         instanceGroupManager=self.name, size=size)
+        response = request.execute()
 
     def status(self):
         return self.data["status"].get("isStable")
 
-
+    def id(self):
+        return self.data["id"]

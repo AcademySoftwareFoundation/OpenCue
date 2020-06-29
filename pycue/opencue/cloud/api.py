@@ -20,11 +20,7 @@ class CloudInstanceGroup(object):
     def __init__(self, data):
         self.data = data
         self.name = self.data["name"]
-        self.id = self.data["id"]
-        # self.status = self.data["status"].get("isStable")
         self.instances = []
-        # self.instances.extend([i for i in range(random.randint(0, 20))])
-        self.cloud_provider = self.data["cloud_provider"]
 
     @staticmethod
     @abc.abstractmethod
@@ -37,7 +33,7 @@ class CloudInstanceGroup(object):
 
     @staticmethod
     @abc.abstractmethod
-    def create_managed_group():
+    def create_managed_group(name, size, template):
         """
         Creates a cloud group with the given template/image from cloud
         :return:
@@ -52,7 +48,7 @@ class CloudInstanceGroup(object):
         """
 
     @abc.abstractmethod
-    def resize(self, number=None):
+    def resize(self, size=None):
         """
         Resizes the group to the given number of instances
         :return:
@@ -62,6 +58,20 @@ class CloudInstanceGroup(object):
     def status(self):
         """
 
+        :return:
+        """
+
+    @abc.abstractmethod
+    def id(self):
+        """
+        Used to treat a CloudInstanceGroup object similar to a gRPC object for threadpool usage
+        :return:
+        """
+
+    @abc.abstractmethod
+    def delete_cloud_group(self):
+        """
+        Delete the cloud group from the provider
         :return:
         """
 
