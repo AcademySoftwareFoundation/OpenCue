@@ -465,7 +465,13 @@ class FrameAttendantThread(threading.Thread):
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
                     except Exception as e:
                         err = "Unable to rotate previous log file due to %s" % e
-                        raise RuntimeError(err)
+                        # Windows might fail while trying to rotate logs for checking if file is
+                        # being used by another process. Frame execution doesn't need to
+                        # be halted for this.
+                        if platform.system() == "Windows":
+                            log.warning(err)
+                        else:
+                            raise RuntimeError(err)
                     try:
                         self.rqlog = open(runFrame.log_dir_file, "w", 1)
                         self.waitForFile(runFrame.log_dir_file)
@@ -881,17 +887,17 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if os.getuid() != 0:
+        if platform.system() != "Windows" and os.getuid() != 0:
             log.warning("Not starting nimby, not running as root")
             return
-        if not self.nimby.active and platform.system() == "Linux":
+        if not self.nimby.active:
             try:
                 self.nimby.run()
                 log.info("Nimby has been activated")
             except:
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
-                log.warning(err)
+                log.exception(err)
                 raise rqd.rqexceptions.RqdException(err)
 
     def nimbyOff(self):
