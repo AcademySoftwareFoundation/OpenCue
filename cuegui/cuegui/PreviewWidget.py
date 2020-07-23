@@ -37,7 +37,19 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class PreviewProcessorDialog(QtWidgets.QDialog):
+    """Widget for displaying a preview of a frame in an image viewer."""
+
     def __init__(self, job, frame, aovs=False, parent=None):
+        """
+        :type  job: opencue.wrappers.job.Job
+        :param job: job containing the frame
+        :type  frame: opencue.wrappers.frame.Frame
+        :param frame: frame to display
+        :type  aovs: bool
+        :param aovs: whether to display AOVs or just the main image
+        :type  parent: PySide2.QtWidgets.QWidget
+        :param parent: the parent widget
+        """
         QtWidgets.QDialog.__init__(self, parent)
         self.__job = job
         self.__frame = frame
@@ -55,9 +67,8 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         layout.addWidget(self.__progbar)
 
     def process(self):
-        
         items = []
-        http_host = self.__frame.data.lastResource.split("/")[0]
+        http_host = self.__frame.resource().split("/")[0]
         http_port = self.__findHttpPort()
     
         aovs = ""
@@ -107,7 +118,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         try:
             counter = 0
             for line in fp:
-                counter+=1
+                counter += 1
                 if counter >= 5000:
                     break
                 if line.startswith("Preview Server"):
@@ -116,6 +127,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
             fp.close()
 
         raise Exception("Katana 2.7.19 and above is required for preview feature.")
+
 
 class PreviewProcessorWatchThread(QtCore.QThread):
     """
