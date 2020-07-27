@@ -132,11 +132,14 @@ class GoogleCloudGroup(CloudInstanceGroup):
         :return:
         """
         if self.data["status"].get("isStable"):
-            return "IN USE"
+            return "STABLE"
         else:
-            print("Current: ", self.current_instances_size)
-            print("Target:", self.target_size)
-            return "IN OPERATION"
+            if self.target_size > self.current_instances_size:
+                return "BUSY: SCALING UP"
+            elif self.target_size < self.current_instances_size:
+                return "BUSY: SCALING DOWN"
+
+            return "BUSY: IN OPERATION"
 
     def id(self):
         return self.data["id"]
