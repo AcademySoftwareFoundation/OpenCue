@@ -1,0 +1,66 @@
+{
+  "id": "projects/opencue-test-bed/zones/us-central1-a/instanceGroupManagers",
+  "items": [
+    {
+      "baseInstanceName": "test-group-main",
+      "creationTimestamp": "2020-06-05T22:34:11.337-07:00",
+      "currentActions":
+      {
+        "abandoning": 0,
+        "creating": 0,
+        "creatingWithoutRetries": 0,
+        "deleting": 0,
+        "none": 1,
+        "recreating": 0,
+        "refreshing": 0,
+        "restarting": 0,
+        "verifying": 0
+      },
+      "fingerprint": "HLStcLfbXZ4=",
+      "id": "7460673806684034108",
+      "instanceGroup": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/zones/us-central1-a/instanceGroups/rqd-blender-mig",
+      "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/global/instanceTemplates/rqd-blender-fixed",
+      "kind": "compute#instanceGroupManager",
+      "name": "test-group-main",
+      "selfLink": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/zones/us-central1-a/instanceGroupManagers/rqd-blender-mig",
+      "status":
+      {
+        "autoscaler": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/zones/us-central1-a/autoscalers/rqd-blender-mig",
+        "isStable": true,
+        "versionTarget":
+        {
+          "isReached": true
+        }
+      },
+      "targetSize": 1,
+      "updatePolicy":
+      {
+        "maxSurge":
+        {
+          "calculated": 1,
+          "fixed": 1
+        },
+        "maxUnavailable":
+        {
+          "calculated": 1,
+          "fixed": 1
+        },
+        "minimalAction": "REPLACE",
+        "replacementMethod": "SUBSTITUTE",
+        "type": "OPPORTUNISTIC"
+      },
+      "versions": [
+        {
+          "instanceTemplate": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/global/instanceTemplates/rqd-blender-fixed",
+          "targetSize":
+          {
+            "calculated": 1
+          }
+        }
+      ],
+      "zone": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/zones/us-central1-a"
+    }
+  ],
+ "kind": "compute#instanceGroupManagerList",
+ "selfLink": "https://www.googleapis.com/compute/v1/projects/opencue-test-bed/zones/us-central1-a/instanceGroupManagers"
+}

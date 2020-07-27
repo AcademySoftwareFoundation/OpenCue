@@ -18,6 +18,8 @@ from .api import CloudInstanceGroup
 from googleapiclient import discovery
 from oauth2client.client import GoogleCredentials
 
+
+# TODO : to be replaced with a better way to handle authentication
 credentials = GoogleCredentials.get_application_default()
 service = discovery.build('compute', 'v1', credentials=credentials)
 project = 'gsoc-opencue-test-bed'
@@ -29,6 +31,9 @@ class GoogleCloudGroup(CloudInstanceGroup):
 
     def __init__(self, data):
         super(GoogleCloudGroup, self).__init__(data=data)
+        self.operation_status = {}
+        self.current_instances_size = 0
+        self.target_size = 0
 
     @staticmethod
     def signature():
@@ -53,7 +58,6 @@ class GoogleCloudGroup(CloudInstanceGroup):
     @staticmethod
     def create_managed_group(name, size, template):
         # TODO : Use request ID to handle multiple create button clicks
-        print("Creating group with", name, size, template)
         template_url = template.get("selfLink")
         request_body = {
             "baseInstanceName": "{}-instance".format(name),
@@ -63,19 +67,45 @@ class GoogleCloudGroup(CloudInstanceGroup):
         }
         request = service.instanceGroupManagers().insert(project=project, zone=zone, body=request_body)
         response = request.execute()
-
         return response
 
     def delete_cloud_group(self):
         request = service.instanceGroupManagers().delete(project=project, zone=zone,
                                                          instanceGroupManager=self.name)
         response = request.execute()
+        self.operation_status["DELETION"] = "RUNNING"
 
     def get_instances(self):
         request = service.instanceGroupManagers().listManagedInstances(project=project, zone=zone,
                                                                        instanceGroupManager=self.name)
         response = request.execute()
         self.instances = response.get("managedInstances", [])
+
+    def current_group_size_info(self):
+        """
+        Used by the widget to show the current state of the number of instances
+        Default : len(self.instances)
+        If currentActions has "creating" key more than 0 -> Resizing up
+        If currentActions has "deleting" key more than 0 -> Resizing down
+        :return:
+        """
+
+        if self.data["currentActions"]["creating"] > 0:
+            self.current_instances_size = self.data["currentActions"]["none"]
+        elif self.data["currentActions"]["deleting"] > 0:
+            self.current_instances_size = 0
+            for action in self.data["currentActions"]:
+                self.current_instances_size += self.data["currentActions"][action]
+        else:
+            self.current_instances_size = len(self.instances)
+
+        self.target_size = self.data["targetSize"]
+
+        if self.current_instances_size == self.target_size:
+            return self.current_instances_size
+        else:
+            return "{current_size} -> {target_size}".format(current_size=self.current_instances_size,
+                                                            target_size=self.target_size)
 
     @staticmethod
     def list_templates():
@@ -97,7 +127,16 @@ class GoogleCloudGroup(CloudInstanceGroup):
         response = request.execute()
 
     def status(self):
-        return self.data["status"].get("isStable")
+        """
+
+        :return:
+        """
+        if self.data["status"].get("isStable"):
+            return "IN USE"
+        else:
+            print("Current: ", self.current_instances_size)
+            print("Target:", self.target_size)
+            return "IN OPERATION"
 
     def id(self):
         return self.data["id"]

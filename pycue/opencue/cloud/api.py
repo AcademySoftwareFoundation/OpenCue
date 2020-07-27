@@ -12,7 +12,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import random
 import abc
 
 
@@ -72,6 +71,15 @@ class CloudInstanceGroup(object):
     def delete_cloud_group(self):
         """
         Delete the cloud group from the provider
+        :return:
+        """
+
+    @abc.abstractmethod
+    def current_group_size_info(self):
+        """
+        Implement this method to show the state of the instances for the group
+        If resizing ongoing: current_size -> target_size
+        If not: current_size (or) just the len(instances)
         :return:
         """
 

@@ -1660,6 +1660,7 @@ class CloudGroupActions(AbstractActions):
                                              [cloudgroup.name for cloudgroup in cloudgroups]):
                 for cloudgroup in cloudgroups:
                     cloudgroup.delete_cloud_group()
+
                 self._update()
 
     editInstances_info = ["Edit Number of Instances", "Change the number of instances for the group", "configure"]
@@ -1676,7 +1677,6 @@ class CloudGroupActions(AbstractActions):
                                                                0, 25, 1)
             if choice:
                 # Call the cloud instance resize
-                print("Trying to set it to : ", value)
                 cloudgroup[0].resize(size=value)
             self._update()
 

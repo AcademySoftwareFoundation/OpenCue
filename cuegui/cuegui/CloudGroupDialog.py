@@ -60,6 +60,7 @@ class CloudGroupCreateDailog(QtWidgets.QDialog):
         self.__btnCreateGroup.clicked.connect(self._createCloudGroup)
 
     def _populateTemplates(self):
+        # TODO: When another provider is added, check this functionality
         print(self.__services_dropdown.get_provider())
 
     def _createCloudGroup(self):

@@ -66,11 +66,11 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_CLOUDGROUP)
         self.addColumn("Cloud Group Name", 250, id=1,
-                       data=lambda cig: (cig.name))
+                       data=lambda cig: cig.name)
         self.addColumn("Cloud Provider", 100, id=2,
-                       data=lambda cig: (cig.__signature__))
+                       data=lambda cig: cig.__signature__)
         self.addColumn("Number of instances", 160, id=3,
-                       data=lambda cig: (len(cig.instances)))
+                       data=lambda cig: cig.current_group_size_info())
         self.addColumn("Status", 60, id=4,
                        data=lambda cig: (cig.status()))
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
@@ -80,7 +80,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        self.setUpdateInterval(60)
+        self.setUpdateInterval(30)
 
     def _createItem(self, object):
         """Creates and returns the proper item"""
@@ -112,6 +112,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__menuActions.cloudgroups().addAction(menu, "editInstances")
 
             menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
+
 
 class CloudManagerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
