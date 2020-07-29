@@ -60,4 +60,4 @@ jobs:
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
-          aws s3 cp ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar s3://${S3_BUCKET}/cuebot-${BUILD_ID}-all.jar
+          aws s3 cp ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar s3://${S3_BUCKET}/opencue/${BUILD_ID}/cuebot-${BUILD_ID}-all.jar
