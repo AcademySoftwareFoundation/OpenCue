@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master ]
+    branches: [ more-release-pipeline ]
 
 jobs:
   # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add the other
@@ -14,25 +14,36 @@ jobs:
     name: Build Cuebot
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
           fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.TEST_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.TEST_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+
       - name: Set build ID
         run: |
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
-      - uses: docker/build-push-action@v1
-        name: Build Docker image
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
           dockerfile: cuebot/Dockerfile
           repository: opencuebuild/cuebot
           tags: ${{ env.BUILD_ID }}
+
       - name: Extract Artifacts
         run: |
           set -e
@@ -44,22 +55,9 @@ jobs:
             docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
-      - uses: actions/upload-artifact@v2
-        name: Upload JAR
-        with:
-          name: cuebot-jar
-          path: ${{ github.workspace }}/artifacts/cuebot-*.jar
-      - uses: actions/upload-artifact@v2
-        name: Upload RPM
-        with:
-          name: cuebot-rpm
-          path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
-      # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Remove this step
-      #   in the next PR. This info will help us track this pipeline's artifacts as we attempt
-      #   to download them later, in the release pipeline. Once we know how the artifact tagging
-      #   works in the master branch it won't be needed anymore.
-      - name: Print environment information
+
+      - name: Upload Cuebot JAR
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
-          set -e
-          echo "This SHA: ${{ github.sha }}"
-          echo "This workflow run: ${{ github.run_id }}"
+          aws s3 cp ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar s3://${S3_BUCKET}/cuebot-${BUILD_ID}-all.jar
