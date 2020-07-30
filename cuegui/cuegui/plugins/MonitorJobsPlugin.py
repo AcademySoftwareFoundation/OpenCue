@@ -81,6 +81,9 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.jobMonitor.getColumnWidths,
                                       self.jobMonitor.setColumnWidths)])
 
+        if bool(int(QtGui.qApp.settings.value("AutoLoadJobs", 1))):
+            self._regexLoadJobsHandle()
+
     def addJob(self, object):
         if cuegui.Utils.isProc(object):
             object = cuegui.Utils.findJob(object.data.job_name)
@@ -149,18 +152,26 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         in self.__regexLoadJobsEditBox.text() and scroll to the first match"""
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
         load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
+        matching_jobs = list()
 
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
-            self.jobMonitor.addJob(substring)
-        elif load_finished_jobs or re.search("^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
+            job = cuegui.Utils.findJob(substring)
+            self.jobMonitor.addJob(job)
+            matching_jobs.append(job)
+        elif (load_finished_jobs
+              or re.search("^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE)):
             # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
             for job in opencue.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
+                matching_jobs.append(job)
         else:
             # Otherwise, just load current matching jobs
             for job in opencue.api.getJobs(regex=[substring]):
                 self.jobMonitor.addJob(job)
+                matching_jobs.append(job)
+
+        self.jobMonitor.removeAllJobsExcept(matching_jobs)
 
     def _buttonSetup(self, layout):
         clearButton = QtWidgets.QPushButton("Clr")
