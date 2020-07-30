@@ -145,7 +145,7 @@ def getHostIp():
 
 def getHostname():
     """Returns the machine's fully qualified domain name"""
-    if platform.system() == "Linux":
+    if platform.system() in ("Linux", "Windows"):
         if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return getHostIp()
         else:
