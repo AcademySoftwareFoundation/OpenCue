@@ -16,11 +16,6 @@ import os
 from setuptools import find_packages
 from setuptools import setup
 
-import setuptools
-print('foo')
-print(setuptools.__file__)
-print(setuptools.__version__)
-
 rqd_dir = os.path.abspath(os.path.dirname(__file__))
 
 version = 'unknown'
