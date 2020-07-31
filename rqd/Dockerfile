@@ -12,16 +12,19 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
-RUN pip install --upgrade setuptools
-RUN pip3.6 install --upgrade setuptools
+RUN python -m pip install --upgrade pip
+RUN python3.6 -m pip install --upgrade pip
+
+RUN python -m pip install --upgrade setuptools
+RUN python3.6 -m pip install --upgrade setuptools
 
 WORKDIR /opt/opencue
 
 COPY LICENSE ./
 COPY requirements.txt ./
 
-RUN pip install -r requirements.txt
-RUN pip3.6 install -r requirements.txt
+RUN python -m pip install -r requirements.txt
+RUN python3.6 -m pip install -r requirements.txt
 
 COPY proto/ ./proto
 COPY rqd/deploy ./rqd/deploy
