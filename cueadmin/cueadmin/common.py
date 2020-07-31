@@ -798,7 +798,7 @@ def handleArgs(args):
 
     elif args.size:
         sub_name = "%s.%s" % (args.size[1], args.size[0])
-        opencue.api.findSubscription(sub_name).setSize(float(args.size[2]))
+        opencue.api.findSubscription(sub_name).setSize(int(args.size[2]))
 
     elif args.burst:
         sub_name = "%s.%s" % (args.burst[1], args.burst[0])
@@ -806,7 +806,7 @@ def handleArgs(args):
         burst = args.burst[2]
         if burst.find("%") !=-1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
-        sub.setBurst(float(burst))
+        sub.setBurst(burst)
 
 
 def createAllocation(fac, name, tag):

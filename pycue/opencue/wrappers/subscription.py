@@ -44,11 +44,15 @@ class Subscription(object):
         return Subscription(response.subscription)
 
     def setSize(self, size):
+        assert (isinstance(size, int) or
+                isinstance(size, long)), "size is not expected type: int, long"
         self.stub.SetSize(
             subscription_pb2.SubscriptionSetSizeRequest(subscription=self.data, new_size=size),
             timeout=Cuebot.Timeout)
 
     def setBurst(self, burst):
+        assert (isinstance(burst, int) or
+                isinstance(burst, long)), "burst is not expected type: int, long"
         self.stub.SetBurst(
             subscription_pb2.SubscriptionSetBurstRequest(subscription=self.data, burst=burst),
             timeout=Cuebot.Timeout)
