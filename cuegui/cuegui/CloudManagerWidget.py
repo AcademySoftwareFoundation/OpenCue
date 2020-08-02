@@ -1,4 +1,4 @@
-#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -19,8 +19,7 @@ from __future__ import division
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import opencue.cloud.api as cloud_api
-
+import opencue.cloud.api
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -30,6 +29,7 @@ import cuegui.CloudGroupDialog
 
 
 logger = cuegui.Logger.getLogger(__file__)
+
 
 class CloudManagerWidget(QtWidgets.QWidget):
     def __init__(self, parent):
@@ -50,7 +50,6 @@ class CloudManagerWidget(QtWidgets.QWidget):
         #TODO: Add a force refresh button ?
 
         self.__btnAddCloudGroup.clicked.connect(self._onAddCloudGroupClicked)
-
 
     def _onAddCloudGroupClicked(self):
         cuegui.CloudGroupDialog.CloudGroupCreateDailog(self).show()
@@ -75,7 +74,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda cig: (cig.status()))
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
-        self.__registeredCloudProviders = cloud_api.CloudManager.get_registered_providers()
+        self.__registeredCloudProviders = opencue.cloud.api.CloudManager.get_registered_providers()
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)

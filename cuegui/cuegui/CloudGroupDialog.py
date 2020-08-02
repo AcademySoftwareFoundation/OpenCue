@@ -1,4 +1,4 @@
-#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -21,8 +21,8 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-from opencue.cloud.api import CloudManager
-from cuegui.AbstractDialog import AbstractDialog
+import opencue.cloud.api
+
 
 class CloudGroupCreateDailog(QtWidgets.QDialog):
     def __init__(self, parent=None):
@@ -85,7 +85,7 @@ class CloudServicesCombo(QtWidgets.QComboBox):
 
     def refresh(self):
         self.clear()
-        cloud_providers = CloudManager.get_registered_providers()
+        cloud_providers = opencue.cloud.api.CloudManager.get_registered_providers()
         for cp in cloud_providers:
             self.addItem(cp.signature())
             self._cloud_providers[cp.signature()] = cp

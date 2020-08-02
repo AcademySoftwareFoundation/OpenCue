@@ -1,4 +1,4 @@
-#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -37,7 +37,3 @@ class CloudManagerDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__cloudManagerWidget = cuegui.CloudManagerWidget.CloudManagerWidget(self)
 
         self.layout().addWidget(self.__cloudManagerWidget)
-
-        # self.pluginRegisterSettings([("columnVisibility",
-        #                               self.__cloudManagerWidget.getColumnVisibility,
-        #                               self.__cloudManagerWidget.setColumnVisibility)])

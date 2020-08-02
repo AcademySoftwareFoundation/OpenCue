@@ -1,4 +1,4 @@
-#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -13,20 +13,20 @@
 #  limitations under the License.
 
 
-from .api import CloudInstanceGroup
+import opencue.cloud.api
 
-from googleapiclient import discovery
-from oauth2client.client import GoogleCredentials
+import googleapiclient.discovery
+import oauth2client.client
 
 
 # TODO : to be replaced with a better way to handle authentication
-credentials = GoogleCredentials.get_application_default()
-service = discovery.build('compute', 'v1', credentials=credentials)
+credentials = oauth2client.client.GoogleCredentials.get_application_default()
+service = googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
 project = 'gsoc-opencue-test-bed'
 zone = 'us-central1-a'
 
 
-class GoogleCloudGroup(CloudInstanceGroup):
+class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
     __signature__ = "google"
 
     def __init__(self, data):
@@ -34,6 +34,7 @@ class GoogleCloudGroup(CloudInstanceGroup):
         self.operation_status = {}
         self.current_instances_size = 0
         self.target_size = 0
+
 
     @staticmethod
     def signature():
