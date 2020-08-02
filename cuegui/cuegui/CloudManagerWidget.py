@@ -74,6 +74,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda cig: (cig.status()))
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # New manager objects instantiated here
         self.__registeredCloudProviders = opencue.cloud.api.CloudManager.get_registered_providers()
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -89,8 +90,8 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def _getUpdate(self):
         cloud_groups = []
 
-        for provider in self.__registeredCloudProviders:
-            cloud_groups.extend(provider.get_all())
+        for manager_instance in self.__registeredCloudProviders:
+            cloud_groups.extend(manager_instance.get_all_groups())
 
         return cloud_groups
 

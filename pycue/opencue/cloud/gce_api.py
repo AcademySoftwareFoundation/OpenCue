@@ -19,66 +19,29 @@ import googleapiclient.discovery
 import oauth2client.client
 
 
-# TODO : to be replaced with a better way to handle authentication
-credentials = oauth2client.client.GoogleCredentials.get_application_default()
-service = googleapiclient.discovery.build('compute', 'v1', credentials=credentials)
-project = 'gsoc-opencue-test-bed'
-zone = 'us-central1-a'
-
-
 class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
     __signature__ = "google"
 
-    def __init__(self, data):
+    def __init__(self, data, connection_manager):
         super(GoogleCloudGroup, self).__init__(data=data)
         self.operation_status = {}
         self.current_instances_size = 0
         self.target_size = 0
-
+        self.connection_manager = connection_manager
 
     @staticmethod
     def signature():
         return "google"
 
-    @staticmethod
-    def get_all():
-        cigs = []
-        request = service.instanceGroupManagers().list(project=project, zone=zone)
-        while request is not None:
-            response = request.execute()
-            for instance_group_manager in response['items']:
-                new_cig = GoogleCloudGroup(data=instance_group_manager)
-                # Call get_instances to update the actual
-                # number of instances running for the group
-                new_cig.get_instances()
-                cigs.append(new_cig)
-            request = service.instanceGroupManagers().list_next(previous_request=request, previous_response=response)
-
-        return cigs
-
-    @staticmethod
-    def create_managed_group(name, size, template):
-        # TODO : Use request ID to handle multiple create button clicks
-        template_url = template.get("selfLink")
-        request_body = {
-            "baseInstanceName": "{}-instance".format(name),
-            "name": name,
-            "targetSize": size,
-            "instanceTemplate": template_url
-        }
-        request = service.instanceGroupManagers().insert(project=project, zone=zone, body=request_body)
-        response = request.execute()
-        return response
-
     def delete_cloud_group(self):
-        request = service.instanceGroupManagers().delete(project=project, zone=zone,
-                                                         instanceGroupManager=self.name)
+        request = self.connection_manager.service.instanceGroupManagers().delete(
+            project=self.connection_manager.project, zone=self.connection_manager.zone, instanceGroupManager=self.name)
         response = request.execute()
         self.operation_status["DELETION"] = "RUNNING"
 
     def get_instances(self):
-        request = service.instanceGroupManagers().listManagedInstances(project=project, zone=zone,
-                                                                       instanceGroupManager=self.name)
+        request = self.connection_manager.service.instanceGroupManagers().listManagedInstances(
+            project=self.connection_manager.project, zone=self.connection_manager.zone, instanceGroupManager=self.name)
         response = request.execute()
         self.instances = response.get("managedInstances", [])
 
@@ -108,28 +71,15 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
             return "{current_size} -> {target_size}".format(current_size=self.current_instances_size,
                                                             target_size=self.target_size)
 
-    @staticmethod
-    def list_templates():
-        templates = []
-        request = service.instanceTemplates().list(project=project)
-        while request is not None:
-            response = request.execute()
-
-            for instance_template in response['items']:
-                templates.append(instance_template)
-
-            request = service.instanceTemplates().list_next(previous_request=request, previous_response=response)
-
-        return templates
-
     def resize(self, size=None):
-        request = service.instanceGroupManagers().resize(project=project, zone=zone,
-                                                         instanceGroupManager=self.name, size=size)
+        request = self.connection_manager.service.instanceGroupManagers().resize(
+            project=self.connection_manager.project, zone=self.connection_manager.zone,
+            instanceGroupManager=self.name, size=size)
         response = request.execute()
 
     def status(self):
         """
-
+        Use the info gained from group size info to customize status column
         :return:
         """
         if self.data["status"].get("isStable"):
@@ -144,3 +94,70 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
 
     def id(self):
         return self.data["id"]
+
+
+class GoogleCloudManager(opencue.cloud.api.CloudManager):
+
+    def __init__(self):
+        super(GoogleCloudManager, self).__init__()
+        # TODO : to be replaced with a better way to handle authentication
+        self.project = 'gsoc-opencue-test-bed'
+        self.zone = 'us-central1-a'
+        self.credentials = None
+        self.service = None
+
+        # Connect when instantiated
+        self.connect()
+
+    def signature(self):
+        return "google"
+
+    def connect(self):
+        """
+        Connect to the GCE : For now with application defaults
+        :return:
+        """
+        self.credentials = oauth2client.client.GoogleCredentials.get_application_default()
+        self.service = googleapiclient.discovery.build('compute', 'v1', credentials=self.credentials)
+
+    def get_all_groups(self):
+        cigs = []
+        request = self.service.instanceGroupManagers().list(project=self.project, zone=self.zone)
+        while request is not None:
+            response = request.execute()
+            for instance_group_manager in response['items']:
+                new_cig = GoogleCloudGroup(data=instance_group_manager, connection_manager=self)
+                # Call get_instances to update the actual
+                # number of instances running for the group
+                new_cig.get_instances()
+                cigs.append(new_cig)
+            request = self.service.instanceGroupManagers().list_next(previous_request=request,
+                                                                     previous_response=response)
+
+        return cigs
+
+    def create_managed_group(self, name, size, template):
+        # TODO : Use request ID to handle multiple create button clicks
+        template_url = template.get("selfLink")
+        request_body = {
+            "baseInstanceName": "{}-instance".format(name),
+            "name": name,
+            "targetSize": size,
+            "instanceTemplate": template_url
+        }
+        request = self.service.instanceGroupManagers().insert(project=self.project, zone=self.zone, body=request_body)
+        response = request.execute()
+        return response
+
+    def list_templates(self):
+        templates = []
+        request = self.service.instanceTemplates().list(project=self.project)
+        while request is not None:
+            response = request.execute()
+
+            for instance_template in response['items']:
+                templates.append(instance_template)
+
+            request = self.service.instanceTemplates().list_next(previous_request=request, previous_response=response)
+
+        return templates

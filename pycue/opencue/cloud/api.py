@@ -21,22 +21,6 @@ class CloudInstanceGroup(object):
         self.name = self.data["name"]
         self.instances = []
 
-    @staticmethod
-    @abc.abstractmethod
-    def get_all():
-        """
-        Get all the cloud groups associated with the provider
-        :return:
-        """
-
-    @staticmethod
-    @abc.abstractmethod
-    def create_managed_group(name, size, template):
-        """
-        Creates a cloud group with the given template/image from cloud
-        :return:
-        """
-
     @abc.abstractmethod
     def get_instances(self):
         """
@@ -95,5 +79,39 @@ class CloudManager(object):
         """
         # TODO : Better way to register plugins
         # For now just return the GCE group class
-        from .gce_api import GoogleCloudGroup
-        return [GoogleCloudGroup]
+        from .gce_api import GoogleCloudManager
+        providers = [GoogleCloudManager]
+        managers_instances = []
+        for provider in providers:
+            manager_object = provider()
+            managers_instances.append(manager_object)
+
+        return managers_instances
+
+    @abc.abstractmethod
+    def signature(self):
+        """
+        Returns the name of the provider
+        :return:
+        """
+
+    @abc.abstractmethod
+    def create_managed_group(self, name, size, template):
+        """
+        Creates a cloud group with the given template/image from cloud
+        :return:
+        """
+
+    @abc.abstractmethod
+    def get_all_groups(self):
+        """
+        Get all the cloud groups associated with the provider
+        :return:
+        """
+
+    @abc.abstractmethod
+    def connect(self):
+        """
+        Abstract method that will implement connecting to the cloud provider
+        :return:
+        """
