@@ -20,59 +20,35 @@ import unittest
 import os
 
 import opencue
-from opencue.cloud.gce_api import GoogleCloudGroup
-from googleapiclient import discovery
-from googleapiclient.http import HttpMock, HttpRequestMock
+import opencue.cloud.gce_api
 
 TEST_CLOUD_GROUP_NAME = "test-group-main"
-PROJECT_NAME = "test-gce-project"
-ZONE_NAME = "test-zone-name"
-GOOGLE_RESOURCES_DIR = os.path.join(os.path.dirname(__file__), "google-test-resources")
 TEST_INSTANCE_TEMPLATE_NAME = "test-instance-template"
 
 
-class GoogleCloudGroupTest(unittest.TestCase):
+class GoogleCloudManagerTest(unittest.TestCase):
 
     def setUp(self):
-        # Use the HttpMock module to build the mock service object
-        self.http = HttpMock(os.path.join(GOOGLE_RESOURCES_DIR, "compute-discovery.json"),
-                             {'status': '200'})
-        api_key = "test_api_key"
-        self.service = discovery.build('compute', 'v1', http=self.http, developerKey=api_key)
+        pass
 
-    # Mock proc call for the HttpRequestMock
-    def mock_exec_instancegroup_list(self, resp, content):
-        request = self.service.instanceGroupManagers().list(project=PROJECT_NAME, zone=ZONE_NAME)
-        http_request = HttpMock(os.path.join(GOOGLE_RESOURCES_DIR, "compute-instancegroups.json"),
-                                {'status': '200'})
-        response = request.execute(http=http_request)
-        return response
+    @mock.patch.object(opencue.cloud.gce_api.GoogleCloudManager, "connect", autospec=True)
+    def test_get_all_groups(self, connectMock):
+        test_response = {
+            "items": [
+                {
+                    "name": TEST_CLOUD_GROUP_NAME,
+                    "id": 1234
+                }
+            ]
+        }
+        connectMock.return_value = None
+        manager = opencue.cloud.gce_api.GoogleCloudManager()
+        manager.service = mock.MagicMock()
+        manager.service.instanceGroupManagers().list.return_value.execute().__getitem__.side_effect =\
+            test_response.__getitem__
+        manager.service.instanceGroupManagers().list_next.return_value = None
+        groups = manager.get_all_groups()
 
-    def mock_exec_templates_list(self, resp, content):
-        request = self.service.instanceGroupManagers().list(project=PROJECT_NAME, zone=ZONE_NAME)
-        http_request = HttpMock(os.path.join(GOOGLE_RESOURCES_DIR, "compute-instancetemplates.json"),
-                                {'status': '200'})
-        response = request.execute(http=http_request)
-        return response
+        self.assertEqual([TEST_CLOUD_GROUP_NAME], [g.name for g in groups])
+        self.assertEqual([1234], [g.id() for g in groups])
 
-    @mock.patch('opencue.cloud.gce_api.service')
-    def test_get_all(self, serviceMock):
-        serviceMock.instanceGroupManagers().list.return_value = HttpRequestMock(resp=None,
-                                                                                content="",
-                                                                                postproc=self.mock_exec_instancegroup_list)
-        serviceMock.instanceGroupManagers().list_next.return_value = None
-        gce_groups = GoogleCloudGroup.get_all()
-
-        # Test name and id data
-        self.assertEqual(["test-group-main"], [c.name for c in gce_groups])
-        self.assertEqual(["7460673806684034108"], [c.id() for c in gce_groups])
-
-    @mock.patch('opencue.cloud.gce_api.service')
-    def test_list_templates(self, serviceMock):
-        serviceMock.instanceTemplates().list.return_value = HttpRequestMock(resp=None,
-                                                                            content="",
-                                                                            postproc=self.mock_exec_templates_list)
-        serviceMock.instanceTemplates().list_next.return_value = None
-        instance_templates = GoogleCloudGroup.list_templates()
-
-        self.assertEqual([TEST_INSTANCE_TEMPLATE_NAME], [template["name"] for template in instance_templates])
