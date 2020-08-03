@@ -13,3 +13,4 @@ PyYAML==5.1
 simplejson==3.16.0
 six==1.11.0
 google-api-python-client==1.9.1
+oauth2client==4.1.3
