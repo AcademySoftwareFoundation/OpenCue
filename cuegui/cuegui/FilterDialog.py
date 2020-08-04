@@ -155,6 +155,7 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.hideColumn(0)
         self.setSortingEnabled(False)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
