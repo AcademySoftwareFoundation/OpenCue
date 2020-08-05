@@ -260,10 +260,14 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.removeItem(item)
 
     def removeAllJobsExcept(self, keepList):
-        """Removes jobs where the name doesn't match the given search string"""
-        keepKeys = [cuegui.Utils.getObjectKey(job) for job in keepList]
-        existingItems = [self.topLevelItem(index) for index in range(self.topLevelItemCount())]
-        for existingItem in existingItems:
+        """Removes all jobs except the ones specified.
+
+        :param keepList: List of jobs to keep monitoring.
+        :type  keepList: list of opencue.wrappers.job.Job
+        """
+        keepKeys = set(cuegui.Utils.getObjectKey(job) for job in keepList)
+        for index in range(self.topLevelItemCount()):
+            existingItem = self.topLevelItem(index)
             existingItemKey = cuegui.Utils.getObjectKey(existingItem.rpcObject)
             if existingItemKey not in keepKeys:
                 self._removeItem(existingItem)
