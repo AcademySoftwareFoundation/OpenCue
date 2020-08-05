@@ -155,6 +155,7 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.hideColumn(0)
         self.setSortingEnabled(False)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -430,7 +431,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     value = float(value)
 
                 elif actionType in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
-                    (value, choice) = QtWidgets.QInputDialog.getInteger(
+                    (value, choice) = QtWidgets.QInputDialog.getInt(
                         self,
                         "Create Action",
                         "What value should this property be set to?",

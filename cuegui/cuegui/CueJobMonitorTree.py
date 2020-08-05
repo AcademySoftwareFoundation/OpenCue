@@ -396,7 +396,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             updated.append(group.id)
 
             # If group has groups, recursively call this function
-            updated.extend(map(self.__getNestedIds, group.groups.nested_groups))
+            for g in group.groups.nested_groups:
+                updated_g = self.__getNestedIds(g)
+                if updated_g:
+                    updated.extend(updated_g)
 
             # If group has jobs, update them
             for jobId in group.jobs:
