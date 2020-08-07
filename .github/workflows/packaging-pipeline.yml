@@ -100,6 +100,50 @@ jobs:
             aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           done
 
+  create_other_artifacts:
+    needs: build_component
+    runs-on: ubuntu-latest
+    name: Create Other Build Artifacts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      - name: Set build ID
+        run: |
+          set -e
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Extract Database Schema
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+          ci/extract_schema.sh ${BUILD_ID} "${GITHUB_WORKSPACE}/artifacts/"
+
+      - name: Upload Other Artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+          echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
+
+          aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+
       - name: Display artifacts
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
