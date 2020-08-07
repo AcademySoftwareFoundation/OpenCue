@@ -25,6 +25,26 @@ jobs:
             NAME: RQD
             ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
 
+          - component: cuegui
+            NAME: CueGUI
+            ARTIFACTS: cuegui-${BUILD_ID}-all.tar.gz
+
+          - component: pycue
+            NAME: PyCue
+            ARTIFACTS: pycue-${BUILD_ID}-all.tar.gz
+
+          - component: pyoutline
+            NAME: PyOutline
+            ARTIFACTS: pyoutline-${BUILD_ID}-all.tar.gz
+
+          - component: cuesubmit
+            NAME: CueSubmit
+            ARTIFACTS: cuesubmit-${BUILD_ID}-all.tar.gz
+
+          - component: cueadmin
+            NAME: CueAdmin
+            ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
+
     name: Build ${{ matrix.NAME }}
     steps:
       - name: Checkout
