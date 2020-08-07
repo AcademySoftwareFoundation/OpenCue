@@ -1,4 +1,4 @@
-#  Copyright (c) 2018 Sony Pictures Imageworks Inc.
+#  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
 #  you may not use this file except in compliance with the License.
@@ -155,6 +155,7 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.hideColumn(0)
         self.setSortingEnabled(False)
+        self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -430,7 +431,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     value = float(value)
 
                 elif actionType in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
-                    (value, choice) = QtWidgets.QInputDialog.getInteger(
+                    (value, choice) = QtWidgets.QInputDialog.getInt(
                         self,
                         "Create Action",
                         "What value should this property be set to?",
