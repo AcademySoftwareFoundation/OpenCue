@@ -128,20 +128,24 @@ jobs:
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
-      - name: Extract Database Schema
+      - name: Extract database schema
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           ci/extract_schema.sh ${BUILD_ID} "${GITHUB_WORKSPACE}/artifacts/"
 
-      - name: Upload Other Artifacts
-        env:
-          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      - name: Create build metadata
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
+      - name: Upload artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
           aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/demo_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
 
       - name: Display artifacts
