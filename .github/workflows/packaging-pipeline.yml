@@ -10,8 +10,17 @@ jobs:
   #   packaging steps here. Things like building Docker images and extracting artifacts
   #   will need to be generalized, but we need to test a few things in the master branch
   #   first to make sure things are working as we expect.
-  build_cuebot:
-    name: Build Cuebot
+  runs-on: ${{ matrix.component }}
+    strategy:
+      matrix:
+        component: [cuebot]
+        include:
+          - os: cuebot
+            NAME: Cuebot
+            ARTIFACTS: /opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm
+
+  build_component:
+    name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -42,27 +51,30 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-          dockerfile: cuebot/Dockerfile
-          repository: opencuebuild/cuebot
+          dockerfile: ${{ matrix.component }}/Dockerfile
+          repository: opencuebuild/${{ matrix.component }}
           tags: ${{ env.BUILD_ID }}
 
       - name: Extract Artifacts
         run: |
           set -e
-          image_name="opencuebuild/cuebot:${BUILD_ID}"
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
           container_id=$(docker create ${image_name})
-          artifacts="/opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm"
+          artifacts="${{ matrix.ARTIFACTS }}"
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           for artifact in $artifacts; do
             docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
 
-      - name: Upload Cuebot JAR
+      - name: Upload Artifacts
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
-          aws s3 cp ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar s3://${S3_BUCKET}/opencue/${BUILD_ID}/cuebot-${BUILD_ID}-all.jar
+          artifacts="${{ matrix.ARTIFACTS }}"
+          for artifact in $artifacts; do
+            aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          done
 
       - name: Display artifacts
         env:
