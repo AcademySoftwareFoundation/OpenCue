@@ -15,11 +15,15 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        component: [cuebot]
+        component: [cuebot, rqd]
         include:
-          - os: cuebot
+          - component: cuebot
             NAME: Cuebot
             ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
+
+          - component: rqd
+            NAME: RQD
+            ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
 
     name: Build ${{ matrix.NAME }}
     steps:
