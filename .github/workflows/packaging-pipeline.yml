@@ -19,7 +19,7 @@ jobs:
         include:
           - os: cuebot
             NAME: Cuebot
-            ARTIFACTS: /opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm
+            ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
 
     name: Build ${{ matrix.NAME }}
     steps:
@@ -63,7 +63,7 @@ jobs:
           artifacts="${{ matrix.ARTIFACTS }}"
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           for artifact in $artifacts; do
-            docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
+            docker cp ${container_id}:/opt/opencue/${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
 
