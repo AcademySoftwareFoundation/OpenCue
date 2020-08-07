@@ -10,7 +10,9 @@ jobs:
   #   packaging steps here. Things like building Docker images and extracting artifacts
   #   will need to be generalized, but we need to test a few things in the master branch
   #   first to make sure things are working as we expect.
-  runs-on: ${{ matrix.component }}
+
+  build_component:
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         component: [cuebot]
@@ -19,9 +21,7 @@ jobs:
             NAME: Cuebot
             ARTIFACTS: /opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm
 
-  build_component:
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
