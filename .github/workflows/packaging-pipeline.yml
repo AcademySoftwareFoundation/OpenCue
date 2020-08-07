@@ -1,7 +1,5 @@
 name: OpenCue Packaging Pipeline
 
-# TODO Remove this comment, used to trigger github actions.
-
 # Trigger this pipeline on new commits to master.
 on:
   push:
@@ -65,3 +63,9 @@ jobs:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
           aws s3 cp ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar s3://${S3_BUCKET}/opencue/${BUILD_ID}/cuebot-${BUILD_ID}-all.jar
+
+      - name: Display artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          aws s3 ls s3://${S3_BUCKET}/opencue/${BUILD_ID}/
