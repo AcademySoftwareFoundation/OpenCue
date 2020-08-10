@@ -24,7 +24,6 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
 
     def __init__(self, data, connection_manager):
         super(GoogleCloudGroup, self).__init__(data=data)
-        self.operation_status = {}
         self.current_instances_size = 0
         self.target_size = 0
         self.connection_manager = connection_manager
@@ -37,7 +36,6 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         request = self.connection_manager.service.instanceGroupManagers().delete(
             project=self.connection_manager.project, zone=self.connection_manager.zone, instanceGroupManager=self.name)
         response = request.execute()
-        self.operation_status["DELETION"] = "RUNNING"
 
     def get_instances(self):
         request = self.connection_manager.service.instanceGroupManagers().listManagedInstances(
@@ -105,9 +103,6 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
         self.zone = 'us-central1-a'
         self.credentials = None
         self.service = None
-
-        # Connect when instantiated
-        self.connect()
 
     def signature(self):
         return "google"

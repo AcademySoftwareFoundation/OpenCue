@@ -77,6 +77,10 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # New manager objects instantiated here
         self.__registeredCloudProviders = opencue.cloud.api.CloudManager.get_registered_providers()
 
+        # Connect for all the registered providers
+        for provider in self.__registeredCloudProviders:
+            provider.connect()
+
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
