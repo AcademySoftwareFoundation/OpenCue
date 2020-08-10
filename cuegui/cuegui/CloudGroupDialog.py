@@ -22,6 +22,7 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue.cloud.api
+import cuegui.Utils
 
 
 class CloudGroupCreateDailog(QtWidgets.QDialog):
@@ -67,10 +68,14 @@ class CloudGroupCreateDailog(QtWidgets.QDialog):
         group_name = self.__groupname_text_input.text()
         instances = self.__number_of_instances.text()
         template = self.__templates_dropdown.get_template_data()
-        request = self.__services_dropdown.get_provider().create_managed_group(name=group_name, size=instances,
-                                                                               template=template)
-        if request:
-            self.close()
+        try:
+            request = self.__services_dropdown.get_provider().create_managed_group(name=group_name, size=instances,
+                                                                                   template=template)
+            if request:
+                self.close()
+        except opencue.cloud.api.CloudProviderException as e:
+            cuegui.Utils.showErrorMessageBox(text="{} {} request error!".format(e.provider, e.error_code),
+                                             detailedText=e.message)
 
 
 class CloudServicesCombo(QtWidgets.QComboBox):
@@ -86,6 +91,9 @@ class CloudServicesCombo(QtWidgets.QComboBox):
     def refresh(self):
         self.clear()
         cloud_providers = opencue.cloud.api.CloudManager.get_registered_providers()
+        # Connect for all the registered providers
+        for provider in cloud_providers:
+            provider.connect()
         for cp in cloud_providers:
             self.addItem(cp.signature())
             self._cloud_providers[cp.signature()] = cp

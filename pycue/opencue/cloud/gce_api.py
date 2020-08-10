@@ -14,6 +14,7 @@
 
 
 import opencue.cloud.api
+import opencue.cloud.gce_exception_util
 
 import googleapiclient.discovery
 import oauth2client.client
@@ -131,6 +132,7 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
 
         return cigs
 
+    @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def create_managed_group(self, name, size, template):
         # TODO : Use request ID to handle multiple create button clicks
         template_url = template.get("selfLink")
@@ -156,3 +158,4 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
             request = self.service.instanceTemplates().list_next(previous_request=request, previous_response=response)
 
         return templates
+

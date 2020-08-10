@@ -115,3 +115,20 @@ class CloudManager(object):
         Abstract method that will implement connecting to the cloud provider
         :return:
         """
+
+
+class CloudProviderException(Exception):
+    """
+    Base class for handling exceptions when making cloud requests
+    """
+
+    def __init__(self, error_code, message, provider=None):
+        self.provider = provider
+        self.message = message
+        self.error_code = error_code
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return "<Cloud Provider: {} {} exception: {}".format(self.provider, self.error_code, self.message)
