@@ -19,12 +19,17 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
+RUN python -m pip install --upgrade pip
+RUN python3.6 -m pip install --upgrade pip
+
+RUN python -m pip install --upgrade setuptools
+RUN python3.6 -m pip install --upgrade setuptools
+
 COPY LICENSE ./
 COPY requirements.txt ./
 
-RUN pip install -r requirements.txt
-
-RUN pip3.6 install -r requirements.txt
+RUN python -m pip install -r requirements.txt
+RUN python3.6 -m pip install -r requirements.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
