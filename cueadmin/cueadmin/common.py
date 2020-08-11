@@ -204,8 +204,10 @@ def getParser():
     sub.add_argument("-size", action="store", nargs=3, metavar="SHOW ALLOC SIZE",
                      help="Set the guaranteed number of cores.")
     sub.add_argument("-burst", action="store", nargs=3, metavar="SHOW ALLOC BURST",
-                     help="Set the number of burst cores.  Use the percent sign to indicate a "
-                          "percentage of the subscription size instead of a hard size.")
+                     help="Set the number of burst cores for a subscription passing: "
+                          "    show allocation value"
+                          "Use the percent sign in value to indicate a percentage "
+                          "of the subscription size instead of a hard size.")
     #
     # Host
     #
