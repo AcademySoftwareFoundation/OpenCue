@@ -808,7 +808,7 @@ def handleArgs(args):
         burst = args.burst[2]
         if burst.find("%") != -1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
-        sub.setBurst(long(burst))
+        sub.setBurst(int(burst))
 
 
 def createAllocation(fac, name, tag):
