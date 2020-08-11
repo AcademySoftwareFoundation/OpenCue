@@ -804,9 +804,9 @@ def handleArgs(args):
         sub_name = "%s.%s" % (args.burst[1], args.burst[0])
         sub = opencue.api.findSubscription(sub_name)
         burst = args.burst[2]
-        if burst.find("%") !=-1:
+        if burst.find("%") != -1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
-        sub.setBurst(burst)
+        sub.setBurst(long(burst))
 
 
 def createAllocation(fac, name, tag):
