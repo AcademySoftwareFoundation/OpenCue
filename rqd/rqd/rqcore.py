@@ -542,7 +542,7 @@ class RqCore(object):
             booked_cores=0,
         )
 
-        self.nimby = rqd.rqnimby.Nimby(self)
+        self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
 

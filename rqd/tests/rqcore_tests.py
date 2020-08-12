@@ -38,7 +38,7 @@ import rqd.rqnimby
 
 class RqCoreTests(unittest.TestCase):
 
-    @mock.patch('rqd.rqnimby.Nimby', autospec=True)
+    @mock.patch('rqd.rqnimby.NimbySelect', autospec=True)
     @mock.patch('rqd.rqnetwork.Network', autospec=True)
     @mock.patch('rqd.rqmachine.Machine', autospec=True)
     def setUp(self, machineMock, networkMock, nimbyMock):
@@ -310,7 +310,7 @@ class RqCoreTests(unittest.TestCase):
         frame = rqd.compiled_proto.rqd_pb2.RunFrame(uid=22, num_cores=10)
         frameIgnoreNimby = rqd.compiled_proto.rqd_pb2.RunFrame(
             uid=22, num_cores=10, ignore_nimby=True)
-        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.Nimby)
+        self.rqcore.nimby = mock.create_autospec(rqd.rqnimby.NimbySelect)
         self.rqcore.nimby.locked = True
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):

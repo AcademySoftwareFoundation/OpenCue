@@ -171,7 +171,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.meminfo = self.fs.create_file('/proc/meminfo', contents=MEMINFO_MODERATE_USAGE)
 
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
-        self.nimby = mock.MagicMock(spec=rqd.rqnimby.Nimby)
+        self.nimby = mock.MagicMock(spec=rqd.rqnimby.NimbySelect)
         self.rqCore.nimby = self.nimby
         self.nimby.active = False
         self.nimby.locked = False

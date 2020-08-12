@@ -38,10 +38,10 @@ class RqNimbyTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.rqMachine = mock.MagicMock(spec=rqd.rqmachine.Machine)
         self.rqCore = mock.MagicMock(spec=rqd.rqcore.RqCore)
         self.rqCore.machine = self.rqMachine
-        self.nimby = rqd.rqnimby.Nimby(self.rqCore)
+        self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self.rqCore)
         self.nimby.daemon = True
 
-    @mock.patch.object(rqd.rqnimby.Nimby, 'unlockedIdle')
+    @mock.patch.object(rqd.rqnimby.NimbySelect, 'unlockedIdle')
     def test_initialState(self, unlockedIdleMock):
         self.nimby.daemon = True
 
@@ -67,7 +67,7 @@ class RqNimbyTests(pyfakefs.fake_filesystem_unittest.TestCase):
         timerMock.return_value.start.assert_called()
 
     @mock.patch('select.select', new=mock.MagicMock(return_value=[[], [], []]))
-    @mock.patch.object(rqd.rqnimby.Nimby, 'unlockedIdle')
+    @mock.patch.object(rqd.rqnimby.NimbySelect, 'unlockedIdle')
     @mock.patch('threading.Timer')
     def test_lockedIdleWhenIdle(self, timerMock, unlockedIdleMock):
         self.nimby.active = True
@@ -93,7 +93,7 @@ class RqNimbyTests(pyfakefs.fake_filesystem_unittest.TestCase):
         timerMock.return_value.start.assert_called()
 
     @mock.patch('select.select', new=mock.MagicMock(return_value=[[], [], []]))
-    @mock.patch.object(rqd.rqnimby.Nimby, 'lockedIdle')
+    @mock.patch.object(rqd.rqnimby.NimbySelect, 'lockedIdle')
     @mock.patch('threading.Timer')
     def test_lockedInUseWhenIdle(self, timerMock, lockedIdleMock):
         self.nimby.active = True
