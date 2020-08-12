@@ -204,8 +204,10 @@ def getParser():
     sub.add_argument("-size", action="store", nargs=3, metavar="SHOW ALLOC SIZE",
                      help="Set the guaranteed number of cores.")
     sub.add_argument("-burst", action="store", nargs=3, metavar="SHOW ALLOC BURST",
-                     help="Set the number of burst cores.  Use the percent sign to indicate a "
-                          "percentage of the subscription size instead of a hard size.")
+                     help="Set the number of burst cores for a subscription passing: "
+                          "    show allocation value"
+                          "Use the percent sign in value to indicate a percentage "
+                          "of the subscription size instead of a hard size.")
     #
     # Host
     #
@@ -798,15 +800,15 @@ def handleArgs(args):
 
     elif args.size:
         sub_name = "%s.%s" % (args.size[1], args.size[0])
-        opencue.api.findSubscription(sub_name).setSize(float(args.size[2]))
+        opencue.api.findSubscription(sub_name).setSize(int(args.size[2]))
 
     elif args.burst:
         sub_name = "%s.%s" % (args.burst[1], args.burst[0])
         sub = opencue.api.findSubscription(sub_name)
         burst = args.burst[2]
-        if burst.find("%") !=-1:
+        if burst.find("%") != -1:
             burst = int(sub.data.size + (sub.data.size * (int(burst[0:-1]) / 100.0)))
-        sub.setBurst(float(burst))
+        sub.setBurst(int(burst))
 
 
 def createAllocation(fac, name, tag):
