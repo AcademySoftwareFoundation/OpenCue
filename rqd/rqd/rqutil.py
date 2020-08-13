@@ -26,6 +26,7 @@ from __future__ import division
 from builtins import str
 from builtins import object
 import functools
+import logging as log
 import os
 import platform
 import random
@@ -150,7 +151,8 @@ def getHostname():
             return getHostIp()
         else:
             return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
-    except socket.herror:
+    except (socket.herror, socket.gaierror):
+        log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()
 
 
