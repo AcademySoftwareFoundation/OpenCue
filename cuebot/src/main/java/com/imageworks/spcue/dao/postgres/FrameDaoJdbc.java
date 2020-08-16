@@ -24,6 +24,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.sql.Timestamp;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.RowMapper;
@@ -397,6 +398,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.dateStarted = rs.getTimestamp("ts_started");
             frame.dateStopped = rs.getTimestamp("ts_stopped");
             frame.dateUpdated = rs.getTimestamp("ts_updated");
+            frame.dateLLU = rs.getTimestamp("ts_llu");
             frame.version = rs.getInt("int_version");
 
             if (rs.getString("str_host") != null) {
@@ -472,9 +474,10 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_number, " +
             "int_dispatch_order, " +
             "int_layer_order, "+
-            "ts_updated "+
+            "ts_updated, "+
+            "ts_llu "+
         ") " +
-        "VALUES (?,?,?,?,?,?,?,?,current_timestamp)";
+        "VALUES (?,?,?,?,?,?,?,?,current_timestamp,current_timestamp)";
 
     @Override
     public void insertFrames(LayerDetail layer, List<Integer> frames) {
@@ -692,6 +695,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "SET " +
             "str_state=?, " +
             "ts_updated = current_timestamp, " +
+            "ts_llu = current_timestamp, " +
             "int_depend_count = 0, " +
             "int_version = int_version + 1 " +
         "WHERE " +
@@ -963,6 +967,21 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     "frame " +
                 "WHERE " +
                     "pk_frame = ?", RESOURCE_USAGE_MAPPER, f.getFrameId());
+    }
+
+    private static final String UPDATE_FRAME_IO_USAGE =
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "ts_updated = current_timestamp," +
+            "ts_llu = ? " +
+        "WHERE " +
+            "pk_frame = ? ";
+
+    @Override
+    public void updateFrameUsage(FrameInterface f, long lluTime) {
+        getJdbcTemplate().update(UPDATE_FRAME_IO_USAGE,
+                                new Timestamp(lluTime * 1000l), f.getFrameId());
     }
 
     private static final String UPDATE_FRAME_MEMORY_USAGE =

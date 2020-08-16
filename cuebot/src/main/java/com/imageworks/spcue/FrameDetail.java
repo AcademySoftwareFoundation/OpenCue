@@ -37,5 +37,6 @@ public class FrameDetail extends FrameEntity implements FrameInterface {
     public Timestamp dateStarted;
     public Timestamp dateStopped;
     public Timestamp dateUpdated;
+    public Timestamp dateLLU;
 }
 

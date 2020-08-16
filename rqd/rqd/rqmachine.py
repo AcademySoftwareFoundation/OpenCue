@@ -262,6 +262,10 @@ class Machine(object):
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
 
+                    if os.path.exists(frame.runFrame.log_dir_file):
+                        stat = os.stat(frame.runFrame.log_dir_file).st_mtime
+                        frame.lluTime = int(stat)
+
                     frame.vsize = vsize
                     frame.maxVsize = max(vsize, frame.maxVsize)
 

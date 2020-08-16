@@ -403,6 +403,15 @@ public class JobSpec {
                     buildableLayer);
             determineMinimumGpu(buildableJob, layerTag, layer);
 
+            // set a timeout value on the layer
+            if (layerTag.getChildTextTrim("timeout") != null) {
+                layer.timeout = Integer.parseInt(layerTag.getChildTextTrim("timeout"));
+            }
+
+            if (layerTag.getChildTextTrim("timeout_llu") != null) {
+                layer.timeout_llu = Integer.parseInt(layerTag.getChildTextTrim("timeout_llu"));
+            }
+
             /*
              * Handle the layer environment
              */
@@ -671,6 +680,8 @@ public class JobSpec {
         layer.tags.addAll(primaryService.tags);
         layer.services.addAll(services);
         layer.limits.addAll(limits);
+        layer.timeout = primaryService.timeout;
+        layer.timeout_llu = primaryService.timeout_llu;
     }
 
     /**

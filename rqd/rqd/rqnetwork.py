@@ -67,6 +67,8 @@ class RunningFrame(object):
         self.utime = 0
         self.stime = 0
 
+        self.lluTime = 0
+
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
         runningFrameInfo = rqd.compiled_proto.report_pb2.RunningFrameInfo(
@@ -82,7 +84,8 @@ class RunningFrame(object):
             rss=self.rss,
             max_vsize=self.maxVsize,
             vsize=self.vsize,
-            attributes=self.runFrame.attributes
+            attributes=self.runFrame.attributes,
+            llu_time=self.lluTime
         )
         return runningFrameInfo
 
