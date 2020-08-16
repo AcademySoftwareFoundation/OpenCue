@@ -86,7 +86,7 @@ def setup_local_cores(e):
                                    "cores": str(USE_LOCAL_CORES),
                                    "memory": get_half_host_memory(),
                                    "threads": str(threads),
-                                   "gpu": str(0) })
+                                   "gpu_memory": str(0) })
 
 def get_half_host_memory():
     pipe = subprocess.Popen("vmstat -s",

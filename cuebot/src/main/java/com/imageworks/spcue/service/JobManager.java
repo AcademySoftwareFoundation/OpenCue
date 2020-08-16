@@ -234,7 +234,6 @@ public interface JobManager {
      */
     public void updateJobState(JobInterface job, JobState state);
 
-
     /**
      * Reorders the specified layer.
      *
@@ -291,6 +290,14 @@ public interface JobManager {
      * @return
      */
     boolean isOverMinCores(JobInterface job);
+
+    /**
+     * Return true if the given job is booked greater than min gpu.
+     *
+     * @param job
+     * @return
+     */
+    boolean isOverMinGpu(JobInterface job);
 
     /**
      * Increase the layer memory requirement to given KB value.
@@ -452,6 +459,22 @@ public interface JobManager {
      * @param coreUnits
      */
     void setLayerMinCores(LayerInterface layer, int coreUnits);
+
+    /**
+     * Update the max gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpu
+     */
+    void setLayerMaxGpu(LayerInterface layer, int gpu);
+
+    /**
+     * Update the min gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpu
+     */
+    void setLayerMinGpu(LayerInterface layer, int gpu);
 
     /**
      * Add a limit to the given layer.

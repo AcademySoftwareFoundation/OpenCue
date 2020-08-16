@@ -42,6 +42,7 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
+import com.imageworks.spcue.StrandedGpu;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -82,6 +83,9 @@ public class DispatchSupportService implements DispatchSupport {
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
         new ConcurrentHashMap<String, StrandedCores>();
 
+    private ConcurrentHashMap<String, StrandedGpu> strandedGpu =
+        new ConcurrentHashMap<String, StrandedGpu>();
+
     @Override
     public void pickupStrandedCores(DispatchHost host) {
         logger.info(host + "picked up stranded cores");
@@ -112,6 +116,38 @@ public class DispatchSupportService implements DispatchSupport {
         strandedCores.putIfAbsent(host.getHostId(), new StrandedCores(cores));
         strandedCoresCount.getAndIncrement();
     }
+
+    @Override
+    public void pickupStrandedGpu(DispatchHost host) {
+        logger.info(host + "picked up stranded gpu");
+        pickedUpGpuCount.getAndIncrement();
+        strandedGpu.remove(host.getHostId());
+    }
+
+    @Override
+    public boolean hasStrandedGpu(HostInterface host) {
+        StrandedGpu stranded = strandedGpu.get(host.getHostId());
+        if (stranded == null) {
+            return false;
+        }
+        if (stranded.isExpired()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    @Override
+    public void strandGpu(DispatchHost host, int gpu) {
+        logger.info(host + " found " + gpu + ", stranded gpu");
+        host.strandedGpu  = gpu;
+        if (host.threadMode != ThreadMode.VARIABLE.getNumber()) {
+            host.threadMode = ThreadMode.ALL.getNumber();
+        }
+        strandedGpu.putIfAbsent(host.getHostId(), new StrandedGpu(gpu));
+        strandedGpuCount.getAndIncrement();
+    }
+
 
     @Transactional(readOnly = true)
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit) {
@@ -245,13 +281,17 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobBookable(JobInterface job, int coreUnits) {
+    public boolean isJobBookable(JobInterface job, int coreUnits, int gpu) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
         }
 
         if (jobDao.isOverMaxCores(job, coreUnits)) {
+            return false;
+        }
+
+        if (jobDao.isOverMaxGpu(job, gpu)) {
             return false;
         }
 
@@ -363,13 +403,16 @@ public class DispatchSupportService implements DispatchSupport {
                 .setLayerId(frame.getLayerId())
                 .setResourceId(proc.getProcId())
                 .setNumCores(proc.coresReserved)
+                .setNumGpu(proc.gpuReserved)
                 .setStartTime(System.currentTimeMillis())
                 .setIgnoreNimby(proc.isLocalDispatch)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame))
                 .putEnvironment("CUE3", "1")
                 .putEnvironment("CUE_THREADS", String.valueOf(threads))
+                .putEnvironment("CUE_GPU", String.valueOf(proc.gpuReserved))
                 .putEnvironment("CUE_MEMORY", String.valueOf(proc.memoryReserved))
+                .putEnvironment("CUE_GPU_MEMORY", String.valueOf(proc.gpuMemoryReserved))
                 .putEnvironment("CUE_LOG_PATH", frame.logDir)
                 .putEnvironment("CUE_RANGE", frame.range)
                 .putEnvironment("CUE_CHUNK", String.valueOf(frame.chunkSize))
@@ -556,6 +599,17 @@ public class DispatchSupportService implements DispatchSupport {
         int idleCores = maxLoad - load;
         if (idleCores < host.idleCores) {
             host.idleCores = idleCores;
+        }
+    }
+
+    @Override
+    public void determineIdleGpu(DispatchHost host, int load) {
+        int maxLoad = host.gpu + ((host.gpu / 100) *
+            Dispatcher.CORE_LOAD_THRESHOLD);
+
+        int idleGpu = maxLoad - load;
+        if (idleGpu < host.idleGpu) {
+            host.idleGpu = idleGpu;
         }
     }
 

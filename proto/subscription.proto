@@ -41,6 +41,7 @@ message Subscription {
     int32 size = 6;
     int32 burst = 7;
     int32 reserved_cores = 8;
+    int32 reserved_gpu = 9;
 }
 
 message SubscriptionSeq {

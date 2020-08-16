@@ -87,12 +87,12 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setName(name)
                 .setBootTime(1192369572)
                 .setFreeMcp(7602)
-                .setFreeMem(15290520)
+                .setFreeMemory(15290520)
                 .setFreeSwap((int) CueUtil.MB512)
                 .setLoad(1)
                 .setNimbyEnabled(false)
                 .setTotalMcp(19543)
-                .setTotalMem((int) CueUtil.GB16)
+                .setTotalMemory((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -100,8 +100,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .addAllTags(ImmutableList.of("linux", "64bit"))
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         return host;
@@ -429,7 +429,7 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                         buildRenderHost(TEST_HOST).toBuilder()
                                 .setCoresPerProc(1200)
                                 .setNumProcs(2)
-                                .setTotalMem((int) CueUtil.GB32)
+                                .setTotalMemory((int) CueUtil.GB32)
                 ).build();
         hostDao.updateHostResources(dispatchHost, report);
 

@@ -44,6 +44,10 @@ public interface Dispatcher {
     // The minimum amount of core points you can assign to a frame.
     public static final int CORE_POINTS_RESERVED_MIN = 10;
 
+    // The minimum amount of gpu points you can assign to a frame.
+    public static final int GPU_RESERVED_DEFAULT = 0;
+    public static final int GPU_RESERVED_MIN = 0;
+
     // Amount of load per core a host can have before the perceived
     // number of idle cores is modified to reflect load conditions
     // on the host.
@@ -69,13 +73,17 @@ public interface Dispatcher {
 
     // The default amount of gpu memory reserved for a frame if no gpu memory
     // reservation settings are specified
-    public static final long GPU_RESERVED_DEFAULT = 0;
+    public static final long MEM_GPU_RESERVED_DEFAULT = 0;
 
     // The minimum amount of gpu memory that can be assigned to a frame.
-    public static final long GPU_RESERVED_MIN = 0;
+    public static final long MEM_GPU_RESERVED_MIN = 0;
+
+    // Amount of memory that has to be idle for the rest of the cores
+    // on the machine to be considered stranded.
+    public static final long MEM_GPU_STRANDED_THRESHHOLD = CueUtil.GB + CueUtil.MB512;
 
     // The maximum amount of gpu memory that can be assigned to a frame.
-    public static final long GPU_RESERVED_MAX = CueUtil.GB4;
+    public static final long MEM_GPU_RESERVED_MAX = CueUtil.GB16;
 
     // Return value for cleared frame
     public static final int EXIT_STATUS_FRAME_CLEARED = 299;
@@ -98,7 +106,7 @@ public interface Dispatcher {
     // Upgrade the memory on the layer by 1g and retry.
     public static final int EXIT_STATUS_MEMORY_FAILURE = 33;
 
-    // max retry time
+    // max retry time in seconds
     public static final int FRAME_TIME_NO_RETRY = 3600 * 8;
 
     // The maximum amount of virtual memory a frame can be using

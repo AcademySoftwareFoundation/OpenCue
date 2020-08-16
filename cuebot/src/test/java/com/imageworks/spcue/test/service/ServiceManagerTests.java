@@ -84,7 +84,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB2;
+        s.minGpuMemory = CueUtil.GB2;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet("general"));
         serviceManager.createService(s);
@@ -101,7 +101,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.name = "arnold";
         s.minCores = 400;
         s.minMemory = CueUtil.GB8;
-        s.minGpu = CueUtil.GB2;
+        s.minGpuMemory = CueUtil.GB2;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet("general"));
         s.showId = "00000000-0000-0000-0000-000000000000";
@@ -112,7 +112,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         assertEquals(s, newService);
         assertEquals(400, newService.minCores);
         assertEquals(CueUtil.GB8, newService.minMemory);
-        assertEquals(CueUtil.GB2, newService.minGpu);
+        assertEquals(CueUtil.GB2, newService.minGpuMemory);
         assertFalse(newService.threadable);
         assertTrue(s.tags.contains("general"));
 
@@ -121,7 +121,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         // now check the original is back.
         newService = serviceManager.getService("arnold", s.showId);
         assertEquals(100, newService.minCores);
-        assertEquals(0, newService.minGpu);
+        assertEquals(0, newService.minGpuMemory);
     }
 
     @Test
@@ -145,7 +145,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertEquals(shell.minCores, shellLayer.minimumCores);
         assertEquals(shell.minMemory, shellLayer.minimumMemory);
-        assertEquals(shell.minGpu, shellLayer.minimumGpu);
+        assertEquals(shell.minGpuMemory, shellLayer.minimumGpuMemory);
         assertFalse(shellLayer.isThreadable);
         assertEquals(shell.tags, shellLayer.tags);
         assertThat(shellLayer.services, contains("shell", "katana", "unknown"));
@@ -158,7 +158,7 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertEquals(cuda.minCores, cudaLayer.minimumCores);
         assertEquals(cuda.minMemory, cudaLayer.minimumMemory);
-        assertEquals(cuda.minGpu, cudaLayer.minimumGpu);
+        assertEquals(cuda.minGpuMemory, cudaLayer.minimumGpuMemory);
         assertFalse(cudaLayer.isThreadable);
         assertEquals(cuda.tags, cudaLayer.tags);
         assertThat(cudaLayer.services, contains("cuda"));

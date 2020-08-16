@@ -137,6 +137,40 @@ public interface GroupDao {
      */
 
     public void updateMinCores(GroupInterface group, int value);
+
+    /**
+     * Sets the maximum number of procs the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMaxGpu(GroupInterface group, int value);
+
+    /**
+     * Sets the minimum number of procs the group should be running.
+     *
+     * @param group
+     * @param value
+     */
+    void updateDefaultJobMinGpu(GroupInterface group, int value);
+
+    /**
+     * Sets the maximum number of Gpu for this group
+     *
+     * @param group
+     * @param value
+     */
+    public void updateMaxGpu(GroupInterface group, int value);
+
+    /**
+     * Set the minimum number of Gpu for this group
+     *
+     * @param group
+     * @param value
+     */
+
+    public void updateMinGpu(GroupInterface group, int value);
+
     /**
      * Renames the group
      *
@@ -185,6 +219,14 @@ public interface GroupDao {
      * @return
      */
     boolean isOverMinCores(JobInterface job);
+
+    /**
+     * Returns true if the group of the specified job is at or over its min gpu
+     *
+     * @param job
+     * @return
+     */
+    boolean isOverMinGpu(JobInterface job);
 
     /**
      * Returns true if the group is managed.

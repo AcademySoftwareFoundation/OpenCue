@@ -17,6 +17,7 @@ CREATE TABLE frame_history (
     int_mem_reserved BIGINT DEFAULT 0 NOT NULL,
     int_mem_max_used BIGINT DEFAULT 0 NOT NULL,
     int_cores INT DEFAULT 100 NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
     str_host VARCHAR(64) DEFAULT NULL,
     int_exit_status SMALLINT DEFAULT -1 NOT NULL,
     pk_alloc VARCHAR(36),
@@ -72,13 +73,15 @@ CREATE TABLE layer_output (
 CREATE TABLE show_service (
     pk_show_service VARCHAR(36) NOT NULL,
     pk_show VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_threadable BOOLEAN NOT NULL,
     int_cores_min INT NOT NULL,
     int_mem_min INT NOT NULL,
     str_tags VARCHAR(128) NOT NULL,
     int_cores_max INT DEFAULT 0 NOT NULL,
-    int_gpu_min INT DEFAULT 0 NOT NULL
+    int_gpu_mem_min INT DEFAULT 0 NOT NULL,
+    int_gpu_min INT DEFAULT 0 NOT NULL,
+    int_gpu_max INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE deed (
@@ -114,18 +117,22 @@ CREATE TABLE host_local (
     float_tier NUMERIC(16,2) DEFAULT 0 NOT NULL,
     b_active BOOLEAN DEFAULT true NOT NULL,
     str_type VARCHAR(36) NOT NULL,
-    int_gpu_idle INT DEFAULT 0 NOT NULL,
-    int_gpu_max INT DEFAULT 0 NOT NULL
+    int_gpu_mem_idle INT DEFAULT 0 NOT NULL,
+    int_gpu_mem_max INT DEFAULT 0 NOT NULL,
+    int_gpu_max INT DEFAULT 0 NOT NULL,
+    int_gpu_idle INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE service (
     pk_service VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_threadable BOOLEAN NOT NULL,
     int_cores_min INT NOT NULL,
     int_mem_min INT NOT NULL,
     str_tags VARCHAR(128) NOT NULL,
     int_cores_max INT DEFAULT 0 NOT NULL,
+    int_gpu_mem_min INT DEFAULT 0 NOT NULL,
+    int_gpu_max INT DEFAULT 0 NOT NULL,
     int_gpu_min INT DEFAULT 0 NOT NULL
 );
 
@@ -136,7 +143,9 @@ CREATE TABLE job_local (
     str_source VARCHAR(255) NOT NULL,
     ts_created TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     int_cores INT DEFAULT 0 NOT NULL,
-    int_max_cores INT NOT NULL
+    int_max_cores INT NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
+    int_max_gpu INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE task (
@@ -144,7 +153,9 @@ CREATE TABLE task (
     pk_point VARCHAR(36) NOT NULL,
     str_shot VARCHAR(36) NOT NULL,
     int_min_cores INT DEFAULT 100 NOT NULL,
-    int_adjust_cores INT DEFAULT 0 NOT NULL
+    int_adjust_cores INT DEFAULT 0 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
+    int_adjust_gpu INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE point (
@@ -153,8 +164,10 @@ CREATE TABLE point (
     pk_show VARCHAR(36) NOT NULL,
     str_ti_task VARCHAR(36),
     int_cores INT DEFAULT 0 NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
     b_managed BOOLEAN DEFAULT false NOT NULL,
     int_min_cores INT DEFAULT 0 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
     float_tier NUMERIC(16,2) DEFAULT 0 NOT NULL,
     ts_updated TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL
 );
@@ -180,24 +193,27 @@ CREATE TABLE folder_resource (
     int_cores INT DEFAULT 0 NOT NULL,
     int_max_cores INT DEFAULT -1 NOT NULL,
     int_min_cores INT DEFAULT 0 NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
+    int_max_gpu INT DEFAULT -1 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
     float_tier NUMERIC(16,2) DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE show_alias (
     pk_show_alias VARCHAR(36) NOT NULL,
     pk_show VARCHAR(36) NOT NULL,
-    str_name VARCHAR(16) NOT NULL
+    str_name VARCHAR(128) NOT NULL
 );
 
 CREATE TABLE dept (
     pk_dept VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_default BOOLEAN DEFAULT false NOT NULL
 );
 
 CREATE TABLE facility (
     pk_facility VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_default BOOLEAN DEFAULT false NOT NULL
 );
 
@@ -213,9 +229,12 @@ CREATE TABLE layer_history (
     str_name VARCHAR(512) NOT NULL,
     str_type VARCHAR(16) NOT NULL,
     int_cores_min BIGINT DEFAULT 100 NOT NULL,
+    int_gpu_min BIGINT DEFAULT 0 NOT NULL,
     int_mem_min BIGINT DEFAULT 4194304 NOT NULL,
     int_core_time_success BIGINT DEFAULT 0 NOT NULL,
     int_core_time_fail BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_success BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_fail BIGINT DEFAULT 0 NOT NULL,
     int_frame_count BIGINT DEFAULT 0 NOT NULL,
     int_layer_count BIGINT DEFAULT 0 NOT NULL,
     int_waiting_count BIGINT DEFAULT 0 NOT NULL,
@@ -234,10 +253,12 @@ CREATE TABLE job_history (
     pk_job VARCHAR(36) NOT NULL,
     pk_show VARCHAR(36) NOT NULL,
     str_name VARCHAR(512) NOT NULL,
-    str_shot VARCHAR(64) NOT NULL,
+    str_shot VARCHAR(128) NOT NULL,
     str_user VARCHAR(36) NOT NULL,
     int_core_time_success BIGINT DEFAULT 0 NOT NULL,
     int_core_time_fail BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_success BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_fail BIGINT DEFAULT 0 NOT NULL,
     int_frame_count BIGINT DEFAULT 0 NOT NULL,
     int_layer_count BIGINT DEFAULT 0 NOT NULL,
     int_waiting_count BIGINT DEFAULT 0 NOT NULL,
@@ -257,7 +278,7 @@ CREATE TABLE job_history (
 
 CREATE TABLE task_lock (
     pk_task_lock VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     int_lock BIGINT DEFAULT 0 NOT NULL,
     int_timeout BIGINT DEFAULT 30 NOT NULL,
     ts_lastrun TIMESTAMP (6) DEFAULT current_timestamp NOT NULL
@@ -266,7 +287,7 @@ CREATE TABLE task_lock (
 CREATE TABLE host_tag (
     pk_host_tag VARCHAR(36) NOT NULL,
     pk_host VARCHAR(36) NOT NULL,
-    str_tag VARCHAR(36) NOT NULL,
+    str_tag VARCHAR(128) NOT NULL,
     str_tag_type VARCHAR(24) DEFAULT 'Hardware' NOT NULL,
     b_constant BOOLEAN DEFAULT false NOT NULL
 );
@@ -276,6 +297,8 @@ CREATE TABLE job_usage (
     pk_job VARCHAR(36) NOT NULL,
     int_core_time_success BIGINT DEFAULT 0 NOT NULL,
     int_core_time_fail BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_success BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_fail BIGINT DEFAULT 0 NOT NULL,
     int_frame_success_count INT DEFAULT 0 NOT NULL,
     int_frame_fail_count INT DEFAULT 0 NOT NULL,
     int_clock_time_fail INT DEFAULT 0 NOT NULL,
@@ -287,13 +310,17 @@ CREATE TABLE job_resource (
     pk_job_resource VARCHAR(36) NOT NULL,
     pk_job VARCHAR(36) NOT NULL,
     int_cores BIGINT DEFAULT 0 NOT NULL,
+    int_gpu BIGINT DEFAULT 0 NOT NULL,
     int_max_rss INT DEFAULT 0 NOT NULL,
     int_max_vss INT DEFAULT 0 NOT NULL,
     int_min_cores INT DEFAULT 100 NOT NULL,
-    int_max_cores INT DEFAULT 10000 NOT NULL,
+    int_max_cores INT DEFAULT 100000 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
+    int_max_gpu INT DEFAULT 10 NOT NULL,
     float_tier NUMERIC(16,2) DEFAULT 0 NOT NULL,
-    int_priority INT DEFAULT 1 NOT NULL,
-    int_local_cores INT DEFAULT 0 NOT NULL
+    int_priority INT DEFAULT 100 NOT NULL,
+    int_local_cores INT DEFAULT 0 NOT NULL,
+    int_local_gpu INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE job_stat (
@@ -315,15 +342,18 @@ CREATE TABLE subscription (
     int_size BIGINT DEFAULT 0 NOT NULL,
     int_burst BIGINT DEFAULT 0 NOT NULL,
     int_cores INT DEFAULT 0 NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
     float_tier NUMERIC(16,2) DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE show (
     pk_show VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_paused BOOLEAN DEFAULT false NOT NULL,
     int_default_min_cores INT DEFAULT 100 NOT NULL,
-    int_default_max_cores INT DEFAULT 10000 NOT NULL,
+    int_default_max_cores INT DEFAULT 100000 NOT NULL,
+    int_default_min_gpu INT DEFAULT 100 NOT NULL,
+    int_default_max_gpu INT DEFAULT 100000 NOT NULL,
     int_frame_insert_count BIGINT DEFAULT 0 NOT NULL,
     int_job_insert_count BIGINT DEFAULT 0 NOT NULL,
     int_frame_success_count BIGINT DEFAULT 0 NOT NULL,
@@ -342,6 +372,7 @@ CREATE TABLE proc (
     pk_layer VARCHAR(36),
     pk_frame VARCHAR(36),
     int_cores_reserved BIGINT NOT NULL,
+    int_gpu_reserved BIGINT NOT NULL,
     int_mem_reserved BIGINT NOT NULL,
     int_mem_used BIGINT DEFAULT 0 NOT NULL,
     int_mem_max_used BIGINT DEFAULT 0 NOT NULL,
@@ -354,7 +385,7 @@ CREATE TABLE proc (
     ts_ping TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     ts_booked TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     ts_dispatched TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
-    int_gpu_reserved INT DEFAULT 0 NOT NULL
+    int_gpu_mem_reserved INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE matcher (
@@ -372,6 +403,8 @@ CREATE TABLE layer_usage (
     pk_job VARCHAR(36) NOT NULL,
     int_core_time_success BIGINT DEFAULT 0 NOT NULL,
     int_core_time_fail BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_success BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_time_fail BIGINT DEFAULT 0 NOT NULL,
     int_frame_success_count INT DEFAULT 0 NOT NULL,
     int_frame_fail_count INT DEFAULT 0 NOT NULL,
     int_clock_time_fail INT DEFAULT 0 NOT NULL,
@@ -399,6 +432,7 @@ CREATE TABLE layer_resource (
     pk_layer VARCHAR(36) NOT NULL,
     pk_job VARCHAR(36) NOT NULL,
     int_cores BIGINT DEFAULT 0 NOT NULL,
+    int_gpu BIGINT DEFAULT 0 NOT NULL,
     int_max_rss INT DEFAULT 0 NOT NULL,
     int_max_vss INT DEFAULT 0 NOT NULL
 );
@@ -407,7 +441,7 @@ CREATE TABLE layer_env (
     pk_layer_env VARCHAR(36) NOT NULL,
     pk_layer VARCHAR(36),
     pk_job VARCHAR(36),
-    str_key VARCHAR(36),
+    str_key VARCHAR(128),
     str_value VARCHAR(2048)
 );
 
@@ -420,6 +454,7 @@ CREATE TABLE layer (
     int_chunk_size BIGINT DEFAULT 1 NOT NULL,
     int_dispatch_order BIGINT DEFAULT 1 NOT NULL,
     int_cores_min BIGINT DEFAULT 100 NOT NULL,
+    int_gpu_min BIGINT DEFAULT 0 NOT NULL,
     int_mem_min BIGINT DEFAULT 4194304 NOT NULL,
     str_tags VARCHAR(4000) DEFAULT '' NOT NULL,
     str_type VARCHAR(16) NOT NULL,
@@ -427,13 +462,14 @@ CREATE TABLE layer (
     str_services VARCHAR(128) DEFAULT 'default' NOT NULL,
     b_optimize BOOLEAN DEFAULT true NOT NULL,
     int_cores_max INT DEFAULT 0 NOT NULL,
-    int_gpu_min INT DEFAULT 0 NOT NULL
+    int_gpu_max INT DEFAULT 0 NOT NULL,
+    int_gpu_mem_min INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE job_env (
     pk_job_env VARCHAR(36) NOT NULL,
     pk_job VARCHAR(36),
-    str_key VARCHAR(36),
+    str_key VARCHAR(128),
     str_value VARCHAR(2048)
 );
 
@@ -443,7 +479,7 @@ CREATE TABLE job (
     pk_show VARCHAR(36) NOT NULL,
     str_name VARCHAR(255) NOT NULL,
     str_visible_name VARCHAR(255),
-    str_shot VARCHAR(64) NOT NULL,
+    str_shot VARCHAR(128) NOT NULL,
     str_user VARCHAR(32) NOT NULL,
     str_state VARCHAR(16) NOT NULL,
     str_log_dir VARCHAR(4000) DEFAULT '' NOT NULL,
@@ -462,8 +498,10 @@ CREATE TABLE job (
     ts_started TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     ts_stopped TIMESTAMP (6) WITH TIME ZONE,
     int_min_cores INT DEFAULT 100 NOT NULL,
-    int_max_cores INT DEFAULT 20000 NOT NULL,
-    str_show VARCHAR(32) DEFAULT 'none' NOT NULL,
+    int_max_cores INT DEFAULT 100000 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
+    int_max_gpu INT DEFAULT 100000 NOT NULL,
+    str_show VARCHAR(128) DEFAULT 'none' NOT NULL,
     ts_updated TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     str_os VARCHAR(12) DEFAULT 'rhel40' NOT NULL
 );
@@ -482,32 +520,35 @@ CREATE TABLE host_stat (
     ts_booted TIMESTAMP (6) WITH TIME ZONE DEFAULT current_timestamp NOT NULL,
     str_state VARCHAR(32) DEFAULT 'UP' NOT NULL,
     str_os VARCHAR(12) DEFAULT 'rhel40' NOT NULL,
-    int_gpu_total INT DEFAULT 0 NOT NULL,
-    int_gpu_free INT DEFAULT 0 NOT NULL
+    int_gpu_mem_total INT DEFAULT 0 NOT NULL,
+    int_gpu_mem_free INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE host (
     pk_host VARCHAR(36) NOT NULL,
     pk_alloc VARCHAR(36) NOT NULL,
-    str_name VARCHAR(30) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     str_lock_state VARCHAR(36) NOT NULL,
     b_nimby BOOLEAN DEFAULT false NOT NULL,
     ts_created TIMESTAMP (6) DEFAULT current_timestamp NOT NULL,
     int_cores BIGINT DEFAULT 0 NOT NULL,
+    int_gpu BIGINT DEFAULT 0 NOT NULL,
     int_procs BIGINT DEFAULT 0 NOT NULL,
     int_cores_idle BIGINT DEFAULT 0 NOT NULL,
+    int_gpu_idle BIGINT DEFAULT 0 NOT NULL,
     int_mem BIGINT DEFAULT 0 NOT NULL,
     int_mem_idle BIGINT DEFAULT 0 NOT NULL,
     b_unlock_boot BOOLEAN DEFAULT false NOT NULL,
     b_unlock_idle BOOLEAN DEFAULT false NOT NULL,
     b_reboot_idle BOOLEAN DEFAULT false NOT NULL,
+    b_shutdown_idle BOOLEAN DEFAULT false NOT NULL,
     str_tags VARCHAR(128),
     str_fqdn VARCHAR(128),
     b_comment BOOLEAN DEFAULT false NOT NULL,
     int_thread_mode INT DEFAULT 0 NOT NULL,
     str_lock_source VARCHAR(128),
-    int_gpu INT DEFAULT 0 NOT NULL,
-    int_gpu_idle INT DEFAULT 0 NOT NULL
+    int_gpu_mem INT DEFAULT 0 NOT NULL,
+    int_gpu_mem_idle INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE frame (
@@ -515,7 +556,7 @@ CREATE TABLE frame (
     pk_layer VARCHAR(36) NOT NULL,
     pk_job VARCHAR(36) NOT NULL,
     str_name VARCHAR(256) NOT NULL,
-    str_state VARCHAR(24) NOT NULL,
+    str_state VARCHAR(128) NOT NULL,
     int_number BIGINT NOT NULL,
     int_depend_count BIGINT DEFAULT 0 NOT NULL,
     int_exit_status BIGINT DEFAULT -1 NOT NULL,
@@ -523,9 +564,12 @@ CREATE TABLE frame (
     int_mem_reserved BIGINT DEFAULT 0 NOT NULL,
     int_mem_max_used BIGINT DEFAULT 0 NOT NULL,
     int_mem_used BIGINT DEFAULT 0 NOT NULL,
+    int_io_read_used BIGINT DEFAULT 0 NOT NULL,
+    int_io_write_used BIGINT DEFAULT 0 NOT NULL,
     int_dispatch_order BIGINT DEFAULT 0 NOT NULL,
     str_host VARCHAR(256),
     int_cores INT DEFAULT 0 NOT NULL,
+    int_gpu INT DEFAULT 0 NOT NULL,
     int_layer_order INT NOT NULL,
     ts_started TIMESTAMP (6) WITH TIME ZONE,
     ts_stopped TIMESTAMP (6) WITH TIME ZONE,
@@ -534,8 +578,9 @@ CREATE TABLE frame (
     int_version INT DEFAULT 0,
     str_checkpoint_state VARCHAR(12) DEFAULT 'DISABLED' NOT NULL,
     int_checkpoint_count SMALLINT DEFAULT 0 NOT NULL,
-    int_gpu_reserved INT DEFAULT 0 NOT NULL,
-    int_total_past_core_time INT DEFAULT 0 NOT NULL
+    int_gpu_mem_reserved INT DEFAULT 0 NOT NULL,
+    int_total_past_core_time INT DEFAULT 0 NOT NULL,
+    int_total_past_gpu_time INT DEFAULT 0 NOT NULL
 );
 
 CREATE TABLE folder_level (
@@ -548,15 +593,19 @@ CREATE TABLE folder (
     pk_folder VARCHAR(36) NOT NULL,
     pk_parent_folder VARCHAR(36),
     pk_show VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
-    int_priority BIGINT DEFAULT 1 NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
+    int_priority BIGINT DEFAULT 100 NOT NULL,
     b_default BOOLEAN DEFAULT false NOT NULL,
     pk_dept VARCHAR(36) NOT NULL,
     int_job_min_cores INT DEFAULT -1 NOT NULL,
+    int_job_min_gpu INT DEFAULT -1 NOT NULL,
     int_job_max_cores INT DEFAULT -1 NOT NULL,
+    int_job_max_gpu INT DEFAULT -1 NOT NULL,
     int_job_priority INT DEFAULT -1 NOT NULL,
     int_min_cores INT DEFAULT 0 NOT NULL,
     int_max_cores INT DEFAULT -1 NOT NULL,
+    int_min_gpu INT DEFAULT 0 NOT NULL,
+    int_max_gpu INT DEFAULT -1 NOT NULL,
     b_exclude_managed BOOLEAN DEFAULT false NOT NULL,
     f_order INT DEFAULT 0 NOT NULL
 );
@@ -591,7 +640,7 @@ CREATE TABLE depend (
 
 CREATE TABLE config (
     pk_config VARCHAR(36) NOT NULL,
-    str_key VARCHAR(36) NOT NULL,
+    str_key VARCHAR(128) NOT NULL,
     int_value BIGINT DEFAULT 0,
     long_value BIGINT DEFAULT 0,
     str_value VARCHAR(255) DEFAULT '',
@@ -610,7 +659,7 @@ CREATE TABLE comments (
 
 CREATE TABLE alloc (
     pk_alloc VARCHAR(36) NOT NULL,
-    str_name VARCHAR(36) NOT NULL,
+    str_name VARCHAR(128) NOT NULL,
     b_allow_edit BOOLEAN DEFAULT true NOT NULL,
     b_default BOOLEAN DEFAULT false NOT NULL,
     str_tag VARCHAR(24),
@@ -623,8 +672,8 @@ CREATE TABLE action (
     pk_action VARCHAR(36) NOT NULL,
     pk_filter VARCHAR(36) NOT NULL,
     pk_folder VARCHAR(36),
-    str_action VARCHAR(24) NOT NULL,
-    str_value_type VARCHAR(24) NOT NULL,
+    str_action VARCHAR(256) NOT NULL,
+    str_value_type VARCHAR(256) NOT NULL,
     str_value VARCHAR(4000),
     int_value BIGINT,
     b_value BOOLEAN,
@@ -661,42 +710,6 @@ COMMENT ON COLUMN frame_history.int_mem_reserved IS 'kilobytes of memory reserve
 COMMENT ON COLUMN frame_history.int_mem_max_used IS 'maximum kilobytes of rss memory used';
 
 COMMENT ON COLUMN frame_history.int_cores IS '100 cores per physical core';
-
-
-CREATE FUNCTION CALCULATE_CORE_HOURS (NUMERIC, NUMERIC, NUMERIC, NUMERIC, NUMERIC, NUMERIC)
-RETURNS NUMERIC AS '
-DECLARE
-    int_ts_started ALIAS FOR $1;
-    int_ts_stopped ALIAS FOR $2;
-    int_start_report ALIAS FOR $3;
-    int_stop_report ALIAS FOR $4;
-    int_job_stopped ALIAS FOR $5;
-    int_cores ALIAS FOR $6;
-
-    int_started NUMERIC(12,0);
-    int_stopped NUMERIC(12,0);
-BEGIN
-    IF int_cores = 0 THEN
-        RETURN 0;
-    END IF;
-
-    int_started := int_ts_started;
-    int_stopped := int_ts_stopped;
-
-    IF int_stopped = 0 THEN
-        int_stopped := int_job_stopped;
-    END IF;
-
-    IF int_stopped = 0 OR int_stopped > int_stop_report THEN
-        int_stopped := int_stop_report;
-    END IF;
-
-    IF int_started < int_start_report THEN
-        int_started := int_start_report;
-    END IF;
-    RETURN ((int_stopped - int_started) * (int_cores / 100) / 3600);
-END;
-' LANGUAGE 'plpgsql';
 
 CREATE FUNCTION INTERVAL_TO_SECONDS(IN INTERVAL)
 RETURNS NUMERIC AS '
@@ -838,13 +851,14 @@ BEGIN
   -- concatenates all tags in host_tag and sets host.str_tags
   --
   UPDATE subscription SET int_cores = 0;
+  UPDATE subscription SET int_gpu = 0;
   FOR r IN
-    SELECT proc.pk_show, alloc.pk_alloc, sum(proc.int_cores_reserved) as c
+    SELECT proc.pk_show, alloc.pk_alloc, sum(proc.int_cores_reserved) as c, proc.pk_show, alloc.pk_alloc, sum(proc.int_gpu_reserved) as d
     FROM proc, host, alloc
     WHERE proc.pk_host = host.pk_host AND host.pk_alloc = alloc.pk_alloc
     GROUP BY proc.pk_show, alloc.pk_alloc
   LOOP
-    UPDATE subscription SET int_cores = r.c WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
+    UPDATE subscription SET int_cores = r.c, int_gpu = r.d WHERE pk_alloc=r.pk_alloc AND pk_show=r.pk_show;
 
   END LOOP;
 END;
@@ -949,12 +963,12 @@ DECLARE
     t RECORD;
 BEGIN
     FOR t IN
-        SELECT pk_folder, pk_show, sum(int_cores) AS c
+        SELECT pk_folder, pk_show, sum(int_cores) AS c, pk_folder, pk_show, sum(int_gpu) AS d
         FROM job, job_resource
         WHERE job.pk_job = job_resource.pk_job
         GROUP by pk_folder, pk_show
     LOOP
-        UPDATE folder_resource SET int_cores = t.c WHERE pk_folder = t.pk_folder;
+        UPDATE folder_resource SET int_cores = t.c, int_gpu = t.d WHERE pk_folder = t.pk_folder;
         COMMIT;
     END LOOP;
 END;
@@ -967,12 +981,12 @@ DECLARE
     t RECORD;
 BEGIN
     FOR t IN
-        SELECT pk_dept, pk_show, sum(int_cores) AS c
+        SELECT pk_dept, pk_show, sum(int_cores) AS c, pk_dept, pk_show, sum(int_gpu) AS d
         FROM job, job_resource
         WHERE job.pk_job = job_resource.pk_job
         GROUP BY pk_dept, pk_show
     LOOP
-        UPDATE point SET int_cores = t.c WHERE pk_show = t.pk_show AND pk_dept = t.pk_dept;
+        UPDATE point SET int_cores = t.c , int_gpu = t.d WHERE pk_show = t.pk_show AND pk_dept = t.pk_dept;
     END LOOP;
 END;
 $body$
@@ -984,12 +998,12 @@ DECLARE
     t RECORD;
 BEGIN
     FOR t IN
-        SELECT proc.pk_show, host.pk_alloc, sum(int_cores_reserved) AS c
+        SELECT proc.pk_show, host.pk_alloc, sum(int_cores_reserved) AS c, proc.pk_show, host.pk_alloc, sum(int_gpu_reserved) AS d
         FROM proc, host
         WHERE proc.pk_host = host.pk_host
         GROUP BY proc.pk_show, host.pk_alloc
     LOOP
-        UPDATE subscription SET int_cores = t.c WHERE pk_show = t.pk_show AND pk_alloc = t.pk_alloc;
+        UPDATE subscription SET int_cores = t.c, int_gpu = t.d WHERE pk_show = t.pk_show AND pk_alloc = t.pk_alloc;
     END LOOP;
 END;
 $body$
@@ -1072,7 +1086,7 @@ CREATE INDEX i_frame_pkjoblayer ON frame (pk_layer);
 
 CREATE UNIQUE INDEX c_frame_str_name_unq ON frame (str_name, pk_job);
 
-CREATE INDEX i_frame_int_gpu_reserved ON frame (int_gpu_reserved);
+CREATE INDEX i_frame_int_gpu_mem_reserved ON frame (int_gpu_mem_reserved);
 
 CREATE UNIQUE INDEX c_str_host_fqdn_uk ON host (str_fqdn);
 
@@ -1084,15 +1098,15 @@ CREATE INDEX i_host_pkalloc ON host (pk_alloc);
 
 CREATE INDEX i_host_strlockstate ON host (str_lock_state);
 
-CREATE INDEX i_host_int_gpu ON host (int_gpu);
+CREATE INDEX i_host_int_gpu_mem ON host (int_gpu_mem);
 
-CREATE INDEX i_host_int_gpu_idle ON host (int_gpu_idle);
+CREATE INDEX i_host_int_gpu_mem_idle ON host (int_gpu_mem_idle);
 
 CREATE INDEX i_host_str_tags ON host (str_tags);
 
-CREATE INDEX i_host_stat_int_gpu_total ON host_stat (int_gpu_total);
+CREATE INDEX i_host_stat_int_gpu_mem_total ON host_stat (int_gpu_mem_total);
 
-CREATE INDEX i_host_stat_int_gpu_free ON host_stat (int_gpu_free);
+CREATE INDEX i_host_stat_int_gpu_mem_free ON host_stat (int_gpu_mem_free);
 
 CREATE INDEX i_host_stat_str_os ON host_stat (str_os);
 
@@ -1128,9 +1142,9 @@ CREATE INDEX i_job_env_pk_job ON job_env (pk_job);
 
 CREATE INDEX i_layer_b_threadable ON layer (b_threadable);
 
-CREATE INDEX i_layer_cores_mem ON layer (int_cores_min, int_mem_min);
+CREATE INDEX i_layer_cores_mem ON layer (int_cores_min, int_gpu_min, int_mem_min);
 
-CREATE INDEX i_layer_cores_mem_thread ON layer (int_cores_min, int_mem_min, b_threadable);
+CREATE INDEX i_layer_cores_mem_thread ON layer (int_cores_min, int_gpu_min, int_mem_min, b_threadable);
 
 CREATE INDEX i_layer_mem_min ON layer (int_mem_min);
 
@@ -1144,7 +1158,7 @@ CREATE INDEX i_layer_strname ON layer (str_name);
 
 CREATE UNIQUE INDEX c_layer_str_name_unq ON layer (str_name, pk_job);
 
-CREATE INDEX i_layer_int_gpu_min ON layer (int_gpu_min);
+CREATE INDEX i_layer_int_gpu_mem_min ON layer (int_gpu_mem_min);
 
 CREATE UNIQUE INDEX c_layer_env_pk ON layer_env (pk_layer_env);
 
@@ -1188,7 +1202,7 @@ CREATE INDEX i_proc_pklayer ON proc (pk_layer);
 
 CREATE INDEX i_proc_pkshow ON proc (pk_show);
 
-CREATE INDEX i_proc_int_gpu_reserved ON proc (int_gpu_reserved);
+CREATE INDEX i_proc_int_gpu_mem_reserved ON proc (int_gpu_mem_reserved);
 
 CREATE UNIQUE INDEX c_show_pk ON show (pk_show);
 
@@ -1206,7 +1220,7 @@ CREATE UNIQUE INDEX i_job_stat_pk_job ON job_stat (pk_job);
 
 CREATE UNIQUE INDEX c_job_stat_pk ON job_stat (pk_job_stat);
 
-CREATE INDEX i_job_resource_min_max ON job_resource (int_min_cores, int_max_cores);
+CREATE INDEX i_job_resource_min_max ON job_resource (int_min_cores, int_max_cores, int_min_gpu, int_max_gpu);
 
 CREATE INDEX i_job_tier ON job_resource (float_tier);
 
@@ -1214,9 +1228,9 @@ CREATE UNIQUE INDEX c_job_resource_pk ON job_resource (pk_job_resource);
 
 CREATE UNIQUE INDEX c_job_resource_uk ON job_resource (pk_job);
 
-CREATE INDEX i_job_resource_cores ON job_resource (int_cores);
+CREATE INDEX i_job_resource_cores ON job_resource (int_cores, int_gpu);
 
-CREATE INDEX i_job_resource_max_c ON job_resource (int_max_cores);
+CREATE INDEX i_job_resource_max_c ON job_resource (int_max_cores, int_max_gpu);
 
 CREATE UNIQUE INDEX c_job_usage_pk ON job_usage (pk_job_usage);
 
@@ -1274,7 +1288,7 @@ CREATE UNIQUE INDEX c_show_alias_pk ON show_alias (pk_show_alias);
 
 CREATE UNIQUE INDEX c_folder_resource_pk ON folder_resource (pk_folder_resource);
 
-CREATE INDEX i_folder_res_int_max_cores ON folder_resource (int_max_cores);
+CREATE INDEX i_folder_res_int_max_cores ON folder_resource (int_max_cores, int_max_gpu);
 
 CREATE INDEX i_folder_resource_fl_tier ON folder_resource (float_tier);
 
@@ -1320,7 +1334,7 @@ CREATE UNIQUE INDEX c_pk_service ON service (pk_service);
 
 CREATE UNIQUE INDEX i_service_str_name ON service (str_name);
 
-CREATE INDEX i_service_int_gpu_min ON service (int_gpu_min);
+CREATE INDEX i_service_int_gpu_mem_min ON service (int_gpu_mem_min);
 
 CREATE INDEX i_host_local ON host_local (pk_host);
 
@@ -1330,9 +1344,9 @@ CREATE INDEX i_host_local_pk_job ON host_local (pk_job);
 
 CREATE UNIQUE INDEX i_host_local_unique ON host_local (pk_host, pk_job);
 
-CREATE INDEX i_host_local_int_gpu_idle ON host_local (int_gpu_idle);
+CREATE INDEX i_host_local_int_gpu_mem_idle ON host_local (int_gpu_mem_idle);
 
-CREATE INDEX i_host_local_int_gpu_max ON host_local (int_gpu_max);
+CREATE INDEX i_host_local_int_gpu_mem_max ON host_local (int_gpu_mem_max);
 
 CREATE UNIQUE INDEX c_pk_owner ON owner (pk_owner);
 
@@ -1350,7 +1364,7 @@ CREATE UNIQUE INDEX c_pk_show_service ON show_service (pk_show_service);
 
 CREATE UNIQUE INDEX i_show_service_str_name ON show_service (str_name, pk_show);
 
-CREATE INDEX i_show_service_int_gpu_min ON show_service (int_gpu_min);
+CREATE INDEX i_show_service_int_gpu_mem_min ON show_service (int_gpu_mem_min);
 
 CREATE UNIQUE INDEX c_pk_layer_output ON layer_output (pk_layer_output);
 
@@ -1586,10 +1600,10 @@ ALTER TABLE redirect ADD CONSTRAINT c_redirect_pk PRIMARY KEY
   USING INDEX c_redirect_pk;
 
 
-CREATE VIEW vs_show_resource (pk_show, int_cores) AS
+CREATE VIEW vs_show_resource (pk_show, int_cores, int_gpu) AS
   SELECT
         job.pk_show,
-        SUM(int_cores) AS int_cores
+        SUM(int_cores) AS int_cores, SUM(int_gpu) AS int_gpu
     FROM
        job,
        job_resource
@@ -1618,11 +1632,12 @@ CREATE VIEW vs_show_stat (pk_show, int_pending_count, int_running_count, int_dea
     GROUP BY job.pk_show;
 
 
-CREATE VIEW vs_job_resource (pk_job, int_procs, int_cores, int_mem_reserved) AS
+CREATE VIEW vs_job_resource (pk_job, int_procs, int_cores, int_gpu, int_mem_reserved) AS
   SELECT
        job.pk_job,
        COUNT(proc.pk_proc) AS int_procs,
        COALESCE(SUM(int_cores_reserved),0) AS int_cores,
+       COALESCE(SUM(int_gpu_reserved),0) AS int_gpu,
        COALESCE(SUM(int_mem_reserved),0) AS int_mem_reserved
     FROM
        job LEFT JOIN proc ON (proc.pk_job = job.pk_job)
@@ -1630,7 +1645,7 @@ CREATE VIEW vs_job_resource (pk_job, int_procs, int_cores, int_mem_reserved) AS
        job.pk_job;
 
 
-CREATE VIEW vs_alloc_usage (pk_alloc, int_cores, int_idle_cores, int_running_cores, int_locked_cores, int_available_cores, int_hosts, int_locked_hosts, int_down_hosts) AS
+CREATE VIEW vs_alloc_usage (pk_alloc, int_cores, int_idle_cores, int_running_cores, int_locked_cores, int_available_cores, int_gpu, int_idle_gpu, int_running_gpu, int_locked_gpu, int_available_gpu, int_hosts, int_locked_hosts, int_down_hosts) AS
   SELECT
         alloc.pk_alloc,
         COALESCE(SUM(host.int_cores),0) AS int_cores,
@@ -1638,6 +1653,11 @@ CREATE VIEW vs_alloc_usage (pk_alloc, int_cores, int_idle_cores, int_running_cor
         COALESCE(SUM(host.int_cores - host.int_cores_idle),0) as int_running_cores,
         COALESCE((SELECT SUM(int_cores) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NIMBY_LOCKED' OR str_lock_state='LOCKED')),0) AS int_locked_cores,
         COALESCE((SELECT SUM(int_cores_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='OPEN' AND hs.str_state ='UP'),0) AS int_available_cores,
+        COALESCE(SUM(host.int_gpu),0) AS int_gpu,
+        COALESCE(SUM(host.int_gpu_idle),0) AS int_idle_gpu,
+        COALESCE(SUM(host.int_gpu - host.int_gpu_idle),0) as int_running_gpu,
+        COALESCE((SELECT SUM(int_gpu) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND (str_lock_state='NIMBY_LOCKED' OR str_lock_state='LOCKED')),0) AS int_locked_gpu,
+        COALESCE((SELECT SUM(int_gpu_idle) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND h.str_lock_state='OPEN' AND hs.str_state ='UP'),0) AS int_available_gpu,
         COUNT(host.pk_host) AS int_hosts,
         (SELECT COUNT(*) FROM host WHERE host.pk_alloc=alloc.pk_alloc AND str_lock_state='LOCKED') AS int_locked_hosts,
         (SELECT COUNT(*) FROM host h,host_stat hs WHERE h.pk_host = hs.pk_host AND h.pk_alloc=alloc.pk_alloc AND hs.str_state='DOWN') AS int_down_hosts
@@ -1647,7 +1667,7 @@ CREATE VIEW vs_alloc_usage (pk_alloc, int_cores, int_idle_cores, int_running_cor
         alloc.pk_alloc;
 
 
-CREATE VIEW vs_folder_counts (pk_folder, int_depend_count, int_waiting_count, int_running_count, int_dead_count, int_cores, int_job_count) AS
+CREATE VIEW vs_folder_counts (pk_folder, int_depend_count, int_waiting_count, int_running_count, int_dead_count, int_cores, int_gpu, int_job_count) AS
   SELECT
     folder.pk_folder,
     COALESCE(SUM(int_depend_count),0) AS int_depend_count,
@@ -1655,6 +1675,7 @@ CREATE VIEW vs_folder_counts (pk_folder, int_depend_count, int_waiting_count, in
     COALESCE(SUM(int_running_count),0) AS int_running_count,
     COALESCE(SUM(int_dead_count),0) AS int_dead_count,
     COALESCE(SUM(int_cores),0) AS int_cores,
+    COALESCE(SUM(int_gpu),0) AS int_gpu,
     COALESCE(COUNT(job.pk_job),0) AS int_job_count
 FROM
     folder
@@ -1686,13 +1707,15 @@ CREATE VIEW vs_waiting (pk_show) AS
     AND
         jr.int_max_cores - jr.int_cores >= 100
     AND
+        jr.int_max_gpu - jr.int_gpu >= 1
+    AND
         job_stat.int_waiting_count != 0
 
     GROUP BY job.pk_show;
 
 
 CREATE VIEW v_history_frame (pk_frame_history, pk_frame, pk_layer, pk_job, str_name, str_state,
-    int_mem_reserved, int_mem_max_used, int_cores, str_host, int_exit_status, str_alloc_name,
+    int_mem_reserved, int_mem_max_used, int_cores, int_gpu, str_host, int_exit_status, str_alloc_name,
     b_alloc_billable, str_facility_name, int_ts_started, int_ts_stopped, int_checkpoint_count,
     str_show_name, dt_last_modified) AS
   SELECT
@@ -1705,6 +1728,7 @@ CREATE VIEW v_history_frame (pk_frame_history, pk_frame, pk_layer, pk_job, str_n
     fh.INT_MEM_RESERVED,
     fh.INT_MEM_MAX_USED,
     fh.INT_CORES,
+    fh.int_gpu,
     fh.STR_HOST,
     fh.INT_EXIT_STATUS,
     a.STR_NAME STR_ALLOC_NAME,
@@ -1725,7 +1749,7 @@ CREATE VIEW v_history_frame (pk_frame_history, pk_frame, pk_layer, pk_job, str_n
   WHERE fh.dt_last_modified >= (SELECT dt_begin FROM history_period)
     AND fh.dt_last_modified < (SELECT dt_end FROM history_period);
 
-CREATE VIEW v_history_job (pk_job, str_name, str_shot, str_user, int_core_time_success, int_core_time_fail, int_frame_count, int_layer_count, int_waiting_count, int_dead_count, int_depend_count, int_eaten_count, int_succeeded_count, int_running_count, int_max_rss, b_archived, str_facility_name, str_dept_name, int_ts_started, int_ts_stopped, str_show_name, dt_last_modified) AS
+CREATE VIEW v_history_job (pk_job, str_name, str_shot, str_user, int_core_time_success, int_core_time_fail, int_gpu_time_success, int_gpu_time_fail, int_frame_count, int_layer_count, int_waiting_count, int_dead_count, int_depend_count, int_eaten_count, int_succeeded_count, int_running_count, int_max_rss, b_archived, str_facility_name, str_dept_name, int_ts_started, int_ts_stopped, str_show_name, dt_last_modified) AS
   select
 jh.PK_JOB,
 jh.STR_NAME,
@@ -1733,6 +1757,8 @@ jh.STR_SHOT,
 jh.STR_USER,
 jh.INT_CORE_TIME_SUCCESS,
 jh.INT_CORE_TIME_FAIL,
+jh.INT_GPU_TIME_SUCCESS,
+jh.INT_GPU_TIME_FAIL,
 jh.INT_FRAME_COUNT,
 jh.INT_LAYER_COUNT,
 jh.INT_WAITING_COUNT,
@@ -1762,9 +1788,8 @@ and (
     jh.int_ts_stopped = 0
 );
 
-CREATE VIEW v_history_layer (pk_layer, pk_job, str_name, str_type, int_cores_min,
-    int_mem_min, int_core_time_success, int_core_time_fail, int_frame_count, int_layer_count,
-    int_waiting_count, int_dead_count, int_depend_count, int_eaten_count, int_succeeded_count,
+CREATE VIEW v_history_layer (pk_layer, pk_job, str_name, str_type, int_cores_min, int_gpu_min,
+    int_mem_min, int_core_time_success, int_core_time_fail, int_gpu_time_success, int_gpu_time_fail, int_frame_count, int_layer_count, int_waiting_count, int_dead_count, int_depend_count, int_eaten_count, int_succeeded_count,
     int_running_count, int_max_rss, b_archived, str_services, str_show_name, dt_last_modified) AS
   SELECT
 lh.PK_LAYER,
@@ -1772,9 +1797,12 @@ lh.PK_JOB,
 lh.STR_NAME,
 lh.STR_TYPE,
 lh.INT_CORES_MIN,
+lh.int_GPU_MIN,
 lh.INT_MEM_MIN,
 lh.INT_CORE_TIME_SUCCESS,
 lh.INT_CORE_TIME_FAIL,
+lh.INT_GPU_TIME_SUCCESS,
+lh.INT_GPU_TIME_FAIL,
 lh.INT_FRAME_COUNT,
 lh.INT_LAYER_COUNT,
 lh.INT_WAITING_COUNT,
@@ -2051,6 +2079,8 @@ ALTER TABLE frame_history ADD CONSTRAINT c_frame_history_pk_alloc FOREIGN KEY (p
 CREATE TYPE JobStatType AS (
     int_core_time_success BIGINT,
     int_core_time_fail BIGINT,
+    int_gpu_time_success BIGINT,
+    int_gpu_time_fail BIGINT,
     int_waiting_count BIGINT,
     int_dead_count BIGINT,
     int_depend_count BIGINT,
@@ -2063,6 +2093,8 @@ CREATE TYPE JobStatType AS (
 CREATE TYPE LayerStatType AS (
     int_core_time_success BIGINT,
     int_core_time_fail BIGINT,
+    int_gpu_time_success BIGINT,
+    int_gpu_time_fail BIGINT,
     int_total_count BIGINT,
     int_waiting_count BIGINT,
     int_dead_count BIGINT,
@@ -2093,15 +2125,24 @@ CREATE FUNCTION trigger__after_job_moved()
 RETURNS TRIGGER AS $body$
 DECLARE
     int_core_count INT;
+    int_gpu_core_count INT;
 BEGIN
-    SELECT int_cores INTO int_core_count
-    FROM job_resource WHERE pk_job = NEW.pk_job;
+    SELECT int_cores INTO int_core_count FROM job_resource WHERE pk_job = NEW.pk_job;
+    SELECT int_gpu INTO int_gpu_core_count FROM job_resource WHERE pk_job = NEW.pk_job;
 
     IF int_core_count > 0 THEN
         UPDATE folder_resource SET int_cores = int_cores + int_core_count
         WHERE pk_folder = NEW.pk_folder;
 
         UPDATE folder_resource  SET int_cores = int_cores - int_core_count
+        WHERE pk_folder = OLD.pk_folder;
+    END IF;
+
+    IF int_gpu_core_count > 0 THEN
+        UPDATE folder_resource SET int_gpu = int_gpu + int_gpu_core_count
+        WHERE pk_folder = NEW.pk_folder;
+
+        UPDATE folder_resource  SET int_gpu = int_gpu - int_gpu_core_count
         WHERE pk_folder = OLD.pk_folder;
     END IF;
     RETURN NULL;
@@ -2123,6 +2164,8 @@ BEGIN
     SELECT
         job_usage.int_core_time_success,
         job_usage.int_core_time_fail,
+        job_usage.int_gpu_time_success,
+        job_usage.int_gpu_time_fail,
         job_stat.int_waiting_count,
         job_stat.int_dead_count,
         job_stat.int_depend_count,
@@ -2149,6 +2192,8 @@ BEGIN
         pk_dept = OLD.pk_dept,
         int_core_time_success = js.int_core_time_success,
         int_core_time_fail = js.int_core_time_fail,
+        int_gpu_time_success = js.int_gpu_time_success,
+        int_gpu_time_fail = js.int_gpu_time_fail,
         int_frame_count = OLD.int_frame_count,
         int_layer_count = OLD.int_layer_count,
         int_waiting_count = js.int_waiting_count,
@@ -2194,6 +2239,8 @@ BEGIN
     SELECT
         job_usage.int_core_time_success,
         job_usage.int_core_time_fail,
+        job_usage.int_gpu_time_success,
+        job_usage.int_gpu_time_fail,
         job_stat.int_waiting_count,
         job_stat.int_dead_count,
         job_stat.int_depend_count,
@@ -2220,6 +2267,8 @@ BEGIN
         pk_dept = NEW.pk_dept,
         int_core_time_success = js.int_core_time_success,
         int_core_time_fail = js.int_core_time_fail,
+        int_gpu_time_success = js.int_gpu_time_success,
+        int_gpu_time_fail = js.int_gpu_time_fail,
         int_frame_count = NEW.int_frame_count,
         int_layer_count = NEW.int_layer_count,
         int_waiting_count = js.int_waiting_count,
@@ -2238,6 +2287,8 @@ BEGIN
         SELECT
             layer_usage.int_core_time_success,
             layer_usage.int_core_time_fail,
+            layer_usage.int_gpu_time_success,
+            layer_usage.int_gpu_time_fail,
             layer_stat.int_total_count,
             layer_stat.int_waiting_count,
             layer_stat.int_dead_count,
@@ -2264,6 +2315,8 @@ BEGIN
         SET
             int_core_time_success = ls.int_core_time_success,
             int_core_time_fail = ls.int_core_time_fail,
+            int_gpu_time_success = ls.int_gpu_time_success,
+            int_gpu_time_fail = ls.int_gpu_time_fail,
             int_frame_count = ls.int_total_count,
             int_waiting_count = ls.int_waiting_count,
             int_dead_count = ls.int_dead_count,
@@ -2320,18 +2373,27 @@ CREATE FUNCTION trigger__after_job_dept_update()
 RETURNS TRIGGER AS $body$
 DECLARE
     int_running_cores INT;
+    int_running_gpu INT;
 BEGIN
   /**
   * Handles the accounting for moving a job between departments.
   **/
-  SELECT int_cores INTO int_running_cores
-    FROM job_resource WHERE pk_job = NEW.pk_job;
+  SELECT int_cores INTO int_running_cores FROM job_resource WHERE pk_job = NEW.pk_job;
+  SELECT int_gpu INTO int_running_gpu FROM job_resource WHERE pk_job = NEW.pk_job;
 
   IF int_running_cores > 0 THEN
     UPDATE point SET int_cores = int_cores + int_running_cores
         WHERE pk_dept = NEW.pk_dept AND pk_show = NEW.pk_show;
 
     UPDATE point SET int_cores = int_cores - int_running_cores
+        WHERE pk_dept = OLD.pk_dept AND pk_show = OLD.pk_show;
+  END IF;
+
+  IF int_running_gpu > 0 THEN
+    UPDATE point SET int_gpu = int_gpu + int_running_gpu
+        WHERE pk_dept = NEW.pk_dept AND pk_show = NEW.pk_show;
+
+    UPDATE point SET int_gpu = int_gpu - int_running_gpu
         WHERE pk_dept = OLD.pk_dept AND pk_show = OLD.pk_show;
   END IF;
 
@@ -2359,6 +2421,10 @@ BEGIN
         RAISE EXCEPTION 'host local doesnt have enough idle cores.';
     END IF;
 
+    IF NEW.int_gpu_idle < 0 THEN
+        RAISE EXCEPTION 'host local doesnt have enough GPU idle cores.';
+    END IF;
+
     IF NEW.int_mem_idle < 0 THEN
         RAISE EXCEPTION 'host local doesnt have enough idle memory';
     END IF;
@@ -2371,7 +2437,9 @@ LANGUAGE PLPGSQL;
 CREATE TRIGGER verify_host_local BEFORE UPDATE ON host_local
 FOR EACH ROW
    WHEN ((NEW.int_cores_max = OLD.int_cores_max AND NEW.int_mem_max = OLD.int_mem_max) AND
-    (NEW.int_cores_idle != OLD.int_cores_idle OR NEW.int_mem_idle != OLD.int_mem_idle))
+    (NEW.int_cores_idle != OLD.int_cores_idle OR NEW.int_mem_idle != OLD.int_mem_idle) AND
+    (NEW.int_gpu_max = OLD.int_gpu_max AND NEW.int_mem_max = OLD.int_mem_max) AND
+    (NEW.int_gpu_idle != OLD.int_gpu_idle OR NEW.int_mem_idle != OLD.int_mem_idle))
    EXECUTE PROCEDURE trigger__verify_host_local();
 
 
@@ -2398,9 +2466,9 @@ BEGIN
     INSERT INTO layer_mem (pk_layer_mem, pk_layer, pk_job) VALUES (NEW.pk_layer, NEW.pk_layer, NEW.pk_job);
 
     INSERT INTO layer_history
-        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_mem_min, b_archived,str_services)
+        (pk_layer, pk_job, str_name, str_type, int_cores_min, int_gpu_min, int_mem_min, b_archived,str_services)
     VALUES
-        (NEW.pk_layer, NEW.pk_job, NEW.str_name, NEW.str_type, NEW.int_cores_min, NEW.int_mem_min, false, NEW.str_services);
+        (NEW.pk_layer, NEW.pk_job, NEW.str_name, NEW.str_type, NEW.int_cores_min, NEW.int_gpu_min, NEW.int_mem_min, false, NEW.str_services);
 
     RETURN NEW;
 END;
@@ -2420,6 +2488,8 @@ BEGIN
     SELECT
         layer_usage.int_core_time_success,
         layer_usage.int_core_time_fail,
+        layer_usage.int_gpu_time_success,
+        layer_usage.int_gpu_time_fail,
         layer_stat.int_total_count,
         layer_stat.int_waiting_count,
         layer_stat.int_dead_count,
@@ -2446,6 +2516,8 @@ BEGIN
     SET
         int_core_time_success = js.int_core_time_success,
         int_core_time_fail = js.int_core_time_fail,
+        int_gpu_time_success = js.int_gpu_time_success,
+        int_gpu_time_fail = js.int_gpu_time_fail,
         int_frame_count = js.int_total_count,
         int_waiting_count = js.int_waiting_count,
         int_dead_count = js.int_dead_count,
@@ -2500,10 +2572,13 @@ BEGIN
         RAISE EXCEPTION 'unable to allocate additional memory';
     END IF;
 
-    If NEW.int_gpu_idle < 0 THEN
-        RAISE EXCEPTION 'unable to allocate additional gpu memory';
+    IF NEW.int_gpu_idle < 0 THEN
+        RAISE EXCEPTION 'unable to allocate additional core units';
     END IF;
 
+    If NEW.int_gpu_mem_idle < 0 THEN
+        RAISE EXCEPTION 'unable to allocate additional gpu memory';
+    END IF;
     RETURN NEW;
 END;
 $body$
@@ -2511,7 +2586,10 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER verify_host_resources BEFORE UPDATE ON host
 FOR EACH ROW
-   WHEN (NEW.int_cores_idle != OLD.int_cores_idle OR NEW.int_mem_idle != OLD.int_mem_idle)
+   WHEN (NEW.int_cores_idle != OLD.int_cores_idle
+        OR NEW.int_mem_idle != OLD.int_mem_idle
+        OR NEW.int_gpu_idle != OLD.int_gpu_idle 
+        OR NEW.int_gpu_mem_idle != OLD.int_gpu_mem_idle)
    EXECUTE PROCEDURE trigger__verify_host_resources();
 
 
@@ -2543,6 +2621,9 @@ BEGIN
     IF NEW.int_cores > NEW.int_max_cores THEN
         RAISE EXCEPTION 'job has exceeded max cores';
     END IF;
+    IF NEW.int_gpu > NEW.int_max_gpu THEN
+        RAISE EXCEPTION 'job has exceeded max GPU cores';
+    END IF;
     RETURN NEW;
 END;
 $body$
@@ -2550,7 +2631,8 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER verify_job_resources BEFORE UPDATE ON job_resource
 FOR EACH ROW
-  WHEN (NEW.int_max_cores = OLD.int_max_cores AND NEW.int_cores > OLD.int_cores)
+  WHEN (NEW.int_max_cores = OLD.int_max_cores AND NEW.int_cores > OLD.int_cores OR
+        NEW.int_max_gpu = OLD.int_max_gpu AND NEW.int_gpu > OLD.int_gpu)
   EXECUTE PROCEDURE trigger__verify_job_resources();
 
 
@@ -2581,6 +2663,9 @@ BEGIN
     IF NEW.int_cores > NEW.int_max_cores THEN
         RAISE EXCEPTION 'job local has exceeded max cores';
     END IF;
+    IF NEW.int_gpu > NEW.int_max_gpu THEN
+        RAISE EXCEPTION 'job local has exceeded max GPU cores';
+    END IF;
     RETURN NEW;
 END;
 $body$
@@ -2588,7 +2673,8 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER verify_job_local BEFORE UPDATE ON job_local
 FOR EACH ROW
-  WHEN (NEW.int_max_cores = OLD.int_max_cores AND NEW.int_cores > OLD.int_cores)
+  WHEN (NEW.int_max_cores = OLD.int_max_cores AND NEW.int_cores > OLD.int_cores OR
+        NEW.int_max_gpu = OLD.int_max_gpu AND NEW.int_gpu > OLD.int_gpu)
   EXECUTE PROCEDURE trigger__verify_job_local();
 
 
@@ -2692,14 +2778,16 @@ BEGIN
       IF lr.pk_layer = OLD.pk_layer THEN
 
         UPDATE layer_resource SET
-          int_cores = int_cores - OLD.int_cores_reserved
+          int_cores = int_cores - OLD.int_cores_reserved,
+          int_gpu = int_gpu - OLD.int_gpu_reserved
         WHERE
           pk_layer = OLD.pk_layer;
 
       ELSE
 
         UPDATE layer_resource SET
-          int_cores = int_cores + NEW.int_cores_reserved
+          int_cores = int_cores + NEW.int_cores_reserved,
+          int_gpu = int_gpu + NEW.int_gpu_reserved
        WHERE
           pk_layer = NEW.pk_layer;
        END IF;
@@ -2835,19 +2923,21 @@ BEGIN
             str_name,
             str_state,
             int_cores,
+            int_gpu,
             int_mem_reserved,
             str_host,
             int_ts_started,
             pk_alloc
          )
          VALUES
-            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)'
+            ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)'
          USING NEW.pk_frame,
             NEW.pk_layer,
             NEW.pk_job,
             NEW.str_name,
             'RUNNING',
             NEW.int_cores,
+            NEW.int_gpu,
             NEW.int_mem_reserved,
             NEW.str_host,
             epoch(current_timestamp),
@@ -2923,7 +3013,8 @@ LANGUAGE PLPGSQL;
 
 CREATE TRIGGER verify_subscription BEFORE UPDATE ON subscription
 FOR EACH ROW
-  WHEN (NEW.int_burst = OLD.int_burst AND NEW.int_cores > OLD.int_cores)
+  WHEN (NEW.int_burst = OLD.int_burst AND NEW.int_cores > OLD.int_cores OR
+        NEW.int_burst = OLD.int_burst AND NEW.int_gpu > OLD.int_gpu)
   EXECUTE PROCEDURE trigger__verify_subscription();
 
 

@@ -133,36 +133,15 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         try {
-
-            long totalGpu;
-            if (report.getHost().getAttributes().containsKey("totalGpu"))
-                totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
-            else
-                totalGpu = 0;
-
-            long freeGpu;
-            if (report.getHost().getAttributes().containsKey("freeGpu"))
-                freeGpu = Integer.parseInt(report.getHost().getAttributes().get("freeGpu"));
-            else
-                freeGpu = 0;
-
-            long swapOut = 0;
-            if (report.getHost().getAttributes().containsKey("swapout")) {
-                swapOut = Integer.parseInt(report.getHost().getAttributes().get("swapout"));
-                if (swapOut > 0)
-                    logger.info(report.getHost().getName() + " swapout: " +
-                                report.getHost().getAttributes().get("swapout"));
-            }
-
             DispatchHost host;
             RenderHost rhost = report.getHost();
             try {
                 host = hostManager.findDispatchHost(rhost.getName());
                 hostManager.setHostStatistics(host,
-                        rhost.getTotalMem(), rhost.getFreeMem(),
+                        rhost.getTotalMemory(), rhost.getFreeMemory(),
                         rhost.getTotalSwap(), rhost.getFreeSwap(),
                         rhost.getTotalMcp(), rhost.getFreeMcp(),
-                        totalGpu, freeGpu,
+                        rhost.getTotalGpuMemory(), rhost.getFreeGpuMemory(),
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributes().get("SP_OS"));
 
@@ -234,9 +213,9 @@ public class HostReportHandler {
                 msg = String.format("%s doesn't have enough idle memory, %d needs %d",
                         host.name,  host.idleMemory,  Dispatcher.MEM_RESERVED_MIN);
             }
-            else if (report.getHost().getFreeMem() < CueUtil.MB512) {
+            else if (report.getHost().getFreeMemory() < CueUtil.MB512) {
                 msg = String.format("%s doens't have enough free system mem, %d needs %d",
-                        host.name, report.getHost().getFreeMem(),  Dispatcher.MEM_RESERVED_MIN);
+                        host.name, report.getHost().getFreeMemory(), Dispatcher.MEM_RESERVED_MIN);
             }
             else if(!host.hardwareState.equals(HardwareState.UP)) {
                 msg = host + " is not in the Up state.";
@@ -702,7 +681,7 @@ public class HostReportHandler {
                 } catch (Exception e) {
                     CueExceptionUtil.logStackTrace("failed", e);
                     logger.warn("failed to verify " +
-                            runningFrame.getJobName() +"/" +
+                            runningFrame.getJobName() + "/" +
                             runningFrame.getFrameName() +
                             " was running but the frame was " +
                             " unable to be killed, " + e);

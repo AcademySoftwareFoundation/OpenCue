@@ -101,11 +101,11 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem((int) CueUtil.GB8)
+                .setFreeMemory((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(1)
                 .setTotalMcp(195430)
-                .setTotalMem((int) CueUtil.GB8)
+                .setTotalMemory((int) CueUtil.GB8)
                 .setTotalSwap((int) CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(1)
@@ -114,8 +114,8 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host,
@@ -153,7 +153,7 @@ public class CoreUnitDispatcherGpuJobTests extends TransactionalTest {
 
         host.idleMemory = (long) host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
         host.idleCores = (int) host.idleCores - Math.min(100, host.idleCores);
-        host.idleGpu = 0;
+        host.idleGpuMemory = 0;
         List<VirtualProc> procs =  dispatcher.dispatchHost(host, job);
         assertEquals(0, procs.size());
     }

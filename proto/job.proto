@@ -100,6 +100,12 @@ service GroupInterface {
     // Set the Default Job Min Core values to all in the provided group
     rpc SetDefaultJobMinCores(GroupSetDefJobMinCoresRequest) returns (GroupSetDefJobMinCoresResponse);
 
+    // Set the Default Job Max Gpu values to all in the provided group
+    rpc SetDefaultJobMaxGpu(GroupSetDefJobMaxGpuRequest) returns (GroupSetDefJobMaxGpuResponse);
+
+    // Set the Default Job Min Gpu values to all in the provided group
+    rpc SetDefaultJobMinGpu(GroupSetDefJobMinGpuRequest) returns (GroupSetDefJobMinGpuResponse);
+
     // Set the Default Job Priority values to all in the provided group
     rpc SetDefaultJobPriority(GroupSetDefJobPriorityRequest) returns (GroupSetDefJobPriorityResponse);
 
@@ -114,6 +120,12 @@ service GroupInterface {
 
     // Set the groups Min Cores values
     rpc SetMinCores(GroupSetMinCoresRequest) returns (GroupSetMinCoresResponse);
+
+    // Set the group's Max Gpu value
+    rpc SetMaxGpu(GroupSetMaxGpuRequest) returns (GroupSetMaxGpuResponse);
+
+    // Set the groups Min Gpu values
+    rpc SetMinGpu(GroupSetMinGpuRequest) returns (GroupSetMinGpuResponse);
 
     // Set the groups name
     rpc SetName(GroupSetNameRequest) returns (GroupSetNameResponse);
@@ -239,6 +251,9 @@ service JobInterface {
 
     // Sets the maximum number of procs that can run on this job
     rpc SetMaxCores(JobSetMaxCoresRequest) returns (JobSetMaxCoresResponse);
+    
+    // Sets the maximum number of procs that can run on this job
+    rpc SetMaxGpu(JobSetMaxGpuRequest) returns (JobSetMaxGpuResponse);
 
     // Sets the default maximum number of frame retries for the job. One
     // a frame has retried this many times it will automatically go
@@ -247,6 +262,9 @@ service JobInterface {
 
     // Sets the minimum number of procs that can run on this job
     rpc SetMinCores(JobSetMinCoresRequest) returns (JobSetMinCoresResponse);
+
+    // Sets the minimum number of procs that can run on this job
+    rpc SetMinGpu(JobSetMinGpuRequest) returns (JobSetMinGpuResponse);
 
     // Sets the job priority
     rpc SetPriority(JobSetPriorityRequest) returns (JobSetPriorityResponse);
@@ -331,8 +349,14 @@ service LayerInterface {
     // Set the Min Cores for this layer
     rpc SetMinCores(LayerSetMinCoresRequest) returns (LayerSetMinCoresResponse);
 
-    // Set the Min gpu value for the layer
+    // The maximum number of gpu to run on a given frame within this layer.
+    rpc SetMaxGpu(LayerSetMaxGpuRequest) returns (LayerSetMaxGpuResponse);
+
+    // Set the Min Gpu for this layer
     rpc SetMinGpu(LayerSetMinGpuRequest) returns (LayerSetMinGpuResponse);
+
+    // Set the Min gpu memory value for the layer
+    rpc SetMinGpuMemory(LayerSetMinGpuMemoryRequest) returns (LayerSetMinGpuMemoryResponse);
 
     // Set the Min Memory value for the layer
     rpc SetMinMemory(LayerSetMinMemoryRequest) returns (LayerSetMinMemoryResponse);
@@ -444,11 +468,12 @@ message Frame {
     int64 max_rss = 11;
     int64 used_memory = 12;
     int64 reserved_memory = 13;
-    int64 reserved_gpu = 14;
+    int64 reserved_gpu_memory = 14;
     string last_resource = 15;
     CheckpointState checkpoint_state = 16;
     int32 checkpoint_count = 17;
     int32 total_core_time = 18;
+    int32 total_gpu_time = 20;
 }
 
 // Object for frame searching
@@ -515,11 +540,15 @@ message Group {
     int32 default_job_priority = 4;
     float default_job_min_cores = 5;
     float default_job_max_cores = 6;
-    float min_cores = 7;
-    float max_cores = 8;
-    int32 level = 9;
-    string parent_id = 10;
-    GroupStats group_stats = 11;
+    float default_job_min_gpu = 7;
+    float default_job_max_gpu = 8;
+    float min_cores = 9;
+    float max_cores = 10;
+    float min_gpu = 11;
+    float max_gpu = 12;
+    int32 level = 13;
+    string parent_id = 14;
+    GroupStats group_stats = 15;
 }
 
 message GroupSeq {
@@ -533,6 +562,7 @@ message GroupStats {
     int32 waiting_frames = 4;
     int32 pending_jobs = 5;
     float reserved_cores = 6;
+    float reserved_gpu = 7;
 }
 
 // JOB ----
@@ -552,13 +582,15 @@ message Job {
     int32 priority = 11;
     float min_cores = 12;
     float max_cores = 13;
-    string log_dir = 14;
-    bool is_paused = 15;
-    bool has_comment = 16;
-    bool auto_eat = 17;
-    int32 start_time = 18;
-    int32 stop_time = 19;
-    JobStats job_stats = 20;
+    float min_gpu = 14;
+    float max_gpu = 15;
+    string log_dir = 16;
+    bool is_paused = 17;
+    bool has_comment = 18;
+    bool auto_eat = 19;
+    int32 start_time = 20;
+    int32 stop_time = 21;
+    JobStats job_stats = 22;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
@@ -596,8 +628,12 @@ message JobStats {
     int64 total_core_sec = 16;
     int64 rendered_core_sec = 17;
     int64 failed_core_sec = 18;
-    int64 max_rss = 19;
-    float reserved_cores = 20;
+    int64 total_gpu_sec = 19;
+    int64 rendered_gpu_sec = 20;
+    int64 failed_gpu_sec = 21;
+    int64 max_rss = 22;
+    float reserved_cores = 23;
+    float reserved_gpu = 24;
 }
 
 // LAYER ----
@@ -608,19 +644,21 @@ message Layer {
     repeated string tags = 4;
     float min_cores = 5;
     float max_cores = 6;
-    bool is_threadable = 7;
-    int64 min_memory = 8;
-    int64 min_gpu = 9;
-    int32 chunk_size = 10;
-    int32 dispatch_order = 11;
-    LayerType type = 12;
+    float min_gpu = 7;
+    float max_gpu = 8;
+    bool is_threadable = 9;
+    int64 min_memory = 10;
+    int64 min_gpu_memory = 11;
+    int32 chunk_size = 12;
+    int32 dispatch_order = 13;
+    LayerType type = 14;
     // An array of services that are being run on all frames within this layer.
-    repeated string services = 13;
+    repeated string services = 15;
     // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cuebot from lowering memory.
-    bool memory_optimizer_enabled = 14;
-    LayerStats layer_stats = 15;
-    string parent_id = 16;
-    repeated string limits = 17;
+    bool memory_optimizer_enabled = 16;
+    LayerStats layer_stats = 17;
+    string parent_id = 18;
+    repeated string limits = 19;
 }
 
 message LayerSeq {
@@ -646,8 +684,12 @@ message LayerStats {
     int64 total_core_sec = 16;
     int64 rendered_core_sec = 17;
     int64 failed_core_sec = 18;
-    int64 max_rss = 19;
-    float reserved_cores = 20;
+    int64 total_gpu_sec = 19;
+    int64 rendered_gpu_sec = 20;
+    int64 failed_gpu_sec = 21;
+    int64 max_rss = 22;
+    float reserved_cores = 23;
+    float reserved_gpu = 24;
 }
 
 // NestedGroup ---
@@ -658,13 +700,17 @@ message NestedGroup {
     int32 default_job_priority = 4;
     float default_job_min_cores = 5;
     float default_job_max_cores = 6;
-    float min_cores = 7;
-    float max_cores = 8;
-    int32 level = 9;
-    NestedGroup parent = 10;
-    NestedGroupSeq groups = 11;
-    repeated string jobs = 12;
-    GroupStats stats = 13;
+    float default_job_min_gpu = 7;
+    float default_job_max_gpu = 8;
+    float min_cores = 9;
+    float max_cores = 10;
+    float min_gpu = 11;
+    float max_gpu = 12;
+    int32 level = 13;
+    NestedGroup parent = 14;
+    NestedGroupSeq groups = 15;
+    repeated string jobs = 16;
+    GroupStats stats = 17;
 }
 
 message NestedGroupSeq {
@@ -688,14 +734,16 @@ message NestedJob {
     int32 priority = 11;
     float min_cores = 12;
     float max_cores = 13;
-    string log_dir = 14;
-    bool is_paused = 15;
-    bool has_comment = 16;
-    bool auto_eat = 17;
-    int32 start_time = 18;
-    int32 stop_time = 19;
-    NestedGroup parent = 20;
-    JobStats stats = 21;
+    float min_gpu = 14;
+    float max_gpu = 15;
+    string log_dir = 16;
+    bool is_paused = 17;
+    bool has_comment = 18;
+    bool auto_eat = 19;
+    int32 start_time = 20;
+    int32 stop_time = 21;
+    NestedGroup parent = 22;
+    JobStats stats = 23;
 }
 
 
@@ -708,9 +756,10 @@ message FrameAddRenderPartitionRequest {
     string host = 2;
     int32 threads = 3;
     int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
+    int32 max_gpu = 5;
+    int64 max_memory = 6;
+    int64 max_gpu_memory = 7;
+    string username = 8;
 }
 
 message FrameAddRenderPartitionResponse {
@@ -934,6 +983,22 @@ message GroupSetDefJobMinCoresRequest {
 
 message GroupSetDefJobMinCoresResponse {} // Empty
 
+// SetDefJobMaxGpu
+message GroupSetDefJobMaxGpuRequest {
+    Group group = 1;
+    int32 max_gpu = 2;
+}
+
+message GroupSetDefJobMaxGpuResponse {} // Empty
+
+// SetDefJobMinGpu
+message GroupSetDefJobMinGpuRequest {
+    Group group = 1;
+    int32 min_gpu = 2;
+}
+
+message GroupSetDefJobMinGpuResponse {} // Empty
+
 // SetDefJobPriority
 message GroupSetDefJobPriorityRequest {
     Group group = 1;
@@ -974,6 +1039,22 @@ message GroupSetMinCoresRequest {
 
 message GroupSetMinCoresResponse {} // Empty
 
+// SetMaxGpu
+message GroupSetMaxGpuRequest {
+    Group group = 1;
+    int32 max_gpu = 2;
+}
+
+message GroupSetMaxGpuResponse {} // Empty
+
+// SetMinGpu
+message GroupSetMinGpuRequest {
+    Group group = 1;
+    int32 min_gpu = 2;
+}
+
+message GroupSetMinGpuResponse {} // Empty
+
 // SetName
 message GroupSetNameRequest {
     Group group = 1;
@@ -997,9 +1078,10 @@ message JobAddRenderPartRequest {
     string host = 2;
     int32 threads = 3;
     int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
+    int32 max_gpu = 5;
+    int64 max_memory = 6;
+    int64 max_gpu_memory = 7;
+    string username = 8;
 }
 
 message JobAddRenderPartResponse {
@@ -1286,6 +1368,14 @@ message JobSetMaxCoresRequest {
 
 message JobSetMaxCoresResponse {} // Empty
 
+// SetMaxGpu
+message JobSetMaxGpuRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMaxGpuResponse {} // Empty
+
 // SetMaxRetries
 message JobSetMaxRetriesRequest {
     Job job = 1;
@@ -1301,6 +1391,14 @@ message JobSetMinCoresRequest {
 }
 
 message JobSetMinCoresResponse {} // Empty
+
+// SetMinGpu
+message JobSetMinGpuRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMinGpuResponse {} // Empty
 
 // SetPriority
 message JobSetPriorityRequest {
@@ -1329,15 +1427,16 @@ message LayerAddLimitRequest {
 
 message LayerAddLimitResponse {} // Empty
 
-// AddRenderPartion
+// AddRenderPartition
 message LayerAddRenderPartitionRequest {
     Layer layer = 1;
     string host = 2;
     int32 threads = 3;
     int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
+    int32 max_gpu = 5;
+    int64 max_memory = 6;
+    int64 max_gpu_memory = 7;
+    string username = 8;
 }
 
 message LayerAddRenderPartitionResponse {
@@ -1535,13 +1634,29 @@ message LayerSetMinCoresRequest {
 
 message LayerSetMinCoresResponse {} // Empty
 
+// SetMaxGpu
+message LayerSetMaxGpuRequest {
+    Layer layer = 1;
+    int32 gpu = 2;
+}
+
+message LayerSetMaxGpuResponse {} // Empty
+
 // SetMinGpu
 message LayerSetMinGpuRequest {
     Layer layer = 1;
-    int64 gpu = 2;
+    int32 gpu = 2;
 }
 
 message LayerSetMinGpuResponse {} // Empty
+
+// SetMinGpuMemory
+message LayerSetMinGpuMemoryRequest {
+    Layer layer = 1;
+    int64 memory = 2;
+}
+
+message LayerSetMinGpuMemoryResponse {} // Empty
 
 // SetMinMemory
 message LayerSetMinMemoryRequest {

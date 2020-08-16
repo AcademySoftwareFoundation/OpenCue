@@ -25,9 +25,10 @@ package com.imageworks.spcue;
 public class ResourceUsage {
 
     private final long coreTimeSeconds;
+    private final long gpuTimeSeconds;
     private final long clockTimeSeconds;
 
-    public ResourceUsage(long clockTime, int corePoints) {
+    public ResourceUsage(long clockTime, int corePoints, int gpuPoints) {
 
         if (clockTime < 1) {
             clockTime = 1;
@@ -38,12 +39,19 @@ public class ResourceUsage {
             coreTime = 1;
         }
 
+        long gpuTime = (long) (clockTime * gpuPoints);
+
         clockTimeSeconds = clockTime;
         coreTimeSeconds = coreTime;
+        gpuTimeSeconds = gpuTime;
     }
 
     public long getCoreTimeSeconds() {
         return coreTimeSeconds;
+    }
+
+    public long getGpuTimeSeconds() {
+        return gpuTimeSeconds;
     }
 
     public long getClockTimeSeconds() {

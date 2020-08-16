@@ -77,6 +77,31 @@ public class GroupManagerService implements GroupManager {
     public void setGroupMinCores(GroupInterface g, int coreUnits) {
         groupDao.updateMinCores(g,coreUnits);
     }
+    @Override
+    public void setGroupDefaultJobMaxGpu(GroupInterface g, int gpu) {
+        groupDao.updateDefaultJobMaxGpu(g,gpu);
+        if (gpu != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
+            jobDao.updateMaxGpu(g,gpu);
+        }
+    }
+
+    @Override
+    public void setGroupDefaultJobMinGpu(GroupInterface g, int gpu) {
+        groupDao.updateDefaultJobMinGpu(g,gpu);
+        if (gpu != CueUtil.FEATURE_DISABLED && !groupDao.isManaged(g)) {
+            jobDao.updateMinGpu(g,gpu);
+        }
+    }
+
+    @Override
+    public void setGroupMaxGpu(GroupInterface g, int gpu) {
+        groupDao.updateMaxGpu(g,gpu);
+    }
+
+    @Override
+    public void setGroupMinGpu(GroupInterface g, int gpu) {
+        groupDao.updateMinGpu(g,gpu);
+    }
 
     @Override
     public void setGroupParent(GroupInterface group, GroupInterface newParent) {

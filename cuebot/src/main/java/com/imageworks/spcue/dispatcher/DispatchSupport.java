@@ -78,6 +78,11 @@ public interface DispatchSupport {
     static final AtomicLong bookedCores = new AtomicLong(0);
 
     /**
+     * Long for counting how many gpu have been booked
+     */
+    static final AtomicLong bookedGpu = new AtomicLong(0);
+
+    /**
      * Long for counting how many procs have been booked
      */
     static final AtomicLong bookedProcs = new AtomicLong(0);
@@ -121,6 +126,16 @@ public interface DispatchSupport {
      * Count number of stranded cores.
      */
     static final AtomicLong strandedCoresCount = new AtomicLong(0);
+    
+    /**
+     * Count number of picked up gpu.
+     */
+    static final AtomicLong pickedUpGpuCount = new AtomicLong(0);
+
+    /**
+     * Count number of stranded gpu.
+     */
+    static final AtomicLong strandedGpuCount = new AtomicLong(0);
 
     /**
      * Set the proc's frame assignment to null;
@@ -448,7 +463,7 @@ public interface DispatchSupport {
      * @param job
      * @return
      */
-    boolean isJobBookable(JobInterface job, int coreUnits);
+    boolean isJobBookable(JobInterface job, int coreUnits, int gpu);
 
     /**
      * Return true if the specified show is at or over its
@@ -502,6 +517,40 @@ public interface DispatchSupport {
      * @param load
      */
     void determineIdleCores(DispatchHost host, int load);
+
+    /**
+     * Pickup any gpu that were stranded on the given host.
+     *
+     * @param host
+     */
+    void pickupStrandedGpu(DispatchHost host);
+
+    /**
+     * Return true if the host has stranded gpu.
+     *
+     * @param host
+     * @return
+     */
+    boolean hasStrandedGpu(HostInterface host);
+
+    /**
+     * Add stranded gpu for the given host. Stranded
+     * gpu will automatically be added to the next frame dispatched
+     * from the host to make up for gpu stranded with no memory.
+     *
+     * @param host
+     * @param gpu
+     */
+    void strandGpu(DispatchHost host, int gpu);
+
+    /**
+     * Lowers the perceived idle gpu on a machine if
+     * the load is over certain threshold.
+     *
+     * @param host
+     * @param load
+     */
+    void determineIdleGpu(DispatchHost host, int load);
 
     /**
      * Return a set of job IDs that can take the given host.

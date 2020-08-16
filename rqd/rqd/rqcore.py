@@ -104,6 +104,10 @@ class FrameAttendantThread(threading.Thread):
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
             self.frameEnv['CUE_HT'] = "True"
 
+        # Add GPU's to use all assigned GPU cores
+        if 'GPU_LIST' in self.runFrame.attributes:
+            self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
+
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
         @type  command: string
@@ -698,7 +702,7 @@ class RqCore(object):
                     pass
             time.sleep(1)
 
-    def releaseCores(self, reqRelease, releaseHT=None):
+    def releaseCores(self, reqRelease, releaseHT=None, releaseGpu=None):
         """The requested number of cores are released
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
@@ -715,6 +719,9 @@ class RqCore(object):
 
             if releaseHT:
                 self.machine.releaseHT(releaseHT)
+
+            if releaseGpu:
+                self.machine.releaseGpu(releaseGpu)
 
         finally:
             self.__threadLock.release()
@@ -807,6 +814,11 @@ class RqCore(object):
                 reserveHT = self.machine.reserveHT(runFrame.num_cores)
                 if reserveHT:
                     runFrame.attributes['CPU_LIST'] = reserveHT
+
+            if runFrame.num_gpu:
+                reserveGpu = self.machine.reserveGpu(runFrame.num_gpu)
+                if reserveGpu:
+                    runFrame.attributes['GPU_LIST'] = reserveGpu
 
             # They must be available at this point, reserve them
             self.cores.idle_cores -= runFrame.num_cores

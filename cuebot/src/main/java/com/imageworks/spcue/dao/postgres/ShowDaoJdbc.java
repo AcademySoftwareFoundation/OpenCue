@@ -44,6 +44,8 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 show.id = rs.getString("pk_show");
                 show.defaultMaxCores = rs.getInt("int_default_max_cores");
                 show.defaultMinCores = rs.getInt("int_default_min_cores");
+                show.defaultMaxGpu = rs.getInt("int_default_max_gpu");
+                show.defaultMinGpu = rs.getInt("int_default_min_gpu");
                 show.active = rs.getBoolean("b_active");
 
                 if (rs.getString("str_comment_email") != null) {
@@ -61,6 +63,8 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             "show.pk_show, " +
             "show.int_default_max_cores, " +
             "show.int_default_min_cores, " +
+            "show.int_default_max_gpu, " +
+            "show.int_default_min_gpu, " +
             "show.str_name, " +
             "show.b_active, " +
             "show.str_comment_email " +
@@ -72,6 +76,8 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             "show.pk_show, " +
             "show.int_default_max_cores, " +
             "show.int_default_min_cores, " +
+            "show.int_default_max_gpu, " +
+            "show.int_default_min_gpu, " +
             "show_alias.str_name, " +
             "show.b_active, " +
             "show.str_comment_email " +
@@ -101,6 +107,8 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             "show.pk_show, " +
             "show.int_default_max_cores, " +
             "show.int_default_min_cores, " +
+            "show.int_default_max_gpu, " +
+            "show.int_default_min_gpu, " +
             "show.str_name, " +
             "show.b_active, " +
             "show.str_comment_email " +
@@ -177,6 +185,18 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         }
         getJdbcTemplate().update(
                 "UPDATE show SET int_default_max_cores=? WHERE pk_show=?",
+                val, s.getShowId());
+    }
+
+    public void updateShowDefaultMinGpu(ShowInterface s, int val) {
+        getJdbcTemplate().update(
+                "UPDATE show SET int_default_min_gpu=? WHERE pk_show=?",
+                val, s.getShowId());
+    }
+
+    public void updateShowDefaultMaxGpu(ShowInterface s, int val) {
+        getJdbcTemplate().update(
+                "UPDATE show SET int_default_max_gpu=? WHERE pk_show=?",
                 val, s.getShowId());
     }
 

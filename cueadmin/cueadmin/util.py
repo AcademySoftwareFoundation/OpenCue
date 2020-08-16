@@ -50,7 +50,7 @@ def promptYesNo(prompt, force=False):
     @param prompt: The question that the user can see
     @type  force: boolean
     @param force: (Optional) If true, skips the prompt and returns true
-    @rtype:  bool
+    :rtype:  bool
     @return: The users response"""
     try:
         result = force or input("%s [y/n] " % prompt) in ("y", "Y")
@@ -68,7 +68,7 @@ def waitOnJobName(jobName, maxWaitForLaunch=None):
     @type  maxWaitForLaunch: int
     @param maxWaitForLaunch: (Optional) The maximum number of seconds to wait
                              for the job to launch.
-    @rtype:  bool
+    :rtype:  bool
     @return: Returns True if the job was found and is now Finished, False if
              the job was not found before maxWaitForLaunch was reached"""
     isLocated = False

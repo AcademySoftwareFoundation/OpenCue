@@ -18,7 +18,7 @@
 
 
 
-<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.7.dtd">
+<!DOCTYPE spec SYSTEM "../dtd/cjsl-1.8.dtd">
 <spec>
 
     <facility>spi</facility>
@@ -38,7 +38,7 @@
                 <chunk>1</chunk>
                 <cores>100</cores>
                 <memory>2gb</memory>
-                <gpu>512m</gpu>
+                <gpu_memory>512m</gpu_memory>
                 <tags>general</tags>
                 <services>
                     <service>arnold</service>
@@ -51,7 +51,7 @@
                 <chunk>1</chunk>
                 <cores>100</cores>
                 <memory>2gb</memory>
-                <gpu>512m</gpu>
+                <gpu_memory>512m</gpu_memory>
                 <tags>general</tags>
                 <services>
                     <service>arnold</service>
@@ -71,7 +71,7 @@
                 <chunk>1</chunk>
                 <cores>100</cores>
                 <memory>2gb</memory>
-                <gpu>512m</gpu>
+                <gpu_memory>512m</gpu_memory>
                 <tags>general</tags>
                 <services>
                     <service>prman</service>

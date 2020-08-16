@@ -74,11 +74,11 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
                 .setName("test_host")
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(15290520)
+                .setFreeMemory(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
                 .setTotalMcp(19543)
-                .setTotalMem((int) CueUtil.GB16)
+                .setTotalMemory((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -86,8 +86,8 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
                 .addTags("general")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         DispatchHost dh = hostManager.createHost(host);

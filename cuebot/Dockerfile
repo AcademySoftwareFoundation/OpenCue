@@ -13,7 +13,7 @@ COPY --chown=gradle:gradle ./proto /home/gradle/proto/
 
 WORKDIR /home/gradle/cuebot
 
-RUN gradle build --stacktrace
+RUN gradle build --stacktrace --info
 
 COPY --chown=gradle:gradle VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION

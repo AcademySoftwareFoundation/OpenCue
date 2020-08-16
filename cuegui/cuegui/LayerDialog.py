@@ -117,14 +117,12 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.mem_max_kb = int(self.mem_max_gb * 1024 * 1024)
         self.mem_min_kb = int(self.mem_min_gb * 1024 * 1024)
 
-        self.gpu_max_kb = 2 * 1024 * 1024
-        self.gpu_min_kb = 0
-        self.gpu_tick_kb = 256 * 1024
-        self.gpu_max_gb = 2.0
-        self.gpu_min_gb = 0.0
-        self.gpu_tick_gb = .25
-
-        self.__group = QtWidgets.QGroupBox("Resource Options", self)
+        self.gpu_mem_max_kb = 2 * 1024 * 1024
+        self.gpu_mem_min_kb = 0
+        self.gpu_mem_tick_kb = 256 * 1024
+        self.gpu_mem_max_gb = 2.0
+        self.gpu_mem_min_gb = 0.0
+        self.gpu_mem_tick_gb = .25
 
         ## Memory
         self.__mem = SlideSpinner(self)
@@ -146,9 +144,16 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_cores.setRange(0, int(self._cfg().get('max_cores', 16)))
         self.__max_cores.setSingleStep(1)
 
-        ## Disable this for everything except commander.
-        if QtGui.qApp.applicationName() != "CueCommander":
-            self.__core.setDisabled(True)
+        ## Gpu
+        self.__gpu = QtWidgets.QDoubleSpinBox(self)
+        self.__gpu.setDecimals(1)
+        self.__gpu.setRange(0, 10)
+        self.__gpu.setSingleStep(1)
+
+        ## Max cores
+        self.__max_gpu = QtWidgets.QSpinBox(self)
+        self.__max_gpu.setRange(0, 10)
+        self.__max_gpu.setSingleStep(1)
 
         # Threads
         self.__thread = QtWidgets.QCheckBox(self)
@@ -165,15 +170,15 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__limits = LayerLimitsWidget(self.__layers, self)
 
         ## GPU Memory
-        self.__gpu = SlideSpinner(self)
-        self.__gpu.slider.setMinimumWidth(200)
-        self.__gpu.slider.setRange(self.gpu_min_kb, self.gpu_max_kb // self.gpu_tick_kb)
-        self.__gpu.slider.setTickInterval(1)
-        self.__gpu.slider.setSingleStep(1)
-        self.__gpu.slider.setPageStep(1)
-        self.__gpu.spinner.setSuffix(' GB')
-        self.__gpu.spinner.setRange(self.gpu_min_gb, self.gpu_max_gb)
-        self.__gpu.spinner.setSingleStep(self.gpu_tick_gb)
+        self.__gpu_mem = SlideSpinner(self)
+        self.__gpu_mem.slider.setMinimumWidth(200)
+        self.__gpu_mem.slider.setRange(self.gpu_mem_min_kb, self.gpu_mem_max_kb // self.gpu_mem_tick_kb)
+        self.__gpu_mem.slider.setTickInterval(1)
+        self.__gpu_mem.slider.setSingleStep(1)
+        self.__gpu_mem.slider.setPageStep(1)
+        self.__gpu_mem.spinner.setSuffix(' GB')
+        self.__gpu_mem.spinner.setRange(self.gpu_mem_min_gb, self.gpu_mem_max_gb)
+        self.__gpu_mem.spinner.setSingleStep(self.gpu_mem_tick_gb)
 
         # Our dialog buttons.
         self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save |
@@ -253,8 +258,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         if mem_value < self.mem_min_kb or mem_value > self.mem_max_kb:
             warning("The memory setting is too high.")
             return False
-        gpu_value = self.__gpu.slider.value()
-        if gpu_value < self.gpu_min_kb or gpu_value > self.gpu_max_kb:
+        gpu_mem_value = self.__gpu_mem.slider.value()
+        if gpu_mem_value < self.gpu_mem_min_kb or gpu_mem_value > self.gpu_mem_max_kb:
             warning("The gpu memory setting is too high.")
             return False
 
@@ -273,11 +278,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setMinCores(self.__core.value() * 100.0)
             if self.__max_cores.isEnabled():
                 layer.setMaxCores(self.__max_cores.value() * 100.0)
+            if self.__gpu.isEnabled():
+                layer.setMinGpu(self.__gpu.value())
+            if self.__max_gpu.isEnabled():
+                layer.setMaxGpu(self.__max_gpu.value())
             if self.__thread.isEnabled():
                 layer.setThreadable(self.__thread.isChecked())
-            if self.__gpu.isEnabled():
-                layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
-
+            if self.__gpu_mem.isEnabled():
+                layer.setMinGpuMemory(self.__gpu_mem.slider.value() * self.gpu_mem_tick_kb)
         if self.__tags.isEnabled():
             self.__tags.apply()
         if self.__limits.isEnabled():
@@ -291,8 +299,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 result = layer.data.min_memory
         return result
 
-    def getMaxGpu(self):
-        return max([layer.data.min_gpu // self.gpu_tick_kb for layer in self.__layers])
+    def getMaxGpuMemory(self):
+        return max([layer.data.min_gpu_memory // self.gpu_mem_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
         result = 0
@@ -306,6 +314,20 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         for layer in self.__layers:
             if layer.data.max_cores > result:
                 result = layer.data.max_cores
+        return result
+
+    def getMinGpu(self):
+        result = 0
+        for layer in self.__layers:
+            if layer.data.min_gpu > result:
+                result = layer.data.min_gpu
+        return result
+
+    def getMaxGpu(self):
+        result = 0
+        for layer in self.__layers:
+            if layer.data.max_gpu > result:
+                result = layer.data.max_gpu
         return result
 
     def getThreading(self):
@@ -331,11 +353,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__mem.slider.setValue(int(value * 1048576.0))
 
     def __translateToGpuSpinbox(self, value):
-        self.__gpu.spinner.setValue(float(value * self.gpu_tick_kb) / 1024.0 / 1024.0)
+        self.__gpu_mem.spinner.setValue(float(value * self.gpu_mem_tick_kb) / 1024.0 / 1024.0)
 
     def __translateToGpuSlider(self, value):
-        self.__gpu.slider.setValue(int(value * 1024.0 * 1024.0) // self.gpu_tick_kb)
-
+        self.__gpu_mem.slider.setValue(int(value * 1024.0 * 1024.0) // self.gpu_mem_tick_kb)
 
 class LayerTagsWidget(QtWidgets.QWidget):
     """

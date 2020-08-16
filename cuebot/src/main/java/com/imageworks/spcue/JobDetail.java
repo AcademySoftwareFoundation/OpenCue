@@ -46,12 +46,15 @@ public class JobDetail extends JobEntity implements JobInterface, DepartmentInte
     public int priority = 1;
     public int minCoreUnits = 100;
     public int maxCoreUnits = 200000;
+    public int minGpuUnits = 0;
+    public int maxGpuUnits = 100;
     public boolean isLocal = false;
     public String localHostName;
     public int localMaxCores;
+    public int localMaxGpu;
     public int localMaxMemory;
     public int localThreadNumber;
-    public int localMaxGpu;
+    public int localMaxGpuMemory;
 
     public String getDepartmentId() {
         return deptId;

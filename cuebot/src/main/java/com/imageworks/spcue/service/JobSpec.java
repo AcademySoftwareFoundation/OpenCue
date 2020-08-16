@@ -264,12 +264,14 @@ public class JobSpec {
             job.localHostName = local.getAttributeValue("host");
             if (local.getAttributeValue("cores") != null)
                 job.localMaxCores = Integer.parseInt(local.getAttributeValue("cores"));
+            if (local.getAttributeValue("gpu") != null)
+                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
             if (local.getAttributeValue("memory") != null)
                 job.localMaxMemory = Integer.parseInt(local.getAttributeValue("memory"));
             if (local.getAttributeValue("threads") != null)
                 job.localThreadNumber = Integer.parseInt(local.getAttributeValue("threads"));
-            if (local.getAttributeValue("gpu") != null)
-                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
+            if (local.getAttributeValue("gpu_memory") != null)
+                job.localMaxGpuMemory = Integer.parseInt(local.getAttributeValue("gpu_memory"));
         }
 
         job.maxCoreUnits = 20000;
@@ -390,18 +392,18 @@ public class JobSpec {
             layer.command = layerTag.getChildTextTrim("cmd");
             layer.range = layerTag.getChildTextTrim("range");
             layer.dispatchOrder = ++dispatchOrder;
-
             /*
              * Determine some of the more complex attributes.
              */
             determineResourceDefaults(layerTag, buildableJob, layer);
             determineChunkSize(layerTag, layer);
             determineMinimumCores(layerTag, layer);
+            determineMinimumGpu(layerTag, layer);
             determineThreadable(layerTag, layer);
             determineTags(buildableJob, layer, layerTag);
             determineMinimumMemory(buildableJob, layerTag, layer,
                     buildableLayer);
-            determineMinimumGpu(buildableJob, layerTag, layer);
+            determineMinimumGpuMemory(buildableJob, layerTag, layer);
 
             /*
              * Handle the layer environment
@@ -486,44 +488,44 @@ public class JobSpec {
     }
 
     /**
-     * If the gpu option is set, set minimumGpu to that supplied value
+     * If the gpu option is set, set minimumGpuMemory to that supplied value
      *
      * @param layerTag
      * @param layer
      */
-    private void determineMinimumGpu(BuildableJob buildableJob, Element layerTag,
+    private void determineMinimumGpuMemory(BuildableJob buildableJob, Element layerTag,
     		LayerDetail layer) {
 
-        if (layerTag.getChildTextTrim("gpu") == null) {
+        if (layerTag.getChildTextTrim("gpu_memory") == null) {
             return;
         }
 
-        long minGpu;
-        String memory = layerTag.getChildTextTrim("gpu").toLowerCase();
+        long minGpuMemory;
+        String memory = layerTag.getChildTextTrim("gpu_memory").toLowerCase();
 
         try {
-            minGpu = convertMemoryInput(memory);
+            minGpuMemory = convertMemoryInput(memory);
 
             // Some quick sanity checks to make sure gpu memory hasn't gone
             // over or under reasonable defaults.
-            if (minGpu> Dispatcher.GPU_RESERVED_MAX) {
+            if (minGpuMemory> Dispatcher.MEM_GPU_RESERVED_MAX) {
                 throw new SpecBuilderException("Gpu memory requirements exceed " +
                         "maximum. Are you specifying the correct units?");
             }
-            else if (minGpu < Dispatcher.GPU_RESERVED_MIN) {
+            else if (minGpuMemory < Dispatcher.MEM_GPU_RESERVED_MIN) {
                 logger.warn(buildableJob.detail.name + "/" + layer.name +
                         "Specified too little gpu memory, defaulting to: " +
-                        Dispatcher.GPU_RESERVED_MIN);
-                minGpu = Dispatcher.GPU_RESERVED_MIN;
+                        Dispatcher.MEM_GPU_RESERVED_MIN);
+                minGpuMemory = Dispatcher.MEM_GPU_RESERVED_MIN;
             }
 
-            layer.minimumGpu = minGpu;
+            layer.minimumGpuMemory = minGpuMemory;
 
         } catch (Exception e) {
             logger.info("Error setting gpu memory for " +
                     buildableJob.detail.name + "/" + layer.name +
                     " failed, reason: " + e + ". Using default.");
-            layer.minimumGpu = Dispatcher.GPU_RESERVED_DEFAULT;
+            layer.minimumGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
         }
     }
 
@@ -561,6 +563,20 @@ public class JobSpec {
         }
 
         layer.minimumCores = corePoints;
+    }
+
+    /**
+     * Gpu is a int.
+     *
+     * If no gpu value is specified, we default to the value of
+     * Dispatcher.GPU_RESERVED_DEFAULT
+     */
+    private void determineMinimumGpu(Element layerTag, LayerDetail layer) {
+
+        String gpu = layerTag.getChildTextTrim("gpu");
+        if (gpu != null) {
+            layer.minimumGpu = Integer.valueOf(gpu);
+        }
     }
 
     private void determineChunkSize(Element layerTag, LayerDetail layer) {
@@ -666,8 +682,10 @@ public class JobSpec {
         layer.isThreadable = primaryService.threadable;
         layer.maximumCores = primaryService.maxCores;
         layer.minimumCores = primaryService.minCores;
-        layer.minimumMemory = primaryService.minMemory;
+        layer.maximumGpu = primaryService.maxGpu;
         layer.minimumGpu = primaryService.minGpu;
+        layer.minimumMemory = primaryService.minMemory;
+        layer.minimumGpuMemory = primaryService.minGpuMemory;
         layer.tags.addAll(primaryService.tags);
         layer.services.addAll(services);
         layer.limits.addAll(limits);

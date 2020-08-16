@@ -128,11 +128,11 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 .setName("test_host")
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMemory(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
                 .setTotalMcp(195430)
-                .setTotalMem((int) CueUtil.GB16)
+                .setTotalMemory((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -446,7 +446,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 .stream()
                 .limit(5)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
-        layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5), 0);
+        layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5, 0), 0);
 
         // Test to make sure our optimization
         jobManager.optimizeLayer(layer, 100, CueUtil.MB512, 120);

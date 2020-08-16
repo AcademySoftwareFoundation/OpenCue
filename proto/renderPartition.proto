@@ -37,11 +37,13 @@ message RenderPartition {
     RenderPartitionType render_part_type = 5;
     string host = 6;
     int32 cores = 7;
-    int64 memory = 8;
-    int32 max_cores = 9;
-    int64 max_memory = 10;
-    int64 max_gpu = 11;
-    int32 threads = 12;
+    int32 gpu = 8;
+    int64 memory = 9;
+    int32 max_cores = 10;
+    int32 max_gpu = 11;
+    int64 max_memory = 12;
+    int64 max_gpu_memory = 13;
+    int32 threads = 14;
 }
 
 message RenderPartitionSeq {
@@ -60,8 +62,9 @@ message RenderPartDeleteResponse {} // Empty
 message RenderPartSetMaxResourcesRequest {
     RenderPartition render_partition = 1;
     int32 cores = 2;
-    int64 memory = 3;
-    int64 gpu = 4;
+    int32 gpu = 3;
+    int64 memory = 4;
+    int64 gpu_memory = 5;
 }
 
 message RenderPartSetMaxResourcesResponse {} // Empty

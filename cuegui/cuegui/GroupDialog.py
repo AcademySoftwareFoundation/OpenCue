@@ -51,6 +51,11 @@ class GroupDialog(QtWidgets.QDialog):
         __minCores = defaults["minCores"]
         __maxCores = defaults["maxCores"]
 
+        __defaultJobMinGpu = defaults["defaultJobMinGpu"]
+        __defaultJobMaxGpu = defaults["defaultJobMaxGpu"]
+        __minGpu = defaults["minGpu"]
+        __maxGpu = defaults["maxGpu"]
+
         self.setWindowTitle(__title)
         layout.addWidget(QtWidgets.QLabel(__message, self), 0, 1, 1, 3)
 
@@ -85,8 +90,24 @@ class GroupDialog(QtWidgets.QDialog):
                                              __modify and __maxCores != -1.0,
                                              __maxCores, 1)
 
-        self.__createButtons(
-            QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, 8, 3)
+        (self._defaultJobMinGpuCheck, self._defaultJobMinGpuValue) = \
+            self.__createToggleSpinBox("Job Default Minimum Gpu", 8,
+                                             __modify and __defaultJobMinGpu != -1.0,
+                                             __defaultJobMinGpu, 1)
+        (self._defaultJobMaxGpuCheck, self._defaultJobMaxGpuValue) = \
+            self.__createToggleSpinBox("Job Default Maximum Gpu", 9,
+                                             __modify and __defaultJobMaxGpu != -1.0,
+                                             __defaultJobMaxGpu, 1)
+        (self._minGpuCheck, self._minGpuValue) = \
+            self.__createToggleSpinBox("Group Minimum Gpu", 10,
+                                             __modify and __minGpu != 0.0,
+                                             __minGpu)
+        (self._maxGpuCheck, self._maxGpuValue) = \
+            self.__createToggleSpinBox("Group Maximum Gpu", 11,
+                                             __modify and __maxGpu != -1.0,
+                                             __maxGpu, 1)
+
+        self.__createButtons(12)
 
     def __createToggleDoubleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
         inputWidget = QtWidgets.QDoubleSpinBox(self)
@@ -162,6 +183,26 @@ class GroupDialog(QtWidgets.QDialog):
                         float(self._maxCoresValue.value()),
                         __group.data.max_cores, float(-1))
 
+        self.__setValue(self._defaultJobMinGpuCheck,
+                        __group.setDefaultJobMinGpu,
+                        float(self._defaultJobMinGpuValue.value()),
+                        __group.data.default_job_min_gpu, float(-1))
+
+        self.__setValue(self._defaultJobMaxGpuCheck,
+                        __group.setDefaultJobMaxGpu,
+                        float(self._defaultJobMaxGpuValue.value()),
+                        __group.data.default_job_max_gpu, float(-1))
+
+        self.__setValue(self._minGpuCheck,
+                        __group.setMinGpu,
+                        float(self._minGpuValue.value()),
+                        __group.data.min_gpu, float(0.0))
+
+        self.__setValue(self._maxGpuCheck,
+                        __group.setMaxGpu,
+                        float(self._maxGpuValue.value()),
+                        __group.data.max_gpu, float(-1))
+
         self.close()
 
     def __setValue(self, checkBox, setter, newValue, currentValue, disableValue):
@@ -184,7 +225,12 @@ class ModifyGroupDialog(GroupDialog):
                     "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
                     "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
                     "minCores": modifyGroup.data.min_cores,
-                    "maxCores": modifyGroup.data.max_cores}
+                    "maxCores": modifyGroup.data.max_cores,
+                    "defaultJobMinGpu": modifyGroup.data.default_job_min_gpu,
+                    "defaultJobMaxGpu": modifyGroup.data.default_job_max_gpu,
+                    "minGpu": modifyGroup.data.min_gpu,
+                    "maxGpu": modifyGroup.data.max_gpu
+                    }
         GroupDialog.__init__(self, None, modifyGroup, defaults, parent)
 
 class NewGroupDialog(GroupDialog):
@@ -197,5 +243,10 @@ class NewGroupDialog(GroupDialog):
                     "defaultJobMinCores": 1.0,
                     "defaultJobMaxCores": 1.0,
                     "minCores": 0.0,
-                    "maxCores": 1.0}
+                    "maxCores": 1.0,
+                    "defaultJobMinGpu": 0,
+                    "defaultJobMaxGpu": 0,
+                    "minGpu": 0.0,
+                    "maxGpu": 1.0
+                    }
         GroupDialog.__init__(self, parentGroup, None, defaults, parent)

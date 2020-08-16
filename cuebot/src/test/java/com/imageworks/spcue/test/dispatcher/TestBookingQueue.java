@@ -62,11 +62,11 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMemory(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
                 .setTotalMcp(195430)
-                .setTotalMem(8173264)
+                .setTotalMemory(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
                 .setNumProcs(1)
@@ -74,8 +74,8 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host);

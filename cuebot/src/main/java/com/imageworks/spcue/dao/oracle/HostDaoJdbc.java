@@ -366,7 +366,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 fqdn, threadMode.getNumber());
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
-                hid, hid, host.getTotalMem(), host.getFreeMem(),
+                hid, hid, host.getTotalMemory(), host.getFreeMemory(),
                 totalGpu, freeGpu,
                 host.getTotalSwap(), host.getFreeSwap(),
                 host.getTotalMcp(), host.getFreeMcp(),
@@ -599,6 +599,19 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
     }
 
+    @Override
+    public int getStrandedGpu(HostInterface h) {
+        try {
+            int idle_gpu = getJdbcTemplate().queryForObject(
+                    "SELECT int_gpu_idle FROM host WHERE pk_host = ? AND int_gpu_mem_idle <= ?",
+                    Integer.class, h.getHostId(),
+                    Dispatcher.MEM_GPU_STRANDED_THRESHHOLD);
+            return idle_gpu;
+        } catch (EmptyResultDataAccessException e) {
+            return 0;
+        }
+    }
+
     private static final String IS_HOST_UP =
         "SELECT " +
             "COUNT(1) " +
@@ -685,10 +698,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         long memUnits;
         if (host.getTagsList().contains("64bit")) {
-            memUnits = CueUtil.convertKbToFakeKb64bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb64bit(host.getTotalMemory());
         }
         else {
-            memUnits = CueUtil.convertKbToFakeKb32bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb32bit(host.getTotalMemory());
         }
 
         /*

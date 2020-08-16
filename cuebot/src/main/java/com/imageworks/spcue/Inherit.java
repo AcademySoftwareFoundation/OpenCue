@@ -28,6 +28,8 @@ public enum Inherit {
     Priority,
     MinCores,
     MaxCores,
+    MinGpu,
+    MaxGpu,
     All
 }
 

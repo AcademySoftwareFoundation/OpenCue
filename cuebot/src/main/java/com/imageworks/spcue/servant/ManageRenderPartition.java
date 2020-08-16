@@ -45,7 +45,7 @@ public class ManageRenderPartition extends RenderPartitionInterfaceGrpc.RenderPa
     public void setMaxResources(RenderPartSetMaxResourcesRequest request,
                                 StreamObserver<RenderPartSetMaxResourcesResponse> responseObserver) {
         LocalHostAssignment localJobAssign = getLocalHostAssignment(request.getRenderPartition());
-        bookingManager.setMaxResources(localJobAssign, request.getCores(), request.getMemory(), request.getGpu());
+        bookingManager.setMaxResources(localJobAssign, request.getCores(),  request.getGpu(), request.getMemory(), request.getGpuMemory());
         responseObserver.onNext(RenderPartSetMaxResourcesResponse.newBuilder().build());
         responseObserver.onCompleted();
     }

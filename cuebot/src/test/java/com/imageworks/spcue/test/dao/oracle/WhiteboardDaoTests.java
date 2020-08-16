@@ -266,19 +266,19 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .setName(HOST)
                 .setBootTime(1192369572)
                 .setFreeMcp(7602)
-                .setFreeMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setFreeMemory((int) Dispatcher.MEM_RESERVED_MIN * 4)
                 .setFreeSwap(2076)
                 .setLoad(1)
                 .setTotalMcp(19543)
-                .setTotalMem((int) Dispatcher.MEM_RESERVED_MIN * 4)
+                .setTotalMemory((int) Dispatcher.MEM_RESERVED_MIN * 4)
                 .setTotalSwap(2096)
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
                 .setCoresPerProc(400)
                 .setState(HardwareState.DOWN)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
         return host;
     }
@@ -1243,7 +1243,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, 0, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         whiteboardDao.getRenderPartition(lba);
@@ -1260,7 +1260,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, 0, CueUtil.GB8, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         assertEquals(1, whiteboardDao.getRenderPartitions(hd).getRenderPartitionsCount());

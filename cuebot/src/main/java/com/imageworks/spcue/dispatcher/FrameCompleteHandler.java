@@ -314,7 +314,7 @@ public class FrameCompleteHandler {
                 /* Update the NIMBY locked state */
                 hostManager.setHostLock(proc, LockState.NIMBY_LOCKED,
                         new Source("NIMBY"));
-            } else if (report.getHost().getFreeMem() < CueUtil.MB512) {
+            } else if (report.getHost().getFreeMemory() < CueUtil.MB512) {
                 /*
                  * Unbook anything on a proc that has only 512MB of free memory
                  * left.
@@ -400,7 +400,7 @@ public class FrameCompleteHandler {
                 // Then check for higher priority jobs
                 // If not, rebook this job
                 if (job.autoUnbook && proc.coresReserved >= 100) {
-                    if (jobManager.isOverMinCores(job)) {
+                    if (jobManager.isOverMinCores(job) && jobManager.isOverMinGpu(job)) {
                         try {
 
                             boolean unbook =

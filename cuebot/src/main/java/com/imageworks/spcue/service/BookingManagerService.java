@@ -71,8 +71,8 @@ public class BookingManagerService implements BookingManager {
     }
 
     @Override
-    public void setMaxResources(LocalHostAssignment l, int maxCoreUnits,
-            long maxMemory, long maxGpu) {
+    public void setMaxResources(LocalHostAssignment l, int maxCoreUnits, int maxGpu,
+            long maxMemory, long maxGpuMemory) {
 
         HostInterface host = hostDao.getHost(l.getHostId());
 
@@ -80,12 +80,16 @@ public class BookingManagerService implements BookingManager {
             bookingDao.updateMaxCores(l, maxCoreUnits);
         }
 
+        if (maxGpu > 0) {
+            bookingDao.updateMaxGpu(l, maxGpu);
+        }
+
         if (maxMemory > 0) {
             bookingDao.updateMaxMemory(l, maxMemory);
         }
 
-        if (maxGpu > 0) {
-            bookingDao.updateMaxGpu(l, maxGpu);
+        if (maxGpuMemory > 0) {
+            bookingDao.updateMaxGpuMemory(l, maxGpuMemory);
         }
     }
 

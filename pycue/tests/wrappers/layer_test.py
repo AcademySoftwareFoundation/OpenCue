@@ -196,18 +196,18 @@ class LayerTests(unittest.TestCase):
             job_pb2.LayerSetMaxCoresRequest(layer=layer.data, cores=testCoresActual),
             timeout=mock.ANY)
 
-    def testSetMinGpu(self, getStubMock):
+    def testSetMinGpuMemory(self, getStubMock):
         stubMock = mock.Mock()
-        stubMock.SetMinGpu.return_value = job_pb2.LayerSetMinGpuResponse()
+        stubMock.SetMinGpuMemory.return_value = job_pb2.LayerSetMinGpuResponse()
         getStubMock.return_value = stubMock
 
         testCores = 100
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        layer.setMinGpu(testCores)
+        layer.setMinGpuMemory(testCores)
 
-        stubMock.SetMinGpu.assert_called_with(
-            job_pb2.LayerSetMinGpuRequest(layer=layer.data, gpu=testCores),
+        stubMock.SetMinGpuMemory.assert_called_with(
+            job_pb2.LayerSetMinGpuMemoryRequest(layer=layer.data, memory=testCores),
             timeout=mock.ANY)
 
     def testSetMinMemory(self, getStubMock):

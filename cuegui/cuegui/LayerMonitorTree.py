@@ -73,9 +73,9 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "will reserve for its use. If the frame begins to use\n"
                            "more memory than this, the cuebot will increase this\n"
                            "number.")
-        self.addColumn("Gpu", 40, id=8,
-                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_gpu),
-                       sort=lambda layer: layer.data.min_gpu,
+        self.addColumn("Gpu Memory", 40, id=8,
+                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_gpu_memory),
+                       sort=lambda layer: layer.data.min_gpu_memory,
                        tip="The amount of gpu memory each frame in this layer\n"
                            "will reserve for its use. Note that we may not have\n"
                            "machines as much gpu memory as you request.")
@@ -121,6 +121,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: " | ".join(layer.data.tags),
                        tip="The tags define what resources may be booked on\n"
                            "frames in this layer.")
+        self.addColumn("Gpu", 45, id=19,
+                       data=lambda layer: "%.2f" % layer.data.min_gpu,
+                       sort=lambda layer: layer.data.min_gpu,
+                       tip="The number of gpu that the frames in this layer\n"
+                           "will reserve as a minimum.")
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 

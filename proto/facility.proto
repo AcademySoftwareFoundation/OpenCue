@@ -96,9 +96,14 @@ message AllocationStats {
     float idle_cores = 3;
     float running_cores = 4;
     float locked_cores = 5;
-    int32 hosts = 6;
-    int32 locked_hosts = 7;
-    int32 down_hosts = 8;
+    float gpu = 6;
+    float available_gpu = 7;
+    float idle_gpu = 8;
+    float running_gpu = 9;
+    float locked_gpu = 10;
+    int32 hosts = 11;
+    int32 locked_hosts = 12;
+    int32 down_hosts = 13;
 }
 
 

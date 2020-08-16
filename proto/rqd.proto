@@ -106,10 +106,11 @@ message RunFrame {
         int32 uid = 17;
     }
     int32 num_cores = 18;
-    int32 gid = 19;
-    bool ignore_nimby = 20;
-    map<string, string> environment = 21;
-    map<string, string> attributes = 22;
+    int32 num_gpu = 19;
+    int32 gid = 20;
+    bool ignore_nimby = 21;
+    map<string, string> environment = 22;
+    map<string, string> attributes = 23;
 }
 
 message RunFrameSeq {

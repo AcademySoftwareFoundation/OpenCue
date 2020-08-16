@@ -256,26 +256,28 @@ message Host {
     bool has_comment = 5;
     float cores = 6;
     float idle_cores = 7;
-    int64 memory = 8;
-    int64 idle_memory = 9;
-    int64 gpu = 10;
-    int64 idle_gpu = 11;
-    int64 total_swap = 12;
-    int64 total_memory = 13;
-    int64 total_gpu = 14;
-    int64 total_mcp = 15;
-    int64 free_swap = 16;
-    int64 free_memory = 17;
-    int64 free_mcp = 18;
-    int64 free_gpu = 19;
-    int32 load = 20;
-    int32 boot_time = 21;
-    int32 ping_time = 22;
-    string os = 23;
-    repeated string tags = 24;
-    HardwareState state = 25;
-    LockState lock_state = 26;
-    ThreadMode thread_mode = 27;
+    float gpu = 8;
+    float idle_gpu = 9;
+    int64 memory = 10;
+    int64 idle_memory = 11;
+    int64 gpu_memory = 12;
+    int64 idle_gpu_memory = 13;
+    int64 total_swap = 14;
+    int64 total_memory = 15;
+    int64 total_gpu_memory = 16;
+    int64 total_mcp = 17;
+    int64 free_swap = 18;
+    int64 free_memory = 19;
+    int64 free_mcp = 20;
+    int64 free_gpu_memory = 21;
+    int32 load = 22;
+    int32 boot_time = 23;
+    int32 ping_time = 24;
+    string os = 25;
+    repeated string tags = 26;
+    HardwareState state = 27;
+    LockState lock_state = 28;
+    ThreadMode thread_mode = 29;
 }
 
 message HostSearchCriteria {
@@ -299,27 +301,29 @@ message NestedHost {
     bool has_comment = 5;
     float cores = 6;
     float idle_cores = 7;
-    int64 memory = 8;
-    int64 idle_memory = 9;
-    int64 gpu = 10;
-    int64 idle_gpu = 11;
-    int64 total_swap = 12;
-    int64 total_memory = 13;
-    int64 total_gpu = 14;
-    int64 total_mcp = 15;
-    int64 free_swap = 16;
-    int64 free_memory = 17;
-    int64 free_mcp = 18;
-    int64 free_gpu = 19;
-    int32 load = 20;
-    int32 boot_time = 21;
-    int32 ping_time = 22;
-    string os = 23;
-    repeated string tags = 24;
-    HardwareState state = 25;
-    LockState lock_state = 26;
-    ThreadMode thread_mode = 27;
-    NestedProcSeq procs = 28;
+    float gpu = 8;
+    float idle_gpu = 9;
+    int64 memory = 10;
+    int64 idle_memory = 11;
+    int64 gpu_memory = 12;
+    int64 idle_gpu_memory = 13;
+    int64 total_swap = 14;
+    int64 total_memory = 15;
+    int64 total_gpu_memory = 16;
+    int64 total_mcp = 17;
+    int64 free_swap = 18;
+    int64 free_memory = 19;
+    int64 free_mcp = 20;
+    int64 free_gpu_memory = 21;
+    int32 load = 22;
+    int32 boot_time = 23;
+    int32 ping_time = 24;
+    string os = 25;
+    repeated string tags = 26;
+    HardwareState state = 27;
+    LockState lock_state = 28;
+    ThreadMode thread_mode = 29;
+    NestedProcSeq procs = 30;
 }
 
 message NestedHostSeq {
@@ -334,17 +338,18 @@ message NestedProc {
     string frame_name = 5;
     string group_name = 6;
     int32 ping_time = 7;
-    int32 bookedTime = 8;
+    int32 booked_time = 8;
     int32 dispatch_time = 9;
     int64 reserved_memory = 10;
-    int64 reserverd_gpu = 11;
+    int64 reserved_gpu_memory = 11;
     int64 used_memory = 12;
     float reserved_cores = 13;
-    bool unbooked = 14;
-    string log_path = 15;
-    string redirect_target = 16;
-    repeated string services = 17;
-    NestedHost parent = 18;
+    float reserved_gpu = 14;
+    bool unbooked = 15;
+    string log_path = 16;
+    string redirect_target = 17;
+    repeated string services = 18;
+    NestedHost parent = 19;
 }
 
 message NestedProcSeq {
@@ -366,16 +371,17 @@ message Proc {
     string frame_name = 5;
     string group_name = 6;
     int32 ping_time = 7;
-    int32 bookedTime = 8;
+    int32 booked_time = 8;
     int32 dispatch_time = 9;
     int64 reserved_memory = 10;
-    int64 reserved_gpu = 11;
+    int64 reserved_gpu_memory = 11;
     int64 used_memory = 12;
     float reserved_cores = 13;
-    bool unbooked = 14;
-    string log_path = 15;
-    string redirect_target = 16;
-    repeated string services = 17;
+    float reserved_gpu = 14;
+    bool unbooked = 15;
+    string log_path = 16;
+    string redirect_target = 17;
+    repeated string services = 18;
 }
 
 message ProcSearchCriteria {

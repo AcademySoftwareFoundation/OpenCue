@@ -60,7 +60,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getInt("int_gpu_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             return s;
@@ -77,7 +77,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getInt("int_gpu_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.showId = rs.getString("pk_show");

@@ -29,7 +29,7 @@
     cores                   NMTOKEN                     #REQUIRED
     memory                  NMTOKEN                     #REQUIRED
     threads                 NMTOKEN                     #REQUIRED
-    gpu                     NMTOKEN                     #REQUIRED
+    gpu_memory              NMTOKEN                     #REQUIRED
 >
 
 <!-- ================================================================= -->
@@ -37,7 +37,7 @@
 <!-- ================================================================= -->
 
 <!ELEMENT layers            (layer+)>
-<!ELEMENT layer             (cmd,range,chunk,cores?,threadable?,memory?,gpu?,tags?,limits?,env*,services?)>
+<!ELEMENT layer             (cmd,range,chunk,cores?,gpu?,threadable?,memory?,gpu_memory?,tags?,limits?,env*,services?)>
 <!ATTLIST layer
     name                    NMTOKEN                #REQUIRED
     type                    (RENDER | UTIL | POST) #REQUIRED
@@ -46,9 +46,10 @@
 <!ELEMENT range             (#PCDATA)*>
 <!ELEMENT chunk             (#PCDATA)*>
 <!ELEMENT cores             (#PCDATA)*>
+<!ELEMENT gpu               (#PCDATA)*>
 <!ELEMENT threadable        (#PCDATA)*>
 <!ELEMENT memory            (#PCDATA)*>
-<!ELEMENT gpu               (#PCDATA)*>
+<!ELEMENT gpu_memory        (#PCDATA)*>
 <!ELEMENT tags              (#PCDATA)*>
 <!ELEMENT limits            (limit+)>
 <!ELEMENT services          (service+)>

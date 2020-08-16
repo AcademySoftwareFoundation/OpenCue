@@ -359,6 +359,33 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 v, j.getJobId());
     }
 
+
+    @Override
+    public void updateMinGpu(GroupInterface g, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_min_gpu=? WHERE " +
+                "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
+                v, g.getGroupId());
+    }
+
+    @Override
+    public void updateMaxGpu(GroupInterface g, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_max_gpu=? WHERE " +
+                "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
+                v, g.getGroupId());
+    }
+
+    @Override
+    public void updateMinGpu(JobInterface j, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_min_gpu=? WHERE pk_job=?",
+                v, j.getJobId());
+    }
+
+    @Override
+    public void updateMaxGpu(JobInterface j, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_max_gpu=? WHERE pk_job=?",
+                v, j.getJobId());
+    }
+
     @Override
     public void updatePaused(JobInterface j, boolean b) {
         getJdbcTemplate().update("UPDATE job SET b_paused=? WHERE pk_job=?",
@@ -625,6 +652,60 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     @Override
     public boolean isAtMaxCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_JOB_AT_MAX_CORES,
+                Integer.class, job.getJobId()) > 0;
+    }
+
+    private static final String IS_JOB_OVER_MIN_GPU =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu > job_resource.int_min_gpu";
+
+    @Override
+    public boolean isOverMinGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MIN_GPU,
+                Integer.class, job.getJobId()) > 0;
+    }
+
+    private static final String IS_JOB_OVER_MAX_GPU_CORES =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu + ? > job_resource.int_max_gpu";
+
+    @Override
+    public boolean isOverMaxGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_GPU_CORES,
+                Integer.class, job.getJobId(), 0) > 0;
+    }
+
+    @Override
+    public boolean isOverMaxGpu(JobInterface job, int gpu) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_GPU_CORES,
+                Integer.class, job.getJobId(), gpu) > 0;
+    }
+
+    private static final String IS_JOB_AT_MAX_GPU =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu >= job_resource.int_max_gpu ";
+
+    @Override
+    public boolean isAtMaxGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_AT_MAX_GPU,
                 Integer.class, job.getJobId()) > 0;
     }
 

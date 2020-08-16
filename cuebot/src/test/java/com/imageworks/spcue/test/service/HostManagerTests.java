@@ -102,11 +102,11 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 .setName(HOST_NAME)
                 .setBootTime(1192369572)
                 .setFreeMcp(7602)
-                .setFreeMem(15290520)
+                .setFreeMemory(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
                 .setTotalMcp(19543)
-                .setTotalMem((int) CueUtil.GB16)
+                .setTotalMemory((int) CueUtil.GB16)
                 .setTotalSwap(2076)
                 .setNimbyEnabled(true)
                 .setNumProcs(2)
@@ -114,8 +114,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("linux", "64bit"))
-                .putAttributes("freeGpu", "512")
-                .putAttributes("totalGpu", "512")
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         hostDao.insertRenderHost(host,

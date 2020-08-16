@@ -232,6 +232,75 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 Integer.class, job.getJobId()) > 0;
     }
 
+
+    @Override
+    public void updateDefaultJobMaxGpu(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The default max cores for a job must " +
+                    "be greater than a single core";
+            throw new IllegalArgumentException(msg);
+        }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_max_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateDefaultJobMinGpu(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The default min cores for a job must " +
+                    "be greater than a single core";
+            throw new IllegalArgumentException(msg);
+        }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_min_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMaxGpu(GroupInterface group, int value) {
+        if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The group max cores feature must " +
+                    "be a whole core or greater, pass in: " + value;
+            throw new IllegalArgumentException(msg);
+        }
+
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_max_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMinGpu(GroupInterface group, int value) {
+        if (value < 0) { value = 0; }
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_min_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    private static final String IS_OVER_MIN_GPU =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job,"+
+            "folder_resource fr "+
+        "WHERE " +
+            "job.pk_folder = fr.pk_folder " +
+        "AND " +
+            "fr.int_gpu > fr.int_min_gpu " +
+        "AND "+
+            "job.pk_job = ?";
+
+    @Override
+    public boolean isOverMinGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_OVER_MIN_GPU,
+                Integer.class, job.getJobId()) > 0;
+    }
+
+
     @Override
     public void updateDefaultJobPriority(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }

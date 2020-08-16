@@ -119,11 +119,11 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .setName("beta")
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMemory(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
                 .setTotalMcp(195430)
-                .setTotalMem((int) CueUtil.GB32)
+                .setTotalMemory((int) CueUtil.GB32)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
                 .setNumProcs(8)
@@ -633,7 +633,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testGetReservedGpu() {
+    public void testGetReservedGpuMemory() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
 
@@ -649,7 +649,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                         "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
                         Long.class, _proc.id));
         assertEquals(Dispatcher.GPU_RESERVED_DEFAULT,
-                procDao.getReservedGpu(_proc));
+                procDao.getReservedGpuMemory(_proc));
     }
 
     @Test

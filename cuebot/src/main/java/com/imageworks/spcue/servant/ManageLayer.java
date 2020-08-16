@@ -94,8 +94,12 @@ import com.imageworks.spcue.grpc.job.LayerSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMaxCoresResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMaxGpuRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMaxGpuResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinGpuRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinGpuResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
@@ -220,6 +224,13 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         responseObserver.onNext(LayerSetMinCoresResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
+    @Override
+    public void setMinGpu(LayerSetMinGpuRequest request, StreamObserver<LayerSetMinGpuResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        jobManager.setLayerMinGpu(layer, request.getGpu());
+        responseObserver.onNext(LayerSetMinGpuResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
 
     @Override
     public void setMinMemory(LayerSetMinMemoryRequest request, StreamObserver<LayerSetMinMemoryResponse> responseObserver) {
@@ -230,10 +241,11 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     }
 
     @Override
-    public void setMinGpu(LayerSetMinGpuRequest request, StreamObserver<LayerSetMinGpuResponse> responseObserver) {
+    public void setMinGpuMemory(LayerSetMinGpuMemoryRequest request, StreamObserver<LayerSetMinGpuMemoryResponse> responseObserver) {
         updateLayer(request.getLayer());
-        layerDao.updateLayerMinGpu(layer, request.getGpu());
-        responseObserver.onNext(LayerSetMinGpuResponse.newBuilder().build());
+        // TODO
+        layerDao.updateLayerMinGpuMemory(layer, request.getMemory());
+        responseObserver.onNext(LayerSetMinGpuMemoryResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
@@ -367,9 +379,11 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         LocalHostAssignment lha = new LocalHostAssignment();
         lha.setThreads(request.getThreads());
         lha.setMaxCoreUnits(request.getMaxCores() * 100);
-        lha.setMaxMemory(request.getMaxMemory());
         lha.setMaxGpu(request.getMaxGpu());
+        lha.setMaxMemory(request.getMaxMemory());
+        lha.setMaxGpuMemory(request.getMaxGpuMemory());
         lha.setType(RenderPartitionType.LAYER_PARTITION);
+
         if (localBookingSupport.bookLocal(layer, request.getHost(), request.getUsername(), lha)) {
             RenderPartition partition = whiteboard.getRenderPartition(lha);
             responseObserver.onNext(LayerAddRenderPartitionResponse.newBuilder()
@@ -426,6 +440,14 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         updateLayer(request.getLayer());
         jobManager.setLayerMaxCores(layer, Convert.coresToWholeCoreUnits(request.getCores()));
         responseObserver.onNext(LayerSetMaxCoresResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMaxGpu(LayerSetMaxGpuRequest request, StreamObserver<LayerSetMaxGpuResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        jobManager.setLayerMaxGpu(layer, request.getGpu());
+        responseObserver.onNext(LayerSetMaxGpuResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

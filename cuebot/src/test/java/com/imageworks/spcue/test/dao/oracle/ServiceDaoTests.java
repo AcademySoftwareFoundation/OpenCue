@@ -68,7 +68,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB;
+        s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
 
@@ -84,7 +84,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB;
+        s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
 
@@ -94,7 +94,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "smacktest";
         s.minCores = 200;
         s.minMemory = CueUtil.GB8;
-        s.minGpu = CueUtil.GB2;
+        s.minGpuMemory = CueUtil.GB2;
         s.threadable = true;
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
@@ -117,7 +117,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB;
+        s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
 
@@ -139,7 +139,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB;
+        s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
@@ -156,7 +156,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB2;
+        s.minGpuMemory = CueUtil.GB2;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
@@ -168,7 +168,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "smacktest";
         s.minCores = 200;
         s.minMemory = CueUtil.GB8;
-        s.minGpu = CueUtil.GB4;
+        s.minGpuMemory = CueUtil.GB4;
         s.threadable = true;
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
@@ -192,7 +192,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.name = "dillweed";
         s.minCores = 100;
         s.minMemory = CueUtil.GB4;
-        s.minGpu = CueUtil.GB;
+        s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";

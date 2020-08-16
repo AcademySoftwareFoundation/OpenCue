@@ -257,6 +257,7 @@ public class RedirectManager {
         // Test a dispatch
         DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
         host.idleCores = proc.coresReserved;
+        host.idleGpu = proc.gpuReserved;
         host.idleMemory = proc.memoryReserved;
 
         if (dispatchSupport.findDispatchJobs(host, group).size() < 1) {

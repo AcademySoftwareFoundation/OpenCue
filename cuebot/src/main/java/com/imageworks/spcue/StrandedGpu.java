@@ -19,18 +19,26 @@
 
 package com.imageworks.spcue;
 
-public class ShowEntity extends Entity implements ShowInterface {
+public final class StrandedGpu {
 
-    public boolean active;
-    public boolean paused;
-    public int defaultMinCores;
-    public int defaultMaxCores;
-    public int defaultMinGpu;
-    public int defaultMaxGpu;
-    public String[] commentMail;
+    /**
+     * The maximum time this object should be valid.
+     */
+    private static final long MAX_AGE_MILLIS = 5000l;
 
-    public String getShowId() {
-        return id;
+    private final int gpu;
+    private final long expireTime = System.currentTimeMillis() + MAX_AGE_MILLIS;
+
+    public StrandedGpu(int gpu) {
+        this.gpu = gpu;
+    }
+
+    public int getGpu() {
+        return this.gpu;
+    }
+
+    public boolean isExpired() {
+        return System.currentTimeMillis() > expireTime;
     }
 }
 

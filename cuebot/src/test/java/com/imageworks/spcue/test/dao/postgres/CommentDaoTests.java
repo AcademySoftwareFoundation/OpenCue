@@ -141,11 +141,11 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setName("boo")
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(15290520)
+                .setFreeMemory(15290520)
                 .setFreeSwap(2076)
                 .setLoad(1)
                 .setTotalMcp(19543)
-                .setTotalMem(15290520)
+                .setTotalMemory(15290520)
                 .setTotalSwap(2096)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -153,8 +153,8 @@ public class CommentDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .addTags("linux")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         CommentDetail d = new CommentDetail();

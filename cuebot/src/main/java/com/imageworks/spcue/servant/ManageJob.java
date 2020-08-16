@@ -124,10 +124,14 @@ import com.imageworks.spcue.grpc.job.JobSetGroupRequest;
 import com.imageworks.spcue.grpc.job.JobSetGroupResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpuRequest;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpuResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesResponse;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMinGpuRequest;
+import com.imageworks.spcue.grpc.job.JobSetMinGpuResponse;
 import com.imageworks.spcue.grpc.job.JobSetPriorityRequest;
 import com.imageworks.spcue.grpc.job.JobSetPriorityResponse;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesRequest;
@@ -324,6 +328,21 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         setupJobData(request.getJob());
         jobDao.updateMinCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
         responseObserver.onNext(JobSetMinCoresResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+    @Override
+    public void setMaxGpu(JobSetMaxGpuRequest request, StreamObserver<JobSetMaxGpuResponse> responseObserver) {
+        setupJobData(request.getJob());
+        jobDao.updateMaxGpu(job, request.getVal());
+        responseObserver.onNext(JobSetMaxGpuResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMinGpu(JobSetMinGpuRequest request, StreamObserver<JobSetMinGpuResponse> responseObserver) {
+        setupJobData(request.getJob());
+        jobDao.updateMinGpu(job, request.getVal());
+        responseObserver.onNext(JobSetMinGpuResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
@@ -564,8 +583,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         lha.setJobId(job.getId());
         lha.setThreads(request.getThreads());
         lha.setMaxCoreUnits(request.getMaxCores() * 100);
-        lha.setMaxMemory(request.getMaxMemory());
         lha.setMaxGpu(request.getMaxGpu());
+        lha.setMaxMemory(request.getMaxMemory());
+        lha.setMaxGpuMemory(request.getMaxGpuMemory());
         lha.setType(RenderPartitionType.JOB_PARTITION);
 
         if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {

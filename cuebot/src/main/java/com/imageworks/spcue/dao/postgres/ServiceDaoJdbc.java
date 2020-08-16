@@ -60,7 +60,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getInt("int_gpu_min");
+            s.maxGpu = rs.getInt("int_gpu_max");
+            s.minGpuMemory = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             return s;
@@ -77,7 +79,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getInt("int_gpu_min");
+            s.maxGpu = rs.getInt("int_gpu_max");
+            s.minGpuMemory = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.showId = rs.getString("pk_show");
@@ -94,6 +98,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "service.int_cores_max," +
             "service.int_mem_min," +
             "service.int_gpu_min," +
+            "service.int_gpu_max," +
+            "service.int_gpu_mem_min," +
             "service.str_tags " +
         "FROM " +
             "service ";
@@ -114,6 +120,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "show_service.int_cores_max, "+
             "show_service.int_mem_min," +
             "show_service.int_gpu_min," +
+            "show_service.int_gpu_max, "+
+            "show_service.int_gpu_mem_min," +
             "show_service.str_tags, " +
             "show.pk_show " +
          "FROM " +
@@ -160,15 +168,18 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
              "int_cores_max, "+
              "int_mem_min," +
              "int_gpu_min," +
+             "int_gpu_max, "+
+             "int_gpu_mem_min," +
              "str_tags" +
-         ") VALUES (?,?,?,?,?,?,?,?)";
+         ") VALUES (?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceEntity service) {
         service.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SERVICE, service.id,
-                service.name, service.threadable, service.minCores,
-                service.maxCores, service.minMemory, service.minGpu,
+                service.name, service.threadable,
+                service.minCores, service.maxCores, service.minMemory,
+                service.minGpu, service.maxGpu, service.minGpuMemory,
                 StringUtils.join(service.tags.toArray(), " | "));
     }
 
@@ -184,8 +195,10 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_max," +
             "int_mem_min," +
             "int_gpu_min," +
+            "int_gpu_max," +
+            "int_gpu_mem_min," +
             "str_tags " +
-        ") VALUES (?,?,?,?,?,?,?,?,?)";
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceOverrideEntity service) {
@@ -193,7 +206,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id,
                 service.showId, service.name, service.threadable,
                 service.minCores, service.maxCores, service.minMemory,
-                service.minGpu, joinTags(service.tags));
+                service.minGpu, service.maxGpu, service.minGpuMemory, 
+                joinTags(service.tags));
     }
 
     private static final String UPDATE_SERVICE =
@@ -203,9 +217,11 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "str_name=?," +
             "b_threadable=?," +
             "int_cores_min=?," +
-            "int_cores_max=?,"+
+            "int_cores_max=?," +
             "int_mem_min=?," +
             "int_gpu_min=?," +
+            "int_gpu_max=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=? " +
         "WHERE " +
             "pk_service = ?";
@@ -214,7 +230,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpu, service.maxGpu,
+                service.minGpuMemory, joinTags(service.tags),
                 service.getId());
     }
 
@@ -228,6 +245,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_max=?," +
             "int_mem_min=?," +
             "int_gpu_min=?," +
+            "int_gpu_max=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=? " +
         "WHERE " +
             "pk_show_service = ?";
@@ -236,7 +255,8 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceOverrideEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpu, service.maxGpu,
+                service.minGpuMemory, joinTags(service.tags),
                 service.getId());
     }
 

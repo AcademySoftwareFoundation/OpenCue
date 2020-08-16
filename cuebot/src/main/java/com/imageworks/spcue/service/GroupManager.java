@@ -34,6 +34,10 @@ public interface GroupManager {
     void setGroupMinCores(GroupInterface g, int coreUnits);
     void setGroupDefaultJobMinCores(GroupInterface g, int coreUnits);
     void setGroupDefaultJobMaxCores(GroupInterface g, int coreUnits);
+    void setGroupMaxGpu(GroupInterface g, int gpu);
+    void setGroupMinGpu(GroupInterface g, int gpu);
+    void setGroupDefaultJobMinGpu(GroupInterface g, int gpu);
+    void setGroupDefaultJobMaxGpu(GroupInterface g, int gpu);
     void setGroupDefaultJobPriority(GroupInterface g, int priority);
 
     /**

@@ -444,7 +444,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                                     proc = NestedProc.newBuilder()
                                             .setId(pid)
                                             .setName(CueUtil.buildProcName(host.getName(),
-                                                    rs.getInt("proc_cores")))
+                                                    rs.getInt("proc_cores"),
+                                                    rs.getInt("proc_gpu")))
                                             .setReservedCores(Convert.coreUnitsToCores(
                                                     rs.getInt("proc_cores")))
                                             .setReservedMemory(rs.getLong("proc_memory"))

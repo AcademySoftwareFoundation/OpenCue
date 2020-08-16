@@ -131,6 +131,15 @@ public interface LayerDao {
      */
     void updateLayerMinCores(LayerInterface layer, int val);
 
+
+    /**
+     * update the number of gpu the layer requires
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerMinGpu(LayerInterface layer, int val);
+
     /**
      * update the amount of memory required by all subsequent
      * running frames in the specified layer.
@@ -147,7 +156,7 @@ public interface LayerDao {
      * @param layer
      * @param val
      */
-    void updateLayerMinGpu(LayerInterface layer, long gpu);
+    void updateLayerMinGpuMemory(LayerInterface layer, long val);
 
     /**
      * Update a layer with new host tags.
@@ -207,9 +216,9 @@ public interface LayerDao {
      * value is larger than the current value
      *
      * @param layer
-     * @param gpu
+     * @param val
      */
-    void increaseLayerMinGpu(LayerInterface layer, long gpu);
+    void increaseLayerMinGpuMemory(LayerInterface layer, long val);
 
     /**
      * Tries to find a max RSS value for layer in the specified job. The
@@ -256,10 +265,10 @@ public interface LayerDao {
      * job with the new gpu requirement.
      *
      * @param job
-     * @param gpu
+     * @param mem
      * @param type
      */
-    void updateMinGpu(JobInterface job, long gpu, LayerType type);
+    void updateMinGpuMemory(JobInterface job, long mem, LayerType type);
 
     /**
      * Update all layers of the set type in the specified job
@@ -272,12 +281,21 @@ public interface LayerDao {
     void updateMinCores(JobInterface job, int cores, LayerType type);
 
     /**
+     * Update all layers of the set type in the specified job
+     * with the new min cores requirement.
+     *
+     * @param job
+     * @param gpu
+     * @param type
+     */
+    void updateMinGpu(JobInterface job, int gpu, LayerType type);
+
+    /**
      * Update a layer's max cores value, which limits how
      * much threading can go on.
      *
      * @param job
-     * @param cores
-     * @param type
+     * @param core
      */
     void updateThreadable(LayerInterface layer, boolean threadable);
 
@@ -376,6 +394,16 @@ public interface LayerDao {
      * @param val
      */
     void updateLayerMaxCores(LayerInterface layer, int val);
+
+    /**
+     * Set the layer's max gpu value to the given int.  The
+     * max gpu value will not allow the dispatcher to
+     * book over the given number of gpu.
+     *
+     * @param layer
+     * @param val
+     */
+    void updateLayerMaxGpu(LayerInterface layer, int val);
 
     /**
      * Add a limit to the given layer.

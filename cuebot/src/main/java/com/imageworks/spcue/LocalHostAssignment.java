@@ -34,12 +34,14 @@ public class LocalHostAssignment extends Entity
     implements ResourceContainer {
 
     private int idleCoreUnits;
-    private long idleMemory;
-    private long idleGpu;
-
-    private long maxMemory;
-    private long maxGpu;
     private int maxCoreUnits;
+    private long idleMemory;
+    private long maxMemory;
+
+    private int idleGpu;
+    private int maxGpu;
+    private long idleGpuMemory;
+    private long maxGpuMemory;
 
     private int threads;
 
@@ -52,23 +54,29 @@ public class LocalHostAssignment extends Entity
 
     public LocalHostAssignment() { }
 
-    public LocalHostAssignment(int maxCores, int threads, long maxMemory, long maxGpu) {
+    public LocalHostAssignment(int maxCores, int threads, int maxGpu, long maxMemory, long maxGpuMemory) {
         this.maxCoreUnits = maxCores;
         this.threads = threads;
-        this.maxMemory = maxMemory;
         this.maxGpu = maxGpu;
+        this.maxMemory = maxMemory;
+        this.maxGpuMemory = maxGpuMemory;
     }
 
     @Override
-    public boolean hasAdditionalResources(int minCores, long minMemory, long minGpu) {
+    public boolean hasAdditionalResources(int minCores, int minGpu, long minMemory, long minGpuMemory) {
 
         if (idleCoreUnits < minCores) {
             return false;
         }
+
+        if (idleGpu < minGpu) {
+            return false;
+        }
+
         else if (idleMemory <  minMemory) {
             return false;
         }
-        else if (idleGpu <  minGpu) {
+        else if (idleGpuMemory <  minGpuMemory) {
             return false;
         }
 
@@ -76,10 +84,11 @@ public class LocalHostAssignment extends Entity
     }
 
     @Override
-    public void useResources(int coreUnits, long memory, long gpu) {
+    public void useResources(int coreUnits, int gpu, long memory, long gpuMemory) {
         idleCoreUnits = idleCoreUnits - coreUnits;
-        idleMemory = idleMemory - memory;
         idleGpu = idleGpu - gpu;
+        idleMemory = idleMemory - memory;
+        idleGpuMemory = idleGpuMemory - gpuMemory;
     }
 
     public int getThreads() {
@@ -106,20 +115,28 @@ public class LocalHostAssignment extends Entity
         this.maxCoreUnits = maxCoreUnits;
     }
 
+    public int getMaxGpu() {
+        return maxGpu;
+    }
+
+    public void setMaxGpu(int maxGpu) {
+        this.maxGpu = maxGpu;
+    }
+
     public long getIdleMemory() {
         return this.idleMemory;
     }
 
-    public long getMaxGpu() {
-        return maxGpu;
+    public long getMaxGpuMemory() {
+        return maxGpuMemory;
     }
 
-    public void setMaxGpu(long maxGpu) {
-        this.maxGpu = maxGpu;
+    public void setMaxGpuMemory(long maxGpuMemory) {
+        this.maxGpuMemory = maxGpuMemory;
     }
 
-    public long getIdleGpu() {
-        return this.idleGpu;
+    public long getIdleGpuMemory() {
+        return this.idleGpuMemory;
     }
 
     public int getIdleCoreUnits() {
@@ -130,12 +147,20 @@ public class LocalHostAssignment extends Entity
         this.idleCoreUnits = idleCoreUnits;
     }
 
+    public int getIdleGpu() {
+        return this.idleGpu;
+    }
+
+    public void setIdleGpu(int idleGpu) {
+        this.idleGpu = idleGpu;
+    }
+
     public void setIdleMemory(long idleMemory) {
         this.idleMemory = idleMemory;
     }
 
-    public void setIdleGpu(long idleGpu) {
-        this.idleGpu = idleGpu;
+    public void setIdleGpuMemory(long idleGpuMemory) {
+        this.idleGpuMemory = idleGpuMemory;
     }
 
     public String getHostId() {

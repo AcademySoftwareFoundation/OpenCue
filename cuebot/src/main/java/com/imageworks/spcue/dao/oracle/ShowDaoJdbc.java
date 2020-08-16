@@ -180,6 +180,18 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 val, s.getShowId());
     }
 
+    public void updateShowDefaultMinGpu(ShowInterface s, int val) {
+        getJdbcTemplate().update(
+                "UPDATE show SET int_default_min_gpu=? WHERE pk_show=?",
+                val, s.getShowId());
+    }
+
+    public void updateShowDefaultMaxGpu(ShowInterface s, int val) {
+        getJdbcTemplate().update(
+                "UPDATE show SET int_default_max_gpu=? WHERE pk_show=?",
+                val, s.getShowId());
+    }
+
     @Override
     public void updateBookingEnabled(ShowInterface s, boolean enabled) {
         getJdbcTemplate().update(

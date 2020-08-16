@@ -97,11 +97,11 @@ public class DispatchSupportTests extends TransactionalTest {
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMemory(53500)
                 .setFreeSwap(20760)
                 .setLoad(0)
                 .setTotalMcp(195430)
-                .setTotalMem(8173264)
+                .setTotalMemory(8173264)
                 .setTotalSwap(20960)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -110,8 +110,8 @@ public class DispatchSupportTests extends TransactionalTest {
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host,

@@ -135,13 +135,29 @@ class Layer(object):
             job_pb2.LayerSetMinCoresRequest(layer=self.data, cores=cores/100.0),
             timeout=Cuebot.Timeout)
 
-    def setMinGpu(self, gpu):
-        """Sets the minimum number of gpu memory that this layer requires.
+    def setMaxGpu(self, gpu):
+        """Sets the maximum number of gpu that this layer requires.
+        :type  gpu: float
+        :param gpu: Core units, 100 reserves 1 core"""
+        return self.stub.SetMaxGpu(
+            job_pb2.LayerSetMaxGpuRequest(layer=self.data, gpu=int(gpu)),
+            timeout=Cuebot.Timeout)
 
+    def setMinGpu(self, gpu):
+        """Sets the minimum number of gpu that this layer requires.
+        Use 100 to reserve 1 core.
         :type  gpu: int
-        :param gpu: gpu value"""
+        :param gpu: Core units, 100 reserves 1 core"""
         return self.stub.SetMinGpu(
-            job_pb2.LayerSetMinGpuRequest(layer=self.data, gpu=gpu),
+            job_pb2.LayerSetMinGpuRequest(layer=self.data, gpu=int(gpu)),
+            timeout=Cuebot.Timeout)
+
+    def setMinGpuMemory(self, memory):
+        """Sets the minimum number of memory memory that this layer requires.
+        :type  memory: int
+        :param memory: memory value"""
+        return self.stub.SetMinGpuMemory(
+            job_pb2.LayerSetMinGpuMemoryRequest(layer=self.data, memory=memory),
             timeout=Cuebot.Timeout)
 
     def setMinMemory(self, memory):
@@ -358,12 +374,24 @@ class Layer(object):
         :return: cores reserved"""
         return self.data.layer_stats.reserved_cores
 
+    def gpuReserved(self):
+        """Returns the number of gpus reserved on this layer
+        :rtype: float
+        :return: gpu reserved"""
+        return self.data.layer_stats.reserved_gpu
+
     def minCores(self):
         """Returns the minimum number of cores that frames in this layer require.
 
         :rtype:  int
         :return: Minimum number of cores required"""
         return self.data.min_cores
+
+    def minGpu(self):
+        """Returns the minimum number of gpu that frames in this layer require
+        :rtype:  int
+        :return: Minimum number of gpu required"""
+        return self.data.min_gpu
 
     def minMemory(self):
         """Returns the minimum about of memory that frames in this layer require.

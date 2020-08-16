@@ -581,11 +581,12 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   Long.class, proc.getProcId());
       }
 
-      public long getReservedGpu(ProcInterface proc) {
-          return getJdbcTemplate().queryForObject(
-                  "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
-                  Long.class, proc.getProcId());
-      }
+      public long getReservedGpuMemory(ProcInterface proc) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
+                Long.class, proc.getProcId());
+    }
+
 
       private static final String FIND_UNDERUTILIZED_PROCS =
           "SELECT " +

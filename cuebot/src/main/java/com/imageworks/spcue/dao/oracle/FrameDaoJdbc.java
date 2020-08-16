@@ -273,7 +273,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
             frame.minMemory = rs.getLong("int_mem_min");
-            frame.minGpu = rs.getLong("int_gpu_min");
+            frame.minGpu = rs.getInt("int_gpu_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             return frame;
@@ -967,7 +967,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 int rowNum) throws SQLException {
             return new ResourceUsage(
                     rs.getLong("int_clock_time"),
-                    rs.getInt("int_cores"));
+                    rs.getInt("int_cores"),
+                    rs.getInt("int_gpu"));
         }
 
     };

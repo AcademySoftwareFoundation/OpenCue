@@ -149,9 +149,34 @@ class Show(object):
             timeout=Cuebot.Timeout)
         return response
 
-    def findFilter(self, name):
-        """Find the filter by name.
+    def setDefaultMaxGpu(self, maxgpu):
+        """Sets the default maximum number of gpu
+        that new jobs are launched with.
+        :type: float
+        :param: value to set maxGpu to
+        :rtype: show_pb2.ShowSetDefaultMaxGpuResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMaxGpu(show_pb2.ShowSetDefaultMaxGpuRequest(
+            show=self.data, max_gpu=maxgpu),
+            timeout=Cuebot.Timeout)
+        return response
 
+    def setDefaultMinGpu(self, mingpu):
+        """Sets the default minimum number of gpu
+        all new jobs are launched with.
+        :type: float
+        :param: value to set minGpu to
+        :rtype: show_pb2.ShowSetDefaultMinGpuResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMinGpu(show_pb2.ShowSetDefaultMinGpuRequest(
+            show=self.data, min_gpu=mingpu),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def findFilter(self, name):
+        """Find the filter by name
         :type: string
         :param: name of filter to find
         :rtype: opencue.wrappers.filter.Filter

@@ -135,6 +135,12 @@ public class JobManagerService implements JobManager {
         return jobDao.isOverMinCores(job);
     }
 
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public boolean isOverMinGpu(JobInterface job) {
+        return jobDao.isOverMinGpu(job);
+    }
+
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public DispatchJob getDispatchJob(String id) {
         return jobDao.getDispatchJob(id);
@@ -444,6 +450,16 @@ public class JobManagerService implements JobManager {
     @Override
     public void setLayerMaxCores(LayerInterface layer, int coreUnits) {
         layerDao.updateLayerMaxCores(layer, coreUnits);
+    }
+
+    @Override
+    public void setLayerMinGpu(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMinGpu(layer, gpu);
+    }
+
+    @Override
+    public void setLayerMaxGpu(LayerInterface layer, int gpu) {
+        layerDao.updateLayerMaxGpu(layer, gpu);
     }
 
     @Override

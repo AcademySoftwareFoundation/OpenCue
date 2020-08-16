@@ -235,8 +235,8 @@ public final class CueUtil {
         return String.format("%04d-%s", num, layer.getName());
     }
 
-    public final static String buildProcName(String host, int cores) {
-        return String.format(Locale.ROOT, "%s/%4.2f", host, Convert.coreUnitsToCores(cores));
+    public final static String buildProcName(String host, int cores, int gpu) {
+        return String.format(Locale.ROOT, "%s/%4.2f/%d", host, Convert.coreUnitsToCores(cores), gpu);
 
     }
     /**

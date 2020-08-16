@@ -126,6 +126,20 @@ class Job(object):
         self.stub.SetMaxCores(job_pb2.JobSetMaxCoresRequest(job=self.data, val=maxCores),
                               timeout=Cuebot.Timeout)
 
+    def setMinGpu(self, minGpu):
+        """Sets the minimum procs value
+        :type  minGpu: int
+        :param minGpu: New minimum cores value"""
+        self.stub.SetMinGpu(job_pb2.JobSetMinGpuRequest(job=self.data, val=minGpu),
+                              timeout=Cuebot.Timeout)
+
+    def setMaxGpu(self, maxGpu):
+        """Sets the maximum procs value
+        :type  maxGpu: int
+        :param maxGpu: New maximum cores value"""
+        self.stub.SetMaxGpu(job_pb2.JobSetMaxGpuRequest(job=self.data, val=maxGpu),
+                              timeout=Cuebot.Timeout)
+
     def setPriority(self, priority):
         """Sets the priority number.
 
@@ -458,6 +472,18 @@ class Job(object):
         :return: Job's maxProcs"""
         return self.data.max_cores
 
+    def minGpu(self):
+        """Returns the job's minProcs
+        :rtype:  int
+        :return: Job's minGpu"""
+        return self.data.min_gpu
+
+    def maxGpu(self):
+        """Returns the job's maxProcs
+        :rtype:  int
+        :return: Job's maxProcs"""
+        return self.data.max_gpu
+
     def os(self):
         """Returns the job's operating system.
 
@@ -750,6 +776,18 @@ class NestedJob(Job):
         :type  maxCores: int
         :param maxCores: New maximum cores value"""
         self.asJob().setMaxCores(maxCores)
+
+    def setMinGpu(self, minGpu):
+        """Sets the minimum procs value
+        :type  minGpu: int
+        :param minGpu: New minimum cores value"""
+        self.asJob().setMinGpu(minGpu)
+
+    def setMaxGpu(self, maxGpu):
+        """Sets the maximum procs value
+        :type  maxGpu: int
+        :param maxGpu: New maximum cores value"""
+        self.asJob().setMaxGpu(maxGpu)
 
     def setPriority(self, priority):
         """Sets the priority number.

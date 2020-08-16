@@ -187,6 +187,11 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
                        tip="The last line of a running frame's log file.")
 
+        self.addColumn("Gpus", 55, id=16,
+                       data=lambda job, frame: (self.getGpu(frame, True) or ""),
+                       sort=lambda job, frame: (self.getGpu(frame)),
+                       tip="The number of gpus a frame is using")
+
         self.frameSearch = opencue.search.FrameSearch()
 
         self.__job = None
@@ -244,6 +249,18 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 cores = "{:.2f}".format(cores)
 
         return cores
+
+    def getGpu(self, frame, format=False):
+        gpu = None
+
+        m = FRAME_GPU.search(frame.data.last_resource)
+        if m:
+            gpu = int(float(m.group(1)))
+
+            if format:
+                gpu = "{:.2f}".format(gpu)
+
+        return gpu
 
     def getTimeString(self, timestamp):
         tstring = None

@@ -274,12 +274,18 @@ def _serialize(launcher, use_pycuerun):
         if layer.get_arg("threads"):
             sub_element(spec_layer, "cores", "%0.1f" % (layer.get_arg("threads")))
 
+        if layer.get_arg("gpu"):
+            sub_element(spec_layer, "gpu", "%d" % (layer.get_arg("gpu")))
+
         if layer.is_arg_set("threadable"):
             sub_element(spec_layer, "threadable",
                         bool_to_str(layer.get_arg("threadable")))
 
         if layer.get_arg("memory"):
             sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
+
+        if layer.get_arg("gpu_memory"):
+            sub_element(spec_layer, "gpu_memory", "%s" % (layer.get_arg("gpu_memory")))
 
         if os.environ.get("OL_TAG_OVERRIDE", False):
             sub_element(spec_layer, "tags",

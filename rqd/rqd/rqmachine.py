@@ -57,6 +57,7 @@ import rqd.rqutil
 
 
 KILOBYTE = 1024
+GPU_DEFAULT = {'count': 0, 'total': 0, 'free': 0, 'updated': 0}
 
 
 class Machine(object):
@@ -71,6 +72,7 @@ class Machine(object):
         self.__rqCore = rqCore
         self.__coreInfo = coreInfo
         self.__tasksets = set()
+        self.__gpusets = set()
 
         if platform.system() == 'Linux':
             self.__vmstat = rqd.rqswap.VmStat()
@@ -90,6 +92,7 @@ class Machine(object):
         self.__pidHistory = {}
 
         self.setupHT()
+        self.setupGpu()
 
     def isNimbySafeToRunJobs(self):
         """Returns False if nimby should be triggered due to resource limits"""
@@ -300,42 +303,51 @@ class Machine(object):
                     return int(line.split()[1])
         return 0
 
-    @rqd.rqutil.Memoize
+    @rqutil.Memoize
+    def getGpuCount(self):
+        """Returns the total gpu's on the machine"""
+        return self.__getGpuValues()['count']
+
+    @rqutil.Memoize
     def getGpuMemoryTotal(self):
         """Returns the total gpu memory in kb for CUE_GPU_MEMORY"""
         return self.__getGpuValues()['total']
 
-    def getGpuMemory(self):
+    def getGpuMemoryFree(self):
         """Returns the available gpu memory in kb for CUE_GPU_MEMORY"""
         return self.__getGpuValues()['free']
 
     def __getGpuValues(self):
         if not hasattr(self, 'gpuNotSupported'):
             if not hasattr(self, 'gpuResults'):
-                self.gpuResults = {'total': 0, 'free': 0, 'updated': 0}
-            if rqd.rqconstants.ALLOW_PLAYBLAST and not rqd.rqconstants.ALLOW_GPU:
-                return {'total': 262144, 'free': 262144, 'updated': 0}
-            if not rqd.rqconstants.ALLOW_GPU:
+                self.gpuResults = GPU_DEFAULT
+            if not rqconstants.ALLOW_GPU:
                 self.gpuNotSupported = True
                 return self.gpuResults
-            if self.gpuResults['updated'] > time.time() - 60:
+            if self.gpuResults['updated'] > int(time.time()) - 60:
                 return self.gpuResults
             try:
-                # /shots/spi/home/bin/spinux1/cudaInfo
-                # /shots/spi/home/bin/rhel7/cudaInfo
-                cudaInfo = subprocess.getoutput('/usr/local/spi/rqd3/cudaInfo')
-                if 'There is no device supporting CUDA' in cudaInfo:
-                    self.gpuNotSupported = True
-                else:
-                    results = cudaInfo.splitlines()[-1].split()
-                    #  TotalMem 1023 Mb  FreeMem 968 Mb
-                    # The int(math.ceil(int(x) / 32.0) * 32) rounds up to the next multiple of 32
-                    self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
-                    self.gpuResults['free'] = int(results[4]) * KILOBYTE
-                    self.gpuResults['updated'] = time.time()
-            except Exception as e:
+                nvidia_smi = commands.getoutput('nvidia-smi --query-gpu=memory.total,memory.free,count --format=csv,noheader')
+                total = 0
+                free = 0
+                count = 0
+                for line in nvidia_smi.splitlines():
+                    l = line.split()
+                    total += math.ceil(int(l[0]) * 1048.576)
+                    free += math.ceil(int(l[2]) * 1048.576)
+                    count = int(l[-1])
+
+                self.gpuResults['total'] = int(total)
+                self.gpuResults['free'] = int(free)
+                self.gpuResults['count'] = count
+                self.gpuResults['updated'] = int(time.time())
+            except Exception, e:
+                self.gpuNotSupported = True
+                self.gpuResults = GPU_DEFAULT
                 log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
                             (e, traceback.extract_tb(sys.exc_info()[2])))
+        else:
+            self.gpuResults = GPU_DEFAULT
         return self.gpuResults
 
     def __getSwapout(self):
@@ -568,6 +580,9 @@ class Machine(object):
 
             self.__renderHost.free_swap = freeSwapMem
             self.__renderHost.free_mem = freeMem + cachedMem
+            self.__renderHost.total_gpu_memory = self.getGpuMemoryTotal()
+            self.__renderHost.free_gpu_memory = self.getGpuMemoryFree()
+
             self.__renderHost.attributes['freeGpu'] = str(self.getGpuMemory())
             self.__renderHost.attributes['swapout'] = self.__getSwapout()
 
@@ -623,13 +638,17 @@ class Machine(object):
         if self.__enabledHT():
             self.__tasksets = set(range(self.__coreInfo.total_cores // 100))
 
+    def setupGpu(self):
+        """ Setup rqd for Gpus """
+        self.__gpusets = set(range(self.getGpuCount()))
+
     def reserveHT(self, reservedCores):
         """ Reserve cores for use by taskset
         taskset -c 0,1,8,9 COMMAND
         Not thread save, use with locking.
         @type   reservedCores: int
         @param  reservedCores: The total physical cores reserved by the frame.
-        @rtype:  string
+        :rtype:  string
         @return: The cpu-list for taskset -c
         """
 
@@ -672,3 +691,22 @@ class Machine(object):
         for core in reservedHT.split(','):
             if int(core) < self.__coreInfo.total_cores // 100:
                 self.__tasksets.add(int(core))
+
+    def reserveGpu(self, reservedGpu):
+        if len(self.__gpusets) < reservedGpu:
+            err = 'Not launching, insufficient GPUs to reserve based on reservedGpu'
+            log.critical(err)
+            raise CoreReservationFailureException(err)
+
+        gpusets = []
+        for x in range(reservedGpu):
+            gpu = self.__gpusets.pop()
+            gpusets.append(str(gpu))
+
+        return ','.join(gpusets)
+
+    def releaseGpu(self, reservedGpu):
+        log.debug('GPU set: Releasing gpu - %s' % reservedGpu)
+        for gpu in reservedGpu.split(','):
+            if int(gpu) < self.getGpuCount():
+                self.__gpusets.add(int(gpu))

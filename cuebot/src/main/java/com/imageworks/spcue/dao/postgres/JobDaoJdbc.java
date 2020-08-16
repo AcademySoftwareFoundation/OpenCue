@@ -115,6 +115,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.logDir = rs.getString("str_log_dir");
                 job.maxCoreUnits = rs.getInt("int_max_cores");
                 job.minCoreUnits = rs.getInt("int_min_cores");
+                job.maxGpuUnits = rs.getInt("int_max_gpu");
+                job.minGpuUnits = rs.getInt("int_min_gpu");
                 job.name = rs.getString("str_name");
                 job.priority = rs.getInt("int_priority");
                 job.shot = rs.getString("str_shot");
@@ -211,6 +213,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
              "job.int_max_retries,"+
              "job_resource.int_max_cores,"+
              "job_resource.int_min_cores,"+
+             "job_resource.int_max_gpu,"+
+             "job_resource.int_min_gpu,"+
              "job_resource.int_priority,"+
              "show.str_name AS show_name, " +
              "dept.str_name AS dept_name, "+
@@ -354,6 +358,32 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     @Override
     public void updateMaxCores(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE pk_job=?",
+                v, j.getJobId());
+    }
+
+    @Override
+    public void updateMinGpu(GroupInterface g, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_min_gpu=? WHERE " +
+                "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
+                v, g.getGroupId());
+    }
+
+    @Override
+    public void updateMaxGpu(GroupInterface g, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_max_gpu=? WHERE " +
+                "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
+                v, g.getGroupId());
+    }
+
+    @Override
+    public void updateMinGpu(JobInterface j, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_min_gpu=? WHERE pk_job=?",
+                v, j.getJobId());
+    }
+
+    @Override
+    public void updateMaxGpu(JobInterface j, int v) {
+        getJdbcTemplate().update("UPDATE job_resource SET int_max_gpu=? WHERE pk_job=?",
                 v, j.getJobId());
     }
 
@@ -625,6 +655,60 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 Integer.class, job.getJobId()) > 0;
     }
 
+    private static final String IS_JOB_OVER_MIN_GPU =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu > job_resource.int_min_gpu";
+
+    @Override
+    public boolean isOverMinGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MIN_GPU,
+                Integer.class, job.getJobId()) > 0;
+    }
+
+    private static final String IS_JOB_OVER_MAX_GPU_CORES =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu + ? > job_resource.int_max_gpu";
+
+    @Override
+    public boolean isOverMaxGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_GPU_CORES,
+                Integer.class, job.getJobId(), 0) > 0;
+    }
+
+    @Override
+    public boolean isOverMaxGpu(JobInterface job, int gpu) {
+        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_GPU_CORES,
+                Integer.class, job.getJobId(), gpu) > 0;
+    }
+
+    private static final String IS_JOB_AT_MAX_GPU =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job_resource " +
+        "WHERE " +
+            "job_resource.pk_job = ? " +
+        "AND " +
+            "job_resource.int_gpu >= job_resource.int_max_gpu ";
+
+    @Override
+    public boolean isAtMaxGpu(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_JOB_AT_MAX_GPU,
+                Integer.class, job.getJobId()) > 0;
+    }
+
     @Override
     public void updateMaxFrameRetries(JobInterface j, int max_retries) {
         if (max_retries < 0) {
@@ -678,8 +762,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     private static final String GET_EXECUTION_SUMMARY =
         "SELECT " +
             "job_usage.int_core_time_success,"+
-            "job_usage.int_core_time_fail," +
-            "job_mem.int_max_rss  " +
+            "job_usage.int_core_time_fail,"+
+            "job_usage.int_gpu_time_success,"+
+            "job_usage.int_gpu_time_fail,"+
+            "job_mem.int_max_rss " +
         "FROM " +
             "job," +
             "job_usage, "+
@@ -700,6 +786,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                         e.coreTimeSuccess = rs.getLong("int_core_time_success");
                         e.coreTimeFail = rs.getLong("int_core_time_fail");
                         e.coreTime = e.coreTimeSuccess + e.coreTimeFail;
+                        e.gpuTimeSuccess = rs.getLong("int_gpu_time_success");
+                        e.gpuTimeFail = rs.getLong("int_gpu_time_fail");
+                        e.gpuTime = e.gpuTimeSuccess + e.gpuTimeFail;
                         e.highMemoryKb = rs.getLong("int_max_rss");
 
                         return e;
@@ -788,6 +877,20 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                     }
                     break;
 
+                case MinGpu:
+                    if (dest.jobMinGpu != CueUtil.FEATURE_DISABLED) {
+                        query.append("int_min_gpu=?,");
+                        values.add(dest.jobMinGpu);
+                    }
+                    break;
+
+                case MaxGpu:
+                    if (dest.jobMaxGpu != CueUtil.FEATURE_DISABLED) {
+                        query.append("int_max_gpu=?,");
+                        values.add(dest.jobMaxGpu);
+                    }
+                    break;
+
                 case All:
                     if (dest.jobPriority != CueUtil.FEATURE_DISABLED) {
                         query.append("int_priority=?,");
@@ -802,6 +905,16 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                     if (dest.jobMaxCores != CueUtil.FEATURE_DISABLED) {
                         query.append("int_max_cores=?,");
                         values.add(dest.jobMaxCores);
+                    }
+
+                    if (dest.jobMinGpu != CueUtil.FEATURE_DISABLED) {
+                        query.append("int_min_gpu=?,");
+                        values.add(dest.jobMinGpu);
+                    }
+
+                    if (dest.jobMaxGpu != CueUtil.FEATURE_DISABLED) {
+                        query.append("int_max_gpu=?,");
+                        values.add(dest.jobMaxGpu);
                     }
                     break;
             }
@@ -844,6 +957,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
             "job_stat.int_waiting_count != 0" +
         "AND " +
             "job_resource.int_cores < job_resource.int_max_cores " +
+        "AND " +
+            "job_resource.int_gpu < job_resource.int_max_gpu " +
         "AND " +
             "job.pk_facility = ? " +
         "LIMIT 1";
@@ -915,11 +1030,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                         "job_usage " +
                     "SET " +
                         "int_core_time_success = int_core_time_success + ?," +
+                        "int_gpu_time_success = int_gpu_time_success + ?," +
                         "int_clock_time_success = int_clock_time_success + ?,"+
                         "int_frame_success_count = int_frame_success_count + 1 " +
                     "WHERE " +
                         "pk_job = ? ",
                         usage.getCoreTimeSeconds(),
+                        usage.getGpuTimeSeconds(),
                         usage.getClockTimeSeconds(),
                         job.getJobId());
 

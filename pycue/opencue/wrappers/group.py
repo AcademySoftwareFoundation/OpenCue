@@ -50,6 +50,14 @@ class Group(object):
         self.stub.SetMinCores(job_pb2.GroupSetMinCoresRequest(group=self.data, min_cores=value),
                               timeout=Cuebot.Timeout)
 
+    def setMaxGpu(self, value):
+        self.stub.SetMaxGpu(job_pb2.GroupSetMaxGpuRequest(group=self.data, max_gpu=value),
+                              timeout=Cuebot.Timeout)
+
+    def setMinGpu(self, value):
+        self.stub.SetMinGpu(job_pb2.GroupSetMinGpuRequest(group=self.data, min_gpu=value),
+                              timeout=Cuebot.Timeout)
+
     def setDefaultJobPriority(self, value):
         self.stub.SetDefaultJobPriority(
             job_pb2.GroupSetDefJobPriorityRequest(group=self.data, priority=value),
@@ -63,6 +71,16 @@ class Group(object):
     def setDefaultJobMaxCores(self, value):
         self.stub.SetDefaultJobMaxCores(
             job_pb2.GroupSetDefJobMaxCoresRequest(group=self.data, max_cores=value),
+            timeout=Cuebot.Timeout)
+
+    def setDefaultJobMinGpu(self, value):
+        self.stub.SetDefaultJobMinGpu(
+            job_pb2.GroupSetDefJobMinGpuRequest(group=self.data, min_gpu=value),
+            timeout=Cuebot.Timeout)
+
+    def setDefaultJobMaxGpu(self, value):
+        self.stub.SetDefaultJobMaxGpu(
+            job_pb2.GroupSetDefJobMaxGpuRequest(group=self.data, max_gpu=value),
             timeout=Cuebot.Timeout)
 
     def getGroups(self):

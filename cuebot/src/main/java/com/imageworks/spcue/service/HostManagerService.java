@@ -123,7 +123,7 @@ public class HostManagerService implements HostManager {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime,
             String os) {
 
@@ -131,7 +131,7 @@ public class HostManagerService implements HostManager {
                 totalMemory, freeMemory,
                 totalSwap, freeSwap,
                 totalMcp, freeMcp,
-                totalGpu, freeGpu,
+                totalGpuMemory, freeGpuMemory,
                 load, bootTime, os);
     }
 
@@ -244,6 +244,12 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public int getStrandedCoreUnits(HostInterface h) {
         return hostDao.getStrandedCoreUnits(h);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public int getStrandedGpu(HostInterface h) {
+        return hostDao.getStrandedGpu(h);
     }
 
     @Override

@@ -639,7 +639,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobInterface job = jobDao.findJob(spec.getJobs().get(0).detail.name);
 
         /** 60 seconds of 100 core units **/
-        ResourceUsage usage = new ResourceUsage(60, 33);
+        ResourceUsage usage = new ResourceUsage(60, 33, 0);
 
         assertTrue(usage.getClockTimeSeconds() > 0);
         assertTrue(usage.getCoreTimeSeconds() > 0);

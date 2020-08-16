@@ -155,11 +155,12 @@ public class BookingDaoJdbc extends
             l.id = rs.getString("pk_host_local");
             l.setMaxCoreUnits(rs.getInt("int_cores_max"));
             l.setMaxMemory(rs.getLong("int_mem_max"));
-            l.setMaxGpu(rs.getLong("int_gpu_max"));
             l.setThreads(rs.getInt("int_threads"));
             l.setIdleCoreUnits(rs.getInt("int_cores_idle"));
             l.setIdleMemory(rs.getLong("int_mem_idle"));
-            l.setIdleGpu(rs.getLong("int_gpu_idle"));
+            l.setMaxGpu(rs.getInt("int_gpu_max"));
+            l.setIdleGpu(rs.getInt("int_gpu_idle"));
+            l.setMaxGpuMemory(rs.getLong("int_gpu_mem_max"));
             l.setJobId(rs.getString("pk_job"));
             l.setLayerId(rs.getString("pk_layer"));
             l.setFrameId(rs.getString("pk_frame"));
@@ -312,6 +313,13 @@ public class BookingDaoJdbc extends
                 Integer.class, coreUnits, l.getId());
     }
 
+    @Override
+    public int getGpuUsageDifference(LocalHostAssignment l, int gpu) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT ? - int_gpu_max FROM host_local WHERE pk_host_local=?",
+                Integer.class, gpu, l.getId());
+    }
+
     private static final String UPDATE_MAX_CORES =
         "UPDATE " +
             "host_local " +
@@ -325,6 +333,21 @@ public class BookingDaoJdbc extends
     public boolean updateMaxCores(LocalHostAssignment l, int coreUnits) {
         return getJdbcTemplate().update(UPDATE_MAX_CORES,
                 coreUnits, coreUnits, l.getId()) > 0;
+    }
+
+    private static final String UPDATE_MAX_GPU =
+        "UPDATE " +
+            "host_local " +
+        "SET " +
+            "int_gpu_idle = int_gpu_idle + (? - int_gpu_max), " +
+            "int_gpu_max = ? "+
+        "WHERE " +
+            "pk_host_local = ? ";
+
+    @Override
+    public boolean updateMaxGpu(LocalHostAssignment l, int gpu) {
+        return getJdbcTemplate().update(UPDATE_MAX_GPU,
+                gpu, gpu, l.getId()) > 0;
     }
 
     private static final String UPDATE_MAX_MEMORY =
@@ -342,19 +365,19 @@ public class BookingDaoJdbc extends
                 UPDATE_MAX_MEMORY, maxMemory, maxMemory, l.getId()) > 0;
     }
 
-    private static final String UPDATE_MAX_GPU =
+    private static final String UPDATE_MAX_GPU_MEMORY =
         "UPDATE " +
             "host_local " +
         "SET " +
-            "int_gpu_idle = int_gpu_idle + (? - int_gpu_max), " +
-            "int_gpu_max = ? "+
+            "int_gpu_mem_idle = int_gpu_mem_idle + (? - int_gpu_mem_max), " +
+            "int_gpu_mem_max = ? "+
         "WHERE " +
             "pk_host_local = ? ";
 
     @Override
-    public boolean updateMaxGpu(LocalHostAssignment l, long maxGpu) {
+    public boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory) {
         return getJdbcTemplate().update(
-                UPDATE_MAX_GPU, maxGpu, maxGpu, l.getId()) > 0;
+                UPDATE_MAX_GPU_MEMORY, maxGpuMemory, maxGpuMemory, l.getId()) > 0;
     }
 
     @Override
@@ -388,6 +411,26 @@ public class BookingDaoJdbc extends
 
     /**
      *
+     * @param h HostInterface
+     * @param gpu int
+     * @return boolean
+     */
+    @Override
+    public boolean allocateGpuFromHost(HostInterface h, int gpu) {
+
+        try {
+            return getJdbcTemplate().update(
+                    "UPDATE host SET int_gpu_idle = int_gpu_idle - ? " +
+                    "WHERE pk_host = ?",
+                    gpu, h.getHostId()) > 0;
+        } catch (DataAccessException e) {
+            throw new ResourceReservationFailureException("Failed to allocate " +
+                    gpu + " GPU from host, " + e);
+        }
+    }
+
+    /**
+     *
      * @param id
      * @param cores
      * @return
@@ -401,6 +444,24 @@ public class BookingDaoJdbc extends
         } catch (DataAccessException e) {
             throw new ResourceReservationFailureException("Failed to de-allocate " +
                     cores + " from host, " + e);
+        }
+    }
+
+    /**
+     *
+     * @param h HostInterface
+     * @param gpu int
+     * @return boolean
+     */
+    @Override
+    public boolean deallocateGpuFromHost(HostInterface h, int gpu) {
+        try {
+            return getJdbcTemplate().update(
+                    "UPDATE host SET int_gpu_idle = int_gpu_idle + ? WHERE pk_host = ?",
+                    gpu, h.getHostId()) > 0;
+        } catch (DataAccessException e) {
+            throw new ResourceReservationFailureException("Failed to de-allocate " +
+                    gpu + " from host, " + e);
         }
     }
 

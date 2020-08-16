@@ -97,11 +97,11 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setName("test_host")
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMemory(53500)
                 .setFreeSwap(20760)
                 .setLoad(1)
                 .setTotalMcp(195430)
-                .setTotalMem((int) CueUtil.GB16)
+                .setTotalMemory((int) CueUtil.GB16)
                 .setTotalSwap((int) CueUtil.GB16)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
@@ -109,8 +109,8 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMemory((int) CueUtil.MB512)
+                .setTotalGpuMemory((int) CueUtil.MB512)
                 .build();
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,

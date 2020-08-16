@@ -32,9 +32,11 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public LayerType type;
     public int minimumCores;
     public int maximumCores;
+    public int minimumGpu;
+    public int maximumGpu;
     public boolean isThreadable;
     public long minimumMemory;
-    public long minimumGpu;
+    public long minimumGpuMemory;
     public int chunkSize;
     public int dispatchOrder;
     public int totalFrameCount;
@@ -82,6 +84,14 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
         this.minimumCores = minimumCores;
     }
 
+    public int getMinimumGpu() {
+        return minimumGpu;
+    }
+
+    public void setMinimumGpu(int minimumGpu) {
+        this.minimumGpu = minimumGpu;
+    }
+
     public boolean isThreadable() {
         return isThreadable;
     }
@@ -98,12 +108,12 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
         this.minimumMemory = minimumMemory;
     }
 
-    public long getMinimumGpu() {
-        return minimumGpu;
+    public long getMinimumGpuMemory() {
+        return minimumGpuMemory;
     }
 
-    public void setMinimumGpu(long minimumGpu) {
-        this.minimumGpu = minimumGpu;
+    public void setMinimumGpuMemory(long minimumGpuMemory) {
+        this.minimumGpuMemory = minimumGpuMemory;
     }
 
     public int getChunkSize() {

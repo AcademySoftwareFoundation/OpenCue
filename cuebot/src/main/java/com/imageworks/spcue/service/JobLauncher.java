@@ -108,8 +108,9 @@ public class JobLauncher implements ApplicationContextAware {
                     lha.setJobId(d.getJobId());
                     lha.setThreads(d.localThreadNumber);
                     lha.setMaxCoreUnits(d.localMaxCores * 100);
-                    lha.setMaxMemory(d.localMaxMemory);
                     lha.setMaxGpu(d.localMaxGpu);
+                    lha.setMaxMemory(d.localMaxMemory);
+                    lha.setMaxGpuMemory(d.localMaxGpuMemory);
                     lha.setType(RenderPartitionType.JOB_PARTITION);
 
                     try {

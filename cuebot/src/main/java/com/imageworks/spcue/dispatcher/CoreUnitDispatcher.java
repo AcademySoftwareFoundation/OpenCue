@@ -134,8 +134,9 @@ public class CoreUnitDispatcher implements Dispatcher {
 
                 if (!host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
+                        Dispatcher.GPU_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     return procs;
                 }
 
@@ -178,6 +179,7 @@ public class CoreUnitDispatcher implements Dispatcher {
         // If no gpu jobs found remove resources to leave room for a gpu frame
         if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_DEFAULT,
+                        Dispatcher.GPU_RESERVED_DEFAULT,
                         Dispatcher.MEM_RESERVED_MIN,
                         1)) {
             if (show == null)
@@ -262,11 +264,12 @@ public class CoreUnitDispatcher implements Dispatcher {
 
             if (host.idleCores < frame.minCores ||
                     host.idleMemory < frame.minMemory ||
-                    host.idleGpu < frame.minGpu) {
+                    host.idleGpu < frame.minGpu ||
+                    host.idleGpuMemory < frame.minGpuMemory) {
                 break;
             }
 
-            if (!dispatchSupport.isJobBookable(job, proc.coresReserved)) {
+            if (!dispatchSupport.isJobBookable(job, proc.coresReserved, proc.gpuReserved)) {
                 break;
             }
 
@@ -289,17 +292,19 @@ public class CoreUnitDispatcher implements Dispatcher {
 
                 DispatchSupport.bookedProcs.getAndIncrement();
                 DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+                DispatchSupport.bookedGpu.addAndGet(proc.gpuReserved);
 
                 if (host.strandedCores > 0) {
                     dispatchSupport.pickupStrandedCores(host);
                     break;
                 }
 
-                host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpuReserved);
+                host.useResources(proc.coresReserved, proc.gpuReserved, proc.memoryReserved, proc.gpuMemoryReserved);
                 if (!host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
+                        Dispatcher.GPU_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     break;
                 }
                 else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
@@ -399,7 +404,9 @@ public class CoreUnitDispatcher implements Dispatcher {
             CueUtil.KbToMb(p.memoryReserved) +
             " memory / " +
             p.gpuReserved +
-            " gpu on " +
+            " gpu / " +
+            CueUtil.KbToMb(p.gpuMemoryReserved) +
+            " gpu memory " +
             p.getName() +
             " to " + f.show + "/" + f.shot;
         logger.trace(msg);

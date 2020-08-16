@@ -72,7 +72,7 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
         DispatchHost host = hostManager.createHost(
                 RenderHost.newBuilder()
                         .setName(hostName)
-                        .setTotalMem(50000000)
+                        .setTotalMemory(50000000)
                         .build());
         hostManager.setAllocation(host, alloc);
         return host;

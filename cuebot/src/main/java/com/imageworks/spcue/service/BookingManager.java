@@ -121,10 +121,11 @@ public interface BookingManager {
      *
      * @param l
      * @param maxCoreUnits
-     * @param maxMemory
      * @param maxGpu
+     * @param maxMemory
+     * @param maxGpuMemory
      */
-    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, long maxMemory, long maxGpu);
+    void setMaxResources(LocalHostAssignment l, int maxCoreUnits, int maxGpu, long maxMemory, long maxGpuMemory);
 
     /**
      * Remove a LocalHostAssignment if there are no procs assigned to it.
