@@ -3,7 +3,7 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ more-release-pipeline ]
+    commits: [ test-pipeline-release ]
 
 jobs:
   build_components:
