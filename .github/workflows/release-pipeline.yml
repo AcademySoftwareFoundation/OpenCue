@@ -36,11 +36,15 @@ jobs:
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
-      - name: Verify version number
+      - name: Get current tag name
+        run: echo ::set-env name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+
+      - name: Verify tag name and version match
         run: |
           set -e
-          if [ "$(cat VERSION)" != "${GITHUB_REF}" ]; then
-            echo "Version check failed: code version $(cat VERSION) does not match tag name ${GITHUB_REF}"
+          if [ "v$(cat VERSION)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version $(cat VERSION) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
             exit 1
           fi
 
