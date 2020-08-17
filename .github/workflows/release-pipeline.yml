@@ -52,7 +52,7 @@ jobs:
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           aws s3 sync "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" "${GITHUB_WORKSPACE}/artifacts/"
-          ls "${GITHUB_WORKSPACE}/artifacts/"
+          echo ls "${GITHUB_WORKSPACE}/artifacts/"
 
       - name: Generate release notes
         id: release_notes
@@ -68,10 +68,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          release_name: ${{ github.ref }}
           body: |
-            To learn how to install and configure OpenCue, see our
-            [Getting Started guide](https://www.opencue.io/docs/getting-started/).
+            To learn how to install and configure OpenCue, see our [Getting Started guide](https://www.opencue.io/docs/getting-started/).
 
             ## Changes:
 
