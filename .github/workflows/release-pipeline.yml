@@ -13,6 +13,7 @@ on:
 jobs:
   preflight:
     runs-on: ubuntu-latest
+    name: Preflight
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -43,7 +44,7 @@ jobs:
         run: |
           set -e
           if [ "v$(cat VERSION)" != "${TAG_NAME}" ]; then
-            echo "Version check failed: code version $(cat VERSION) does not match tag name ${TAG_NAME}"
+            echo "Version check failed: code version v$(cat VERSION) does not match tag name ${TAG_NAME}"
             echo "Original GITHUB_REF: ${GITHUB_REF}"
             exit 1
           fi
