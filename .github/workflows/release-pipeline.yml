@@ -54,7 +54,7 @@ jobs:
         run: |
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           aws s3 sync "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" "${GITHUB_WORKSPACE}/artifacts/"
-          echo "::set-output name=filenames::$(ls "${GITHUB_WORKSPACE}/artifacts/")"
+          echo "::set-output name=filenames::$(ls "${GITHUB_WORKSPACE}/artifacts/" | xargs)"
 
       - name: List artifacts
         run: |
