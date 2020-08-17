@@ -68,7 +68,7 @@ jobs:
           password: ${{ secrets.DOCKER_PASS }}
           dockerfile: ${{ matrix.component }}/Dockerfile
           repository: opencue/${{ matrix.component }}
-          tags: ${{ env.BUILD_ID }}-test, latest-test
+          tags: ${{ env.BUILD_ID }}, latest
 
   create_release:
     needs: preflight
