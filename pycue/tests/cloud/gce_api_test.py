@@ -77,7 +77,7 @@ class GoogleCloudManagerTest(unittest.TestCase):
 
         self.assertEqual(["rqd-test"], [t["name"] for t in templates])
 
-    def test_create_managed_group():
+    def test_create_managed_group(self):
         test_group_name_input = TEST_CLOUD_GROUP_NAME
         test_group_size = 3
         test_template_object = {
