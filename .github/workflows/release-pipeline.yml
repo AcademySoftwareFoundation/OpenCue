@@ -11,8 +11,43 @@ on:
     branches: [ release-pipeline-s3 ]
 
 jobs:
-  # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add another job to
-  #   release the Docker images.
+  upload_docker_images:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
+
+    name: Release ${{ matrix.component }} Docker image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set build ID
+          run: |
+            set -e
+            #ci/generate_version_number.sh > VERSION
+            echo "0.4.54" > VERSION
+            echo "Build ID: $(cat ./VERSION)"
+            echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Pull Docker image from staging
+        run: |
+          set -e
+          docker pull opencuebuild/${{ matrix.component }}:${BUILD_ID}
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:${BUILD_ID}-test
+          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:latest-test
+
+      - name: Push Docker image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+          dockerfile: ${{ matrix.component }}/Dockerfile
+          repository: opencue/${{ matrix.component }}
+          tags: ${{ env.BUILD_ID }}-test, latest-test
+
   create_release:
     name: Create Release
     runs-on: ubuntu-latest
@@ -75,8 +110,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: ${{ github.ref }}
+          tag_name: v${{ env.BUILD_ID }}
+          release_name: v${{ env.BUILD_ID }}
           body: |
             To learn how to install and configure OpenCue, see our [Getting Started guide](https://www.opencue.io/docs/getting-started/).
 
