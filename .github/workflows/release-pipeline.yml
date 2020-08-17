@@ -86,6 +86,36 @@ jobs:
           draft: true
           prerelease: false
 
+      - name: Upload License
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/LICENSE
+          asset_name: LICENSE
+          asset_content_type: application/octet-stream
+
+      - name: Upload Database Schema
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/schema-${{ env.BUILD_ID }}.sql
+          asset_name: schema-${{ env.BUILD_ID }}.sql
+          asset_content_type: application/octet-stream
+
+      - name: Upload Demo Data
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/demo_data-${{ env.BUILD_ID }}.sql
+          asset_name: demo_data-${{ env.BUILD_ID }}.sql
+          asset_content_type: application/octet-stream
+
       - name: Upload Cuebot JAR
         uses: actions/upload-release-asset@v1
         env:
@@ -114,4 +144,54 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-all.tar.gz
           asset_name: rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueGUI Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload PyCue Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload PyOutline Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: pyoutline-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueSubmit Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueAdmin Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cueadmin-${{ env.BUILD_ID }}-all.tar.gz
           asset_content_type: application/octet-stream
