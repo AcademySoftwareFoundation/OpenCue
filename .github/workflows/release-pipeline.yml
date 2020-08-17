@@ -1,14 +1,10 @@
 name: OpenCue Release Pipeline
 
 # Trigger this pipeline when a commit is tagged with a version number, e.g. "v0.4.32".
-#on:
-#  push:
-#    tags:
-#      - 'v*'
-
 on:
   push:
-    branches: [ release-pipeline-s3 ]
+    tags:
+      - 'v*'
 
 jobs:
   preflight:
@@ -66,8 +62,7 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          #ci/generate_version_number.sh > VERSION
-          echo "0.4.54" > VERSION
+          ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
@@ -107,8 +102,7 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          #ci/generate_version_number.sh > VERSION
-          echo "0.4.54" > VERSION
+          ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
