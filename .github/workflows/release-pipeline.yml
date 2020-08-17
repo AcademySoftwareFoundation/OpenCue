@@ -36,10 +36,8 @@ jobs:
         run: |
           set -e
           docker pull opencuebuild/${{ matrix.component }}:${BUILD_ID}
-          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:${BUILD_ID}-test
-          docker tag opencuebuild/${{ matrix.component }}:${BUILD_ID} opencue/${{ matrix.component }}:latest-test
 
-      - name: Push Docker image
+      - name: Rebuild and push Docker image
         uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USER }}
