@@ -86,7 +86,7 @@ jobs:
           draft: true
           prerelease: false
 
-      - name: Upload release asset
+      - name: Upload Cuebot JAR
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -94,4 +94,24 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ github.workspace }}/artifacts/cuebot-${{ env.BUILD_ID }}-all.jar
           asset_name: cuebot-${{ env.BUILD_ID }}-all.jar
+          asset_content_type: application/octet-stream
+
+      - name: Upload Cuebot RPM
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
+          asset_name: opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
+          asset_content_type: application/octet-stream
+
+      - name: Upload RQD Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: rqd-${{ env.BUILD_ID }}-all.tar.gz
           asset_content_type: application/octet-stream
