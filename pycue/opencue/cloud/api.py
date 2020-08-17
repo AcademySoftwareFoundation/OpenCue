@@ -24,22 +24,23 @@ class CloudInstanceGroup(object):
     @abc.abstractmethod
     def get_instances(self):
         """
-        Get all instances of the current group
-        :return: List of instances
-        TODO: Check how to make it a consistent format across CSPs
+        Gets all instances of the current group
+        :return: (list) List of instances
         """
 
     @abc.abstractmethod
     def resize(self, size=None):
         """
         Resizes the group to the given number of instances
+        :param size: (int) The target size of group to be scaled up/down to
         :return:
         """
 
     @abc.abstractmethod
     def status(self):
         """
-
+        Returns the status of any operation made on the group. By default "STABLE"
+        Each provider has it's own way of implementing status of a particular group
         :return:
         """
 
@@ -74,7 +75,6 @@ class CloudManager(object):
     @staticmethod
     def get_registered_providers():
         """
-
         :return:
         """
         # TODO : Better way to register plugins
@@ -99,6 +99,10 @@ class CloudManager(object):
     def create_managed_group(self, name, size, template):
         """
         Creates a cloud group with the given template/image from cloud
+        :param name: (str) A unique name that is to be associated with the cloud group
+        :param size: (int) The initial number of instances for the cloud group
+        :param template: (str/template/vm image object according to the implementation API) Template/Image needed to
+        create the group
         :return:
         """
 

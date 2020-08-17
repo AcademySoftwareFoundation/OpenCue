@@ -12,9 +12,11 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-import functools
 import ast
+import functools
+
 import googleapiclient.errors
+
 import opencue.cloud.api
 
 

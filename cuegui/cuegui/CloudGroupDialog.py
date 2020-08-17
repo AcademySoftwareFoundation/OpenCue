@@ -21,11 +21,11 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import opencue.cloud.api
 import cuegui.Utils
+import opencue.cloud.api
 
 
-class CloudGroupCreateDailog(QtWidgets.QDialog):
+class CloudGroupCreateDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
@@ -62,7 +62,12 @@ class CloudGroupCreateDailog(QtWidgets.QDialog):
 
     def _populateTemplates(self):
         # TODO: When another provider is added, check this functionality
-        print(self.__services_dropdown.get_provider())
+        """
+        Use to query the templates associated with a particular cloud provider when the dropdown of
+        cloud providers is switched
+        :return:
+        """
+        pass
 
     def _createCloudGroup(self):
         group_name = self.__groupname_text_input.text()
@@ -94,9 +99,9 @@ class CloudServicesCombo(QtWidgets.QComboBox):
         # Connect for all the registered providers
         for provider in cloud_providers:
             provider.connect()
-        for cp in cloud_providers:
-            self.addItem(cp.signature())
-            self._cloud_providers[cp.signature()] = cp
+        for provider in cloud_providers:
+            self.addItem(provider.signature())
+            self._cloud_providers[provider.signature()] = provider
 
     def get_provider(self):
         return self._cloud_providers[str(self.currentText())]
@@ -111,6 +116,10 @@ class CloudGroupTemplatesCombo(QtWidgets.QComboBox):
         self._templates = {}
 
     def refresh(self, cloud_group):
+        """
+        :param cloud_group: opencue.cloud.api.CloudInstanceGroup
+        :return:
+        """
         self.clear()
         templates = cloud_group.list_templates()
         for template in templates:

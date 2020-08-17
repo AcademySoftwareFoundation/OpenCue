@@ -17,13 +17,14 @@
 
 import mock
 import unittest
-import os
 
 import opencue
 import opencue.cloud.gce_api
 
 TEST_CLOUD_GROUP_NAME = "test-group-main"
+TEST_CLOUD_GROUP_NAME_SECOND = "test-group-main-second"
 TEST_INSTANCE_TEMPLATE_NAME = "test-instance-template"
+TEST_TEMPLATE_SELF_LINK = "https://mock-template-link.com/template-name"
 
 
 class GoogleCloudManagerTest(unittest.TestCase):
@@ -31,8 +32,7 @@ class GoogleCloudManagerTest(unittest.TestCase):
     def setUp(self):
         pass
 
-    @mock.patch.object(opencue.cloud.gce_api.GoogleCloudManager, "connect", autospec=True)
-    def test_get_all_groups(self, connect_mock):
+    def test_get_all_groups(self):
         # __getitem__.side_effect is used to make the return value of mock
         # list call subscriptable since the actual code uses it like a dictionary
         test_response = {
@@ -40,10 +40,13 @@ class GoogleCloudManagerTest(unittest.TestCase):
                 {
                     "name": TEST_CLOUD_GROUP_NAME,
                     "id": 1234
+                },
+                {
+                    "name": TEST_CLOUD_GROUP_NAME_SECOND,
+                    "id": 4321
                 }
             ]
         }
-        connect_mock.return_value = None
         manager = opencue.cloud.gce_api.GoogleCloudManager()
         manager.service = mock.MagicMock()
         manager.service.instanceGroupManagers().list.return_value.execute().__getitem__.side_effect =\
@@ -51,12 +54,12 @@ class GoogleCloudManagerTest(unittest.TestCase):
         manager.service.instanceGroupManagers().list_next.return_value = None
         groups = manager.get_all_groups()
 
-        self.assertIsInstance(groups[0], opencue.cloud.gce_api.GoogleCloudGroup)
-        self.assertEqual([TEST_CLOUD_GROUP_NAME], [g.name for g in groups])
-        self.assertEqual([1234], [g.id() for g in groups])
+        for group in groups:
+            self.assertIsInstance(group, opencue.cloud.gce_api.GoogleCloudGroup)
+        self.assertListEqual([TEST_CLOUD_GROUP_NAME, TEST_CLOUD_GROUP_NAME_SECOND], [g.name for g in groups])
+        self.assertListEqual([1234, 4321], [g.id() for g in groups])
 
-    @mock.patch.object(opencue.cloud.gce_api.GoogleCloudManager, "connect", autospec=True)
-    def test_list_templates(self, connect_mock):
+    def test_list_templates(self):
         # Accessing the 'name' key should be possible
         test_response = {
             "items": [
@@ -65,7 +68,6 @@ class GoogleCloudManagerTest(unittest.TestCase):
                 }
             ]
         }
-        connect_mock.return_value = None
         manager = opencue.cloud.gce_api.GoogleCloudManager()
         manager.service = mock.MagicMock()
         manager.service.instanceTemplates().list.return_value.execute().__getitem__.side_effect =\
@@ -75,9 +77,30 @@ class GoogleCloudManagerTest(unittest.TestCase):
 
         self.assertEqual(["rqd-test"], [t["name"] for t in templates])
 
-    def test_create_managed_group(self):
-        # TODO: Test if create is called with the correct parameters
-        pass
+    def test_create_managed_group():
+        test_group_name_input = TEST_CLOUD_GROUP_NAME
+        test_group_size = 3
+        test_template_object = {
+            "selfLink": TEST_TEMPLATE_SELF_LINK
+        }
+        expected_request_body = {
+            "baseInstanceName": "{}-instance".format(test_group_name_input),
+            "name": test_group_name_input,
+            "targetSize": test_group_size,
+            "instanceTemplate": test_template_object["selfLink"]
+        }
+
+        manager = opencue.cloud.gce_api.GoogleCloudManager()
+        manager.service = mock.MagicMock()
+
+        manager.create_managed_group(name=test_group_name_input,
+                                     size=test_group_size,
+                                     template=test_template_object)
+
+        manager.service.instanceGroupManagers().insert.assert_called_with(
+            project=mock.ANY, zone=mock.ANY,
+            body=expected_request_body
+        )
 
 
 class GoogleCloudGroupTest(unittest.TestCase):
@@ -101,8 +124,8 @@ class GoogleCloudGroupTest(unittest.TestCase):
             }
         ]
 
-        self.connection_manager_mock.service.instanceGroupManagers().listManagedInstances.return_value.execute.return_value.\
-            get.return_value = test_managed_instances_data
+        self.connection_manager_mock.service.instanceGroupManagers().listManagedInstances.return_value.execute.\
+            return_value.get.return_value = test_managed_instances_data
 
         test_group = opencue.cloud.gce_api.GoogleCloudGroup(data=self.test_group_data,
                                                             connection_manager=self.connection_manager_mock)

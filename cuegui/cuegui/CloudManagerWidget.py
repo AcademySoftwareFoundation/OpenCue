@@ -19,13 +19,13 @@ from __future__ import division
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import opencue.cloud.api
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
+import cuegui.CloudGroupDialog
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.MenuActions
-import cuegui.CloudGroupDialog
+import opencue.cloud.api
 
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -52,7 +52,7 @@ class CloudManagerWidget(QtWidgets.QWidget):
         self.__btnAddCloudGroup.clicked.connect(self._onAddCloudGroupClicked)
 
     def _onAddCloudGroupClicked(self):
-        cuegui.CloudGroupDialog.CloudGroupCreateDailog(self).show()
+        cuegui.CloudGroupDialog.CloudGroupCreateDialog(self).show()
 
     def getColumnVisibility(self):
         self.__viewCloudGroups.getColumnVisibility()
