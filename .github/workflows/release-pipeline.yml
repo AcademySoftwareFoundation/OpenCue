@@ -11,7 +11,41 @@ on:
     branches: [ release-pipeline-s3 ]
 
 jobs:
-  upload_docker_images:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      - name: Set build ID
+        run: |
+          set -e
+          #ci/generate_version_number.sh > VERSION
+          echo "0.4.54" > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Verify version number
+        run: |
+          set -e
+          if [ "$(cat VERSION)" != "${GITHUB_REF}" ]; then
+            echo "Version check failed: code version $(cat VERSION) does not match tag name ${GITHUB_REF}"
+            exit 1
+          fi
+
+  release_docker_images:
+    needs: preflight
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -47,6 +81,7 @@ jobs:
           tags: ${{ env.BUILD_ID }}-test, latest-test
 
   create_release:
+    needs: preflight
     name: Create Release
     runs-on: ubuntu-latest
     steps:
@@ -71,14 +106,6 @@ jobs:
           echo "0.4.54" > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
-
-      #- name: Verify version number
-      #  run: |
-      #    set -e
-      #    if [ "$(cat VERSION)" != "${GITHUB_REF}" ]; then
-      #      echo "Version check failed: code version $(cat VERSION) does not match tag name ${GITHUB_REF}"
-      #      exit 1
-      #    fi
 
       - name: Fetch artifacts
         id: fetch_artifacts
