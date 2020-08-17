@@ -58,7 +58,6 @@ jobs:
 
       - name: List artifacts
         run: |
-          echo "foo"
           echo ${{ steps.fetch_artifacts.outputs.filenames }}
 
       - name: Generate release notes
@@ -66,6 +65,7 @@ jobs:
         run: |
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
           commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          # See https://github.community/t/set-output-truncates-multiline-strings/16852
           commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
           echo "::set-output name=commits::${commits_since_last_release}"
 
@@ -85,3 +85,13 @@ jobs:
             ${{ steps.release_notes.outputs.commits }}
           draft: true
           prerelease: false
+
+      - name: Upload release asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${GITHUB_WORKSPACE}/artifacts/cuebot-${BUILD_ID}-all.jar
+          asset_name: cuebot-${BUILD_ID}-all.jar
+          asset_content_type: application/octet-stream
