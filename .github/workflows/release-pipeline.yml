@@ -65,7 +65,8 @@ jobs:
         id: release_notes
         run: |
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
-          commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD) | sed -z s/\\n/\<br\>/g
+          commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
           echo "::set-output name=commits::${commits_since_last_release}"
 
       - name: Create release
