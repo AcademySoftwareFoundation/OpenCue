@@ -25,12 +25,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set build ID
-          run: |
-            set -e
-            #ci/generate_version_number.sh > VERSION
-            echo "0.4.54" > VERSION
-            echo "Build ID: $(cat ./VERSION)"
-            echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+        run: |
+          set -e
+          #ci/generate_version_number.sh > VERSION
+          echo "0.4.54" > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
       - name: Pull Docker image from staging
         run: |
