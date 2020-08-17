@@ -66,7 +66,7 @@ jobs:
         run: |
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
           commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
-          html_commits=echo $(commits_since_last_release) | sed -z s/\\n/\<br\>/g
+          html_commits=echo ${commits_since_last_release} | sed -z s/\\n/\<br\>/g
           echo "::set-output name=commits::${html_commits}"
 
       - name: Create release
