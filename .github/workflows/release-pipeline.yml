@@ -34,7 +34,8 @@ jobs:
       - name: Set build ID
         run: |
           set -e
-          ci/generate_version_number.sh > VERSION
+          #ci/generate_version_number.sh > VERSION
+          echo "0.4.54" > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
@@ -56,7 +57,9 @@ jobs:
           echo "::set-output name=filenames::$(ls "${GITHUB_WORKSPACE}/artifacts/")"
 
       - name: List artifacts
-        run: echo ${{ steps.fetch_artifacts.outputs.filenames }}
+        run: |
+          echo "foo"
+          echo ${{ steps.fetch_artifacts.outputs.filenames }}
 
       - name: Generate release notes
         id: release_notes
