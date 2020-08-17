@@ -38,6 +38,9 @@ jobs:
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
+      - name: Verify version number
+        run: |
+          set -e
           if [ "$(cat VERSION)" != "${GITHUB_REF}" ]; then
             echo "Version check failed: code version $(cat VERSION) does not match tag name ${GITHUB_REF}"
             exit 1
