@@ -38,11 +38,13 @@ jobs:
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
+          test "$(cat VERSION)" = "${GITHUB_REF}"
+
       - name: Download artifacts
         env:
           S3_BUCKET: ${{ secrets.S3_BUCKET }}
         run: |
-          mkdir -p "${GITHUB_WORKSPACE}/artifacts/
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           aws s3 cp s3://${S3_BUCKET}/opencue/${BUILD_ID}/* "${GITHUB_WORKSPACE}/artifacts/"
 
       - name: Generate release notes
