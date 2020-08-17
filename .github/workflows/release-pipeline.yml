@@ -38,7 +38,10 @@ jobs:
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
 
-          test "$(cat VERSION)" = "${GITHUB_REF}"
+          if [ "$(cat VERSION)" != "${GITHUB_REF}" ]; then
+            echo "Version check failed: code version $(cat VERSION) does not match tag name ${GITHUB_REF}"
+            exit 1
+          fi
 
       - name: Download artifacts
         env:
