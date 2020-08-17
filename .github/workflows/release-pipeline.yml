@@ -1,10 +1,14 @@
 name: OpenCue Release Pipeline
 
 # Trigger this pipeline when a commit is tagged with a version number, e.g. "v0.4.32".
+#on:
+#  push:
+#    tags:
+#      - 'v*'
+
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ release-pipeline-s3 ]
 
 jobs:
   # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add another job to
@@ -17,34 +21,39 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch artifacts
-        env:
-          PACKAGING_WORKFLOW_ID: 1539149
-        # Fetching artifacts from another pipeline, or even a different run of the same pipeline,
-        # is currently not well-supported in Github Actions. We must use the Github REST API to
-        # search for the correct workflow by commit SHA, then we can attempt to download the
-        # artifacts from that workflow run.
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      - name: Set build ID
         run: |
           set -e
-          echo "SHA: ${{ github.sha }}"
-          run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
-            | jq ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
-          echo "Packaging pipeline run ID: ${run_id}"
-          artifact_ids=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${run_id}/artifacts \
-            | jq '.artifacts[].id')
-          echo "Artifact IDs: ${artifact_ids}"
-          for artifact_id in ${artifact_ids}; do
-            api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
-            echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
-            curl -L -O "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
-          done
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Download artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/
+          aws s3 cp s3://${S3_BUCKET}/opencue/${BUILD_ID}/* "${GITHUB_WORKSPACE}/artifacts/"
+
       - name: Generate release notes
         id: release_notes
         run: |
           last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
           commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
           echo "::set-output name=commits::${commits_since_last_release}"
+
       - name: Create release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
