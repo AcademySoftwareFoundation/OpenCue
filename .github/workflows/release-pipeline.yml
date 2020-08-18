@@ -112,8 +112,8 @@ jobs:
       - name: Generate release notes
         id: release_notes
         run: |
-          last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
-          commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          last_tagged_version=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
+          commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
           # See https://github.community/t/set-output-truncates-multiline-strings/16852
           commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
           echo "::set-output name=commits::${commits_since_last_release}"
