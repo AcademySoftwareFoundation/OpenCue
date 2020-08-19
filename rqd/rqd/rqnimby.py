@@ -15,7 +15,6 @@
 
 """Nimby allows a desktop to be used as a render host when not used."""
 
-
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -92,7 +91,6 @@ class Nimby(threading.Thread):
         log.debug("nimby.run()")
         self.active = True
         self.startListener()
-        self.unlockedIdle()
 
     def stop(self):
         """Stops the Nimby thread"""
@@ -111,22 +109,10 @@ class Nimby(threading.Thread):
     def stopListener(self):
         pass
 
-    @abstractmethod
-    def lockedInUse(self):
-        pass
-
-    @abstractmethod
-    def lockedIdle(self):
-        pass
-
-    @abstractmethod
-    def unlockedIdle(self):
-        pass
-
 
 class NimbySelect(Nimby):
     def startListener(self):
-        pass
+        self.unlockedIdle()
 
     def stopListener(self):
         self.closeEvents()
@@ -234,6 +220,7 @@ class NimbyPynput(Nimby):
     def startListener(self):
         self.mouse_listener.start()
         self.keyboard_listener.start()
+        self.unlockedIdle()
 
     def stopListener(self):
         self.mouse_listener.stop()
@@ -242,8 +229,8 @@ class NimbyPynput(Nimby):
     def lockedInUse(self):
         self.interaction_detected = False
 
-        time.sleep(5)
-        if self.active and self.interaction_detected == False:
+        time.sleep(rqd.rqconstants.TIME_TO_WAIT_FOR_INTERACTION)
+        if self.active and self.interaction_detected is False:
             self.lockedIdle()
         elif self.active:
 
@@ -253,10 +240,9 @@ class NimbyPynput(Nimby):
 
     def unlockedIdle(self):
         while self.active and \
-                self.interaction_detected == False and \
+                self.interaction_detected is False and \
                 self.rqCore.machine.isNimbySafeToRunJobs():
-
-            time.sleep(5)
+            time.sleep(rqd.rqconstants.TIME_TO_WAIT_FOR_INTERACTION)
 
             if not self.rqCore.machine.isNimbySafeToRunJobs():
                 log.warning("memory threshold has been exceeded, locking nimby")
@@ -273,7 +259,7 @@ class NimbyPynput(Nimby):
 
         time.sleep(rqd.rqconstants.MINIMUM_IDLE)
 
-        if self.active and self.interaction_detected == False and \
+        if self.active and self.interaction_detected is False and \
                 self.rqCore.machine.isNimbySafeToUnlock():
 
             self.unlockNimby(asOf=waitStartTime)
