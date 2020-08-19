@@ -22,18 +22,10 @@ jobs:
         run: ci/python_coverage_report.sh
 
       - name: Analyze and send to SonarCloud
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          set -e
-
-          SONAR_VERSION=4.0.0.1744
-
-          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
-          unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
-
-          # sonar-scanner by default reads most of its configuration from sonar-project.properties
-          sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
+        uses: sonarsource/sonarcloud-github-action@master
+          env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   analyze_cuebot:
     runs-on: ubuntu-latest
@@ -49,6 +41,7 @@ jobs:
 
       - name: Analyze and send to SonarCloud
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
           chown -R aswfuser:aswfgroup .
