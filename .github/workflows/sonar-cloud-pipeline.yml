@@ -1,0 +1,46 @@
+name: OpenCue SonarCloud Pipeline
+
+# Trigger this pipeline on new commits to master.
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  analyze_python:
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2020
+    name: Analyze Python Components
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+
+      - name: Generate coverage report
+        run: ci/python_coverage_report.sh
+
+      - name: Analyze and send to SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          set -e
+
+          SONAR_VERSION=4.0.0.1744
+
+          wget -q https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SONAR_VERSION}-linux.zip
+          unzip -q sonar-scanner-cli-${SONAR_VERSION}-linux.zip
+
+          # sonar-scanner by default reads most of its configuration from sonar-project.properties
+          sonar-scanner-${SONAR_VERSION}-linux/bin/sonar-scanner -Dsonar.login=$(SONAR_TOKEN)
+
+  analyze_cuebot:
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2020
+    name: Analyze Cuebot
+    steps:
+      - name: Analyze and send to SonarCloud
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: cd cuebot && ./gradlew jacocoTestReport sonarqube -Dsonar.login=$(SONAR_TOKEN)
