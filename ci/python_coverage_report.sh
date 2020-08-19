@@ -8,7 +8,7 @@ pip install --user -r requirements.txt -r requirements_gui.txt
 python -m grpc_tools.protoc -I=proto/ --python_out=pycue/opencue/compiled_proto --grpc_python_out=pycue/opencue/compiled_proto proto/*.proto
 python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc_python_out=rqd/rqd/compiled_proto proto/*.proto
 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
-2to3 -wn -f import rqd/opencue/compiled_proto/*_pb2*.py
+2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
 # Run coverage for each component individually, but append it all into the same report.
 coverage run --source=pycue/opencue/,pycue/FileSequence/ --omit=pycue/opencue/compiled_proto/* pycue/setup.py test
