@@ -40,6 +40,13 @@ jobs:
     container: aswf/ci-opencue:2020
     name: Analyze Cuebot
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+
       - name: Analyze and send to SonarCloud
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
