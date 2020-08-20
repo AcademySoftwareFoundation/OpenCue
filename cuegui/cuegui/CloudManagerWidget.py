@@ -65,7 +65,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_CLOUDGROUP)
         self.addColumn("Cloud Group Name", 250, id=1,
-                       data=lambda cig: cig.name)
+                       data=lambda cig: cig.name())
         self.addColumn("Cloud Provider", 100, id=2,
                        data=lambda cig: cig.__signature__)
         self.addColumn("Number of instances", 160, id=3,

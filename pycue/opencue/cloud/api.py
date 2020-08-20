@@ -18,7 +18,6 @@ import abc
 class CloudInstanceGroup(object):
     def __init__(self, data):
         self.data = data
-        self.name = self.data["name"]
         self.instances = []
 
     @abc.abstractmethod
@@ -33,6 +32,13 @@ class CloudInstanceGroup(object):
         """
         Resizes the group to the given number of instances
         :param size: (int) The target size of group to be scaled up/down to
+        :return:
+        """
+
+    @abc.abstractmethod
+    def name(self):
+        """
+        Name of the cloud group
         :return:
         """
 

@@ -31,7 +31,8 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def delete_cloud_group(self):
         request = self.connection_manager.service.instanceGroupManagers().delete(
-            project=self.connection_manager.project, zone=self.connection_manager.zone, instanceGroupManager=self.name)
+            project=self.connection_manager.project, zone=self.connection_manager.zone,
+            instanceGroupManager=self.name())
         response = request.execute()
 
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
@@ -40,7 +41,8 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         :return: (list) of dictionaries. Currently only the size of the list matters
         """
         request = self.connection_manager.service.instanceGroupManagers().listManagedInstances(
-            project=self.connection_manager.project, zone=self.connection_manager.zone, instanceGroupManager=self.name)
+            project=self.connection_manager.project, zone=self.connection_manager.zone,
+            instanceGroupManager=self.name())
         response = request.execute()
         self.instances = response.get("managedInstances", [])
 
@@ -78,8 +80,11 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         """
         request = self.connection_manager.service.instanceGroupManagers().resize(
             project=self.connection_manager.project, zone=self.connection_manager.zone,
-            instanceGroupManager=self.name, size=size)
+            instanceGroupManager=self.name(), size=size)
         response = request.execute()
+
+    def name(self):
+        return self.data["name"]
 
     def status(self):
         """
