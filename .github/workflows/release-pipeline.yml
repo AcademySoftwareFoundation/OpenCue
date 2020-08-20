@@ -7,9 +7,71 @@ on:
       - 'v*'
 
 jobs:
-  # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add another job to
-  #   release the Docker images.
+  preflight:
+    runs-on: ubuntu-latest
+    name: Preflight
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set build ID
+        run: |
+          set -e
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Get current tag name
+        run: echo ::set-env name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+
+      - name: Verify tag name and version match
+        run: |
+          set -e
+          if [ "v$(cat VERSION)" != "${TAG_NAME}" ]; then
+            echo "Version check failed: code version v$(cat VERSION) does not match tag name ${TAG_NAME}"
+            echo "Original GITHUB_REF: ${GITHUB_REF}"
+            exit 1
+          fi
+
+  release_docker_images:
+    needs: preflight
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [cuebot, rqd, pycue, pyoutline, cuegui, cuesubmit, cueadmin]
+
+    name: Release ${{ matrix.component }} Docker image
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Set build ID
+        run: |
+          set -e
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Pull Docker image from staging
+        run: |
+          set -e
+          docker pull opencuebuild/${{ matrix.component }}:${BUILD_ID}
+
+      - name: Rebuild and push Docker image
+        uses: docker/build-push-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+          dockerfile: ${{ matrix.component }}/Dockerfile
+          repository: opencue/${{ matrix.component }}
+          tags: ${{ env.BUILD_ID }}, latest
+
   create_release:
+    needs: preflight
     name: Create Release
     runs-on: ubuntu-latest
     steps:
@@ -17,46 +79,168 @@ jobs:
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      - name: Fetch artifacts
-        env:
-          PACKAGING_WORKFLOW_ID: 1539149
-        # Fetching artifacts from another pipeline, or even a different run of the same pipeline,
-        # is currently not well-supported in Github Actions. We must use the Github REST API to
-        # search for the correct workflow by commit SHA, then we can attempt to download the
-        # artifacts from that workflow run.
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      - name: Set build ID
         run: |
           set -e
-          echo "SHA: ${{ github.sha }}"
-          run_id=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs \
-            | jq ".workflow_runs[] | select(.head_sha == \"${{ github.sha }}\" and .workflow_id==${PACKAGING_WORKFLOW_ID}).id")
-          echo "Packaging pipeline run ID: ${run_id}"
-          artifact_ids=$(curl -s https://api.github.com/repos/${{ github.repository }}/actions/runs/${run_id}/artifacts \
-            | jq '.artifacts[].id')
-          echo "Artifact IDs: ${artifact_ids}"
-          for artifact_id in ${artifact_ids}; do
-            api_path="repos/${{ github.repository }}/actions/artifacts/${artifact_id}/zip"
-            echo "Fetching artifact ${artifact_id} at https://api.github.com/${api_path}"
-            curl -L -O "https://${{ secrets.GITHUB_TOKEN }}@api.github.com/${api_path}"
-          done
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Fetch artifacts
+        id: fetch_artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+          aws s3 sync "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" "${GITHUB_WORKSPACE}/artifacts/"
+          echo "::set-output name=filenames::$(ls "${GITHUB_WORKSPACE}/artifacts/" | xargs)"
+
+      - name: List artifacts
+        run: |
+          echo ${{ steps.fetch_artifacts.outputs.filenames }}
+
       - name: Generate release notes
         id: release_notes
         run: |
-          last_tagged_version=$(git describe --tags $(git rev-list --tags --max-count=1))
-          commits_since_last_release=$(git log --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          last_tagged_version=$(git describe --tags --abbrev=0 $(git rev-list --tags --skip=1 --max-count=1))
+          commits_since_last_release=$(git log --reverse --pretty="* %H %s" ${last_tagged_version}..HEAD)
+          # See https://github.community/t/set-output-truncates-multiline-strings/16852
+          commits_since_last_release="${commits_since_last_release//$'\n'/'%0A'}"
           echo "::set-output name=commits::${commits_since_last_release}"
+
       - name: Create release
+        id: create_release
         uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          tag_name: v${{ env.BUILD_ID }}
+          release_name: v${{ env.BUILD_ID }}
           body: |
-            To learn how to install and configure OpenCue, see our
-            [Getting Started guide](https://www.opencue.io/docs/getting-started/).
+            To learn how to install and configure OpenCue, see our [Getting Started guide](https://www.opencue.io/docs/getting-started/).
 
             ## Changes:
 
             ${{ steps.release_notes.outputs.commits }}
           draft: true
           prerelease: false
+
+      - name: Upload License
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/LICENSE
+          asset_name: LICENSE
+          asset_content_type: application/octet-stream
+
+      - name: Upload Database Schema
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/schema-${{ env.BUILD_ID }}.sql
+          asset_name: schema-${{ env.BUILD_ID }}.sql
+          asset_content_type: application/octet-stream
+
+      - name: Upload Demo Data
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/demo_data-${{ env.BUILD_ID }}.sql
+          asset_name: demo_data-${{ env.BUILD_ID }}.sql
+          asset_content_type: application/octet-stream
+
+      - name: Upload Cuebot JAR
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cuebot-${{ env.BUILD_ID }}-all.jar
+          asset_name: cuebot-${{ env.BUILD_ID }}-all.jar
+          asset_content_type: application/octet-stream
+
+      - name: Upload Cuebot RPM
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
+          asset_name: opencue-cuebot-${{ env.BUILD_ID }}-1.noarch.rpm
+          asset_content_type: application/octet-stream
+
+      - name: Upload RQD Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: rqd-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueGUI Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cuegui-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload PyCue Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: pycue-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload PyOutline Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/pyoutline-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: pyoutline-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueSubmit Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cuesubmit-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream
+
+      - name: Upload CueAdmin Tar
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ github.workspace }}/artifacts/cueadmin-${{ env.BUILD_ID }}-all.tar.gz
+          asset_name: cueadmin-${{ env.BUILD_ID }}-all.tar.gz
+          asset_content_type: application/octet-stream

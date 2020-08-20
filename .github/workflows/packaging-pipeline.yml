@@ -6,60 +6,145 @@ on:
     branches: [ master ]
 
 jobs:
-  # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Add the other
-  #   packaging steps here. Things like building Docker images and extracting artifacts
-  #   will need to be generalized, but we need to test a few things in the master branch
-  #   first to make sure things are working as we expect.
-  build_cuebot:
-    name: Build Cuebot
+  build_components:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [cuebot, rqd]
+        include:
+          - component: cuebot
+            NAME: Cuebot
+            ARTIFACTS: cuebot-${BUILD_ID}-all.jar opencue-cuebot-${BUILD_ID}-1.noarch.rpm
+
+          - component: rqd
+            NAME: RQD
+            ARTIFACTS: rqd-${BUILD_ID}-all.tar.gz
+
+          - component: cuegui
+            NAME: CueGUI
+            ARTIFACTS: cuegui-${BUILD_ID}-all.tar.gz
+
+          - component: pycue
+            NAME: PyCue
+            ARTIFACTS: pycue-${BUILD_ID}-all.tar.gz
+
+          - component: pyoutline
+            NAME: PyOutline
+            ARTIFACTS: pyoutline-${BUILD_ID}-all.tar.gz
+
+          - component: cuesubmit
+            NAME: CueSubmit
+            ARTIFACTS: cuesubmit-${BUILD_ID}-all.tar.gz
+
+          - component: cueadmin
+            NAME: CueAdmin
+            ARTIFACTS: cueadmin-${BUILD_ID}-all.tar.gz
+
+    name: Build ${{ matrix.NAME }}
     steps:
-      - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
           fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
       - name: Set build ID
         run: |
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
-      - uses: docker/build-push-action@v1
-        name: Build Docker image
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v1
         with:
           username: ${{ secrets.DOCKER_USER }}
           password: ${{ secrets.DOCKER_PASS }}
-          dockerfile: cuebot/Dockerfile
-          repository: opencuebuild/cuebot
+          dockerfile: ${{ matrix.component }}/Dockerfile
+          repository: opencuebuild/${{ matrix.component }}
           tags: ${{ env.BUILD_ID }}
+
       - name: Extract Artifacts
         run: |
           set -e
-          image_name="opencuebuild/cuebot:${BUILD_ID}"
+          image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
           container_id=$(docker create ${image_name})
-          artifacts="/opt/opencue/cuebot-${BUILD_ID}-all.jar /opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm"
+          artifacts="${{ matrix.ARTIFACTS }}"
           mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
           for artifact in $artifacts; do
-            docker cp ${container_id}:${artifact} "${GITHUB_WORKSPACE}/artifacts/"
+            docker cp ${container_id}:/opt/opencue/${artifact} "${GITHUB_WORKSPACE}/artifacts/"
           done
           docker rm $container_id
-      - uses: actions/upload-artifact@v2
-        name: Upload JAR
+
+      - name: Upload Artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          artifacts="${{ matrix.ARTIFACTS }}"
+          for artifact in $artifacts; do
+            aws s3 cp ${GITHUB_WORKSPACE}/artifacts/${artifact} s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          done
+
+  create_other_artifacts:
+    needs: build_components
+    runs-on: ubuntu-latest
+    name: Create Other Build Artifacts
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
         with:
-          name: cuebot-jar
-          path: ${{ github.workspace }}/artifacts/cuebot-*.jar
-      - uses: actions/upload-artifact@v2
-        name: Upload RPM
+          # Fetch all Git history, otherwise the current version number will
+          # not be correctly calculated.
+          fetch-depth: 0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
         with:
-          name: cuebot-rpm
-          path: ${{ github.workspace }}/artifacts/opencue-cuebot-*.rpm
-      # TODO(https://github.com/AcademySoftwareFoundation/OpenCue/issues/715) Remove this step
-      #   in the next PR. This info will help us track this pipeline's artifacts as we attempt
-      #   to download them later, in the release pipeline. Once we know how the artifact tagging
-      #   works in the master branch it won't be needed anymore.
-      - name: Print environment information
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      - name: Set build ID
         run: |
           set -e
-          echo "This SHA: ${{ github.sha }}"
-          echo "This workflow run: ${{ github.run_id }}"
+          ci/generate_version_number.sh > VERSION
+          echo "Build ID: $(cat ./VERSION)"
+          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+
+      - name: Extract database schema
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+          ci/extract_schema.sh ${BUILD_ID} "${GITHUB_WORKSPACE}/artifacts/"
+
+      - name: Create build metadata
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/artifacts/"
+          echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
+
+      - name: Upload artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/demo_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+
+      - name: Display artifacts
+        env:
+          S3_BUCKET: ${{ secrets.S3_BUCKET }}
+        run: |
+          aws s3 ls s3://${S3_BUCKET}/opencue/${BUILD_ID}/
