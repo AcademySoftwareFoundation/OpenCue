@@ -14,3 +14,6 @@ pyfakefs==3.6
 PyYAML==5.1
 simplejson==3.16.0
 six==1.11.0
+azure-mgmt-resource
+azure-mgmt-network
+azure-mgmt-compute

@@ -86,7 +86,8 @@ class CloudManager(object):
         # TODO : Better way to register plugins
         # For now just return the GCE group class
         from .gce_api import GoogleCloudManager
-        providers = [GoogleCloudManager]
+        from .azure_api import AzureCloudManager
+        providers = [GoogleCloudManager, AzureCloudManager]
         managers_instances = []
         for provider in providers:
             manager_object = provider()
