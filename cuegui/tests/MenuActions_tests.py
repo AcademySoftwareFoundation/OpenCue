@@ -49,6 +49,7 @@ import opencue.wrappers.proc
 import opencue.wrappers.show
 import opencue.wrappers.subscription
 import opencue.wrappers.task
+import opencue.cloud.api
 
 
 _GB_TO_KB = 1024 * 1024
@@ -1599,6 +1600,40 @@ class LimitActionsTests(unittest.TestCase):
         self.limit_actions.rename(rpcObjects=[limit])
 
         limit.rename.assert_called_with(newName)
+
+
+class CloudGroupActionsTests(unittest.TestCase):
+    def setUp(self):
+        self.widgetMock = mock.Mock()
+        self.cloud_group_actions = cuegui.MenuActions.CloudGroupActions(
+            self.widgetMock, mock.Mock(), None, None
+        )
+        # Testing with the abstract group class instead of a specific provider
+        self.test_group_data = {
+            "name": "main-group",
+            "id": 1234
+        }
+
+    @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
+    def test_removeGroup(self):
+        cloud_group = opencue.cloud.api.CloudInstanceGroup(data=self.test_group_data)
+        cloud_group.delete_cloud_group = mock.MagicMock()
+
+        self.cloud_group_actions.removeGroup(cloudGroupObjects=[cloud_group])
+
+        cloud_group.delete_cloud_group.assert_called()
+
+    @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
+    def test_editInstances(self, getIntMock):
+        cloud_group = opencue.cloud.api.CloudInstanceGroup(data=self.test_group_data)
+        cloud_group.resize = mock.MagicMock()
+
+        resize_target_number = 4
+        getIntMock.return_value = (resize_target_number, True)
+
+        self.cloud_group_actions.editInstances(cloudGroupObjects=[cloud_group])
+
+        cloud_group.resize.assert_called_with(size=resize_target_number)
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
