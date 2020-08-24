@@ -24,6 +24,7 @@ import cuegui.AbstractWidgetItem
 import cuegui.CloudGroupDialog
 import cuegui.Constants
 import cuegui.Logger
+import cuegui.Utils
 import cuegui.MenuActions
 import opencue.cloud.api
 
@@ -79,7 +80,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Connect for all the registered providers
         for provider in self.__registeredCloudProviders:
-            provider.connect()
+            provider.connect(cloud_resources_config=self.get_cloud_resources_config())
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -117,6 +118,10 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 
+    def get_cloud_resources_config(self):
+        cloud_config_resources_path = "{}/cloud_plugin_resources.yaml".format(cuegui.Constants.DEFAULT_INI_PATH)
+        cloud_resources_config = cuegui.Utils.getResourceConfig(cloud_config_resources_path)
+        return cloud_resources_config
 
 class CloudManagerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):

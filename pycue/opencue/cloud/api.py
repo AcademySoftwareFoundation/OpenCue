@@ -121,7 +121,7 @@ class CloudManager(object):
         """
 
     @abc.abstractmethod
-    def connect(self):
+    def connect(self, cloud_resources_config):
         """
         Abstract method that will implement connecting to the cloud provider
         :return:

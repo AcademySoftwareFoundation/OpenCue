@@ -109,20 +109,23 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
 
     def __init__(self):
         super(GoogleCloudManager, self).__init__()
-        # TODO : to be replaced with a better way to handle authentication
-        self.project = 'gsoc-opencue-test-bed'
-        self.zone = 'us-central1-a'
+        self.project = None
+        self.zone = None
         self.credentials = None
         self.service = None
 
     def signature(self):
         return "google"
 
-    def connect(self):
+    @opencue.cloud.gce_exception_util.googleRequestExceptionParser
+    def connect(self, cloud_resources_config):
         """
         Connect to the GCE : For now with application defaults
         :return:
         """
+
+        self.project = cloud_resources_config.get('gce_project_name', '')
+        self.zone = cloud_resources_config.get('gce_project_zone_name', '')
         self.credentials = oauth2client.client.GoogleCredentials.get_application_default()
         self.service = googleapiclient.discovery.build('compute', 'v1', credentials=self.credentials)
 
