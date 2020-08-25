@@ -31,6 +31,7 @@ class AzureCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         self.compute_client = compute_client
         self.resource_group = resource_group
         self.current_instances_size = 0
+        self.sku = self.data.sku
 
     def get_instances(self):
         instance_view = self.compute_client.virtual_machine_scale_sets.\
@@ -41,7 +42,20 @@ class AzureCloudGroup(opencue.cloud.api.CloudInstanceGroup):
             self.current_instances_size = 0
 
     def resize(self, size=None):
-        pass
+        update_parameters = {
+            "sku": {
+                "name": self.sku.name,
+                "tier": self.sku.tier,
+                "capacity": size
+            },
+            "location": self.data.location
+        }
+
+        scale_set_update = self.compute_client.virtual_machine_scale_sets.create_or_update(
+            self.resource_group,
+            self.name(),
+            update_parameters
+        )
 
     def name(self):
         return self.scale_set_object.name
@@ -54,6 +68,9 @@ class AzureCloudGroup(opencue.cloud.api.CloudInstanceGroup):
 
     def current_group_size_info(self):
         return self.current_instances_size
+
+    def delete_cloud_group(self):
+        pass
 
 
 class AzureCloudManager(opencue.cloud.api.CloudManager):
@@ -68,7 +85,7 @@ class AzureCloudManager(opencue.cloud.api.CloudManager):
     def signature(self):
         return "azure"
 
-    def connect(self):
+    def connect(self, cloud_resources_config):
         self.subscription_id = os.environ['AZURE_SUBSCRIPTION_ID']
         self.credentials = ServicePrincipalCredentials(client_id=os.environ['AZURE_CLIENT_ID'],
                                                        secret=os.environ['AZURE_CLIENT_SECRET'],
