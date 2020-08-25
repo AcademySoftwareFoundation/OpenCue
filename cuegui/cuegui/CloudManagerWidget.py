@@ -123,6 +123,7 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         cloud_resources_config = cuegui.Utils.getResourceConfig(cloud_config_resources_path)
         return cloud_resources_config
 
+
 class CloudManagerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
