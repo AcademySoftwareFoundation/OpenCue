@@ -30,6 +30,9 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
 
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def delete_cloud_group(self):
+        """
+        Delete the google cloud instance group
+        """
         request = self.connection_manager.service.instanceGroupManagers().delete(
             project=self.connection_manager.project, zone=self.connection_manager.zone,
             instanceGroupManager=self.name())
@@ -38,7 +41,7 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def get_instances(self):
         """
-        :return: (list) of dictionaries. Currently only the size of the list matters
+        Updates the instances attributes with a list of dictionaries. Currently only the size of the list matters
         """
         request = self.connection_manager.service.instanceGroupManagers().listManagedInstances(
             project=self.connection_manager.project, zone=self.connection_manager.zone,
@@ -75,8 +78,8 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def resize(self, size=None):
         """
-        :param size: (int)
-        :return:
+        :type size: int
+        :param size: Size of the group/ Number of instances to be resized to
         """
         request = self.connection_manager.service.instanceGroupManagers().resize(
             project=self.connection_manager.project, zone=self.connection_manager.zone,
@@ -84,6 +87,10 @@ class GoogleCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         response = request.execute()
 
     def name(self):
+        """
+
+        :return: str of the name of the cloud instance group
+        """
         return self.data["name"]
 
     def status(self):
@@ -121,7 +128,8 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
     def connect(self, cloud_resources_config):
         """
         Connect to the GCE : For now with application defaults
-        :return:
+        :type cloud_resources_config: dict
+        :param cloud_resources_config: YAML config resource for the cloud plugin
         """
 
         self.project = cloud_resources_config.get('gce_project_name', '')
@@ -131,6 +139,10 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
 
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def get_all_groups(self):
+        """
+        Queries the instance groups available in the project
+        :return: (list) of GoogleCloudGroup objects
+        """
         cigs = []
         request = self.service.instanceGroupManagers().list(project=self.project, zone=self.zone)
         while request is not None:
@@ -149,11 +161,13 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def create_managed_group(self, name, size, template):
         """
-
-        :param name: (str) name from input
-        :param size: (int) size from input
-        :param template: (dict) of the template object
-        :return:
+        :type name: str
+        :param name: name of cloud group from input
+        :type size: int
+        :param size: size/capacity of the group to start with
+        :type template: dict
+        :param template: Dictionary of the template object
+        :return: Response of the creation API call
         """
         template_url = template.get("selfLink")
         request_body = {
@@ -169,6 +183,7 @@ class GoogleCloudManager(opencue.cloud.api.CloudManager):
     @opencue.cloud.gce_exception_util.googleRequestExceptionParser
     def list_templates(self):
         """
+        List the instance templates available in the project
         :return: (list) of template objects
         """
         templates = []

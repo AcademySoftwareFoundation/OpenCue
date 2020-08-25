@@ -48,8 +48,6 @@ class CloudManagerWidget(QtWidgets.QWidget):
         layout.addWidget(self.__btnAddCloudGroup, 0, 3)
         layout.addWidget(self.__viewCloudGroups, 2, 0, 3, 4)
 
-        #TODO: Add a force refresh button ?
-
         self.__btnAddCloudGroup.clicked.connect(self._onAddCloudGroupClicked)
 
     def _onAddCloudGroupClicked(self):
@@ -93,6 +91,10 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return item
 
     def _getUpdate(self):
+        """
+        Queries all the cloud groups associated with all the registered cloud providers
+        :return: opencue.cloud.api.CloudInstanceGroup child
+        """
         cloud_groups = []
 
         for manager_instance in self.__registeredCloudProviders:
@@ -119,6 +121,9 @@ class CloudManagerTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 
     def get_cloud_resources_config(self):
+        """
+        :return: dict : YAML cloud resources config returned as a dict
+        """
         cloud_config_resources_path = "{}/cloud_plugin_resources.yaml".format(cuegui.Constants.DEFAULT_INI_PATH)
         cloud_resources_config = cuegui.Utils.getResourceConfig(cloud_config_resources_path)
         return cloud_resources_config

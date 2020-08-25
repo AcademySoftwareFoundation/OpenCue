@@ -70,6 +70,9 @@ class CloudGroupCreateDialog(QtWidgets.QDialog):
         pass
 
     def _createCloudGroup(self):
+        """
+        Calls the associated cloud manager's group creation method
+        """
         group_name = self.__groupname_text_input.text()
         instances = self.__number_of_instances.text()
         template = self.__templates_dropdown.get_template_data()
@@ -104,9 +107,15 @@ class CloudServicesCombo(QtWidgets.QComboBox):
             self._cloud_providers[provider.signature()] = provider
 
     def get_provider(self):
+        """
+        :return: Manager object of the chosen cloud provider
+        """
         return self._cloud_providers[str(self.currentText())]
 
     def get_cloud_resources_config(self):
+        """
+        :return: YAML cloud resources config returned as a dict
+        """
         cloud_config_resources_path = "{}/cloud_plugin_resources.yaml".format(cuegui.Constants.DEFAULT_INI_PATH)
         cloud_resources_config = cuegui.Utils.getResourceConfig(cloud_config_resources_path)
         return cloud_resources_config
@@ -122,8 +131,8 @@ class CloudGroupTemplatesCombo(QtWidgets.QComboBox):
 
     def refresh(self, cloud_group):
         """
-        :param cloud_group: opencue.cloud.api.CloudInstanceGroup
-        :return:
+        :type cloud_group: opencue.cloud.api.CloudInstanceGroup
+        :param cloud_group: Cloud group object used to query the list of image templates and populate the combobox with
         """
         self.clear()
         templates = cloud_group.list_templates()
