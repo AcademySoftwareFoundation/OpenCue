@@ -1659,7 +1659,7 @@ class CloudGroupActions(AbstractActions):
         if cloudgroups:
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Delete selected cloud groups?",
-                                             [cloudgroup.name for cloudgroup in cloudgroups]):
+                                             [cloudgroup.name() for cloudgroup in cloudgroups]):
                 for cloudgroup in cloudgroups:
                     try:
                         cloudgroup.delete_cloud_group()

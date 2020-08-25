@@ -98,13 +98,18 @@ class CloudServicesCombo(QtWidgets.QComboBox):
         cloud_providers = opencue.cloud.api.CloudManager.get_registered_providers()
         # Connect for all the registered providers
         for provider in cloud_providers:
-            provider.connect()
+            provider.connect(cloud_resources_config=self.get_cloud_resources_config())
         for provider in cloud_providers:
             self.addItem(provider.signature())
             self._cloud_providers[provider.signature()] = provider
 
     def get_provider(self):
         return self._cloud_providers[str(self.currentText())]
+
+    def get_cloud_resources_config(self):
+        cloud_config_resources_path = "{}/cloud_plugin_resources.yaml".format(cuegui.Constants.DEFAULT_INI_PATH)
+        cloud_resources_config = cuegui.Utils.getResourceConfig(cloud_config_resources_path)
+        return cloud_resources_config
 
 
 class CloudGroupTemplatesCombo(QtWidgets.QComboBox):
