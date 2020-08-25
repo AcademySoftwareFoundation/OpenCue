@@ -31,37 +31,33 @@ class CloudInstanceGroup(object):
     def resize(self, size=None):
         """
         Resizes the group to the given number of instances
-        :param size: (int) The target size of group to be scaled up/down to
-        :return:
+        :type size: int
+        :param size: The target size of group to be scaled up/down to
         """
 
     @abc.abstractmethod
     def name(self):
         """
-        Name of the cloud group
-        :return:
+        :return: Name of the cloud group
         """
 
     @abc.abstractmethod
     def status(self):
         """
-        Returns the status of any operation made on the group. By default "STABLE"
+        :return: Returns the status of any operation made on the group. By default "STABLE"
         Each provider has it's own way of implementing status of a particular group
-        :return:
         """
 
     @abc.abstractmethod
     def id(self):
         """
-        Used to treat a CloudInstanceGroup object similar to a gRPC object for threadpool usage
-        :return:
+        :return: Used to treat a CloudInstanceGroup object similar to a gRPC object for threadpool usage
         """
 
     @abc.abstractmethod
     def delete_cloud_group(self):
         """
         Delete the cloud group from the provider
-        :return:
         """
 
     @abc.abstractmethod
@@ -81,7 +77,7 @@ class CloudManager(object):
     @staticmethod
     def get_registered_providers():
         """
-        :return:
+        :return: (list) Returns the list of registered cloud provider's manager classes
         """
         # TODO : Better way to register plugins
         # For now just return the GCE group class
@@ -97,33 +93,34 @@ class CloudManager(object):
     @abc.abstractmethod
     def signature(self):
         """
-        Returns the name of the provider
-        :return:
+        :return: Returns the name of the provider
         """
 
     @abc.abstractmethod
     def create_managed_group(self, name, size, template):
         """
         Creates a cloud group with the given template/image from cloud
-        :param name: (str) A unique name that is to be associated with the cloud group
-        :param size: (int) The initial number of instances for the cloud group
-        :param template: (str/template/vm image object according to the implementation API) Template/Image needed to
-        create the group
-        :return:
+        :type name: str
+        :param name: A unique name that is to be associated with the cloud group
+        :type size: int
+        :param size: The initial number of instances for the cloud group
+        :type: template: str/template/vm image object according to the implementation API
+        :param template: Template/Image needed to create the group
         """
 
     @abc.abstractmethod
     def get_all_groups(self):
         """
         Get all the cloud groups associated with the provider
-        :return:
+        :return: list of cloud provider's instance group objects
         """
 
     @abc.abstractmethod
     def connect(self, cloud_resources_config):
         """
         Abstract method that will implement connecting to the cloud provider
-        :return:
+        :type cloud_resources_config: dict
+        :param cloud_resources_config: YAML config object as a dictionary to access cloud API setup information
         """
 
 
