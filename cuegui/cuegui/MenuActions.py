@@ -38,6 +38,7 @@ import six
 import FileSequence
 import opencue
 import opencue.compiled_proto.job_pb2
+import opencue.cloud.api
 
 import cuegui.Action
 import cuegui.Comments
@@ -1647,6 +1648,46 @@ class LimitActions(AbstractActions):
             self._update()
 
 
+class CloudGroupActions(AbstractActions):
+    def __init__(self, *args):
+        AbstractActions.__init__(self, *args)
+
+    removeGroup_info = ["Delete Cloud Group", "Delete the cloud group", "kill"]
+
+    def removeGroup(self, cloudGroupObjects=None):
+        cloudgroups = self._getSelected(cloudGroupObjects)
+        if cloudgroups:
+            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
+                                             "Delete selected cloud groups?",
+                                             [cloudgroup.name() for cloudgroup in cloudgroups]):
+                for cloudgroup in cloudgroups:
+                    try:
+                        cloudgroup.delete_cloud_group()
+                    except opencue.cloud.api.CloudProviderException as e:
+                        cuegui.Utils.showErrorMessageBox(text="{} {} request error!".format(e.provider, e.error_code),
+                                                         detailedText=e.message)
+
+                self._update()
+
+    editInstances_info = ["Edit Number of Instances", "Change the number of instances for the group", "configure"]
+
+    def editInstances(self, cloudGroupObjects=None):
+        cloudgroup = self._getSelected(cloudGroupObjects)
+        if cloudgroup:
+            current = len(cloudgroup[0].instances)
+            title = "Edit Cloud Group"
+            body = "Please enter the new number of instances value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller, title, body, current, 0, 25, 1)
+            if choice:
+                # Call the cloud instance resize
+                try:
+                    cloudgroup[0].resize(size=value)
+                except opencue.cloud.api.CloudProviderException as e:
+                    cuegui.Utils.showErrorMessageBox(text="{} {} request error!".format(e.provider, e.error_code),
+                                                     detailedText=e.message)
+            self._update()
+
+
 class MenuActions(object):
     def __init__(self, caller, updateCallable, selectedRpcObjectsCallable, sourceCallable = None):
         """This object provides access to common right click actions
@@ -1750,3 +1791,8 @@ class MenuActions(object):
         if not hasattr(self, "_limits"):
             self._limits = LimitActions(*self.__getArgs())
         return self._limits
+
+    def cloudgroups(self):
+        if not hasattr(self, "_cloudgroups"):
+            self._cloudgroups = CloudGroupActions(*self.__getArgs())
+        return self._cloudgroups
