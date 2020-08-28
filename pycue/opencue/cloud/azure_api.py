@@ -70,7 +70,10 @@ class AzureCloudGroup(opencue.cloud.api.CloudInstanceGroup):
         return self.current_instances_size
 
     def delete_cloud_group(self):
-        pass
+        self.compute_client.virtual_machine_scale_sets.delete(
+            resource_group_name=self.resource_group,
+            vm_scale_set_name=self.name()
+        )
 
 
 class AzureCloudManager(opencue.cloud.api.CloudManager):
