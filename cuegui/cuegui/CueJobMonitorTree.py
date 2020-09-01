@@ -371,7 +371,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.redraw()
             else:
                 # (Something removed) or (Something added)
-                selected_ids = [item.rpcObject.id for item in self.selectedItems()]
+                selected_ids = [item.rpcObject.id() for item in self.selectedItems()]
                 collapsed = self.__getCollapsed()
                 scrolled = self.verticalScrollBar().value()
                 self._items = {}
