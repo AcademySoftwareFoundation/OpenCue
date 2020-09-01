@@ -245,6 +245,7 @@ class FrameMonitor(QtWidgets.QWidget):
         @type offset: int'''
         self.page += offset
         self.frameMonitorTree.frameSearch.page = self.page
+        self.frameMonitorTree.frameSearch.options['page'] = self.page
         self.frameMonitorTree.updateRequest()
         self._updatePageButtonState()
 
