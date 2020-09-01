@@ -59,7 +59,7 @@ class ShowCombo(QtWidgets.QComboBox):
     def refresh(self):
         self.clear()
         shows = opencue.api.getActiveShows()
-        shows.sort(key=lambda x, y: cmp(x.data.name, y.data.name))
+        shows.sort(key=lambda x: x.data.name)
 
         for show in shows:
             self.addItem(show.data.name, show)
@@ -92,7 +92,7 @@ class AllocFilter(QtWidgets.QPushButton):
         Refresh the full list of allocations.
         """
         allocs = opencue.api.getAllocations()
-        allocs.sort(key=lambda x, y: cmp(x.data.name, y.data.name))
+        allocs.sort(key=lambda x: x.data.name)
 
         self.__menu.clear()
         checked = 0
@@ -297,7 +297,8 @@ class RedirectControls(QtWidgets.QWidget):
             self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
-    def showChanged(self, show):
+    def showChanged(self, show_index):
+        show = self.__show_combo.currentText()
         self.__current_show = opencue.api.findShow(str(show))
         self.__include_group_btn.showChanged(self.__current_show)
 
@@ -311,11 +312,11 @@ class RedirectControls(QtWidgets.QWidget):
         minCores = 1.0
         minMem = 0
         for layer in layers:
-            if layer.data.minCores > minCores:
-                minCores = layer.data.minCores
+            if layer.data.min_cores > minCores:
+                minCores = layer.data.min_cores
 
-            if layer.data.minMemory > minMem:
-                minMem = layer.data.minMemory
+            if layer.data.min_memory > minMem:
+                minMem = layer.data.min_memory
 
         self.__cores_spin.setValue(int(minCores))
         self.__mem_spin.setValue(float(minMem / 1048576.0))
