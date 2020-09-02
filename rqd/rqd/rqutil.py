@@ -26,6 +26,7 @@ from __future__ import division
 from builtins import str
 from builtins import object
 import functools
+import logging as log
 import os
 import platform
 import random
@@ -145,13 +146,13 @@ def getHostIp():
 
 def getHostname():
     """Returns the machine's fully qualified domain name"""
-    if platform.system() == "Linux":
+    try:
         if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return getHostIp()
         else:
-            # This may not work in windows/mac, need to test
             return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
-    else:
+    except (socket.herror, socket.gaierror):
+        log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()
 
 
