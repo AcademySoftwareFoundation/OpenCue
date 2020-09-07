@@ -14,8 +14,10 @@
 
 import os
 
-from azure.mgmt.compute import ComputeManagementClient
+from azure.common.client_factory import get_client_from_cli_profile
 from azure.common.credentials import ServicePrincipalCredentials
+from azure.mgmt.compute import ComputeManagementClient
+from azure.mgmt.network import NetworkManagementClient
 
 import opencue.cloud.api
 
@@ -84,6 +86,7 @@ class AzureCloudManager(opencue.cloud.api.CloudManager):
         self.subscription_id = None
         self.compute_client = None
         self.resource_group_name = None
+        self.network_client = None
 
     def signature(self):
         return "azure"
@@ -94,6 +97,7 @@ class AzureCloudManager(opencue.cloud.api.CloudManager):
                                                        secret=os.environ['AZURE_CLIENT_SECRET'],
                                                        tenant=os.environ['AZURE_TENANT_ID'])
         self.compute_client = ComputeManagementClient(self.credentials, self.subscription_id)
+        self.network_client = NetworkManagementClient(self.credentials, self.subscription_id)
         self.resource_group_name = os.environ["AZURE_RESOURCE_GROUP_NAME"]
 
     def get_all_groups(self):
@@ -109,7 +113,71 @@ class AzureCloudManager(opencue.cloud.api.CloudManager):
         return scale_sets
 
     def create_managed_group(self, name, size, template):
-        pass
+
+        virtual_networks = []
+        for virtual_network in self.network_client.virtual_networks.list(self.resource_group_name):
+            virtual_networks.append(virtual_network)
+
+        subnets = []
+        for subnet in self.network_client.subnets.list(self.resource_group_name, virtual_networks[0].name):
+            subnets.append(subnet)
+
+        naming_infix = "{}_Infix".format(template.name)
+        vmss_parameters = {
+            "sku": {
+                "name": "Standard_DS1_v2",
+                "tier": "Standard",
+                "capacity": size
+            },
+            "upgrade_policy": {
+                "mode": "Manual"
+            },
+            "location": template.location,
+            "virtual_machine_profile": {
+                "storage_profile": {
+                    "image_reference": {
+                        "id": template.id,
+                        "resource_group": self.resource_group_name
+                    }
+                },
+                "network_profile": {
+                    "network_interface_configurations": [{
+                        "name": naming_infix + "nic",
+                        "primary": True,
+                        "ip_configurations": [{
+                            "name": naming_infix + "ipconfig",
+                            "subnet": {
+                                "id": subnets[0].id
+                            }
+                        }]
+                    }]
+                }
+            }
+        }
+
+        scale_set_update = self.compute_client.virtual_machine_scale_sets.create_or_update(
+            self.resource_group_name,
+            name,
+            vmss_parameters
+        )
+
+        # TODO: Poller in Azure is much different from GCE. It's a blocking call if we have to return the result
+        return 1
 
     def list_templates(self):
         pass
+
+    def list_galleries_in_resource_group(self):
+        galleries = []
+        for gallery in self.compute_client.galleries.list_by_resource_group(self.resource_group_name):
+            galleries.append(gallery)
+
+        return galleries
+
+    def list_image_definitions_by_gallery(self, gallery_name):
+        image_definitions = []
+        for image_definition in self.compute_client.gallery_images.list_by_gallery(self.resource_group_name,
+                                                                                   gallery_name):
+            image_definitions.append(image_definition)
+
+        return image_definitions
