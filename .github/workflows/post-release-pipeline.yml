@@ -26,4 +26,4 @@ jobs:
             -H "Content-Type: application/json" \
             https://${GITHUB_PAT}@api.github.com/repos/${DOCS_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches \
             --data '{"ref": "blog-post-workflow", "inputs": {"release_version": "v.0.4.55"}}'
-            #--data '{"ref": "master", "inputs": {"release_version": "${{ github.event.release.tag_name }}"}}'
+            #  --data '{"ref": "master", "inputs": {"release_version": "${{ github.event.release.tag_name }}"}}'
