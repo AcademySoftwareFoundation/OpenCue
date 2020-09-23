@@ -23,11 +23,23 @@ public class DispatchQuery {
 
     public static final String FIND_JOBS_BY_SHOW =
         "/* FIND_JOBS_BY_SHOW */ " +
-        "SELECT pk_job, int_priority, rank FROM ( " +
+            "SELECT pk_job, int_priority, rank FROM ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER (ORDER BY job_resource.int_priority DESC) AS rank, " +
-                "job.pk_job, " +
-                "job_resource.int_priority " +
+                "ROW_NUMBER() OVER (ORDER BY int_priority DESC) AS rank, " +
+                "pk_job, " +
+                "int_priority " +
+            "FROM ( " +
+            "SELECT " +
+                "job.pk_job as pk_job, " +
+                "/* sort = priority + (100 * (1 - (job.cores/job.int_min_cores))) + (age in days) */ " +
+                "CAST( " +
+                        "job_resource.int_priority + ( " +
+                            "100 * (CASE WHEN job_resource.int_min_cores <= 0 THEN 0 " +
+                        "ELSE 1 - job_resource.int_cores/job_resource.int_min_cores " +
+                        "END) " +
+				") + ( " +
+                "(DATE_PART('days', NOW()) - DATE_PART('days', job.ts_updated)) " +
+            ") as INT) as int_priority " +
             "FROM " +
                 "job            , " +
                 "job_resource   , " +
@@ -50,7 +62,7 @@ public class DispatchQuery {
                     "(" +
                         "folder_resource.int_max_cores = -1 " +
                     "OR " +
-                        "folder_resource.int_cores < folder_resource.int_max_cores " +
+                        "folder_resource.int_cores + layer.int_cores_min < folder_resource.int_max_cores " +
                     ") " +
                 "AND job.str_state                  = 'PENDING' " +
                 "AND job.b_paused                   = false " +
@@ -91,7 +103,7 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE rank < ?";
+        ") AS t1 ) AS t2 WHERE rank < ?";
 
 
     public static final String FIND_JOBS_BY_GROUP =
