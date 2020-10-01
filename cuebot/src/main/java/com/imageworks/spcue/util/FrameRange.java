@@ -1,9 +1,5 @@
 package com.imageworks.spcue.util;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Lists;
-import org.apache.commons.collections.CollectionUtils;
-
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,6 +7,11 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+
+import com.google.common.base.Predicates;
+import com.google.common.collect.Collections2;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Lists;
 
 import static java.lang.Math.abs;
 
@@ -157,7 +158,7 @@ public class FrameRange {
         ImmutableList<Integer> steppedRange = getIntRange(start, end, step);
         if (inverseStep) {
             ImmutableList<Integer> fullRange = getIntRange(start, end, (step < 0 ? -1 : 1));
-            return ImmutableList.copyOf(CollectionUtils.subtract(fullRange, steppedRange));
+            return ImmutableList.copyOf(Collections2.filter(fullRange, Predicates.not(Predicates.in(steppedRange))));
         }
         return steppedRange;
     }
