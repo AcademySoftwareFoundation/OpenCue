@@ -61,8 +61,8 @@ import com.imageworks.spcue.service.RedirectService;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 
+import static org.hamcrest.Matchers.emptyString;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.isEmptyString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
@@ -207,7 +207,8 @@ public class RedirectManagerTests
         assertFalse(redirectManager.hasRedirect(proc));
         assertThat(
                 whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(isEmptyString()));
+                is(emptyString()));
+
     }
 
     @Test
@@ -254,7 +255,7 @@ public class RedirectManagerTests
         assertFalse(redirectManager.hasRedirect(proc));
         assertThat(
                 whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(isEmptyString()));
+                is(emptyString()));
     }
 
     @Test
@@ -283,7 +284,7 @@ public class RedirectManagerTests
         assertFalse(redirectManager.hasRedirect(proc));
         assertThat(
                 whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(isEmptyString()));
+                is(emptyString()));
     }
 
     @Test
@@ -322,7 +323,7 @@ public class RedirectManagerTests
         assertFalse(redirectManager.hasRedirect(proc));
         assertThat(
                 whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
-                is(isEmptyString()));
+                is(emptyString()));
     }
 
     @Test
