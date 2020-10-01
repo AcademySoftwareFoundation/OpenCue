@@ -208,7 +208,6 @@ public class RedirectManagerTests
         assertThat(
                 whiteboard.getProcs(search).getProcs(0).getRedirectTarget(),
                 is(emptyString()));
-
     }
 
     @Test
