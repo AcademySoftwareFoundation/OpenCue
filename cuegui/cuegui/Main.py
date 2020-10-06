@@ -80,7 +80,7 @@ def startup(app_name, app_version, argv):
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Load window icon
-    app.setWindowIcon(QtGui.QIcon('%s/images/windowIcon.png' % cuegui.Constants.RESOURCE_PATH))
+    app.setWindowIcon(QtGui.QIcon('%s/windowIcon.png' % cuegui.Constants.RESOURCE_PATH))
 
     app.setApplicationName(app_name)
     app.lastWindowClosed.connect(app.quit)
