@@ -371,7 +371,7 @@
   <bean id="hardwareCheckTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
     <property name="jobDetail" ref="hardwareCheck" />
     <!--
-      10 minute second start delay We want to give procs a chance to report in when the host first
+      10 minute start delay We want to give procs a chance to report in when the host first
       starts, otherwise valid proc will be deleted.
     -->
     <property name="startDelay" value="600000" />
@@ -382,7 +382,7 @@
   <bean id="archiveFinishedJobsTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
     <property name="jobDetail" ref="archiveFinishedJobs" />
     <!--
-      10 minute second start delay. Let the cue get up and running and sort out any problems before
+      10 minute start delay. Let the cue get up and running and sort out any problems before
       doing the proc check.
     -->
     <property name="startDelay" value="600000" />
@@ -393,7 +393,7 @@
   <bean id="taskUpdateTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
     <property name="jobDetail" ref="taskUpdate" />
     <!--
-      10 minute second start delay. Let the cue get up and running and sort out any problems before
+      10 second start delay. Let the cue get up and running and sort out any problems before
       doing the proc check.
     -->
     <property name="startDelay" value="10000" />
