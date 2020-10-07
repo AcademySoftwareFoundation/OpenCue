@@ -447,7 +447,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         "How much memory (in GB) should each render layer require?",
                         4.0,
                         0.1,
-                        47.0,
+                        251.0,
                         2)
                     value = int(value * 1048576)
 
@@ -672,6 +672,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             value = widget.value()
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
+            widget.setMaximum(251.0)
             value = int(widget.value() * 1048576)
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
