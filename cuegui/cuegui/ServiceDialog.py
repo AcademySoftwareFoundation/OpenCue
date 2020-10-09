@@ -108,16 +108,13 @@ class ServiceForm(QtWidgets.QWidget):
         Update the form with data from the given service.
         """
         self.__buttons.setDisabled(False)
-        self.__service = service.data
-
-        self.name.setText(self.__service.name)
-        self.threadable.setChecked(self.__service.threadable)
-        self.min_cores.setValue(self.__service.min_cores)
-        self.max_cores.setValue(self.__service.max_cores)
-        self.min_memory.setValue(self.__service.min_memory // 1024)
-        self.min_gpu.setValue(self.__service.min_gpu // 1024)
-
-        self._tags_w.set_tags(self.__service.tags)
+        self.name.setText(service.data.name)
+        self.threadable.setChecked(service.data.threadable)
+        self.min_cores.setValue(service.data.min_cores)
+        self.max_cores.setValue(service.data.max_cores)
+        self.min_memory.setValue(service.data.min_memory // 1024)
+        self.min_gpu.setValue(service.data.min_gpu // 1024)
+        self._tags_w.set_tags(service.data.tags)
 
     def new(self):
         """
@@ -262,14 +259,16 @@ class ServiceManager(QtWidgets.QWidget):
                 self.__services = opencue.api.getDefaultServices()
             else:
                 self.__services = self.__show.getServiceOverrides()
-        except Exception:
-            return
+        except Exception as e:
+            raise Exception(e)
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.name())
+            item = QtWidgets.QListWidgetItem(service.data.name)
             self.__service_list.addItem(item)
-            if service.name() in selected:
-                item.setSelected(True)
+
+            if selected:
+                if service.data.name in selected:
+                    item.setSelected(True)
 
         self.__service_list.sortItems()
 
