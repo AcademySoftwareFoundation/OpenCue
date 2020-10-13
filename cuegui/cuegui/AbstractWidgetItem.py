@@ -31,6 +31,7 @@ import cuegui.Constants
 import cuegui.Logger
 import cuegui.Style
 
+import opencue
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -88,7 +89,8 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         """Custom sorting for columns that have a function defined for sorting"""
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         column = self.treeWidget().sortColumn()
-        if sortLambda:
+
+        if sortLambda and isinstance(other.rpcObject, opencue.wrappers.job.Job):
             try:
                 return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
             except:
