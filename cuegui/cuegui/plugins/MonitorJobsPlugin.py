@@ -92,7 +92,13 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.jobMonitor.setColumnWidths),
                                       ("columnOrder",
                                       self.jobMonitor.getColumnOrder,
-                                      self.jobMonitor.setColumnOrder)])
+                                      self.jobMonitor.setColumnOrder),
+                                      ("grpDependentCb",
+                                      self.getGrpDependent,
+                                      self.setGrpDependent),
+                                      ("autoLoadMineCb",
+                                      self.getAutoLoadMine,
+                                      self.setAutoLoadMine)])
 
     def addJob(self, rpcObject):
         """Adds a job to be monitored."""
@@ -100,7 +106,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             rpcObject = cuegui.Utils.findJob(rpcObject.data.job_name)
         elif not cuegui.Utils.isJob(rpcObject):
             return
-        self.jobMonitor.addJob(rpcObject)
+        self.jobMonitor.addJob(rpcObject, loading_from_config=True)
         self.raise_()
 
     def getJobIds(self):
@@ -203,6 +209,18 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 for job in opencue.api.getJobs(regex=[substring]):
                     self.jobMonitor.addJob(job)
 
+    def getGrpDependent(self):
+        return bool(self.grpDependentCb.isChecked())
+
+    def setGrpDependent(self, state):
+        self.grpDependentCb.setChecked(bool(state))
+
+    def getAutoLoadMine(self):
+        return bool(self.autoLoadMineCb.isChecked())
+
+    def setAutoLoadMine(self, state):
+        self.autoLoadMineCb.setChecked(bool(state))
+
     def _buttonSetup(self, layout):
         clearButton = QtWidgets.QPushButton("Clr")
         clearButton.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -214,13 +232,19 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         spacer.setFixedWidth(20)
         layout.addWidget(spacer)
 
-        mineCheckbox = QtWidgets.QCheckBox("Autoload Mine")
-        mineCheckbox.setFocusPolicy(QtCore.Qt.NoFocus)
-        mineCheckbox.setChecked(True)
-        layout.addWidget(mineCheckbox)
-        mineCheckbox.stateChanged.connect(self.jobMonitor.setLoadMine)  # pylint: disable=no-member
+        self.autoLoadMineCb = QtWidgets.QCheckBox("Autoload Mine")
+        self.autoLoadMineCb.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.autoLoadMineCb.setChecked(True)
+        layout.addWidget(self.autoLoadMineCb)
+        self.autoLoadMineCb.stateChanged.connect(self.jobMonitor.setLoadMine)  # pylint: disable=no-member
 
         self._loadFinishedJobsSetup(self.__toolbar)
+
+        self.grpDependentCb = QtWidgets.QCheckBox("Group Dependent")
+        self.grpDependentCb.setFocusPolicy(QtCore.Qt.NoFocus)
+        self.grpDependentCb.setChecked(True)
+        layout.addWidget(self.grpDependentCb)
+        self.grpDependentCb.stateChanged.connect(self.jobMonitor.setGroupDependent)
 
         finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
         finishedButton.setToolTip("Unmonitor finished jobs")
