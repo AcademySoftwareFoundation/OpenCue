@@ -1,0 +1,26 @@
+name: OpenCue Post-Release Pipeline
+
+# Workflow that runs after a new release is published.
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  create_blog_post:
+    runs-on: ubuntu-latest
+    name: Create Blog Post
+    steps:
+      - name: Trigger blog post workflow
+        env:
+          DOCS_REPO: AcademySoftwareFoundation/opencue.io
+          GITHUB_PAT: ${{ secrets.OPENCUE_AUTO_PAT }}
+          WORKFLOW_ID: 2618928
+        run: |
+          # Trigger the workflow in the opencue.io repository.
+          
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Content-Type: application/json" \
+            https://${GITHUB_PAT}@api.github.com/repos/${DOCS_REPO}/actions/workflows/${WORKFLOW_ID}/dispatches \
+            --data '{"ref": "master", "inputs": {"release_version": "${{ github.event.release.tag_name }}"}}'
