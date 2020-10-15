@@ -455,7 +455,7 @@ public class HostReportHandler {
                     p.memoryReserved = f.getRss();
                     logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                             + " increased its reserved memory to " +
-                            CueUtil.KbToMb((long)f.getRss()));
+                            CueUtil.KbToMb(f.getRss()));
                 }
 
             } catch (ResourceReservationFailureException e) {
