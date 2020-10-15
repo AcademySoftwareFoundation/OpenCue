@@ -717,6 +717,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
+                widget.setMaximum(251.0)
                 widget.editingFinished.connect(self.__setValue)
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
