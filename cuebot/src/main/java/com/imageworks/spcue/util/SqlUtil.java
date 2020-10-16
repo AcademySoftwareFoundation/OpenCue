@@ -21,16 +21,15 @@ package com.imageworks.spcue.util;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.Collection;
 import java.util.UUID;
 
 public class SqlUtil {
 
-    public static String buildBindVariableArray(String col, Collection c) {
+    public static String buildBindVariableArray(String col, Integer numValues) {
         StringBuilder sb = new StringBuilder(1024);
         sb.append(col);
         sb.append(" IN (");
-        for (int i = 0; i < c.size(); i++) {
+        for (int i = 0; i < numValues; i++) {
             sb.append("?,");
         }
         sb.delete(sb.length() - 1, sb.length());
