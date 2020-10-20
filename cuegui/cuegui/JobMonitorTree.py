@@ -186,9 +186,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]
+        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]        
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected), QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
