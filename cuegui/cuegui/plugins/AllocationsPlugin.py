@@ -50,7 +50,10 @@ class AllocationsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.pluginRegisterSettings([("columnVisibility",
                                       self.__monitorAllocations.getColumnVisibility,
-                                      self.__monitorAllocations.setColumnVisibility)])
+                                      self.__monitorAllocations.setColumnVisibility),
+                                      ("columnOrder",
+                                      self.__monitorAllocations.getColumnOrder,
+                                      self.__monitorAllocations.setColumnOrder)])
 
 ################################################################################
 # Allocations

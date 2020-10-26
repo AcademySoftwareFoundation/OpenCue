@@ -69,6 +69,12 @@ class LimitsWidget(QtWidgets.QWidget):
   def setColumnVisibility(self, settings):
     self.__monitorLimits.setColumnVisibility(settings)
 
+  def getColumnOrder(self):
+    return self.__monitorLimits.getColumnOrder()
+  
+  def setColumnOrder(self, settings):
+    self.__monitorLimits.setColumnOrder(settings)
+
 
 class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
   def __init__(self, parent):

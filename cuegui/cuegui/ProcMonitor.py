@@ -77,6 +77,12 @@ class ProcMonitor(QtWidgets.QWidget):
     def setColumnVisibility(self, settings):
         self.procMonitorTree.setColumnVisibility(settings)
 
+    def getColumnOrder(self):
+        return self.procMonitorTree.getColumnOrder()
+
+    def setColumnOrder(self, settings):
+        self.procMonitorTree.setColumnOrder(settings)
+
 # ==============================================================================
 # Text box to load procs by hostname
 # ==============================================================================

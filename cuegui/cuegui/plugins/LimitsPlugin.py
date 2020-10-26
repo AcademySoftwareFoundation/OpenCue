@@ -39,4 +39,7 @@ class LimitsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     
     self.pluginRegisterSettings([("columnVisibility",
                                   self.__limitsWidget.getColumnVisibility,
-                                  self.__limitsWidget.setColumnVisibility)])
+                                  self.__limitsWidget.setColumnVisibility),
+                                  ("columnOrder",
+                                  self.__limitsWidget.getColumnOrder,
+                                  self.__limitsWidget.setColumnOrder)])

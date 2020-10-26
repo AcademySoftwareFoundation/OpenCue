@@ -82,7 +82,10 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                        self.__monitorCue.setColumnVisibility),
                                       ("columnWidths",
                                        self.__monitorCue.getColumnWidths,
-                                       self.__monitorCue.setColumnWidths)])
+                                       self.__monitorCue.setColumnWidths),
+                                       ("columnOrder",
+                                       self.__monitorCue.getColumnOrder,
+                                       self.__monitorCue.setColumnOrder)])
 
         self.addShows([os.getenv('SHOW')])
 
