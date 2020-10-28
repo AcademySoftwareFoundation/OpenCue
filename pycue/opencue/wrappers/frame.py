@@ -165,6 +165,15 @@ class Frame(object):
             job_pb2.FrameMarkAsWaitingRequest(frame=self.data),
             timeout=Cuebot.Timeout)
 
+    def setCheckpointState(self, checkPointState):
+        """Sets the checkPointState of the frame
+        :param checkPointState: job_pb.CheckpointState(Int)
+        :return:
+        """
+        self.stub.SetCheckpointState(
+            job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState)
+        )
+
     def id(self):
         """Returns the id of the frame.
         :rtype:  str
