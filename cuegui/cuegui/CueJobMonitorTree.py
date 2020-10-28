@@ -275,8 +275,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         item.rpcObject.asGroup().reparentJobs(jobs)
 
                     if group_ids:
-                        groups = [opencue.api.getGroup(id_) for id_ in group_ids]
-                        item.rpcObject.asGroup().reparentGroupIds(groups)
+                        item.rpcObject.asGroup().reparentGroupIds(group_ids)
 
                     self.updateRequest()
 
