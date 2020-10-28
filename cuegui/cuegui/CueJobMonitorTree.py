@@ -62,6 +62,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
         self.__shows = {}
+        self.currtime = time.time()
 
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 550, id=1,
@@ -115,8 +116,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
         self.addColumn("Age", 50, id=11,
-                       data=lambda job: cuegui.Utils.secondsToHHHMM(time.time() - job.data.start_time),
-                       sort=lambda job: time.time() - job.data.start_time,
+                       data=lambda job: cuegui.Utils.secondsToHHHMM(self.currtime - job.data.start_time),
+                       sort=lambda job: self.currtime - job.data.start_time,
                        tip="The HOURS:MINUTES since the job was launched.")
         self.addColumn("Pri", 30, id=12,
                        data=lambda job: job.data.priority,
@@ -340,6 +341,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @rtype:  [list<NestedGroup>, set(str)]
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
+        self.currtime = time.time()
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
