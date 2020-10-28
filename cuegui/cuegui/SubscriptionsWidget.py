@@ -141,6 +141,12 @@ class SubscriptionsWidget(QtWidgets.QWidget):
     def setColumnVisibility(self, settings):
         self.__monitorSubscriptions.setColumnVisibility(settings)
 
+    def getColumnOrder(self):
+        return self.__monitorSubscriptions.getColumnOrder()
+
+    def setColumnOrder(self, settings):
+        self.__monitorSubscriptions.setColumnOrder(settings)
+
 
 class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
