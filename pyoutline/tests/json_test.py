@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,14 +12,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.json module.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import mock
 import os
 import unittest
+
+import mock
 
 from outline import load_json
 from . import test_utils

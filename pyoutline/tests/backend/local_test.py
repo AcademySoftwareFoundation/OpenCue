@@ -14,14 +14,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.backend.local module.
+"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 import os
-import mock
 import unittest
+
+import mock
 
 import outline
 import outline.backend.local

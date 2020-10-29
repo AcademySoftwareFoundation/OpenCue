@@ -14,6 +14,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.depend module.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -87,4 +90,3 @@ class DependTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

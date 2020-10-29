@@ -12,6 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.session module.
+"""
 
 from __future__ import print_function
 from __future__ import division
@@ -28,14 +31,12 @@ SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
 
 class SessionTest(unittest.TestCase):
 
-    """Tests for outline.session"""
-
     def setUp(self):
         self.script_path = os.path.join(SCRIPTS_DIR, 'shell.outline')
         self.ol = outline.load_outline(self.script_path)
         self.ol.set_frame_range("1-10")
         self.ol.setup()
-        self.session  = self.ol.get_session()
+        self.session = self.ol.get_session()
 
     def test_put_file(self):
         """Testing get/put file into outline."""
@@ -64,7 +65,7 @@ class SessionTest(unittest.TestCase):
 
         # Put file into layer
         layer = self.ol.get_layer("cmd")
-         
+
         # Getting a file that doesn't exist should raise SessionException
         # Unless the new flag is passed in.
         self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
@@ -78,26 +79,24 @@ class SessionTest(unittest.TestCase):
 
     def test_get_unchecked_file(self):
         """Tests the new option for the get_file method. """
-        layer = self.ol.get_layer("cmd")
+        self.ol.get_layer("cmd")
 
     def test_put_data(self):
-       """Test get/set data"""
+        """Test get/set data"""
 
-       # Serialize an array of ints into the session
-       # and then retrieve it.
-       value = [100,200,300,400,500]
-       self.session.put_data("foo",value)
-       self.assertEqual(value, self.session.get_data("foo"))
+        # Serialize an array of ints into the session and then retrieve it.
+        value = [100,200,300,400,500]
+        self.session.put_data("foo",value)
+        self.assertEqual(value, self.session.get_data("foo"))
 
     def test_put_data_to_layer(self):
-       """Test get/set layer data."""
+        """Test get/set layer data."""
 
-       layer = self.ol.get_layer("cmd")
-       value = [100,200,300,400,500]
-       layer.put_data("foo", value)
-       self.assertEqual(value, layer.get_data("foo"))
-   
+        layer = self.ol.get_layer("cmd")
+        value = [100,200,300,400,500]
+        layer.put_data("foo", value)
+        self.assertEqual(value, layer.get_data("foo"))
+
 
 if __name__ == '__main__':
     unittest.main()
-

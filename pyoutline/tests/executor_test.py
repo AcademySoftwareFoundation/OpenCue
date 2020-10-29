@@ -14,6 +14,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.executor module.
+"""
 
 from __future__ import print_function
 from __future__ import division
@@ -43,4 +46,3 @@ class TaskExecutorTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

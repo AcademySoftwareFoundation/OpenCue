@@ -12,18 +12,22 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.modules.shell module.
+"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import range
-import mock
+
 import tempfile
 import unittest
 
-from FileSequence import FrameSet
+import mock
 
+from FileSequence import FrameSet
 import outline
 from outline.loader import Outline
 from outline.modules.shell import Shell
@@ -118,4 +122,3 @@ class ShellModuleTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
