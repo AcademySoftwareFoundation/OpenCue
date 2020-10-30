@@ -22,7 +22,9 @@ from builtins import range
 import os
 import re
 import string
+import sys
 import time
+import traceback
 
 from PySide2 import QtGui
 from PySide2 import QtCore
@@ -284,12 +286,37 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             bottom = top + self.blockBoundingRect(block).height()
             block_number += 1
 
+class LogLoadSignals(QtCore.QObject):
+    SIG_LOG_LOAD_ERROR = QtCore.Signal(tuple)
+    SIG_LOG_LOAD_RESULT = QtCore.Signal(str, str)
+    SIG_LOG_LOAD_FINISHED = QtCore.Signal()
+
+class LogLoader(QtCore.QRunnable):
+    def __init__(self, fn, *args, **kwargs):
+        super(LogLoader, self).__init__()
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.signals = LogLoadSignals()
+
+    @QtCore.Slot()
+    def run(self):
+        try:
+            content, log_mtime = self.fn(*self.args, **self.kwargs)
+        except:
+            exctype, value = sys.exc_info()[:2]
+            self.signals.SIG_LOG_LOAD_ERROR.emit(
+                (exctype, value, traceback.format_exc()))
+        else:
+            self.signals.SIG_LOG_LOAD_RESULT.emit(content, log_mtime)
+        finally:
+            self.signals.SIG_LOG_LOAD_FINISHED.emit()
 
 class LogViewWidget(QtWidgets.QWidget):
     """
     Displays the log file for the selected frame
     """
-
+    SIG_CONTENT_UPDATED = QtCore.Signal(str, str)
     def __init__(self, parent=None):
         """
         Create the UI elements
@@ -440,6 +467,10 @@ class LogViewWidget(QtWidgets.QWidget):
         self._format.setBackground(QtCore.Qt.red)
         self._current_match = 0
         self._content_box.mousePressedSignal.connect(self._on_mouse_pressed)
+
+        self.SIG_CONTENT_UPDATED.connect(self._update_log_content)
+        self.log_thread_pool = QtCore.QThreadPool()
+        self.log_thread_pool.waitForDone()
 
     def _on_mouse_pressed(self, pos):
         """
@@ -768,11 +799,76 @@ class LogViewWidget(QtWidgets.QWidget):
         """
 
         try:
-            self._update_log()
-            self._new_log = False
+            if not os.path.exists(self._log_file):
+                self._log_file_exists = False
+                content = 'Log file does not exist: %s' % self._log_file
+                self._content_timestamp = time.time()
+            else:
+                log_loader = LogLoader(self._load_log, self._log_file,
+                    self._new_log, self._log_mtime)
+                log_loader.signals.SIG_LOG_LOAD_RESULT.connect(self._receive_log_results)
+                log_loader.setAutoDelete(True)
+                self.log_thread_pool.start(log_loader)
+                self.log_thread_pool.waitForDone()
+                self._new_log = False
         finally:
             QtCore.QTimer.singleShot(5000, self._display_log_content)
 
+    @QtCore.Slot()
+    def _load_log(self, log_file, new_log, curr_log_mtime):
+        content = None
+        log_size = int(os.stat(log_file).st_size)
+        if log_size > 5 * 1e6:
+            content = ('Log file size (%0.1f MB) exceeds the size '
+                        'threshold (5.0 MB).'
+                        % float(log_size / (1024 * 1024)))
+        elif not new_log and os.path.exists(log_file):
+            log_mtime = os.path.getmtime(log_file)
+            if log_mtime > curr_log_mtime:
+                curr_log_mtime = log_mtime  # no new updates
+                content = ''
+
+        if content is None:
+            content = ''
+            try:
+                with open(log_file, 'r') as f:
+                    content = f.read()
+            except IOError:
+                content = 'Can not access log file: %s' % log_file
+
+        return content, curr_log_mtime
+
+    @QtCore.Slot()
+    def _receive_log_results(self, content, log_mtime):
+        self.SIG_CONTENT_UPDATED.emit(content, log_mtime)
+
+    @QtCore.Slot(str, str)
+    def _update_log_content(self, content, log_mtime):
+        self._log_mtime = log_mtime
+        # Update the content in the gui (if necessary)
+        if self._new_log:
+            self._content_box.setPlainText(content)
+        else:
+            current_text = (self._content_box.toPlainText() or '')
+            new_text = content.lstrip(str(current_text))
+            [x for x in new_text if x in PRINTABLE]
+            if new_text:
+                self._content_box.appendPlainText(new_text)
+        self._content_timestamp = time.time()
+        self._path.setText(self._log_file)
+
+        # QtGui.qApp.processEvents()
+
+        scroll_to_end = (self._scrollbar_max == self._scrollbar_value
+                         or self._new_log)
+
+        # Adjust scrollbar value (if necessary)
+        self._scrollbar_max = self._log_scrollbar.maximum()
+        val = self._scrollbar_max if scroll_to_end else self._scrollbar_value
+        self._log_scrollbar.setValue(val)
+        self._scrollbar_value = self._log_scrollbar.value()
+
+    @QtCore.Slot()
     def _update_log(self):
         """
         Updates the content of the content box with the content of the log
