@@ -114,6 +114,9 @@ def startup(app_name, app_version, argv):
     mainWindow.displayStartupNotice()
     mainWindow.show()
 
+    # Custom qt message handler to ignore known warnings
+    QtCore.qInstallMessageHandler(warning_handler)
+
     # Open all windows that were open when the app was last closed
     for name in mainWindow.windows_names[1:]:
         if settings.value("%s/Open" % name, False):
@@ -128,6 +131,18 @@ def startup(app_name, app_version, argv):
     app.aboutToQuit.connect(closingTime)
     app.exec_()
 
+def warning_handler(msg_type, msg_log_context, msg_string):
+    """
+    Ignore known warning messages (from LogViewPlugin for now) that
+    happens when multi-threaded/multiple updates in a short span
+    """
+    if ('QTextCursor::setPosition:' in msg_string or 
+        'SelectionRequest too old' in msg_string):
+        return
+    else:
+        # Todo: write to a log file
+        print ('{}: {}, Message: {}'.format(
+            str(msg_type), str(msg_log_context), str(msg_string)))
 
 def closingTime():
     """Window close callback."""
