@@ -49,6 +49,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self)
         self.page = self.frameMonitorTree.frameSearch.page
+        self.frameSearchLimit = self.frameMonitorTree.frameSearch.limit
         # Setup main vertical layout
         layout = QtWidgets.QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -66,7 +67,7 @@ class FrameMonitor(QtWidgets.QWidget):
         self._filterLayersSetup(hlayout)  # Menu to filter layers
         self._filterStatusSetup(hlayout)  # Menu to filter frames by status
         hlayout.addStretch()
-        hlayout.addWidget(QtWidgets.QLabel("(Limited to 1000 frames)"))
+        hlayout.addWidget(QtWidgets.QLabel("(Limited to {0} frames)".format(self.frameSearchLimit)))
         hlayout.addStretch()
         self._displayJobNameSetup(hlayout)
 
@@ -127,7 +128,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
     def _frameRangeSelectionFilterUpdate(self):
         if not self.frameMonitorTree.getJob():
-            self.frameRangeSelection.setFrameRange(["1", "10000"])
+            self.frameRangeSelection.setFrameRange(["1", str(self.frameSearchLimit)])
         else:
             layers = self.frameMonitorTree.getJob().getLayers()
 
@@ -151,7 +152,7 @@ class FrameMonitor(QtWidgets.QWidget):
             if _min == _max:
                 _max += 1
 
-            self.frameRangeSelection.default_select_size = 1000 // len(layers)
+            self.frameRangeSelection.default_select_size = self.frameSearchLimit // len(layers)
 
             self.frameRangeSelection.setFrameRange([str(_min), str(_max)])
 
@@ -256,7 +257,7 @@ class FrameMonitor(QtWidgets.QWidget):
             return
 
         total_frames = job.totalFrames()
-        if total_frames <= 1000:
+        if total_frames <= self.frameSearchLimit:
             self.page_label.setText('<font color="gray">{0}</font>'
                                     .format('Page 1 of 1'))
             return
@@ -269,7 +270,7 @@ class FrameMonitor(QtWidgets.QWidget):
                     if item.isChecked():
                         has_filters = True
                         break
-        total_pages = int(math.ceil(total_frames / 1000.0))
+        total_pages = int(math.ceil(total_frames / float(self.frameSearchLimit)))
         page_label_text = 'Page {0}'.format(self.page)
         if has_filters:
             temp_search = deepcopy(self.frameMonitorTree.frameSearch)
