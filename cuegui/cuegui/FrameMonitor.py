@@ -36,8 +36,8 @@ log = cuegui.Logger.getLogger(__file__)
 
 class FrameMonitor(QtWidgets.QWidget):
     """This contains the frame list table with controls at the top"""
-
-    handle_filter_layers_byLayer = QtCore.Signal(list)
+    # XXX: remove
+#    handle_filter_layers_byLayer = QtCore.Signal(list)
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
@@ -98,8 +98,9 @@ class FrameMonitor(QtWidgets.QWidget):
     def setColumnOrder(self, settings):
         self.frameMonitorTree.setColumnOrder(settings)
 
-    def filterLayersFromDoubleClick(self, layerNames):
-        self._filterLayersHandleByLayer(layerNames)
+    # XXX: TODO remove
+#    def filterLayersFromDoubleClick(self, layerNames):
+#        self._filterLayersHandleByLayer(layerNames)
 
 # ==============================================================================
 # Frame range bar to filter by frame range

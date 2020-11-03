@@ -52,9 +52,11 @@ class CueGuiApplication(QtWidgets.QApplication):
     view_hosts = QtCore.Signal(object)
     view_object = QtCore.Signal(object)
     view_procs = QtCore.Signal(object)
+    select_layers = QtCore.Signal(list)
     request_update = QtCore.Signal()
     status = QtCore.Signal()
     quit = QtCore.Signal()
+
 
     def __init__(self, *args, **kwargs):
         super(CueGuiApplication, self).__init__(*args, **kwargs)

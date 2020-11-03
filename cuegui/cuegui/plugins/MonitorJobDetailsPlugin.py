@@ -89,7 +89,8 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
                                       self.__monitorLayers.setColumnOrder)])
 
     def handleLayerFilter(self, names):
-        self.__monitorFrames.filterLayersFromDoubleClick(names)
+        self.__monitorFrames._filterLayersHandleByLayer(names)
+        # self.__monitorFrames.filterLayersFromDoubleClick(names)
 
     def __splitterMoved(self, pos, index):
         self.__monitorLayers.disableUpdate = not bool(pos)
