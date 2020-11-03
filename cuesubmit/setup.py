@@ -60,6 +60,5 @@ setup(
         'grpcio-tools',
         'PySide2',
         'PyYAML',
-        'simplejson'
     ]
 )
