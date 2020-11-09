@@ -571,6 +571,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 host = entry["host"]
                 host.redirectToJob(procs, job)
             except Exception as e:
+                print(e)
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
             item.setEnabled(False)
@@ -616,7 +617,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 break
 
             # Stick with the target show
-            if proc.data.job_name != show.data.name:
+            if proc.data.show_name != show.data.name:
                 continue
 
             if proc.data.job_name == str(self.__controls.getJob()):
