@@ -20,9 +20,10 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from past.builtins import execfile
 import logging
 import os
+
+from past.builtins import execfile
 
 from outline import util
 from outline.layer import Layer, Frame
@@ -66,13 +67,12 @@ class Shell(Layer):
     def __init__(self, name, **args):
         Layer.__init__(self, name, **args)
 
-        ## require the cmd argument
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """Execute the shell command."""
-        for frame in frame_set:
+        for frame in frames:
             self.system(self.get_arg("command"), frame=frame)
 
 
@@ -102,35 +102,29 @@ class ShellCommand(Frame):
     def __init__(self, name, **args):
         Frame.__init__(self, name, **args)
 
-        ## require the cmd argument
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """Execute the shell command."""
-        self.system(self.get_arg("command"), frame=frame_set[0])
+        self.system(self.get_arg("command"), frame=frames[0])
+
 
 class ShellScript(Frame):
-    """
-    Copies the given script into frame's session 
-    folder and executes it as a frame. 
-    """
+    """Copies the given script into frame's session folder and executes it as a frame."""
     def __init__(self, name, **args):
         Frame.__init__(self, name, **args)
         self.require_arg("script")
 
     def _setup(self):
         s_path = self.put_file(self.get_arg("script"), "script")
-        os.chmod(s_path, 0o755)        
+        os.chmod(s_path, 0o755)
 
     def _execute(self, frames):
         self.system(self.get_file("script"), frame=frames[0])
 
+
 def shell(name, command, **args):
-    """
-    A factory method for building instances of Shell.
-    """
+    """A factory method for building instances of Shell."""
     args["command"] = command
     return Shell(name, **args)
-
-

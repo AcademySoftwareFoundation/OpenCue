@@ -12,9 +12,13 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+OpenCue backend module.
 
-"""OpenCue integration module."""
+Uses the OpenCue Python API to submit the given job to OpenCue for processing.
 
+See outline.backend.__init__.py for a description of the PyOutline backend system.
+"""
 
 from __future__ import print_function
 from __future__ import division
@@ -33,8 +37,9 @@ import six
 import FileSequence
 import opencue
 
-from outline import config, util, versions, OutlineException
+from outline import config, util, OutlineException
 from outline.depend import DependType
+import outline.versions.main
 
 
 logger = logging.getLogger("outline.backend.cue")
@@ -48,9 +53,9 @@ JOB_WAIT_PERIOD_SEC = 5
 
 def build_command(launcher, layer):
     """
-    Build and return a pycurun shell command for the given layer
+    Build and return a pycuerun shell command for the given layer.
 
-    :type  launcher : OutlineLauncher
+    :type  launcher : outline.cuerun.OutlineLauncher
     :param launcher : The outline launcher.
 
     :type  layer : Layer
@@ -58,7 +63,7 @@ def build_command(launcher, layer):
 
     :rtype: list
     :return: The shell command to run for a the given layer.
-        """
+    """
     command = []
 
     if layer.get_arg("strace"):
@@ -83,8 +88,8 @@ def build_command(launcher, layer):
     command.append("%s/pycuerun" % config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
-    command.append("--version %s" % versions.get_version("outline"))
-    command.append("--repos %s" % versions.get_repos())
+    command.append("--version %s" % outline.versions.main.get_version("outline"))
+    command.append("--repos %s" % outline.versions.main.get_repos())
     command.append("--debug")
 
     if launcher.get("dev"):
@@ -111,7 +116,7 @@ def launch(launcher, use_pycuerun=True):
 
     if launcher.get("server"):
         opencue.Cuebot.setHosts([launcher.get("server")])
-        logger.info("cuebot host set to: %s" % launcher.get("server"))
+        logger.info("cuebot host set to: %s", launcher.get("server"))
 
     jobs = opencue.api.launchSpecAndWait(launcher.serialize(use_pycuerun=use_pycuerun))
 
@@ -133,7 +138,7 @@ def test(job):
     :param job: The job to test.
     """
     logging.basicConfig(level=logging.DEBUG)
-    logger.info("Entering test mode for job: %s" % job.data.name)
+    logger.info("Entering test mode for job: %s", job.data.name)
 
     # Unpause the job.
     job.resume()
@@ -143,16 +148,15 @@ def test(job):
             try:
                 job = opencue.api.getJob(job.name())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
-                    msg = "Job test failed, dead or eaten frames on: %s"
-                    raise OutlineException(msg % job.data.name)
+                    raise OutlineException(
+                        "Job test failed, dead or eaten frames on: %s" % job.data.name)
                 if job.data.state == opencue.api.job_pb2.FINISHED:
                     break
-                msg = "waiting on %s job to complete: %d/%d"
-                logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
-                                    job.data.job_stats.total_frames))
+                logger.debug(
+                    "waiting on %s job to complete: %d/%d", job.data.name,
+                    job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
             except opencue.CueException as ie:
-                raise OutlineException("test for job %s failed: %s" %
-                                       (job.data.name, ie))
+                raise OutlineException("test for job %s failed: %s" % (job.data.name, ie))
             time.sleep(5)
     finally:
         job.kill()
@@ -169,23 +173,42 @@ def wait(job):
         try:
             if not opencue.api.isJobPending(job.data.name):
                 break
-            msg = "waiting on %s job to complete: %d/%d"
-            logger.debug(msg % (job.data.name, job.data.job_stats.succeeded_frames,
-                                job.data.job_stats.total_frames))
+            logger.debug(
+                "waiting on %s job to complete: %d/%d", job.data.name,
+                job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
         except opencue.CueException as ie:
-            msg = "opencue error waiting on job: %s, %s. Will continue to wait."
-            print(msg % (job.data.name, ie), file=sys.stderr)
-        except Exception as e:
-            msg = "opencue error waiting on job: %s, %s. Will continue to wait."
-            print(msg % (job.data.name, e), file=sys.stderr)
+            print(
+                "opencue error waiting on job: %s, %s. Will continue to wait." % (
+                    job.data.name, ie),
+                file=sys.stderr)
         time.sleep(JOB_WAIT_PERIOD_SEC)
 
 
 def serialize(launcher):
+    """
+    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
+    using pycuerun to wrap the job commands.
+
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The outline launcher being used to launch the job.
+
+    :rtype: str
+    :return: A opencue job specification.
+    """
     return _serialize(launcher, use_pycuerun=True)
 
 
 def serialize_simple(launcher):
+    """
+    Serialize the outline part of the given L{OutlineLauncher} into an OpenCue job specification,
+    skipping the pycuerun wrapper in favor of launching the job commands directly.
+
+    :type launcher: L{OutlineLauncher}
+    :param launcher: The outline launcher being used to launch the job.
+
+    :rtype: str
+    :return: A opencue job specification.
+    """
     return _serialize(launcher, use_pycuerun=False)
 
 
@@ -255,8 +278,7 @@ def _serialize(launcher, use_pycuerun):
         frame_range = layer.get_frame_range()
         if not frame_range:
             logger.info("Skipping layer %s, its range (%s) does not intersect "
-                        "with ol range %s" % (layer, layer.get_arg("range"),
-                                              ol.get_frame_range()))
+                        "with ol range %s", layer, layer.get_arg("range"), ol.get_frame_range())
             continue
 
         spec_layer = Et.SubElement(layers, "layer",
@@ -298,13 +320,13 @@ def _serialize(launcher, use_pycuerun):
         service = Et.SubElement(services, "service")
         try:
             service.text = layer.get_service().split(",")[0].strip()
-        except Exception:
+        except (AttributeError, IndexError):
             service.text = "default"
 
         build_dependencies(ol, layer, depends)
 
-    if not len(layers):
-        raise OutlineException("Failed to launch job.  There are no layers with frame "
+    if not layers:
+        raise OutlineException("Failed to launch job. There are no layers with frame "
                                "ranges that intersect the job's frame range: %s"
                                % ol.get_frame_range())
 
@@ -314,7 +336,7 @@ def _serialize(launcher, use_pycuerun):
     xml = [
         '<?xml version="1.0"?>',
         '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-            '"http://localhost:8080/spcue/dtd/cjsl-1.9.dtd">',
+        '"http://localhost:8080/spcue/dtd/cjsl-1.9.dtd">',
         Et.tostring(root).decode()
     ]
 

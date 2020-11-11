@@ -373,7 +373,7 @@ class Layer(with_metaclass(LayerType, object)):
         """This method should be implemented by a subclass."""
         pass
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """This method should be implemented by a subclass."""
         pass
 

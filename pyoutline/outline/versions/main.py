@@ -13,7 +13,9 @@
 #  limitations under the License.
 
 
-"""Versions is a method for versioning python modules."""
+"""
+Main interface functions for interacting with outline.versions.
+"""
 
 
 from __future__ import absolute_import
@@ -35,7 +37,9 @@ __all__ = ["require",
 
 
 class VersionsException(Exception):
-    pass
+    """
+    Raised when there was a problem configuring the repository path.
+    """
 
 
 def require(module, version="latest"):
@@ -47,14 +51,14 @@ def require(module, version="latest"):
 
 def unrequire(module):
     """
-    Removes the given module from the repository
+    Removes the given module from the repository.
     """
     return get_session().unrequire(module)
 
 
 def get_version(module, default="latest"):
     """
-    Returns the currently loaded version of the given module
+    Returns the currently loaded version of the given module.
     """
     return get_session().get_version(module, default)
 
@@ -83,8 +87,7 @@ def set_repos(path):
     if os.path.exists(path):
         Settings.repos_path = path
         return True
-    else:
-        raise VersionsException("Cannot set the repos path to a non existent directory. %s" % path)
+    raise VersionsException("Cannot set the repos path to a non existent directory. %s" % path)
 
 
 def set_module_repos(module, path):

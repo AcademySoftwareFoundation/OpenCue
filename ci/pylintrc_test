@@ -68,6 +68,7 @@ disable=duplicate-code,
         missing-function-docstring,
         no-self-use,
         protected-access,
+        raise-missing-from,
         too-many-public-methods,
         useless-object-inheritance
 

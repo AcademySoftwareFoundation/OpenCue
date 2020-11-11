@@ -12,9 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""Outline launching and frame execution utlities."""
-
+"""
+Outline launching and frame execution utilities.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -229,7 +229,7 @@ class OutlineLauncher(object):
             return self.__get_backend_module().serialize_simple(self)
 
     def __get_backend_module(self):
-        if self.__backend == None:
+        if self.__backend is None:
             self.__backend = import_backend_module(self.get("backend"))
         return self.__backend
 

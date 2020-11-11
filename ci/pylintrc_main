@@ -60,9 +60,15 @@ confidence=
 # --enable=similarities". If you want to run only the classes checker, but have
 # no Warning level messages displayed, use "--disable=all --enable=classes
 # --disable=W".
-disable=fixme,
+disable=duplicate-code,
+        fixme,
         invalid-name,
         locally-disabled,
+        raise-missing-from,
+        too-few-public-methods,
+        too-many-branches,
+        too-many-locals,
+        too-many-statements,
         useless-object-inheritance
 
 # Enable the message, report, category or checker with the given id(s). You can
