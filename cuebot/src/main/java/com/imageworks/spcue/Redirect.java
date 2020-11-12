@@ -31,6 +31,8 @@ import com.imageworks.spcue.util.SqlUtil;
  */
 public class Redirect implements Serializable {
 
+    private static final long serialVersionUID = -6461503320817105280L;
+
     /**
      * Track requests to redirect multiple procs together
      * by assigning a group id.
