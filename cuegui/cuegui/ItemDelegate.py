@@ -165,34 +165,37 @@ class JobBookingBarDelegate(AbstractDelegate):
 
                 rect = option.rect.adjusted(12, 6, -12, -6)
 
-                jobMin = int(job.data.minCores * 100)
-                jobMax = int(job.data.maxCores * 100)
-                jobRunning = job.data.runningFrames
-                jobWaiting = job.data.waitingFrames
-
                 painter.save()
                 try:
                     self._drawBackground(painter, option, index)
 
                     try:
+                        jobRunning = job.data.job_stats.running_frames
+                        jobWaiting = job.data.job_stats.waiting_frames
+                        try:
+                            cores_per_frame = float(job.data.job_stats.reserved_cores / jobRunning)
+                        except:
+                            cores_per_frame = float(6 / 1)
+                        jobMin = int(job.data.min_cores / cores_per_frame)
+                        jobMax = int(job.data.max_cores / cores_per_frame)
                         ratio = rect.width() / float(jobRunning + jobWaiting)
 
                         if jobWaiting:
                             painter.fillRect(
                                 rect.adjusted(0, 2, 0, -2),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Waiting])
+                                RGB_FRAME_STATE[opencue.api.job_pb2.WAITING])
 
                         if jobRunning:
                             painter.fillRect(
                                 rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Running])
+                                RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING])
 
-                        painter.setPen(QtCore.Qt.blue)
+                        painter.setPen(cuegui.Style.ColorTheme.PAUSE_ICON_COLOUR)
                         x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
                         painter.drawLine(x, option.rect.y(), x,
                                          option.rect.y() + option.rect.height())
 
-                        painter.setPen(QtCore.Qt.red)
+                        painter.setPen(cuegui.Style.ColorTheme.KILL_ICON_COLOUR)
                         x = min(rect.x() + ratio * jobMax, option.rect.right() - 6)
                         painter.drawLine(x, option.rect.y(), x,
                                          option.rect.y() + option.rect.height())
@@ -200,8 +203,6 @@ class JobBookingBarDelegate(AbstractDelegate):
                     except ZeroDivisionError:
                         pass
 
-                    if option.state & QtWidgets.QStyle.State_Selected:
-                        self._drawSelectionOverlay(painter, option)
                 finally:
                     painter.restore()
                     del painter
