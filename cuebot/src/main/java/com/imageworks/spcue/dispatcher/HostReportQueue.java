@@ -38,6 +38,8 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
+    // Intended for test only
+    private boolean blockExecution = false;
 
     public HostReportQueue() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
@@ -46,14 +48,23 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     }
 
-    public void execute(DispatchHandleHostReport r) {
+    public void execute(DispatchHandleHostReport newReport) {
         if (isShutdown.get()) {
             return;
         }
-        if (getQueue().contains(r)) {
-            getQueue().remove(r);
+        for (Runnable r : getQueue()) {
+            DispatchHandleHostReport obj = (DispatchHandleHostReport) r;
+            if (obj.isReplaceable(newReport)) {
+                obj.update(newReport);
+                return;
+            }
         }
-        super.execute(r);
+        if (!blockExecution) {
+            super.execute(newReport);
+        }
+        else {
+            getQueue().add(newReport);
+        }
     }
 
     public long getRejectedTaskCount() {
@@ -77,6 +88,17 @@ public class HostReportQueue extends ThreadPoolExecutor {
                 }
             }
         }
+    }
+
+    /**
+     * Setting blockExecution to true will prevent jobs from being added to the
+     * thread pool. This feature is intended for test only as it will stop the
+     * server main ThreadPool.
+     *
+     * @param blockExecution
+     */
+    public void setBlockExecution(boolean blockExecution) {
+        this.blockExecution = blockExecution;
     }
 }
 

@@ -68,7 +68,7 @@ public class HostReportHandler {
     private BookingManager bookingManager;
     private HostManager hostManager;
     private BookingQueue bookingQueue;
-    private ThreadPoolExecutor reportQueue;
+    private HostReportQueue reportQueue;
     private ThreadPoolExecutor killQueue;
     private DispatchSupport dispatchSupport;
     private Dispatcher dispatcher;
@@ -730,11 +730,11 @@ public class HostReportHandler {
         this.bookingQueue = bookingQueue;
     }
 
-    public ThreadPoolExecutor getReportQueue() {
+    public HostReportQueue getReportQueue() {
         return reportQueue;
     }
 
-    public void setReportQueue(ThreadPoolExecutor reportQueue) {
+    public void setReportQueue(HostReportQueue reportQueue) {
         this.reportQueue = reportQueue;
     }
 

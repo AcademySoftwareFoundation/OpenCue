@@ -21,6 +21,8 @@ package com.imageworks.spcue.test.dispatcher;
 
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.dispatcher.HostReportQueue;
+import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -58,6 +60,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     Dispatcher dispatcher;
 
     private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME2 = "alpha";
 
     @Before
     public void setTestMode() {
@@ -66,7 +69,9 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        hostManager.createHost(getRenderHost(),
+        hostManager.createHost(getRenderHost(HOSTNAME),
+                adminManager.findAllocationDetail("spi","general"));
+        hostManager.createHost(getRenderHost(HOSTNAME2),
                 adminManager.findAllocationDetail("spi","general"));
     }
 
@@ -83,9 +88,9 @@ public class HostReportHandlerTests extends TransactionalTest {
         return hostManager.findDispatchHost(HOSTNAME);
     }
 
-    private static RenderHost getRenderHost() {
+    private static RenderHost getRenderHost(String hostname) {
         return RenderHost.newBuilder()
-                .setName(HOSTNAME)
+                .setName(hostname)
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
                 .setFreeMem(53500)
@@ -113,7 +118,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         boolean isBoot = false;
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
         HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost())
+                .setHost(getRenderHost(HOSTNAME))
                 .setCoreInfo(cores)
                 .build();
 
@@ -121,5 +126,49 @@ public class HostReportHandlerTests extends TransactionalTest {
         DispatchHost host = getHost();
         assertEquals(host.lockState, LockState.OPEN);
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHandleQueue() {
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+        HostReport report1 = HostReport.newBuilder()
+                .setHost(getRenderHost(HOSTNAME))
+                .setCoreInfo(cores)
+                .build();
+        HostReport report2 = HostReport.newBuilder()
+                .setHost(getRenderHost(HOSTNAME2))
+                .setCoreInfo(cores)
+                .build();
+        HostReport report1_2 = HostReport.newBuilder()
+                .setHost(getRenderHost(HOSTNAME))
+                .setCoreInfo(getCoreDetail(100, 100, 0, 0))
+                .build();
+
+        // Set poolSize to zero to avoid executing the jobs
+        HostReportQueue queue = hostReportHandler.getReportQueue();
+        queue.setBlockExecution(true);
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report2); // HOSTNAME2
+        assertEquals(2, queue.getQueue().size());
+
+        // Ensure first item is report1
+        DispatchHandleHostReport handler = (DispatchHandleHostReport) queue.getQueue().peek();
+        long insertTime = handler.getReportTime();
+        assertEquals(HOSTNAME, handler.getHostName());
+        assertEquals(report1.getCoreInfo().getTotalCores(), handler.getHostReport().getCoreInfo().getTotalCores());
+
+        // Add another report for same host as report1
+        hostReportHandler.queueHostReport(report1_2);
+        // report1_2 should have replaced report1, but kept the same insertTime and order
+        handler = (DispatchHandleHostReport) queue.getQueue().peek();
+        assertEquals(HOSTNAME, handler.getHostName());
+        assertEquals(insertTime, handler.getReportTime());
+        assertEquals(report1_2.getCoreInfo().getTotalCores(), handler.getHostReport().getCoreInfo().getTotalCores());
+
+        // Queue size shouldn't change
+        assertEquals(2, queue.getQueue().size());
+    }
+
 }
 
