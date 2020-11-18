@@ -22,7 +22,6 @@ package com.imageworks.spcue.test.dispatcher;
 import javax.annotation.Resource;
 
 import com.imageworks.spcue.dispatcher.HostReportQueue;
-import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
@@ -42,6 +41,9 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 
+import java.util.UUID;
+import java.util.concurrent.TimeUnit;
+
 import static org.junit.Assert.assertEquals;
 
 @ContextConfiguration
@@ -59,8 +61,8 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Resource
     Dispatcher dispatcher;
 
-    private static final String HOSTNAME = "beta";
-    private static final String HOSTNAME2 = "alpha";
+    private String hostname;
+    private String hostname2;
 
     @Before
     public void setTestMode() {
@@ -69,9 +71,11 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Before
     public void createHost() {
-        hostManager.createHost(getRenderHost(HOSTNAME),
+        hostname = UUID.randomUUID().toString().substring(0, 8);
+        hostname2 = UUID.randomUUID().toString().substring(0, 8);
+        hostManager.createHost(getRenderHost(hostname, HardwareState.UP),
                 adminManager.findAllocationDetail("spi","general"));
-        hostManager.createHost(getRenderHost(HOSTNAME2),
+        hostManager.createHost(getRenderHost(hostname2, HardwareState.UP),
                 adminManager.findAllocationDetail("spi","general"));
     }
 
@@ -84,11 +88,11 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
-    private DispatchHost getHost() {
-        return hostManager.findDispatchHost(HOSTNAME);
+    private DispatchHost getHost(String hostname) {
+        return hostManager.findDispatchHost(hostname);
     }
 
-    private static RenderHost getRenderHost(String hostname) {
+    private static RenderHost getRenderHost(String hostname, HardwareState state) {
         return RenderHost.newBuilder()
                 .setName(hostname)
                 .setBootTime(1192369572)
@@ -103,7 +107,7 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setNumProcs(2)
                 .setCoresPerProc(100)
                 .addTags("test")
-                .setState(HardwareState.UP)
+                .setState(state)
                 .setFacility("spi")
                 .putAttributes("SP_OS", "Linux")
                 .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
@@ -114,60 +118,46 @@ public class HostReportHandlerTests extends TransactionalTest {
     @Test
     @Transactional
     @Rollback(true)
-    public void testHandleHostReport() {
-        boolean isBoot = false;
-        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
-        HostReport report = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME))
-                .setCoreInfo(cores)
-                .build();
-
-        hostReportHandler.handleHostReport(report, isBoot);
-        DispatchHost host = getHost();
-        assertEquals(host.lockState, LockState.OPEN);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testHandleQueue() {
+    public void testHandleHostReport() throws InterruptedException {
         CoreDetail cores = getCoreDetail(200, 200, 0, 0);
         HostReport report1 = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME))
+                .setHost(getRenderHost(hostname, HardwareState.UP))
                 .setCoreInfo(cores)
                 .build();
         HostReport report2 = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME2))
+                .setHost(getRenderHost(hostname2, HardwareState.UP))
                 .setCoreInfo(cores)
                 .build();
         HostReport report1_2 = HostReport.newBuilder()
-                .setHost(getRenderHost(HOSTNAME))
-                .setCoreInfo(getCoreDetail(100, 100, 0, 0))
+                .setHost(getRenderHost(hostname, HardwareState.DOWN))
+                .setCoreInfo(getCoreDetail(200, 200, 100, 0))
                 .build();
 
-        // Set poolSize to zero to avoid executing the jobs
+        hostReportHandler.handleHostReport(report1, false, System.currentTimeMillis());
+        DispatchHost host = getHost(hostname);
+        assertEquals(LockState.OPEN, host.lockState);
+        assertEquals(HardwareState.UP, host.hardwareState);
+        hostReportHandler.handleHostReport(report1_2, false, System.currentTimeMillis());
+        host = getHost(hostname);
+        assertEquals(HardwareState.DOWN, host.hardwareState);
+
+        // Test Queue thread handling
         HostReportQueue queue = hostReportHandler.getReportQueue();
-        queue.setBlockExecution(true);
+        // Make sure jobs flow normally
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report2); // HOSTNAME2
-        assertEquals(2, queue.getQueue().size());
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1); // HOSTNAME
+        hostReportHandler.queueHostReport(report1_2); // HOSTNAME
 
-        // Ensure first item is report1
-        DispatchHandleHostReport handler = (DispatchHandleHostReport) queue.getQueue().peek();
-        long insertTime = handler.getReportTime();
-        assertEquals(HOSTNAME, handler.getHostName());
-        assertEquals(report1.getCoreInfo().getTotalCores(), handler.getHostReport().getCoreInfo().getTotalCores());
-
-        // Add another report for same host as report1
-        hostReportHandler.queueHostReport(report1_2);
-        // report1_2 should have replaced report1, but kept the same insertTime and order
-        handler = (DispatchHandleHostReport) queue.getQueue().peek();
-        assertEquals(HOSTNAME, handler.getHostName());
-        assertEquals(insertTime, handler.getReportTime());
-        assertEquals(report1_2.getCoreInfo().getTotalCores(), handler.getHostReport().getCoreInfo().getTotalCores());
-
-        // Queue size shouldn't change
-        assertEquals(2, queue.getQueue().size());
+        int i = 60;
+        while(queue.getQueue().size() > 0 && --i > 0){
+            Thread.sleep(1000);
+        }
+        assertEquals(0, queue.getHostMap().size());
+        assertEquals(0, queue.getQueue().size());
+        host = getHost(hostname);
+        assertEquals(HardwareState.DOWN, host.hardwareState);
     }
 
 }

@@ -129,29 +129,28 @@ public class HostReportHandler {
         reportQueue.execute(new DispatchHandleHostReport(report, this));
     }
 
-
-    public void handleHostReport(HostReport report, boolean isBoot) {
+    public void handleHostReport(HostReport report, boolean isBoot, long reportTime) {
         long startTime = System.currentTimeMillis();
         try {
 
             long totalGpu;
-            if (report.getHost().getAttributesMap().containsKey("totalGpu"))
-                totalGpu = Integer.parseInt(report.getHost().getAttributesMap().get("totalGpu"));
+            if (report.getHost().getAttributes().containsKey("totalGpu"))
+                totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
             else
                 totalGpu = 0;
 
             long freeGpu;
-            if (report.getHost().getAttributesMap().containsKey("freeGpu"))
-                freeGpu = Integer.parseInt(report.getHost().getAttributesMap().get("freeGpu"));
+            if (report.getHost().getAttributes().containsKey("freeGpu"))
+                freeGpu = Integer.parseInt(report.getHost().getAttributes().get("freeGpu"));
             else
                 freeGpu = 0;
 
             long swapOut = 0;
-            if (report.getHost().getAttributesMap().containsKey("swapout")) {
-                swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
+            if (report.getHost().getAttributes().containsKey("swapout")) {
+                swapOut = Integer.parseInt(report.getHost().getAttributes().get("swapout"));
                 if (swapOut > 0)
                     logger.info(report.getHost().getName() + " swapout: " +
-                                report.getHost().getAttributesMap().get("swapout"));
+                                report.getHost().getAttributes().get("swapout"));
             }
 
             DispatchHost host;
@@ -164,7 +163,7 @@ public class HostReportHandler {
                         rhost.getTotalMcp(), rhost.getFreeMcp(),
                         totalGpu, freeGpu,
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
-                        rhost.getAttributesMap().get("SP_OS"));
+                        rhost.getAttributes().get("SP_OS"));
 
                 changeHardwareState(host, report.getHost().getState());
                 changeNimbyState(host, report.getHost());
@@ -455,7 +454,7 @@ public class HostReportHandler {
                     p.memoryReserved = f.getRss();
                     logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                             + " increased its reserved memory to " +
-                            CueUtil.KbToMb(f.getRss()));
+                            CueUtil.KbToMb((long)f.getRss()));
                 }
 
             } catch (ResourceReservationFailureException e) {
@@ -507,7 +506,6 @@ public class HostReportHandler {
     private void updateMemoryUsage(List<RunningFrameInfo> rFrames) {
 
         for (RunningFrameInfo rf: rFrames) {
-
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
             dispatchSupport.updateFrameMemoryUsage(frame,
@@ -683,7 +681,7 @@ public class HostReportHandler {
 
                     if (rqd_kill) {
                         try {
-                        killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
+                            killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
                                 runningFrame.getFrameId(),
                                 "OpenCue could not verify this frame.",
                                 rqdClient));

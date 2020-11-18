@@ -56,13 +56,16 @@ public class DispatchHandleHostReport implements Runnable {
     public void run() {
         new DispatchCommandTemplate() {
             public void wrapDispatchCommand() {
-                hostReportHandler.handleHostReport(hostReport, isBootReport, reportTime);
+                HostReport report = hostReportHandler
+                        .getReportQueue()
+                        .removePendingHostReport(getKey());
+                if (report != null) {
+                    hostReportHandler.handleHostReport(report, isBootReport, reportTime);
+                } else {
+                    // Host report has already been handled by another thread
+                }
             }
         }.execute();
-    }
-
-    public synchronized void updateReportTime() {
-        reportTime = System.currentTimeMillis();
     }
 
     public HostReport getHostReport() {
@@ -73,27 +76,8 @@ public class DispatchHandleHostReport implements Runnable {
         return hostReport.getHost().getName();
     }
 
-    public boolean isReplaceable(DispatchHandleHostReport o) {
-        // self check
-        if (this == o)
-            return true;
-        // null check
-        if (o == null)
-            return false;
-        // field comparison
-        return this.getHostName().equals(o.getHostName()) &&
-                this.isBootReport == o.isBootReport;
-    }
-
-    public void update(DispatchHandleHostReport newObj) {
-        // Update everything but the report time.
-        this.hostReport = newObj.hostReport;
-        this.isBootReport = newObj.isBootReport;
-        this.hostReportHandler = newObj.hostReportHandler;
-    }
-
-    public long getReportTime() {
-        return reportTime;
+    public String getKey(){
+        return this.getHostName() + "/" + (this.isBootReport ? "1" : "0");
     }
 }
 

@@ -19,12 +19,16 @@
 
 package com.imageworks.spcue.dispatcher;
 
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.imageworks.spcue.grpc.report.HostReport;
 import org.apache.log4j.Logger;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 
@@ -38,33 +42,38 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
-    // Intended for test only
-    private boolean blockExecution = false;
+
+    private Cache<String, HostReport> hostMap = CacheBuilder.newBuilder()
+            .expireAfterWrite(1, TimeUnit.HOURS)
+            .build();
 
     public HostReportQueue() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
                 new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
         this.setRejectedExecutionHandler(rejectCounter);
-
     }
 
     public void execute(DispatchHandleHostReport newReport) {
         if (isShutdown.get()) {
             return;
         }
-        for (Runnable r : getQueue()) {
-            DispatchHandleHostReport obj = (DispatchHandleHostReport) r;
-            if (obj.isReplaceable(newReport)) {
-                obj.update(newReport);
-                return;
+        // Replace pending reports if they exist
+        hostMap.put(newReport.getKey(), newReport.getHostReport());
+        // Add execution to the queue even if a report for the give host existed
+        // The Runnable takes care of handling executions for reports that
+        // already got consumed.
+        super.execute(newReport);
+    }
+
+    public HostReport removePendingHostReport(String key) {
+        if (key != null) {
+            HostReport r = hostMap.getIfPresent(key);
+            if (r != null) {
+                hostMap.asMap().remove(key, r);
+                return r;
             }
         }
-        if (!blockExecution) {
-            super.execute(newReport);
-        }
-        else {
-            getQueue().add(newReport);
-        }
+        return null;
     }
 
     public long getRejectedTaskCount() {
@@ -90,15 +99,9 @@ public class HostReportQueue extends ThreadPoolExecutor {
         }
     }
 
-    /**
-     * Setting blockExecution to true will prevent jobs from being added to the
-     * thread pool. This feature is intended for test only as it will stop the
-     * server main ThreadPool.
-     *
-     * @param blockExecution
-     */
-    public void setBlockExecution(boolean blockExecution) {
-        this.blockExecution = blockExecution;
+    public ConcurrentMap<String, HostReport> getHostMap() {
+        return hostMap.asMap();
     }
+
 }
 
