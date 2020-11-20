@@ -135,6 +135,7 @@ class Cuebot(object):
         'proc': host_pb2_grpc.ProcInterfaceStub,
         'renderPartition': renderPartition_pb2_grpc.RenderPartitionInterfaceStub,
         'service': service_pb2_grpc.ServiceInterfaceStub,
+        'serviceOverride': service_pb2_grpc.ServiceOverrideInterfaceStub,
         'show': show_pb2_grpc.ShowInterfaceStub,
         'subscription': subscription_pb2_grpc.SubscriptionInterfaceStub,
         'task': task_pb2_grpc.TaskInterfaceStub

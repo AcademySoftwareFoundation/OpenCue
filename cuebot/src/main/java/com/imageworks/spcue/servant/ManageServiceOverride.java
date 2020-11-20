@@ -23,7 +23,7 @@ import java.util.LinkedHashSet;
 
 import io.grpc.stub.StreamObserver;
 
-import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverrideDeleteRequest;
 import com.imageworks.spcue.grpc.service.ServiceOverrideDeleteResponse;
@@ -39,7 +39,8 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
     @Override
     public void delete(ServiceOverrideDeleteRequest request,
                        StreamObserver<ServiceOverrideDeleteResponse> responseObserver) {
-        serviceManager.deleteService(toServiceEntity(request.getService()));
+        // Passing null on showId as the interface doesn't require a showId in this situation
+        serviceManager.deleteService(toServiceOverrideEntity(request.getService(), null));
         responseObserver.onNext(ServiceOverrideDeleteResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -47,7 +48,8 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
     @Override
     public void update(ServiceOverrideUpdateRequest request,
                        StreamObserver<ServiceOverrideUpdateResponse> responseObserver) {
-        serviceManager.updateService(toServiceEntity(request.getService()));
+        // Passing null on showId as the interface doesn't require a showId in this situation
+        serviceManager.updateService(toServiceOverrideEntity(request.getService(), null));
         responseObserver.onNext(ServiceOverrideUpdateResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
@@ -60,8 +62,8 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
         this.serviceManager = serviceManager;
     }
 
-    private ServiceEntity toServiceEntity(Service service) {
-        ServiceEntity entity = new ServiceEntity();
+    private ServiceOverrideEntity toServiceOverrideEntity(Service service, String showId){
+        ServiceOverrideEntity entity = new ServiceOverrideEntity();
         entity.id = service.getId();
         entity.name = service.getName();
         entity.minCores = service.getMinCores();
@@ -70,6 +72,7 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
         entity.minGpu = service.getMinGpu();
         entity.tags = new LinkedHashSet<>(service.getTagsList());
         entity.threadable = service.getThreadable();
+        entity.showId = showId;
         return entity;
     }
 }

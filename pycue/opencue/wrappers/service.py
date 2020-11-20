@@ -172,3 +172,26 @@ class Service(object):
         :type: list<string>
         :param: list of tags to set"""
         self.data.tags[:] = tags
+
+
+class ServiceOverride(object):
+    def __init__(self, serviceOverride=None):
+        if serviceOverride:
+            self.id = serviceOverride.id
+            self.data = serviceOverride.data or service_pb2.Service().data
+        else:
+            defaultServiceOverride = service_pb2.ServiceOverride()
+            self.id = defaultServiceOverride.id
+            self.data = defaultServiceOverride.data
+        
+        self.stub = Cuebot.getStub("serviceOverride")
+
+    def delete(self):
+        self.stub.Delete(
+            service_pb2.ServiceOverrideDeleteRequest(service=self.data),
+            timeout=Cuebot.Timeout)
+    
+    def update(self):
+        self.stub.Update(
+            service_pb2.ServiceOverrideUpdateRequest(service=self.data),
+            timeout=Cuebot.Timeout)

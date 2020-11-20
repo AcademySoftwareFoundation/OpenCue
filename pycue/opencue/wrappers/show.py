@@ -26,6 +26,7 @@ from opencue.cuebot import Cuebot
 import opencue.wrappers.filter
 import opencue.wrappers.group
 import opencue.wrappers.subscription
+from opencue.wrappers.service import ServiceOverride
 
 
 class Show(object):
@@ -68,6 +69,28 @@ class Show(object):
         """Delete this show"""
         self.stub.Delete(show_pb2.ShowDeleteRequest(show=self.data), timeout=Cuebot.Timeout)
 
+    def createServiceOverride(self, data):
+        """Creates a Service Override at the show level.
+
+        :type data: opencue.wrapper.service.Service
+        :param data: Service.data object
+        """
+        self.stub.CreateServiceOverride(show_pb2.ShowCreateServiceOverrideRequest(
+                                        show=self.data, service=data),
+                                        timeout=Cuebot.Timeout)
+
+    def getServiceOverride(self, serviceName):
+        """
+        Returns a service override for a show
+
+        :param serviceName: name of the service for the show
+        :return: service override object
+        """
+        serviceOverride = self.stub.GetServiceOverride(show_pb2.ShowGetServiceOverrideRequest(
+                                                       show=self.data, name=serviceName),
+                                                       timeout=Cuebot.Timeout).service_override
+        return ServiceOverride(serviceOverride)
+
     def getServiceOverrides(self):
         """Returns a list of service overrides on the show.
 
@@ -77,7 +100,7 @@ class Show(object):
         serviceOverrideSeq = self.stub.GetServiceOverrides(
             show_pb2.ShowGetServiceOverridesRequest(show=self.data),
             timeout=Cuebot.Timeout).service_overrides
-        return serviceOverrideSeq.service_overrides
+        return [ServiceOverride(override) for override in serviceOverrideSeq.service_overrides]
 
     def getSubscriptions(self):
         """Returns a list of all subscriptions.

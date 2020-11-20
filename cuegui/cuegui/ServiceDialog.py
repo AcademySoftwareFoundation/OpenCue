@@ -31,6 +31,7 @@ import opencue
 import cuegui.Constants
 import cuegui.TagsWidget
 import cuegui.Utils
+from opencue.wrappers.service import ServiceOverride
 
 
 class ServiceForm(QtWidgets.QWidget):
@@ -108,16 +109,14 @@ class ServiceForm(QtWidgets.QWidget):
         Update the form with data from the given service.
         """
         self.__buttons.setDisabled(False)
+        self.name.setText(service.data.name)
+        self.threadable.setChecked(service.data.threadable)
+        self.min_cores.setValue(service.data.min_cores)
+        self.max_cores.setValue(service.data.max_cores)
+        self.min_memory.setValue(service.data.min_memory // 1024)
+        self.min_gpu.setValue(service.data.min_gpu // 1024)
+        self._tags_w.set_tags(service.data.tags)
         self.__service = service.data
-
-        self.name.setText(self.__service.name)
-        self.threadable.setChecked(self.__service.threadable)
-        self.min_cores.setValue(self.__service.min_cores)
-        self.max_cores.setValue(self.__service.max_cores)
-        self.min_memory.setValue(self.__service.min_memory // 1024)
-        self.min_gpu.setValue(self.__service.min_gpu // 1024)
-
-        self._tags_w.set_tags(self.__service.tags)
 
     def new(self):
         """
@@ -231,11 +230,16 @@ class ServiceManager(QtWidgets.QWidget):
 
         if self.__new_service:
             if self.__show:
-                self.__show.createServiceOverride(service.data)
+                serviceOverride = self.__show.createServiceOverride(service.data)
             else:
                 opencue.api.createService(service.data)
         else:
-            service.update()
+            if self.__show:
+                serviceOverride = ServiceOverride(service)
+                serviceOverride.id = service.id()
+                serviceOverride.update()
+            else:
+                service.update()
 
         self.refresh()
         self.__new_service = False
