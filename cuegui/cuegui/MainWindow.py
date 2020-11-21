@@ -229,6 +229,32 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowMenuSetup(self, menu):
         """Creates the menu items for dealing with multiple main windows"""
         self.windowMenu = menu
+        # Menu Bar: Window -> Change Colour theme
+        colour_menu = QtWidgets.QMenu('Change theme...', self)
+
+        changeDarkTheme = QtWidgets.QAction("Dark", self)
+        changeDarkTheme.triggered.connect(self.__changeDarkTheme)
+        colour_menu.addAction(changeDarkTheme)
+
+        changeBlueTheme = QtWidgets.QAction("Dark Blue", self)
+        changeBlueTheme.triggered.connect(self.__changeBlueTheme)
+        colour_menu.addAction(changeBlueTheme)
+
+        changeRainTheme = QtWidgets.QAction("Rainbow", self)
+        changeRainTheme.triggered.connect(self.__changeRainTheme)
+        colour_menu.addAction(changeRainTheme)
+
+        colour_menu.addSeparator()
+
+        changeLightTheme = QtWidgets.QAction("Light", self)
+        changeLightTheme.triggered.connect(self.__changeLightTheme)
+        colour_menu.addAction(changeLightTheme)
+
+        changePinkTheme = QtWidgets.QAction("Light Pink", self)
+        changePinkTheme.triggered.connect(self.__changePinkTheme)
+        colour_menu.addAction(changePinkTheme)
+
+        menu.addMenu(colour_menu)
 
         # Menu Bar: Window -> Change Window Title
         changeTitle = QtWidgets.QAction("Change Window Title", self)
@@ -257,6 +283,36 @@ class MainWindow(QtWidgets.QMainWindow):
         self.windowMenu.triggered.connect(self.__windowMenuHandle)
 
         self.__windowMenuUpdate()
+
+    def __changeLightTheme(self):
+        """Changes the theme of the current window"""
+        QtGui.qApp.settings.setValue("Style/colorTheme", "LightPalette")
+        self.__windowMenuUpdate()
+        self.__restartWindow()
+
+    def __changeDarkTheme(self):
+        """Changes the theme of the current window"""
+        QtGui.qApp.settings.setValue("Style/colorTheme", "DarkPalette")
+        self.__windowMenuUpdate()
+        self.__restartWindow()
+
+    def __changeBlueTheme(self):
+        """Changes the theme of the current window"""
+        QtGui.qApp.settings.setValue("Style/colorTheme", "BluePalette")
+        self.__windowMenuUpdate()
+        self.__restartWindow()
+
+    def __changePinkTheme(self):
+        """Changes the theme of the current window"""
+        QtGui.qApp.settings.setValue("Style/colorTheme", "PinkPalette")
+        self.__windowMenuUpdate()
+        self.__restartWindow()
+
+    def __changeRainTheme(self):
+        """Changes the theme of the current window"""
+        QtGui.qApp.settings.setValue("Style/colorTheme", "RainbowPalette")
+        self.__windowMenuUpdate()
+        self.__restartWindow()
 
     def __windowMenuUpdate(self):
         """Updates the QAction for each main window"""
@@ -422,3 +478,13 @@ class MainWindow(QtWidgets.QMainWindow):
                                self.size())
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
+
+    def __restartWindow(self):
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Restart required ",
+                    "You must restart for this action to take effect, close window?: ",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes: 
+            self.__windowCloseApplication()
