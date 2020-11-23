@@ -44,9 +44,35 @@ public class HostReportQueue extends ThreadPoolExecutor {
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
 
-    private Cache<String, HostReport> hostMap = CacheBuilder.newBuilder()
+    private Cache<String, HostReportWrapper> hostMap = CacheBuilder.newBuilder()
             .expireAfterWrite(1, TimeUnit.HOURS)
             .build();
+
+    /**
+     * Wrapper around protobuf object HostReport to add reportTi
+     */
+    private class HostReportWrapper{
+        private final HostReport hostReport;
+        private final DispatchHandleHostReport reportTask;
+        public long taskTime = System.currentTimeMillis();
+
+        public HostReportWrapper(HostReport hostReport, DispatchHandleHostReport reportTask) {
+            this.hostReport = hostReport;
+            this.reportTask = reportTask;
+        }
+
+        public HostReport getHostReport() {
+            return hostReport;
+        }
+
+        public DispatchHandleHostReport getReportTask() {
+            return reportTask;
+        }
+
+        public long getTaskTime() {
+            return taskTime;
+        }
+    }
 
     public HostReportQueue() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
@@ -58,21 +84,28 @@ public class HostReportQueue extends ThreadPoolExecutor {
         if (isShutdown.get()) {
             return;
         }
-        // Replace pending reports if they exist, and just enqueue a new thread if
-        // there is no report pending.
-        HostReport oldReport = hostMap.getIfPresent(newReport.getKey());
-        hostMap.put(newReport.getKey(), newReport.getHostReport());
-        if (oldReport == null) {
+        HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
+        // If hostReport exists on the cache and there's also a task waiting to be executed
+        // replace the old report by the new on, but refrain from creating another task
+        if (oldWrappedReport != null && getQueue().contains(oldWrappedReport.reportTask)) {
+            // Replace report, but keep the reference of the existing task
+            hostMap.put(newReport.getKey(),
+                    new HostReportWrapper(newReport.getHostReport(),
+                            oldWrappedReport.getReportTask()));
+        }
+        else {
+            hostMap.put(newReport.getKey(),
+                    new HostReportWrapper(newReport.getHostReport(), newReport));
             super.execute(newReport);
         }
     }
 
     public HostReport removePendingHostReport(String key) {
         if (key != null) {
-            HostReport r = hostMap.getIfPresent(key);
+            HostReportWrapper r = hostMap.getIfPresent(key);
             if (r != null) {
                 hostMap.asMap().remove(key, r);
-                return r;
+                return r.getHostReport();
             }
         }
         return null;
