@@ -36,9 +36,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = Logger.getLogger(HostReportQueue.class);
 
-    private static final int THREAD_POOL_SIZE_INITIAL = 6;
-    private static final int THREAD_POOL_SIZE_MAX = 8;
-    private static final int QUEUE_SIZE_INITIAL = 1000;
+    private static final int THREAD_POOL_SIZE_INITIAL = 8;
+    private static final int THREAD_POOL_SIZE_MAX = 16;
+    // The queue size should be higher then the expected amount of hosts
+    private static final int QUEUE_SIZE = 5000;
 
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
@@ -49,7 +50,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public HostReportQueue() {
         super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
+                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE));
         this.setRejectedExecutionHandler(rejectCounter);
     }
 
@@ -57,12 +58,13 @@ public class HostReportQueue extends ThreadPoolExecutor {
         if (isShutdown.get()) {
             return;
         }
-        // Replace pending reports if they exist
+        // Replace pending reports if they exist, and just enqueue a new thread if
+        // there is no report pending.
+        HostReport oldReport = hostMap.getIfPresent(newReport.getKey());
         hostMap.put(newReport.getKey(), newReport.getHostReport());
-        // Add execution to the queue even if a report for the give host existed
-        // The Runnable takes care of handling executions for reports that
-        // already got consumed.
-        super.execute(newReport);
+        if (oldReport == null) {
+            super.execute(newReport);
+        }
     }
 
     public HostReport removePendingHostReport(String key) {
