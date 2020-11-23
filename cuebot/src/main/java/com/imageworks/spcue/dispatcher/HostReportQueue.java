@@ -134,9 +134,5 @@ public class HostReportQueue extends ThreadPoolExecutor {
         }
     }
 
-    public ConcurrentMap<String, HostReport> getHostMap() {
-        return hostMap.asMap();
-    }
-
 }
 
