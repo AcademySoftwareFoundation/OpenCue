@@ -19,7 +19,7 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import java.util.concurrent.ConcurrentMap;
+import java.lang.ref.WeakReference;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -53,12 +53,12 @@ public class HostReportQueue extends ThreadPoolExecutor {
      */
     private class HostReportWrapper{
         private final HostReport hostReport;
-        private final DispatchHandleHostReport reportTask;
+        private final WeakReference<DispatchHandleHostReport> reportTaskRef;
         public long taskTime = System.currentTimeMillis();
 
         public HostReportWrapper(HostReport hostReport, DispatchHandleHostReport reportTask) {
             this.hostReport = hostReport;
-            this.reportTask = reportTask;
+            this.reportTaskRef = new WeakReference<>(reportTask);
         }
 
         public HostReport getHostReport() {
@@ -66,7 +66,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
         }
 
         public DispatchHandleHostReport getReportTask() {
-            return reportTask;
+            return reportTaskRef.get();
         }
 
         public long getTaskTime() {
@@ -87,17 +87,18 @@ public class HostReportQueue extends ThreadPoolExecutor {
         HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
         // If hostReport exists on the cache and there's also a task waiting to be executed
         // replace the old report by the new on, but refrain from creating another task
-        if (oldWrappedReport != null && getQueue().contains(oldWrappedReport.reportTask)) {
-            // Replace report, but keep the reference of the existing task
-            hostMap.put(newReport.getKey(),
-                    new HostReportWrapper(newReport.getHostReport(),
-                            oldWrappedReport.getReportTask()));
+        if (oldWrappedReport != null) {
+            DispatchHandleHostReport oldReport = oldWrappedReport.getReportTask();
+            if(oldReport != null) {
+                // Replace report, but keep the reference of the existing task
+                hostMap.put(newReport.getKey(),
+                        new HostReportWrapper(newReport.getHostReport(), oldReport));
+                return;
+            }
         }
-        else {
-            hostMap.put(newReport.getKey(),
-                    new HostReportWrapper(newReport.getHostReport(), newReport));
-            super.execute(newReport);
-        }
+        hostMap.put(newReport.getKey(),
+                new HostReportWrapper(newReport.getHostReport(), newReport));
+        super.execute(newReport);
     }
 
     public HostReport removePendingHostReport(String key) {
