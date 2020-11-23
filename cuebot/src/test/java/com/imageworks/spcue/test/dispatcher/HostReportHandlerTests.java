@@ -149,15 +149,6 @@ public class HostReportHandlerTests extends TransactionalTest {
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report1_2); // HOSTNAME
-
-        int i = 60;
-        while(queue.getQueue().size() > 0 && --i > 0){
-            Thread.sleep(1000);
-        }
-        assertEquals(0, queue.getHostMap().size());
-        assertEquals(0, queue.getQueue().size());
-        host = getHost(hostname);
-        assertEquals(HardwareState.DOWN, host.hardwareState);
     }
 
 }
