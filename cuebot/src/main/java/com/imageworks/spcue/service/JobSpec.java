@@ -20,6 +20,8 @@
 package com.imageworks.spcue.service;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,6 +38,9 @@ import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import com.imageworks.spcue.BuildableDependency;
 import com.imageworks.spcue.BuildableJob;
@@ -101,6 +106,8 @@ public class JobSpec {
     public static final int FRAME_RETRIES_MIN = 0;
 
     public static final String DEFAULT_SERVICE = "default";
+
+    public static final String SPCUE_DTD_URL = "http://localhost:8080/spcue/dtd/";
 
     private List<BuildableJob> jobs = new ArrayList<BuildableJob>();
 
@@ -836,9 +843,30 @@ public class JobSpec {
         handleDependsTags();
     }
 
+    private class DTDRedirector implements EntityResolver {
+        public InputSource resolveEntity(String publicId,
+                String systemId) throws SAXException, IOException {
+            if (systemId.startsWith(SPCUE_DTD_URL)) {
+                // Redirect to resource file.
+                try {
+                    String filename = systemId.substring(SPCUE_DTD_URL.length());
+                    InputStream dtd = getClass().getResourceAsStream("/public/dtd/" + filename);
+                    return new InputSource(dtd);
+                } catch (Exception e) {
+                    throw new SpecBuilderException("Failed to redirect DTD " + systemId + ", " + e);
+                }
+            } else {
+                // Use default resolver.
+                return null;
+            }
+        }
+    }
+
     public void parse(String cjsl) {
         try {
-            doc = new SAXBuilder(true).build(new StringReader(cjsl));
+            SAXBuilder builder = new SAXBuilder(true);
+            builder.setEntityResolver(new DTDRedirector());
+            doc = builder.build(new StringReader(cjsl));
 
         } catch (Exception e) {
             throw new SpecBuilderException("Failed to parse job spec XML, " + e);
