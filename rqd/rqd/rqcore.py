@@ -24,6 +24,7 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
+import io
 import logging as log
 import os
 import platform
@@ -68,6 +69,7 @@ class FrameAttendantThread(threading.Thread):
         self.frameInfo = frameInfo
         self._tempLocations = []
         self.rqlog = None
+        self.tee = None
 
     def __createEnvVariables(self):
         """Define the environmental variables for the frame"""
@@ -233,6 +235,7 @@ class FrameAttendantThread(threading.Thread):
         # Close log file
         try:
             self.rqlog.close()
+            self.tee = None
         except Exception as e:
             log.warning("Unable to close file: %s due to %s at %s" % (
                 self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2])))
@@ -473,7 +476,12 @@ class FrameAttendantThread(threading.Thread):
                         else:
                             raise RuntimeError(err)
                     try:
-                        self.rqlog = open(runFrame.log_dir_file, "w", 1)
+                        if rqd.rqconstants.RQD_REDIRECT_LOG:
+                            self.rqlog = open(runFrame.log_dir_file, "w", 1)
+                        else:
+                            self.tee = subprocess.Popen(["tee", runFrame.log_dir_file],
+                                                        stdin=subprocess.PIPE)
+                            self.rqlog = io.TextIOWrapper(self.tee.stdin, encoding="utf-8")
                         self.waitForFile(runFrame.log_dir_file)
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)

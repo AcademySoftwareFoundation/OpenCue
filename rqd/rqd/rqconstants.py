@@ -66,6 +66,7 @@ LAUNCH_FRAME_USER_GID = 20
 RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
+RQD_REDIRECT_LOG = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 
 KILL_SIGNAL = 9
@@ -182,6 +183,8 @@ try:
             LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
         if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_REDIRECT_LOG"):
+            RQD_REDIRECT_LOG = config.getboolean(__section, "RQD_REDIRECT_LOG")
         if config.has_option(__section, "DEFAULT_FACILITY"):
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
