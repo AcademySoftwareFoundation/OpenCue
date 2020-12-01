@@ -101,7 +101,8 @@ def usage():
 def main():
     setupLogging()
 
-    if platform.system() == 'Linux' and os.getuid() != 0:
+    if platform.system() == 'Linux' and os.getuid() != 0 and \
+       rqd.rqconstants.RQD_BECOME_JOB_USER:
         logging.critical("Please run launch as root")
         sys.exit(1)
 
