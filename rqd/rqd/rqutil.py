@@ -143,7 +143,10 @@ def checkAndCreateUser(username):
 
 def getHostIp():
     """Returns the machine's local ip address"""
-    return socket.gethostbyname(socket.gethostname())
+    if rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
+        return socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET6)[0][4][0]
+    else:
+        return socket.gethostbyname(socket.gethostname())
 
 
 def getHostname():
@@ -151,7 +154,8 @@ def getHostname():
     try:
         if rqd.rqconstants.OVERRIDE_HOSTNAME:
             return rqd.rqconstants.OVERRIDE_HOSTNAME
-        elif rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
+        elif rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or \
+           rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
             return getHostIp()
         else:
             return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
