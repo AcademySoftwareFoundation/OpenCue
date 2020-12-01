@@ -113,6 +113,7 @@ OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
+OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
@@ -174,6 +175,8 @@ try:
             CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
         if config.has_option(__section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
+        if config.has_option(__section, "OVERRIDE_HOSTNAME"):
+            OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):
             ALLOW_GPU = config.getboolean(__section, "GPU")
         if config.has_option(__section, "PLAYBLAST"):

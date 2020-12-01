@@ -147,7 +147,9 @@ def getHostIp():
 def getHostname():
     """Returns the machine's fully qualified domain name"""
     try:
-        if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
+        if rqd.rqconstants.OVERRIDE_HOSTNAME:
+            return rqd.rqconstants.OVERRIDE_HOSTNAME
+        elif rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME:
             return getHostIp()
         else:
             return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
