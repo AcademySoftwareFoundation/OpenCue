@@ -155,3 +155,8 @@ sonarqube {
         //   ./gradlew sonarqube -Dsonar.login=<login key>
     }
 }
+
+tasks.withType(AbstractArchiveTask) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
