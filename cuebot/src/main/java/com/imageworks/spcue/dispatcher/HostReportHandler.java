@@ -512,13 +512,22 @@ public class HostReportHandler {
     private void updateMemoryUsage(List<RunningFrameInfo> rFrames) {
 
         for (RunningFrameInfo rf: rFrames) {
-            FrameInterface frame = jobManager.getFrame(rf.getFrameId());
+            try {
+                FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
-            dispatchSupport.updateFrameMemoryUsage(frame,
-                    rf.getRss(), rf.getMaxRss());
+                dispatchSupport.updateFrameMemoryUsage(frame,
+                        rf.getRss(), rf.getMaxRss());
 
-            dispatchSupport.updateProcMemoryUsage(frame,
-                    rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize());
+                dispatchSupport.updateProcMemoryUsage(frame,
+                        rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize());
+            } catch (EmptyResultDataAccessException e) {
+                Sentry.getContext().addExtra("frameId", rf.getFrameId());
+                Sentry.getContext().addExtra("jobId", rf.getJobId());
+                Sentry.getContext().addExtra("jobName", rf.getJobName());
+                Sentry.capture("HostReportHandler: updateMemoryUsage could not find frame");
+                Sentry.getContext().clearExtra();
+                continue;
+            }
         }
 
         updateJobMemoryUsage(rFrames);

@@ -145,7 +145,7 @@ public class HostReportHandlerTests extends TransactionalTest {
         HostReportQueue queue = hostReportHandler.getReportQueue();
         // Make sure jobs flow normally without any nullpointer exception
         // Expecting results from a ThreadPool based class on JUnit is tricky
-        // A future test will be developed in the future to better address the behavior of
+        // A future test will be developed to better address the behavior of
         // this feature
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report2); // HOSTNAME2
