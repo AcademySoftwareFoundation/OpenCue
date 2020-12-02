@@ -422,18 +422,19 @@ public class HostReportHandler {
 
         for (final RunningFrameInfo f: report.getFramesList()) {
 
-            VirtualProc p = hostManager.getVirtualProc(f.getResourceId());
-
-            // TODO: handle memory management for local dispatches
-            // Skip local dispatches for now.
-            if (p.isLocalDispatch) {
-                continue;
-            }
-
+            VirtualProc proc = null;
             try {
+                proc = hostManager.getVirtualProc(f.getResourceId());
+
+                // TODO: handle memory management for local dispatches
+                // Skip local dispatches for now.
+                if (proc.isLocalDispatch) {
+                    continue;
+                }
+
+
                 if (f.getRss() > host.memory) {
                     try{
-                        VirtualProc proc = hostManager.findVirtualProc(p);
                         logger.info("Killing frame " + f.getJobName() + "/" + f.getFrameName() + ", "
                                 + proc.getName() + " was OOM");
                         try {
@@ -441,17 +442,17 @@ public class HostReportHandler {
                                     CueUtil.KbToMb(f.getRss()) + "MB but the machine only has " +
                                     CueUtil.KbToMb(host.memory), rqdClient));
                         } catch (TaskRejectedException e) {
-                            logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                            logger.warn("Unable to queue RQD kill, task rejected, " + e);
                         }
                         DispatchSupport.killedOomProcs.incrementAndGet();
                     } catch (Exception e) {
-                        logger.info("failed to kill frame on " + p.getName() +
+                        logger.info("failed to kill frame on " + proc.getName() +
                                 "," + e);
                     }
                 }
 
-                if (dispatchSupport.increaseReservedMemory(p, f.getRss())) {
-                    p.memoryReserved = f.getRss();
+                if (dispatchSupport.increaseReservedMemory(proc, f.getRss())) {
+                    proc.memoryReserved = f.getRss();
                     logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                             + " increased its reserved memory to " +
                             CueUtil.KbToMb((long)f.getRss()));
@@ -459,23 +460,28 @@ public class HostReportHandler {
 
             } catch (ResourceReservationFailureException e) {
 
-                long memNeeded = f.getRss() - p.memoryReserved;
+                long memNeeded = f.getRss() - proc.memoryReserved;
 
                 logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                         + "was unable to reserve an additional " + CueUtil.KbToMb(memNeeded)
-                        + "on proc " + p.getName() + ", " + e);
+                        + "on proc " + proc.getName() + ", " + e);
 
                 try {
-                    if (dispatchSupport.balanceReservedMemory(p, memNeeded)) {
-                        p.memoryReserved = f.getRss();
-                        logger.info("was able to balance host: " + p.getName());
+                    if (dispatchSupport.balanceReservedMemory(proc, memNeeded)) {
+                        proc.memoryReserved = f.getRss();
+                        logger.info("was able to balance host: " + proc.getName());
                     }
                     else {
-                        logger.info("failed to balance host: " + p.getName());
+                        logger.info("failed to balance host: " + proc.getName());
                     }
                 } catch (Exception ex) {
-                    logger.warn("failed to balance host: " + p.getName() + ", " + e);
+                    logger.warn("failed to balance host: " + proc.getName() + ", " + e);
                 }
+            } catch (EmptyResultDataAccessException e) {
+                logger.info("HostReportHandler: frame " + f.getFrameName() +
+                        " on job " + f.getJobName() +
+                        " was unable be processed" +
+                        " because the proc could not be found");
             }
         }
 
