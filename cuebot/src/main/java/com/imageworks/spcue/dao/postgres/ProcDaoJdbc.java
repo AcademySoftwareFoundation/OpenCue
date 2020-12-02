@@ -276,12 +276,12 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.allocationId = rs.getString("pk_alloc");
                 proc.facilityId = rs.getString("pk_facility");
                 proc.coresReserved =rs.getInt("int_cores_reserved");
-                proc.memoryReserved = rs.getInt("int_mem_reserved");
-                proc.memoryMax = rs.getInt("int_mem_max_used");
-                proc.gpuReserved = rs.getInt("int_gpu_reserved");
+                proc.memoryReserved = rs.getLong("int_mem_reserved");
+                proc.memoryMax = rs.getLong("int_mem_max_used");
+                proc.gpuReserved = rs.getLong("int_gpu_reserved");
                 proc.virtualMemoryMax = rs.getLong("int_virt_max_used");
                 proc.virtualMemoryUsed = rs.getLong("int_virt_used");
-                proc.memoryUsed = rs.getInt("int_mem_used");
+                proc.memoryUsed = rs.getLong("int_mem_used");
                 proc.unbooked = rs.getBoolean("b_unbooked");
                 proc.isLocalDispatch = rs.getBoolean("b_local");
                 proc.os = rs.getString("str_os");
