@@ -63,6 +63,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
+          echo "foo"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Debug build ID
