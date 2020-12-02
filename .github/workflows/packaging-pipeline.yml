@@ -3,8 +3,6 @@ name: OpenCue Packaging Pipeline
 # Trigger this pipeline on new commits to master.
 on:
   push:
-    branches: [ master fix-set-env ]
-  pull_request:
     branches: [ master ]
 
 jobs:
@@ -65,11 +63,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "foo"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
-
-      - name: Debug build ID
-        run: echo ${BUILD_ID}
 
       - name: Build Docker image
         uses: docker/build-push-action@v1
@@ -128,9 +122,6 @@ jobs:
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
           echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
-
-      - name: Debug build ID
-        run: echo ${BUILD_ID}
 
       - name: Extract database schema
         run: |
