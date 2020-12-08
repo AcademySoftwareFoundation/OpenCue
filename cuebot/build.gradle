@@ -67,6 +67,14 @@ dependencies {
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
 }
 
+compileJava {
+    options.compilerArgs << "-Xlint:all" << "-Werror"
+}
+
+compileTestJava {
+    options.compilerArgs << "-Xlint:all" << "-Werror"
+}
+
 protobuf {
     protoc {
         // The protoc compiler

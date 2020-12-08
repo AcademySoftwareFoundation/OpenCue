@@ -25,7 +25,7 @@ from builtins import str
 from builtins import object
 import os
 import logging
-import simplejson
+import json
 import time
 import uuid
 import yaml
@@ -93,12 +93,12 @@ def load_outline(path):
 
     return ol
 
-def load_json(json):
+def load_json(json_str):
     """
     Parse a json repesentation of an outline file.
 
-    :type  json: str
-    :param json: A json string.
+    :type  json_str: str
+    :param json_str: A json string.
 
     :rtype: L{Outline}
     :return: The resulting outline object.
@@ -117,7 +117,7 @@ def load_json(json):
         del result["name"]
         return result
 
-    data = simplejson.loads(json)
+    data = json.loads(json_str)
     ol = Outline(current=True)
 
     if "name" in data:

@@ -54,8 +54,6 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rule
     public AssumingPostgresEngine assumingPostgresEngine;
 
-    private static final ActionType ActionType = null;
-
     @Resource
     ActionDao actionDao;
 

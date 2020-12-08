@@ -39,7 +39,7 @@ public final class Convert {
 
     public static final int coresToWholeCoreUnits(float cores) {
         if (cores == -1) { return -1;}
-        return (int)((float)((cores * 100.0f) + 0.5f) / 100) * 100;
+        return (int)(((cores * 100.0f) + 0.5f) / 100) * 100;
     }
 
     public static final float coreUnitsToCores(int coreUnits) {

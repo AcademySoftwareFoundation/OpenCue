@@ -151,8 +151,8 @@ public class CoreUnitDispatcherGpuTests extends TransactionalTest {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 
-        host.idleMemory = (long) host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
-        host.idleCores = (int) host.idleCores - Math.min(100, host.idleCores);
+        host.idleMemory = host.idleMemory - Math.min(CueUtil.GB4, host.idleMemory);
+        host.idleCores = host.idleCores - Math.min(100, host.idleCores);
         host.idleGpu = 0;
         List<VirtualProc> procs =  dispatcher.dispatchHost(host, job);
         assertEquals(1, procs.size());

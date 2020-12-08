@@ -76,11 +76,11 @@ public class DispatchQueue {
     }
 
     public long getTotalDispatched() {
-        return (long) tasksRun.get();
+        return tasksRun.get();
     }
 
     public long getTotalRejected() {
-        return (long) tasksRejected.get();
+        return tasksRejected.get();
     }
 
     public TaskExecutor getDispatchPool() {
