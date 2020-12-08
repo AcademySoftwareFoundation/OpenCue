@@ -21,6 +21,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -125,6 +126,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.email = rs.getString("str_email");
                 job.totalFrames = rs.getInt("int_frame_count");
                 job.totalLayers = rs.getInt("int_layer_count");
+                Timestamp startTime = rs.getTimestamp("ts_started");
+                job.startTime = startTime != null ? (int) (startTime.getTime() / 1000) : 0;
+                Timestamp stopTime = rs.getTimestamp("ts_stopped");
+                job.stopTime = stopTime != null ? (int) (stopTime.getTime() / 1000) : 0;
                 job.isPaused = rs.getBoolean("b_paused");
                 job.maxRetries = rs.getInt("int_max_retries");
                 job.showName = rs.getString("show_name");
@@ -207,6 +212,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
              "job.str_email,"+
              "job.int_frame_count,"+
              "job.int_layer_count,"+
+             "job.ts_started,"+
+             "job.ts_stopped,"+
              "job.b_paused,"+
              "job.int_max_retries,"+
              "job_resource.int_max_cores,"+
