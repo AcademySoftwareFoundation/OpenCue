@@ -23,7 +23,8 @@ from __future__ import absolute_import
 import os
 import unittest
 
-import outline
+import outline.exception
+import outline.loader
 
 
 SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
@@ -33,7 +34,7 @@ class SessionTest(unittest.TestCase):
 
     def setUp(self):
         self.script_path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        self.ol = outline.load_outline(self.script_path)
+        self.ol = outline.loader.load_outline(self.script_path)
         self.ol.set_frame_range("1-10")
         self.ol.setup()
         self.session = self.ol.get_session()
@@ -68,14 +69,15 @@ class SessionTest(unittest.TestCase):
 
         # Getting a file that doesn't exist should raise SessionException
         # Unless the new flag is passed in.
-        self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
+        self.assertRaises(outline.exception.SessionException, layer.get_file, "foo.bar")
 
         path = layer.get_file("foo.bar", new=True)
         self.assertEqual("%s/foo.bar" % layer.get_path(), path)
 
         # If the file already exists, new should throw an exception
         layer.put_file(self.script_path)
-        self.assertRaises(outline.SessionException, layer.get_file, "shell.outline", new=True)
+        self.assertRaises(
+            outline.exception.SessionException, layer.get_file, "shell.outline", new=True)
 
     def test_get_unchecked_file(self):
         """Tests the new option for the get_file method. """
@@ -85,15 +87,15 @@ class SessionTest(unittest.TestCase):
         """Test get/set data"""
 
         # Serialize an array of ints into the session and then retrieve it.
-        value = [100,200,300,400,500]
-        self.session.put_data("foo",value)
+        value = [100, 200, 300, 400, 500]
+        self.session.put_data("foo", value)
         self.assertEqual(value, self.session.get_data("foo"))
 
     def test_put_data_to_layer(self):
         """Test get/set layer data."""
 
         layer = self.ol.get_layer("cmd")
-        value = [100,200,300,400,500]
+        value = [100, 200, 300, 400, 500]
         layer.put_data("foo", value)
         self.assertEqual(value, layer.get_data("foo"))
 

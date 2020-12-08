@@ -64,6 +64,9 @@ RUN cd pycue && python3.6 setup.py install
 RUN cd pyoutline && python setup.py test
 RUN cd pyoutline && python3.6 setup.py test
 
+RUN cd pyoutline && pylint --rcfile=../ci/pylintrc_main outline
+RUN cd pyoutline && pylint --rcfile=../ci/pylintrc_test tests
+
 RUN cp LICENSE requirements.txt VERSION pyoutline/
 
 RUN versioned_name="pyoutline-$(cat ./VERSION)-all" \

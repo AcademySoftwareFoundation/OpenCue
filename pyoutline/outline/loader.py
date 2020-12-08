@@ -63,7 +63,7 @@ def load_outline(path):
                  outline script.
 
     :rtype: Outline
-    :return: The resutling Outline object.
+    :return: The resulting Outline object.
     """
     logger.info("loading outline: %s", path)
 
@@ -170,8 +170,8 @@ def parse_outline_script(path):
         execfile(path, {})
     except Exception as exp:
         logger.warning("failed to parse as python file, %s", exp)
-        raise outline.exception.OutlineException("failed to parse outline file: %s, %s" %
-                               (path, exp))
+        raise outline.exception.OutlineException(
+            "failed to parse outline file: %s, %s" % (path, exp))
 
 
 def current_outline():

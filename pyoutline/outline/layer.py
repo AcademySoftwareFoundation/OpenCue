@@ -76,6 +76,7 @@ class LayerType(type):
                 pass
         return r
 
+
 class Layer(with_metaclass(LayerType, object)):
     """The base class for all outline modules."""
 

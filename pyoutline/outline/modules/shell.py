@@ -24,7 +24,8 @@ import logging
 import os
 from past.builtins import execfile
 
-import outline
+import outline.layer
+import outline.util
 
 
 logger = logging.getLogger("outline.modules.shell")
@@ -42,7 +43,7 @@ class PyEval(outline.layer.Layer):
     Arbitrary python code execution.
     """
     def __init__(self, name, code, **args):
-        super().__init__(self, name, **args)
+        super(PyEval, self).__init__(self, name, **args)
 
         self.__code = code
 
@@ -64,7 +65,7 @@ class Shell(outline.layer.Layer):
     arbitrary frame range.
     """
     def __init__(self, name, **args):
-        super().__init__(self, name, **args)
+        super(Shell, self).__init__(name, **args)
 
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
@@ -80,7 +81,7 @@ class ShellSequence(outline.layer.Layer):
     A module for executing an array of shell commands.
     """
     def __init__(self, name, **args):
-        super().__init__(self, name, **args)
+        super(ShellSequence, self).__init__(self, name, **args)
 
         self.require_arg("commands")
         self.set_frame_range("1-%d" % len(self.get_arg("commands")))
@@ -100,7 +101,7 @@ class ShellCommand(outline.layer.Frame):
     to the cue with.
     """
     def __init__(self, name, **args):
-        super().__init__(self, name, **args)
+        super(ShellCommand, self).__init__(self, name, **args)
 
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
@@ -113,7 +114,7 @@ class ShellCommand(outline.layer.Frame):
 class ShellScript(outline.layer.Frame):
     """Copies the given script into frame's session folder and executes it as a frame."""
     def __init__(self, name, **args):
-        super().__init__(self, name, **args)
+        super(ShellScript, self).__init__(self, name, **args)
         self.require_arg("script")
 
     def _setup(self):
