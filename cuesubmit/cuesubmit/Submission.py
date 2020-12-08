@@ -18,11 +18,12 @@ from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
-from outline import Outline, cuerun
-from outline.modules.shell import Shell
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
+import outline.cuerun
+import outline.loader
+import outline.modules.shell
 
 
 def buildMayaCmd(layerData):
@@ -51,6 +52,7 @@ def buildNukeCmd(layerData):
         renderCommand += '-X {} '.format(writeNodes)
     renderCommand += '-x {}'.format(nukeFile)
     return renderCommand
+
 
 def buildBlenderCmd(layerData):
     """From a layer, build a Blender render command."""
@@ -84,9 +86,9 @@ def buildLayer(layerData, command, lastLayer=None):
         threadable = True
     else:
         threadable = False
-    layer = Shell(layerData.name, command=command.split(), chunk=layerData.chunk,
-                  threads=float(layerData.cores), range=str(layerData.layerRange),
-                  threadable=threadable)
+    layer = outline.modules.shell.Shell(
+        layerData.name, command=command.split(), chunk=layerData.chunk,
+        threads=float(layerData.cores), range=str(layerData.layerRange), threadable=threadable)
     if layerData.services:
         layer.set_service(layerData.services[0])
     if layerData.limits:
@@ -113,14 +115,15 @@ def buildBlenderLayer(layerData, lastLayer):
     blenderCmd = buildBlenderCmd(layerData)
     return buildLayer(layerData, blenderCmd, lastLayer)
 
+
 def buildShellLayer(layerData, lastLayer):
     return buildLayer(layerData, layerData.cmd['commandTextBox'], lastLayer)
 
 
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
-    outline = Outline(jobData['name'], shot=jobData['shot'], show=jobData['show'],
-                      user=jobData['username'])
+    ol = outline.loader.Outline(
+        jobData['name'], shot=jobData['shot'], show=jobData['show'], user=jobData['username'])
     lastLayer = None
     for layerData in jobData['layers']:
         if layerData.layerType == JobTypes.JobTypes.MAYA:
@@ -133,10 +136,10 @@ def submitJob(jobData):
             layer = buildBlenderLayer(layerData, lastLayer)
         else:
             raise ValueError('unrecognized layer type %s' % layerData.layerType)
-        outline.add_layer(layer)
+        ol.add_layer(layer)
         lastLayer = layer
 
     if 'facility' in jobData:
-        outline.set_facility(jobData['facility'])
+        ol.set_facility(jobData['facility'])
 
-    return cuerun.launch(outline, use_pycuerun=False)
+    return outline.cuerun.launch(outline, use_pycuerun=False)

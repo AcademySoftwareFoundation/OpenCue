@@ -28,8 +28,9 @@ import shutil
 import uuid
 import yaml
 
-from .config import config
-from .exception import SessionException
+import outline.config
+import outline.exception
+import outline.layer
 
 
 __all__ = ["is_session_path",
@@ -52,7 +53,7 @@ def is_session_path(folder):
         return False
     if not os.path.isdir(folder):
         folder = os.path.abspath(os.path.dirname(folder))
-    if not os.path.exists("%s/session" %  folder):
+    if not os.path.exists(os.path.join(folder, 'session')):
         logger.info("script is not part of an existing session.")
         return False
     return True
@@ -65,8 +66,8 @@ class Session(object):
     may be in a different location based on L{outline.config}.
 
     Using put_file, get_file you can copy files into this location which
-    can be used by all frames. Useing put_data, get_data you can
-    serialize and unserialize data into this session than can be used
+    can be used by all frames. Using put_data, get_data you can
+    serialize and deserialize data into this session than can be used
     by all frames.
     """
 
@@ -104,17 +105,17 @@ class Session(object):
 
             # The base dir is where we copy the outline and
             # store session data.
-            base_path = config.get("outline", "session_dir")
+            base_path = outline.config.config.get("outline", "session_dir")
             base_path = base_path.format(
                 HOME=os.path.expanduser("~"),
                 SHOW=self.__outline.get_show(),
                 SHOT=self.__outline.get_shot())
-            base_path =  os.path.join(base_path, self.__name)
+            base_path = os.path.join(base_path, self.__name)
 
             # If the base dir doesn't exist, create it.  Be sure
             # to make a directory to store the layer data.
             if not os.path.exists(base_path):
-                logger.info("creating session path: %s" % base_path)
+                logger.info("creating session path: %s", base_path)
                 old_mask = os.umask(0)
                 try:
                     os.makedirs(base_path, 0o777)
@@ -128,7 +129,7 @@ class Session(object):
 
         except OSError as exp:
             msg = "Failed to create session path: %s, reason: %s"
-            raise SessionException(msg % (self.get_path(), exp))
+            raise outline.exception.SessionException(msg % (self.get_path(), exp))
 
     def __load_session(self):
         """Loads an existing session based on the current path."""
@@ -136,18 +137,18 @@ class Session(object):
         session = "%s/session" % (os.path.dirname(self.__outline.get_path()))
         if not os.path.exists(session):
             msg = "Invalid session %s, session file does not exist."
-            raise SessionException(msg % session)
+            raise outline.exception.SessionException(msg % session)
 
-        logger.info("loading session: %s" % session)
+        logger.info("loading session: %s", session)
         with open(session) as file_object:
             try:
                 data = yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:
                 msg = "failed to load session from %s, %s"
-                raise SessionException(msg % (session, exp))
+                raise outline.exception.SessionException(msg % (session, exp))
         self.__name = data
         self.__path = os.path.dirname(self.__outline.get_path())
-        logger.info("session loaded: %s" % self.__name)
+        logger.info("session loaded: %s", self.__name)
 
     def get_name(self):
         """
@@ -168,26 +169,25 @@ class Session(object):
         finally:
             fp.close()
 
-    def __layer_name(self, layer):
+    @staticmethod
+    def __layer_name(layer):
         """
-        Helper funtion to conform an layer object or name
+        Helper function to conform an layer object or name
         into a string.
 
         :rtype: str
         :return: the name of the given layer.
         """
-        from outline import Layer
-        if isinstance(layer, (Layer)):
+        if isinstance(layer, outline.layer.Layer):
             return layer.get_name()
-        else:
-            return str(layer)
+        return str(layer)
 
     def sym_file(self, src, layer=None, rename=None):
         """
         Symlink a file into the session and return the path
         of the symlink. If the destination file already
         exists it will be deleted first.
-        
+
         :type  src: str
         :param src: The source path for the file to symlink.
 
@@ -207,15 +207,15 @@ class Session(object):
             dst.append(os.path.basename(src))
 
         dst_path = "/".join(dst)
-        logger.info("creating session link %s"  % dst_path)
+        logger.info("creating session link %s", dst_path)
         try:
             os.unlink(dst_path)
-        except Exception as e:
+        except (OSError, FileNotFoundError):
             pass
         os.symlink(os.path.abspath(src), dst_path)
-        
+
         return dst_path
-    
+
     def put_file(self, src, layer=None, rename=None):
         """
         Copy a file into the session and return the new path.  This
@@ -251,7 +251,7 @@ class Session(object):
 
         dst_path = "/".join(dst)
 
-        logger.info("creating session file %s"  % dst_path)
+        logger.info("creating session file %s", dst_path)
 
         shutil.copy(os.path.abspath(src), dst_path)
         return dst_path
@@ -290,11 +290,11 @@ class Session(object):
 
         if check:
             if not os.path.exists(path):
-                raise SessionException("The path %s does not exist." % path)
+                raise outline.exception.SessionException("The path %s does not exist." % path)
 
         if new:
             if os.path.exists(path):
-                raise SessionException("The path %s already exists " % path)
+                raise outline.exception.SessionException("The path %s already exists " % path)
 
         return path
 
@@ -320,7 +320,7 @@ class Session(object):
 
         path = "%s/%s" % (self.get_path(layer), name)
         if os.path.exists(path) and not force:
-            raise SessionException("There is already data being \
+            raise outline.exception.SessionException("There is already data being \
                 stored under this name.")
 
         fp = open(path, "w")
@@ -345,16 +345,16 @@ class Session(object):
 
         path = "%s/%s" % (self.get_path(layer), name)
         if not os.path.exists(path):
-            raise SessionException("There is not data in the session \
+            raise outline.exception.SessionException("There is not data in the session \
                 stored under that name.")
 
-        logger.debug("opening data path for %s : %s" % (name, path))
+        logger.debug("opening data path for %s : %s", name, path)
         with open(path) as file_object:
             try:
                 return yaml.load(file_object, Loader=yaml.FullLoader)
             except Exception as exp:
                 msg = "failed to load yaml data from %s, %s"
-                raise SessionException(msg % (path, exp))
+                raise outline.exception.SessionException(msg % (path, exp))
 
     def get_path(self, layer=None):
         """
@@ -370,7 +370,7 @@ class Session(object):
         or it may not exist if you construct the path on your own.
 
         :type  layer: L{Layer} or str
-        :param layer: Specifiy the layer to get its sesstion path. [Optional]
+        :param layer: Specify the layer to get its session path. [Optional]
 
         :rtype: str
         :return: The path where session data is stored.
@@ -378,25 +378,24 @@ class Session(object):
         """
         if not self.__name:
             msg = "error, the session does not have a name."
-            raise SessionException(msg)
+            raise outline.exception.SessionException(msg)
 
         if not layer:
             return "%s" % self.__path
-        else:
-            layer_name = self.__layer_name(layer)
-            path = "%s/layers/%s" % (self.__path,
-                                     layer_name)
-            if os.path.exists(path):
-                return path
-            old_mask = os.umask(0)
-            try:
-                os.mkdir(path, 0o777)
-            except OSError:
-                # Just eat this.  If it did actually fail
-                # the whole process will fail pretty soon.
-                pass
-            finally:
-                os.umask(old_mask)
 
+        layer_name = self.__layer_name(layer)
+        path = "%s/layers/%s" % (self.__path,
+                                 layer_name)
+        if os.path.exists(path):
             return path
+        old_mask = os.umask(0)
+        try:
+            os.mkdir(path, 0o777)
+        except OSError:
+            # Just eat this.  If it did actually fail
+            # the whole process will fail pretty soon.
+            pass
+        finally:
+            os.umask(old_mask)
 
+        return path

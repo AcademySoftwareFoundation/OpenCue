@@ -24,6 +24,7 @@ from builtins import object
 import logging
 import os
 import re
+# pylint: disable=deprecated-module
 from optparse import OptionParser, OptionGroup
 
 import FileSequence
@@ -54,7 +55,7 @@ def import_backend_module(name):
     """
     Imports the specified backend queuing system module,
     """
-    logger.info("importing [%s] backend module." % name)
+    logger.info("importing [%s] backend module.", name)
     return __import__("outline.backend.%s" % name,
                       globals(), locals(), [name])
 
@@ -182,7 +183,7 @@ class OutlineLauncher(object):
                     # Frames dont' have a range by default.
                     if isinstance(layer, Frame):
                         continue
-                    elif not layer.get_arg("range"):
+                    if not layer.get_arg("range"):
                         fully_baked = False
                         break
                 if not fully_baked:
@@ -225,8 +226,7 @@ class OutlineLauncher(object):
             self.setup()
         if use_pycuerun:
             return self.__get_backend_module().serialize(self)
-        else:
-            return self.__get_backend_module().serialize_simple(self)
+        return self.__get_backend_module().serialize_simple(self)
 
     def __get_backend_module(self):
         if self.__backend is None:
@@ -315,18 +315,20 @@ class CuerunOptionParser(OptionParser):
         """
         Handle standard options common to all cuerun based scripts.
         """
-        logger.debug("Options: %s" % options)
-        logger.debug("Args: %s" % args)
+        logger.debug("Options: %s", options)
+        logger.debug("Args: %s", args)
 
         self.setup_frame_range(options, options.range)
 
-    def setup_frame_range(self, options, frange=None):
+    @staticmethod
+    def setup_frame_range(options, frange=None):
         """
         Setup the frame range for the given job.
         """
         range_default = False
         if not frange:
             if os.environ.get("FR"):
+                # pylint: disable=no-member
                 if FileSequence.FrameSet.isSequence(os.environ.get("FR")):
                     frange = os.environ.get("FR")
                     range_default = True
@@ -343,7 +345,8 @@ class CuerunOptionParser(OptionParser):
             self.add_option_group(self.__plugin_grp)
         self.__plugin_grp.add_option(*args, **kwargs)
 
-    def options_to_args(self, options):
+    @staticmethod
+    def options_to_args(options):
         """
         Convert an OptionParser namespace into a dictionary.
         """

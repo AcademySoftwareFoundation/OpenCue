@@ -22,11 +22,9 @@ from __future__ import absolute_import
 
 import logging
 import os
-
 from past.builtins import execfile
 
-from outline import util
-from outline.layer import Layer, Frame
+import outline
 
 
 logger = logging.getLogger("outline.modules.shell")
@@ -39,12 +37,13 @@ __all__ = ["Shell",
            "PyEval"]
 
 
-class PyEval(Layer):
+class PyEval(outline.layer.Layer):
     """
     Arbitrary python code execution.
     """
     def __init__(self, name, code, **args):
-        Layer.__init__(self, name, **args)
+        super().__init__(self, name, **args)
+
         self.__code = code
 
     def _setup(self):
@@ -59,13 +58,13 @@ class PyEval(Layer):
         execfile(self.get_file("script"))
 
 
-class Shell(Layer):
+class Shell(outline.layer.Layer):
     """
     Provides a method of executing a shell command over an
     arbitrary frame range.
     """
     def __init__(self, name, **args):
-        Layer.__init__(self, name, **args)
+        super().__init__(self, name, **args)
 
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
@@ -76,23 +75,24 @@ class Shell(Layer):
             self.system(self.get_arg("command"), frame=frame)
 
 
-class ShellSequence(Layer):
+class ShellSequence(outline.layer.Layer):
     """
     A module for executing an array of shell commands.
     """
     def __init__(self, name, **args):
-        Layer.__init__(self, name, **args)
+        super().__init__(self, name, **args)
+
         self.require_arg("commands")
         self.set_frame_range("1-%d" % len(self.get_arg("commands")))
         self.set_arg("proxy_enable", False)
 
     def _execute(self, frames):
-        for cmd in util.get_slice(self.get_frame_range(),
+        for cmd in outline.util.get_slice(self.get_frame_range(),
                                   frames, self.get_arg("commands")):
             self.system(cmd)
 
 
-class ShellCommand(Frame):
+class ShellCommand(outline.layer.Frame):
     """
     Provides a method of executing a single shell command.  All
     instances of this class will result in a layer with a single
@@ -100,7 +100,7 @@ class ShellCommand(Frame):
     to the cue with.
     """
     def __init__(self, name, **args):
-        Frame.__init__(self, name, **args)
+        super().__init__(self, name, **args)
 
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
@@ -110,10 +110,10 @@ class ShellCommand(Frame):
         self.system(self.get_arg("command"), frame=frames[0])
 
 
-class ShellScript(Frame):
+class ShellScript(outline.layer.Frame):
     """Copies the given script into frame's session folder and executes it as a frame."""
     def __init__(self, name, **args):
-        Frame.__init__(self, name, **args)
+        super().__init__(self, name, **args)
         self.require_arg("script")
 
     def _setup(self):

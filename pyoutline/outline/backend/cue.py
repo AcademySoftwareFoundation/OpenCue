@@ -37,8 +37,10 @@ import six
 import FileSequence
 import opencue
 
-from outline import config, util, OutlineException
-from outline.depend import DependType
+import outline.config
+import outline.depend
+import outline.exception
+import outline.util
 import outline.versions.main
 
 
@@ -79,13 +81,14 @@ def build_command(launcher, layer):
     if layer.get_arg("wrapper"):
         wrapper = layer.get_arg("wrapper")
     elif layer.get_arg("setshot", True):
-        wrapper = "%s/opencue_wrap_frame" % config.get("outline", "wrapper_dir")
+        wrapper = "%s/opencue_wrap_frame" % outline.config.config.get("outline", "wrapper_dir")
     else:
-        wrapper = "%s/opencue_wrap_frame_no_ss" % config.get("outline", "wrapper_dir")
+        wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.config.get(
+            "outline", "wrapper_dir")
 
     command.append(wrapper)
-    command.append(config.get("outline", "user_dir"))
-    command.append("%s/pycuerun" % config.get("outline", "bin_dir"))
+    command.append(outline.config.config.get("outline", "user_dir"))
+    command.append("%s/pycuerun" % outline.config.config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
     command.append("--version %s" % outline.versions.main.get_version("outline"))
@@ -148,7 +151,7 @@ def test(job):
             try:
                 job = opencue.api.getJob(job.name())
                 if job.data.job_stats.dead_frames + job.data.job_stats.eaten_frames > 0:
-                    raise OutlineException(
+                    raise outline.exception.OutlineException(
                         "Job test failed, dead or eaten frames on: %s" % job.data.name)
                 if job.data.state == opencue.api.job_pb2.FINISHED:
                     break
@@ -156,7 +159,8 @@ def test(job):
                     "waiting on %s job to complete: %d/%d", job.data.name,
                     job.data.job_stats.succeeded_frames, job.data.job_stats.total_frames)
             except opencue.CueException as ie:
-                raise OutlineException("test for job %s failed: %s" % (job.data.name, ie))
+                raise outline.exception.OutlineException(
+                    "test for job %s failed: %s" % (job.data.name, ie))
             time.sleep(5)
     finally:
         job.kill()
@@ -233,12 +237,12 @@ def _serialize(launcher, use_pycuerun):
     sub_element(root, "shot", launcher.get("shot"))
     user = launcher.get_flag("user")
     if not user:
-        user = util.get_user()
+        user = outline.util.get_user()
     sub_element(root, "user", user)
     if not launcher.get("nomail"):
         sub_element(root, "email", "%s@%s" % (user,
-                                              config.get("outline", "domain")))
-    sub_element(root, "uid", str(util.get_uid()))
+                                              outline.config.config.get("outline", "domain")))
+    sub_element(root, "uid", str(outline.util.get_uid()))
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
     sub_element(j, "paused", str(launcher.get("pause")))
@@ -326,9 +330,9 @@ def _serialize(launcher, use_pycuerun):
         build_dependencies(ol, layer, depends)
 
     if not layers:
-        raise OutlineException("Failed to launch job. There are no layers with frame "
-                               "ranges that intersect the job's frame range: %s"
-                               % ol.get_frame_range())
+        raise outline.exception.OutlineException(
+            "Failed to launch job. There are no layers with frame "
+            "ranges that intersect the job's frame range: %s" % ol.get_frame_range())
 
     # Dependencies go after all of the layers
     root.append(depends)
@@ -376,7 +380,7 @@ def build_dependencies(ol, layer, all_depends):
                                type=dep.get_type(),
                                anyframe=bool_to_str(dep.is_any_frame()))
 
-        if dep.get_type() == DependType.LayerOnSimFrame:
+        if dep.get_type() == outline.depend.DependType.LayerOnSimFrame:
 
             frame_range = dep.get_depend_on_layer().get_frame_range()
             first_frame = FileSequence.FrameSet(frame_range)[0]

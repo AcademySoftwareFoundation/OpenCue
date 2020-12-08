@@ -66,8 +66,14 @@ disable=duplicate-code,
         locally-disabled,
         raise-missing-from,
         too-few-public-methods,
+        too-many-arguments,
         too-many-branches,
+        too-many-function-args,
+        too-many-instance-attributes,
+        too-many-lines,
         too-many-locals,
+        too-many-public-methods,
+        too-many-return-statements,
         too-many-statements,
         useless-object-inheritance
 
@@ -446,7 +452,7 @@ int-import-graph=
 
 # Force import order to recognize a module as part of the standard
 # compatibility libraries.
-known-standard-library=
+known-standard-library=future,past
 
 # Force import order to recognize a module as part of a third party library.
 known-third-party=enchant

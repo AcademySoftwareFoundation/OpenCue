@@ -20,12 +20,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from past.builtins import execfile
 from builtins import str
 from builtins import object
 import os
 import logging
 import json
+from past.builtins import execfile
 import time
 import uuid
 import yaml
@@ -34,13 +34,12 @@ import six
 
 import FileSequence
 
-from . import constants
-from .depend import parse_require_str
-from .exception import OutlineException
-from .exception import SessionException
-from .session import is_session_path
-from .session import Session
-from . import util
+import outline.constants
+import outline.depend
+import outline.exception
+# pylint: disable=cyclic-import
+import outline.session
+import outline.util
 
 
 logger = logging.getLogger("outline.loader")
@@ -66,13 +65,15 @@ def load_outline(path):
     :rtype: Outline
     :return: The resutling Outline object.
     """
-    logger.info("loading outline: %s" % path)
+    logger.info("loading outline: %s", path)
 
     # The wan cores may not see this file right away
     # The avere cache will hold a negative cache for 30 seconds, extending every time it is checked
     # The local cache will cache for 30 seconds as well
     if path and not os.path.exists(path):
-        logger.info('Outline file does not exist, sleeping 35 seconds before checking again due to possible file cache latency.')
+        logger.info(
+            'Outline file does not exist, sleeping 35 seconds before checking again due to '
+            'possible file cache latency.')
         time.sleep(35)
 
     ext = os.path.splitext(path)
@@ -81,17 +82,18 @@ def load_outline(path):
             ol = yaml.load(file_object, Loader=yaml.FullLoader)
         Outline.current = ol
         if not isinstance(ol, Outline):
-            raise OutlineException("The file %s did not produce "
+            raise outline.exception.OutlineException("The file %s did not produce "
                                    "an Outline object." % path)
     else:
         # If the file is not .yaml, assume its a python script
         ol = Outline(path=path, current=True)
 
     # If the script is inside of a session
-    if is_session_path(path):
+    if outline.session.is_session_path(path):
         ol.load_session()
 
     return ol
+
 
 def load_json(json_str):
     """
@@ -110,7 +112,7 @@ def load_json(json_str):
         arguments in class constructors.  For this reason, they
         must be converted to byte strings.
         """
-        result = { }
+        result = {}
         for k, v in layer.items():
             result[str(k)] = v
         del result["module"]
@@ -126,6 +128,7 @@ def load_json(json_str):
         ol.set_frame_range(data["range"])
 
     for layer in data["layers"]:
+        s_class = None
         try:
             # Get the fully qualified module name, foo.bar.blah
             s_module = ".".join(layer["module"].split(".")[0:-1])
@@ -134,16 +137,16 @@ def load_json(json_str):
 
             # Import the module and instantiate the class.
             module = __import__(s_module, globals(), locals(), [s_class])
-            cls =  getattr(module, s_class)
+            cls = getattr(module, s_class)
             cls(layer["name"], **decode_layer(layer))
 
         except KeyError:
             error = "Json error, layer missing 'name' or 'module' definition"
-            raise OutlineException(error)
+            raise outline.exception.OutlineException(error)
 
         except Exception as e:
             msg = "Failed to load plugin: %s , %s"
-            raise OutlineException(msg % (s_class, e))
+            raise outline.exception.OutlineException(msg % (s_class, e))
 
     return ol
 
@@ -163,11 +166,11 @@ def parse_outline_script(path):
     :param path: The path to the outline file.
     """
     try:
-        logger.info("parsing outline file %s" % path)
+        logger.info("parsing outline file %s", path)
         execfile(path, {})
     except Exception as exp:
-        logger.warn("failed to parse as python file, %s" % exp)
-        raise OutlineException("failed to parse outline file: %s, %s" %
+        logger.warning("failed to parse as python file, %s", exp)
+        raise outline.exception.OutlineException("failed to parse outline file: %s, %s" %
                                (path, exp))
 
 
@@ -202,6 +205,7 @@ def quick_outline(layer):
     ol = Outline(name=layer.get_name(), current=True)
     ol.add_layer(layer)
     return ol
+
 
 class Outline(object):
     """The outline class represents a single outline script."""
@@ -294,7 +298,7 @@ class Outline(object):
         #
         # See contsants for the description of outline modes
         #
-        self.__mode = constants.OUTLINE_MODE_INIT
+        self.__mode = outline.constants.OUTLINE_MODE_INIT
 
         #
         # Stores the array of layers for this outline.  To
@@ -371,11 +375,11 @@ class Outline(object):
         """
         Reloads the session
         """
-        if is_session_path(self.get_path()):
-            self.__session = Session(self)
+        if outline.session.is_session_path(self.get_path()):
+            self.__session = outline.session.Session(self)
         else:
             msg = "failed to load outline %s, not part of a session."
-            raise OutlineException(msg % self.get_path())
+            raise outline.exception.OutlineException(msg % self.get_path())
 
     def setup(self):
         """
@@ -391,13 +395,13 @@ class Outline(object):
            - Sets the outline state to READY.
 
         """
-        if self.__mode >= constants.OUTLINE_MODE_SETUP:
-            raise OutlineException("This outline is already setup.")
+        if self.__mode >= outline.constants.OUTLINE_MODE_SETUP:
+            raise outline.exception.OutlineException("This outline is already setup.")
 
         self.setup_depends()
 
-        self.__mode = constants.OUTLINE_MODE_SETUP
-        self.__session = Session(self)
+        self.__mode = outline.constants.OUTLINE_MODE_SETUP
+        self.__session = outline.session.Session(self)
 
         # Run setup() for every layer assuming the frame range
         # can be determined.  If there is no frame range, the layer
@@ -415,7 +419,7 @@ class Outline(object):
                                      "outline.yaml")
 
             # Set a new path before serialzing the outline file.
-            logger.info("setting new outline path: %s" % yaml_file)
+            logger.info("setting new outline path: %s", yaml_file)
             self.set_path(yaml_file)
 
             # Copy the session over to a local variable and unset
@@ -436,12 +440,11 @@ class Outline(object):
             logger.info("copying outline script to session path.")
             self.__session.put_file(self.get_path(), None, "script.outline")
         else:
-            raise OutlineException("Failed to serialize outline, "
-                                   "Procedural outlines must always "
-                                   "use serialization.")
+            raise outline.exception.OutlineException(
+                "Failed to serialize outline, Procedural outlines must always use serialization.")
 
         # Set our new mode and save.
-        self.set_mode(constants.OUTLINE_MODE_READY)
+        self.set_mode(outline.constants.OUTLINE_MODE_READY)
         self.__session.save()
 
     def setup_depends(self):
@@ -454,20 +457,20 @@ class Outline(object):
             # Setup dependencies passed in via the layer's require argument.
             if layer.get_arg("require", False):
                 if not isinstance(layer.get_arg("require"), (tuple, list, set)):
-                    require, dtype = parse_require_str(layer.get_arg("require"))
+                    require, dtype = outline.depend.parse_require_str(layer.get_arg("require"))
                     try:
                         layer.depend_on(self.get_layer(require), dtype)
-                    except OutlineException as e:
-                        logger.warn("Invalid layer in depend %s, skipping" % require)
+                    except outline.exception.OutlineException:
+                        logger.warning("Invalid layer in depend %s, skipping", require)
                         continue
                 else:
                     # Process the require argument.
                     for require in layer.get_arg("require"):
-                        require, dtype = parse_require_str(require)
+                        require, dtype = outline.depend.parse_require_str(require)
                         try:
                             layer.depend_on(self.get_layer(str(require)), dtype)
-                        except OutlineException as e:
-                            logger.warn("Invalid layer in depend %s, skipping" % require)
+                        except outline.exception.OutlineException:
+                            logger.warning("Invalid layer in depend %s, skipping", require)
                             continue
 
     def add_layer(self, layer):
@@ -477,13 +480,12 @@ class Outline(object):
             return
 
         if layer in self.__layers:
-            logger.info("The layer %s was already added to this outline." %
-                        layer.get_name())
+            logger.info("The layer %s was already added to this outline.", layer.get_name())
             return
 
         if self.is_layer(layer.get_name()):
-            raise OutlineException("The layer %s already exists"
-                                   % layer.get_name())
+            raise outline.exception.OutlineException(
+                "The layer %s already exists" % layer.get_name())
 
         self.__layers.append(layer)
         layer.set_outline(self)
@@ -498,17 +500,17 @@ class Outline(object):
             pass
 
         # If we're in setup mode, run setup ASAP
-        if self.__mode == constants.OUTLINE_MODE_SETUP:
+        if self.__mode == outline.constants.OUTLINE_MODE_SETUP:
             layer.setup()
 
-        logger.info("adding layer: %s" % layer.get_name())
+        logger.info("adding layer: %s", layer.get_name())
 
     def remove_layer(self, layer):
         """Remove an existing layer."""
 
-        if self.__mode >= constants.OUTLINE_MODE_SETUP:
+        if self.__mode >= outline.constants.OUTLINE_MODE_SETUP:
             msg = "Cannot remove layers to an outline not in init mode."
-            raise OutlineException(msg)
+            raise outline.exception.OutlineException(msg)
 
         if layer in self.__layers:
             self.__layers.remove(layer)
@@ -516,11 +518,11 @@ class Outline(object):
     def get_layer(self, name):
         """Return an later by name."""
 
-        layer_map = dict([(evt.get_name(), evt) for evt in self.__layers])
+        layer_map = {evt.get_name(): evt for evt in self.__layers}
         try:
             return layer_map[name]
         except Exception as e:
-            raise OutlineException("invalid layer name: %s, %s" % (name, e))
+            raise outline.exception.OutlineException("invalid layer name: %s, %s" % (name, e))
 
     def get_layers(self):
         """Return the outline's layers
@@ -532,7 +534,7 @@ class Outline(object):
 
     def is_layer(self, name):
         """Return true if a layer exists with the specified name."""
-        layer_map = dict([(evt.get_name(), evt) for evt in self.__layers])
+        layer_map = {evt.get_name(): evt for evt in self.__layers}
         return name in layer_map
 
     def get_path(self):
@@ -567,18 +569,16 @@ class Outline(object):
         """
         if self.__session:
             return self.get_session().get_name().split("/")[0]
-        else:
-            return "%s-%s-%s_%s" % (self.get_show(),
-                                    self.get_shot(),
-                                    self.get_user(),
-                                    self.get_name())
+        return "%s-%s-%s_%s" % (self.get_show(),
+                                self.get_shot(),
+                                self.get_user(),
+                                self.get_name())
 
     def get_shot(self):
         """Return the shot for this outline."""
         if self.__shot is None:
-            return util.get_shot()
-        else:
-            return self.__shot
+            return outline.util.get_shot()
+        return self.__shot
 
     def set_shot(self, shot):
         """Set the shot name for this outline instance.
@@ -591,9 +591,8 @@ class Outline(object):
     def get_show(self):
         """Return the show for this outline."""
         if self.__show is None:
-            return util.get_show()
-        else:
-            return self.__show
+            return outline.util.get_show()
+        return self.__show
 
     def set_show(self, show):
         """Set the show name for this outline instance.
@@ -606,9 +605,8 @@ class Outline(object):
     def get_user(self):
         """Return the user for this outline."""
         if self.__user is None:
-            return util.get_user()
-        else:
-            return self.__user
+            return outline.util.get_user()
+        return self.__user
 
     def set_user(self, user):
         """Set the user name for this outline instance.
@@ -633,7 +631,7 @@ class Outline(object):
     def get_mode(self):
         """Return the current mode of this outline object.
 
-        See constants for a list of possible modes.  The mode
+        See outline.constants for a list of possible modes.  The mode
         cannot be set from outside of the module.
         """
         return self.__mode
@@ -641,7 +639,7 @@ class Outline(object):
     def set_mode(self, mode):
         """Set the current mode of the outline."""
         if mode < self.__mode:
-            raise OutlineException("You cannot go back to previous modes.")
+            raise outline.exception.OutlineException("You cannot go back to previous modes.")
         self.__mode = mode
 
     def get_session(self):
@@ -653,7 +651,7 @@ class Outline(object):
         :return: The outline's session object.
         """
         if not self.__session:
-            raise SessionException("A session has not been created yet.")
+            raise outline.exception.SessionException("A session has not been created yet.")
         return self.__session
 
     def set_frame_range(self, frame_range):
@@ -699,16 +697,16 @@ class Outline(object):
 
         """
         if key in self.__env:
-            logger.warn("Overwriting outline env var: %s, from %s to %s",
-                        key, self.__env[key], value)
+            logger.warning(
+                "Overwriting outline env var: %s, from %s to %s", key, self.__env[key], value)
 
         if not isinstance(key, six.string_types):
-            raise OutlineException("Invalid key type for env var: %s",
-                                   type(key))
+            raise outline.exception.OutlineException(
+                "Invalid key type for env var: %s" % type(key))
 
         if not isinstance(value, six.string_types):
-            raise OutlineException("Invalid value type for env var: %s",
-                                   type(value))
+            raise outline.exception.OutlineException(
+                "Invalid value type for env var: %s" % type(value))
 
         self.__env[key] = (value, pre)
 
@@ -722,8 +720,7 @@ class Outline(object):
         """
         if key:
             return self.__env[key][0]
-        else:
-            return dict(self.__env)
+        return dict(self.__env)
 
     def get_args(self):
         """
@@ -746,8 +743,8 @@ class Outline(object):
         :param value: Value to associate with the given key.
         """
         if key in self.__args:
-            logger.warn("Overwriting outline argument: %s, from %s to %s",
-                        key, self.__args[key], value)
+            logger.warning(
+                "Overwriting outline argument: %s, from %s to %s", key, self.__args[key], value)
         self.__args[key] = value
 
     def get_arg(self, key, default=None):
@@ -766,15 +763,14 @@ class Outline(object):
         :return: The value associated with the given key.
         """
         try:
-            if default == None:
+            if default is None:
                 return self.__args.get(key)
-            else:
-                return self.__args.get(key, default)
+            return self.__args.get(key, default)
         except KeyError:
-            raise OutlineException("No arg mapping exists for the value %s",
-                                   key)
+            raise outline.exception.OutlineException(
+                "No arg mapping exists for the value %s" % key)
 
-    def put_file(self, src, rename=None, symlink=False):
+    def put_file(self, src, rename=None):
         """
         Copy the given file into the job's session path.  If
         the optional rename argument is set, the file will be
@@ -834,4 +830,3 @@ class Outline(object):
         :param key: the name that was used to store the value.
         """
         return self.get_session().get_data(key)
-
