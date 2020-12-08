@@ -20,5 +20,8 @@ PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
 
-cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
-cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+# Some environments don't have pylint available, for ones that do they should pass this flag.
+if [[ "$1" == "--lint" ]]; then
+  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
+  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+fi
