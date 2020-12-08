@@ -403,6 +403,12 @@ class Host(object):
         """
         return self.data.lock_state
 
+    def os(self):
+        """
+        :rtype: str
+        :return: the operating system of the host
+        """
+        return self.data.os
 
 class NestedHost(Host):
     """This class contains information and actions related to a nested host."""
