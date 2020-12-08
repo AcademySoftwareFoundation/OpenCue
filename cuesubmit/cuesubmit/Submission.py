@@ -142,4 +142,4 @@ def submitJob(jobData):
     if 'facility' in jobData:
         ol.set_facility(jobData['facility'])
 
-    return outline.cuerun.launch(outline, use_pycuerun=False)
+    return outline.cuerun.launch(ol, use_pycuerun=False)
