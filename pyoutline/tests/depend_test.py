@@ -57,7 +57,8 @@ class DependTest(unittest.TestCase):
             layer1Name = 'bah1'
             layer2Name = 'bah2'
             layer1 = outline.modules.shell.Shell(layer1Name, command=['/bin/ls'])
-            layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'], require=['%s:all' % layer1Name])
+            layer2 = outline.modules.shell.Shell(
+                layer2Name, command=['/bin/ls'], require=['%s:all' % layer1Name])
 
             ol = outline.loader.Outline(name='depend_test_v2')
             ol.add_layer(layer1)
