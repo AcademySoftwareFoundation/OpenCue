@@ -27,8 +27,10 @@ import unittest
 
 import mock
 
-import outline
 import outline.backend.local
+import outline.config
+import outline.cuerun
+import outline.loader
 
 
 SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scripts'))
@@ -37,9 +39,9 @@ SCRIPTS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'scr
 class BuildCommandTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        outline.config.set('outline', 'home', '')
-        outline.config.set('outline', 'user_dir', '')
-        self.ol = outline.load_outline(path)
+        outline.config.config.set('outline', 'home', '')
+        outline.config.config.set('outline', 'user_dir', '')
+        self.ol = outline.loader.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol)
         self.layer = self.ol.get_layer('cmd')
 
@@ -59,7 +61,7 @@ class BuildCommandTest(unittest.TestCase):
 class SerializeTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        self.ol = outline.load_outline(path)
+        self.ol = outline.loader.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol)
 
     def testSerialize(self):
@@ -88,7 +90,7 @@ class DispatcherTest(unittest.TestCase):
     @mock.patch('subprocess.call')
     def testDispatch(self, subprocessCallMock):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
+        ol = outline.loader.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol)
         subprocessCallMock.return_value = 0
 

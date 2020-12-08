@@ -24,67 +24,67 @@ from __future__ import division
 
 import unittest
 
-import outline
-from outline.depend import DependType
-from outline.modules.shell import Shell
+import outline.depend
+import outline.loader
+import outline.modules.shell
 from . import test_utils
 
 
 class DependTest(unittest.TestCase):
 
     def setUp(self):
-        outline.Outline.current = None
+        outline.loader.Outline.current = None
 
     def testShell(self):
         """Test a simple shell command."""
         layer1Name = 'bah1'
         layer2Name = 'bah2'
-        layer1 = Shell(layer1Name, command=['/bin/ls'])
-        layer2 = Shell(layer2Name, command=['/bin/ls'])
+        layer1 = outline.modules.shell.Shell(layer1Name, command=['/bin/ls'])
+        layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'])
 
-        ol = outline.Outline(name='depend_test_v1')
+        ol = outline.loader.Outline(name='depend_test_v1')
         ol.add_layer(layer1)
         ol.add_layer(layer2)
         ol.get_layer(layer1Name).depend_all(layer2Name)
 
         depends = ol.get_layer(layer1Name).get_depends()
         self.assertEqual(1, len(depends))
-        self.assertEqual(DependType.LayerOnLayer, depends[0].get_type())
+        self.assertEqual(outline.depend.DependType.LayerOnLayer, depends[0].get_type())
         self.assertEqual(layer2, depends[0].get_depend_on_layer())
 
     def testShortHandDepend(self):
         with test_utils.TemporarySessionDirectory():
             layer1Name = 'bah1'
             layer2Name = 'bah2'
-            layer1 = Shell(layer1Name, command=['/bin/ls'])
-            layer2 = Shell(layer2Name, command=['/bin/ls'], require=['%s:all' % layer1Name])
+            layer1 = outline.modules.shell.Shell(layer1Name, command=['/bin/ls'])
+            layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'], require=['%s:all' % layer1Name])
 
-            ol = outline.Outline(name='depend_test_v2')
+            ol = outline.loader.Outline(name='depend_test_v2')
             ol.add_layer(layer1)
             ol.add_layer(layer2)
             ol.setup()
 
             depends = ol.get_layer(layer2Name).get_depends()
             self.assertEqual(1, len(depends))
-            self.assertEqual(DependType.LayerOnLayer, depends[0].get_type())
+            self.assertEqual(outline.depend.DependType.LayerOnLayer, depends[0].get_type())
             self.assertEqual(layer1, depends[0].get_depend_on_layer())
 
     def testAnyFrameDepend(self):
         with test_utils.TemporarySessionDirectory():
             layer1Name = 'bah1'
             layer2Name = 'bah2'
-            layer1 = Shell(layer1Name, command=['/bin/ls'], range='1-2')
-            layer2 = Shell(layer2Name, command=['/bin/ls'], range='1-1',
+            layer1 = outline.modules.shell.Shell(layer1Name, command=['/bin/ls'], range='1-2')
+            layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'], range='1-1',
                            require=['%s:any' % layer1Name])
 
-            ol = outline.Outline(name='depend_test_any_frame')
+            ol = outline.loader.Outline(name='depend_test_any_frame')
             ol.add_layer(layer1)
             ol.add_layer(layer2)
             ol.setup()
 
             depends = ol.get_layer(layer2Name).get_depends()
             self.assertEqual(1, len(depends))
-            self.assertEqual(DependType.FrameByFrame, depends[0].get_type())
+            self.assertEqual(outline.depend.DependType.FrameByFrame, depends[0].get_type())
             self.assertEqual(layer1, depends[0].get_depend_on_layer())
 
 

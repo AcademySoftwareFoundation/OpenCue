@@ -24,7 +24,7 @@ from builtins import object
 import shutil
 import tempfile
 
-import outline
+import outline.config
 
 
 class TemporarySessionDirectory(object):
@@ -33,11 +33,11 @@ class TemporarySessionDirectory(object):
         self.tempSessionDir = None
 
     def __enter__(self):
-        self.originalSessionDir = outline.config.get('outline', 'session_dir')
+        self.originalSessionDir = outline.config.config.get('outline', 'session_dir')
         self.tempSessionDir = tempfile.mkdtemp()
-        outline.config.set('outline', 'session_dir', self.tempSessionDir)
+        outline.config.config.set('outline', 'session_dir', self.tempSessionDir)
         return self.tempSessionDir
 
     def __exit__(self, *args):
-        outline.config.set('outline', 'session_dir', self.originalSessionDir)
+        outline.config.config.set('outline', 'session_dir', self.originalSessionDir)
         shutil.rmtree(self.tempSessionDir)

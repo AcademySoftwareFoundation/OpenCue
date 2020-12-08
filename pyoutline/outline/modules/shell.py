@@ -43,7 +43,7 @@ class PyEval(outline.layer.Layer):
     Arbitrary python code execution.
     """
     def __init__(self, name, code, **args):
-        super(PyEval, self).__init__(self, name, **args)
+        super(PyEval, self).__init__(name, **args)
 
         self.__code = code
 
@@ -81,15 +81,14 @@ class ShellSequence(outline.layer.Layer):
     A module for executing an array of shell commands.
     """
     def __init__(self, name, **args):
-        super(ShellSequence, self).__init__(self, name, **args)
+        super(ShellSequence, self).__init__(name, **args)
 
         self.require_arg("commands")
         self.set_frame_range("1-%d" % len(self.get_arg("commands")))
         self.set_arg("proxy_enable", False)
 
     def _execute(self, frames):
-        for cmd in outline.util.get_slice(self.get_frame_range(),
-                                  frames, self.get_arg("commands")):
+        for cmd in outline.util.get_slice(self.get_frame_range(), frames, self.get_arg("commands")):
             self.system(cmd)
 
 
@@ -97,11 +96,11 @@ class ShellCommand(outline.layer.Frame):
     """
     Provides a method of executing a single shell command.  All
     instances of this class will result in a layer with a single
-    frame regaurdless of what frame range the outline is launched
+    frame regardless of what frame range the outline is launched
     to the cue with.
     """
     def __init__(self, name, **args):
-        super(ShellCommand, self).__init__(self, name, **args)
+        super(ShellCommand, self).__init__(name, **args)
 
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
@@ -114,7 +113,7 @@ class ShellCommand(outline.layer.Frame):
 class ShellScript(outline.layer.Frame):
     """Copies the given script into frame's session folder and executes it as a frame."""
     def __init__(self, name, **args):
-        super(ShellScript, self).__init__(self, name, **args)
+        super(ShellScript, self).__init__(name, **args)
         self.require_arg("script")
 
     def _setup(self):

@@ -56,8 +56,8 @@ class CompositeTest(unittest.TestCase):
         self.layer = outline.layer.Layer("composite")
         self.ol.add_layer(self.layer)
 
-        self.layer.add_child(outline.modules.shell.Shell("blah1", command=["ls","-l"]))
-        self.layer.add_child(outline.modules.shell.Shell("blah2", command=["ls","-1"]))
+        self.layer.add_child(outline.modules.shell.Shell("blah1", command=["ls", "-l"]))
+        self.layer.add_child(outline.modules.shell.Shell("blah2", command=["ls", "-1"]))
         self.layer.add_child(outline.modules.shell.Shell("blah3", command=["ls"]))
 
         self.event = self.ol.get_layer("composite")

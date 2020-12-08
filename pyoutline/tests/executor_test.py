@@ -25,13 +25,13 @@ from __future__ import absolute_import
 import time
 import unittest
 
-from outline import TaskExecutor
+import outline.executor
 
 
 class TaskExecutorTest(unittest.TestCase):
 
     def test_simple_threading(self):
-        e = TaskExecutor(5)
+        e = outline.executor.TaskExecutor(5)
         e.execute(self.print_, "hello thread 1")
         e.execute(self.print_, "hello thread 2")
         e.execute(self.print_, "hello thread 3")
@@ -39,7 +39,8 @@ class TaskExecutorTest(unittest.TestCase):
         e.execute(self.print_, "hello thread 5")
         e.wait()
 
-    def print_(self, msg):
+    @staticmethod
+    def print_(msg):
         print("Test Message: %s" % msg)
         time.sleep(1)
 

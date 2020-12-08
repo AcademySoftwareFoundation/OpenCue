@@ -891,7 +891,7 @@ class Layer(with_metaclass(LayerType, object)):
     def get_depends(self):
         """Return a tuple of dependencies this layer depends on."""
         # Do not let people muck with the real list.
-        return (self.__depends,)
+        return self.__depends
 
     def get_dependents(self):
         """Return a list of dependencies that depend on this layer."""

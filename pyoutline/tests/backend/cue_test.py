@@ -31,8 +31,10 @@ import mock
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.job
 
-import outline
 import outline.backend.cue
+import outline.config
+import outline.cuerun
+import outline.loader
 from .. import test_utils
 
 
@@ -43,9 +45,9 @@ TEST_USER = 'test-user'
 class SerializeTest(unittest.TestCase):
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        outline.config.set('outline', 'home', '/opencue/outline')
-        outline.config.set('outline', 'user_dir', '/tmp/opencue/user')
-        ol = outline.load_outline(path)
+        outline.config.config.set('outline', 'home', '/opencue/outline')
+        outline.config.config.set('outline', 'user_dir', '/tmp/opencue/user')
+        ol = outline.loader.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
 
         outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
@@ -93,9 +95,9 @@ class SerializeTest(unittest.TestCase):
 class BuildCommandTest(unittest.TestCase):
     def setUp(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        outline.config.set('outline', 'home', '')
-        outline.config.set('outline', 'user_dir', '')
-        self.ol = outline.load_outline(path)
+        outline.config.config.set('outline', 'home', '')
+        outline.config.config.set('outline', 'user_dir', '')
+        self.ol = outline.loader.load_outline(path)
         self.launcher = outline.cuerun.OutlineLauncher(self.ol, user=TEST_USER)
         self.layer = self.ol.get_layer('cmd')
 
@@ -158,7 +160,7 @@ class LaunchTest(unittest.TestCase):
         launchSpecAndWaitMock.return_value = [opencue.wrappers.job.Job()]
         serverName = 'foo-server'
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
+        ol = outline.loader.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         launcher.set_flag('server', serverName)
         serializedXml = launcher.serialize(use_pycuerun=True)
@@ -178,7 +180,7 @@ class LaunchTest(unittest.TestCase):
         # Trigger one iteration of the wait loop.
         isJobPendingMock.side_effect = [True, False]
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
+        ol = outline.loader.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         launcher.set_flag('wait', True)
         serializedXml = launcher.serialize(use_pycuerun=True)
@@ -199,7 +201,7 @@ class LaunchTest(unittest.TestCase):
             opencue.compiled_proto.job_pb2.Job(name=jobName, state=opencue.api.job_pb2.FINISHED))
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.load_outline(path)
+        ol = outline.loader.load_outline(path)
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         launcher.set_flag('test', True)
         serializedXml = launcher.serialize(use_pycuerun=True)
