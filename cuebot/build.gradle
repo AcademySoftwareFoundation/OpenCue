@@ -154,11 +154,11 @@ sonarqube {
         // NOTE: sonar.login must be provided manually, like:
         //   ./gradlew sonarqube -Dsonar.login=<login key>
 
-        property "sonar.issue.ignore.multicriteria=j1"
+        property "sonar.issue.ignore.multicriteria", "j1"
 
         // Incompatible @Transactional requirements
         // It's claimed this causes runtime exceptions but we don't see such issues.
-        property "sonar.issue.ignore.multicriteria.j1.ruleKey=java:S2229"
-        property "sonar.issue.ignore.multicriteria.j1.resourceKey=**/*.java"
+        property "sonar.issue.ignore.multicriteria.j1.ruleKey", "java:S2229"
+        property "sonar.issue.ignore.multicriteria.j1.resourceKey", "**/*.java"
     }
 }
