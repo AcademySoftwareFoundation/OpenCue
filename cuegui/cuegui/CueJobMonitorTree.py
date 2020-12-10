@@ -103,8 +103,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: job.data.job_stats.total_frames,
                        sort=lambda job: job.data.job_stats.total_frames,
                        tip="The total number of frames.")
-#        self.addColumn("_Booking Bar", 150, id=8, default=False,
-#                       delegate=JobBookingBarDelegate)
+        self.addColumn("_Booking Bar", 150, id=8, 
+                       delegate=cuegui.ItemDelegate.JobBookingBarDelegate)
         self.addColumn("Min", 38, id=9,
                        data=lambda job: "%.0f" % job.data.min_cores,
                        sort=lambda job: job.data.min_cores,

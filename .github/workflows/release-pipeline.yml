@@ -21,10 +21,10 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Get current tag name
-        run: echo ::set-env name=TAG_NAME::${GITHUB_REF/refs\/tags\//}
+        run: echo "TAG_NAME=${GITHUB_REF/refs\/tags\//}" >> ${GITHUB_ENV}
 
       - name: Verify tag name and version match
         run: |
@@ -54,7 +54,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Pull Docker image from staging
         run: |
@@ -94,7 +94,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Fetch artifacts
         id: fetch_artifacts
