@@ -54,4 +54,10 @@ class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.__monitorHosts.setColumnVisibility),
                                      ("procColumnVisibility",
                                       self.__monitorProcs.getColumnVisibility,
-                                      self.__monitorProcs.setColumnVisibility)])
+                                      self.__monitorProcs.setColumnVisibility),
+                                      ("hostColumnOrder",
+                                      self.__monitorHosts.getColumnOrder,
+                                      self.__monitorHosts.setColumnOrder),
+                                     ("procColumnOrder",
+                                      self.__monitorProcs.getColumnOrder,
+                                      self.__monitorProcs.setColumnOrder)])

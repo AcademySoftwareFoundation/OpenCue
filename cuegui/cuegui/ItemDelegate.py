@@ -366,3 +366,51 @@ class ItemDelegate(AbstractDelegate):
 
     def paint(self, painter, option, index):
         AbstractDelegate.paint(self, painter, option, index)
+
+
+class ProgressDelegate(AbstractDelegate):
+
+    def __init__(self, parent, *args):
+        AbstractDelegate.__init__(self, parent, *args)
+
+    def paint(self, painter, option, index):
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_FRAME:
+            frame = self.parent().itemFromIndex(index).rpcObject
+            opts = QtWidgets.QStyleOptionProgressBar()
+            opts.rect = option.rect
+            opts.minimum = 1
+            opts.maximum = 100
+            opts.textVisible = True
+
+            if frame.data.state == opencue.api.job_pb2.SUCCEEDED:
+                progress = 100
+            elif frame.data.state == opencue.api.job_pb2.RUNNING:
+                progress = int(cuegui.Progress.progress(frame.id()))
+            else:
+                progress = 0
+
+            opts.progress = progress
+            opts.text = "{0:d} %".format(progress)
+            opts.textVisible = True
+
+            QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_ProgressBar, opts, painter)
+
+        elif index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
+            layer = self.parent().itemFromIndex(index).rpcObject
+            opts = QtWidgets.QStyleOptionProgressBar()
+            opts.rect = option.rect
+            opts.minimum = 1
+            opts.maximum = 100
+            opts.textVisible = True
+
+            progress = int(layer.percentCompleted())
+            opts.progress = progress
+            opts.text = "{0:d} %".format(progress)
+            opts.textVisible = True
+
+            QtWidgets.QApplication.style().drawControl(QtWidgets.QStyle.CE_ProgressBar, opts, painter)
+        else:
+            AbstractDelegate.paint(self, painter, option, index)
+
+    def sizeHint(self, option, index):
+        return QtCore.QSize(12, 12)

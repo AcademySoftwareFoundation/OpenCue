@@ -170,7 +170,6 @@ class FilterMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Adds the feature of forcing the items to be sorted by the first
         column"""
         cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, rpcObjects)
-        self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""

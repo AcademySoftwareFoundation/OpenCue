@@ -80,12 +80,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("columnWidths",
                                       self.jobMonitor.getColumnWidths,
                                       self.jobMonitor.setColumnWidths),
-                                    ("grpDependentCb",
-                                     self.getGrpDependent,
-                                     self.setGrpDependent),
-                                    ("autoLoadMineCb",
-                                     self.getAutoLoadMine,
-                                     self.setAutoLoadMine)])
+                                     ("grpDependentCb",
+                                      self.getGrpDependent,
+                                      self.setGrpDependent),
+                                     ("autoLoadMineCb",
+                                      self.getAutoLoadMine,
+                                      self.setAutoLoadMine)
+                                     ("columnOrder",
+                                      self.jobMonitor.getColumnOrder,
+                                      self.jobMonitor.setColumnOrder)])
 
     def addJob(self, object):
         if cuegui.Utils.isProc(object):

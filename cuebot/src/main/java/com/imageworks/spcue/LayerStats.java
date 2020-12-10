@@ -155,17 +155,17 @@ public class LayerStats {
 
         if (hightestAverageSec < 60) {
             graphUnits = "Seconds";
-            scale = (int) ((hightestAverageSec / 2 + 1) * 2);
+            scale = ((hightestAverageSec / 2 + 1) * 2);
             conversionUnits = 1f;
         }
         else if (hightestAverageSec < 3600) {
             graphUnits = "Minutes";
-            scale = (int) ((hightestAverageSec / 60) + 1);
+            scale = ((hightestAverageSec / 60) + 1);
             conversionUnits = 60f;
         }
         else {
             graphUnits = "Hours";
-            scale = (int) ((hightestAverageSec / 3600)  + 1);
+            scale = ((hightestAverageSec / 3600)  + 1);
             conversionUnits = 3600f;
         }
     }

@@ -80,7 +80,7 @@ public final class RqdClientGrpc implements RqdClient {
                         new CacheLoader<String, ManagedChannel>() {
                             @Override
                             public ManagedChannel load(String host) throws Exception {
-                                ManagedChannelBuilder channelBuilder = ManagedChannelBuilder.forAddress(
+                                ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(
                                         host, rqdServerPort).usePlaintext();
                                 return channelBuilder.build();
                             }

@@ -88,7 +88,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.setAlternatingRowColors(True)
 
         self.setSortingEnabled(True)
-        self.header().setSectionsMovable(False)
+        self.header().setSectionsMovable(True)
         self.header().setStretchLastSection(True)
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
 
@@ -528,3 +528,21 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             for col in range(len(settings)):
                 if col <= self.columnCount():
                     self.setColumnHidden(col, settings[col])
+
+################################################################################
+# Allow the user to move columns and remember position
+################################################################################
+
+    def getColumnOrder(self):
+        settings = {}
+        header = self.header()
+        for col in range(header.count()):
+            settings[col] = header.logicalIndex(col)
+        return settings
+
+    def setColumnOrder(self, settings):
+        header = self.header()
+        cols = sorted(settings.keys(), key=lambda x: int(x))
+        for col in cols:
+            old_col = header.visualIndex(settings[col])
+            header.moveSection(int(old_col), int(col))

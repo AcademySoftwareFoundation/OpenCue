@@ -80,7 +80,13 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
                                       self.__monitorFrames.setColumnWidths),
                                      ("layerColumnWidths",
                                       self.__monitorLayers.getColumnWidths,
-                                      self.__monitorLayers.setColumnWidths)])
+                                      self.__monitorLayers.setColumnWidths),
+                                      ("frameColumnOrder",
+                                      self.__monitorFrames.getColumnOrder,
+                                      self.__monitorFrames.setColumnOrder),
+                                      ("layerColumnOrder",
+                                      self.__monitorLayers.getColumnOrder,
+                                      self.__monitorLayers.setColumnOrder)])
 
     def handleLayerFilter(self, names):
         self.__monitorFrames.filterLayersFromDoubleClick(names)

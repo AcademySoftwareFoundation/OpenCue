@@ -63,7 +63,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Build Docker image
         uses: docker/build-push-action@v1
@@ -121,7 +121,7 @@ jobs:
           set -e
           ci/generate_version_number.sh > VERSION
           echo "Build ID: $(cat ./VERSION)"
-          echo "::set-env name=BUILD_ID::$(cat ./VERSION)"
+          echo "BUILD_ID=$(cat ./VERSION)" >> ${GITHUB_ENV}
 
       - name: Extract database schema
         run: |

@@ -54,7 +54,7 @@ dependencies {
     compile group: 'org.springframework', name: 'spring-jms'
     compile group: 'org.quartz-scheduler', name: 'quartz', version: '2.2.1', { exclude group: 'c3p0', module: 'c3p0' }
     compile group: 'org.postgresql', name: 'postgresql', version: '42.2.2'
-    compile group: 'com.google.protobuf', name: 'protobuf-java', version: '3.4.0'
+    compile group: 'com.google.protobuf', name: 'protobuf-java', version: '3.13.0'
     compile group: 'log4j', name: 'log4j', version: '1.2.17'
     compile group: 'org.slf4j', name: 'slf4j-log4j12', version: '1.7.26'
 
@@ -67,10 +67,18 @@ dependencies {
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
 }
 
+compileJava {
+    options.compilerArgs << "-Xlint:all" << "-Werror"
+}
+
+compileTestJava {
+    options.compilerArgs << "-Xlint:all" << "-Werror"
+}
+
 protobuf {
     protoc {
         // The protoc compiler
-        artifact = 'com.google.protobuf:protoc:3.4.0'
+        artifact = 'com.google.protobuf:protoc:3.13.0'
     }
     plugins {
         grpc {
@@ -145,5 +153,12 @@ sonarqube {
                                               "src/main/java/com/imageworks/spcue/dao/criteria/oracle/**"
         // NOTE: sonar.login must be provided manually, like:
         //   ./gradlew sonarqube -Dsonar.login=<login key>
+
+        property "sonar.issue.ignore.multicriteria", "j1"
+
+        // Incompatible @Transactional requirements
+        // It's claimed this causes runtime exceptions but we don't see such issues.
+        property "sonar.issue.ignore.multicriteria.j1.ruleKey", "java:S2229"
+        property "sonar.issue.ignore.multicriteria.j1.resourceKey", "**/*.java"
     }
 }

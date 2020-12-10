@@ -20,6 +20,7 @@
 package com.imageworks.spcue.util;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.List;
 import java.util.Locale;
 
@@ -29,7 +30,7 @@ import java.util.Locale;
 public final class Convert {
 
     public static final int coresToCoreUnits(float cores) {
-        return new BigDecimal(cores * 100).setScale(2,BigDecimal.ROUND_HALF_UP).intValue();
+        return new BigDecimal(cores * 100).setScale(2, RoundingMode.HALF_UP).intValue();
     }
 
     public static final int coresToCoreUnits(int cores) {
@@ -38,7 +39,7 @@ public final class Convert {
 
     public static final int coresToWholeCoreUnits(float cores) {
         if (cores == -1) { return -1;}
-        return (int)((float)((cores * 100.0f) + 0.5f) / 100) * 100;
+        return (int)(((cores * 100.0f) + 0.5f) / 100) * 100;
     }
 
     public static final float coreUnitsToCores(int coreUnits) {
