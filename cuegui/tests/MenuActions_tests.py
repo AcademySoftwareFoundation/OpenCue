@@ -229,8 +229,8 @@ class JobActionsTests(unittest.TestCase):
     def test_kill(self, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.kill = mock.Mock()
-        job.killDependents = mock.Mock()
-        job.killDependents.return_value = []
+        job.getWhatDependsOnThis = mock.Mock()
+        job.getWhatDependsOnThis.return_value = []
 
         self.job_actions.kill(rpcObjects=[job])
 
