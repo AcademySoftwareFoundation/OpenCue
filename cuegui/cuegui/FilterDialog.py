@@ -51,6 +51,7 @@ ACTIONTYPE = opencue.compiled_proto.filter_pb2.ActionType.keys()
 FILTERTYPE = opencue.compiled_proto.filter_pb2.FilterType.keys()
 PAUSETYPE = ["Pause", "Unpause"]
 MEMOPTTYPE = ["Enabled", "Disabled"]
+MAX_RENDER_MEM = 251.0
 
 
 class FilterDialog(QtWidgets.QDialog):
@@ -447,7 +448,7 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         "How much memory (in GB) should each render layer require?",
                         4.0,
                         0.1,
-                        251.0,
+                        MAX_RENDER_MEM,
                         2)
                     value = int(value * 1048576)
 
@@ -672,7 +673,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             value = widget.value()
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,):
-            widget.setMaximum(251.0)
+            widget.setMaximum(MAX_RENDER_MEM)
             value = int(widget.value() * 1048576)
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
@@ -717,7 +718,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
-                widget.setMaximum(251.0)
+                widget.setMaximum(MAX_RENDER_MEM)
                 widget.editingFinished.connect(self.__setValue)
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
