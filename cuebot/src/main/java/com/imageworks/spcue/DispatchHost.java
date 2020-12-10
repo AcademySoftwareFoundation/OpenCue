@@ -104,8 +104,8 @@ public class DispatchHost extends Entity
             idleCoresOrig = idleCores;
             idleGpuOrig = idleGpu;
 
-            idleMemory = (long) idleMemory - Math.min(CueUtil.GB4, idleMemory);
-            idleCores = (int) idleCores - Math.min(100, idleCores);
+            idleMemory = idleMemory - Math.min(CueUtil.GB4, idleMemory);
+            idleCores = idleCores - Math.min(100, idleCores);
             idleGpu = 0;
         }
     }

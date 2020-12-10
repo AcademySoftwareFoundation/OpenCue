@@ -53,4 +53,7 @@ class SubscriptionDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.__subscriptionsWidget.setShow),
                                      ("columnVisibility",
                                       self.__subscriptionsWidget.getColumnVisibility,
-                                      self.__subscriptionsWidget.setColumnVisibility)])
+                                      self.__subscriptionsWidget.setColumnVisibility),
+                                      ("columnOrder",
+                                      self.__subscriptionsWidget.getColumnOrder,
+                                      self.__subscriptionsWidget.setColumnOrder)])

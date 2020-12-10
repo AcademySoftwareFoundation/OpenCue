@@ -92,6 +92,12 @@ class FrameMonitor(QtWidgets.QWidget):
     def setColumnVisibility(self, settings):
         self.frameMonitorTree.setColumnVisibility(settings)
 
+    def getColumnOrder(self):
+        return self.frameMonitorTree.getColumnOrder()
+
+    def setColumnOrder(self, settings):
+        self.frameMonitorTree.setColumnOrder(settings)
+
     def filterLayersFromDoubleClick(self, layerNames):
         self._filterLayersHandleByLayer(layerNames)
 

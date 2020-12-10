@@ -23,6 +23,8 @@ import org.springframework.core.NestedRuntimeException;
 
 public class EntityNotFoundException extends NestedRuntimeException {
 
+    private static final long serialVersionUID = -5612998213656259822L;
+
     public EntityNotFoundException(String message) {
         super(message);
     }
