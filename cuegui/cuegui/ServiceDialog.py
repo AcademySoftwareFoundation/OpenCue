@@ -254,21 +254,17 @@ class ServiceManager(QtWidgets.QWidget):
                         self.__service_list.selectedItems()]
 
         self.__service_list.clear()
-        try:
-            if not self.__show:
-                self.__services = opencue.api.getDefaultServices()
-            else:
-                self.__services = self.__show.getServiceOverrides()
-        except Exception as e:
-            raise Exception(e)
+        if not self.__show:
+            self.__services = opencue.api.getDefaultServices()
+        else:
+            self.__services = self.__show.getServiceOverrides()
 
         for service in self.__services:
-            item = QtWidgets.QListWidgetItem(service.data.name)
+            item = QtWidgets.QListWidgetItem(service.name())
             self.__service_list.addItem(item)
 
-            if selected:
-                if service.data.name in selected:
-                    item.setSelected(True)
+            if service.name() in selected:
+                item.setSelected(True)
 
         self.__service_list.sortItems()
 
