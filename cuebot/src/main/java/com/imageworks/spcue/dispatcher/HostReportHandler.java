@@ -521,11 +521,7 @@ public class HostReportHandler {
                 dispatchSupport.updateProcMemoryUsage(frame,
                         rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize());
             } catch (EmptyResultDataAccessException e) {
-                Sentry.getContext().addExtra("frameId", rf.getFrameId());
-                Sentry.getContext().addExtra("jobId", rf.getJobId());
-                Sentry.getContext().addExtra("jobName", rf.getJobName());
-                Sentry.capture("HostReportHandler: updateMemoryUsage could not find frame");
-                Sentry.getContext().clearExtra();
+                logger.warn("HostReportHandler: updateMemoryUsage could not find frame. frameId: " + rf.getFrameId());
                 continue;
             }
         }
