@@ -21,6 +21,8 @@ package com.imageworks.spcue.service;
 
 import java.util.List;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -33,12 +35,13 @@ public class HistoricalManagerService implements HistoricalManager {
 
     private HistoricalDao historicalDao;
 
-    public static final int ARCHIVE_JOBS_CUTOFF_HOURS = 72 ;
-
+    @Autowired
+    private Environment env;
 
     @Transactional(readOnly=true, isolation=Isolation.SERIALIZABLE)
     public List<JobInterface> getFinishedJobs() {
-        return historicalDao.getFinishedJobs(ARCHIVE_JOBS_CUTOFF_HOURS);
+        return historicalDao.getFinishedJobs(
+                env.getRequiredProperty("history.archive_jobs_cutoff_hours", Integer.class));
     }
 
     @Transactional

@@ -342,20 +342,20 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         String hid = SqlUtil.genKeyRandom();
         int coreUnits = host.getNumProcs() * host.getCoresPerProc();
-        String os = host.getAttributes().get("SP_OS");
+        String os = host.getAttributesMap().get("SP_OS");
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
         }
 
         long totalGpu;
-        if (host.getAttributes().containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(host.getAttributes().get("totalGpu"));
+        if (host.getAttributesMap().containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(host.getAttributesMap().get("totalGpu"));
         else
             totalGpu = 0;
 
         long freeGpu;
-        if (host.getAttributes().containsKey("freeGpu"))
-            freeGpu = Integer.parseInt(host.getAttributes().get("freeGpu"));
+        if (host.getAttributesMap().containsKey("freeGpu"))
+            freeGpu = Integer.parseInt(host.getAttributesMap().get("freeGpu"));
         else
             freeGpu = 0;
 
@@ -441,8 +441,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         int cores = report.getHost().getNumProcs() * report.getHost().getCoresPerProc();
 
         long totalGpu;
-        if (report.getHost().getAttributes().containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
+        if (report.getHost().getAttributesMap().containsKey("totalGpu"))
+            totalGpu = Integer.parseInt(report.getHost().getAttributesMap().get("totalGpu"));
         else
             totalGpu = 0;
 

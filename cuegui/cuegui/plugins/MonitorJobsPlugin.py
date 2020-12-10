@@ -79,7 +79,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.jobMonitor.setColumnVisibility),
                                      ("columnWidths",
                                       self.jobMonitor.getColumnWidths,
-                                      self.jobMonitor.setColumnWidths)])
+                                      self.jobMonitor.setColumnWidths),
+                                      ("columnOrder",
+                                      self.jobMonitor.getColumnOrder,
+                                      self.jobMonitor.setColumnOrder)])
 
     def addJob(self, object):
         if cuegui.Utils.isProc(object):

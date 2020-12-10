@@ -39,4 +39,7 @@ class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.pluginRegisterSettings([("columnVisibility",
                                       self.__showsWidget.getColumnVisibility,
-                                      self.__showsWidget.setColumnVisibility)])
+                                      self.__showsWidget.setColumnVisibility),
+                                      ("columnOrder",
+                                      self.__showsWidget.getColumnOrder,
+                                      self.__showsWidget.setColumnOrder)])

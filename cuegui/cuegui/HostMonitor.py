@@ -77,6 +77,12 @@ class HostMonitor(QtWidgets.QWidget):
     def setColumnVisibility(self, settings):
         self.hostMonitorTree.setColumnVisibility(settings)
 
+    def getColumnOrder(self):
+        return self.hostMonitorTree.getColumnOrder()
+
+    def setColumnOrder(self, settings):
+        self.hostMonitorTree.setColumnOrder(settings)
+
 # ==============================================================================
 # Text box to filter by host name
 # ==============================================================================

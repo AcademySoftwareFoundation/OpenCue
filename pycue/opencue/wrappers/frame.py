@@ -152,12 +152,27 @@ class Frame(object):
             timeout=Cuebot.Timeout)
         return opencue.wrappers.depend.Depend(response.depend)
 
+    def dropDepends(self, target):
+        """Drops every dependency that is causing this frame not to run."""
+        self.stub.DropDepends(
+            job_pb2.FrameDropDependsRequest(frame=self.data, target=target),
+            timeout=Cuebot.Timeout)
+
     def markAsWaiting(self):
         """Mark the frame as waiting, similar to drop depends. The frame will be
         able to run even if the job has an external dependency."""
         self.stub.MarkAsWaiting(
             job_pb2.FrameMarkAsWaitingRequest(frame=self.data),
             timeout=Cuebot.Timeout)
+
+    def setCheckpointState(self, checkPointState):
+        """Sets the checkPointState of the frame
+        :param checkPointState: job_pb.CheckpointState(Int)
+        :return:
+        """
+        self.stub.SetCheckpointState(
+            job_pb2.FrameSetCheckpointStateRequest(frame=self.data, state=checkPointState)
+        )
 
     def id(self):
         """Returns the id of the frame.

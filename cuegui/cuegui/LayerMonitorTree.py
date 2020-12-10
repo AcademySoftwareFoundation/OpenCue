@@ -121,6 +121,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: " | ".join(layer.data.tags),
                        tip="The tags define what resources may be booked on\n"
                            "frames in this layer.")
+        self.addColumn("Progress", 100, id=19,
+                        delegate=cuegui.ItemDelegate.ProgressDelegate,
+                        data=lambda layer: layer.percentCompleted(),
+                        sort=lambda layer: layer.percentCompleted(),
+                        tip="Progress for the Layer")
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 

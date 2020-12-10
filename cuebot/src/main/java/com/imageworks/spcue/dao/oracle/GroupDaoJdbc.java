@@ -325,7 +325,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     public List<GroupInterface> getGroups(List<String> idl) {
         return getJdbcTemplate().query(
                 "SELECT pk_show, pk_folder, str_name FROM folder WHERE  " +
-                SqlUtil.buildBindVariableArray("pk_folder", idl),
+                SqlUtil.buildBindVariableArray("pk_folder", idl.size()),
                 GROUP_MAPPER, idl.toArray());
     }
 

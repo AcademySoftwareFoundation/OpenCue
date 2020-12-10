@@ -98,7 +98,7 @@ public class RedirectDaoJdbc extends JdbcDaoSupport implements RedirectDao {
                 public Redirect mapRow(ResultSet rs, int rowNum) throws SQLException {
                     return new Redirect(
                         rs.getString("str_group_id"),
-                        RedirectType.valueOf(rs.getInt("int_type")),
+                        RedirectType.forNumber(rs.getInt("int_type")),
                         rs.getString("str_destination_id"),
                         rs.getString("str_name"),
                         rs.getLong("lng_creation_time"));

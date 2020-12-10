@@ -55,8 +55,6 @@ public class ActionDaoTests extends AbstractTransactionalJUnit4SpringContextTest
     @Rule
     public AssumingOracleEngine assumingOracleEngine;
 
-    private static final ActionType ActionType = null;
-
     @Resource
     ActionDao actionDao;
 
