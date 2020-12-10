@@ -134,23 +134,23 @@ public class HostReportHandler {
         try {
 
             long totalGpu;
-            if (report.getHost().getAttributes().containsKey("totalGpu"))
-                totalGpu = Integer.parseInt(report.getHost().getAttributes().get("totalGpu"));
+            if (report.getHost().getAttributesMap().containsKey("totalGpu"))
+                totalGpu = Integer.parseInt(report.getHost().getAttributesMap().get("totalGpu"));
             else
                 totalGpu = 0;
 
             long freeGpu;
-            if (report.getHost().getAttributes().containsKey("freeGpu"))
-                freeGpu = Integer.parseInt(report.getHost().getAttributes().get("freeGpu"));
+            if (report.getHost().getAttributesMap().containsKey("freeGpu"))
+                freeGpu = Integer.parseInt(report.getHost().getAttributesMap().get("freeGpu"));
             else
                 freeGpu = 0;
 
             long swapOut = 0;
-            if (report.getHost().getAttributes().containsKey("swapout")) {
-                swapOut = Integer.parseInt(report.getHost().getAttributes().get("swapout"));
+            if (report.getHost().getAttributesMap().containsKey("swapout")) {
+                swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
                 if (swapOut > 0)
                     logger.info(report.getHost().getName() + " swapout: " +
-                                report.getHost().getAttributes().get("swapout"));
+                                report.getHost().getAttributesMap().get("swapout"));
             }
 
             DispatchHost host;
@@ -163,7 +163,7 @@ public class HostReportHandler {
                         rhost.getTotalMcp(), rhost.getFreeMcp(),
                         totalGpu, freeGpu,
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
-                        rhost.getAttributes().get("SP_OS"));
+                        rhost.getAttributesMap().get("SP_OS"));
 
                 changeHardwareState(host, report.getHost().getState());
                 changeNimbyState(host, report.getHost());
@@ -455,7 +455,7 @@ public class HostReportHandler {
                     proc.memoryReserved = f.getRss();
                     logger.info("frame " + f.getFrameName() + " on job " + f.getJobName()
                             + " increased its reserved memory to " +
-                            CueUtil.KbToMb((long)f.getRss()));
+                            CueUtil.KbToMb(f.getRss()));
                 }
 
             } catch (ResourceReservationFailureException e) {
