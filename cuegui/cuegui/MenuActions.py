@@ -1085,7 +1085,7 @@ class RootGroupActions(AbstractActions):
                 opencue.api.findShow(rootgroup.data.name), self._caller).show()
 
 
-    serviceProperties_info = ["Service Properies...", None, "view"]
+    serviceProperties_info = ["Service Properties...", None, "view"]
     def serviceProperties(self, rpcObjects=None):
         for rootgroup in self._getOnlyRootGroupObjects(rpcObjects):
             cuegui.ServiceDialog.ServiceDialog(
