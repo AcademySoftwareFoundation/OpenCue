@@ -391,8 +391,6 @@ def getJobNames(**options):
     """Returns a list of job names that match the search parameters.
     See getJobs for the job query options.
 
-    :type  options: dict
-    :param options: a variable list of search criteria
     :rtype:  list
     :return: List of matching str job names"""
     criteria = search.JobSearch.criteriaFromOptions(**options)

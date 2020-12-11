@@ -14,14 +14,16 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.api`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
+import opencue.api
 from opencue.compiled_proto import cue_pb2
 from opencue.compiled_proto import depend_pb2
 from opencue.compiled_proto import facility_pb2
@@ -639,12 +641,12 @@ class FilterTests(unittest.TestCase):
             filter=filter_pb2.Filter(name=filterName))
         getStubMock.return_value = stubMock
 
-        filter = opencue.api.findFilter(TEST_SHOW_NAME, filterName)
+        filterReturned = opencue.api.findFilter(TEST_SHOW_NAME, filterName)
 
         stubMock.FindFilter.assert_called_with(
             filter_pb2.FilterFindFilterRequest(show=TEST_SHOW_NAME, name=filterName),
             timeout=mock.ANY)
-        self.assertEqual(filterName, filter.name())
+        self.assertEqual(filterName, filterReturned.name())
 
 
 class AllocTests(unittest.TestCase):
@@ -668,7 +670,8 @@ class AllocTests(unittest.TestCase):
     def testGetAllocs(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.GetAll.return_value = facility_pb2.AllocGetAllResponse(
-            allocations=facility_pb2.AllocationSeq(allocations=[facility_pb2.Allocation(name=TEST_ALLOC_NAME)]))
+            allocations=facility_pb2.AllocationSeq(
+                allocations=[facility_pb2.Allocation(name=TEST_ALLOC_NAME)]))
         getStubMock.return_value = stubMock
 
         allocs = opencue.api.getAllocations()
@@ -775,17 +778,17 @@ class ProcTests(unittest.TestCase):
         self.assertEqual([TEST_PROC_NAME], [proc.name() for proc in procs])
 
 
-class Limittests(unittest.TestCase):
-    
+class LimitTests(unittest.TestCase):
+
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testCreateLimit(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.Create.return_value = limit_pb2.LimitCreateResponse()
         getStubMock.return_value = stubMock
-    
+
         testLimitValue = 42
         opencue.api.createLimit(TEST_LIMIT_NAME, testLimitValue)
-    
+
         stubMock.Create.assert_called_with(
             limit_pb2.LimitCreateRequest(name=TEST_LIMIT_NAME, max_value=testLimitValue),
             timeout=mock.ANY)
@@ -796,9 +799,9 @@ class Limittests(unittest.TestCase):
         stubMock.GetAll.return_value = limit_pb2.LimitGetAllResponse(
             limits=[limit_pb2.Limit(name=TEST_LIMIT_NAME)])
         getStubMock.return_value = stubMock
-      
+
         limits = opencue.api.getLimits()
-        
+
         stubMock.GetAll.assert_called_with(limit_pb2.LimitGetAllRequest(), timeout=mock.ANY)
         self.assertEqual(len(limits), 1)
         self.assertEqual(limits[0].name(), TEST_LIMIT_NAME)

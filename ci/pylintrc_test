@@ -69,7 +69,9 @@ disable=duplicate-code,
         no-self-use,
         protected-access,
         raise-missing-from,
+        too-many-locals,
         too-many-public-methods,
+        unused-argument,
         useless-object-inheritance
 
 # Enable the message, report, category or checker with the given id(s). You can
