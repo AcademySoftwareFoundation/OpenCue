@@ -12,11 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Client side implementation of search criteria.
 
-"""
-Client side implementation of search criteria.
-This module provides some easy factory
-methods to do common search operations. It also exposes
+This module provides some easy factory methods to do common search operations. It also exposes
 lower level RPC functionality for procedural searches.
 
 ==============
@@ -33,7 +31,7 @@ An example of a procedural search::
     s.shows.append("pipe")
     s.users.append("chambers")
     jobs = s.find()
-    
+
 A procedural example searching by regular expression::
 
     s = JobSearch()
@@ -74,50 +72,56 @@ __all__ = ["BaseSearch",
 
 
 class BaseSearch(object):
+    """Base class for searching."""
+
     def __init__(self, **options):
         self.options = options
 
     def search(self):
+        """Executes the search using the options provided at initiation."""
         return self.byOptions(**self.options)
 
     @classmethod
     def byOptions(cls, **options):
+        """Executes the search using the provided options."""
         raise NotImplementedError
 
 
 class ProcSearch(BaseSearch):
-    """See: help(opencue.getProcs)"""
-    def __init__(self, **options):
-        super(ProcSearch, self).__init__(**options)
+    """Class for searching for procs.
+
+    See: help(opencue.getProcs)"""
 
     @staticmethod
     def criteriaFromOptions(**options):
+        """Constructs a search criteria object for the given options."""
         return _setOptions(host_pb2.ProcSearchCriteria(), options)
 
     @classmethod
     def byOptions(cls, **options):
+        """Executes the search using the given options."""
         criteria = cls.criteriaFromOptions(**options)
         return Cuebot.getStub('proc').GetProcs(
             host_pb2.ProcGetProcsRequest(r=criteria), timeout=Cuebot.Timeout)
 
 
 class FrameSearch(BaseSearch):
+    """Class for searching for frames."""
 
     page = 1
     limit = 1000
     change_date = 0
 
-    def __init__(self, **options):
-        super(FrameSearch, self).__init__(**options)
-
     @classmethod
     def criteriaFromOptions(cls, **options):
+        """Constructs a search criteria object for the given options."""
         criteria = _setOptions(job_pb2.FrameSearchCriteria(), options)
         criteria.page = options.get('page', cls.page)
         criteria.limit = options.get('limit', cls.limit)
         criteria.change_date = options.get('change_date', cls.change_date)
         return criteria
 
+    # pylint: disable=arguments-differ
     @classmethod
     def byOptions(cls, job, **options):
         criteria = cls.criteriaFromOptions(**options)
@@ -126,15 +130,16 @@ class FrameSearch(BaseSearch):
 
     @classmethod
     def byRange(cls, job, val):
+        """Executes a search by frame range."""
         cls.byOptions(job, frame_range=val)
 
 
 class HostSearch(BaseSearch):
-    def __init__(self, **options):
-        super(HostSearch, self).__init__(**options)
+    """Class for searching for hosts."""
 
     @staticmethod
     def criteriaFromOptions(**options):
+        """Constructs a search criteria object for the given options."""
         return _setOptions(host_pb2.HostSearchCriteria(), options)
 
     @classmethod
@@ -146,31 +151,36 @@ class HostSearch(BaseSearch):
 
     @classmethod
     def byName(cls, val):
+        """Searches for a host by name."""
         return cls.byOptions(name=val)
 
     @classmethod
     def byRegex(cls, val):
+        """Searches for a host by regular expression."""
         return cls.byOptions(regex=val)
 
     @classmethod
     def byId(cls, val):
+        """Searches for a host by id."""
         return cls.byOptions(id=val)
 
     @classmethod
     def byMatch(cls, val):
+        """Searches for a host by substring match."""
         return cls.byOptions(substr=val)
 
     @classmethod
     def byAllocation(cls, val):
+        """Searches for a host by allocation."""
         return cls.byOptions(alloc=val)
 
 
 class JobSearch(BaseSearch):
-    def __init__(self, **options):
-        super(JobSearch, self).__init__(**options)
+    """Class for searching for jobs."""
 
     @staticmethod
     def criteriaFromOptions(**options):
+        """Constructs a search criteria object for the given options."""
         return _setOptions(job_pb2.JobSearchCriteria(), options)
 
     @classmethod
@@ -181,30 +191,37 @@ class JobSearch(BaseSearch):
 
     @classmethod
     def byName(cls, val):
+        """Searches for a job by name."""
         return cls.byOptions(job=val)
 
     @classmethod
     def byId(cls, val):
+        """Searches for a job by id."""
         return cls.byOptions(id=val)
 
     @classmethod
     def byRegex(cls, val):
+        """Searches for a job by regex."""
         return cls.byOptions(regex=val)
 
     @classmethod
     def byMatch(cls, val):
+        """Searches for a job by substring match."""
         return cls.byOptions(substr=val)
 
     @classmethod
     def byShow(cls, val):
+        """Searches for a job by show."""
         return cls.byOptions(show=val)
 
     @classmethod
     def byShot(cls, val):
+        """Searches for a job by shot."""
         return cls.byOptions(shots=val)
 
     @classmethod
     def byUser(cls, val):
+        """Searches for a job by user."""
         return cls.byOptions(user=val)
 
 
@@ -256,15 +273,17 @@ def _createCriterion(search, searchType, convert=None):
         criterion = getattr(criterion_pb2,
                             "GreaterThan%sSearchCriterion" % searchTypeStr)
         return criterion(_convert(search[2:]))
-    elif search.startswith("lt"):
+
+    if search.startswith("lt"):
         criterion = getattr(criterion_pb2,
                             "LessThan%sSearchCriterion" % searchTypeStr)
         return criterion(_convert(search[2:]))
-    elif search.find("-") > -1:
+
+    if search.find("-") > -1:
         criterion = getattr(criterion_pb2,
                             "InRange%sSearchCriterion" % searchTypeStr)
-        min, max = search.split("-")
-        return criterion(_convert(min), _convert(max))
+        min_range, max_range = search.split("-")
+        return criterion(_convert(min_range), _convert(max_range))
 
     raise ValueError("Unable to parse this format: %s" % search)
 
@@ -276,6 +295,7 @@ def _raiseIfNotType(searchOption, value, expectedType):
 
 
 def raiseIfNotList(searchOption, value):
+    """Raises an exception if the provided value is not a list."""
     _raiseIfNotType(searchOption, value, list)
 
 
