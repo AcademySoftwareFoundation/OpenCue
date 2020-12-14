@@ -23,6 +23,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+# pylint: disable=cyclic-import
 from . import search
 from . import util
 from opencue.compiled_proto import comment_pb2

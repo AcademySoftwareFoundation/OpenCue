@@ -19,6 +19,7 @@ from __future__ import division
 
 import logging
 
+# pylint: disable=cyclic-import
 from .cuebot import Cuebot
 from . import api
 from . import wrappers

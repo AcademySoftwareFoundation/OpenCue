@@ -48,15 +48,16 @@ Another procedural example::
         job.proxy.kill()
 
 """
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
-
 from builtins import object
 import logging
 
 import six
 
+# pylint: disable=cyclic-import
 from opencue.compiled_proto import criterion_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
