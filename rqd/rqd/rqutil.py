@@ -73,7 +73,7 @@ class Memoize(object):
 
 def permissionsHigh():
     """Sets the effective gid/uid to processes original values (root)"""
-    if platform.system() == "Windows":
+    if platform.system() == "Windows" or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     PERMISSIONS.acquire()
     os.setegid(os.getgid())
@@ -87,7 +87,7 @@ def permissionsHigh():
 def permissionsLow():
     """Sets the effective gid/uid to one with less permissions:
        RQD_GID and RQD_UID"""
-    if platform.system() in ('Windows', 'Darwin'):
+    if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     if os.getegid() != rqd.rqconstants.RQD_GID or os.geteuid() != rqd.rqconstants.RQD_UID:
         __becomeRoot()
@@ -100,7 +100,7 @@ def permissionsLow():
 
 def permissionsUser(uid, gid):
     """Sets the effective gid/uid to supplied values"""
-    if platform.system() in ('Windows', 'Darwin'):
+    if platform.system() in ('Windows', 'Darwin') or not rqd.rqconstants.RQD_BECOME_JOB_USER:
         return
     PERMISSIONS.acquire()
     __becomeRoot()
@@ -128,6 +128,8 @@ def __becomeRoot():
 def checkAndCreateUser(username):
     """Check to see if the provided user exists, if not attempt to create it."""
     # TODO(gregdenton): Add Windows and Mac support here. (Issue #61)
+    if not rqd.rqconstants.RQD_BECOME_JOB_USER:
+        return
     try:
         pwd.getpwnam(username)
         return

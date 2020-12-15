@@ -263,8 +263,11 @@ class FrameAttendantThread(threading.Thread):
 
         rqd.rqutil.permissionsHigh()
         try:
-            tempCommand += ["/bin/su", runFrame.user_name, rqd.rqconstants.SU_ARGUEMENT,
-                            '"' + self._createCommandFile(runFrame.command) + '"']
+            if rqd.rqconstants.RQD_BECOME_JOB_USER:
+                tempCommand += ["/bin/su", runFrame.user_name, rqd.rqconstants.SU_ARGUEMENT,
+                                '"' + self._createCommandFile(runFrame.command) + '"']
+            else:
+                tempCommand += [self._createCommandFile(runFrame.command)]
 
             # Actual cwd is set by /shots/SHOW/home/perl/etc/qwrap.cuerun
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
