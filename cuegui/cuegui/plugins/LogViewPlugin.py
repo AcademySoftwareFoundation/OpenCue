@@ -28,6 +28,7 @@ from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
+import cuegui.Constants
 import cuegui.AbstractDockWidget
 
 
@@ -362,6 +363,8 @@ class LogViewWidget(QtWidgets.QWidget):
         self._content_box.moveCursor(QtGui.QTextCursor.End)
         self._content_box.ensureCursorVisible()
 
+        self.highlighter = Highlighter(self._content_box.document())
+
         # Search
         search_top_widget = QtWidgets.QWidget(self)
         search_top_layout = QtWidgets.QVBoxLayout(search_top_widget)
@@ -376,6 +379,8 @@ class LogViewWidget(QtWidgets.QWidget):
         self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)
 
         self._search_box = QtWidgets.QLineEdit('', self)
+        self._search_box.setClearButtonEnabled(True)
+        self._search_box.setPlaceholderText('Search log...')
         search_layout.addWidget(self._search_box)
         self._search_box.show()
         self._search_box.editingFinished.connect(self._find_text)
@@ -862,3 +867,72 @@ class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
             self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.logview_widget = LogViewWidget(self)
         self.layout().addWidget(self.logview_widget)
+
+
+class Highlighter(QtGui.QSyntaxHighlighter):
+    def __init__(self, parent=None):
+        super(Highlighter, self).__init__(parent)
+
+        self.on = True
+
+        self.timeFormat = QtGui.QTextCharFormat()
+        self.timeFormat.setFontWeight(QtGui.QFont.Bold)
+        self.timeFormat.setForeground(cuegui.Style.ColorTheme.LOG_TIME)
+
+        self.errorFormat = QtGui.QTextCharFormat()
+        self.errorFormat.setFontWeight(QtGui.QFont.Bold)
+        self.errorFormat.setForeground(cuegui.Style.ColorTheme.LOG_ERROR)
+
+        self.warnFormat = QtGui.QTextCharFormat()
+        self.warnFormat.setFontWeight(QtGui.QFont.Bold)
+        self.warnFormat.setForeground(cuegui.Style.ColorTheme.LOG_WARNING)
+
+        self.infoFormat = QtGui.QTextCharFormat()
+        self.infoFormat.setFontWeight(QtGui.QFont.Bold)
+        self.infoFormat.setForeground(cuegui.Style.ColorTheme.LOG_INFO)
+
+        self.completeFormat = QtGui.QTextCharFormat()
+        self.completeFormat.setFontWeight(QtGui.QFont.Bold)
+        self.completeFormat.setForeground(cuegui.Style.ColorTheme.LOG_COMPLETE)
+
+
+    def highlightBlock(self, text):
+        if not self.on:
+            return
+
+        line = text.lower()
+        done = False
+
+        for error in cuegui.Constants.LOG_HIGHLIGHT_ERROR:
+            if error in line:
+                self.setFormat(0, len(text), self.errorFormat)
+                done = True
+                break
+
+        if not done:
+            for warn in cuegui.Constants.LOG_HIGHLIGHT_WARN:
+                if warn in line:
+                    self.setFormat(0, len(text), self.warnFormat)
+                    done = True
+                    break
+
+        if not done:
+            for info in cuegui.Constants.LOG_HIGHLIGHT_INFO:
+                if info in line:
+                    self.setFormat(0, len(text), self.infoFormat)
+                    done = True
+                    break
+
+        if 'alf_progress' in line:
+            sidx = line.index('alf_progress')
+            eidx = line.index('%')
+            self.setFormat(sidx, eidx + 1, self.infoFormat)
+
+        if ' | ' in line:
+            idx = line.index(' | ')
+            self.setFormat(0, idx, self.timeFormat)
+
+        if 'render job complete' in line:
+            self.setFormat(0, len(text), self.completeFormat)
+
+        self.setCurrentBlockState(0)
