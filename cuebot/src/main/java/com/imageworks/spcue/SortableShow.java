@@ -104,13 +104,15 @@ public class SortableShow implements Comparable<SortableShow> {
 
     @Override
     public boolean equals(Object other) {
-       try {
-         SortableShow that = (SortableShow) other;
-         return that.getShowId().equals(this.getShowId());
-       }
-       catch (ClassCastException e) {
-         return false;
-       }
+        if (other == null) {
+            return false;
+        }
+        try {
+            SortableShow that = (SortableShow) other;
+            return that.getShowId().equals(this.getShowId());
+        } catch (ClassCastException e) {
+            return false;
+        }
     }
 }
 
