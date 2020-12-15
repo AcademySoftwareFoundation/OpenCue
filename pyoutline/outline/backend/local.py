@@ -126,25 +126,26 @@ class Dispatcher(object):
         """
         Run the frames of the job in sequence and record the result.
         """
-        while True:
-            layer_key, frame = self.__get_next_frame()
-            if not frame:
-                break
-            layer = self.__ol.get_layer(layer_key)
+        try:
+            while True:
+                l, f = self.__get_next_frame()
+                layer = self.__ol.get_layer(l)
 
-            command = build_command(self.__ol, layer, frame)
-            try:
-                retcode = subprocess.call(command, shell=False)
-                if retcode != 0:
-                    raise LocalFrameError("frame failed")
-            except LocalFrameError:
-                c = self.__conn.cursor()
-                c.execute("UPDATE frames SET state=? WHERE layer=? AND frame=?",
-                          ('DEAD', layer_key, frame))
-                self.__conn.commit()
-
-        print("Job is done")
-        self.__conn.close()
+                command = build_command(self.__ol, layer, f)
+                try:
+                    retcode = subprocess.call(command, shell=False)
+                    if retcode != 0:
+                        raise LocalFrameError("frame failed")
+                except LocalFrameError:
+                    # Failed to run frame
+                    # Set frame to dead
+                    c = self.__conn.cursor()
+                    c.execute("UPDATE frames SET state=? WHERE layer=? AND frame=?",
+                              ('DEAD', l, f))
+                    self.__conn.commit()
+        finally:
+            print("Job is done")
+            self.__conn.close()
 
     def __create_dispatch_list(self):
         """
