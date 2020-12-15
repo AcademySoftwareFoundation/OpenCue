@@ -129,6 +129,9 @@ class Dispatcher(object):
         try:
             while True:
                 l, f = self.__get_next_frame()
+                if l is None and f is None:
+                    break
+
                 layer = self.__ol.get_layer(l)
 
                 command = build_command(self.__ol, layer, f)
