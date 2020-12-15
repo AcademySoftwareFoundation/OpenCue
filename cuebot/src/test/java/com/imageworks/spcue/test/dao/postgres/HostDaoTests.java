@@ -206,6 +206,45 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testInsertHostIPv61() {
+        String TEST_HOST_NEW = "::1";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostIPv62() {
+        String TEST_HOST_NEW = "ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:ABCD";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testInsertHostIPv63() {
+        String TEST_HOST_NEW = "ABCD:ABCD:ABCD:ABCD:ABCD:ABCD:192.168.100.180";
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST_NEW),
+                hostManager.getDefaultAllocationDetail(),
+                false);
+
+        HostEntity hostDetail = hostDao.findHostDetail(TEST_HOST_NEW);
+        assertEquals(TEST_HOST_NEW, hostDetail.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testInsertHostAlternateOS() {
 
         RenderHost host = buildRenderHost(TEST_HOST).toBuilder()
