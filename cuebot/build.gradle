@@ -162,3 +162,8 @@ sonarqube {
         property "sonar.issue.ignore.multicriteria.j1.resourceKey", "**/*.java"
     }
 }
+
+tasks.withType(AbstractArchiveTask) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
+}
