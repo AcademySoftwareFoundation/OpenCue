@@ -385,6 +385,10 @@ class Machine(object):
         """Sets the hosts tags"""
         self.__renderHost.tags.append("rqdv-%s" % rqd.rqconstants.VERSION)
 
+        if rqd.rqconstants.RQD_TAGS:
+            for tag in rqd.rqconstants.RQD_TAGS.split():
+                self.__renderHost.tags.append(tag)
+
         # Tag with desktop if it is a desktop
         if self.isDesktop():
             self.__renderHost.tags.append("desktop")
