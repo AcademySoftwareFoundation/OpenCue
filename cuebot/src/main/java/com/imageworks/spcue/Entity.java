@@ -63,8 +63,10 @@ public class Entity implements EntityInterface {
 
     @Override
     public boolean equals(Object other) {
-        return this.toString().equals(
-                other.toString());
+        if (other == null) {
+            return false;
+        }
+        return this.toString().equals(other.toString());
     }
 }
 

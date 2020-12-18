@@ -66,6 +66,7 @@ LAUNCH_FRAME_USER_GID = 20
 RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
+RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 
 KILL_SIGNAL = 9
@@ -113,6 +114,7 @@ OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
+OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
@@ -174,6 +176,8 @@ try:
             CUEBOT_HOSTNAME = config.get(__section, "OVERRIDE_CUEBOT")
         if config.has_option(__section, "OVERRIDE_NIMBY"):
             OVERRIDE_NIMBY = config.getboolean(__section, "OVERRIDE_NIMBY")
+        if config.has_option(__section, "OVERRIDE_HOSTNAME"):
+            OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):
             ALLOW_GPU = config.getboolean(__section, "GPU")
         if config.has_option(__section, "PLAYBLAST"):
@@ -182,6 +186,8 @@ try:
             LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
         if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_BECOME_JOB_USER"):
+            RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "DEFAULT_FACILITY"):
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):

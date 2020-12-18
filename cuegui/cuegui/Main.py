@@ -90,12 +90,16 @@ def startup(app_name, app_version, argv):
 
     config_path = "/.%s/config" % app_name.lower()
     settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
+    local = settings.fileName()
+    # If the user has chose to revert the layout. delete the file and copy the default back.
+    if settings.value('RevertLayout'):
+        os.remove(local)
+
     QtGui.qApp.settings = settings
 
     cuegui.Style.init()
 
-    # If the config file does not exist, copy over the default
-    local = settings.fileName()
+    # If the config file does not exist, copy over the default    
     if not os.path.exists(local):
         default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
         logger.warning('Not found: %s\nCopying:   %s' % (local, default))
