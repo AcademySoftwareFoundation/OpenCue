@@ -37,32 +37,42 @@ public class DispatchBookHost implements Runnable  {
     private JobInterface job = null;
     private DispatchHost host;
     private Dispatcher dispatcher;
+    private String key;
 
     public DispatchHost getDispatchHost() {
+        this.key = host.getId();
         return host;
     }
 
     public DispatchBookHost(DispatchHost host, Dispatcher d) {
         this.host = host;
+        this.key = host.getId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
         this.host = host;
         this.job = job;
+        this.key = host.getId() + "_job_" + job.getJobId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
         this.host = host;
         this.group = group;
+        this.key = host.getId() + "_group_" + group.getGroupId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
         this.host = host;
         this.show = show;
+        this.key = host.getId() + "_name_" + show.getName();
         this.dispatcher = d;
+    }
+
+    public String getKey() {
+        return this.key;
     }
 
     public void run() {

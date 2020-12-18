@@ -24,6 +24,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import org.apache.log4j.Logger;
 
 public class BookingQueue extends ThreadPoolExecutor {
@@ -41,6 +44,12 @@ public class BookingQueue extends ThreadPoolExecutor {
 
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
 
+    private Cache<String, DispatchBookHost> bookingCache = CacheBuilder.newBuilder()
+            .expireAfterWrite(3, TimeUnit.MINUTES)
+            // Invalidate entries that got executed by the threadpool and lost their reference
+            .weakValues()
+            .build();
+
     public BookingQueue(int sleepTimeMs) {
         super(THREADS_MINIMUM, THREADS_MAXIMUM, THREADS_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(INITIAL_QUEUE_SIZE));
@@ -48,8 +57,12 @@ public class BookingQueue extends ThreadPoolExecutor {
         this.setRejectedExecutionHandler(rejectCounter);
     }
 
-    public void execute(Runnable r) {
-        if (!isShutdown.get()) {
+    public void execute(DispatchBookHost r) {
+        if (isShutdown.get()) {
+            return;
+        }
+        if (bookingCache.getIfPresent(r.getKey()) == null){
+            bookingCache.put(r.getKey(), r);
             super.execute(r);
         }
     }
@@ -99,7 +112,13 @@ public class BookingQueue extends ThreadPoolExecutor {
 
     protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
+
+        // Invalidate cache to avoid having to wait for GC to mark processed entries collectible
+        DispatchBookHost h = (DispatchBookHost)r;
+        bookingCache.invalidate(h.getKey());
+
         if (sleepTime() < 100) {
+            logger.info("BookingQueue cleanup executed.");
             getQueue().clear();
         }
     }
