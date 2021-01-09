@@ -304,7 +304,11 @@ class Layer(with_metaclass(LayerType, object)):
 
     def get_env(self, key, default=None):
         """Get the value of the env var that will be set before execute."""
-        self.__env.get(key, default)
+        return self.__env.get(key, default)
+
+    def get_envs(self):
+        """Return all env."""
+        return self.__env
 
     def get_name(self):
         """Return the layer name."""
