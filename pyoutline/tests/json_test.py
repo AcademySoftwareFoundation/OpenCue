@@ -22,7 +22,9 @@ from __future__ import division
 import mock
 import os
 import unittest
+from xml.etree import ElementTree as Et
 
+import outline
 from outline import load_json
 from . import test_utils
 
@@ -40,6 +42,7 @@ class JsonTest(unittest.TestCase):
                  '"layers": [{'
                     '"name": "layer_1", '
                     '"module": "outline.modules.shell.Shell", '
+                    '"env": {"LAYER_KEY": "LAYER_VALUE"}, '
                     '"command": ["/bin/ls"]'
                  '}]'
              '}')
@@ -48,16 +51,25 @@ class JsonTest(unittest.TestCase):
         self.assertEqual('test_job', ol.get_name())
         self.assertEqual('1-10', ol.get_frame_range())
 
+        l = outline.cuerun.OutlineLauncher(ol)
+        root = Et.fromstring(l.serialize())
+        env = root.find('job/layers/layer/env/key[@name="LAYER_KEY"]')
+        self.assertEqual('LAYER_VALUE', env.text)
+
     @mock.patch('outline.layer.Layer.system')
+    @mock.patch.dict(os.environ, {}, clear=True)
     def testJsonFile(self, systemMock):
         """Load JSON from a file"""
         with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
             ol = load_json(fp.read())
         with test_utils.TemporarySessionDirectory():
             ol.setup()
-            ol.get_layer('shell_layer').execute('1000')
+            layer = ol.get_layer('shell_layer')
+            self.assertEqual('LAYER_VALUE', layer.get_env('LAYER_KEY'))
+            layer.execute('1000')
 
             systemMock.assert_has_calls([mock.call(['/bin/ls'], frame=1000)])
+            self.assertEqual('LAYER_VALUE', os.environ['LAYER_KEY'])
 
 
 if __name__ == '__main__':
