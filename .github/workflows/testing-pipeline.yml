@@ -58,3 +58,11 @@ jobs:
       - uses: actions/checkout@v2
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
+
+  check_migration_files:
+    name: Check Database Migration Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check Migration Files
+        run: ci/check_database_migrations.py
