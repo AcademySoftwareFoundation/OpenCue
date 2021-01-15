@@ -76,4 +76,4 @@ jobs:
         id: get_changed_files
         uses: jitterbit/get-changed-files@v1
       - name: Check for Version Change
-        run: ci/check_version_bump.py
+        run: ci/check_version_bump.py ${{ steps.get_changed_files.outputs.all }}
