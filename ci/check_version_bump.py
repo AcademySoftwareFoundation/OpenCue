@@ -4,6 +4,11 @@
 
 Checks are based on which files have been changed, indicating potential incompatibility
 between versions.
+
+This script is meant to be run in the context or GitHub Actions, and expects all changed files
+to be passed via commandline, like:
+
+  $ ci/check_version_bump.py file/that/was/changed.txt other/file/changed.py
 """
 
 import fnmatch
@@ -12,6 +17,8 @@ import sys
 
 FILES_CAUSING_INCOMPATIBILITY = [
     'cuebot/src/main/resources/conf/ddl/postgres/migrations/*.sql',
+    'cuebot/src/main/resources/public/dtd/*.dtd',
+    'proto/*.proto',
 ]
 
 VERSION_FILE = 'VERSION.in'
@@ -24,8 +31,6 @@ def main():
     version_file_updated = False
 
     for changed_file in changed_files:
-        print('changed file: %s' % changed_file)
-
         if changed_file == VERSION_FILE:
             version_file_updated = True
 
