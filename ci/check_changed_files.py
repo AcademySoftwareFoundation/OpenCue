@@ -5,7 +5,7 @@
 This script is meant to be run in the context or GitHub Actions, and expects all changed files
 to be passed via commandline, like:
 
-  $ ci/check_version_bump.py file/that/was/changed.txt other/file/changed.py
+  $ ci/check_changed_files.py file/that/was/changed.txt other/file/changed.py
 """
 
 import fnmatch
