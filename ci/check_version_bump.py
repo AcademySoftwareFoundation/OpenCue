@@ -40,8 +40,8 @@ def main():
 
     if violating_files and not version_file_updated:
         print(
-            'Files were changed which indicate version incompatibility, but the OpenCue minor '
-            'version number was not updated.')
+            'Files were added or changed which indicate version incompatibility, but the OpenCue '
+            'minor version number was not updated.')
         print('Please update VERSION.in and increment the minor version number.')
         print('Violating files: \n  %s' % '\n  '.join(violating_files))
         sys.exit(1)

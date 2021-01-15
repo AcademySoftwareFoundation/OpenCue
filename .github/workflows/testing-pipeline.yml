@@ -59,6 +59,17 @@ jobs:
       - name: Run Sphinx build
         run: ci/build_sphinx_docs.sh
 
+  check_changed_files:
+    name: Check Changed Files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Get Changed Files
+        id: get_changed_files
+        uses: jitterbit/get-changed-files@v1
+      - name: Check for Version Change
+        run: ci/check_changed_files.py ${{ steps.get_changed_files.outputs.modified }} ${{ steps.get_changed_files.outputs.removed }}
+
   check_migration_files:
     name: Check Database Migration Files
     runs-on: ubuntu-latest
