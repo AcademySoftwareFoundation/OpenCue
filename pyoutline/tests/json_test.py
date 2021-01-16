@@ -42,7 +42,7 @@ class JsonTest(unittest.TestCase):
                  '"layers": [{'
                     '"name": "layer_1", '
                     '"module": "outline.modules.shell.Shell", '
-                    '"env": {"LAYER_KEY": "LAYER_VALUE"}, '
+                    '"env": {"LAYER_KEY1": "LAYER_VALUE1"}, '
                     '"command": ["/bin/ls"]'
                  '}]'
              '}')
@@ -50,11 +50,16 @@ class JsonTest(unittest.TestCase):
         ol = load_json(s)
         self.assertEqual('test_job', ol.get_name())
         self.assertEqual('1-10', ol.get_frame_range())
+        self.assertEqual('LAYER_VALUE1', ol.get_layer('layer_1').get_env('LAYER_KEY1'))
+
+        ol.get_layer('layer_1').set_env('LAYER_KEY2', 'LAYER_VALUE2')
 
         l = outline.cuerun.OutlineLauncher(ol)
         root = Et.fromstring(l.serialize())
-        env = root.find('job/layers/layer/env/key[@name="LAYER_KEY"]')
-        self.assertEqual('LAYER_VALUE', env.text)
+        env1 = root.find('job/layers/layer/env/key[@name="LAYER_KEY1"]')
+        self.assertEqual('LAYER_VALUE1', env1.text)
+        env2 = root.find('job/layers/layer/env/key[@name="LAYER_KEY2"]')
+        self.assertEqual('LAYER_VALUE2', env2.text)
 
     @mock.patch('outline.layer.Layer.system')
     @mock.patch.dict(os.environ, {}, clear=True)
