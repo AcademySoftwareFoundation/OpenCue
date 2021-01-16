@@ -296,7 +296,7 @@ def _serialize(launcher, use_pycuerun):
 
         layer_env = Et.SubElement(spec_layer, "env")
         for env_k, env_v in layer.get_envs().items():
-            pair = Et.SubElement(layer_env, "key", {"name": env_k})
+            pair = Et.SubElement(layer_env, "key", {"name": "{}".format(env_k)})
             pair.text = env_v
 
         services = Et.SubElement(spec_layer, "services")
