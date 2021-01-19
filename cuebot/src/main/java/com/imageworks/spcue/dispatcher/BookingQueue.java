@@ -93,6 +93,7 @@ public class BookingQueue extends ThreadPoolExecutor {
                 Thread.sleep(sleepTime());
             } catch (InterruptedException e) {
                 logger.info("booking queue was interrupted.");
+                Thread.currentThread().interrupt();
             }
         }
     }
