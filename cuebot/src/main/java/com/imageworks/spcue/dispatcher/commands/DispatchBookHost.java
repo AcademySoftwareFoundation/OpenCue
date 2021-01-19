@@ -106,12 +106,11 @@ public class DispatchBookHost implements Runnable  {
         if (other == null) {
             return false;
         }
-        try {
-            DispatchBookHost that = (DispatchBookHost) other;
-            return that.host.name.equals(host.name);
-        } catch (ClassCastException e) {
+        if (this.getClass() != other.getClass()) {
             return false;
         }
+        DispatchBookHost that = (DispatchBookHost) other;
+        return that.host.name.equals(host.name);
     };
 }
 
