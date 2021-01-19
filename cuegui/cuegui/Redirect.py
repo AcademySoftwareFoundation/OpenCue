@@ -494,11 +494,11 @@ class RedirectWidget(QtWidgets.QWidget):
         show_obj = opencue.api.findShow(show)
         show_subs = dict((s.data.name.rstrip('.%s' % show), s)
                          for s in show_obj.getSubscriptions()
-                         if s.data.allocationName in alloc)
+                         if s.data.allocation_name in alloc)
         try:
             procs_to_burst = (show_subs.get(alloc).data.burst -
-                              show_subs.get(alloc).data.reservedCores)
-            procs_to_redirect = int(sum([p.data.reservedCores
+                              show_subs.get(alloc).data.reserved_cores)
+            procs_to_redirect = int(sum([p.data.reserved_cores
                                          for p in procs]))
             wasted_cores = int(procs_to_redirect - procs_to_burst)
             if wasted_cores <= wc_ok:
@@ -571,6 +571,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 host = entry["host"]
                 host.redirectToJob(procs, job)
             except Exception as e:
+                print(e)
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
             item.setEnabled(False)
@@ -605,7 +606,7 @@ class RedirectWidget(QtWidgets.QWidget):
 
         show = self.__controls.getShow()
         alloc = self.__controls.getAllocFilter()
-        procs = opencue.api.getProcs(show=show.data.name, alloc=alloc.getSelected())
+        procs = opencue.api.getProcs(show=[str(show.data.name)], alloc=alloc.getSelected())
 
         progress = QtWidgets.QProgressDialog("Searching","Cancel", 0,
                                          self.__controls.getLimit(), self)
@@ -616,21 +617,21 @@ class RedirectWidget(QtWidgets.QWidget):
                 break
 
             # Stick with the target show
-            if proc.data.showName != show.data.name:
+            if proc.data.show_name != show.data.name:
                 continue
 
-            if proc.data.jobName == str(self.__controls.getJob()):
+            if proc.data.job_name == str(self.__controls.getJob()):
                 continue
 
             # Skip over already redirected procs
-            if proc.data.redirectTarget:
+            if proc.data.redirect_target:
                 continue
 
             if ok >= self.__controls.getLimit():
                 break
 
             if job_regex:
-                if re.match(job_regex, proc.data.jobName):
+                if re.match(job_regex, proc.data.job_name):
                     continue
 
             if service_filter:
@@ -638,7 +639,7 @@ class RedirectWidget(QtWidgets.QWidget):
                     continue
 
             if group_filter:
-                if proc.data.groupName not in group_filter:
+                if proc.data.group_name not in group_filter:
                     continue
 
             name = proc.data.name.split("/")[0]
@@ -647,20 +648,20 @@ class RedirectWidget(QtWidgets.QWidget):
                 hosts[name] = {
                                "host": cue_host,
                                "procs":[],
-                               "mem": cue_host.data.idleMemory,
-                               "cores": int(cue_host.data.idleCores),
+                               "mem": cue_host.data.idle_memory,
+                               "cores": int(cue_host.data.idle_cores),
                                "time": 0,
                                "ok": False,
-                               'alloc': cue_host.data.allocName}
+                               'alloc': cue_host.data.alloc_name}
 
             host = hosts[name]
             if host["ok"]:
                 continue
 
             host["procs"].append(proc)
-            host["mem"] = host["mem"] + proc.data.reservedMemory
-            host["cores"] = host["cores"] + proc.data.reservedCores
-            host["time"] = host["time"] + (int(time.time()) - proc.data.dispatchTime);
+            host["mem"] = host["mem"] + proc.data.reserved_memory
+            host["cores"] = host["cores"] + proc.data.reserved_cores
+            host["time"] = host["time"] + (int(time.time()) - proc.data.dispatch_time);
 
             if host["cores"] >= self.__controls.getCores() and \
                 host["mem"] >= self.__controls.getMemory() and \
@@ -689,12 +690,12 @@ class RedirectWidget(QtWidgets.QWidget):
                                QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(rtime))])
 
         for proc in procs:
-            checkbox.appendRow([QtGui.QStandardItem(proc.data.jobName),
-                                QtGui.QStandardItem(str(proc.data.reservedCores)),
-                                QtGui.QStandardItem("%0.2fGB" % (proc.data.reservedMemory / 1048576.0)),
+            checkbox.appendRow([QtGui.QStandardItem(proc.data.job_name),
+                                QtGui.QStandardItem(str(proc.data.reserved_cores)),
+                                QtGui.QStandardItem("%0.2fGB" % (proc.data.reserved_memory / 1048576.0)),
                                 QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(time.time() -
-                                                                          proc.data.dispatchTime)),
-                                QtGui.QStandardItem(proc.data.groupName),
+                                                                          proc.data.dispatch_time)),
+                                QtGui.QStandardItem(proc.data.group_name),
                                 QtGui.QStandardItem(",".join(proc.data.services))])
 
         self.__tree.setExpanded(self.__model.indexFromItem(checkbox), True)

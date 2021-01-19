@@ -105,6 +105,7 @@ public class DispatchQueue {
                     }
                     Thread.sleep(250);
                 } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
                     break;
                 }
             }

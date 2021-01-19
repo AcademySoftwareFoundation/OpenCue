@@ -1214,7 +1214,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         (int) (rs.getLong("int_clock_time_success") / statsBuilder.getRenderedFrameCount()));
                 statsBuilder.setAvgCoreSec(
                         (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
-                statsBuilder.setRemainingCoreSec(statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+                statsBuilder.setRemainingCoreSec(
+                        (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
             }
             else {
                 statsBuilder.setAvgFrameSec(0);
@@ -1274,7 +1275,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         statsBuilder.setAvgCoreSec(
                             (int) (statsBuilder.getRenderedCoreSec() / statsBuilder.getRenderedFrameCount()));
                         statsBuilder.setRemainingCoreSec(
-                                statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
+                            (long) statsBuilder.getPendingFrames() * statsBuilder.getAvgCoreSec());
                     }
                     else {
                         statsBuilder.setAvgFrameSec(0);

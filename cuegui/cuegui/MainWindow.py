@@ -240,6 +240,11 @@ class MainWindow(QtWidgets.QMainWindow):
         saveWindowSettings.triggered.connect(self.__saveSettings)
         menu.addAction(saveWindowSettings)
 
+        # Menu Bar: Window -> Revert To Default Window Layout
+        revertWindowSettings = QtWidgets.QAction("Revert To Default Window Layout", self)
+        revertWindowSettings.triggered.connect(self.__revertLayout)
+        menu.addAction(revertWindowSettings)
+
         menu.addSeparator()
 
         # Load list of window titles
@@ -422,3 +427,15 @@ class MainWindow(QtWidgets.QMainWindow):
                                self.size())
         self.settings.setValue("%s/Position" % self.name,
                                self.pos())
+        
+    def __revertLayout(self):
+        """Revert back to default window layout"""
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Restart required ",
+                    "You must restart for this action to take effect, close window?: ",
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes:
+            self.settings.setValue("RevertLayout", True)
+            self.__windowCloseApplication()

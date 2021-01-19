@@ -88,6 +88,18 @@ class Host(object):
                                       timeout=Cuebot.Timeout)
         return [opencue.wrappers.proc.Proc(p) for p in response.procs.procs]
 
+    def redirectToJob(self, procs, job):
+        """Unbooks and redirects the proc to the specified job.  Optionally
+        kills the proc immediately.
+
+        :param procs: list<opencue.wrappers.proc.Proc>
+        :param job: job id
+        """
+        self.stub.RedirectToJob(
+            host_pb2.HostRedirectToJobRequest(host=self.data,
+                                              proc_names=[proc.data.id for proc in procs],
+                                              job_id=job.data.id), timeout=Cuebot.Timeout)
+
     def getRenderPartitions(self):
         """Returns a list of render partitions associated with this host
 

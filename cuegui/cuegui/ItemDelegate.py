@@ -293,6 +293,12 @@ class JobProgressBarDelegate(AbstractDelegate):
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB:
             # This is a lot of data calls to build this one item
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
+
+            complete_tasks = frameStateTotals[opencue.api.job_pb2.SUCCEEDED]
+            total_tasks = sum([i for i in frameStateTotals.values()])
+            proc = float(complete_tasks) * 100 / float(total_tasks)
+            line = "{0:d} % ({1:d}/{2:d})".format(int(proc), int(complete_tasks), int(total_tasks))
+            
             state = index.data(QtCore.Qt.UserRole + 2)
             paused = index.data(QtCore.Qt.UserRole + 3)
 
@@ -302,15 +308,11 @@ class JobProgressBarDelegate(AbstractDelegate):
                     self._drawProgressBar(painter,
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
-                    if state == opencue.api.job_pb2.FINISHED:
-                        painter.setPen(QtCore.Qt.black)
-                        painter.drawText(option.rect, 0, "Finished")
-                    elif paused:
-                        painter.setPen(QtCore.Qt.blue)
-                        painter.drawText(option.rect, 0, "Paused")
+                    painter.setPen(QtCore.Qt.black)
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, line)
                 except Exception as e:
                     painter.setPen(QtCore.Qt.red)
-                    painter.drawText(option.rect, 0, "Gui Error")
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, "Gui Error")
             finally:
                 painter.restore()
                 del painter

@@ -100,6 +100,7 @@ public class JobManagerSupport {
                 } catch (InterruptedException e1) {
                     logger.info(job.getName() + "/" + job.getId() +
                             " shutdown thread was interrupted.");
+                    Thread.currentThread().interrupt();
                 }
 
                 FrameSearchInterface search = frameSearchFactory.create(job);

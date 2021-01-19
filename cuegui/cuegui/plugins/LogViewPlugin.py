@@ -108,8 +108,8 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.copy_action = QtWidgets.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
-        self.copy_action.triggered.connect(lambda triggered, i=0:
-                                           self.copy_selection(0))
+        self.copy_action.triggered[bool].connect(lambda triggered:
+            self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
     def context_menu(self):
@@ -159,7 +159,6 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
                                                 QtGui.QClipboard.Selection = Selection (middle-mouse))
         @type mode: int
         """
-
         selection = self.textCursor().selection()
         QtWidgets.QApplication.clipboard().setText('', mode)
         QtWidgets.QApplication.clipboard().setText(selection.toPlainText(), mode)
