@@ -32,7 +32,7 @@ import sqlite3
 import FileSequence
 
 import outline
-import outline.versions.main
+import outline.versions
 
 
 def build_command(ol, layer, frame):
@@ -52,8 +52,8 @@ def build_command(ol, layer, frame):
     command.append(ol.get_shot())
     command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
     command.append("%s -e  %d-%s" % (ol.get_path(),  frame, layer.get_name()))
-    command.append(" -v %s" % outline.versions.main.get_version("outline"))
-    command.append(" -r %s" % outline.versions.main.get_repos())
+    command.append(" -v %s" % outline.versions.get_version("outline"))
+    command.append(" -r %s" % outline.versions.get_repos())
     command.append("-D")
 
     return command

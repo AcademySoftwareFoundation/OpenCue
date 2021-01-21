@@ -91,8 +91,8 @@ def build_command(launcher, layer):
     command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
-    command.append("--version %s" % outline.versions.main.get_version("outline"))
-    command.append("--repos %s" % outline.versions.main.get_repos())
+    command.append("--version %s" % outline.versions.get_version("outline"))
+    command.append("--repos %s" % outline.versions.get_repos())
     command.append("--debug")
 
     if launcher.get("dev"):

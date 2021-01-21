@@ -24,7 +24,6 @@ import os
 import unittest
 
 import outline
-import outline.exception
 
 
 SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
@@ -69,7 +68,7 @@ class SessionTest(unittest.TestCase):
 
         # Getting a file that doesn't exist should raise SessionException
         # Unless the new flag is passed in.
-        self.assertRaises(outline.exception.SessionException, layer.get_file, "foo.bar")
+        self.assertRaises(outline.SessionException, layer.get_file, "foo.bar")
 
         path = layer.get_file("foo.bar", new=True)
         self.assertEqual("%s/foo.bar" % layer.get_path(), path)
@@ -77,7 +76,7 @@ class SessionTest(unittest.TestCase):
         # If the file already exists, new should throw an exception
         layer.put_file(self.script_path)
         self.assertRaises(
-            outline.exception.SessionException, layer.get_file, "shell.outline", new=True)
+            outline.SessionException, layer.get_file, "shell.outline", new=True)
 
     def test_get_unchecked_file(self):
         """Tests the new option for the get_file method. """

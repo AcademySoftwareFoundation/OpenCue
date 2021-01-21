@@ -33,9 +33,7 @@ import future.types
 import mock
 
 import outline
-import outline.exception
 import outline.io
-import outline.layer
 import outline.modules.shell
 
 from . import test_utils
@@ -52,7 +50,7 @@ class CompositeTest(unittest.TestCase):
 
     def setUp(self):
         self.ol = outline.Outline()
-        self.layer = outline.layer.Layer("composite")
+        self.layer = outline.Layer("composite")
         self.ol.add_layer(self.layer)
 
         self.layer.add_child(outline.modules.shell.Shell("blah1", command=["ls", "-l"]))
@@ -61,7 +59,7 @@ class CompositeTest(unittest.TestCase):
 
         self.event = self.ol.get_layer("composite")
 
-    @mock.patch('outline.layer.Layer.system')
+    @mock.patch('outline.Layer.system')
     def test_execute(self, systemMock):
         """Run the execute method."""
         with test_utils.TemporarySessionDirectory():
@@ -196,20 +194,20 @@ class LayerTest(unittest.TestCase):
         intArgName = 'some-int-arg'
         self.layer.require_arg(intArgName, int)
         self.assertRaises(
-            outline.exception.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
+            outline.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
         self.layer.set_arg(intArgName, 872)
 
         if sys.version_info[0] >= 3:
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.exception.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, dict())
             self.layer.set_arg(strArgName, 'py3-string')
         else:
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.exception.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, dict())
             self.layer.set_arg(strArgName, 'standard-py2-string')
             self.layer.set_arg(strArgName, u'py2-unicode')
             self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
@@ -217,7 +215,7 @@ class LayerTest(unittest.TestCase):
             newstrArgName = 'some-newstr-arg'
             self.layer.require_arg(newstrArgName, future.types.newstr)
             self.assertRaises(
-                outline.exception.LayerException, self.layer.set_arg, newstrArgName, dict())
+                outline.LayerException, self.layer.set_arg, newstrArgName, dict())
             self.layer.set_arg(newstrArgName, 'standard-py2-string')
             self.layer.set_arg(newstrArgName, u'py2-unicode')
             self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
@@ -229,7 +227,7 @@ class LayerTest(unittest.TestCase):
         setup() is run.
         """
         self.layer.require_arg('bobofet')
-        self.assertRaises(outline.exception.LayerException, self.layer.check_required_args)
+        self.assertRaises(outline.LayerException, self.layer.check_required_args)
         self.layer.set_arg('bobofet', 1)
         self.layer.check_required_args()
 
@@ -252,7 +250,7 @@ class LayerTest(unittest.TestCase):
     def test_get_path(self):
         """Test that the layer session path is correct."""
         with test_utils.TemporarySessionDirectory():
-            self.assertRaises(outline.exception.OutlineException, self.layer.get_path)
+            self.assertRaises(outline.OutlineException, self.layer.get_path)
             self.ol.setup()
             expectedPath = '%s/layers/%s' % (
                 self.ol.get_session().get_path(), self.layer.get_name())
@@ -263,7 +261,7 @@ class LayerTest(unittest.TestCase):
         with test_utils.TemporarySessionDirectory():
             self.layer.setup()
 
-    @mock.patch('outline.layer.Layer.system')
+    @mock.patch('outline.Layer.system')
     def test_execute(self, systemMock):
         """Test execution of a frame."""
         os.environ = {}
@@ -364,7 +362,7 @@ class LayerTest(unittest.TestCase):
             self.ol.setup()
 
             self.assertRaises(
-                outline.exception.LayerException, self.layer.set_name, 'this-should-fail')
+                outline.LayerException, self.layer.set_name, 'this-should-fail')
 
 
 class OutputRegistrationTest(unittest.TestCase):
@@ -386,7 +384,7 @@ class OutputRegistrationTest(unittest.TestCase):
             layer1 = TestA("test1")
 
             # the preprocess
-            prelayer = outline.layer.LayerPreProcess(layer1)
+            prelayer = outline.LayerPreProcess(layer1)
             prelayer._execute = lambda frames: prelayer.add_output(
                 "test", outline.io.FileSpec("/tmp/foo.#.exr"))
 
@@ -409,25 +407,25 @@ class OutputRegistrationTest(unittest.TestCase):
             self.assertEqual(1, len(layer1.get_outputs()))
 
 
-class TestAfterInit(outline.layer.Layer):
+class TestAfterInit(outline.Layer):
     def __init__(self, name, **args):
-        outline.layer.Layer.__init__(self, name, **args)
+        outline.Layer.__init__(self, name, **args)
 
     def after_init(self, ol):
         self.set_arg("after_init", True)
 
 
-class TestA(outline.layer.Layer):
+class TestA(outline.Layer):
     def __init__(self, name, **args):
-        outline.layer.Layer.__init__(self, name, **args)
+        outline.Layer.__init__(self, name, **args)
 
     def setup(self):
         self.get_outline().add_layer(TestB("test_b"))
 
 
-class TestB(outline.layer.Layer):
+class TestB(outline.Layer):
     def __init__(self, name, **args):
-        outline.layer.Layer.__init__(self, name, **args)
+        outline.Layer.__init__(self, name, **args)
         self.is_setup = False
 
     def setup(self):

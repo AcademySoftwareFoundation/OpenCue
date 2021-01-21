@@ -28,9 +28,7 @@ import FileSequence
 
 import outline
 import outline.cuerun
-import outline.exception
 import outline.modules.shell
-import outline.session
 from . import test_utils
 
 
@@ -150,11 +148,11 @@ class OutlineTest(unittest.TestCase):
             # The session is only available once the outline has been "setup"
             # Attempting to obtain the session before setup raises an
             # OutlineException because the session directory does not exist.
-            self.assertRaises(outline.exception.OutlineException, ol.get_session)
+            self.assertRaises(outline.OutlineException, ol.get_session)
 
             ol.setup()
 
-            self.assertTrue(isinstance(ol.get_session(), outline.session.Session))
+            self.assertTrue(isinstance(ol.get_session(), outline.Session))
 
     def test_get_set_frame_range(self):
         with test_utils.TemporarySessionDirectory():
