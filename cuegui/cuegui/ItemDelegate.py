@@ -165,34 +165,37 @@ class JobBookingBarDelegate(AbstractDelegate):
 
                 rect = option.rect.adjusted(12, 6, -12, -6)
 
-                jobMin = int(job.data.minCores * 100)
-                jobMax = int(job.data.maxCores * 100)
-                jobRunning = job.data.runningFrames
-                jobWaiting = job.data.waitingFrames
-
                 painter.save()
                 try:
                     self._drawBackground(painter, option, index)
 
                     try:
+                        jobRunning = job.data.job_stats.running_frames
+                        jobWaiting = job.data.job_stats.waiting_frames
+                        try:
+                            cores_per_frame = float(job.data.job_stats.reserved_cores / jobRunning)
+                        except:
+                            cores_per_frame = float(6 / 1)
+                        jobMin = int(job.data.min_cores / cores_per_frame)
+                        jobMax = int(job.data.max_cores / cores_per_frame)
                         ratio = rect.width() / float(jobRunning + jobWaiting)
 
                         if jobWaiting:
                             painter.fillRect(
                                 rect.adjusted(0, 2, 0, -2),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Waiting])
+                                RGB_FRAME_STATE[opencue.api.job_pb2.WAITING])
 
                         if jobRunning:
                             painter.fillRect(
                                 rect.adjusted(0, 0, -int(ceil(ratio * jobWaiting)), 0),
-                                RGB_FRAME_STATE[opencue.api.job_pb2.FrameState.Running])
+                                RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING])
 
-                        painter.setPen(QtCore.Qt.blue)
+                        painter.setPen(cuegui.Style.ColorTheme.PAUSE_ICON_COLOUR)
                         x = min(rect.x() + ratio * jobMin, option.rect.right() - 9)
                         painter.drawLine(x, option.rect.y(), x,
                                          option.rect.y() + option.rect.height())
 
-                        painter.setPen(QtCore.Qt.red)
+                        painter.setPen(cuegui.Style.ColorTheme.KILL_ICON_COLOUR)
                         x = min(rect.x() + ratio * jobMax, option.rect.right() - 6)
                         painter.drawLine(x, option.rect.y(), x,
                                          option.rect.y() + option.rect.height())
@@ -200,13 +203,61 @@ class JobBookingBarDelegate(AbstractDelegate):
                     except ZeroDivisionError:
                         pass
 
-                    if option.state & QtWidgets.QStyle.State_Selected:
-                        self._drawSelectionOverlay(painter, option)
                 finally:
                     painter.restore()
                     del painter
         else:
             AbstractDelegate.paint(self, painter, option, index)
+
+
+class SubBookingBarDelegate(AbstractDelegate):
+    def __init__(self, parent, *args):
+        AbstractDelegate.__init__(self, parent, *args)
+
+    def paint(self, painter, option, index):
+        # This itemFromIndex could cause problems
+        sub = self.parent().itemFromIndex(index).rpcObject
+
+        # The total allocation core count x 100 to match sub value
+        alloc_obj = index.data(QtCore.Qt.DisplayRole)
+        alloc_size = (alloc_obj.data.stats.cores) * 100
+
+        rect = option.rect.adjusted(12, 6, -12, -6)
+        painter.save()
+        try:
+            self._drawBackground(painter, option, index)
+            try:
+                subRunning = sub.data.reserved_cores
+                subMin = int(sub.data.size)
+                subMax = int(sub.data.burst)
+                ratio = rect.width() / alloc_size
+
+                if alloc_size:
+                    painter.fillRect(
+                        rect.adjusted(0, 2, 0, -2),
+                        RGB_FRAME_STATE[opencue.api.job_pb2.WAITING])
+
+                if subRunning:
+                    painter.fillRect(
+                        rect.adjusted(0, 0, -int(ceil(ratio * (alloc_size - subRunning))), 0),
+                        RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING])
+
+                painter.setPen(cuegui.Style.ColorTheme.PAUSE_ICON_COLOUR)
+                x = min(rect.x() + ratio * subMin, option.rect.right() - 9)
+                painter.drawLine(x, option.rect.y(), x,
+                                    option.rect.y() + option.rect.height())
+
+                painter.setPen(cuegui.Style.ColorTheme.KILL_ICON_COLOUR)
+                x = min(rect.x() + ratio * subMax, option.rect.right() - 6)
+                painter.drawLine(x, option.rect.y(), x,
+                                    option.rect.y() + option.rect.height())
+
+            except ZeroDivisionError:
+                pass
+
+        finally:
+            painter.restore()
+            del painter
 
 
 class JobThinProgressBarDelegate(AbstractDelegate):
@@ -242,6 +293,12 @@ class JobProgressBarDelegate(AbstractDelegate):
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB:
             # This is a lot of data calls to build this one item
             frameStateTotals = index.data(QtCore.Qt.UserRole + 1)
+
+            complete_tasks = frameStateTotals[opencue.api.job_pb2.SUCCEEDED]
+            total_tasks = sum([i for i in frameStateTotals.values()])
+            proc = float(complete_tasks) * 100 / float(total_tasks)
+            line = "{0:d} % ({1:d}/{2:d})".format(int(proc), int(complete_tasks), int(total_tasks))
+            
             state = index.data(QtCore.Qt.UserRole + 2)
             paused = index.data(QtCore.Qt.UserRole + 3)
 
@@ -251,15 +308,11 @@ class JobProgressBarDelegate(AbstractDelegate):
                     self._drawProgressBar(painter,
                                           option.rect.adjusted(0, 2, 0, -2),
                                           frameStateTotals)
-                    if state == opencue.api.job_pb2.FINISHED:
-                        painter.setPen(QtCore.Qt.black)
-                        painter.drawText(option.rect, 0, "Finished")
-                    elif paused:
-                        painter.setPen(QtCore.Qt.blue)
-                        painter.drawText(option.rect, 0, "Paused")
+                    painter.setPen(QtCore.Qt.black)
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, line)
                 except Exception as e:
                     painter.setPen(QtCore.Qt.red)
-                    painter.drawText(option.rect, 0, "Gui Error")
+                    painter.drawText(option.rect, QtCore.Qt.AlignCenter, "Gui Error")
             finally:
                 painter.restore()
                 del painter

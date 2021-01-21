@@ -105,7 +105,7 @@ public class RedirectService   {
                 continue;
             }
             catch (DuplicateKeyException e) {
-                if (e.getMessage().contains("C_REDIRECT_PK")) {
+                if (e.getMessage() != null && e.getMessage().contains("C_REDIRECT_PK")) {
                     // MERGE statement race lost; try again.
                     txManager.rollback(status);
                     continue;

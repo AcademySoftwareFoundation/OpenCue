@@ -202,7 +202,7 @@ public class JobSpec {
         uid = Optional.ofNullable(rootElement.getChildTextTrim("uid")).map(Integer::parseInt);
         email = rootElement.getChildTextTrim("email");
 
-        if (user == "root" || uid.equals(Optional.of(0))) {
+        if (user.equals("root") || uid.equals(Optional.of(0))) {
             throw new SpecBuilderException("Cannot launch jobs as root.");
         }
     }

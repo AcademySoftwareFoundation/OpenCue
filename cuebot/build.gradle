@@ -153,5 +153,23 @@ sonarqube {
                                               "src/main/java/com/imageworks/spcue/dao/criteria/oracle/**"
         // NOTE: sonar.login must be provided manually, like:
         //   ./gradlew sonarqube -Dsonar.login=<login key>
+
+        property "sonar.issue.ignore.multicriteria", "j1,j2"
+
+        // Incompatible @Transactional requirements
+        // It's claimed this causes runtime exceptions but we don't see such issues.
+        property "sonar.issue.ignore.multicriteria.j1.ruleKey", "java:S2229"
+        property "sonar.issue.ignore.multicriteria.j1.resourceKey", "**/*.java"
+
+        // Null pointers
+        // DAO classes make heavy use of getJdbcTemplate() which triggers this rule, but is
+        // never null in practice.
+        property "sonar.issue.ignore.multicriteria.j2.ruleKey", "java:S2259"
+        property "sonar.issue.ignore.multicriteria.j2.resourceKey", "src/main/java/com/imageworks/spcue/dao/**/*.java"
     }
+}
+
+tasks.withType(AbstractArchiveTask) {
+    preserveFileTimestamps = false
+    reproducibleFileOrder = true
 }

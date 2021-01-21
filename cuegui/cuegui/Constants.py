@@ -128,3 +128,7 @@ COLOR_USER_3 = QtGui.QColor(0, 50, 0)
 COLOR_USER_4 = QtGui.QColor(50, 30, 0)
 
 QT_MAX_INT = 2147483647
+
+LOG_HIGHLIGHT_ERROR = ['error', 'aborted', 'fatal', 'failed', 'killed', 'command not found', 'no licenses could be found', 'killMessage']
+LOG_HIGHLIGHT_WARN = ['warning', 'not found']
+LOG_HIGHLIGHT_INFO = ['info:', 'rqd cmd:']

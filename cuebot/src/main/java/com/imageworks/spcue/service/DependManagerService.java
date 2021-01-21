@@ -495,7 +495,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(LayerInterface layer) {
         FrameSearchInterface r = frameSearchFactory.create(layer);
         for (FrameInterface f: frameDao.findFrames(r)) {
@@ -503,7 +502,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation=Propagation.SUPPORTS)
     private void updateDependCount(JobInterface job) {
         FrameSearchInterface r = frameSearchFactory.create(job);
         for (FrameInterface f: frameDao.findFrames(r)) {
@@ -511,7 +509,6 @@ public class DependManagerService implements DependManager {
         }
     }
 
-    @Transactional(propagation = Propagation.SUPPORTS)
     private void updateDependCounts(FrameInterface f) {
         dependDao.incrementDependCount(f);
     }

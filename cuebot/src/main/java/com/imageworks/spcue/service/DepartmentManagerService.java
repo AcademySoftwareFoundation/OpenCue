@@ -206,7 +206,11 @@ public class DepartmentManagerService implements DepartmentManager {
              * the current data set.  Tasks with a 0 minCores value will
              * be deleted.
              */
-            float normalizedRawPoints = p.cores / totalRawPoints;
+            float normalizedRawPoints = 0f;
+            if (totalRawPoints != 0) {
+                normalizedRawPoints = p.cores / totalRawPoints;
+            }
+
             for (TrackitTaskDetail task : tasks) {
 
                 TaskEntity td = new TaskEntity();
