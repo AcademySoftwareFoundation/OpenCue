@@ -1,0 +1,53 @@
+version: '3'
+
+services:
+  db:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=db
+
+  cuebot:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=cuebot
+
+  rqd:
+    logging:
+      driver: loki
+      options:
+        loki-url: http://localhost:3100/loki/api/v1/push
+        loki-external-labels: job=rqd
+
+  metrics:
+    build:
+      context: ./
+      dockerfile: ./connectors/prometheus_metrics/Dockerfile
+    environment:
+      - CUEBOT_HOSTS=cuebot
+    depends_on:
+      - cuebot
+    links:
+      - cuebot
+    ports:
+      - "8302:8302"
+
+  grafana:
+    image: grafana/grafana:7.1.1
+    volumes:
+    - ./sandbox/config/datasource.yml:/etc/grafana/provisioning/datasources/datasource.yml
+    ports:
+    - "3000:3000"
+
+  loki:
+   image: grafana/loki:v1.3.0
+   volumes:
+     - ./sandbox/config/loki.yaml:/etc/config/loki.yaml
+   entrypoint:
+     - /usr/bin/loki
+     - -config.file=/etc/config/loki.yaml
+   ports:
+     - "3100:3100"
