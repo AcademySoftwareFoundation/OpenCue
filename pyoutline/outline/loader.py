@@ -48,8 +48,7 @@ __all__ = ["Outline",
            "load_outline",
            "load_json",
            "parse_outline_script",
-           "current_outline",
-           "quick_outline"]
+           "current_outline"]
 
 
 def load_outline(path):
