@@ -23,8 +23,8 @@ from __future__ import absolute_import
 import os
 import unittest
 
+import outline
 import outline.exception
-import outline.loader
 
 
 SCRIPTS_DIR = os.path.join(os.path.dirname(__file__), 'scripts')
@@ -34,7 +34,7 @@ class SessionTest(unittest.TestCase):
 
     def setUp(self):
         self.script_path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        self.ol = outline.loader.load_outline(self.script_path)
+        self.ol = outline.load_outline(self.script_path)
         self.ol.set_frame_range("1-10")
         self.ol.setup()
         self.session = self.ol.get_session()

@@ -34,13 +34,12 @@ import six
 
 import FileSequence
 
-import outline.config
+import outline
 import outline.constants
 import outline.depend
 import outline.event
 import outline.exception
 import outline.io
-import outline.loader
 import outline.util
 
 
@@ -62,8 +61,8 @@ class LayerType(type):
     """
     def __call__(cls, *args, **kwargs):
         r = super(LayerType, cls).__call__(*args, **kwargs)
-        if outline.loader.current_outline() and r.get_arg("register"):
-            outline.loader.current_outline().add_layer(r)
+        if outline.current_outline() and r.get_arg("register"):
+            outline.current_outline().add_layer(r)
 
         # Initialize with plugin system.  This is imported
         # here to get past a circular dependency.
@@ -243,8 +242,8 @@ class Layer(with_metaclass(LayerType, object)):
         # Now apply any settings found in the configuration file.
         # This settings override the procedural defaults set in
         # the layer constructur using default_arg method.
-        if outline.config.config.has_section(self.__class__.__name__):
-            for key, value in outline.config.config.items(self.__class__.__name__):
+        if outline.config.has_section(self.__class__.__name__):
+            for key, value in outline.config.items(self.__class__.__name__):
                 defaults[key] = value
 
         # Now apply user supplied arguments.  These arguments override

@@ -37,7 +37,7 @@ import six
 import FileSequence
 import opencue
 
-import outline.config
+import outline
 import outline.depend
 import outline.exception
 import outline.util
@@ -81,14 +81,14 @@ def build_command(launcher, layer):
     if layer.get_arg("wrapper"):
         wrapper = layer.get_arg("wrapper")
     elif layer.get_arg("setshot", True):
-        wrapper = "%s/opencue_wrap_frame" % outline.config.config.get("outline", "wrapper_dir")
+        wrapper = "%s/opencue_wrap_frame" % outline.config.get("outline", "wrapper_dir")
     else:
-        wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.config.get(
+        wrapper = "%s/opencue_wrap_frame_no_ss" % outline.config.get(
             "outline", "wrapper_dir")
 
     command.append(wrapper)
-    command.append(outline.config.config.get("outline", "user_dir"))
-    command.append("%s/pycuerun" % outline.config.config.get("outline", "bin_dir"))
+    command.append(outline.config.get("outline", "user_dir"))
+    command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
     command.append("%s -e #IFRAME#-%s" % (launcher.get_outline().get_path(),
                                           layer.get_name()))
     command.append("--version %s" % outline.versions.main.get_version("outline"))
@@ -241,7 +241,7 @@ def _serialize(launcher, use_pycuerun):
     sub_element(root, "user", user)
     if not launcher.get("nomail"):
         sub_element(root, "email", "%s@%s" % (user,
-                                              outline.config.config.get("outline", "domain")))
+                                              outline.config.get("outline", "domain")))
     sub_element(root, "uid", str(outline.util.get_uid()))
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})

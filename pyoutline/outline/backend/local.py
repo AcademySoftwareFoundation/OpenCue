@@ -31,7 +31,7 @@ import sqlite3
 
 import FileSequence
 
-import outline.config
+import outline
 import outline.versions.main
 
 
@@ -46,11 +46,11 @@ def build_command(ol, layer, frame):
     :return: The shell command to run for a the given layer.
     """
     command = []
-    command.append("%s/local_wrap_frame" % outline.config.config.get("outline","wrapper_dir"))
-    command.append(outline.config.config.get("outline", "user_dir"))
+    command.append("%s/local_wrap_frame" % outline.config.get("outline","wrapper_dir"))
+    command.append(outline.config.get("outline", "user_dir"))
     command.append(ol.get_show())
     command.append(ol.get_shot())
-    command.append("%s/pycuerun" % outline.config.config.get("outline", "bin_dir"))
+    command.append("%s/pycuerun" % outline.config.get("outline", "bin_dir"))
     command.append("%s -e  %d-%s" % (ol.get_path(),  frame, layer.get_name()))
     command.append(" -v %s" % outline.versions.main.get_version("outline"))
     command.append(" -r %s" % outline.versions.main.get_repos())

@@ -28,7 +28,7 @@ import unittest
 import mock
 
 from FileSequence import FrameSet
-import outline.loader
+import outline
 import outline.modules.shell
 from .. import test_utils
 
@@ -38,7 +38,7 @@ class ShellModuleTest(unittest.TestCase):
     """Shell Module Tests"""
 
     def setUp(self):
-        outline.loader.Outline.current = None
+        outline.Outline.current = None
 
     @mock.patch('outline.layer.Layer.system')
     def testShell(self, systemMock):
@@ -87,7 +87,7 @@ class ShellModuleTest(unittest.TestCase):
             with open(scriptFile.name, 'w') as fp:
                 fp.write(scriptContents)
 
-            outln = outline.loader.Outline()
+            outln = outline.Outline()
             outln.setup()
             expectedSessionPath = outln.get_session().put_file(
                 scriptFile.name, layer=layerName, rename='script')

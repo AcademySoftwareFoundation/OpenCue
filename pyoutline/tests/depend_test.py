@@ -24,8 +24,8 @@ from __future__ import division
 
 import unittest
 
+import outline
 import outline.depend
-import outline.loader
 import outline.modules.shell
 from . import test_utils
 
@@ -33,7 +33,7 @@ from . import test_utils
 class DependTest(unittest.TestCase):
 
     def setUp(self):
-        outline.loader.Outline.current = None
+        outline.Outline.current = None
 
     def testShell(self):
         """Test a simple shell command."""
@@ -42,7 +42,7 @@ class DependTest(unittest.TestCase):
         layer1 = outline.modules.shell.Shell(layer1Name, command=['/bin/ls'])
         layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'])
 
-        ol = outline.loader.Outline(name='depend_test_v1')
+        ol = outline.Outline(name='depend_test_v1')
         ol.add_layer(layer1)
         ol.add_layer(layer2)
         ol.get_layer(layer1Name).depend_all(layer2Name)
@@ -60,7 +60,7 @@ class DependTest(unittest.TestCase):
             layer2 = outline.modules.shell.Shell(
                 layer2Name, command=['/bin/ls'], require=['%s:all' % layer1Name])
 
-            ol = outline.loader.Outline(name='depend_test_v2')
+            ol = outline.Outline(name='depend_test_v2')
             ol.add_layer(layer1)
             ol.add_layer(layer2)
             ol.setup()
@@ -78,7 +78,7 @@ class DependTest(unittest.TestCase):
             layer2 = outline.modules.shell.Shell(layer2Name, command=['/bin/ls'], range='1-1',
                            require=['%s:any' % layer1Name])
 
-            ol = outline.loader.Outline(name='depend_test_any_frame')
+            ol = outline.Outline(name='depend_test_any_frame')
             ol.add_layer(layer1)
             ol.add_layer(layer2)
             ol.setup()

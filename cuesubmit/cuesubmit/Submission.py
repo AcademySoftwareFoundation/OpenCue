@@ -21,8 +21,8 @@ from builtins import str
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes
+import outline
 import outline.cuerun
-import outline.loader
 import outline.modules.shell
 
 
@@ -122,7 +122,7 @@ def buildShellLayer(layerData, lastLayer):
 
 def submitJob(jobData):
     """Submit the job using the PyOutline API."""
-    ol = outline.loader.Outline(
+    ol = outline.Outline(
         jobData['name'], shot=jobData['shot'], show=jobData['show'], user=jobData['username'])
     lastLayer = None
     for layerData in jobData['layers']:

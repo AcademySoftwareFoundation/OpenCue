@@ -25,7 +25,7 @@ import unittest
 
 import mock
 
-import outline.loader
+import outline
 from . import test_utils
 
 
@@ -46,7 +46,7 @@ class JsonTest(unittest.TestCase):
                  '}]'
              '}')
 
-        ol = outline.loader.load_json(s)
+        ol = outline.load_json(s)
         self.assertEqual('test_job', ol.get_name())
         self.assertEqual('1-10', ol.get_frame_range())
 
@@ -54,7 +54,7 @@ class JsonTest(unittest.TestCase):
     def testJsonFile(self, systemMock):
         """Load JSON from a file"""
         with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
-            ol = outline.loader.load_json(fp.read())
+            ol = outline.load_json(fp.read())
         with test_utils.TemporarySessionDirectory():
             ol.setup()
             ol.get_layer('shell_layer').execute('1000')

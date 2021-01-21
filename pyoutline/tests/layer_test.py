@@ -32,11 +32,10 @@ import unittest
 import future.types
 import mock
 
-import outline.config
+import outline
 import outline.exception
 import outline.io
 import outline.layer
-import outline.loader
 import outline.modules.shell
 
 from . import test_utils
@@ -52,7 +51,7 @@ class CompositeTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.ol = outline.loader.Outline()
+        self.ol = outline.Outline()
         self.layer = outline.layer.Layer("composite")
         self.ol.add_layer(self.layer)
 
@@ -81,7 +80,7 @@ class ChunkingTest(unittest.TestCase):
     """Tests layer chunking."""
 
     def setUp(self):
-        self.ol = outline.loader.load_outline(os.path.join(SCRIPTS_DIR, 'shell.outline'))
+        self.ol = outline.load_outline(os.path.join(SCRIPTS_DIR, 'shell.outline'))
         self.ol.set_frame_range("1-10")
 
         self.event = self.ol.get_layer("cmd")
@@ -107,7 +106,7 @@ class RangeTests(unittest.TestCase):
     """Tests that the proper frame ranges are being resolved."""
 
     def setUp(self):
-        self.ol = outline.loader.load_outline(os.path.join(SCRIPTS_DIR, 'shell.outline'))
+        self.ol = outline.load_outline(os.path.join(SCRIPTS_DIR, 'shell.outline'))
 
     def test_no_layer_range_no_job_range(self):
         # No layer range, no outline range defaults to a single frame.
@@ -154,10 +153,10 @@ class LayerTest(unittest.TestCase):
 
     def setUp(self):
         """Setup a basis event from a preset outline file."""
-        outline.config.config.add_section('Shell')
-        outline.config.config.set('Shell', 'foo', 'bar')
+        outline.config.add_section('Shell')
+        outline.config.set('Shell', 'foo', 'bar')
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        self.ol = outline.loader.load_outline(path)
+        self.ol = outline.load_outline(path)
         self.ol.set_frame_range('1-10')
         self.ol.set_env('cue_test_01', 'foo')
         self.ol.set_env('cue_test_02', 'bar')
@@ -166,7 +165,7 @@ class LayerTest(unittest.TestCase):
         self.layer.set_env('cue_layer_02', 'layer-env-b')
 
     def tearDown(self):
-        outline.config.config.remove_section('Shell')
+        outline.config.remove_section('Shell')
 
     def test_name(self):
         """Test the name has been set properly."""
@@ -296,18 +295,18 @@ class LayerTest(unittest.TestCase):
     def test_add_layer_during_setup(self):
         """Test to ensure that layers added during setup are serialized."""
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.Outline('mr_hat')
+            ol = outline.Outline('mr_hat')
             ol.add_layer(TestA('test_a'))
             ol.setup()
 
-            ol_b = outline.loader.load_outline(ol.get_session().get_file('outline.yaml'))
+            ol_b = outline.load_outline(ol.get_session().get_file('outline.yaml'))
             # ensure the new layer was added
             self.assertTrue(ol_b.get_layer('test_b'))
             #  ensure that setup was actually run on the new layer
             self.assertTrue(ol_b.get_layer('test_b').is_setup)
 
     def test_after_init(self):
-        ol = outline.loader.Outline('after_init')
+        ol = outline.Outline('after_init')
         ol.add_layer(TestAfterInit('test'))
 
         # Ensure after init was run,
@@ -316,7 +315,7 @@ class LayerTest(unittest.TestCase):
         self.assertEqual(ol, ol.get_layer('test').get_outline())
 
     def test_after_init_current(self):
-        ol = outline.loader.Outline('after_init', current=True)
+        ol = outline.Outline('after_init', current=True)
         TestAfterInit('test')
 
         # Ensure after init was run,
@@ -326,8 +325,8 @@ class LayerTest(unittest.TestCase):
 
     def test_dependency_creation(self):
         with test_utils.TemporarySessionDirectory():
-            outline.loader.Outline.current = None
-            ol = outline.loader.Outline('after_init')
+            outline.Outline.current = None
+            ol = outline.Outline('after_init')
             ol.add_layer(TestAfterInit('test'))
             ol.add_layer(TestB('testb', require='test'))
             ol.setup()
@@ -337,7 +336,7 @@ class LayerTest(unittest.TestCase):
 
     def test_type_arg(self):
         """Test to ensure the type argument is handled properly."""
-        outline.loader.Outline.current = None
+        outline.Outline.current = None
         t = TestA('test', type='Post')
         self.assertEqual('Post', t.get_type())
 
@@ -371,7 +370,7 @@ class LayerTest(unittest.TestCase):
 class OutputRegistrationTest(unittest.TestCase):
 
     def setUp(self):
-        outline.loader.Outline.current = None
+        outline.Outline.current = None
 
     # TODO(bcipriano) Re-enable this test once FileSequence has a Python
     #  implementation. (Issue #242)
@@ -381,7 +380,7 @@ class OutputRegistrationTest(unittest.TestCase):
         to a ol:outputs file in the render layer.
         """
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.Outline("pre_test")
+            ol = outline.Outline("pre_test")
 
             # the render layer
             layer1 = TestA("test1")

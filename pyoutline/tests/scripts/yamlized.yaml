@@ -1,4 +1,4 @@
-&id001 !!python/object:outline.loader.Outline
+&id001 !!python/object:outline.Outline
 _Outline__args: {}
 _Outline__env: {}
 _Outline__frame_range: 1-10

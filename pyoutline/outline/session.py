@@ -28,7 +28,7 @@ import shutil
 import uuid
 import yaml
 
-import outline.config
+import outline
 import outline.exception
 import outline.layer
 
@@ -105,7 +105,7 @@ class Session(object):
 
             # The base dir is where we copy the outline and
             # store session data.
-            base_path = outline.config.config.get("outline", "session_dir")
+            base_path = outline.config.get("outline", "session_dir")
             base_path = base_path.format(
                 HOME=os.path.expanduser("~"),
                 SHOW=self.__outline.get_show(),

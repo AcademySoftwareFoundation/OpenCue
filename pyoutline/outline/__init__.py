@@ -17,3 +17,12 @@
 Outline is a library for scripting shell commands to be executed over a frame range.  Typically
 these shell commands would be executed in parallel on a render farm.
 """
+
+
+from outline.config import config
+from outline.loader import current_outline
+from outline.loader import load_json
+from outline.loader import load_outline
+from outline.loader import Outline
+from outline.loader import parse_outline_script
+from outline.loader import quick_outline

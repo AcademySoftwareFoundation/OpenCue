@@ -26,9 +26,9 @@ from xml.etree import ElementTree as Et
 
 import FileSequence
 
+import outline
 import outline.cuerun
 import outline.exception
-import outline.loader
 import outline.modules.shell
 import outline.session
 from . import test_utils
@@ -44,10 +44,10 @@ class LoaderTest(unittest.TestCase):
         Test to ensure a basic outline script parses.
         """
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
-        ol = outline.loader.load_outline(path)
+        ol = outline.load_outline(path)
 
         # check to ensure the loader returns the correct type.
-        self.assertTrue(isinstance(ol, outline.loader.Outline))
+        self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
         self.assertEqual(path, ol.get_path())
@@ -57,7 +57,7 @@ class LoaderTest(unittest.TestCase):
 
         # ensure that outline returned from load_outline is
         # the same as current_outline
-        self.assertEqual(ol, outline.loader.current_outline())
+        self.assertEqual(ol, outline.current_outline())
 
     def test_serialized_parse(self):
         """
@@ -66,10 +66,10 @@ class LoaderTest(unittest.TestCase):
         filename = 'yamlized.yaml'
         pathOnDisk = os.path.join(SCRIPTS_DIR, filename)
         pathInYaml = './scripts/' + filename
-        ol = outline.loader.load_outline(pathOnDisk)
+        ol = outline.load_outline(pathOnDisk)
 
         # check to ensure the loader returns the correct type.
-        self.assertTrue(isinstance(ol, outline.loader.Outline))
+        self.assertTrue(isinstance(ol, outline.Outline))
 
         # Ensure the path is the same
         self.assertEqual(pathInYaml, ol.get_path())
@@ -79,7 +79,7 @@ class LoaderTest(unittest.TestCase):
 
         # ensure that outline returned from load_outline is
         # the same as current_outline
-        self.assertEqual(ol, outline.loader.current_outline())
+        self.assertEqual(ol, outline.current_outline())
 
 
 class OutlineTest(unittest.TestCase):
@@ -89,7 +89,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_set_env(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             ol.set_env("ENV_1", "a")
             ol.set_env("ENV_2", "b", True)
@@ -101,7 +101,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_add_get_remove_layer(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
             ol.add_layer(outline.modules.shell.Shell("shell_command", cmd=["/bin/ls"]))
 
             self.assertEqual(2, len(ol.get_layers()))
@@ -113,21 +113,21 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_layers(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             self.assertEqual(1, len(ol.get_layers()))
             self.assertTrue(isinstance(ol.get_layers(), list))
 
     def test_is_layer(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             self.assertTrue(ol.is_layer("cmd"))
             self.assertFalse(ol.is_layer("not_a_layer"))
 
     def test_get_set_path(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
             path = '/tmp/foo.outline'
 
             ol.set_path(path)
@@ -136,7 +136,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_set_name(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
             name = 'foo_name'
 
             ol.set_name(name)
@@ -145,7 +145,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_session(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             # The session is only available once the outline has been "setup"
             # Attempting to obtain the session before setup raises an
@@ -158,7 +158,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_set_frame_range(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             # Set frame range from string
             ol.set_frame_range('1-10')
@@ -174,7 +174,7 @@ class OutlineTest(unittest.TestCase):
 
     def test_get_set_arg(self):
         with test_utils.TemporarySessionDirectory():
-            ol = outline.loader.load_outline(self.path)
+            ol = outline.load_outline(self.path)
 
             # Test normal get/set function
             ol.set_arg('foo', 1)
@@ -201,7 +201,7 @@ class LoadOutlineTest(unittest.TestCase):
         Check that the OL_TAG_OVERRIDE environment variable
         is handled properly.
         """
-        ol = outline.loader.load_outline(self.script)
+        ol = outline.load_outline(self.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", ["foo", "man", "chu"])
 
@@ -218,7 +218,7 @@ class LoadOutlineTest(unittest.TestCase):
     def test_tags_as_list(self):
         """Check that tags passed in as a list."""
 
-        ol = outline.loader.load_outline(self.script)
+        ol = outline.load_outline(self.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", ["foo", "man", "chu"])
 
@@ -230,7 +230,7 @@ class LoadOutlineTest(unittest.TestCase):
     def test_tags_as_string(self):
         """Check tags passed in as a string."""
 
-        ol = outline.loader.load_outline(self.script)
+        ol = outline.load_outline(self.script)
         for layer in ol.get_layers():
             layer.set_arg("tags", "foo | man | chu")
 
@@ -243,7 +243,7 @@ class LoadOutlineTest(unittest.TestCase):
         """
         Check that the os flag is handled properly.
         """
-        ol = outline.loader.load_outline(self.script)
+        ol = outline.load_outline(self.script)
         l = outline.cuerun.OutlineLauncher(ol, os="awesome")
 
         root = Et.fromstring(l.serialize())
@@ -257,7 +257,7 @@ class LoadOutlineTest(unittest.TestCase):
         """
         try:
             os.environ["OL_OS"] = "radical"
-            ol = outline.loader.load_outline(self.script)
+            ol = outline.load_outline(self.script)
             l = outline.cuerun.OutlineLauncher(ol)
             root = Et.fromstring(l.serialize())
             self.assertEqual("radical", root.find("job/os").text)
