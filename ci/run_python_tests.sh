@@ -23,7 +23,7 @@ python rqd/setup.py test
 # Some environments don't have pylint available, for ones that do they should pass this flag.
 if [[ "$1" == "--lint" ]]; then
   cd pycue && python -m pylint --rcfile=../ci/pylintrc_main FileSequence && cd ..
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main opencue && cd ..
+  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main opencue --ignore=opencue/compiled_proto && cd ..
   cd pycue && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
 
   cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
