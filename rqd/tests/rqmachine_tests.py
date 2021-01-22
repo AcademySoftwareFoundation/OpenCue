@@ -430,6 +430,13 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
 
+    def test_tags(self):
+        tags = ["test1", "test2", "test3"]
+        rqd.rqconstants.RQD_TAGS = " ".join(tags)
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        self.assertTrue(all(tag in machine.__dict__['_Machine__renderHost'].tags for tag in tags))
 
 class CpuinfoTests(unittest.TestCase):
 
