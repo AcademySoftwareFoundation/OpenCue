@@ -22,6 +22,7 @@ from __future__ import division
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
+from PySide2 import QtGui
 
 from opencue.exception import EntityNotFoundException
 
@@ -143,7 +144,8 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="Timeout for a frames\' LLU, Hours:Minutes")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
-        self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
+        self.itemSelectionChanged.connect(self.__itemSelectionChangedFilterLayer)
+        QtGui.qApp.select_layers.connect(self.__handle_select_layers)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -248,9 +250,52 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         menu.exec_(e.globalPos())
 
-    def __itemDoubleClickedFilterLayer(self, item, col):
-        del col
-        self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
+    def __itemSelectionChangedFilterLayer(self):
+        '''Filter FrameMonitor to selected Layers.
+
+        Emits signal to filter FrameMonitor to selected Layers.
+        Also emits signal for other widgets to select Layers.
+        '''
+        layers = self.selectedObjects()
+        layer_names = [layer.data.name for layer in layers]
+
+        # emit signal to filter Frame Monitor
+        self.handle_filter_layers_byLayer.emit(layer_names)
+
+        # emit signal to select Layers in other widgets
+        QtGui.qApp.select_layers.emit(layers)
+
+    def __handle_select_layers(self, layerRpcObjects):
+        '''Select incoming Layers in tree.
+
+        Slot connected to QtGui.qApp.select_layers inorder to handle
+        selecting Layers in Tree.
+        Also emits signal to filter FrameMonitor
+        '''
+        received_layers = [l.data.name for l in layerRpcObjects]
+        current_layers = [l.data.name for l in self.selectedObjects()]
+        if received_layers == current_layers:
+            # prevent recursion
+            return
+
+        # prevent unnecessary calls to __itemSelectionChangedFilterLayer
+        self.blockSignals(True)
+        try:
+            for item in self._items.values():
+                item.setSelected(False)
+            for layer in layerRpcObjects:
+                objectKey = cuegui.Utils.getObjectKey(layer)
+                if objectKey not in self._items:
+                    self.addObject(layer)
+                item = self._items[objectKey]
+                item.setSelected(True)
+        finally:
+            # make sure signals are re-enabled
+            self.blockSignals(False)
+
+        # emit signal to filter Frame Monitor
+        self.handle_filter_layers_byLayer.emit(received_layers)
+
 
 
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):

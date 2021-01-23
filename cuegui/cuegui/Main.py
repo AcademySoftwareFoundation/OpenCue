@@ -56,6 +56,7 @@ class CueGuiApplication(QtWidgets.QApplication):
     request_update = QtCore.Signal()
     status = QtCore.Signal()
     quit = QtCore.Signal()
+    select_layers = QtCore.Signal(list)
 
 
 def cuetopia(argv):
