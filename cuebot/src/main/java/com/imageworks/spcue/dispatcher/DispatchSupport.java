@@ -401,6 +401,14 @@ public interface DispatchSupport {
     void clearFrame(DispatchFrame frame);
 
     /**
+     * Update usage data for the given frame.
+     *
+     * @param frame
+     * @param lluTime
+     */
+    void updateFrameUsage(FrameInterface frame, long lluTime);
+
+    /**
      * Update memory usage data for the given frame.
      *
      * @param frame

@@ -625,6 +625,20 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
+    public void updateTimeout(LayerInterface layer, int timeout){
+        getJdbcTemplate().update(
+            "UPDATE layer SET int_timeout=? WHERE pk_layer=?",
+            timeout, layer.getLayerId());
+    }
+
+    @Override
+    public void updateTimeoutLLU(LayerInterface layer, int timeout_llu){
+        getJdbcTemplate().update(
+            "UPDATE layer SET int_timeout_llu=? WHERE pk_layer=?",
+            timeout_llu, layer.getLayerId());
+    }
+
+    @Override
     public void enableMemoryOptimizer(LayerInterface layer, boolean value) {
         getJdbcTemplate().update(
                 "UPDATE layer SET b_optimize=? WHERE pk_layer=?",

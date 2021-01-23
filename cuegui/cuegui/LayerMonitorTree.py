@@ -126,7 +126,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         data=lambda layer: layer.percentCompleted(),
                         sort=lambda layer: layer.percentCompleted(),
                         tip="Progress for the Layer")
-
+        self.addColumn("Timeout", 45, id=20,
+                       data=lambda layer: cuegui.Utils.secondsToHHHMM(layer.data.timeout*60),
+                       sort=lambda layer: layer.data.timeout,
+                       tip="Timeout for the frames, Hours:Minutes")
+        self.addColumn("Timeout LLU", 45, id=21,
+                       data=lambda layer: cuegui.Utils.secondsToHHHMM(layer.data.timeout_llu*60),
+                       sort=lambda layer: layer.data.timeout_llu,
+                       tip="Timeout for a frames\' LLU, Hours:Minutes")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)

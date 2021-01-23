@@ -162,6 +162,22 @@ class Layer(object):
             layer=self.data, threadable=threadable),
             timeout=Cuebot.Timeout)
 
+    def setTimeout(self, timeout):
+        """Set time out to the value.
+        :type timeout: int
+        :param timeout: value for timeout in minutes"""
+        return self.stub.SetTimeout(job_pb2.LayerSetTimeoutRequest(
+            layer=self.data, timeout=timeout),
+            timeout=Cuebot.Timeout)
+
+    def setTimeoutLLU(self, timeout_llu):
+        """Set LLU time out to the value.
+        :type timeout: int
+        :param timeout: value for timeout in minutes"""
+        return self.stub.SetTimeoutLLU(job_pb2.LayerSetTimeoutLLURequest(
+            layer=self.data, timeout_llu=timeout_llu),
+            timeout=Cuebot.Timeout)
+
     def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
         """Add a render partition to the layer.
         @type  hostname: str

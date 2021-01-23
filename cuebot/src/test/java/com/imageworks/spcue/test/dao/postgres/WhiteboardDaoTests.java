@@ -324,6 +324,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "test";
         s.minCores = 100;
+        s.timeout = 0;
+        s.timeout_llu = 0;
         s.minMemory = 320000;
         s.tags.add("general");
         s.threadable = false;

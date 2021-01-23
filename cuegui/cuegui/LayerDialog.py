@@ -154,6 +154,20 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__thread = QtWidgets.QCheckBox(self)
         self.__thread.setChecked(self.getThreading())
 
+        # Timeout
+        self.__timeout = QtWidgets.QSpinBox(self)
+        self.__timeout.setRange(0, 4320)
+        self.__timeout.setSingleStep(1)
+        self.__timeout.setSuffix(" minutes")
+        self.__timeout.setSpecialValueText("No timeout")
+
+        # Timeout LLU
+        self.__timeout_llu = QtWidgets.QSpinBox(self)
+        self.__timeout_llu.setRange(0, 4320)
+        self.__timeout_llu.setSingleStep(1)
+        self.__timeout_llu.setSuffix(" minutes")
+        self.__timeout_llu.setSpecialValueText("No timeout")
+
         # Memory Optimizer
         self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
@@ -194,6 +208,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__gpu.slider.setValue(self.getMaxGpu())
         self.__core.setValue(self.getMinCores())
         self.__max_cores.setValue(self.getMaxCores())
+        self.__timeout.setValue(self.getTimeout())
+        self.__timeout_llu.setValue(self.getTimeoutLLU())
 
         QtWidgets.QVBoxLayout(self)
 
@@ -220,6 +236,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                             multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Gpu Memory:",
                                                             self.__gpu,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout:",
+                                                            self.__timeout,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout LLU:",
+                                                            self.__timeout_llu,
                                                             False),
                                                             multiSelect))
         layout.addStretch()
@@ -277,7 +301,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setThreadable(self.__thread.isChecked())
             if self.__gpu.isEnabled():
                 layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
-
+            if self.__timeout.isEnabled():
+                layer.setTimeout(self.__timeout.value())
+            if self.__timeout_llu.isEnabled():
+                layer.setTimeoutLLU(self.__timeout_llu.value())
         if self.__tags.isEnabled():
             self.__tags.apply()
         if self.__limits.isEnabled():
@@ -314,6 +341,20 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
             if layer.data.is_threadable:
                 result = True
                 break
+        return result
+
+    def getTimeout(self):
+        result = 0
+        for layer in self.__layers:
+            if layer.data.timeout > result:
+                result = layer.data.timeout
+        return result
+
+    def getTimeoutLLU(self):
+        result = 0
+        for layer in self.__layers:
+            if layer.data.timeout_llu > result:
+                result = layer.data.timeout_llu
         return result
 
     def getMemoryOptSetting(self):

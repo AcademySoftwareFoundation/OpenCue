@@ -58,6 +58,8 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         service.minGpu = request.getData().getMinGpu();
         service.tags = Sets.newLinkedHashSet(request.getData().getTagsList());
         service.threadable = request.getData().getThreadable();
+        service.timeout = request.getData().getTimeout();
+        service.timeout_llu = request.getData().getTimeoutLlu();
         serviceManager.createService(service);
         responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
                 .setService(whiteboard.getService(service.getId()))
@@ -130,6 +132,8 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         entity.minGpu = service.getMinGpu();
         entity.tags = new LinkedHashSet<> (service.getTagsList());
         entity.threadable = service.getThreadable();
+        entity.timeout = service.getTimeout();
+        entity.timeout_llu = service.getTimeoutLlu();
         return entity;
     }
 }

@@ -1,0 +1,13 @@
+
+-- Add timeout
+
+ALTER TABLE show_service ADD COLUMN int_timeout INT DEFAULT 0 NOT NULL;
+ALTER TABLE service ADD COLUMN int_timeout INT DEFAULT 0 NOT NULL;
+ALTER TABLE layer ADD COLUMN int_timeout INT DEFAULT 0 NOT NULL;
+
+-- Add LLU timeout
+
+ALTER TABLE frame ADD COLUMN ts_llu TIMESTAMP (6) WITH TIME ZONE;
+ALTER TABLE show_service ADD COLUMN int_timeout_llu INT DEFAULT 0 NOT NULL;
+ALTER TABLE service ADD COLUMN int_timeout_llu INT DEFAULT 0 NOT NULL;
+ALTER TABLE layer ADD COLUMN int_timeout_llu INT DEFAULT 0 NOT NULL;

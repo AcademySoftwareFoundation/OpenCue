@@ -86,6 +86,8 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         s.minMemory = CueUtil.GB4;
         s.minGpu = CueUtil.GB2;
         s.threadable = false;
+        s.timeout = 0;
+        s.timeout_llu = 0;
         s.tags.addAll(Sets.newHashSet("general"));
         serviceManager.createService(s);
 
@@ -100,6 +102,8 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         ServiceOverrideEntity s = new ServiceOverrideEntity();
         s.name = "arnold";
         s.minCores = 400;
+        s.timeout = 10;
+        s.timeout_llu = 10;
         s.minMemory = CueUtil.GB8;
         s.minGpu = CueUtil.GB2;
         s.threadable = false;
@@ -111,6 +115,8 @@ public class ServiceManagerTests extends AbstractTransactionalJUnit4SpringContex
         ServiceEntity newService = serviceManager.getService("arnold", s.showId);
         assertEquals(s, newService);
         assertEquals(400, newService.minCores);
+        assertEquals(10, newService.timeout);
+        assertEquals(10, newService.timeout_llu);
         assertEquals(CueUtil.GB8, newService.minMemory);
         assertEquals(CueUtil.GB2, newService.minGpu);
         assertFalse(newService.threadable);

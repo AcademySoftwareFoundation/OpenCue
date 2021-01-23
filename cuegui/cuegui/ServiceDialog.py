@@ -65,6 +65,12 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_gpu.setValue(0)
         self.min_gpu.setSingleStep(self.gpu_tick_mb)
         self.min_gpu.setSuffix(" MB")
+        self.timeout = QtWidgets.QSpinBox(self)
+        self.timeout.setRange(0, 4320)
+        self.timeout.setValue(0)
+        self.timeout_llu = QtWidgets.QSpinBox(self)
+        self.timeout_llu.setRange(0, 4320)
+        self.timeout_llu.setValue(0)
         layout = QtWidgets.QGridLayout(self)
         layout.addWidget(QtWidgets.QLabel("Name:", self), 0, 0)
         layout.addWidget(self.name, 0, 1)
@@ -78,18 +84,22 @@ class ServiceForm(QtWidgets.QWidget):
         layout.addWidget(self.min_memory, 4, 1)
         layout.addWidget(QtWidgets.QLabel("Min Gpu Memory MB:", self), 5, 0)
         layout.addWidget(self.min_gpu, 5, 1)
+        layout.addWidget(QtWidgets.QLabel("Timeout (in minutes):", self), 6, 0)
+        layout.addWidget(self.timeout, 6, 1)
+        layout.addWidget(QtWidgets.QLabel("Timeout LLU (in minutes):", self), 7, 0)
+        layout.addWidget(self.timeout_llu, 7, 1)
+        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
+        layout.addWidget(self._tags_w, 8, 0, 1, 2)
 
         self.__buttons = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Save,
                                                 QtCore.Qt.Horizontal,
                                                 self)
         self.__buttons.setDisabled(True)
 
-        layout.addWidget(self.__buttons, 8, 1)
+        layout.addWidget(self.__buttons, 9, 1)
 
         self.__buttons.accepted.connect(self.save)
 
-        self._tags_w = cuegui.TagsWidget.TagsWidget(allowed_tags=cuegui.Constants.ALLOWED_TAGS)
-        layout.addWidget(self._tags_w, 6, 0, 1, 2)
 
     def _cfg(self):
         """
@@ -115,6 +125,8 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_memory.setValue(service.data.min_memory // 1024)
         self.min_gpu.setValue(service.data.min_gpu // 1024)
         self._tags_w.set_tags(service.data.tags)
+        self.timeout.setValue(service.data.timeout)
+        self.timeout_llu.setValue(service.data.timeout_llu)
 
     def new(self):
         """
@@ -129,6 +141,8 @@ class ServiceForm(QtWidgets.QWidget):
         self.max_cores.setValue(100)
         self.min_memory.setValue(3276)
         self.min_gpu.setValue(0)
+        self.timeout.setValue(0)
+        self.timeout_llu.setValue(0)
         self._tags_w.set_tags(['general'])
 
     def save(self):
@@ -154,6 +168,8 @@ class ServiceForm(QtWidgets.QWidget):
         service.setMaxCores(self.max_cores.value())
         service.setMinMemory(self.min_memory.value() * 1024)
         service.setMinGpu(self.min_gpu.value() * 1024)
+        service.setTimeout(self.timeout.value())
+        service.setTimeoutLLU(self.timeout_llu.value())
         service.setTags(self._tags_w.get_tags())
 
         self.saved.emit(service)

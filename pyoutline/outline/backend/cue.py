@@ -281,6 +281,12 @@ def _serialize(launcher, use_pycuerun):
         if layer.get_arg("memory"):
             sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
 
+        if layer.get_arg("timeout"):
+            sub_element(spec_layer, "timeout", "%s" % (layer.get_arg("timeout")))
+
+        if layer.get_arg("timeout_llu"):
+            sub_element(spec_layer, "timeout_llu", "%s" % (layer.get_arg("timeout_llu")))
+
         if os.environ.get("OL_TAG_OVERRIDE", False):
             sub_element(spec_layer, "tags",
                         scrub_tags(os.environ["OL_TAG_OVERRIDE"]))
@@ -319,7 +325,7 @@ def _serialize(launcher, use_pycuerun):
     xml = [
         '<?xml version="1.0"?>',
         '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-            '"http://localhost:8080/spcue/dtd/cjsl-1.9.dtd">',
+            '"http://localhost:8080/spcue/dtd/cjsl-1.10.dtd">',
         Et.tostring(root).decode()
     ]
 
