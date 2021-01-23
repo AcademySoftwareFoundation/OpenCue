@@ -658,6 +658,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         if (ipMatcher.matches()){
             hostName = fqdn;
         }
+        else if (fqdn.contains(":")) {
+            // looks like IPv6 address.
+            hostName = fqdn;
+        }
         else if (useLongNames) {
             hostName = fqdn;
             Pattern domainPattern = Pattern.compile(
