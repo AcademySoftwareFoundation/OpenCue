@@ -195,7 +195,7 @@ def getCuewho(show):
     @return: The username who is cuewho for the show
     @rtype:  string"""
     try:
-        file = open("cuewho.who" % show, "r")
+        file = open("/shots/%s/home/cue/cuewho.who" % show, "r")
         return file.read()
     except Exception as e:
         logger.warning("Failed to update cuewho: %s\n%s" % (show, e))
@@ -214,7 +214,7 @@ def getExtension(username):
     try:
         # TODO: Replace this with a direct call to the phone util that the
         # phone widget uses once code is stable
-        results = subprocess.check_output('phone %s' % username)
+        results = subprocess.check_output(['phone', username])
 
         for line in results.splitlines():
             if line.find('Extension') != -1 and len(line.split()) == 2:
