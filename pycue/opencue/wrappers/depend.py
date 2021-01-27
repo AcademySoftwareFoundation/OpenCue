@@ -87,7 +87,7 @@ class Depend(object):
     def type(self):
         """Returns the type of dependency.
 
-        :rtype: DependType
+        :rtype: opencue.compiled_proto.depend_pb2.DependType
         :return: dependency type
         """
         return self.data.type
@@ -95,7 +95,7 @@ class Depend(object):
     def target(self):
         """Returns the target of the dependency, either internal or external.
 
-        :rtype: DependTarget
+        :rtype: opencue.compiled_proto.depend_pb2.DependTarget
         :return: dependency target type
         """
         return self.data.target
