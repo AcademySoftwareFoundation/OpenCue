@@ -59,13 +59,9 @@ COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
 RUN cd pycue && python setup.py install
-
 RUN cd pycue && python3.6 setup.py install
 
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
 RUN cd pyoutline && python setup.py test
-
 RUN cd pyoutline && python3.6 setup.py test
 
 RUN cp LICENSE requirements.txt VERSION pyoutline/

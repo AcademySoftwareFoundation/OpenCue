@@ -12,45 +12,57 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Classes responsible for setting up an outline.versions session.
+"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import atexit
 from builtins import str
 from builtins import object
-import atexit
-from future.utils import with_metaclass
 import logging
 import os
 import shutil
 import sys
 import tempfile
 
+from future.utils import with_metaclass
+
 
 logger = logging.getLogger("versions")
 
 
 class Settings(object):
+    """
+    Local session settings.
+    """
     # Path containing different outline library versions
     repos_path = ""
     module_repos = {}
 
 
 class Singleton(type):
-    def __init__(self, name, bases, namespace):
-        self._obj = type(name, bases, namespace)()
-        atexit.register(self._obj.clean, shutil_ptr=shutil)
+    """
+    Basic singleton implementation.
+    """
+    # pylint: disable=super-init-not-called
+    def __init__(cls, name, bases, namespace):
+        cls._obj = type(name, bases, namespace)()
+        atexit.register(cls._obj.clean, shutil_ptr=shutil)
 
-    def __call__(self):
-        return self._obj
+    def __call__(cls):
+        return cls._obj
 
 
 class Session(with_metaclass(Singleton, object)):
-
     """
     The Session class handles creation of the versioning session.
     """
+
+    # pylint: disable=non-parent-init-called
     def __init__(self):
         object.__init__(self)
         self.__modules = {}
@@ -62,12 +74,15 @@ class Session(with_metaclass(Singleton, object)):
         # Bail out if we've already loaded the module.
         if self.is_module_loaded(module):
             if str(version) != self.__modules[module]:
-                logger.warn("Can't load %s-%s, version %s is already loaded."
-                            % (module, version, self.__modules[module]))
+                logger.warning(
+                    "Can't load %s-%s, version %s is already loaded.",
+                    module,
+                    version,
+                    self.__modules[module])
             return False
 
         if not Settings.module_repos and not Settings.repos_path:
-            logger.warn("No repo paths were configured, not requiring a version.")
+            logger.warning("No repo paths were configured, not requiring a version.")
             return False
 
         # Find the destination.
@@ -90,7 +105,7 @@ class Session(with_metaclass(Singleton, object)):
 
         # If the src dir doesn't exist in this repos, move on.
         if not os.path.exists(src):
-            logger.warn("The source dir '%s' does not exist." % src)
+            logger.warning("The source dir '%s' does not exist.", src)
             return False
 
         # Not a python module, so, we don't even add
@@ -101,13 +116,13 @@ class Session(with_metaclass(Singleton, object)):
             self.__link_version(src, dst)
             self.__lock_module(module, version)
             return True
-        elif os.path.exists("%s/manifest.py" % src):
+
+        if os.path.exists("%s/manifest.py" % src):
             self.__run_manifest(src)
             self.__lock_module(module, version)
             return True
-        else:
-            logger.warn("Unabled to load %s, not a module or manifest." % module)
 
+        logger.warning("Unable to load %s, not a module or manifest.", module)
         return False
 
     def unrequire(self, module):
@@ -120,10 +135,11 @@ class Session(with_metaclass(Singleton, object)):
                 del self.__modules[module]
                 os.unlink(path)
                 return True
-            except KeyError as kerr:
-                logger.warn("Module %s was not loaded." % module)
+            except KeyError:
+                logger.warning("Module %s was not loaded.", module)
         else:
-            logger.warn("Failed to remove symlink '%s', does not exist." % path)
+            logger.warning("Failed to remove symlink '%s', does not exist.", path)
+
         return False
 
     def is_module_loaded(self, name):
@@ -154,17 +170,21 @@ class Session(with_metaclass(Singleton, object)):
         return self.__modules.get(module, default)
 
     def get_ver_str(self):
+        """Gets a string representation of all loaded modules and their versions."""
         return ",".join(["%s:%s" % (mod, ver)
                          for mod, ver in self.__modules.items()])
 
-    def __link_version(self, src, dst):
+    @staticmethod
+    def __link_version(src, dst):
         os.symlink(src, dst)
 
-    def __run_manifest(self, path):
+    # pylint: disable=broad-except,import-outside-toplevel
+    @staticmethod
+    def __run_manifest(path):
         import imp
         try:
             fob, path, desc = imp.find_module('manifest', [path])
-            mob = imp.load_module("manifest", fob, path, desc)
+            imp.load_module("manifest", fob, path, desc)
             fob.close()
         except Exception as e:
             print("Failed to execute manifest file: %s" % e)

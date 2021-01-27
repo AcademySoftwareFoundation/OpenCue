@@ -1,5 +1,3 @@
-#!/bin/env python2.5
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,6 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.loader module.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -26,7 +27,8 @@ from xml.etree import ElementTree as Et
 import FileSequence
 
 import outline
-from outline.modules.shell import Shell
+import outline.cuerun
+import outline.modules.shell
 from . import test_utils
 
 
@@ -98,10 +100,10 @@ class OutlineTest(unittest.TestCase):
     def test_add_get_remove_layer(self):
         with test_utils.TemporarySessionDirectory():
             ol = outline.load_outline(self.path)
-            ol.add_layer(Shell("shell_command", cmd=["/bin/ls"]))
+            ol.add_layer(outline.modules.shell.Shell("shell_command", cmd=["/bin/ls"]))
 
             self.assertEqual(2, len(ol.get_layers()))
-            self.assertTrue(isinstance(ol.get_layer("shell_command"), Shell))
+            self.assertTrue(isinstance(ol.get_layer("shell_command"), outline.modules.shell.Shell))
 
             ol.remove_layer(ol.get_layer("shell_command"))
 
@@ -256,12 +258,10 @@ class LoadOutlineTest(unittest.TestCase):
             ol = outline.load_outline(self.script)
             l = outline.cuerun.OutlineLauncher(ol)
             root = Et.fromstring(l.serialize())
-            self.assertEqual("radical",
-                              root.find("job/os").text)
+            self.assertEqual("radical", root.find("job/os").text)
         finally:
             del os.environ["OL_OS"]
 
 
 if __name__ == '__main__':
     unittest.main()
-

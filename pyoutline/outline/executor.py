@@ -20,13 +20,15 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+# pylint: disable=wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
+
 from builtins import range
 from builtins import object
-import queue
-import threading
 import logging
+import threading
+import queue
 
 
 __all__ = ["TaskExecutor"]
@@ -35,11 +37,13 @@ logger = logging.getLogger("outline.executor")
 
 
 class TaskExecutor(object):
+    """Simple thread pool."""
+
     def __init__(self, threads):
         self.__queue = queue.Queue()
 
         for i in range(0, threads):
-            logger.debug("executor creating thread #%d" % i)
+            logger.debug("executor creating thread #%d", i)
             t = threading.Thread(target=self.worker)
             t.setDaemon(True)
             t.start()
@@ -69,6 +73,7 @@ class TaskExecutor(object):
                     item[0](*item[1])
                 else:
                     item[0]()
+            # pylint: disable=broad-except
             except Exception as e:
-                logger.warn("Worker thread exception: %s" % e)
+                logger.warning("Worker thread exception: %s", e)
             self.__queue.task_done()
