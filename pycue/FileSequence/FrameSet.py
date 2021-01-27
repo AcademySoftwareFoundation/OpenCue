@@ -24,7 +24,7 @@ from .FrameRange import FrameRange
 
 
 class FrameSet(object):
-    """Represents a sequence of `FileSequence.FrameRange`s."""
+    """Represents a sequence of `FileSequence.FrameRange`."""
 
     def __init__(self, frameRange):
         """Construct a FrameSet object by parsing a spec.
