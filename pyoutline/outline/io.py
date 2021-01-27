@@ -40,7 +40,7 @@ from .exception import ShellCommandFailureException
 logger = logging.getLogger("outline.io")
 
 # Used to match version number in paths
-VERSION_REGEX = re.compile("_v([\d+])")
+VERSION_REGEX = re.compile(r"_v([\d+])")
 
 
 def prep_shell_command(cmd, frame=None):
