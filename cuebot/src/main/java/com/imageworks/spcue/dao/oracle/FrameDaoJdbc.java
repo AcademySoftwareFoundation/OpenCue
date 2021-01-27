@@ -22,6 +22,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.sql.Timestamp;
 import java.util.Optional;
 
 import org.springframework.jdbc.core.RowMapper;
@@ -988,6 +989,21 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     "frame " +
                 "WHERE " +
                     "pk_frame = ?", RESOURCE_USAGE_MAPPER, f.getFrameId());
+    }
+
+    private static final String UPDATE_FRAME_IO_USAGE =
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "ts_updated = current_timestamp," +
+            "ts_llu = ? " +
+        "WHERE " +
+            "pk_frame = ? ";
+
+    @Override
+    public void updateFrameUsage(FrameInterface f, long lluTime) {
+        getJdbcTemplate().update(UPDATE_FRAME_IO_USAGE,
+                                new Timestamp(lluTime * 1000l), f.getFrameId());
     }
 
     private static final String UPDATE_FRAME_MEMORY_USAGE =

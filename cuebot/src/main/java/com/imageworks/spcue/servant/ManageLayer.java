@@ -102,6 +102,10 @@ import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
 import com.imageworks.spcue.grpc.job.LayerSetTagsResponse;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableRequest;
 import com.imageworks.spcue.grpc.job.LayerSetThreadableResponse;
+import com.imageworks.spcue.grpc.job.LayerSetTimeoutRequest;
+import com.imageworks.spcue.grpc.job.LayerSetTimeoutResponse;
+import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLURequest;
+import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLUResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
 import com.imageworks.spcue.grpc.limit.Limit;
@@ -348,6 +352,22 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         updateLayer(request.getLayer());
         layerDao.updateThreadable(layer, request.getThreadable());
         responseObserver.onNext(LayerSetThreadableResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setTimeout(LayerSetTimeoutRequest request, StreamObserver<LayerSetTimeoutResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        layerDao.updateTimeout(layer, request.getTimeout());
+        responseObserver.onNext(LayerSetTimeoutResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setTimeoutLLU(LayerSetTimeoutLLURequest request, StreamObserver<LayerSetTimeoutLLUResponse> responseObserver) {
+        updateLayer(request.getLayer());
+        layerDao.updateTimeoutLLU(layer, request.getTimeoutLlu());
+        responseObserver.onNext(LayerSetTimeoutLLUResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

@@ -282,6 +282,24 @@ public interface LayerDao {
     void updateThreadable(LayerInterface layer, boolean threadable);
 
     /**
+     * Update a layer's timeout value, which limits how
+     * much the frame can run on a host.
+     *
+     * @param job
+     * @param timeout
+     */
+    void updateTimeout(LayerInterface layer, int timeout);
+
+    /**
+     * Update a layer's LLU timeout value, which limits how
+     * much the frame can run on a host without updates in the log file.
+     *
+     * @param job
+     * @param timeout
+     */
+    void updateTimeoutLLU(LayerInterface layer, int timeout_llu);
+
+    /**
      * Lowers the minimum memory on a layer if the layer
      * is using less memory and the currnet min memory is
      * the dispatcher default.

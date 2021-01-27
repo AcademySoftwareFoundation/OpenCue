@@ -36,6 +36,8 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
     public long minimumMemory;
     public long minimumGpu;
     public int chunkSize;
+    public int timeout;
+    public int timeout_llu;
     public int dispatchOrder;
     public int totalFrameCount;
 
@@ -88,6 +90,22 @@ public class LayerDetail extends LayerEntity implements LayerInterface {
 
     public void setThreadable(boolean isThreadable) {
         this.isThreadable = isThreadable;
+    }
+
+    public int getTimeout() {
+        return timeout;
+    }
+
+    public void setTimeout(int timeout) {
+        this.timeout = timeout;
+    }
+
+    public int getTimeoutLLU() {
+        return timeout;
+    }
+
+    public void setTimeoutLLU(int timeout_llu) {
+       this.timeout_llu = timeout_llu;
     }
 
     public long getMinimumMemory() {

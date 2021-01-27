@@ -343,6 +343,12 @@ service LayerInterface {
     // Set whether the layer is threadable or not
     rpc SetThreadable(LayerSetThreadableRequest) returns (LayerSetThreadableResponse);
 
+    // Set whether the timeout for frames in the layer
+    rpc SetTimeout(LayerSetTimeoutRequest) returns (LayerSetTimeoutResponse);
+
+    // Set whether the LLU timeout for frames in the layer
+    rpc SetTimeoutLLU(LayerSetTimeoutLLURequest) returns (LayerSetTimeoutLLUResponse);
+
     // Staggers the specified frame range.
     rpc StaggerFrames(LayerStaggerFramesRequest) returns (LayerStaggerFramesResponse);
 }
@@ -449,6 +455,7 @@ message Frame {
     CheckpointState checkpoint_state = 16;
     int32 checkpoint_count = 17;
     int32 total_core_time = 18;
+    int32 llu_time = 19;
 }
 
 // Object for frame searching
@@ -491,6 +498,7 @@ message UpdatedFrame {
     int64 max_rss = 7;
     int64 used_memory = 8;
     string last_resource = 9;
+    int32 llu_time = 10;
 }
 
 message UpdatedFrameSeq {
@@ -621,6 +629,8 @@ message Layer {
     LayerStats layer_stats = 15;
     string parent_id = 16;
     repeated string limits = 17;
+    int32 timeout = 18;
+    int32 timeout_llu = 19;
 }
 
 message LayerSeq {
@@ -1566,6 +1576,23 @@ message LayerSetThreadableRequest {
 }
 
 message LayerSetThreadableResponse {} // Empty
+
+// SetTimeout
+message LayerSetTimeoutRequest {
+    Layer layer = 1;
+    int32 timeout = 2;
+}
+
+message LayerSetTimeoutResponse {} // Empty
+
+// SetTimeoutLLU
+message LayerSetTimeoutLLURequest {
+    Layer layer = 1;
+    int32 timeout_llu = 2;
+}
+
+message LayerSetTimeoutLLUResponse {} // Empty
+
 
 // StaggerFrames
 message LayerStaggerFramesRequest {

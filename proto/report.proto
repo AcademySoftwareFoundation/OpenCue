@@ -86,6 +86,7 @@ message RunningFrameInfo {
     int64 max_vsize = 11; // kB
     int64 vsize = 12; // kB
     map<string, string> attributes = 13; //additional data can be provided about the running frame
+    int64 llu_time = 14;
 };
 
 

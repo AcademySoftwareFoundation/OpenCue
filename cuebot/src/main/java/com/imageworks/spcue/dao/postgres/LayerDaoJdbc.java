@@ -211,6 +211,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                     rs.getString("str_tags").replaceAll(" ", "").split("\\|"));
             layer.services.addAll(
                     Lists.newArrayList(rs.getString("str_services").split(",")));
+            layer.timeout = rs.getInt("int_timeout");
+            layer.timeout_llu = rs.getInt("int_timeout_llu");
             return layer;
         }
     };
@@ -310,9 +312,11 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
          "b_threadable, " +
          "int_mem_min, " +
          "int_gpu_min, " +
-         "str_services " +
+         "str_services, " +
+         "int_timeout," +
+         "int_timeout_llu " +
      ") " +
-     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+     "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
      @Override
      public void insertLayerDetail(LayerDetail l) {
@@ -322,7 +326,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.range, l.chunkSize, l.dispatchOrder,
                 StringUtils.join(l.tags," | "), l.type.toString(),
                 l.minimumCores, l.maximumCores, l.isThreadable,
-                l.minimumMemory, l.minimumGpu, StringUtils.join(l.services,","));
+                l.minimumMemory, l.minimumGpu, StringUtils.join(l.services,","),
+                l.timeout, l.timeout_llu);
     }
 
     @Override
@@ -621,6 +626,20 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         getJdbcTemplate().update(
                 "UPDATE layer SET b_threadable=? WHERE pk_layer=?",
                 threadable, layer.getLayerId());
+    }
+
+    @Override
+    public void updateTimeout(LayerInterface layer, int timeout){
+        getJdbcTemplate().update(
+            "UPDATE layer SET int_timeout=? WHERE pk_layer=?",
+            timeout, layer.getLayerId());
+    }
+
+    @Override
+    public void updateTimeoutLLU(LayerInterface layer, int timeout_llu){
+        getJdbcTemplate().update(
+            "UPDATE layer SET int_timeout_llu=? WHERE pk_layer=?",
+            timeout_llu, layer.getLayerId());
     }
 
     @Override

@@ -55,5 +55,9 @@ public class ServiceEntity extends Entity {
      */
     public LinkedHashSet<String> tags = new LinkedHashSet<String>();
 
+    public int timeout = 0;
+
+    public int timeout_llu = 0;
+
 }
 

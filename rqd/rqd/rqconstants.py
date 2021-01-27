@@ -66,6 +66,7 @@ LAUNCH_FRAME_USER_GID = 20
 RQD_RETRY_STARTUP_CONNECT_DELAY = 30
 RQD_RETRY_CRITICAL_REPORT_DELAY = 30
 RQD_USE_IP_AS_HOSTNAME = True
+RQD_USE_IPV6_AS_HOSTNAME = False
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
@@ -187,6 +188,8 @@ try:
             LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
         if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):
             RQD_USE_IP_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IP_AS_HOSTNAME")
+        if config.has_option(__section, "RQD_USE_IPV6_AS_HOSTNAME"):
+            RQD_USE_IPV6_AS_HOSTNAME = config.getboolean(__section, "RQD_USE_IPV6_AS_HOSTNAME")
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):

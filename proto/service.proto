@@ -49,6 +49,8 @@ message Service {
     int32 min_memory = 6;
     int32 min_gpu = 7;
     repeated string tags = 8;
+    int32 timeout = 9;
+    int32 timeout_llu = 10;
 }
 
 message ServiceSeq {
