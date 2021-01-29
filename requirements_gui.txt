@@ -1,2 +1,3 @@
 PySide2==5.15.2
+Qt.py>=1.2.0
 -e git+https://git@github.com/IdrisMiles/NodeGraphQt.git@v0.1.1-opencue#egg=NodeGraphQt
