@@ -20,12 +20,12 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from past.builtins import execfile
 import logging
 import os
+from past.builtins import execfile
 
-from outline import util
-from outline.layer import Layer, Frame
+import outline.layer
+import outline.util
 
 
 logger = logging.getLogger("outline.modules.shell")
@@ -38,12 +38,13 @@ __all__ = ["Shell",
            "PyEval"]
 
 
-class PyEval(Layer):
+class PyEval(outline.layer.Layer):
     """
     Arbitrary python code execution.
     """
     def __init__(self, name, code, **args):
-        Layer.__init__(self, name, **args)
+        super(PyEval, self).__init__(name, **args)
+
         self.__code = code
 
     def _setup(self):
@@ -58,79 +59,72 @@ class PyEval(Layer):
         execfile(self.get_file("script"))
 
 
-class Shell(Layer):
+class Shell(outline.layer.Layer):
     """
     Provides a method of executing a shell command over an
     arbitrary frame range.
     """
     def __init__(self, name, **args):
-        Layer.__init__(self, name, **args)
+        super(Shell, self).__init__(name, **args)
 
-        ## require the cmd argument
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """Execute the shell command."""
-        for frame in frame_set:
+        for frame in frames:
             self.system(self.get_arg("command"), frame=frame)
 
 
-class ShellSequence(Layer):
+class ShellSequence(outline.layer.Layer):
     """
     A module for executing an array of shell commands.
     """
     def __init__(self, name, **args):
-        Layer.__init__(self, name, **args)
+        super(ShellSequence, self).__init__(name, **args)
+
         self.require_arg("commands")
         self.set_frame_range("1-%d" % len(self.get_arg("commands")))
         self.set_arg("proxy_enable", False)
 
     def _execute(self, frames):
-        for cmd in util.get_slice(self.get_frame_range(),
-                                  frames, self.get_arg("commands")):
+        for cmd in outline.util.get_slice(self.get_frame_range(), frames, self.get_arg("commands")):
             self.system(cmd)
 
 
-class ShellCommand(Frame):
+class ShellCommand(outline.layer.Frame):
     """
     Provides a method of executing a single shell command.  All
     instances of this class will result in a layer with a single
-    frame regaurdless of what frame range the outline is launched
+    frame regardless of what frame range the outline is launched
     to the cue with.
     """
     def __init__(self, name, **args):
-        Frame.__init__(self, name, **args)
+        super(ShellCommand, self).__init__(name, **args)
 
-        ## require the cmd argument
         self.require_arg("command")
         self.set_arg("proxy_enable", False)
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """Execute the shell command."""
-        self.system(self.get_arg("command"), frame=frame_set[0])
+        self.system(self.get_arg("command"), frame=frames[0])
 
-class ShellScript(Frame):
-    """
-    Copies the given script into frame's session 
-    folder and executes it as a frame. 
-    """
+
+class ShellScript(outline.layer.Frame):
+    """Copies the given script into frame's session folder and executes it as a frame."""
     def __init__(self, name, **args):
-        Frame.__init__(self, name, **args)
+        super(ShellScript, self).__init__(name, **args)
         self.require_arg("script")
 
     def _setup(self):
         s_path = self.put_file(self.get_arg("script"), "script")
-        os.chmod(s_path, 0o755)        
+        os.chmod(s_path, 0o755)
 
     def _execute(self, frames):
         self.system(self.get_file("script"), frame=frames[0])
 
+
 def shell(name, command, **args):
-    """
-    A factory method for building instances of Shell.
-    """
+    """A factory method for building instances of Shell."""
     args["command"] = command
     return Shell(name, **args)
-
-

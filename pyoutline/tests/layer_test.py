@@ -14,6 +14,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.layer module.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -22,14 +25,17 @@ from __future__ import division
 # WARNING: Do not import builtins.str here as we do elsewhere in the code. Unit tests on Python 2
 # need to preserve the existing Python 2 string type.
 from builtins import range
-import future.types
-import mock
 import os
 import sys
 import unittest
 
+import future.types
+import mock
+
 import outline
-from outline.modules.shell import Shell
+import outline.io
+import outline.modules.shell
+
 from . import test_utils
 
 
@@ -47,13 +53,13 @@ class CompositeTest(unittest.TestCase):
         self.layer = outline.Layer("composite")
         self.ol.add_layer(self.layer)
 
-        self.layer.add_child(Shell("blah1", command=["ls","-l"]))
-        self.layer.add_child(Shell("blah2", command=["ls","-1"]))
-        self.layer.add_child(Shell("blah3", command=["ls"]))
+        self.layer.add_child(outline.modules.shell.Shell("blah1", command=["ls", "-l"]))
+        self.layer.add_child(outline.modules.shell.Shell("blah2", command=["ls", "-1"]))
+        self.layer.add_child(outline.modules.shell.Shell("blah3", command=["ls"]))
 
         self.event = self.ol.get_layer("composite")
 
-    @mock.patch('outline.layer.Layer.system')
+    @mock.patch('outline.Layer.system')
     def test_execute(self, systemMock):
         """Run the execute method."""
         with test_utils.TemporarySessionDirectory():
@@ -102,36 +108,36 @@ class RangeTests(unittest.TestCase):
 
     def test_no_layer_range_no_job_range(self):
         # No layer range, no outline range defaults to a single frame.
-        self.assertEquals('1000-1000', self.ol.get_layer('cmd').get_frame_range())
-        self.assertEquals(None, self.ol.get_frame_range())
+        self.assertEqual('1000-1000', self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual(None, self.ol.get_frame_range())
 
     def test_no_layer_range_job_range(self):
         self.ol.set_frame_range('1000-2000')
 
         # No layer range, no outline range defaults to a single frame.
-        self.assertEquals('1000-2000', self.ol.get_layer('cmd').get_frame_range())
-        self.assertEquals('1000-2000', self.ol.get_frame_range())
+        self.assertEqual('1000-2000', self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual('1000-2000', self.ol.get_frame_range())
 
     def test_layer_range_no_job_range(self):
         self.ol.get_layer('cmd').set_frame_range('1000-2000')
-        self.assertEquals('1000-2000', self.ol.get_layer('cmd').get_frame_range())
-        self.assertEquals(None, self.ol.get_frame_range())
+        self.assertEqual('1000-2000', self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual(None, self.ol.get_frame_range())
 
     def test_layer_range_job_range(self):
         self.ol.set_frame_range('1000-2000')
         self.ol.get_layer('cmd').set_frame_range('1000-2000')
 
         expectedFrameStr = ','.join([str(i) for i in range(1000, 2001)])
-        self.assertEquals(expectedFrameStr, self.ol.get_layer('cmd').get_frame_range())
-        self.assertEquals('1000-2000', self.ol.get_frame_range())
+        self.assertEqual(expectedFrameStr, self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual('1000-2000', self.ol.get_frame_range())
 
     def test_intersecting_range(self):
         self.ol.set_frame_range('1000-2000x8')
         self.ol.get_layer('cmd').set_frame_range('1000-2000')
 
         expectedFrameStr = ','.join([str(i) for i in range(1000, 2001, 8)])
-        self.assertEquals(expectedFrameStr, self.ol.get_layer('cmd').get_frame_range())
-        self.assertEquals('1000-2000x8', self.ol.get_frame_range())
+        self.assertEqual(expectedFrameStr, self.ol.get_layer('cmd').get_frame_range())
+        self.assertEqual('1000-2000x8', self.ol.get_frame_range())
 
     def test_intersecting_failure(self):
         self.ol.set_frame_range('1000-1010')
@@ -188,20 +194,20 @@ class LayerTest(unittest.TestCase):
         intArgName = 'some-int-arg'
         self.layer.require_arg(intArgName, int)
         self.assertRaises(
-            outline.layer.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
+            outline.LayerException, self.layer.set_arg, intArgName, 'some-string-val')
         self.layer.set_arg(intArgName, 872)
 
         if sys.version_info[0] >= 3:
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, dict())
             self.layer.set_arg(strArgName, 'py3-string')
         else:
             strArgName = 'some-str-arg'
             self.layer.require_arg(strArgName, str)
             self.assertRaises(
-                outline.layer.LayerException, self.layer.set_arg, strArgName, dict())
+                outline.LayerException, self.layer.set_arg, strArgName, dict())
             self.layer.set_arg(strArgName, 'standard-py2-string')
             self.layer.set_arg(strArgName, u'py2-unicode')
             self.layer.set_arg(strArgName, future.types.newstr('py3-string-backport'))
@@ -209,7 +215,7 @@ class LayerTest(unittest.TestCase):
             newstrArgName = 'some-newstr-arg'
             self.layer.require_arg(newstrArgName, future.types.newstr)
             self.assertRaises(
-                outline.layer.LayerException, self.layer.set_arg, newstrArgName, dict())
+                outline.LayerException, self.layer.set_arg, newstrArgName, dict())
             self.layer.set_arg(newstrArgName, 'standard-py2-string')
             self.layer.set_arg(newstrArgName, u'py2-unicode')
             self.layer.set_arg(newstrArgName, future.types.newstr('py3-string-backport'))
@@ -221,7 +227,7 @@ class LayerTest(unittest.TestCase):
         setup() is run.
         """
         self.layer.require_arg('bobofet')
-        self.assertRaises(outline.layer.LayerException, self.layer.check_required_args)
+        self.assertRaises(outline.LayerException, self.layer.check_required_args)
         self.layer.set_arg('bobofet', 1)
         self.layer.check_required_args()
 
@@ -255,7 +261,7 @@ class LayerTest(unittest.TestCase):
         with test_utils.TemporarySessionDirectory():
             self.layer.setup()
 
-    @mock.patch('outline.layer.Layer.system')
+    @mock.patch('outline.Layer.system')
     def test_execute(self, systemMock):
         """Test execution of a frame."""
         os.environ = {}
@@ -265,10 +271,10 @@ class LayerTest(unittest.TestCase):
             self.layer.execute(1)
 
             systemMock.assert_has_calls([mock.call(['ps', 'aux'], frame=1)])
-            self.assertTrue('foo', os.environ['cue_test_01'])
-            self.assertTrue('bar', os.environ['cue_test_02'])
-            self.assertTrue('layer-env-a', os.environ['cue_layer_01'])
-            self.assertTrue('layer-env-b', os.environ['cue_layer_02'])
+            self.assertEqual('foo', os.environ['cue_test_01'])
+            self.assertEqual('bar', os.environ['cue_test_02'])
+            self.assertEqual('layer-env-a', os.environ['cue_layer_01'])
+            self.assertEqual('layer-env-b', os.environ['cue_layer_02'])
 
     def test_get_set_frame_range(self):
         """Test getting/setting the frame range.  If the frame
@@ -355,7 +361,8 @@ class LayerTest(unittest.TestCase):
         with test_utils.TemporarySessionDirectory():
             self.ol.setup()
 
-            self.assertRaises(outline.layer.LayerException, self.layer.set_name, 'this-should-fail')
+            self.assertRaises(
+                outline.LayerException, self.layer.set_name, 'this-should-fail')
 
 
 class OutputRegistrationTest(unittest.TestCase):
@@ -377,9 +384,10 @@ class OutputRegistrationTest(unittest.TestCase):
             layer1 = TestA("test1")
 
             # the preprocess
-            prelayer = outline.layer.LayerPreProcess(layer1)
-            prelayer._execute = lambda frames: prelayer.add_output("test",
-                                                                   outline.io.FileSpec("/tmp/foo.#.exr"))
+            prelayer = outline.LayerPreProcess(layer1)
+            prelayer._execute = lambda frames: prelayer.add_output(
+                "test", outline.io.FileSpec("/tmp/foo.#.exr"))
+
             # Add both to the outline
             ol.add_layer(layer1)
             ol.add_layer(prelayer)
@@ -402,22 +410,27 @@ class OutputRegistrationTest(unittest.TestCase):
 class TestAfterInit(outline.Layer):
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
+
     def after_init(self, ol):
         self.set_arg("after_init", True)
+
 
 class TestA(outline.Layer):
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
+
     def setup(self):
         self.get_outline().add_layer(TestB("test_b"))
+
 
 class TestB(outline.Layer):
     def __init__(self, name, **args):
         outline.Layer.__init__(self, name, **args)
+        self.is_setup = False
+
     def setup(self):
         self.is_setup = True
 
 
 if __name__ == '__main__':
     unittest.main()
-

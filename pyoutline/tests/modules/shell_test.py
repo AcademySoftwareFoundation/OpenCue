@@ -12,23 +12,24 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.modules.shell module.
+"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import range
-import mock
+
 import tempfile
 import unittest
 
-from FileSequence import FrameSet
+import mock
 
+from FileSequence import FrameSet
 import outline
-from outline.loader import Outline
-from outline.modules.shell import Shell
-from outline.modules.shell import ShellSequence
-from outline.modules.shell import ShellScript
+import outline.modules.shell
 from .. import test_utils
 
 
@@ -45,7 +46,7 @@ class ShellModuleTest(unittest.TestCase):
 
         command = ['/bin/ls']
 
-        shell = Shell('bah', command=command)
+        shell = outline.modules.shell.Shell('bah', command=command)
         shell._execute(FrameSet('5-6'))
 
         systemMock.assert_has_calls([
@@ -60,7 +61,8 @@ class ShellModuleTest(unittest.TestCase):
         commandCount = 10
         commands = ['/bin/echo %d' % (frame+1) for frame in range(commandCount)]
 
-        shellSeq = ShellSequence('bah', commands=commands, cores=10, memory='512m')
+        shellSeq = outline.modules.shell.ShellSequence(
+            'bah', commands=commands, cores=10, memory='512m')
         shellSeq._execute(FrameSet('5-6'))
 
         self.assertEqual('1-%d' % commandCount, shellSeq.get_frame_range())
@@ -85,12 +87,12 @@ class ShellModuleTest(unittest.TestCase):
             with open(scriptFile.name, 'w') as fp:
                 fp.write(scriptContents)
 
-            outln = Outline()
+            outln = outline.Outline()
             outln.setup()
             expectedSessionPath = outln.get_session().put_file(
                 scriptFile.name, layer=layerName, rename='script')
 
-            shellScript = ShellScript(layerName, script=scriptFile.name)
+            shellScript = outline.modules.shell.ShellScript(layerName, script=scriptFile.name)
             shellScript.set_outline(outln)
             shellScript._setup()
             shellScript._execute(FrameSet('5-6'))
@@ -107,7 +109,7 @@ class ShellModuleTest(unittest.TestCase):
 
         command = '/bin/ls -l ./'
 
-        shell = Shell('bah', command=command)
+        shell = outline.modules.shell.Shell('bah', command=command)
         shell._execute(FrameSet('5-6'))
 
         systemMock.assert_has_calls([
@@ -118,4 +120,3 @@ class ShellModuleTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

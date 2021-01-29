@@ -34,16 +34,13 @@ import six
 
 import FileSequence
 
-from .config import config
-from . import constants
-from .depend import Depend
-from .depend import DependType
-from . import event
-from .exception import LayerException
-from .exception import SessionException
-from . import io
-from .loader import current_outline
-from . import util
+import outline
+import outline.constants
+import outline.depend
+import outline.event
+import outline.exception
+import outline.io
+import outline.util
 
 
 __all__ = ["Layer",
@@ -64,23 +61,26 @@ class LayerType(type):
     """
     def __call__(cls, *args, **kwargs):
         r = super(LayerType, cls).__call__(*args, **kwargs)
-        if current_outline() and r.get_arg("register"):
-            current_outline().add_layer(r)
+        if outline.current_outline() and r.get_arg("register"):
+            outline.current_outline().add_layer(r)
 
         # Initialize with plugin system.  This is imported
         # here to get past a circular dependency.
+        # pylint: disable=import-outside-toplevel
         from outline.plugins import PluginManager
         for plugin in PluginManager.get_plugins():
             try:
                 plugin.init(r)
-            except AttributeError as e:
+            except AttributeError:
                 pass
         return r
+
 
 class Layer(with_metaclass(LayerType, object)):
     """The base class for all outline modules."""
 
     def __init__(self, name, **args):
+        # pylint: disable=non-parent-init-called
         object.__init__(self)
 
         self.__name = name
@@ -91,7 +91,7 @@ class Layer(with_metaclass(LayerType, object)):
         # Default the layer type to the Render type as
         # defined in the constants module
         self.__type = None
-        self.set_type(args.get("type", constants.LAYER_TYPES[0]))
+        self.set_type(args.get("type", outline.constants.LAYER_TYPES[0]))
 
         # A set of arguments that is required before
         # the Layer can be launched.
@@ -120,7 +120,7 @@ class Layer(with_metaclass(LayerType, object)):
 
         # The default name of the service.
         self.__service = self.__args.get("service", "shell")
-        
+
         # The layer limits.
         self.__limits = self.__args.get("limits")
 
@@ -131,19 +131,19 @@ class Layer(with_metaclass(LayerType, object)):
         self.__outline = None
 
         # Register an event handler.
-        self.__evh = event.EventHandler(self)
+        self.__evh = outline.event.EventHandler(self)
 
         # Keep an array of all pre-process frames.
         self.__preprocess_layers = []
 
-        logger.debug("module %s loaded from %s" % (self.__class__.__name__,
-                                                  os.path.realpath(__file__)))
+        logger.debug(
+            "module %s loaded from %s", self.__class__.__name__, os.path.realpath(__file__))
+
     def _after_init(self, ol):
         """
-        This method should be implmented by a subclass. Executed
+        This method should be implemented by a subclass. Executed
         after a layer has been initialized and added to an outline.
         """
-        pass
 
     def after_init(self, ol):
         """
@@ -151,14 +151,13 @@ class Layer(with_metaclass(LayerType, object)):
         Emits an event.AFTER_INIT signal.
         """
         self._after_init(ol)
-        self.__evh.emit(event.LayerEvent(event.AFTER_INIT, self))
+        self.__evh.emit(outline.event.LayerEvent(outline.event.AFTER_INIT, self))
 
     def _after_parented(self, parent):
         """
-        This method should be implmented by a subclass. Executed after a
+        This method should be implemented by a subclass. Executed after a
         layer has been initialized and added as a child to another layer.
         """
-        pass
 
     def after_parented(self, parent):
         """
@@ -166,21 +165,20 @@ class Layer(with_metaclass(LayerType, object)):
         called if this Layer instance is parented to another layer instance.
         """
         self._after_parented(parent)
-        self.__evh.emit(event.LayerEvent(event.AFTER_PARENTED, self))
+        self.__evh.emit(outline.event.LayerEvent(outline.event.AFTER_PARENTED, self))
 
     def _before_execute(self):
         """
-        This method should be implemened by a subclass.  Executed before
+        This method should be implemented by a subclass.  Executed before
         all execute checks are started.
         """
-        pass
 
     def before_execute(self):
         """
         Executed before all execute checks are started.
         """
         self._before_execute()
-        self.__evh.emit(event.LayerEvent(event.BEFORE_EXECUTE, self))
+        self.__evh.emit(outline.event.LayerEvent(outline.event.BEFORE_EXECUTE, self))
 
     def _after_execute(self):
         """
@@ -189,7 +187,6 @@ class Layer(with_metaclass(LayerType, object)):
         Used for doing cleanup operations that should run even
         after a frame failure.
         """
-        pass
 
     def after_execute(self):
         """
@@ -199,12 +196,13 @@ class Layer(with_metaclass(LayerType, object)):
         """
         self._after_execute()
         frames = self.get_local_frame_set(self.__frame)
-        self.__evh.emit(event.LayerEvent(event.AFTER_EXECUTE, self,
-                                         frames=frames))
+        self.__evh.emit(outline.event.LayerEvent(
+            outline.event.AFTER_EXECUTE, self, frames=frames))
 
-    def system(self, cmd, ignore_error=False, frame=None):
+    @staticmethod
+    def system(cmd, ignore_error=False, frame=None):
         """
-        A convinience method for calling io.system().  Shell out
+        A convenience method for calling io.system().  Shell out
         to the given command and wait for it to finish.
 
         @see: L{io.system}
@@ -215,7 +213,7 @@ class Layer(with_metaclass(LayerType, object)):
         :type ignore_error: boolean
         :param ignore_error: Ignore any L{OSError} or shell command failures.
         """
-        io.system(cmd, ignore_error, frame)
+        outline.io.system(cmd, ignore_error, frame)
 
     def get_default_args(self, merge=None):
         """
@@ -244,8 +242,8 @@ class Layer(with_metaclass(LayerType, object)):
         # Now apply any settings found in the configuration file.
         # This settings override the procedural defaults set in
         # the layer constructur using default_arg method.
-        if config.has_section(self.__class__.__name__):
-            for key, value in config.items(self.__class__.__name__):
+        if outline.config.has_section(self.__class__.__name__):
+            for key, value in outline.config.items(self.__class__.__name__):
                 defaults[key] = value
 
         # Now apply user supplied arguments.  These arguments override
@@ -263,7 +261,7 @@ class Layer(with_metaclass(LayerType, object)):
         """Set the parent layer."""
 
         if not isinstance(layer, (Layer)):
-            raise LayerException("Parent instance must derive from Layer.")
+            raise outline.exception.LayerException("Parent instance must derive from Layer.")
 
         self.__parent = layer
 
@@ -273,7 +271,7 @@ class Layer(with_metaclass(LayerType, object)):
         executed  after the parent layer.
         """
         if not isinstance(layer, (Layer)):
-            raise LayerException("Child instances must derive from Layer.")
+            raise outline.exception.LayerException("Child instances must derive from Layer.")
 
         layer.set_outline(self.get_outline())
         layer.set_parent(self)
@@ -281,8 +279,8 @@ class Layer(with_metaclass(LayerType, object)):
         self.__children.append(layer)
         layer.after_parented(self)
 
-
     def add_event_listener(self, event_type, callback):
+        """Add an event listener to the layer's event handler."""
         self.__evh.add_event_listener(event_type, callback)
 
     def get_event_handler(self):
@@ -298,8 +296,8 @@ class Layer(with_metaclass(LayerType, object)):
     def set_env(self, key, value):
         """Set an env var to be set before execute."""
         if key in self.__env:
-            logger.warn("Overwriting outline env var: %s, from %s to %s",
-                        key, self.__env[key], value)
+            logger.warning(
+                "Overwriting outline env var: %s, from %s to %s", key, self.__env[key], value)
         self.__env[str(key)] = str(value)
 
     def get_env(self, key, default=None):
@@ -325,7 +323,7 @@ class Layer(with_metaclass(LayerType, object)):
         """
         if self.__outline and self.__outline.get_mode() > 1:
             msg = "Layer names may only be changed in outline init mode."
-            raise LayerException(msg)
+            raise outline.exception.LayerException(msg)
         self.__name = name
 
     def get_type(self):
@@ -343,21 +341,20 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Sets the general scope/purpose of this layer.
         """
-        if t not in constants.LAYER_TYPES:
-            raise LayerException("%s is not a valid layer type: %s" % (
-                t, constants.LAYER_TYPES))
+        if t not in outline.constants.LAYER_TYPES:
+            raise outline.exception.LayerException("%s is not a valid layer type: %s" % (
+                t, outline.constants.LAYER_TYPES))
         self.__type = t
 
     def get_outline(self):
         """Return the parent outline object."""
         if self.__parent:
             return self.__parent.get_outline()
-        else:
-            return self.__outline
+        return self.__outline
 
-    def set_outline(self, outline):
+    def set_outline(self, new_outline):
         """Set this layer's parent outline to the given outline object."""
-        self.__outline = outline
+        self.__outline = new_outline
 
     def setup(self):
         """Setup is run once before the job is launched
@@ -371,15 +368,13 @@ class Layer(with_metaclass(LayerType, object)):
             child.setup()
 
         # Emit the setup event.
-        self.__evh.emit(event.LayerEvent(event.SETUP, self))
+        self.__evh.emit(outline.event.LayerEvent(outline.event.SETUP, self))
 
     def _setup(self):
         """This method should be implemented by a subclass."""
-        pass
 
-    def _execute(self, frame_set):
+    def _execute(self, frames):
         """This method should be implemented by a subclass."""
-        pass
 
     def execute(self, frame):
         """
@@ -434,23 +429,23 @@ class Layer(with_metaclass(LayerType, object)):
                 logger.info("Setting post-set shot environement var: %s %s",
                             env_k, env_v)
                 os.environ[str(env_k)] = str(env_v)
-        except AttributeError as e:
+        except AttributeError:
             pass
 
-        logger.info("Layer %s executing local frame set %s"
-                    % (self.get_name(), frames))
+        logger.info("Layer %s executing local frame set %s", self.get_name(), frames)
 
         # Run the subclasses execute method and all child execute methods
         self._execute(frames)
         for child in self.__children:
             child.execute(frame)
 
-        # Run the subclasse's _post_execute method
+        # Run the subclass's _post_execute method
         self.after_execute()
 
-        ## Check the existance of required output
+        # Check the existance of required output
         self.check_output(frames)
 
+    # pylint: disable=broad-except,no-member
     def setup_args_override(self):
         """
         Load the args_override data from the session and set them as the args.
@@ -468,11 +463,11 @@ class Layer(with_metaclass(LayerType, object)):
                 # This was necessary because plugins/s3d.py uses get_creator()
                 if hasattr(self, 'get_creator') and self.get_creator():
                     self.get_creator().set_arg(key, value)
-                logger.warn('Replaced arg %s with %s' % (key, value))
-        except SessionException as e:
+                logger.warning('Replaced arg %s with %s', key, value)
+        except outline.exception.SessionException:
             logger.debug('args_override not found in session (This is normal)')
         except Exception as e:
-            logger.debug('Not loading args_override from session due to %s' % e)
+            logger.debug('Not loading args_override from session due to %s', e)
 
     def set_default_arg(self, key, value):
         """
@@ -506,11 +501,10 @@ class Layer(with_metaclass(LayerType, object)):
 
                 if not isinstance(value, rtype):
                     msg = "The arg %s for the %s module must be a %s"
-                    raise LayerException(msg % (arg,
+                    raise outline.exception.LayerException(msg % (arg,
                                                 self.__class__.__name__,
                                                 rtype))
-                else:
-                    break
+                break
         self.__args[key] = value
 
     def is_arg_set(self, key):
@@ -594,7 +588,7 @@ class Layer(with_metaclass(LayerType, object)):
         """
         return self.__outline.get_session().get_data(key, self)
 
-    def sym_file(self, src, layer=None, rename=None):
+    def sym_file(self, src, rename=None):
         """
         Symlink the given file into the layer's session path.  If
         the optional rename argument is set, the file will be
@@ -664,10 +658,12 @@ class Layer(with_metaclass(LayerType, object)):
 
     def set_frame_range(self, frame_range):
         """Set the layer's frame range."""
-        logger.debug("layer %s changing range from %s to %s" %
-                     (self.get_name(), self.__args["range"], frame_range))
+        logger.debug(
+            "layer %s changing range from %s to %s", self.get_name(), self.__args["range"],
+            frame_range)
         self.__args["range"] = str(frame_range)
 
+    # pylint: disable=inconsistent-return-statements
     def get_frame_range(self):
         """
         Return the layer's frame range.  If the layer and its
@@ -699,31 +695,30 @@ class Layer(with_metaclass(LayerType, object)):
                 ol_rng = FileSequence.FrameSet(self.__outline.get_frame_range())
                 ly_rng = FileSequence.FrameSet(rng)
 
-                intersect = util.intersect_frame_set(ol_rng, ly_rng, normalize=False)
+                intersect = outline.util.intersect_frame_set(ol_rng, ly_rng, normalize=False)
                 if not intersect:
                     return None
 
-                # If nomalizing does not change the order of frames, return normalized
+                # If normalizing does not change the order of frames, return normalized
                 normalized = FileSequence.FrameSet(str(intersect))
                 normalized.normalize()
                 if list(intersect) == list(normalized):
                     return str(normalized)
 
                 return str(intersect)
-            elif rng:
+            if rng:
                 return rng
 
-            elif not rng and self.__outline.get_frame_range():
+            if not rng and self.__outline.get_frame_range():
                 return self.__outline.get_frame_range()
 
-            elif not rng and not self.__outline.get_frame_range():
+            if not rng and not self.__outline.get_frame_range():
                 return DEFAULT_FRAME_RANGE
         else:
             # There is no parent outline
             if rng:
                 return rng
-            else:
-                return DEFAULT_FRAME_RANGE
+            return DEFAULT_FRAME_RANGE
 
     def get_local_frame_set(self, start_frame):
         """
@@ -738,33 +733,32 @@ class Layer(with_metaclass(LayerType, object)):
         chunk = self.get_chunk_size()
 
         if chunk == 1:
-            return util.make_frame_set([int(start_frame)])
-        else:
-            local_frame_set = []
-            #
-            # Remove the duplicates out of our frame range.
-            #
-            frame_range = FileSequence.FrameSet(self.get_frame_range())
-            frame_set = util.deaggregate_frame_set(frame_range)
+            return outline.util.make_frame_set([int(start_frame)])
 
-            #
-            # Now find the index for the current frame and start
-            # frame there. Find all of frames this instance
-            # is responsible for.
-            #
-            idx = frame_set.index(int(start_frame))
-            for i in range(idx, idx + chunk):
-                try:
-                    if frame_set[i] in local_frame_set:
-                        continue
-                    local_frame_set.append(frame_set[i])
-                except IndexError:
-                    break
-            if not local_frame_set:
-                raise LayerException("Frame %d is outside of the frame range."
-                                     % start_frame)
-            else:
-                return util.make_frame_set(local_frame_set)
+        local_frame_set = []
+        #
+        # Remove the duplicates out of our frame range.
+        #
+        frame_range = FileSequence.FrameSet(self.get_frame_range())
+        frame_set = outline.util.deaggregate_frame_set(frame_range)
+
+        #
+        # Now find the index for the current frame and start
+        # frame there. Find all of frames this instance
+        # is responsible for.
+        #
+        idx = frame_set.index(int(start_frame))
+        for i in range(idx, idx + chunk):
+            try:
+                if frame_set[i] in local_frame_set:
+                    continue
+                local_frame_set.append(frame_set[i])
+            except IndexError:
+                break
+        if not local_frame_set:
+            raise outline.exception.LayerException(
+                "Frame %d is outside of the frame range." % start_frame)
+        return outline.util.make_frame_set(local_frame_set)
 
     def set_chunk_size(self, size):
         """
@@ -792,7 +786,7 @@ class Layer(with_metaclass(LayerType, object)):
         :type on_layer: L{Layer}
         :param on_layer: The L{Layer} to depend on.
         """
-        self.depend_on(on_layer, DependType.PreviousFrame)
+        self.depend_on(on_layer, outline.depend.DependType.PreviousFrame)
 
     def depend_all(self, on_layer, propigate=False, any_frame=False):
         """
@@ -810,9 +804,9 @@ class Layer(with_metaclass(LayerType, object)):
                           Default to False.
         """
         self.depend_on(self.__resolve_layer_name(on_layer),
-                       DependType.LayerOnLayer, propigate, any_frame)
+                       outline.depend.DependType.LayerOnLayer, propigate, any_frame)
 
-    def depend_on(self, on_layer, depend_type=DependType.FrameByFrame,
+    def depend_on(self, on_layer, depend_type=outline.depend.DependType.FrameByFrame,
                   propigate=False, any_frame=False):
         """
         Setup a frame by frame on layer depend on the given layer.
@@ -831,48 +825,47 @@ class Layer(with_metaclass(LayerType, object)):
         # Check for duplicates.
         for depend in self.__depends:
             if depend.get_depend_on_layer() == on_layer:
-                logger.info("Skipping duplicated depend %s on %s" %
-                            (self, on_layer))
+                logger.info("Skipping duplicated depend %s on %s", self, on_layer)
                 return
 
         if str(self) == str(on_layer):
-            logger.info("Skipping setting up dependency on self %s" % self)
+            logger.info("Skipping setting up dependency on self %s", self)
             return
 
         try:
             on_layer = self.__resolve_layer_name(on_layer)
-        except LayerException as e:
-            logger.warn("%s layer does not exist, depend failed" % on_layer)
+        except outline.exception.LayerException:
+            logger.warning("%s layer does not exist, depend failed", on_layer)
             return
 
-        logger.info("adding depend %s on %s" % (self, on_layer))
+        logger.info("adding depend %s on %s", self, on_layer)
         #
         # Handle the depend any bullshit
         #
-        if any_frame or depend_type == DependType.LayerOnAny:
+        if any_frame or depend_type == outline.depend.DependType.LayerOnAny:
             if isinstance(self, LayerPreProcess):
-                depend_type = DependType.LayerOnLayer
+                depend_type = outline.depend.DependType.LayerOnLayer
             else:
-                depend_type = DependType.FrameByFrame
+                depend_type = outline.depend.DependType.FrameByFrame
                 any_frame = False
                 for pre in self.get_preprocess_layers():
                     pre.depend_on(on_layer,
-                                  DependType.LayerOnLayer,
+                                  outline.depend.DependType.LayerOnLayer,
                                   any_frame=True)
 
-        depend = Depend(self, on_layer, depend_type, propigate, any_frame)
+        depend = outline.depend.Depend(self, on_layer, depend_type, propigate, any_frame)
         self.__depends.append(depend)
 
         # Setup pre-process dependencies
         for my_preprocess in self.get_preprocess_layers():
             for on_preprocess in on_layer.get_preprocess_layers():
                 # Depend on the layer's pre-process
-                my_preprocess.depend_on(on_preprocess, DependType.LayerOnLayer)
+                my_preprocess.depend_on(on_preprocess, outline.depend.DependType.LayerOnLayer)
 
         #
-        # Handle depend propigation.
+        # Handle depend propagation.
         #
-        # Propigation occurs when a layer A depends on layer B, and
+        # Propagation occurs when a layer A depends on layer B, and
         # layer C depends on layer D, but Layer A also depends on Layer
         # C, which means layer D must now also depend on layer B.
         #
@@ -883,8 +876,8 @@ class Layer(with_metaclass(LayerType, object)):
             if depend.is_propigated():
                 for my_depend in self.get_depends():
                     dependant = my_depend.get_depend_on_layer()
-                    logger.info("propigating dependency %s -> %s" %
-                                (dependant, depend.get_depend_on_layer()))
+                    logger.info(
+                        "propagating dependency %s -> %s", dependant, depend.get_depend_on_layer())
                     dependant.depend_all(depend.get_depend_on_layer(),
                                          propigate=False)
 
@@ -896,12 +889,12 @@ class Layer(with_metaclass(LayerType, object)):
         try:
             self.__depends.remove(depend)
         except Exception as e:
-            logger.warn("failed to remove dependency %s, %s" % (depend, e))
+            logger.warning("failed to remove dependency %s, %s", depend, e)
 
     def get_depends(self):
         """Return a tuple of dependencies this layer depends on."""
         # Do not let people muck with the real list.
-        return (self.__depends)
+        return self.__depends
 
     def get_dependents(self):
         """Return a list of dependencies that depend on this layer."""
@@ -922,7 +915,7 @@ class Layer(with_metaclass(LayerType, object)):
                 continue
             if not inpt.exists(frame_set):
                 msg = "Check input failed (%s), the path %s does not exist."
-                raise LayerException(msg % (name, inpt.get_path()))
+                raise outline.exception.LayerException(msg % (name, inpt.get_path()))
 
     def check_output(self, frame_set=None):
         """
@@ -936,7 +929,7 @@ class Layer(with_metaclass(LayerType, object)):
                 continue
             if not output.exists(frame_set):
                 msg = "Check output failed (%s), the path %s does not exist."
-                raise LayerException(msg % (name, output.get_path()))
+                raise outline.exception.LayerException(msg % (name, output.get_path()))
 
     def add_input(self, name, inpt):
         """
@@ -947,10 +940,10 @@ class Layer(with_metaclass(LayerType, object)):
         name = str(name)
         if name in self.__input:
             msg = "An input with the name %s has already been created."
-            raise LayerException(msg % name)
+            raise outline.exception.LayerException(msg % name)
 
-        if not isinstance(inpt, io.Path):
-            inpt = io.Path(inpt)
+        if not isinstance(inpt, outline.io.Path):
+            inpt = outline.io.Path(inpt)
 
         self.__input[name] = inpt
 
@@ -963,10 +956,10 @@ class Layer(with_metaclass(LayerType, object)):
         name = str(name)
         if name in self.__output:
             msg = "An output with the name %s has already been created."
-            raise LayerException(msg % name)
+            raise outline.exception.LayerException(msg % name)
 
-        if not isinstance(output, io.Path):
-            output = io.Path(output)
+        if not isinstance(output, outline.io.Path):
+            output = outline.io.Path(output)
 
         self.__output[name] = output
 
@@ -998,8 +991,9 @@ class Layer(with_metaclass(LayerType, object)):
         try:
             return self.__input[name]
         except:
-            raise LayerException("An input by the name %s does not exist."
-                                 % name)
+            raise outline.exception.LayerException(
+                "An input by the name %s does not exist." % name)
+
     def get_output(self, name):
         """
         Return the named output.
@@ -1010,14 +1004,14 @@ class Layer(with_metaclass(LayerType, object)):
         try:
             return self.__output[name]
         except:
-            raise LayerException("An output by the name %s does not exist."
-                                 % name)
+            raise outline.exception.LayerException(
+                "An output by the name %s does not exist." % name)
 
     def set_output_attribute(self, name, value):
         """
         Set the given attribute on all registered output.
         """
-        logger.debug("Setting output attribute: %s = %s" % (name, value))
+        logger.debug("Setting output attribute: %s = %s", name, value)
         for output in self.__output.values():
             output.set_attribute(name, value)
 
@@ -1025,11 +1019,12 @@ class Layer(with_metaclass(LayerType, object)):
         """
         Set the given attribute on all registered input.
         """
-        logger.debug("Setting input attribute: %s = %s" % (name, value))
+        logger.debug("Setting input attribute: %s = %s", name, value)
         for output in self.__input.values():
             output.set_attribute(name, value)
 
-    def get_temp_dir(self):
+    @staticmethod
+    def get_temp_dir():
         """
         Return the path to the current temporary directory.
         """
@@ -1043,11 +1038,11 @@ class Layer(with_metaclass(LayerType, object)):
         for key, rtype in self.__req_args:
             if key not in self.__args:
                 msg = "The %s layer requires the %s property to be set."
-                raise LayerException(msg % (self, key))
+                raise outline.exception.LayerException(msg % (self, key))
             if rtype:
                 if not isinstance(self.__args[key], rtype):
                     msg = "The %s layer requires %s to be of the type %s"
-                    raise LayerException(msg % (self, key, rtype))
+                    raise outline.exception.LayerException(msg % (self, key, rtype))
 
     def get_preprocess_layers(self):
         """
@@ -1078,9 +1073,9 @@ class Layer(with_metaclass(LayerType, object)):
         This method is for testing python libraries before release..
         """
         if self.get_arg("python_path"):
-            logger.warn("WARNING: PYTHON PATH HAS BEEN ADJUSTED")
+            logger.warning("WARNING: PYTHON PATH HAS BEEN ADJUSTED")
             if not isinstance(self.get_arg("python_path"), list):
-                logger.warn("python_path should be a list.")
+                logger.warning("python_path should be a list.")
                 return
             sys.path = self.get_arg("python_path") + sys.path
 
@@ -1137,14 +1132,12 @@ class Frame(Layer):
         if self.get_outline().get_frame_range():
             seq = FileSequence.FrameSet(self.get_outline().get_frame_range())
             return str(seq[0])
-        else:
-            return DEFAULT_FRAME_RANGE
+        return DEFAULT_FRAME_RANGE
 
     def set_frame_range(self, frame_range):
         """
         Calling this method does nothing.
         """
-        pass
 
 
 class LayerPreProcess(Frame):
@@ -1160,7 +1153,7 @@ class LayerPreProcess(Frame):
                           args.get("suffix","preprocess")), **args)
 
         self.__creator = creator
-        self.__creator.depend_on(self, DependType.LayerOnLayer, propigate=False)
+        self.__creator.depend_on(self, outline.depend.DependType.LayerOnLayer, propigate=False)
         self.__creator.add_preprocess_layer(self)
 
         self.set_type("Util")
@@ -1175,7 +1168,7 @@ class LayerPreProcess(Frame):
         Perform pre-propcess execute methods and call
         the super class's exceute method.
         """
-        super(LayerPreProcess, self).execute(frame)
+        super().execute(frame)
         self.__save_outputs()
 
     def get_frame_range(self):
@@ -1203,13 +1196,13 @@ class LayerPreProcess(Frame):
         load_outputs before execution which will load in all output
         data saved out by this method.
         """
-        if not len(self.get_outputs()):
+        if not self.get_outputs():
             return
 
-        logger.info("Saving %d outputs to ol:outputs"
-                    % len(self.get_outputs()))
+        logger.info("Saving %d outputs to ol:outputs", len(self.get_outputs()))
         self.get_creator().put_data("ol:outputs",
                                     self.get_outputs(), force=True)
+
 
 class LayerPostProcess(Frame):
     """
@@ -1222,7 +1215,7 @@ class LayerPostProcess(Frame):
         Frame.__init__(self, "%s_postprocess" % creator.get_name(), **args)
 
         self.__creator = creator
-        self.depend_on(creator, DependType.LayerOnLayer, propigate=propigate)
+        self.depend_on(creator, outline.depend.DependType.LayerOnLayer, propigate=propigate)
 
         self.set_type("Util")
 

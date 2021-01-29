@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,18 +12,21 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.json module.
+"""
 
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import mock
 import os
 import unittest
 from xml.etree import ElementTree as Et
 
+import mock
+
 import outline
-from outline import load_json
 from . import test_utils
 
 
@@ -47,7 +48,7 @@ class JsonTest(unittest.TestCase):
                  '}]'
              '}')
 
-        ol = load_json(s)
+        ol = outline.load_json(s)
         self.assertEqual('test_job', ol.get_name())
         self.assertEqual('1-10', ol.get_frame_range())
         self.assertEqual('LAYER_VALUE1', ol.get_layer('layer_1').get_env('LAYER_KEY1'))
@@ -66,7 +67,7 @@ class JsonTest(unittest.TestCase):
     def testJsonFile(self, systemMock):
         """Load JSON from a file"""
         with open(os.path.join(JSON_DIR, 'shell.outline')) as fp:
-            ol = load_json(fp.read())
+            ol = outline.load_json(fp.read())
         with test_utils.TemporarySessionDirectory():
             ol.setup()
             layer = ol.get_layer('shell_layer')

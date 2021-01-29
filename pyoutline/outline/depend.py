@@ -46,7 +46,7 @@ class DependType(object):
     PreviousFrame = "PREVIOUS_FRAME"
     LayerOnSimFrame = "LAYER_ON_SIM_FRAME"
     LayerOnAny = "LAYER_ON_ANY"
-    
+
     # Short depend types used in require strings.
     all = LayerOnLayer
     any = LayerOnAny
@@ -55,15 +55,15 @@ class DependType(object):
 
 def parse_require_str(require):
     """
-    Parse a require string and returns its components. 
-    A require string is short hand for defining dependencies
-    which contains the layer_name:depend_type.
+    Parse a require string and returns its components.
+
+    A require string is short hand for defining dependencies which contains the
+    layer_name:depend_type.
     """
     parts = str(require).split(":")
     if len(parts) == 1:
         return (parts[0], DependType.FrameByFrame)
-    else:
-        return (parts[0], getattr(DependType, parts[1]))
+    return (parts[0], getattr(DependType, parts[1]))
 
 class Depend(object):
     """A dependency"""
@@ -78,7 +78,7 @@ class Depend(object):
         self.__type = depend_type
         self.__propigate = propigate
         self.__any_frame = any_frame
-                
+
     def get_dependant_layer(self):
         """
         Return the dependant layer.

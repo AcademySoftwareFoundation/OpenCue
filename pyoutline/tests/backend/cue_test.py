@@ -14,21 +14,26 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+Tests for the outline.backend.cue module.
+"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import mock
 import os
 import unittest
 import xml.etree.ElementTree as ET
+
+import mock
 
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.job
 
 import outline
 import outline.backend.cue
+import outline.cuerun
 from .. import test_utils
 
 
@@ -39,6 +44,7 @@ TEST_USER = 'test-user'
 class SerializeTest(unittest.TestCase):
     def testSerializeShellOutline(self):
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
+
         outline.config.set('outline', 'home', '/opencue/outline')
         outline.config.set('outline', 'user_dir', '/tmp/opencue/user')
         ol = outline.load_outline(path)
@@ -147,10 +153,10 @@ class LaunchTest(unittest.TestCase):
     def tearDown(self):
         outline.backend.cue.JOB_WAIT_PERIOD_SEC = self.job_wait_period_original
 
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     @mock.patch('opencue.Cuebot.setHosts')
     @mock.patch('opencue.api.launchSpecAndWait')
-    def testLaunch(self, launchSpecAndWaitMock, setHostsMock, getStubMock):
+    def testLaunch(self, launchSpecAndWaitMock, setHostsMock):
         launchSpecAndWaitMock.return_value = [opencue.wrappers.job.Job()]
         serverName = 'foo-server'
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
@@ -164,10 +170,10 @@ class LaunchTest(unittest.TestCase):
         launchSpecAndWaitMock.assert_called_with(serializedXml)
         setHostsMock.assert_called_with([serverName])
 
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     @mock.patch('opencue.api.isJobPending')
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.launchSpecAndWait')
-    def testLaunchAndWait(self, launchSpecAndWaitMock, getStubMock, isJobPendingMock):
+    def testLaunchAndWait(self, launchSpecAndWaitMock, isJobPendingMock):
         jobName = 'some-job'
         launchSpecAndWaitMock.return_value = [
             opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
@@ -184,10 +190,10 @@ class LaunchTest(unittest.TestCase):
         launchSpecAndWaitMock.assert_called_with(serializedXml)
         isJobPendingMock.assert_has_calls([mock.call(jobName), mock.call(jobName)])
 
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     @mock.patch('opencue.api.getJob')
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
     @mock.patch('opencue.api.launchSpecAndWait')
-    def testLaunchAndTest(self, launchSpecAndWaitMock, getStubMock, getJobMock):
+    def testLaunchAndTest(self, launchSpecAndWaitMock, getJobMock):
         jobName = 'another-job'
         launchSpecAndWaitMock.return_value = [
             opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))]
@@ -207,4 +213,3 @@ class LaunchTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-

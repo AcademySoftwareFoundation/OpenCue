@@ -13,19 +13,17 @@
 #  limitations under the License.
 
 
-"""Outline is a library for scripting shell commands to
-be executed over a frame range.  Typically these shell
-commands would be executed in parallel on a render farm.
 """
-
-
-# TODO(bcipriano) Clean up this file - get rid of wildcard imports
-#  and don't collapse everything into the toplevel namespace like this. (Issue #151)
+Outline is a library for scripting shell commands to be executed over a frame range.  Typically
+these shell commands would be executed in parallel on a render farm.
+"""
 
 
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
+
+# pylint: disable=cyclic-import,redefined-builtin
 
 from .config import config
 from .exception import *
@@ -36,4 +34,3 @@ from . import io
 from .layer import *
 from . import cuerun
 from .plugins import PluginManager
-
