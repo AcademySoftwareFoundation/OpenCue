@@ -15,12 +15,17 @@
 #  limitations under the License.
 
 
+"""Tests for cueadmin.output."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+# pylint: disable=wrong-import-order,wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
+
 import contextlib
 import mock
 import io
@@ -45,6 +50,9 @@ import opencue.wrappers.show
 import opencue.wrappers.subscription
 
 import cueadmin.output
+
+
+# pylint: disable=line-too-long
 
 
 @contextlib.contextmanager

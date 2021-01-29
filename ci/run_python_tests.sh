@@ -24,4 +24,8 @@ python rqd/setup.py test
 if [[ "$1" == "--lint" ]]; then
   cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
   cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+
+  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cueadmin && cd ..
+  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
 fi
+
