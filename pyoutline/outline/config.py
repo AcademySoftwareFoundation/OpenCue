@@ -32,7 +32,13 @@ import os
 import pathlib
 import tempfile
 
-from six.moves.configparser import SafeConfigParser
+import six
+
+from six.moves import configparser
+if six.PY2:
+    ConfigParser = configparser.SafeConfigParser
+else:
+    ConfigParser = configparser.ConfigParser
 
 
 __all__ = ["config"]
@@ -41,7 +47,7 @@ __file_path__ = pathlib.Path(__file__)
 PYOUTLINE_ROOT_DIR = __file_path__.parent.parent
 DEFAULT_USER_DIR = pathlib.Path(tempfile.gettempdir()) / 'opencue' / 'outline' / getpass.getuser()
 
-config = SafeConfigParser()
+config = ConfigParser()
 
 default_config_paths = [__file_path__.parent.parent.parent / 'etc' / 'outline.cfg',
                         __file_path__.parent.parent / 'etc' / 'outline.cfg']
