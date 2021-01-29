@@ -30,8 +30,9 @@ standard_library.install_aliases()
 import getpass
 import os
 import pathlib
-import six
 import tempfile
+
+import six
 
 from six.moves import configparser
 if six.PY2:
