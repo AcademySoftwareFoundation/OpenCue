@@ -15,13 +15,17 @@
 #  limitations under the License.
 
 
+"""Tests for cueadmin.common."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
-import mock
 import unittest
+
+import mock
 
 import opencue.compiled_proto.facility_pb2
 import opencue.compiled_proto.host_pb2
@@ -698,21 +702,22 @@ class ProcTests(unittest.TestCase):
         args = self.parser.parse_args(
             ['-lp', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5', '-host', TEST_HOST,
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
-        procSearchMock.byOptions.return_value = opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
-            procs=opencue.compiled_proto.host_pb2.ProcSeq(
-                procs=[
-                    opencue.compiled_proto.host_pb2.Proc(
-                        name='proc1',
-                        reserved_cores=28,
-                        used_memory=44,
-                        reserved_memory=120,
-                        job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
-                        frame_name='y0ihh3fxrstz6ub7ut2k',
-                        dispatch_time=1556845762
-                    )
-                ]
+        procSearchMock.byOptions.return_value = \
+            opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
+                procs=opencue.compiled_proto.host_pb2.ProcSeq(
+                    procs=[
+                        opencue.compiled_proto.host_pb2.Proc(
+                            name='proc1',
+                            reserved_cores=28,
+                            used_memory=44,
+                            reserved_memory=120,
+                            job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
+                            frame_name='y0ihh3fxrstz6ub7ut2k',
+                            dispatch_time=1556845762
+                        )
+                    ]
+                )
             )
-        )
 
         cueadmin.common.handleArgs(args)
 
@@ -728,21 +733,22 @@ class ProcTests(unittest.TestCase):
         args = self.parser.parse_args(
             ['-ll', TEST_SHOW, '-alloc', TEST_ALLOC, '-duration', '1.5',
              '-job', TEST_JOB, '-limit', resultsLimit, '-memory', '128'])
-        procSearchMock.byOptions.return_value = opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
-            procs=opencue.compiled_proto.host_pb2.ProcSeq(
-                procs=[
-                    opencue.compiled_proto.host_pb2.Proc(
-                        name='proc1',
-                        reserved_cores=28,
-                        used_memory=44,
-                        reserved_memory=120,
-                        job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
-                        frame_name='y0ihh3fxrstz6ub7ut2k',
-                        dispatch_time=1556845762
-                    )
-                ]
+        procSearchMock.byOptions.return_value = \
+            opencue.compiled_proto.host_pb2.ProcGetProcsResponse(
+                procs=opencue.compiled_proto.host_pb2.ProcSeq(
+                    procs=[
+                        opencue.compiled_proto.host_pb2.Proc(
+                            name='proc1',
+                            reserved_cores=28,
+                            used_memory=44,
+                            reserved_memory=120,
+                            job_name='mms2oazed2bbcjk60gho_w11licymr63s66bw1b3s',
+                            frame_name='y0ihh3fxrstz6ub7ut2k',
+                            dispatch_time=1556845762
+                        )
+                    ]
+                )
             )
-        )
 
         cueadmin.common.handleArgs(args)
 

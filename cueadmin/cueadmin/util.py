@@ -34,7 +34,7 @@ __ALL__ = ["enableDebugLogging",
 
 
 def enableDebugLogging():
-    """enables debug logging for opencue and opencue tools"""
+    """Enables debug logging for opencue and opencue tools."""
     logger = logging.getLogger("opencue")
     console = logging.StreamHandler()
     console.setLevel(logging.DEBUG)
@@ -44,18 +44,15 @@ def enableDebugLogging():
 
 
 def promptYesNo(prompt, force=False):
-    """Asks the user the supplied question and returns with a boolean to
-    indicate the users input.
+    """Asks the user to confirm or deny the prompted question.
+
     @type  prompt: string
     @param prompt: The question that the user can see
     @type  force: boolean
     @param force: (Optional) If true, skips the prompt and returns true
     @rtype:  bool
-    @return: The users response"""
-    try:
-        result = force or input("%s [y/n] " % prompt) in ("y", "Y")
-    except KeyboardInterrupt:
-        raise
+    @return: The user's response"""
+    result = force or input("%s [y/n] " % prompt) in ("y", "Y")
     if not result:
         print("Canceled")
     return result
@@ -63,6 +60,7 @@ def promptYesNo(prompt, force=False):
 
 def waitOnJobName(jobName, maxWaitForLaunch=None):
     """Waits on the given job name to enter and then leave the queue.
+
     @type  jobName: str
     @param jobName: Full name of the job
     @type  maxWaitForLaunch: int
@@ -91,8 +89,6 @@ def waitOnJobName(jobName, maxWaitForLaunch=None):
                 if maxWaitForLaunch and waited >= maxWaitForLaunch:
                     return False
         except opencue.CueException as e:
-            print("Error: %s" % e, file=sys.stderr)
-        except Exception as e:
             print("Error: %s" % e, file=sys.stderr)
 
         time.sleep(delay)

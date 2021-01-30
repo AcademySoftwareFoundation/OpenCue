@@ -20,10 +20,10 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
-RUN python -m pip install --upgrade pip
+RUN python -m pip install --upgrade 'pip<21'
 RUN python3.6 -m pip install --upgrade pip
 
-RUN python -m pip install --upgrade setuptools
+RUN python -m pip install --upgrade 'setuptools<45'
 RUN python3.6 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
