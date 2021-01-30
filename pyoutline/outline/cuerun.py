@@ -119,6 +119,7 @@ class OutlineLauncher(object):
     def __init__(self, outline, **args):
         self.__outline = outline
         self.__flags = {"pause": False,
+                        "priority": 1,
                         "wait": False,
                         "test": False,
                         "server": False,
@@ -355,6 +356,7 @@ class CuerunOptionParser(OptionParser):
                 "basename": options.basename,
                 "server": options.server,
                 "pause": options.pause,
+                "priority": options.priority,
                 "wait": options.wait,
                 "test": options.test,
                 "range": options.range,

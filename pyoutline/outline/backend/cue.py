@@ -246,7 +246,7 @@ def _serialize(launcher, use_pycuerun):
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
     sub_element(j, "paused", str(launcher.get("pause")))
-    sub_element(j, "priority", str(ol.get_arg("priority") or launcher.get("priority")))
+    sub_element(j, "priority", str(launcher.get("priority")))
     sub_element(j, "maxretries", str(launcher.get("maxretries")))
     sub_element(j, "autoeat", str(launcher.get("autoeat")))
 
