@@ -47,11 +47,6 @@ import org.springframework.context.annotation.PropertySource;
 public class AppConfig {
 
     @Configuration
-    @Conditional(OracleDatabaseCondition.class)
-    @ImportResource({"classpath:conf/spring/applicationContext-dao-oracle.xml"})
-    static class OracleEngineConfig {}
-
-    @Configuration
     @Conditional(PostgresDatabaseCondition.class)
     @ImportResource({"classpath:conf/spring/applicationContext-dao-postgres.xml"})
     static class PostgresEngineConfig {}

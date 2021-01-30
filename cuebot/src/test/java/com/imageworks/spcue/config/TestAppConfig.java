@@ -50,14 +50,6 @@ public class TestAppConfig {
     }
 
     @Configuration
-    @Conditional(OracleDatabaseCondition.class)
-    @ImportResource({
-        "classpath:conf/spring/applicationContext-oracle-datasource.xml",
-        "classpath:conf/spring/applicationContext-dao-oracle.xml"
-    })
-    static class OracleEngineConfig {}
-
-    @Configuration
     @Conditional(PostgresDatabaseCondition.class)
     @ImportResource({
         "classpath:conf/spring/applicationContext-postgres-datasource.xml",

@@ -21,10 +21,6 @@
        xsi:schemaLocation="
             http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
 
-    <bean id="assumingOracleEngine" class="com.imageworks.spcue.test.AssumingOracleEngine">
-        <property name="dbEngine" ref="dbEngine" />
-    </bean>
-
     <bean id="assumingPostgresEngine" class="com.imageworks.spcue.test.AssumingPostgresEngine">
         <property name="dbEngine" ref="dbEngine" />
     </bean>

@@ -1341,7 +1341,6 @@ class HostActions(AbstractActions):
                                          body,
                                          [host.data.name for host in hosts]):
             for host in hosts:
-                # Delete current render partitions to avoid oracle exception
                 for rp in host.getRenderPartitions():
                     rp.delete()
 

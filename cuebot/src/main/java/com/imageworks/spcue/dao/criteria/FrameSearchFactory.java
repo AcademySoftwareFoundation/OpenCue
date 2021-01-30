@@ -30,14 +30,7 @@ public class FrameSearchFactory {
     private DatabaseEngine dbEngine;
 
     public FrameSearchInterface create() {
-        if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new FrameSearch();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.FrameSearch();
-        } else {
-            throw new RuntimeException(
-                    "current database engine is not supported by FrameSearchFactory");
-        }
+        return new FrameSearch();
     }
 
     public FrameSearchInterface create(List<String> frameIds) {
