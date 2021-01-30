@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for listing shows and performing administrative tasks."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -29,7 +32,8 @@ PLUGIN_PROVIDES = "ShowsDockWidget"
 
 
 class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Containing widget for this plugins."""
+
     def __init__(self, parent):
         super(ShowsDockWidget, self).__init__(parent, PLUGIN_NAME)
 

@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for managing show subscriptions."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -32,7 +35,8 @@ PLUGIN_PROVIDES = "SubscriptionDockWidget"
 
 
 class SubscriptionDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Widget that lists shows and the subscriptions they have."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 

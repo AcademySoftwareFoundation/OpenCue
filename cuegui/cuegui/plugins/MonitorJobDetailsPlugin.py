@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for listing details of the selected job."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -40,6 +43,7 @@ PLUGIN_PROVIDES = "MonitorLayerFramesDockWidget"
 
 class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds a display that can monitor the layers and frames of a job."""
+
     def __init__(self, parent):
         """Creates the dock widget and docks it to the parent.
         @param parent: The main window to dock to
@@ -58,13 +62,13 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
         self.__splitter.addWidget(self.__monitorLayers)
         self.__splitter.addWidget(self.__monitorFrames)
 
-        #Signals in:
+        # pylint: disable=no-member
         QtGui.qApp.view_object.connect(self.__setJob)
         QtGui.qApp.unmonitor.connect(self.__unmonitor)
         QtGui.qApp.facility_changed.connect(self.__setJob)
+        # pylint: enable=no-member
         self.__monitorLayers.handle_filter_layers_byLayer.connect(self.handleLayerFilter)
         self.__splitter.splitterMoved.connect(self.__splitterMoved)
-
 
         self.pluginRegisterSettings([("splitterSize",
                                       self.__splitter.sizes,
@@ -89,9 +93,11 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
                                       self.__monitorLayers.setColumnOrder)])
 
     def handleLayerFilter(self, names):
+        """Propagates a layer filtering event."""
         self.__monitorFrames.filterLayersFromDoubleClick(names)
 
     def __splitterMoved(self, pos, index):
+        del index
         self.__monitorLayers.disableUpdate = not bool(pos)
 
     def dragEnterEvent(self, event):
@@ -121,6 +127,7 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
 
     def __unmonitor(self, proxy):
         """Unmonitors the current job if it matches the supplied proxy.
+
         @param proxy: A job proxy
         @type  proxy: proxy"""
         if self.__job and self.__job == proxy:

@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for managing limits."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -29,17 +32,18 @@ PLUGIN_PROVIDES = "LimitsDockWidget"
 
 
 class LimitsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-  """This builds what is displayed on the dock widget"""
-  def __init__(self, parent):
-    super(LimitsDockWidget, self).__init__(parent, PLUGIN_NAME)
-    
-    self.__limitsWidget = cuegui.LimitsWidget.LimitsWidget(self)
-    
-    self.layout().addWidget(self.__limitsWidget)
-    
-    self.pluginRegisterSettings([("columnVisibility",
-                                  self.__limitsWidget.getColumnVisibility,
-                                  self.__limitsWidget.setColumnVisibility),
-                                  ("columnOrder",
-                                  self.__limitsWidget.getColumnOrder,
-                                  self.__limitsWidget.setColumnOrder)])
+    """Widget for managing limits."""
+
+    def __init__(self, parent):
+        super(LimitsDockWidget, self).__init__(parent, PLUGIN_NAME)
+
+        self.__limitsWidget = cuegui.LimitsWidget.LimitsWidget(self)
+
+        self.layout().addWidget(self.__limitsWidget)
+
+        self.pluginRegisterSettings([("columnVisibility",
+                                      self.__limitsWidget.getColumnVisibility,
+                                      self.__limitsWidget.setColumnVisibility),
+                                      ("columnOrder",
+                                      self.__limitsWidget.getColumnOrder,
+                                      self.__limitsWidget.setColumnOrder)])

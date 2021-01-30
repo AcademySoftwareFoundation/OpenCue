@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for listing active jobs and performing administrative tasks."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -45,7 +48,7 @@ PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 
 
 class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Containing widget for this plugin."""
 
     view_object = QtCore.Signal(object)
 
@@ -62,10 +65,13 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.layout().addWidget(self.__toolbar)
         self.layout().addWidget(self.jobMonitor)
 
-        #Signals in:
+        # Signals in
+        # pylint: disable=no-member
         QtGui.qApp.view_object.connect(self.addJob)
         QtGui.qApp.facility_changed.connect(self.jobMonitor.removeAllItems)
-        #Signals out:
+        # pylint: enable=no-member
+
+        # Signals out
         self.jobMonitor.view_object.connect(self.view_object.emit)
 
         self.pluginRegisterSettings([("regexText",
@@ -84,25 +90,30 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.jobMonitor.getColumnOrder,
                                       self.jobMonitor.setColumnOrder)])
 
-    def addJob(self, object):
-        if cuegui.Utils.isProc(object):
-            object = cuegui.Utils.findJob(object.data.job_name)
-        elif not cuegui.Utils.isJob(object):
+        self.__loadFinishedJobsCheckBox = None
+
+    def addJob(self, rpcObject):
+        """Adds a job to be monitored."""
+        if cuegui.Utils.isProc(rpcObject):
+            rpcObject = cuegui.Utils.findJob(rpcObject.data.job_name)
+        elif not cuegui.Utils.isJob(rpcObject):
             return
-        self.jobMonitor.addJob(object)
+        self.jobMonitor.addJob(rpcObject)
         self.raise_()
 
     def getJobIds(self):
+        """Returns a list of the IDs of all jobs being monitored."""
         return list(map(opencue.id, self.jobMonitor.getJobProxies()))
 
     def restoreJobIds(self, jobIds):
+        """Monitors a list of jobs."""
         for jobId in jobIds:
             try:
                 self.jobMonitor.addJob(jobId)
-            except opencue.EntityNotFoundException as e:
+            except opencue.EntityNotFoundException:
                 logger.warning("Unable to load previously loaded job since "
                                "it was moved to the historical "
-                               "database: %s" % jobId)
+                               "database: %s", jobId)
 
     def pluginRestoreState(self, settings):
         """Called on plugin start with any previously saved state.
@@ -119,10 +130,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 for jobId in settings[1]:
                     try:
                         self.jobMonitor.addJob(jobId)
-                    except opencue.EntityNotFoundException as e:
+                    except opencue.EntityNotFoundException:
                         logger.warning("Unable to load previously loaded job since"
                                        "it was moved to the historical "
-                                       "database: %s" % jobId)
+                                       "database: %s", jobId)
 
     def _regexLoadJobsSetup(self, layout):
         """Selects jobs by name substring.
@@ -156,7 +167,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
-        elif load_finished_jobs or re.search("^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
+        elif load_finished_jobs or re.search(
+                r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
             # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
             for job in opencue.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
@@ -240,7 +252,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         layout.addWidget(unpauseButton)
         unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)
 
+
 class JobLoadFinishedCheckBox(QtWidgets.QCheckBox):
+    """Checkbox for controlling whether finished jobs appear in the list."""
+
     def __init__(self, parent):
         QtWidgets.QCheckBox.__init__(self, 'Load Finished')
         self.parent = weakref.proxy(parent)
@@ -250,7 +265,10 @@ class JobLoadFinishedCheckBox(QtWidgets.QCheckBox):
 
         self.setToolTip(toolTip)
 
+
 class JobRegexLoadEditBox(QtWidgets.QLineEdit):
+    """Textbox for searching for jobs to add to the list of monitored jobs."""
+
     def __init__(self, parent):
         QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)
@@ -290,12 +308,14 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
         menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 
     def actionClear(self):
+        """Clears the textbox."""
         self.setText("")
 
     def _actionLoad(self):
         self.returnPressed.emit()
 
     def toggleReadOnly(self):
+        """Toggles the textbox readonly setting."""
         self.setReadOnly(not self.isReadOnly())
 
     def keyPressEvent(self, event):

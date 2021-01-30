@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for redirecting procs from one job to another."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -29,6 +32,8 @@ PLUGIN_PROVIDES = "RedirectWidget"
 
 
 class RedirectWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
+    """Containing widget for this plugin."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
         self.layout().addWidget(cuegui.Redirect.RedirectWidget(self))

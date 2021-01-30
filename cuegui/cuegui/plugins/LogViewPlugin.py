@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for viewing logs."""
+
+
 from __future__ import division
 from __future__ import print_function
 from __future__ import absolute_import
@@ -112,6 +115,8 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
+        self._context_menu = None
+
     def context_menu(self):
         """
         A custom context menu to pop up when the user Right-Clicks in the
@@ -155,8 +160,9 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         Copy (Ctrl + C) action. Stores the currently selected text in the
         clipboard.
 
-        @param mode: The QClipboard mode value (QtGui.QClipboard.Clipboard = GLOBAL
-                                                QtGui.QClipboard.Selection = Selection (middle-mouse))
+        @param mode: The QClipboard mode value
+            (QtGui.QClipboard.Clipboard = GLOBAL
+             QtGui.QClipboard.Selection = Selection (middle-mouse))
         @type mode: int
         """
         selection = self.textCursor().selection()
@@ -286,9 +292,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
 
 class LogViewWidget(QtWidgets.QWidget):
-    """
-    Displays the log file for the selected frame
-    """
+    """Displays the log file for the selected frame."""
 
     def __init__(self, parent=None):
         """
@@ -421,7 +425,10 @@ class LogViewWidget(QtWidgets.QWidget):
         self._cursor = self._content_box.textCursor()
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
+        # Signals are defined in code, so pylint thinks they don't exist.
+        # pylint: disable=no-member
         QtGui.qApp.display_log_file_content.connect(self._set_log_files)
+        # pylint: enable=no-member
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -511,7 +518,7 @@ class LogViewWidget(QtWidgets.QWidget):
         log_index_txt = ('Log %s of %s%s'
                          % (str(self._current_log_index+1),
                             len(self._log_files),
-                            (' (current)' if self._current_log_index == 0 
+                            (' (current)' if self._current_log_index == 0
                              else '')))
         self._log_index_label.setText(log_index_txt)
 
@@ -723,10 +730,11 @@ class LogViewWidget(QtWidgets.QWidget):
         if not self._log_file:
             return
 
-        format = QtGui.QTextCharFormat()
+        charFormat = QtGui.QTextCharFormat()
         self._highlight_cursor.setPosition(QtGui.QTextCursor.Start)
-        self._highlight_cursor.movePosition(QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
-        self._highlight_cursor.setCharFormat(format)
+        self._highlight_cursor.movePosition(
+            QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
+        self._highlight_cursor.setCharFormat(charFormat)
         self._highlight_cursor.clearSelection()
 
     def _set_scrollbar_value(self, val):
@@ -833,14 +841,15 @@ class LogViewWidget(QtWidgets.QWidget):
         # Update the content in the gui (if necessary)
         current_text = (self._content_box.toPlainText() or '')
         new_text = content.lstrip(str(current_text))
-        [x for x in new_text if x in PRINTABLE]
         if new_text:
             if self._new_log:
                 self._content_box.setPlainText(content)
             else:
                 self._content_box.appendPlainText(new_text)
             self._content_timestamp = time.time()
+        # pylint: disable=no-member
         QtGui.qApp.processEvents()
+        # pylint: enable=no-member
 
         # Adjust scrollbar value (if necessary)
         self._scrollbar_max = self._log_scrollbar.maximum()
@@ -852,7 +861,7 @@ class LogViewWidget(QtWidgets.QWidget):
 class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
     """
     Plugin for displaying the log file content for the selected frame with
-    the ability to perform regex-based search
+    the ability to perform regex-based search.
     """
 
     def __init__(self, parent=None):
@@ -869,6 +878,8 @@ class LogViewPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
 
 
 class Highlighter(QtGui.QSyntaxHighlighter):
+    """Color-codes log text according to log content."""
+
     def __init__(self, parent=None):
         super(Highlighter, self).__init__(parent)
 
@@ -893,7 +904,6 @@ class Highlighter(QtGui.QSyntaxHighlighter):
         self.completeFormat = QtGui.QTextCharFormat()
         self.completeFormat.setFontWeight(QtGui.QFont.Bold)
         self.completeFormat.setForeground(cuegui.Style.ColorTheme.LOG_COMPLETE)
-
 
     def highlightBlock(self, text):
         if not self.on:
