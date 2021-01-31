@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Utility functions.
-"""
+"""Utility functions."""
 
 
 from __future__ import print_function
@@ -32,6 +30,7 @@ import subprocess
 import sys
 import time
 import traceback
+import webbrowser
 
 from PySide2 import QtCore
 from PySide2 import QtGui
@@ -53,8 +52,10 @@ logger = cuegui.Logger.getLogger(__file__)
 __USERNAME = None
 
 
-def questionBoxYesNo(parent, title, text, items = []):
-    """A simple yes/no alert box
+# pylint: disable=dangerous-default-value
+def questionBoxYesNo(parent, title, text, items=[]):
+    """A simple yes/no alert box.
+
     @type  parent: QObject
     @param parent: The parent for this object
     @type  title: string
@@ -68,33 +69,35 @@ def questionBoxYesNo(parent, title, text, items = []):
 
 
 def countObjectTypes(objects):
+    """Given a list of objects, returns a count of how many of each type there are."""
     results = {"rootgroup": 0, "group": 0, "job": 0}
-    for object in objects:
-        if isJob(object):
+    for obj in objects:
+        if isJob(obj):
             results["job"] += 1
-        elif isGroup(object):
+        elif isGroup(obj):
             results["group"] += 1
-        elif isRootGroup(object):
+        elif isRootGroup(obj):
             results["rootgroup"] += 1
     results["total"] = len(objects)
     return results
 
 
 def countJobTypes(objects):
+    """Given a list of jobs, returns a count of how many jobs have each status."""
     results = {"paused": False, "unpaused": False, "hasDead": False,
                "autoEating": False, "notEating": False}
 
-    for object in objects:
-        if isJob(object):
-            if isinstance(object, opencue.wrappers.job.NestedJob):
-                object = object.asJob()
-            if object.data.is_paused:
+    for obj in objects:
+        if isJob(obj):
+            if isinstance(obj, opencue.wrappers.job.NestedJob):
+                obj = obj.asJob()
+            if obj.data.is_paused:
                 results["paused"] = True
             else:
                 results["unpaused"] = True
-            if object.data.job_stats.dead_frames:
+            if obj.data.job_stats.dead_frames:
                 results["hasDead"] = True
-            if object.data.auto_eat:
+            if obj.data.auto_eat:
                 results["autoEating"] = True
             else:
                 results["notEating"] = True
@@ -102,81 +105,83 @@ def countJobTypes(objects):
 
 
 def qvarToString(qv):
-    """converts a QVariant to a python string"""
+    """converts a QVariant to a python string."""
     return str(qv)
 
 
 def qvarToFloat(qv):
-    """converts a Qvariant to a python float"""
+    """converts a Qvariant to a python float."""
     return float(qv)
 
 
-def isJob(object):
+def isJob(obj):
     """Returns true of the object is a job, false if not
     @return: If the object is a job
     @rtype:  bool"""
-    return object.__class__.__name__ in ["Job", "NestedJob"]
+    return obj.__class__.__name__ in ["Job", "NestedJob"]
 
 
-def isLayer(object):
+def isLayer(obj):
     """Returns true if the object is a layer, false if not
     @return: If the object is a layer
     @rtype:  bool"""
-    return object.__class__.__name__ == "Layer"
+    return obj.__class__.__name__ == "Layer"
 
 
-def isFrame(object):
+def isFrame(obj):
     """Returns true if the object is frame, false if not
     @return: If the object is a frame
     @rtype:  bool"""
-    return object.__class__.__name__ == "Frame"
+    return obj.__class__.__name__ == "Frame"
 
 
-def isShow(object):
+def isShow(obj):
     """Returns true if the object is a show, false if not
     @return: If the object is a show
     @rtype:  bool"""
-    return object.__class__.__name__ == "Show"
+    return obj.__class__.__name__ == "Show"
 
 
-def isRootGroup(object):
+def isRootGroup(obj):
     """Returns true if the object is a root, false if not
     @return: If the object is a root group
     @rtype:  bool"""
-    return isinstance(object, opencue.wrappers.group.NestedGroup) and not object.hasParent()
+    return isinstance(obj, opencue.wrappers.group.NestedGroup) and not obj.hasParent()
 
 
-def isGroup(object):
+def isGroup(obj):
     """Returns true if the object is a group, false if not
     @return: If the object is a group
     @rtype:  bool"""
+    # isinstance is needed here due to NestedGroup's inheritance
+    # pylint: disable=unidiomatic-typecheck
     return (
-        type(object) == opencue.wrappers.group.Group or
-        (isinstance(object, opencue.wrappers.group.NestedGroup) and object.hasParent()))
+        type(obj) == opencue.wrappers.group.Group or
+        (isinstance(obj, opencue.wrappers.group.NestedGroup) and obj.hasParent()))
 
 
-def isHost(object):
+def isHost(obj):
     """Returns true of the object is a host, false if not
     @return: If the object is a host
     @rtype:  bool"""
-    return object.__class__.__name__ in ["NestedHost", "Host"]
+    return obj.__class__.__name__ in ["NestedHost", "Host"]
 
 
-def isProc(object):
+def isProc(obj):
     """Returns true if the object is a proc, false if not
     @return: If the object is a proc
     @rtype:  bool"""
-    return object.__class__.__name__ in ["Proc", "NestedProc"]
+    return obj.__class__.__name__ in ["Proc", "NestedProc"]
 
 
-def isTask(object):
+def isTask(obj):
     """Returns true if the object is a task, false if not
     @return: If the object is a task
     @rtype:  bool"""
-    return object.__class__.__name__ == "Task"
+    return obj.__class__.__name__ == "Task"
 
 
-__REGEX_ID = re.compile("[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
+__REGEX_ID = re.compile(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}")
 
 
 def isStringId(value):
@@ -188,6 +193,7 @@ def isStringId(value):
     return __REGEX_ID.match(value)
 
 
+# pylint: disable=broad-except
 def getCuewho(show):
     """Returns the username that is cuewho for the given show
     @param show: Show name
@@ -198,10 +204,11 @@ def getCuewho(show):
         file = open("/shots/%s/home/cue/cuewho.who" % show, "r")
         return file.read()
     except Exception as e:
-        logger.warning("Failed to update cuewho: %s\n%s" % (show, e))
+        logger.warning("Failed to update cuewho: %s\n%s", show, e)
         return "Unknown"
 
 
+# pylint: disable=global-statement
 def getUsername():
     """Returns the username that this process is running under"""
     global __USERNAME
@@ -210,19 +217,19 @@ def getUsername():
     return __USERNAME
 
 
+# pylint: disable=broad-except
 def getExtension(username):
+    """Gets a user's phone extension."""
     try:
-        # TODO: Replace this with a direct call to the phone util that the
-        # phone widget uses once code is stable
         results = subprocess.check_output(['phone', username])
 
         for line in results.splitlines():
-            if line.find('Extension') != -1 and len(line.split()) == 2:
+            if 'Extension' in line and len(line.split()) == 2:
                 return line.split()[-1]
         return "Unknown"
 
     except Exception as e:
-        logger.warning("Failed to update extension: %s\n%s" % (username, e))
+        logger.warning("Failed to update extension: %s\n%s", username, e)
         return ""
 
 
@@ -252,17 +259,18 @@ def findJob(job):
         return None
     if isStringId(job):
         return opencue.api.getJob(job)
-    if not re.search("^([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
+    if not re.search(r"^([a-z0-9\_]+)\-([a-z0-9\.\_]+)\-", job, re.IGNORECASE):
         return None
     try:
         return opencue.api.findJob(job)
     except Exception as e:
-        logger.warning("Error loading job: %s" % job)
-        logger.debug("Error loading job: %s\n%s" % (job, e))
+        logger.warning("Error loading job: %s", job)
+        logger.debug("Error loading job: %s\n%s", job, e)
         return None
 
 
 def shellOut(cmd):
+    """Runs a command in an external shell."""
     os.system("%s &" % cmd)
 
 
@@ -308,6 +316,7 @@ def exceptionOutput(e):
 
 
 def handleExceptions(function):
+    """Custom exception handler."""
     def new(*args):
         try:
             return function(*args)
@@ -320,9 +329,9 @@ def __splitTime(sec):
     """Takes an amount of seconds and returns a tuple for hours, minutes and seconds.
     @rtype:  tuple(int, int, int)
     @return: A tuple that contains hours, minutes and seconds"""
-    min, sec = divmod(sec, 60)
-    hour, min = divmod(min, 60)
-    return (hour, min, sec)
+    minutes, sec = divmod(sec, 60)
+    hour, minutes = divmod(minutes, 60)
+    return (hour, minutes, sec)
 
 
 def secondsToHHMMSS(sec):
@@ -370,14 +379,14 @@ def dateToMMDDHHMM(sec):
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
 
 
-def memoryToString(kmem, unit = None):
+def memoryToString(kmem, unit=None):
+    """Returns an amount of memory in a human-friendly string."""
     k = 1024
     if unit == "K" or not unit and kmem < k:
         return "%dK" % kmem
-    if unit == "M" or not unit and kmem < pow(k,2):
+    if unit == "M" or not unit and kmem < pow(k, 2):
         return "%dM" % (kmem // k)
-    if unit == "G" or not unit and kmem < pow(k,3):
-        return "%.01fG" % (float(kmem) / pow(k,2))
+    return "%.01fG" % (float(kmem) / pow(k, 2))
 
 
 def getResourceConfig(path=None):
@@ -391,7 +400,6 @@ def getResourceConfig(path=None):
     @return: The entries in the given yaml file
     @rtype: dict<str:str>
     """
-
     config = {}
     if not path:
         path = '{}/cue_resources.yaml'.format(cuegui.Constants.DEFAULT_INI_PATH)
@@ -399,8 +407,7 @@ def getResourceConfig(path=None):
         with open(path, 'r') as fileObject:
             config = yaml.load(fileObject, Loader=yaml.SafeLoader)
     except (IOError, ScannerError) as e:
-        print ('WARNING: Could not read config file %s: %s'
-               % (path, e))
+        print('WARNING: Could not read config file %s: %s' % (path, e))
     return config
 
 
@@ -409,12 +416,15 @@ def getResourceConfig(path=None):
 ################################################################################
 
 def getFrameLogFile(job, frame):
+    """Get the log file associated with a frame."""
     return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
 
 
 def getFrameLLU(job, frame):
+    """Get a frame's last log update time."""
     __now = time.time()
     if __now - getattr(frame, "getFrameLLUTime", 0) >= 5:
+        # pylint: disable=bare-except
         try:
             frame.getFrameLLU = __now - os.stat(getFrameLogFile(job, frame)).st_mtime
         except:
@@ -424,6 +434,7 @@ def getFrameLLU(job, frame):
 
 
 def getFrameLastLine(job, frame):
+    """Get the last line of a frame log."""
     __now = time.time()
     if __now - getattr(frame, "getFrameLastLineTime", 0) >= 5:
         frame.getFrameLastLine = getLastLine(getFrameLogFile(job, frame))
@@ -432,11 +443,12 @@ def getFrameLastLine(job, frame):
 
 
 def getLastLine(path):
-    """Reads the last line from the file"""
-    ansiEscape = '(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
+    """Reads the last line from the file."""
+
+    ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp=open(path, 'r')
+        fp = open(path, 'r')
         fp.seek(0, 2)
 
         backseek = min(4096, fp.tell())
@@ -454,47 +466,55 @@ def getLastLine(path):
 
 
 def popupTail(file, facility=None):
+    """Opens an xterm window showing the tail of the given file."""
     if file and not popupWeb(file, facility):
-        JOB_LOG_CMD = "/usr/bin/xterm -sb -sl 4096 -n RQLOG -geometry 200x50+0+0 -title %s -e '/usr/bin/tail -n+0 -f %s'" % (os.path.basename(file), file)
-        shellOut(JOB_LOG_CMD)
+        job_log_cmd = (
+                "/usr/bin/xterm -sb -sl 4096 -n RQLOG -geometry 200x50+0+0 -title %s "
+                "-e '/usr/bin/tail -n+0 -f %s'" % (os.path.basename(file), file))
+        shellOut(job_log_cmd)
 
 
 def popupView(file, facility=None):
+    """Opens the given file in your editor."""
     if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
+        # pylint: disable=no-member
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
         elif QtGui.qApp.settings.contains('LogEditor'):
             job_log_cmd = QtGui.qApp.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
+        # pylint: enable=no-member
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 
 
 def openURL(url):
-    import webbrowser
+    """Opens a URL."""
     webbrowser.open_new(url)
     return True
 
 
 def popupWeb(file, facility=None):
+    """Opens a web browser."""
     client = os.getenv('FACILITY', 'unknown')
     if client in ['yvr'] or (facility == 'yvr' and client in ['lax']):
-        import webbrowser
         webbrowser.open_new('' + file)
         return True
     return False
 
 
-def popupFrameTail(job, frame, logNumber = 0):
+def popupFrameTail(job, frame, logNumber=0):
+    """Opens a tail of a frame log."""
     path = getFrameLogFile(job, frame)
     if logNumber:
         path += ".%s" % logNumber
     popupTail(path, job.data.facility)
 
 
-def popupFrameView(job, frame, logNumber = 0):
+def popupFrameView(job, frame, logNumber=0):
+    """Opens a frame."""
     path = getFrameLogFile(job, frame)
     if logNumber:
         path += ".%s" % logNumber
@@ -502,6 +522,7 @@ def popupFrameView(job, frame, logNumber = 0):
 
 
 def popupFrameXdiff(job, frame1, frame2, frame3 = None):
+    """Opens a frame xdiff."""
     for command in ['/usr/bin/xxdiff',
                     '/usr/local/bin/xdiff']:
         if os.path.isfile(command):
@@ -511,50 +532,14 @@ def popupFrameXdiff(job, frame1, frame2, frame3 = None):
             shellOut(command)
 
 
-def getOutputFromLayers(job, layers):
-    """Returns the output paths from the frame logs
-    @type  job: Job
-    @param job: A job object
-    @type  layers: list<Layer>
-    @param layers: A list of at least one later
-    @rtype:  list
-    @return: The path to the proxy SVI or the primary output."""
-    paths = []
-    for layer in layers:
-        svi_found = False
-        outputs = layer.getOutputPaths()
-        if outputs:
-            for path in outputs:
-                if path.find("_svi") != -1:
-                    paths.append(path)
-                    svi_found = True
-                    break
-            if not svi_found:
-                paths.append(outputs[0])
-    return paths
-
-
-def getOutputFromFrame(job, layer, frame):
-    """Returns the output paths from a single frame
-    @type  job: Job
-    @param job: A job object
-    @type  frame: Frame
-    @param frame: This frame's log is checked for known output paths
-    @rtype:  list
-    @return: A list of output paths"""
-    try:
-        main_output = layer.getOutputPaths()[0]
-        main_output = main_output.replace("#", "%04d" % frame.data.number)
-        return [main_output]
-    except IndexError:
-        return []
-
-
 ################################################################################
 # Drag and drop functions
 ################################################################################
 
 def startDrag(dragSource, dropActions, objects):
+    """Event handler for when a drag starts."""
+    del dropActions
+
     mimeData = QtCore.QMimeData()
     mimeData.setText("\n".join(["%s" % job.data.name for job in objects]))
 
@@ -587,39 +572,45 @@ def startDrag(dragSource, dropActions, objects):
     drag.exec_(QtCore.Qt.MoveAction)
 
 
-def dragEnterEvent(event, format = "application/x-job-names"):
-    if event.mimeData().hasFormat(format):
+def dragEnterEvent(event, mime_format="application/x-job-names"):
+    """Event handler for when a drag enters an area."""
+    if event.mimeData().hasFormat(mime_format):
         event.accept()
     else:
         event.ignore()
 
 
-def dragMoveEvent(event, format = "application/x-job-names"):
-    if event.mimeData().hasFormat(format):
+def dragMoveEvent(event, mime_format="application/x-job-names"):
+    """Event handler for when a drag is moved."""
+    if event.mimeData().hasFormat(mime_format):
         event.setDropAction(QtCore.Qt.CopyAction)
         event.accept()
     else:
         event.ignore()
 
 
-def dropEvent(event, format = "application/x-job-names"):
-    if event.mimeData().hasFormat(format):
-        item = event.mimeData().data(format)
+# pylint: disable=inconsistent-return-statements
+def dropEvent(event, mime_format="application/x-job-names"):
+    """Event handler for when a drop occurs."""
+    if event.mimeData().hasFormat(mime_format):
+        item = event.mimeData().data(mime_format)
         stream = QtCore.QDataStream(item, QtCore.QIODevice.ReadOnly)
         names = stream.readQString()
         event.accept()
         return [name for name in str(names).split(":") if name]
 
 
-def mimeDataAdd(mimeData, format, objects):
+def mimeDataAdd(mimeData, mimeFormat, objects):
+    """Sets mime data."""
     data = QtCore.QByteArray()
     stream = QtCore.QDataStream(data, QtCore.QIODevice.WriteOnly)
     text = ":".join(objects)
     stream.writeQString(text)
-    mimeData.setData(format, data)
+    mimeData.setData(mimeFormat, data)
 
 
 def showErrorMessageBox(text, title="ERROR!", detailedText=None):
+    """Displays an error dialog."""
     messageBox = QtWidgets.QMessageBox()
     messageBox.setIcon(QtWidgets.QMessageBox.Critical)
     messageBox.setText(text)
@@ -629,7 +620,8 @@ def showErrorMessageBox(text, title="ERROR!", detailedText=None):
     messageBox.setStandardButtons(QtWidgets.QMessageBox.Close)
     return messageBox.exec_()
 
+
 def shutdownThread(thread):
-    """Shutdown a WorkerThread."""
+    """Shuts down a WorkerThread."""
     thread.stop()
     return thread.wait(1500)

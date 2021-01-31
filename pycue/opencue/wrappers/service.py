@@ -172,3 +172,15 @@ class Service(object):
         :type: list<string>
         :param: list of tags to set"""
         self.data.tags[:] = tags
+
+    def timeout(self):
+        return self.data.timeout
+
+    def setTimeout(self, timeout):
+        self.data.timeout = timeout
+
+    def timeoutLLU(self):
+        return self.data.timeout
+
+    def setTimeoutLLU(self, timeout_llu):
+        self.data.timeout_llu = timeout_llu

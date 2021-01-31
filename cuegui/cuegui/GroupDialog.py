@@ -14,6 +14,9 @@
 #  limitations under the License.
 
 
+"""Dialog for creating or modifying a group."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -27,6 +30,8 @@ import opencue
 
 
 class GroupDialog(QtWidgets.QDialog):
+    """Base class for group dialogs."""
+
     def __init__(self, parentGroup, modifyGroup, defaults, parent):
         QtWidgets.QDialog.__init__(self, parent)
         layout = QtWidgets.QGridLayout(self)
@@ -38,7 +43,7 @@ class GroupDialog(QtWidgets.QDialog):
         self._departments = opencue.api.getDepartmentNames()
         try:
             self._departments = opencue.api.getDepartmentNames()
-        except Exception as e:
+        except opencue.exception.CueException:
             self._departments = ["Unknown"]
 
         __title = defaults["title"]
@@ -88,7 +93,8 @@ class GroupDialog(QtWidgets.QDialog):
         self.__createButtons(
             QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel, 8, 3)
 
-    def __createToggleDoubleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
+    def __createToggleDoubleSpinBox(
+            self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
         inputWidget = QtWidgets.QDoubleSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
@@ -96,7 +102,8 @@ class GroupDialog(QtWidgets.QDialog):
         inputWidget.setValue(currentValue)
         return self.__createToggleInput(text, row, inputWidget, startEnabled)
 
-    def __createToggleSpinBox(self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
+    def __createToggleSpinBox(
+            self, text, row, startEnabled = False, currentValue = 0, minValue = 0):
         inputWidget = QtWidgets.QSpinBox(self)
         inputWidget.setEnabled(startEnabled)
         inputWidget.setRange(minValue, 30000)
@@ -164,8 +171,8 @@ class GroupDialog(QtWidgets.QDialog):
 
         self.close()
 
-    def __setValue(self, checkBox, setter, newValue, currentValue, disableValue):
-        result = None
+    @staticmethod
+    def __setValue(checkBox, setter, newValue, currentValue, disableValue):
         if checkBox.isChecked():
             result = newValue
         else:
@@ -173,29 +180,37 @@ class GroupDialog(QtWidgets.QDialog):
         if result is not None and result != currentValue:
             setter(result)
 
+
 class ModifyGroupDialog(GroupDialog):
+    """Dialog for modifying an existing group."""
+
     def __init__(self, modifyGroup, parent=None):
         modifyGroup = opencue.api.getGroup(modifyGroup.id())
-        defaults = {"title": "Modify Group: %s" % modifyGroup.data.name,
-                    "message": "Modifying the group %s" % modifyGroup.data.name,
-                    "name": modifyGroup.data.name,
-                    "department": modifyGroup.data.department,
-                    "defaultJobPriority": modifyGroup.data.default_job_priority,
-                    "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
-                    "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
-                    "minCores": modifyGroup.data.min_cores,
-                    "maxCores": modifyGroup.data.max_cores}
+        defaults = {
+            "title": "Modify Group: %s" % modifyGroup.data.name,
+            "message": "Modifying the group %s" % modifyGroup.data.name,
+            "name": modifyGroup.data.name,
+            "department": modifyGroup.data.department,
+            "defaultJobPriority": modifyGroup.data.default_job_priority,
+            "defaultJobMinCores": modifyGroup.data.default_job_min_cores,
+            "defaultJobMaxCores": modifyGroup.data.default_job_max_cores,
+            "minCores": modifyGroup.data.min_cores,
+            "maxCores": modifyGroup.data.max_cores}
         GroupDialog.__init__(self, None, modifyGroup, defaults, parent)
 
+
 class NewGroupDialog(GroupDialog):
+    """Dialog for creating a new group."""
+
     def __init__(self, parentGroup, parent=None):
-        defaults = {"title": "Create New Group",
-                    "message": "Group to be created as a child of the group %s" % parentGroup.name(),
-                    "name": "",
-                    "department": "Unknown",
-                    "defaultJobPriority": 0,
-                    "defaultJobMinCores": 1.0,
-                    "defaultJobMaxCores": 1.0,
-                    "minCores": 0.0,
-                    "maxCores": 1.0}
+        defaults = {
+            "title": "Create New Group",
+            "message": "Group to be created as a child of the group %s" % parentGroup.name(),
+            "name": "",
+            "department": "Unknown",
+            "defaultJobPriority": 0,
+            "defaultJobMinCores": 1.0,
+            "defaultJobMaxCores": 1.0,
+            "minCores": 0.0,
+            "maxCores": 1.0}
         GroupDialog.__init__(self, parentGroup, None, defaults, parent)

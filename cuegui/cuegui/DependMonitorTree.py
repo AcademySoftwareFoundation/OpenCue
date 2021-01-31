@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Tree for displaying a list of depends."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -22,6 +25,7 @@ from builtins import map
 from PySide2 import QtWidgets
 
 from opencue.compiled_proto import depend_pb2
+import opencue.exception
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -35,40 +39,35 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
-    def __init__(self, parent, object):
+    """Tree for displaying a list of depends."""
+
+    def __init__(self, parent, rpcObject):
         self.startColumnsForType(cuegui.Constants.TYPE_DEPEND)
         self.addColumn("Type", 130, id=1,
                        data=lambda depend: depend_pb2.DependType.Name(depend.type()))
         self.addColumn("Target", 60, id=2,
                        data=lambda depend: depend_pb2.DependTarget.Name(depend.target()))
         self.addColumn("Active", 50, id=3,
-                       data=lambda depend:(depend.isActive()))
-#        self.addColumn("Job", 230, id=4,
-#                       data=lambda depend:(depend.dependErJob()))
-#        self.addColumn("Layer", 50, id=5,
-#                       data=lambda depend:(depend.dependErLayer()))
-#        self.addColumn("Frame", 100, id=6,
-#                       data=lambda depend:(depend.dependErFrame()))
+                       data=lambda depend: (depend.isActive()))
         self.addColumn("OnJob", 300, id=7,
-                       data=lambda depend:(depend.dependOnJob()))
+                       data=lambda depend: (depend.dependOnJob()))
         self.addColumn("OnLayer", 200, id=8,
-                       data=lambda depend:(depend.dependOnLayer()))
+                       data=lambda depend: (depend.dependOnLayer()))
         self.addColumn("OnFrame", 100, id=9,
-                       data=lambda depend:(depend.dependOnFrame()))
+                       data=lambda depend: (depend.dependOnFrame()))
 
-        self.rpcObject = object
+        self.rpcObject = rpcObject
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
-        # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
         self.setUpdateInterval(60)
 
-    def _createItem(self, object):
+    def _createItem(self, rpcObject):
         """Creates and returns the proper item"""
-        return DependWidgetItem(object, self)
+        return DependWidgetItem(rpcObject, self)
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
@@ -76,7 +75,7 @@ class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if hasattr(self.rpcObject, "getDepends"):
                 return self.rpcObject.getDepends()
             return self.rpcObject.getWhatThisDependsOn()
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
@@ -86,13 +85,16 @@ class DependMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         self.__menuActions.dependencies().addAction(menu, "satisfy")
-        #self.__menuActions.dependencies().addAction(menu, "unsatisfy")
 
         menu.exec_(e.globalPos())
 
-################################################################################
+    def tick(self):
+        pass
+
 
 class DependWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item for displaying a single depend."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_DEPEND, object, parent)
+            self, cuegui.Constants.TYPE_DEPEND, rpcObject, parent)
