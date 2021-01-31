@@ -49,10 +49,10 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         self._source = source
         self.rpcObject = object
 
-    def update(self, object=None, parent=None):
+    def update(self, rpcObject=None, parent=None):
         """Updates visual representation with latest data
-        @type  object: Object
-        @param object: The object that contains updated information
+        @type  rpcObject: Object
+        @param rpcObject: The object that contains updated information
         @type  parent: QTreeWidgetItem
         @param parent: Changes the current parent to this parent if different"""
         # Changes parent if needed
@@ -60,8 +60,8 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
             self.parent().removeChild(self)
             parent.addChild(self)
 
-        if object:
-            self.rpcObject = object
+        if rpcObject:
+            self.rpcObject = rpcObject
             self._cache = {}
 
     def data(self, col, role):

@@ -13,12 +13,14 @@
 #  limitations under the License.
 
 
+"""Widget for displaying graph of subscription usage."""
+
+
 from builtins import str
 
 import opencue
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import cuegui.AbstractTreeWidget
@@ -32,6 +34,8 @@ import cuegui.Utils
 
 
 class SubscriptionGraphWidget(QtWidgets.QWidget):
+    """Widget for displaying graph of subscription usage."""
+
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
@@ -68,6 +72,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         layout.addWidget(scroll)
 
     def create_widgets(self):
+        """Creates all of the contained widgets."""
         self.clearLayout(self.mainLayout)
         for show in self.__shows:
             widget = QtWidgets.QWidget()
@@ -85,7 +90,9 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
 
         self.__timer.start()
 
-    def clearLayout(self, layout):
+    @staticmethod
+    def clearLayout(layout):
+        """Clears the widget layout."""
         while layout.count() > 0:
             item = layout.takeAt(0)
             if not item:
@@ -97,8 +104,9 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
     def __showMenuHandle(self, action):
         if action.text() == 'All Shows':
             try:
-                self.__shows = sorted(set([job.show() for job in opencue.api.getJobs(include_finished=True)]))
-            except Exception as e:
+                self.__shows = sorted(
+                    {[job.show() for job in opencue.api.getJobs(include_finished=True)]})
+            except opencue.exception.CueException:
                 self.__shows = []
             self.__showMenuUpdate()
         elif action.text() == 'Clear':
@@ -125,8 +133,8 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         self.__showMenu.addSeparator()
 
         try:
-            shows = sorted(set([job.show() for job in opencue.api.getJobs(include_finished=True)]))
-        except Exception as e:
+            shows = sorted({[job.show() for job in opencue.api.getJobs(include_finished=True)]})
+        except opencue.exception.CueException:
             shows = []
 
         for show in shows:
@@ -145,11 +153,15 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
             self.__showMenuUpdate()
 
     def update_data(self):
+        """Refreshes the displayed data."""
+        # pylint: disable=protected-access
         for sub_bar in self.__subBars:
             sub_bar._getUpdate()
 
 
 class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree for displaying a subscription graph."""
+
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_SUB)
         self.addColumn("_Name", 110, id=0,
@@ -171,6 +183,7 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # self.setUpdateInterval(30)
 
     def setShow(self, show=None):
+        """Sets the current show."""
         self._itemsLock.lockForWrite()
         try:
             if not show:
@@ -180,18 +193,19 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif isinstance(show, str):
                 try:
                     self.__show = opencue.api.findShow(show)
-                except:
+                except opencue.exception.CueException:
                     pass
             self._update()
         finally:
             self._itemsLock.unlock()
 
     def getShow(self):
+        """Gets the current show."""
         return self.__show
 
-    def _createItem(self, object):
-        """Creates and returns the proper item"""
-        return SubscriptionWidgetItem(object, self)
+    def _createItem(self, rpcObject):
+        """Creates a widget item for the current subscription."""
+        return SubscriptionWidgetItem(rpcObject, self)
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
@@ -204,7 +218,7 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._itemsLock.unlock()
 
     def contextMenuEvent(self, e):
-        """When right clicking on an item, this raises a context menu"""
+        """Event handler for showing the context menu."""
 
         menu = QtWidgets.QMenu()
         self.__menuActions.subscriptions().addAction(menu, "editSize")
@@ -219,11 +233,17 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))
 
     def createSubscription(self):
+        """Shows a dialog for creating a new subscription."""
         d = cuegui.CreatorDialog.SubscriptionCreatorDialog(show=self.__show)
         d.exec_()
 
+    def tick(self):
+        pass
+
 
 class SubscriptionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item for displaying a single subscription."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_SUB, object, parent)
+            self, cuegui.Constants.TYPE_SUB, rpcObject, parent)

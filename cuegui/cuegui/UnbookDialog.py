@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Dialog for unbooking frames."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -31,17 +34,22 @@ import cuegui.AbstractDialog
 
 
 class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
+    """Dialog for unbooking frames."""
+
     def __init__(self, jobs, parent=None):
         cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
 
         self.setWindowTitle("Unbook matching frames")
 
-        __descriptionLabel = QtWidgets.QLabel("Unbook and optionally kill the matching frames from the following jobs:", self)
+        __descriptionLabel = QtWidgets.QLabel(
+            "Unbook and optionally kill the matching frames from the following jobs:", self)
 
         self.__show = opencue.api.findShow(jobs[0].data.name.split("-")[0])
-        self.__jobs = [job.data.name for job in jobs if job.data.name.startswith(self.__show.data.name)]
-        self.__subscriptions = [sub.data.name.split(".")[1] for sub in self.__show.getSubscriptions()]
+        self.__jobs = [
+            job.data.name for job in jobs if job.data.name.startswith(self.__show.data.name)]
+        self.__subscriptions = [
+            sub.data.name.split(".")[1] for sub in self.__show.getSubscriptions()]
 
         # Show list of jobs selected
         self.__jobList = QtWidgets.QTextEdit(self)
@@ -85,11 +93,12 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         self.__memoryRangeBox = self.__createRangeBox(layout, "Memory requirement", "Mb", 32768)
 
         # checkbox and LineEdit for amount or range of runtime
-        self.__runtimeRangeBox = self.__createRangeBox(layout, "Runtime requirement", "Minutes", 10000)
+        self.__runtimeRangeBox = self.__createRangeBox(
+            layout, "Runtime requirement", "Minutes", 10000)
 
         layout.addWidget(self.__buttons)
 
-    def __createRangeBox(self, layout, name, units, max):
+    def __createRangeBox(self, layout, name, units, max_frame):
         __group = QtWidgets.QGroupBox(name)
         __group.setCheckable(True)
         __group.setChecked(False)
@@ -106,7 +115,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         __layout.addWidget(__range, 1, 2)
 
         __min = QtWidgets.QSpinBox(self)
-        __min.setRange(0, max)
+        __min.setRange(0, max_frame)
         __layout.addWidget(__min, 0, 0)
 
         __minLabel = QtWidgets.QLabel(units)
@@ -116,7 +125,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         __layout.addWidget(__toLabel, 0, 2, QtCore.Qt.AlignHCenter)
 
         __max = QtWidgets.QSpinBox(self)
-        __max.setRange(0, max)
+        __max.setRange(0, max_frame)
         __layout.addWidget(__max, 0, 3)
 
         __maxLabel = QtWidgets.QLabel(units)
@@ -136,7 +145,8 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
 
         return RangeBox(__group, __moreThan, __lessThan, __range, __min, __max)
 
-    def handleIntCriterion(self, mixed, convert=None):
+    @staticmethod
+    def handleIntCriterion(mixed, convert=None):
         """handleIntCriterion
             returns the proper subclass of IntSearchCriterion based on
             input from the user. There are a few formats which are accepted.
@@ -162,16 +172,16 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
                 result = opencue.api.criterion_pb2.LessThanIntegerSearchCriterion(
                     _convert(mixed[2:]))
             elif mixed.find("-") > -1:
-                min,max = mixed.split("-", 1)
+                min_frame, max_frame = mixed.split("-", 1)
                 result = opencue.api.criterion_pb2.InRangeIntegerSearchCriterion(
-                    _convert(min), _convert(max))
+                    _convert(min_frame), _convert(max_frame))
             else:
                 try:
                     result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                         _convert(mixed))
                 except ValueError:
                     raise Exception("invalid int search input value: " + str(mixed))
-        elif issubclass(mixed.__class__, opencue.api.criterion_pb2.IntegerSearchCriterion):
+        elif issubclass(mixed.__class__, opencue.api.criterion_pb2.EqualsIntegerSearchCriterion):
             result = mixed
         elif not mixed:
             return []
@@ -190,23 +200,20 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         procSearch.allocs = [str(checkedBox.text()) for checkedBox in self.__matrix.checkedBoxes()]
         memoryRange = self.__memoryRangeBox.result()
         if memoryRange:
-            procSearch.memoryRange = self.handleIntCriterion(memoryRange, lambda mb:(mb*1024))
+            procSearch.memoryRange = self.handleIntCriterion(memoryRange, lambda mb: (mb*1024))
         runtimeRange = self.__runtimeRangeBox.result()
         if runtimeRange:
-            procSearch.durationRange = self.handleIntCriterion(runtimeRange, lambda min:(min*60))
+            procSearch.durationRange = self.handleIntCriterion(
+                runtimeRange, lambda rangeMin: (rangeMin*60))
 
         if self.__redirect.isChecked():
             # Select the show to redirect to
             title = "Select show"
             body = "Redirect to what show?"
-            shows = dict([(show.data.name, show) for show in opencue.api.getActiveShows()])
+            shows = {show.data.name: show for show in opencue.api.getActiveShows()}
             items = [self.__jobs[0].split("-")[0]] + sorted(shows.keys())
-            (show, choice) = QtWidgets.QInputDialog.getItem(self,
-                                                            title,
-                                                            body,
-                                                            items,
-                                                            0,
-                                                            False)
+            (show, choice) = QtWidgets.QInputDialog.getItem(
+                self, title, body, items, 0, False)
             if not choice:
                 return
             show = shows[str(show)]
@@ -215,23 +222,19 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
             title = "Select Redirection Type"
             body = "Redirect to a job or a group?"
             items = ["Job", "Group"]
-            (redirectTo, choice) = QtWidgets.QInputDialog.getItem(self,
-                                                                  title,
-                                                                  body,
-                                                                  items,
-                                                                  0,
-                                                                  False)
+            (redirectTo, choice) = QtWidgets.QInputDialog.getItem(
+                self, title, body, items, 0, False)
             if not choice:
                 return
 
             job = group = None
             if redirectTo == "Job":
-                jobs = dict([(job.data.name, job) for job in opencue.api.getJobs(
-                    show=[show.data.name])])
-                dialog = SelectItemsWithSearchDialog(self,
-                                                     "Redirect to which job?",
-                                                     list(jobs.keys()),
-                                                     QtWidgets.QAbstractItemView.SingleSelection)
+                jobs = {job.data.name: job for job in opencue.api.getJobs(show=[show.data.name])}
+                dialog = SelectItemsWithSearchDialog(
+                    self,
+                    "Redirect to which job?",
+                    list(jobs.keys()),
+                    QtWidgets.QAbstractItemView.SingleSelection)
                 dialog.exec_()
                 selected = dialog.selected()
                 if selected:
@@ -242,13 +245,9 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
             elif redirectTo == "Group":
                 title = "Select Redirection Group"
                 body = "Redirect to which group?"
-                groups = dict([(group.data.name, group) for group in show.getGroups()])
-                (group, choice) = QtWidgets.QInputDialog.getItem(self,
-                                                                 title,
-                                                                 body,
-                                                                 sorted(groups.keys()),
-                                                                 0,
-                                                                 False)
+                groups = {group.data.name: group for group in show.getGroups()}
+                (group, choice) = QtWidgets.QInputDialog.getItem(
+                    self, title, body, sorted(groups.keys()), 0, False)
                 if not choice:
                     return
                 group = groups[str(group)]
@@ -265,7 +264,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
                         elif group:
                             proc.redirectToGroup(group, kill)
                         amount += 1
-                    except Exception:
+                    except opencue.exception.CueException:
                         pass
                 self.__informationBox("Redirected procs",
                                       "Number of redirected procs: %d" % amount)
@@ -278,7 +277,14 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
                 if dialog.result():
                     self.close()
             else:
-                amount = opencue.api.unbookProcs(procSearch, False)
+                procs = opencue.api.getProcs(procSearch)
+                amount = 0
+                for proc in procs:
+                    try:
+                        proc.unbook()
+                        amount += 1
+                    except opencue.exception.CueException:
+                        pass
                 self.__informationBox("Unbooked frames",
                                       "Number of frames unbooked: %d" % amount)
                 self.close()
@@ -291,6 +297,8 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
 
 
 class SelectItemsWithSearchDialog(cuegui.AbstractDialog.AbstractDialog):
+    """Dialog for selecting items via search."""
+
     def __init__(self, parent, header, items,
                  selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
         cuegui.AbstractDialog.AbstractDialog.__init__(self, parent)
@@ -310,14 +318,17 @@ class SelectItemsWithSearchDialog(cuegui.AbstractDialog.AbstractDialog):
         self.layout().addWidget(self.__buttons)
 
     def selected(self):
+        """Gets whether the item is selected."""
         if self.result():
             return self.__widget.selected()
         return None
 
 
 class SelectItemsWithSearchWidget(QtWidgets.QWidget):
-    def __init__(self, parent, header, items,
-                 selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
+    """Widget for selecting items via search."""
+
+    def __init__(
+            self, parent, header, items, selectionMode=QtWidgets.QAbstractItemView.MultiSelection):
         QtWidgets.QWidget.__init__(self, parent)
 
         QtWidgets.QGridLayout(self)
@@ -339,11 +350,14 @@ class SelectItemsWithSearchWidget(QtWidgets.QWidget):
         self.filterJobs(None)
 
     def filterJobs(self, text):
+        """Filter the list of jobs by text match."""
         self.__list.clear()
-        items = [item for item in self.__items if not text or re.search(str(text), item, re.IGNORECASE)]
+        items = [
+            item for item in self.__items if not text or re.search(str(text), item, re.IGNORECASE)]
         self.__list.addItems(items)
 
     def selected(self):
+        """Gets whether the item is selected."""
         selected = []
         for num in range(self.__list.count()):
             if self.__list.item(num).isSelected():
@@ -354,15 +368,16 @@ class SelectItemsWithSearchWidget(QtWidgets.QWidget):
 class RangeBox(object):
     """Stores the parts the make up the range box and provides a way to query
     for the result"""
-    def __init__(self, group, moreThan, lessThan, range, min, max):
+    def __init__(self, group, moreThan, lessThan, rangeButton, minBox, maxBox):
         self.__group = group
         self.__moreThan = moreThan
         self.__lessThan = lessThan
-        self.__range = range
-        self.__min = min
-        self.__max = max
+        self.__range = rangeButton
+        self.__min = minBox
+        self.__max = maxBox
 
     def result(self):
+        """Gets the formatted string result."""
         if self.__group.isChecked():
             if self.__moreThan.isChecked():
                 return "gt%d" % self.__min.value()
@@ -374,6 +389,8 @@ class RangeBox(object):
 
 
 class KillConfirmationDialog(QtWidgets.QDialog):
+    """Dialog for confirming frames should be killed."""
+
     def __init__(self, procSearch, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         layout = QtWidgets.QVBoxLayout(self)
@@ -394,7 +411,9 @@ class KillConfirmationDialog(QtWidgets.QDialog):
 
         # Show list of jobs selected
         self.__jobList = QtWidgets.QTextEdit(self)
-        self.__jobList.setText("\n".join(["%s %s" % (proc.data.jobName, proc.data.frameName) for proc in self.__procs]))
+        self.__jobList.setText(
+            "\n".join(
+                ["%s %s" % (proc.data.jobName, proc.data.frameName) for proc in self.__procs]))
         self.__jobList.setReadOnly(True)
         self.__jobList.setSizePolicy(
             QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum))
@@ -412,10 +431,11 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         self.__buttons.rejected.connect(self.reject)
 
     def accept(self):
+        """Kills the procs."""
         for proc in self.__procs:
             try:
                 proc.kill()
-            except Exception:
+            except opencue.exception.CueException:
                 pass
 
         if self.__amount == 1:

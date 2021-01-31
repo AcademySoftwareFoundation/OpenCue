@@ -323,15 +323,16 @@ class Plugin(object):
     def __init__(self):
         self.__settings = []
 
-    def pluginRestoreState(self, saved):
+    def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
-        @param settings: Last state of the plugin instance
-        @type  settings: dict"""
-        if self.__settings and saved and isinstance(saved, dict):
+
+        @param saved_settings: Last state of the plugin instance
+        @type  saved_settings: dict"""
+        if self.__settings and saved_settings and isinstance(saved_settings, dict):
             for setting in self.__settings:
                 item = setting[SETTINGS_KEY]
-                if item in saved:
-                    setting[SETTINGS_SET](saved[item])
+                if item in saved_settings:
+                    setting[SETTINGS_SET](saved_settings[item])
 
     def pluginSaveState(self):
         """Called on application exit and returns plugin state information.

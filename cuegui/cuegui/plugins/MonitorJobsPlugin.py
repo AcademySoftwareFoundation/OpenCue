@@ -115,19 +115,20 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                "it was moved to the historical "
                                "database: %s", jobId)
 
-    def pluginRestoreState(self, settings):
+    def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
-        @param settings: Last state of the plugin instance
-        @type  settings: any"""
-        if isinstance(settings, dict):
-            cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
 
-        elif settings:
+        @param saved_settings: Last state of the plugin instance
+        @type  saved_settings: any"""
+        if isinstance(saved_settings, dict):
+            cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, saved_settings)
+
+        elif saved_settings:
             # old method that needs to go away
-            if len(settings) >= 1:
-                self.__regexLoadJobsEditBox.setText(settings[0])
-            if len(settings) >= 2 and settings[1]:
-                for jobId in settings[1]:
+            if len(saved_settings) >= 1:
+                self.__regexLoadJobsEditBox.setText(saved_settings[0])
+            if len(saved_settings) >= 2 and saved_settings[1]:
+                for jobId in saved_settings[1]:
                     try:
                         self.jobMonitor.addJob(jobId)
                     except opencue.EntityNotFoundException:

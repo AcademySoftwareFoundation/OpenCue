@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Dialog displaying a list of dependencies for an object."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -29,7 +32,9 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class DependDialog(QtWidgets.QDialog):
-    def __init__(self, object, parent=None):
+    """Dialog displaying a list of dependencies for an object."""
+
+    def __init__(self, rpcOject, parent=None):
         super(DependDialog, self).__init__(parent)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setSizeGripEnabled(True)
@@ -37,18 +42,18 @@ class DependDialog(QtWidgets.QDialog):
         self.resize(1000, 600)
 
         name = "Dependencies for "
-        if cuegui.Utils.isJob(object):
-            name +=  "Job: %s" % object.data.name
-        elif cuegui.Utils.isLayer(object):
-            name +=  "Layer: %s" % object.data.name
-        elif cuegui.Utils.isFrame(object):
-            name +=  "Frame: %s" % object.data.name
+        if cuegui.Utils.isJob(rpcOject):
+            name += "Job: %s" % rpcOject.data.name
+        elif cuegui.Utils.isLayer(rpcOject):
+            name += "Layer: %s" % rpcOject.data.name
+        elif cuegui.Utils.isFrame(rpcOject):
+            name += "Frame: %s" % rpcOject.data.name
 
         self.setWindowTitle(name)
 
         self.hlayout = QtWidgets.QHBoxLayout(self)
 
-        self._depend = cuegui.DependMonitorTree.DependMonitorTree(self, object)
+        self._depend = cuegui.DependMonitorTree.DependMonitorTree(self, rpcOject)
         self.hlayout.addWidget(self._depend)
 
         self.setLayout(self.hlayout)

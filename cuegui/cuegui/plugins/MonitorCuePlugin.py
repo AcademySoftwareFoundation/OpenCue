@@ -331,11 +331,11 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 self.__monitorCue.addShow(show, False)
                 self.__showMenuActions[show].setChecked(True)
 
-    def pluginRestoreState(self, settings):
+    def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
-        @param settings: Last state of the plugin instance
-        @type  settings: any"""
-        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
+        @param saved_settings: Last state of the plugin instance
+        @type  saved_settings: any"""
+        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, saved_settings)
 
         # pylint: disable=protected-access
         self.__monitorCue._update()

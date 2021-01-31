@@ -39,6 +39,7 @@ import FileSequence
 import opencue
 import opencue.compiled_proto.job_pb2
 
+# pylint: disable=cyclic-import
 import cuegui.Action
 import cuegui.Comments
 import cuegui.Constants
