@@ -61,7 +61,6 @@ setup(
         'future',
         'grpcio',
         'grpcio-tools',
-        'pexpect',
         'PySide2',
         'PyYAML',
     ]
