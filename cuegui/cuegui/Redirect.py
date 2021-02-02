@@ -13,17 +13,18 @@
 #  limitations under the License.
 
 
-"""
-An interface for redirecting resources from one
-job to another job.
-"""
+"""An interface for redirecting resources from one job to another job.
+
+The concept here is that there is a target job that needs procs. The user would choose the job.
+The highest core/memory value would be detected and would populate 2 text boxes for cores and
+memory. The user could then adjust these and hit search. The search will find all hosts that have
+frames running that can be redirected to the target job."""
 
 
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from past.builtins import cmp
 from builtins import str
 from builtins import range
 import os
@@ -39,14 +40,6 @@ import opencue
 import cuegui.Utils
 
 
-# The concept here is that there is a target job that needs
-# procs.  The user would choose the job.  The highest core/memory
-# value would be dected and would populate 2 text boxes for cores
-# and memory. The user could then adjust these and hit search.
-#
-# The search will find all hosts that have frames running that can be
-# redirected to the target job.
-
 class ShowCombo(QtWidgets.QComboBox):
     """
     A combo box for show selection
@@ -57,6 +50,7 @@ class ShowCombo(QtWidgets.QComboBox):
         self.setCurrentIndex(self.findText(selected))
 
     def refresh(self):
+        """Refreshes the show list."""
         self.clear()
         shows = opencue.api.getActiveShows()
         shows.sort(key=lambda x: x.data.name)
@@ -65,6 +59,7 @@ class ShowCombo(QtWidgets.QComboBox):
             self.addItem(show.data.name, show)
 
     def getShow(self):
+        """Gets the selected show."""
         return str(self.setCurrentText())
 
 
@@ -88,9 +83,7 @@ class AllocFilter(QtWidgets.QPushButton):
         self.__menu.triggered.connect(self.__afterClicked)
 
     def refresh(self):
-        """
-        Refresh the full list of allocations.
-        """
+        """Refreshes the full list of allocations."""
         allocs = opencue.api.getAllocations()
         allocs.sort(key=lambda x: x.data.name)
 
@@ -133,6 +126,7 @@ class AllocFilter(QtWidgets.QPushButton):
         """
         Execute after an allocation has been selected for filtering.
         """
+        del action
         self.__setSelected()
         self.setText("Allocations (%d)" % len(self.__selected))
 
@@ -148,6 +142,7 @@ class JobBox(QtWidgets.QLineEdit):
         self.refresh()
 
     def refresh(self):
+        """Refreshes the list of job names."""
         slist = opencue.api.getJobNames()
         slist.sort()
 
@@ -172,8 +167,10 @@ class GroupFilter(QtWidgets.QPushButton):
 
         self.__menu.aboutToShow.connect(self.__populate_menu)
 
+    # pylint: disable=inconsistent-return-statements
     def __loadShow(self, show):
-        self.__actions = { }
+        self.__actions = {}
+        # pylint: disable=bare-except
         try:
             if show:
                 return show
@@ -181,6 +178,7 @@ class GroupFilter(QtWidgets.QPushButton):
             return opencue.api.findShow(show.name())
 
     def showChanged(self, show):
+        """Loads a new show."""
         self.__show = self.__loadShow(show)
 
     def __populate_menu(self):
@@ -196,6 +194,7 @@ class GroupFilter(QtWidgets.QPushButton):
                 self.__menu.addAction(action)
 
     def getChecked(self):
+        """Gets a list of action text for all selected actions."""
         return [str(action.text()) for action in
                 list(self.__actions.values()) if action.isChecked()]
 
@@ -298,14 +297,18 @@ class RedirectControls(QtWidgets.QWidget):
         return self.__config
 
     def showChanged(self, show_index):
+        """Load a new show."""
+        del show_index
         show = self.__show_combo.currentText()
         self.__current_show = opencue.api.findShow(str(show))
         self.__include_group_btn.showChanged(self.__current_show)
 
     def detect(self, name=None):
+        """Populates initial values when the job name is changed."""
+        del name
         try:
             job = opencue.api.findJob(str(self.__job_box.text()))
-        except:
+        except opencue.exception.CueException:
             return
 
         layers = job.getLayers()
@@ -323,48 +326,63 @@ class RedirectControls(QtWidgets.QWidget):
         self.__show_combo.setCurrentIndex(self.__show_combo.findText(job.data.show))
 
     def getJob(self):
+        """Gets the current job name."""
         return str(self.__job_box.text())
 
     def getCores(self):
+        """Gets the core count."""
         return int(self.__cores_spin.value())
 
     def getMemory(self):
+        """Gets the memory amount."""
         return int(self.__mem_spin.value() * 1048576.0)
 
     def getJobBox(self):
+        """Gets the job box widget."""
         return self.__job_box
 
     def getUpdateButton(self):
+        """Gets the update button widget."""
         return self.__update_btn
 
     def getRedirectButton(self):
+        """Gets the redirect button widget."""
         return self.__redirect_btn
 
     def getSelectAllButton(self):
+        """Gets the select all button widget."""
         return self.__select_all_btn
 
     def getClearButton(self):
+        """Gets the clear button widget."""
         return self.__clear_btn
 
     def getShow(self):
+        """Gets the current show."""
         return self.__current_show
 
     def getAllocFilter(self):
+        """Gets the allocation filter."""
         return self.__alloc_filter
 
     def getLimit(self):
+        """Gets the limit."""
         return self.__limit_spin.value()
 
     def getCutoffTime(self):
+        """Gets the cutoff time."""
         return int(self.__prh_spin.value() * 3600.0)
 
     def getRequiredService(self):
+        """Gets the required service name."""
         return str(self.__require_services.text()).strip()
 
     def getJobNameExcludeRegex(self):
+        """Gets the regex of job name to exclude."""
         return str(self.__exclude_regex.text()).strip()
 
     def getIncludedGroups(self):
+        """Gets the value of the include groups checkbox."""
         return self.__include_group_btn.getChecked()
 
 
@@ -416,24 +434,24 @@ class RedirectWidget(QtWidgets.QWidget):
             entry = self.__hosts.get(str(item.text()))
             alloc = entry.get('alloc')
             alloc_procs = procs_by_alloc.get(alloc, [])
-            alloc_procs.extend([proc for proc in entry["procs"]])
+            alloc_procs.extend(list(entry["procs"]))
             procs_by_alloc[alloc] = alloc_procs
         return procs_by_alloc
 
     def __warn(self, msg):
-        '''
+        """
         Displays the given message for the user to acknowledge
 
         @param msg: The message to display
         @type msg: str
-        '''
+        """
 
         message = QtWidgets.QMessageBox(self)
         message.setText(msg)
         message.exec_()
 
     def __is_cross_show_safe(self, procs, target_show):
-        '''
+        """
         Determines whether or not it's safe to redirect cores from a show
         to another, based on user response to the warning message
 
@@ -446,7 +464,7 @@ class RedirectWidget(QtWidgets.QWidget):
         @return: Whether or not it's safe to redirect the given procs to the
                  target show
         @rtype: bool
-        '''
+        """
 
         xshow_jobs = [proc.getJob() for proc in procs if not
                       proc.getJob().show() == target_show]
@@ -464,7 +482,7 @@ class RedirectWidget(QtWidgets.QWidget):
                                       in xshow_jobs])
 
     def __is_burst_safe(self, alloc, procs, show):
-        '''
+        """
         Determines whether or not it's safe to redirect cores by checking the
         burst target show burst and the number of cores being redirected. If
         there's a number of cores that may not be possible to pick up by the
@@ -483,10 +501,12 @@ class RedirectWidget(QtWidgets.QWidget):
         @return: Whether or not it's safe to kill these cores based on
                  the subscription burst of the target show
         @rtype: bool
-        '''
+        """
 
         # Skip if this check is disabled in the config
+        # pylint: disable=protected-access
         cfg = self.__controls._cfg()
+        # pylint: enable=protected-access
         wc_ok = cfg.get('wasted_cores_threshold', 100)
         if wc_ok < 0:
             return True
@@ -524,12 +544,12 @@ class RedirectWidget(QtWidgets.QWidget):
             return False
 
     def redirect(self):
-        '''
+        """
         Redirect the selected procs to the target job, after running a few
         checks to verify it's safe to do that.
 
         @postcondition: The selected procs are redirected to the target job
-        '''
+        """
 
         # Get selected items
         items = [self.__model.item(row) for row
@@ -567,11 +587,11 @@ class RedirectWidget(QtWidgets.QWidget):
         for item in selected_items:
             entry = self.__hosts.get(str(item.text()))
             procs = entry["procs"]
+            # pylint: disable=broad-except
             try:
                 host = entry["host"]
                 host.redirectToJob(procs, job)
             except Exception as e:
-                print(e)
                 errors.append(str(e))
             item.setIcon(QtGui.QIcon(QtGui.QPixmap(":retry.png")))
             item.setEnabled(False)
@@ -612,7 +632,7 @@ class RedirectWidget(QtWidgets.QWidget):
                                          self.__controls.getLimit(), self)
         progress.setWindowModality(QtCore.Qt.WindowModal)
 
-        for num, proc in enumerate(procs):
+        for proc in procs:
             if progress.wasCanceled():
                 break
 
@@ -647,7 +667,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 cue_host = opencue.api.findHost(name)
                 hosts[name] = {
                                "host": cue_host,
-                               "procs":[],
+                               "procs": [],
                                "mem": cue_host.data.idle_memory,
                                "cores": int(cue_host.data.idle_cores),
                                "time": 0,
@@ -661,16 +681,15 @@ class RedirectWidget(QtWidgets.QWidget):
             host["procs"].append(proc)
             host["mem"] = host["mem"] + proc.data.reserved_memory
             host["cores"] = host["cores"] + proc.data.reserved_cores
-            host["time"] = host["time"] + (int(time.time()) - proc.data.dispatch_time);
+            host["time"] = host["time"] + (int(time.time()) - proc.data.dispatch_time)
 
             if host["cores"] >= self.__controls.getCores() and \
-                host["mem"] >= self.__controls.getMemory() and \
-                host["time"] < self.__controls.getCutoffTime():
-                 self.__addHost(host)
-                 host["ok"] = True
-                 ok = ok + 1
-                 progress.setValue(ok)
-
+                    host["mem"] >= self.__controls.getMemory() and \
+                    host["time"] < self.__controls.getCutoffTime():
+                self.__addHost(host)
+                host["ok"] = True
+                ok = ok + 1
+                progress.setValue(ok)
 
         progress.setValue(self.__controls.getLimit())
         # Save this for later on
@@ -692,7 +711,8 @@ class RedirectWidget(QtWidgets.QWidget):
         for proc in procs:
             checkbox.appendRow([QtGui.QStandardItem(proc.data.job_name),
                                 QtGui.QStandardItem(str(proc.data.reserved_cores)),
-                                QtGui.QStandardItem("%0.2fGB" % (proc.data.reserved_memory / 1048576.0)),
+                                QtGui.QStandardItem(
+                                    "%0.2fGB" % (proc.data.reserved_memory / 1048576.0)),
                                 QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(time.time() -
                                                                           proc.data.dispatch_time)),
                                 QtGui.QStandardItem(proc.data.group_name),

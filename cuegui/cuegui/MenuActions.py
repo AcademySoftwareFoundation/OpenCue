@@ -707,7 +707,7 @@ class LayerActions(AbstractActions):
     def dependWizard(self, rpcObjects=None):
         layers = self._getOnlyLayerObjects(rpcObjects)
         if layers:
-            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers)
+            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], layers=layers)
 
     reorder_info = ["Reorder Frames...", None, "configure"]
 
@@ -976,7 +976,7 @@ class FrameActions(AbstractActions):
     def dependWizard(self, rpcObjects=None):
         frames = self._getOnlyFrameObjects(rpcObjects)
         if frames:
-            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], [], frames)
+            cuegui.DependWizard.DependWizard(self._caller, [self._getSource()], frames=frames)
 
     markdone_info = ["Mark done", None, "markdone"]
 
