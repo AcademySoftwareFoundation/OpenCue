@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A monitored job list based on AbstractTreeWidget
-"""
+"""Tree widget to display a list of monitored jobs."""
 
 
 from __future__ import absolute_import
@@ -70,6 +68,8 @@ def displayState(job):
 
 
 class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget to display a list of monitored jobs."""
+
     __loadMine = True
     view_object = QtCore.Signal(object)
 
@@ -87,8 +87,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="If the job has auto eating enabled, a pac-man icon\n"
                            "will appear here and all frames that become dead will\n"
                            "automatically be eaten.")
-#        self.addColumn("Group", 70, id=3,
-#                       data=lambda job:("%s [%d]" % (job.group(), job.priority())))
+        # pylint: disable=unnecessary-lambda
         self.addColumn("State", 80, id=4,
                        data=lambda job: displayState(job),
                        tip="The state of each job.\n"
@@ -173,6 +172,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._processUpdate(None, __jobs)
 
         if self.tickNeedsUpdate():
+            # Initial value is set in startTicksUpdate
+            # pylint: disable=attribute-defined-outside-init
             self.ticksWithoutUpdate = 0
             self._update()
             return
@@ -186,9 +187,12 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]        
+        del item
+        del col
+        selected = [job.data.name for job in self.selectedObjects() if cuegui.Utils.isJob(job)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected), QtGui.QClipboard.Selection)
+            QtWidgets.QApplication.clipboard().setText(
+                " ".join(selected), QtGui.QClipboard.Selection)
 
     def __itemSingleClickedComment(self, item, col):
         """If the comment column is clicked on, and there is a comment on the
@@ -235,13 +239,16 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.ticksLock.unlock()
 
     def getJobProxies(self):
+        """Gets a list of IDs of monitored jobs."""
         return list(self._items.keys())
 
     def _removeItem(self, item):
         """Removes an item from the TreeWidget without locking
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
+        # pylint: disable=no-member
         QtGui.qApp.unmonitor.emit(item.rpcObject)
+        # pylint: enable=no-member
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
 
@@ -249,7 +256,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Notifies the other widgets of each item being unmonitored, then calls
         the the AbstractTreeWidget.removeAllItems like normal"""
         for proxy in list(self._items.keys()):
+            # pylint: disable=no-member
             QtGui.qApp.unmonitor.emit(proxy)
+            # pylint: enable=no-member
             if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
         cuegui.AbstractTreeWidget.AbstractTreeWidget.removeAllItems(self)
@@ -390,25 +399,26 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     objectKey = cuegui.Utils.getObjectKey(job)
                     jobs[objectKey] = job
 
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
 
         return jobs
 
-    def _processUpdate(self, work, jobObjects):
-        if jobObjects is None:
+    def _processUpdate(self, work, rpcObjects):
+        if rpcObjects is None:
             return
 
         self._itemsLock.lockForWrite()
 
         # include rpcObjects from self._items that are not in jobObjects
         for proxy, item in list(self._items.items()):
-            if not proxy in jobObjects:
-                jobObjects[proxy] = item.rpcObject
+            if not proxy in rpcObjects:
+                rpcObjects[proxy] = item.rpcObject
 
         try:
-            selectedKeys = [cuegui.Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
+            selectedKeys = [
+                cuegui.Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
             scrolled = self.verticalScrollBar().value()
 
             # Store the creation time for the current item
@@ -418,7 +428,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._items = {}
             self.clear()
 
-            for proxy, job in list(jobObjects.items()):
+            for proxy, job in list(rpcObjects.items()):
                 self._items[proxy] = JobWidgetItem(job,
                                                    self.invisibleRootItem(),
                                                    self.__jobTimeLoaded.get(proxy, None))
@@ -426,14 +436,18 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self._items[proxy].setUserColor(self.__userColors[proxy])
 
             self.verticalScrollBar().setValue(scrolled)
-            [self._items[key].setSelected(True) for key in selectedKeys if key in self._items]
-        except Exception as e:
+            list(map(lambda key: self._items[key].setSelected(True),
+                     [key for key in selectedKeys if key in self._items]))
+
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         finally:
             self._itemsLock.unlock()
 
+
 class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a job entry in the CueJobTreeWidget."""
+
     __initialized = False
     __commentIcon = None
     __eatIcon = None
@@ -447,14 +461,18 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __centerAlign = None
     __type = None
     __userColor = None
-    def __init__(self, object, parent, created):
+
+    # pylint: disable=protected-access
+    def __init__(self, rpcObject, parent, created):
         if not self.__initialized:
             if cuegui.Style.ColorTheme is None:
                 cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
+            # pylint: disable=no-member
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
@@ -470,33 +488,34 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         self.created = created or time.time()
 
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_JOB, object, parent)
+            self, cuegui.Constants.TYPE_JOB, rpcObject, parent)
 
     def setUserColor(self, color):
+        """Sets the color scheme."""
         self.__userColor = color
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
             return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
-        elif role == QtCore.Qt.ForegroundRole:
+        if role == QtCore.Qt.ForegroundRole:
             if col == 0:
                 if self.created > time.time() - 5:
                     return self.__newJobColor
             return self.__foregroundColor
 
-        elif role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
+        if role == QtCore.Qt.BackgroundRole and col == COLUMN_STATE:
             if self.rpcObject.data.state == opencue.api.job_pb2.FINISHED:
                 return self.__finishedColor
-            elif self.rpcObject.data.is_paused:
+            if self.rpcObject.data.is_paused:
                 return self.__pausedColor
-            elif self.rpcObject.data.job_stats.dead_frames:
+            if self.rpcObject.data.job_stats.dead_frames:
                 return self.__dyingColor
             return self.__backgroundColor
-        elif role == QtCore.Qt.BackgroundRole and self.__userColor:
+        if role == QtCore.Qt.BackgroundRole and self.__userColor:
             return self.__userColor
 
-        elif role == QtCore.Qt.FontRole and col == COLUMN_NAME:
+        if role == QtCore.Qt.FontRole and col == COLUMN_NAME:
             if self.created > time.time() - 5:
                 return self.__newJobFont
 
