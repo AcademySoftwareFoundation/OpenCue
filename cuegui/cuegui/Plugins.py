@@ -188,7 +188,7 @@ class Plugins(object):
     def restoreState(self):
         """Loads any user defined plugin directories and restores all open plugins.
 
-       Calls .restoreSettings (if available) on all plugins."""
+        Calls .restoreSettings (if available) on all plugins."""
         # Loads any user defined plugin directories
         # pylint: disable=no-member
         pluginPaths = QtGui.qApp.settings.value("Plugins/Paths", [])

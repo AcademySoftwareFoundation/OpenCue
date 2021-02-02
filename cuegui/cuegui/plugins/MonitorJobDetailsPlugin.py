@@ -13,7 +13,9 @@
 #  limitations under the License.
 
 
-"""Plugin for listing details of the selected job."""
+"""Plugin for listing details of the selected job.
+
+Job selection is triggered by other plugins using the application's view_object signal."""
 
 
 from __future__ import print_function

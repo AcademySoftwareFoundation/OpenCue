@@ -36,7 +36,7 @@ PLUGIN_PROVIDES = "HostMonitorDockWidget"
 
 
 class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugin."""
+    """Plugin for viewing the list of hosts and performing administrative tasks."""
 
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)

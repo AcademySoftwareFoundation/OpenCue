@@ -34,7 +34,7 @@ PLUGIN_PROVIDES = "ServicesDockWidget"
 
 
 class ServicesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugins."""
+    """Plugin for listing services and performing administrative tasks."""
 
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)

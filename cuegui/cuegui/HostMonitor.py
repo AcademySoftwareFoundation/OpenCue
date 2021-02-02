@@ -44,6 +44,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
+        self.__filterByHostNameLastInput = None
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
 
         # Setup main vertical layout
@@ -73,8 +74,6 @@ class HostMonitor(QtWidgets.QWidget):
         if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
         # pylint: enable=no-member
-
-        self.__filterByHostNameLastInput = None
 
     def updateRequest(self):
         """Requests an update of the displayed information."""

@@ -50,10 +50,12 @@ PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
 class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugin."""
+    """Plugin for general administration of the show/job hierarchy."""
 
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+
+        self.__showMenuActions = None
 
         self.__monitorCue = cuegui.CueJobMonitorTree.CueJobMonitorTree(self)
         self.__toolbar = QtWidgets.QToolBar(self)
@@ -94,8 +96,6 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                        self.__monitorCue.setColumnOrder)])
 
         self.addShows([os.getenv('SHOW')])
-
-        self.__showMenuActions = None
 
     def __cueStateBarSetup(self, layout):
         # pylint: disable=no-member
@@ -160,9 +160,10 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         btn.clicked.connect(self.__monitorCue.actionResumeSelectedItems)
 
 
-################################################################################
-# Show selection menu
-################################################################################
+    ################################################################################
+    # Show selection menu
+    ################################################################################
+
     def __showMenuSetup(self):
         """Sets up the show selection menu"""
         self.__showMenuBtn = QtWidgets.QPushButton("Shows ",self)

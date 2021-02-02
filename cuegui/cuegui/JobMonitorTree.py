@@ -74,6 +74,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
+        self.ticksWithoutUpdate = 0
+
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
         self.addColumn("Job", 470, id=1,
                        data=lambda job: job.data.name,
@@ -172,8 +174,6 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._processUpdate(None, __jobs)
 
         if self.tickNeedsUpdate():
-            # Initial value is set in startTicksUpdate
-            # pylint: disable=attribute-defined-outside-init
             self.ticksWithoutUpdate = 0
             self._update()
             return

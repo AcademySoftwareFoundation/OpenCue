@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Plugin for listing active jobs and performing administrative tasks."""
+"""Plugin for listing active jobs and managing them."""
 
 
 from __future__ import print_function
@@ -48,18 +48,19 @@ PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 
 
 class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugin."""
+    """Plugin for listing active jobs and managing them."""
 
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
+        self.__loadFinishedJobsCheckBox = None
+
         self.jobMonitor = cuegui.JobMonitorTree.JobMonitorTree(self)
 
         self.__toolbar = QtWidgets.QToolBar(self)
         self._regexLoadJobsSetup(self.__toolbar)
-        #self.__toolbar.addSeparator()
         self._buttonSetup(self.__toolbar)
 
         self.layout().addWidget(self.__toolbar)
@@ -89,8 +90,6 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       ("columnOrder",
                                       self.jobMonitor.getColumnOrder,
                                       self.jobMonitor.setColumnOrder)])
-
-        self.__loadFinishedJobsCheckBox = None
 
     def addJob(self, rpcObject):
         """Adds a job to be monitored."""

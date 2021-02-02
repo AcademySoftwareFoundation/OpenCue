@@ -89,8 +89,9 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         @param parent: The parent widget
         @type parent: QtWidgets.QWidget
         """
-
         super(LogTextEdit, self).__init__(parent)
+
+        self._context_menu = None
 
         # Use a Fixed-Width font for easier debugging
         self.font = self.document().defaultFont()
@@ -115,14 +116,11 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
             self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
-        self._context_menu = None
-
     def context_menu(self):
         """
         A custom context menu to pop up when the user Right-Clicks in the
         Log View. Triggered by the customContextMenuRequested signal
         """
-
         self._context_menu = QtWidgets.QMenu(self)
         self._context_menu.addAction(self.copy_action)
         self._context_menu.exec_(QtGui.QCursor.pos())

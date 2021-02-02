@@ -32,7 +32,7 @@ PLUGIN_PROVIDES = "RedirectWidget"
 
 
 class RedirectWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugin."""
+    """Plugin for redirecting procs from one job to another."""
 
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)

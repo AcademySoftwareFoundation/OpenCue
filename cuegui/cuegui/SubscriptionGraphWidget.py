@@ -105,7 +105,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         if action.text() == 'All Shows':
             try:
                 self.__shows = sorted(
-                    {[job.show() for job in opencue.api.getJobs(include_finished=True)]})
+                    {job.show() for job in opencue.api.getJobs(include_finished=True)})
             except opencue.exception.CueException:
                 self.__shows = []
             self.__showMenuUpdate()
@@ -133,7 +133,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         self.__showMenu.addSeparator()
 
         try:
-            shows = sorted({[job.show() for job in opencue.api.getJobs(include_finished=True)]})
+            shows = sorted({job.show() for job in opencue.api.getJobs(include_finished=True)})
         except opencue.exception.CueException:
             shows = []
 

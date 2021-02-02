@@ -54,6 +54,11 @@ class MainWindow(QtWidgets.QMainWindow):
     def __init__(self, app_name, app_version, window_name, parent = None):
         QtWidgets.QMainWindow.__init__(self, parent)
 
+        self.__actions_facility = {}
+        self.facility_default = None
+        self.facility_dict = None
+        self.windowMenu = None
+
         self.qApp = QtGui.qApp
         # pylint: disable=no-member
         self.settings = QtGui.qApp.settings
@@ -96,11 +101,6 @@ class MainWindow(QtWidgets.QMainWindow):
         # pylint: enable=no-member
 
         self.showStatusBarMessage("Ready")
-
-        self.__actions_facility = {}
-        self.facility_default = None
-        self.facility_dict = None
-        self.windowMenu = None
 
     def displayStartupNotice(self):
         """Displays the application startup notice."""
