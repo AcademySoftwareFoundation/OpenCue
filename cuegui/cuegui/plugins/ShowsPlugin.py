@@ -32,7 +32,7 @@ PLUGIN_PROVIDES = "ShowsDockWidget"
 
 
 class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """Containing widget for this plugins."""
+    """Plugin for listing shows and performing administrative tasks."""
 
     def __init__(self, parent):
         super(ShowsDockWidget, self).__init__(parent, PLUGIN_NAME)
