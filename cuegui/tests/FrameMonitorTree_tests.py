@@ -118,7 +118,7 @@ class FrameMonitorTreeTests(unittest.TestCase):
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723'))
 
         self.assertEqual(125.82723, self.frameMonitorTree.getCores(frame))
-        self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format=True))
+        self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format_as_string=True))
 
     @mock.patch.object(cuegui.FrameMonitorTree.FrameContextMenu, 'exec_')
     def test_rightClickItem(self, execMock):

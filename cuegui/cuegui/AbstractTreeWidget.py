@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 
-"""
-Provides extended QTreeWidget functionality.
-"""
+"""Base class for CueGUI tree widgets.
+
+Provides extended QTreeWidget functionality."""
 
 
 from __future__ import absolute_import
@@ -48,13 +48,15 @@ COLUMN_DELEGATE = 4
 COLUMN_TOOLTIP = 5
 COLUMN_INFO_LENGTH = 6
 
-DEFAULT_LAMBDA = lambda s:""
+DEFAULT_LAMBDA = lambda s: ""
 DEFAULT_NAME = ""
 DEFAULT_WIDTH = 0
 
 
 class AbstractTreeWidget(QtWidgets.QTreeWidget):
-    """Forms the basis for all TreeWidgets"""
+    """Base class for CueGUI tree widgets.
+
+    Provides extended QTreeWidget functionality."""
 
     itemDoubleClicked = QtCore.Signal(QtWidgets.QTreeWidgetItem, int)
     itemSingleClicked = QtCore.Signal(QtWidgets.QTreeWidgetItem, int)
@@ -101,7 +103,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
+        # pylint: disable=no-member
         QtGui.qApp.request_update.connect(self.updateRequest)
+        # pylint: enable=no-member
 
         self.updateRequest()
         self.setUpdateInterval(10)
@@ -117,6 +121,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         event.accept()
 
+    # pylint: disable=attribute-defined-outside-init
     def startColumnsForType(self, itemType):
         """Start column definitions for the given item type. The first call to
         this defines the primary column type used to populate the column headers.
@@ -131,6 +136,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.__columnInfoByType[itemType] = []
         self.__columnCurrent = itemType
 
+    # pylint: disable=redefined-builtin
     def addColumn(self, name, width, id=0, default=True,
                   data=DEFAULT_LAMBDA, sort=None,
                   delegate=None, tip=""):
@@ -178,7 +184,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
             # Setup column delegates
             if primaryColumnInfo[col][COLUMN_DELEGATE]:
-               self.setItemDelegateForColumn(col, primaryColumnInfo[col][COLUMN_DELEGATE](self))
+                self.setItemDelegateForColumn(col, primaryColumnInfo[col][COLUMN_DELEGATE](self))
 
             # Setup column name list
             if columnInfo[COLUMN_NAME].startswith("_"):
@@ -214,13 +220,14 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.ticksWithoutUpdate = 999
 
     def tickNeedsUpdate(self):
+        """Gets whether enough time has passed for contents to need an update."""
         if self.ticksWithoutUpdate >= self.updateInterval:
             if self.window().isMinimized():
                 if self.__maxUpdateInterval is not None and \
                    self.ticksWithoutUpdate >= self.__maxUpdateInterval:
                     # Sufficient maximum interval
                     return True
-                elif not self.__updateWhenMinimized:
+                if not self.__updateWhenMinimized:
                     # Sufficient interval, except minimized
                     return False
                 # Sufficient interval, set to update when minimized
@@ -236,6 +243,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         if not self.ticksLock.tryLock():
             return
         try:
+            # pylint: disable=broad-except
             try:
                 self.tick()
             except Exception as e:
@@ -244,6 +252,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             self.ticksLock.unlock()
 
     def tick(self):
+        """Determines whether an update is needed and initiates updating logic.
+
+        Must be defined by inheriting classes."""
         raise NotImplementedError
 
     def getColumnInfo(self, columnType = None):
@@ -259,16 +270,21 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             return self.__columnInfoByType[columnType]
         return self.__columnInfoByType[self.__columnPrimaryType]
 
-    def __itemSingleClickedEmitToApp(self, item, col):
+    @staticmethod
+    def __itemSingleClickedEmitToApp(item, col):
         """When an item is single clicked on:
         emits "single_click(PyQt_PyObject)" to the app
         @type  item: QTreeWidgetItem
         @param item: The item single clicked on
         @type  col: int
         @param col: Column number single clicked on"""
+        del col
+        # pylint: disable=no-member
         QtGui.qApp.single_click.emit(item.rpcObject)
+        # pylint: enable=no-member
 
-    def __itemDoubleClickedEmitToApp(self, item, col):
+    @staticmethod
+    def __itemDoubleClickedEmitToApp(item, col):
         """Handles when an item is double clicked on.
         emits "double_click(PyQt_PyObject)" to the app
         emits "view_object(PyQt_PyObject)" to the app
@@ -276,8 +292,11 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
+        del col
+        # pylint: disable=no-member
         QtGui.qApp.view_object.emit(item.rpcObject)
         QtGui.qApp.double_click.emit(item.rpcObject)
+        # pylint: enable=no-member
 
     def addObject(self, rpcObject):
         """Adds or updates an rpcObject in the list using the _createItem function
@@ -326,8 +345,6 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             item.setSelected(False)
 
         if item.parent():
-            #This allowed more segfaults
-            #item.parent().removeChild(item)
             self.invisibleRootItem().removeChild(item)
         self.takeTopLevelItem(self.indexOfTopLevelItem(item))
         objectClass = item.rpcObject.__class__.__name__
@@ -335,6 +352,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         del self._items['{}.{}'.format(objectClass, objectId)]
 
     def removeAllItems(self):
+        """Removes all items from the tree."""
         self._itemsLock.lockForWrite()
         try:
             self._items = {}
@@ -368,7 +386,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         updated"""
         self._lastUpdate = time.time()
         if hasattr(QtGui.qApp, "threadpool"):
-            QtGui.qApp.threadpool.queue(self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
+            # pylint: disable=no-member
+            QtGui.qApp.threadpool.queue(
+                self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
+            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())
@@ -382,6 +403,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  work: from ThreadPool
         @param rpcObjects: A list of rpc objects
         @type  rpcObjects: list<rpc object> """
+        del work
         self._itemsLock.lockForWrite()
         try:
             updated = []
@@ -416,22 +438,20 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
     def redraw(self):
         """Forces the displayed items to be redrawn"""
         if not self.window().isMinimized():
+            # pylint: disable=broad-except
             try:
                 self.scheduleDelayedItemsLayout()
-                # This setDirtyRegion works but can give this error sometimes:
-                # "underlying C/C++ object has been deleted"
-                #self.setDirtyRegion(QtGui.QRegion(self.viewport().rect()))
             except Exception as e:
                 list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def getColumnWidths(self):
-        """Return the column widths
+        """Gets the column widths.
         @rtype: list<int>
         @return: A list of column widths"""
         return [self.columnWidth(index) for index in range(self.columnCount())]
 
     def setColumnWidths(self, widths):
-        """Set the column widths if thecorrect number are provided, but ignore
+        """Sets the column widths if the correct number are provided, but ignore
         the last one since it is stretched to the end.
         @type  widths: list<int>
         @param widths: The desired width for each column"""
@@ -439,9 +459,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             for index, width in enumerate(widths[:-1]):
                 self.setColumnWidth(index, width)
 
-################################################################################
-# Optionally limit updates when user scrolls
-################################################################################
+    ################################################################################
+    # Optionally limit updates when user scrolls
+    ################################################################################
+
     def _limitUpdatesDuringScrollSetup(self, skipsAllowed = 1, delay = 1.0):
         """Allows the ability to skip updates when the user is scrolling
         @type  skipsAllowed: int
@@ -459,6 +480,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
     def __userScrolled(self, val):
         """Stores the time when the user last scrolled"""
+        del val
         self.__lastScrollTime = time.time()
 
     def __limitUpdatesDuringScrollAllowUpdate(self):
@@ -469,17 +491,18 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         if not hasattr(self, "limitUpdatesDuringScroll"):
             return True
 
-        if time.time() - self.__lastScrollTime > self.__allowedSkipDelay or \
-           self.__updateSkipCount >= self.__allowedSkipCount:
+        if (time.time() - self.__lastScrollTime > self.__allowedSkipDelay or
+                self.__updateSkipCount >= self.__allowedSkipCount):
             self.__updateSkipCount = 0
             return True
-        else:
-            self.__updateSkipCount += 1
-            return False
 
-################################################################################
-# Allow the user to show or hide columns
-################################################################################
+        self.__updateSkipCount += 1
+        return False
+
+    ################################################################################
+    # Allow the user to show or hide columns
+    ################################################################################
+
     def __setupColumnMenu(self):
         self.__dropdown = QtWidgets.QToolButton(self)
         self.__dropdown.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -518,22 +541,25 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
             self.setColumnWidth(col, width)
 
     def getColumnVisibility(self):
+        """Gets table column visibility."""
         settings = []
         for col in range(self.columnCount()):
             settings.append(self.isColumnHidden(col))
         return settings
 
     def setColumnVisibility(self, settings):
+        """Sets table column visibility."""
         if settings:
-            for col in range(len(settings)):
+            for col, setting in enumerate(settings):
                 if col <= self.columnCount():
-                    self.setColumnHidden(col, settings[col])
+                    self.setColumnHidden(col, setting)
 
-################################################################################
-# Allow the user to move columns and remember position
-################################################################################
+    ################################################################################
+    # Allow the user to move columns and remember position
+    ################################################################################
 
     def getColumnOrder(self):
+        """Gets table column order."""
         settings = {}
         header = self.header()
         for col in range(header.count()):
@@ -541,7 +567,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         return settings
 
     def setColumnOrder(self, settings):
+        """Sets table column order."""
         header = self.header()
+        # pylint: disable=unnecessary-lambda
         cols = sorted(settings.keys(), key=lambda x: int(x))
         for col in cols:
             old_col = header.visualIndex(settings[col])

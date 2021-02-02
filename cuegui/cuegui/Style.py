@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""a module for handling global style setup"""
+"""Module for handling global style setup."""
 
 
 from __future__ import print_function
@@ -30,35 +30,42 @@ DEFAULT_ICON = "crystal"
 DEFAULT_FONT = "Luxi Sans"
 DEFAULT_FONT_SIZE = 10.0
 
+# pylint: disable=global-statement
+
 ColorTheme = None
 IconTheme = None
 Font = None
 
 
 def loadColorTheme(name):
-    """changes the running color scheme of the app"""
+    """Changes the running color scheme of the app."""
     global ColorTheme
     ColorTheme = importlib.import_module('.%s' % name, package='cuegui')
     ColorTheme.init()
 
 
 def setIconTheme(name):
-    """stes the icon theme for the app, not sure if this
-    can be changed on the fly yet"""
+    """Sets the icon theme for the app.
+
+    Not sure if this can be changed on the fly yet."""
     global IconTheme
     IconTheme = importlib.import_module('.icons_rcc', package='cuegui.images.%s' % name)
 
 
 def setFont(font):
-    """sets the application font"""
+    """Sets the application font."""
     global Font
     Font = font
+    # pylint: disable=no-member
     QtGui.qApp.setFont(font)
+    # pylint: enable=no-member
 
 
 def init():
-    """initialize the global style settings"""
+    """Initializes the global style settings."""
+    # pylint: disable=no-member
     settings = QtGui.qApp.settings
+    # pylint: enable=no-member
     loadColorTheme(settings.value("Style/colorTheme", DEFAULT_COLOR))
     setIconTheme(settings.value("Style/iconTheme", DEFAULT_ICON))
 
