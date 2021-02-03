@@ -95,7 +95,7 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
                                       self.__monitorLayers.setColumnOrder)])
 
     def handleLayerFilter(self, names):
-        """Propagates a layer filtering event."""
+        """Event handler for filtering layers."""
         self.__monitorFrames.filterLayersFromDoubleClick(names)
 
     def __splitterMoved(self, pos, index):
