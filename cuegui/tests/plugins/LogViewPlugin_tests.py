@@ -13,9 +13,13 @@
 #  limitations under the License.
 
 
+"""Tests for cuegui.plugins.LogViewPlugin."""
+
+
 import os
-import mock
 import unittest
+
+import mock
 
 import pyfakefs.fake_filesystem_unittest
 import PySide2.QtCore
@@ -47,6 +51,7 @@ Nulla efficitur odio posuere elit ultricies, quis rhoncus ante scelerisque.
 Donec porta gravida eros id vulputate. Phasellus vel nisl arcu.'''
 
 
+# pylint: disable=no-member
 class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.MagicMock())
     def setUp(self):
@@ -79,19 +84,25 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldHighlightAllSearchResults(self):
         PySide2.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            PySide2.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
         matches = self.logViewPlugin.logview_widget._matches
 
         self.assertEqual([(0, 5), (127, 5)], matches)
-        self.assertTrue(self.__isHighlighted(self.logViewPlugin.logview_widget._content_box, matches[0][0], matches[0][1]))
-        self.assertTrue(self.__isHighlighted(self.logViewPlugin.logview_widget._content_box, matches[1][0], matches[1][1]))
+        self.assertTrue(
+            self.__isHighlighted(
+                self.logViewPlugin.logview_widget._content_box, matches[0][0], matches[0][1]))
+        self.assertTrue(
+            self.__isHighlighted(
+                self.logViewPlugin.logview_widget._content_box, matches[1][0], matches[1][1]))
 
     def test_shouldMoveCursorToSecondSearchResult(self):
         PySide2.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            PySide2.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -104,7 +115,8 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldMoveCursorLastSearchResult(self):
         PySide2.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Unchecked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            PySide2.QtCore.Qt.CheckState.Unchecked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
@@ -117,14 +129,17 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_shouldPerformCaseInsensitiveSearch(self):
         PySide2.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
-        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(PySide2.QtCore.Qt.CheckState.Checked)
+        self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
+            PySide2.QtCore.Qt.CheckState.Checked)
 
         self.logViewPlugin.logview_widget._search_box.setText('lorem')
         self.logViewPlugin.logview_widget._search_button.click()
         matches = self.logViewPlugin.logview_widget._matches
 
         self.assertEqual([(127, 5)], matches)
-        self.assertTrue(self.__isHighlighted(self.logViewPlugin.logview_widget._content_box, matches[0][0], matches[0][1]))
+        self.assertTrue(
+            self.__isHighlighted(
+                self.logViewPlugin.logview_widget._content_box, matches[0][0], matches[0][1]))
 
     @staticmethod
     def __isHighlighted(textBox, startPosition, selectionLength):
@@ -134,6 +149,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
                             PySide2.QtGui.QTextCursor.KeepAnchor,
                             selectionLength)
         return cursor.charFormat().background() == PySide2.QtCore.Qt.red
+
 
 if __name__ == '__main__':
     unittest.main()

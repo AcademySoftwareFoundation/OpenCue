@@ -13,21 +13,19 @@
 #  limitations under the License.
 
 
+"""Tests for cuegui.MenuActions."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-from builtins import *
 
-import mock
 import unittest
 
+import mock
 import PySide2.QtGui
 import PySide2.QtWidgets
 
-import cuegui.Constants
-import cuegui.CueJobMonitorTree
-import cuegui.Main
-import cuegui.MenuActions
 import opencue.compiled_proto.depend_pb2
 import opencue.compiled_proto.facility_pb2
 import opencue.compiled_proto.filter_pb2
@@ -49,6 +47,11 @@ import opencue.wrappers.proc
 import opencue.wrappers.show
 import opencue.wrappers.subscription
 import opencue.wrappers.task
+
+import cuegui.Constants
+import cuegui.CueJobMonitorTree
+import cuegui.Main
+import cuegui.MenuActions
 
 
 _GB_TO_KB = 1024 * 1024
@@ -94,7 +97,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.emailArtist(rpcObjects=[job])
 
-        emailDialogMock.assert_called_with(job, [], self.widgetMock)
+        emailDialogMock.assert_called_with(job, self.widgetMock)
         emailDialogMock.return_value.show.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
@@ -534,7 +537,8 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch('cuegui.DependDialog.DependDialog')
     def test_viewDepends(self, dependDialogMock):
-        layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
+        layer = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
         self.layer_actions.viewDepends(rpcObjects=[layer])
 
@@ -641,7 +645,8 @@ class LayerActionsTests(unittest.TestCase):
     @mock.patch.object(opencue.wrappers.layer.Layer, 'kill')
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_kill(self, yesNoMock, killMock):
-        layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
+        layer = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name='arbitrary-name'))
 
         self.layer_actions.kill(rpcObjects=[layer])
 
@@ -725,7 +730,7 @@ class LayerActionsTests(unittest.TestCase):
 
         self.layer_actions.dependWizard(rpcObjects=layers)
 
-        dependWizardMock.assert_called_with(self.widgetMock, [self.job], layers)
+        dependWizardMock.assert_called_with(self.widgetMock, [self.job], layers=layers)
 
     @mock.patch.object(opencue.wrappers.layer.Layer, 'reorderFrames', autospec=True)
     @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
@@ -954,7 +959,7 @@ class FrameActionsTests(unittest.TestCase):
 
         self.frame_actions.dependWizard(rpcObjects=frames)
 
-        dependWizardMock.assert_called_with(self.widgetMock, [self.job], [], frames)
+        dependWizardMock.assert_called_with(self.widgetMock, [self.job], frames=frames)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', return_value=True)
     def test_markdone(self, yesNoMock):
@@ -980,7 +985,8 @@ class FrameActionsTests(unittest.TestCase):
 
         self.frame_actions.reorder(rpcObjects=[frame])
 
-        reorderFramesMock.assert_called_with(layer, str(frame_num), opencue.compiled_proto.job_pb2.REVERSE)
+        reorderFramesMock.assert_called_with(
+            layer, str(frame_num), opencue.compiled_proto.job_pb2.REVERSE)
 
     @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
     @mock.patch('cuegui.Utils.getFrameLogFile')
@@ -998,8 +1004,10 @@ class FrameActionsTests(unittest.TestCase):
     def test_eatandmarkdone(self, yesNoMock, markdoneMock):
         layer_name = 'layer-name'
         frames = [
-            opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name='frame1', layer_name=layer_name)),
-            opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name='frame2', layer_name=layer_name))]
+            opencue.wrappers.frame.Frame(
+                opencue.compiled_proto.job_pb2.Frame(name='frame1', layer_name=layer_name)),
+            opencue.wrappers.frame.Frame(
+                opencue.compiled_proto.job_pb2.Frame(name='frame2', layer_name=layer_name))]
         layer = opencue.wrappers.layer.Layer(
             opencue.compiled_proto.job_pb2.Layer(
                 name=layer_name, layer_stats=opencue.compiled_proto.job_pb2.LayerStats(
@@ -1133,6 +1141,7 @@ class SubscriptionActionsTests(unittest.TestCase):
 
 
 class AllocationActionsTests(unittest.TestCase):
+    # pylint: disable=attribute-defined-outside-init
     def test_init(self):
         self.widgetMock = mock.Mock()
         cuegui.MenuActions.AllocationActions(self.widgetMock, mock.Mock(), None, None)
@@ -1400,66 +1409,66 @@ class FilterActionsTests(unittest.TestCase):
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
     def test_rename(self, getTextMock):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.setName = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.setName = mock.MagicMock()
         newName = 'newFilterName'
         getTextMock.return_value = (newName, True)
 
-        self.filter_actions.rename(rpcObjects=[filter])
+        self.filter_actions.rename(rpcObjects=[filter_wrapper])
 
-        filter.setName.assert_called_with(newName)
+        filter_wrapper.setName.assert_called_with(newName)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_delete(self):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.delete = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.delete = mock.MagicMock()
 
-        self.filter_actions.delete(rpcObjects=[filter])
+        self.filter_actions.delete(rpcObjects=[filter_wrapper])
 
-        filter.delete.assert_called()
+        filter_wrapper.delete.assert_called()
 
     def test_raiseOrder(self):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.raiseOrder = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.raiseOrder = mock.MagicMock()
 
-        self.filter_actions.raiseOrder(rpcObjects=[filter])
+        self.filter_actions.raiseOrder(rpcObjects=[filter_wrapper])
 
-        filter.raiseOrder.assert_called()
+        filter_wrapper.raiseOrder.assert_called()
 
     def test_lowerOrder(self):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.lowerOrder = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.lowerOrder = mock.MagicMock()
 
-        self.filter_actions.lowerOrder(rpcObjects=[filter])
+        self.filter_actions.lowerOrder(rpcObjects=[filter_wrapper])
 
-        filter.lowerOrder.assert_called()
+        filter_wrapper.lowerOrder.assert_called()
 
     def test_orderFirst(self):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.orderFirst = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.orderFirst = mock.MagicMock()
 
-        self.filter_actions.orderFirst(rpcObjects=[filter])
+        self.filter_actions.orderFirst(rpcObjects=[filter_wrapper])
 
-        filter.orderFirst.assert_called()
+        filter_wrapper.orderFirst.assert_called()
 
     def test_orderLast(self):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.orderLast = mock.MagicMock()
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.orderLast = mock.MagicMock()
 
-        self.filter_actions.orderLast(rpcObjects=[filter])
+        self.filter_actions.orderLast(rpcObjects=[filter_wrapper])
 
-        filter.orderLast.assert_called()
+        filter_wrapper.orderLast.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getInt')
     def test_setOrder(self, getTextMock):
-        filter = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
-        filter.setOrder = mock.MagicMock()
-        newOrder = 47
-        getTextMock.return_value = (newOrder, True)
+        filter_wrapper = opencue.wrappers.filter.Filter(opencue.compiled_proto.filter_pb2.Filter())
+        filter_wrapper.setOrder = mock.MagicMock()
+        new_order = 47
+        getTextMock.return_value = (new_order, True)
 
-        self.filter_actions.setOrder(rpcObjects=[filter])
+        self.filter_actions.setOrder(rpcObjects=[filter_wrapper])
 
-        filter.setOrder.assert_called_with(newOrder)
+        filter_wrapper.setOrder.assert_called_with(new_order)
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())

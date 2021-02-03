@@ -13,8 +13,12 @@
 #  limitations under the License.
 
 
+"""Tests for cuegui.images."""
+
+
 import unittest
 
+# pylint: disable=unused-import
 import cuegui.images.icons_rcc
 import cuegui.images.bluecurve.icons_rcc
 import cuegui.images.crystal.icons_rcc

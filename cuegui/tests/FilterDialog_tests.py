@@ -13,20 +13,25 @@
 #  limitations under the License.
 
 
-import mock
+"""Tests for cuegui.FilterDialog."""
+
+
 import unittest
+
+import mock
 
 import PySide2.QtCore
 import PySide2.QtGui
 import PySide2.QtWidgets
 import PySide2.QtTest
 
-import cuegui.FilterDialog
-import cuegui.Style
 import opencue.compiled_proto.show_pb2
 import opencue.compiled_proto.filter_pb2
 import opencue.wrappers.filter
 import opencue.wrappers.show
+
+import cuegui.FilterDialog
+import cuegui.Style
 
 from . import test_utils
 
@@ -45,8 +50,9 @@ class FilterDialogTests(unittest.TestCase):
                 id='filter-one-id', name='filterOne', order=1, enabled=True)
         self.filter = opencue.wrappers.filter.Filter(filterProto)
 
-        getStubMock.return_value.GetFilters.return_value = opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
-            filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
+        getStubMock.return_value.GetFilters.return_value = \
+            opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
+                filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
 
         self.parentWidget = PySide2.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(self.show, parent=self.parentWidget)
@@ -159,8 +165,9 @@ class FilterMonitorTreeTests(unittest.TestCase):
             opencue.compiled_proto.filter_pb2.Filter(
                 id='filter-two-id', name='filterTwo', order=2, enabled=False),
         ]
-        getStubMock.return_value.GetFilters.return_value = opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
-            filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=filters))
+        getStubMock.return_value.GetFilters.return_value = \
+            opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
+                filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=filters))
 
         self.parentWidget = PySide2.QtWidgets.QWidget()
         self.filterDialog = cuegui.FilterDialog.FilterDialog(show, parent=self.parentWidget)
@@ -257,8 +264,10 @@ class MatcherMonitorTreeTests(unittest.TestCase):
         self.filter.createMatcher.assert_called_with(matcherSubject, matcherType, matcherText)
         self.assertEqual(3, self.matcherMonitorTree.topLevelItemCount())
         matcherWidget = self.matcherMonitorTree.topLevelItem(0)
-        self.assertEqual('FACILITY', self.matcherMonitorTree.itemWidget(matcherWidget, 0).currentText())
-        self.assertEqual('CONTAINS', self.matcherMonitorTree.itemWidget(matcherWidget, 1).currentText())
+        self.assertEqual(
+            'FACILITY', self.matcherMonitorTree.itemWidget(matcherWidget, 0).currentText())
+        self.assertEqual(
+            'CONTAINS', self.matcherMonitorTree.itemWidget(matcherWidget, 1).currentText())
         self.assertEqual(matcherText, self.matcherMonitorTree.itemWidget(matcherWidget, 2).text())
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getText')
