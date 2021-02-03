@@ -30,7 +30,6 @@ import glob
 import subprocess
 import time
 
-import pexpect
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 import six
@@ -1211,19 +1210,6 @@ class HostActions(AbstractActions):
         hosts = list(set([host.data.name for host in hosts]))
         if hosts:
             QtGui.qApp.view_procs.emit(hosts)
-
-    hinv_info = ["View Host Information (hinv)", None, "view"]
-    def hinv(self, rpcObjects=None):
-        hosts = self._getOnlyHostObjects(rpcObjects)
-        for host in hosts:
-            try:
-                lines = pexpect.run("rsh %s hinv" % host.data.name, timeout=10).splitlines()
-                QtWidgets.QMessageBox.information(self._caller,
-                                                  "%s hinv" % host.data.name,
-                                                  "\n".join(lines),
-                                                  QtWidgets.QMessageBox.Ok)
-            except Exception as e:
-                logger.warning("Failed to get host's hinv: %s" % e)
 
     lock_info = ["Lock Host", None, "lock"]
     def lock(self, rpcObjects=None):
