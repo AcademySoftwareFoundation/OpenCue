@@ -456,29 +456,7 @@ class ProgressDelegate(AbstractDelegate):
         AbstractDelegate.__init__(self, parent, *args)
 
     def paint(self, painter, option, index):
-        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_FRAME:
-            frame = self.parent().itemFromIndex(index).rpcObject
-            opts = QtWidgets.QStyleOptionProgressBar()
-            opts.rect = option.rect
-            opts.minimum = 1
-            opts.maximum = 100
-            opts.textVisible = True
-
-            if frame.data.state == opencue.api.job_pb2.SUCCEEDED:
-                progress = 100
-            elif frame.data.state == opencue.api.job_pb2.RUNNING:
-                progress = int(cuegui.Progress.progress(frame.id()))
-            else:
-                progress = 0
-
-            opts.progress = progress
-            opts.text = "{0:d} %".format(progress)
-            opts.textVisible = True
-
-            QtWidgets.QApplication.style().drawControl(
-                QtWidgets.QStyle.CE_ProgressBar, opts, painter)
-
-        elif index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
+        if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_LAYER:
             layer = self.parent().itemFromIndex(index).rpcObject
             opts = QtWidgets.QStyleOptionProgressBar()
             opts.rect = option.rect
