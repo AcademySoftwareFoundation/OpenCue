@@ -1175,20 +1175,6 @@ class HostActionsTests(unittest.TestCase):
 
         qAppMock.view_procs.emit.assert_called_with([hostName])
 
-    @mock.patch('PySide2.QtWidgets.QMessageBox')
-    @mock.patch('pexpect.run')
-    def test_hinv(self, runMock, qMessageBoxMock):
-        hostName = 'arbitrary-name'
-        host = opencue.wrappers.host.Host(
-            opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=hostName))
-        rshResponse = 'response line one\nanother response line'
-        runMock.return_value = rshResponse
-
-        self.host_actions.hinv(rpcObjects=[host])
-
-        qMessageBoxMock.information.assert_called_with(
-            mock.ANY, '%s hinv' % hostName, rshResponse, mock.ANY)
-
     def test_lock(self):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))

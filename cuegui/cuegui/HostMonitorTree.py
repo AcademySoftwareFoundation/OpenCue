@@ -256,7 +256,6 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
         self.__menuActions.hosts().addAction(menu, "viewComments")
         self.__menuActions.hosts().addAction(menu, "viewProc")
-        self.__menuActions.hosts().addAction(menu, "hinv")
         self.__menuActions.hosts().addAction(menu, "lock")
         self.__menuActions.hosts().addAction(menu, "unlock")
         self.__menuActions.hosts().addAction(menu, "addTags")
