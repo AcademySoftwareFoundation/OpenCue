@@ -12,43 +12,55 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""
-Project: opencue Library
-
-Module: util.py - opencue Library utility
-
-"""
+"""Utility methods used by the wrapper classes."""
 
 import time
 
 
+# pylint: disable=redefined-builtin
 def format_time(epoch, format="%m/%d %H:%M", default="--/-- --:--"):
-    """Formats time using time formatting standards
-    see: https://docs.python.org/3/library/time.html"""
+    """Formats time using time formatting standards.
+
+    See: https://docs.python.org/3/library/time.html
+
+    :type  epoch: int
+    :param epoch: time as an epoch
+    :type  format: str
+    :param format: desired format of output string
+    :type  default: str
+    :param default: the output if the given time is empty
+    :rtype: str
+    :return: string-formatted version of the given time
+    """
     if not epoch:
         return default
     return time.strftime(format, time.localtime(epoch))
 
 
 def dateToMMDDHHMM(sec):
-    """Returns date in the format %m/%d %H:%M
+    """Returns a time in the format `%m/%d %H:%M`.
 
+    :type  sec: int
+    :param sec: time as an epoch
     :rtype:  str
-    :return: Date in the format %m/%d %H:%M"""
+    :return: time in the format %m/%d %H:%M
+    """
     if sec == 0:
         return "--/-- --:--"
     return time.strftime("%m/%d %H:%M", time.localtime(sec))
 
 
 def __splitTime(sec):
-    """Returns time in the format H:MM:SS
+    """Splits a timestamp into hour, minute, and second components.
 
-    :rtype:  str
-    :return: Time in the format H:MM:SS"""
-    min, sec = divmod(sec, 60)
-    hour, min = divmod(min, 60)
-    return (hour, min, sec)
+    :type  sec: int
+    :param sec: timestamp as an epoch
+    :rtype:  tuple
+    :return: (hour, min, sec)
+    """
+    minute, sec = divmod(sec, 60)
+    hour, minute = divmod(minute, 60)
+    return hour, minute, sec
 
 
 def secondsToHHMMSS(sec):
@@ -76,14 +88,15 @@ def secondsToHHHMM(sec):
 
 
 def secondsDiffToHMMSS(secA, secB):
-    """Returns time difference of arguements in the format H:MM:SS
+    """Returns time difference of arguments in the format H:MM:SS
 
     :type  secA: int or float
-    :param secA: Seconds. 0 will be replaced with current time
+    :param secA: seconds. 0 will be replaced with current time
     :type  secB: int or float
-    :param secB: Seconds. 0 will be replaced with current time
+    :param secB: seconds. 0 will be replaced with current time
     :rtype:  str
-    :return: Time difference of arguments in the format H:MM:SS"""
+    :return: Time difference of arguments in the format H:MM:SS
+    """
     if secA == 0:
         secA = time.time()
     if secB == 0:
@@ -92,6 +105,13 @@ def secondsDiffToHMMSS(secA, secB):
 
 
 def convert_mem(kmem, unit=None):
+    """Returns an amount of memory in a human-readable string.
+
+    :type  kmem: int
+    :param kmem: amount of memory in kB
+    :rtype:  str
+    :return: same amount of memory formatted into a human-readable string
+    """
     k = 1024
     if unit == 'K' or (unit is None and kmem < k):
         return '%dK' % kmem
@@ -99,3 +119,4 @@ def convert_mem(kmem, unit=None):
         return '%dM' % (kmem / k)
     if unit == 'G' or (unit is None and kmem < pow(k, 3)):
         return '%.01fG' % (float(kmem) / pow(k, 2))
+    return str(kmem)

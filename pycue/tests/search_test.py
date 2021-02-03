@@ -14,16 +14,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.search`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import host_pb2
+import opencue.search
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -77,7 +79,7 @@ class JobSearchTests(unittest.TestCase):
             opencue.search.raiseIfNotList('user', 42)
 
         with self.assertRaises(TypeError):
-            opencue.search.raiseIfNotList('user', set(['iamnotalist']))
+            opencue.search.raiseIfNotList('user', {'iamnotalist'})
 
         self.assertIsNone(opencue.search.raiseIfNotList('user', ['iamnotalist']))
 

@@ -14,17 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.allocation`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import subscription_pb2
+import opencue.wrappers.allocation
+import opencue.wrappers.host
 
 
 TEST_ALLOC_NAME = 'test_allocation'
@@ -101,13 +104,13 @@ class AllocationTests(unittest.TestCase):
         stubMock = mock.Mock()
         stubMock.ReparentHosts.return_value = facility_pb2.AllocReparentHostsResponse()
         getStubMock.return_value = stubMock
-    
+
         alloc = opencue.wrappers.allocation.Allocation(
             facility_pb2.Allocation(name=TEST_ALLOC_NAME))
         hostIds = [TEST_HOST_ID]
         alloc.reparentHostIds(hostIds)
         hosts = [host_pb2.Host(id=TEST_HOST_ID)]
-    
+
         stubMock.ReparentHosts.assert_called_with(
             facility_pb2.AllocReparentHostsRequest(
                 allocation=alloc.data, hosts=host_pb2.HostSeq(hosts=hosts)), timeout=mock.ANY)

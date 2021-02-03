@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Top level of the opencue module."""
 
 from __future__ import absolute_import
 from __future__ import print_function
@@ -19,6 +20,7 @@ from __future__ import division
 
 import logging
 
+# pylint: disable=cyclic-import
 from .cuebot import Cuebot
 from . import api
 from . import wrappers
@@ -26,7 +28,9 @@ from . import search
 
 from .exception import CueException
 from .exception import EntityNotFoundException
+# pylint: disable=redefined-builtin
 from .util import id
+# pylint: enable=redefined-builtin
 from .util import logPath
 from .util import proxy
 from .util import rep
