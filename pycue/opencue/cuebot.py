@@ -320,7 +320,7 @@ class ExponentialBackoff(SleepingPolicy):
             self._init_backoff * self._multiplier ** attempt,
             self._max_backoff
         )
-        time.sleep(sleep_time_ms / 1000)
+        time.sleep(sleep_time_ms / 1000.0)
 
 
 class RetryOnRpcErrorClientInterceptor(
