@@ -18,6 +18,13 @@ This can be started from the OpenCue root directory with:
 docker-compose --project-directory . -f sandbox/docker-compose.yml -f sandbox/docker-compose.monitoring.yml up
 ```
 
+Spins up a monitoring strack
+
+http://localhost:3000/
+
+login: admin   
+pass: admin
+
 ### Loki logging
 
 Too use loki to store logs requires installing the docker drivers. see:

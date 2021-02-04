@@ -34,7 +34,9 @@ services:
     command: /opt/scripts/migrate.sh
 
   cuebot:
-    image: opencue/cuebot
+    build:
+      context: .
+      dockerfile: cuebot/Dockerfile
     links:
       - db
     ports:
