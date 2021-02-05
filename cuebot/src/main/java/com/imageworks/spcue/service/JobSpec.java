@@ -157,7 +157,7 @@ public class JobSpec {
         return String.format("%s_%s", prefix, suffix).toLowerCase();
     }
 
-    public String conformName(String type, String name) {
+    public static String conformName(String type, String name) {
 
          String lowerType = type.toLowerCase();
 
@@ -180,11 +180,15 @@ public class JobSpec {
         return newName;
     }
 
-    public String conformShotName(String name) {
+    public static String conformShowName(String name) {
+        return conformName("Show", name);
+    }
+
+    public static String conformShotName(String name) {
         return conformName("Shot", name);
     }
 
-    public String conformLayerName(String name) {
+    public static String conformLayerName(String name) {
         return conformName("Layer", name);
     }
 
