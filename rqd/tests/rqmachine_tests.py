@@ -278,7 +278,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
     def test_rssUpdate(self):
         rqd.rqconstants.SYS_HERTZ = 100
-        rqd.rqconstants.ENABLE_PTREE = True
         pid = 105
         frameId = 'unused-frame-id'
         self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
@@ -295,9 +294,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(4356, updatedFrameInfo.max_vsize)
         self.assertEqual(4356, updatedFrameInfo.vsize)
         self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
-        self.assertEqual(
-            {'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]},
-            eval(updatedFrameInfo.attributes['ptree']))
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))

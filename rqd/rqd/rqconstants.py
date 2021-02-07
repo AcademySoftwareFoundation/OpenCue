@@ -79,9 +79,6 @@ else:
     RQD_UID = 0
     RQD_GID = 0
 
-# ptree reporting is not actually used, and could be slow
-ENABLE_PTREE = False
-
 # Nimby behavior:
 CHECK_INTERVAL_LOCKED = 60  # = seconds to wait before checking if the user has become idle
 MINIMUM_IDLE = 900          # seconds of idle time required before nimby unlocks
