@@ -118,7 +118,6 @@ OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
 OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
-ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
@@ -182,8 +181,6 @@ try:
             OVERRIDE_HOSTNAME = config.get(__section, "OVERRIDE_HOSTNAME")
         if config.has_option(__section, "GPU"):
             ALLOW_GPU = config.getboolean(__section, "GPU")
-        if config.has_option(__section, "PLAYBLAST"):
-            ALLOW_PLAYBLAST = config.getboolean(__section, "PLAYBLAST")
         if config.has_option(__section, "LOAD_MODIFIER"):
             LOAD_MODIFIER = config.getint(__section, "LOAD_MODIFIER")
         if config.has_option(__section, "RQD_USE_IP_AS_HOSTNAME"):

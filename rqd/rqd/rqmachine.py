@@ -317,8 +317,6 @@ class Machine(object):
         if not hasattr(self, 'gpuNotSupported'):
             if not hasattr(self, 'gpuResults'):
                 self.gpuResults = {'total': 0, 'free': 0, 'updated': 0}
-            if rqd.rqconstants.ALLOW_PLAYBLAST and not rqd.rqconstants.ALLOW_GPU:
-                return {'total': 262144, 'free': 262144, 'updated': 0}
             if not rqd.rqconstants.ALLOW_GPU:
                 self.gpuNotSupported = True
                 return self.gpuResults
