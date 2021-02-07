@@ -307,6 +307,11 @@ public class JobSpec {
                 job.maxRetries = FRAME_RETRIES_MIN;
             }
         }
+
+        if (jobTag.getChildTextTrim("priority") != null) {
+            job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
+        }
+
         handleLayerTags(buildableJob, jobTag);
 
         if (buildableJob.getBuildableLayers().size() > MAX_LAYERS) {
