@@ -37,17 +37,10 @@ import org.springframework.context.annotation.PropertySource;
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
                  "classpath:conf/spring/applicationContext-service.xml",
                  "classpath:conf/spring/applicationContext-jms.xml",
-                 "classpath:conf/spring/applicationContext-trackit.xml",
                  "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class TestAppConfig {
-
-    @Bean
-    @ConfigurationProperties(prefix="datasource.trackit-data-source")
-    public DataSource trackitDataSource() {
-        return DataSourceBuilder.create().build();
-    }
 
     @Configuration
     @Conditional(PostgresDatabaseCondition.class)
