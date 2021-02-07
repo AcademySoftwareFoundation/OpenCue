@@ -12,5 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Stores the API version."""
+
+# TODO(bcipriano): This module can probably be removed and replaced with the newer
+#  VERSION file system.
 
 version = '5.0'

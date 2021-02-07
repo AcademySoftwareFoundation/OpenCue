@@ -12,12 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Custom exception classes for API error handling."""
 
-"""
-Project: opencue Library
-
-Module: exception.py - Provides opencue access to exceptions
-"""
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -58,6 +54,7 @@ class CueInternalErrorException(CueException):
     failMsg = 'Server caught an internal exception. {details}'
     retryMsg = 'Server caught an internal exception, checking again...'
 
+
 class ConnectionException(CueException):
     """Raised when unable to connect to grpc server."""
     failMsg = 'Unable to contact grpc server. {details}'
@@ -78,4 +75,3 @@ EXCEPTION_MAP = {
     grpc.StatusCode.INTERNAL: CueInternalErrorException,
     grpc.StatusCode.UNAVAILABLE: ConnectionException
 }
-

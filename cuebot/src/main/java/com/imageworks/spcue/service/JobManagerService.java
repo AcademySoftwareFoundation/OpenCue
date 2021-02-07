@@ -277,6 +277,10 @@ public class JobManagerService implements JobManager {
                 frameDao.insertFrames(layer, frames);
             }
 
+            // The priority of a job is set on it's resource entry.
+            // To update it we set the priority after it's been inserted.
+            jobDao.updatePriority(job, job.priority);
+
             /*
              * Finally, run any filters on the job which may set the job's
              * priority.

@@ -12,6 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Module for communicating with the Cuebot server(s)."""
 
 from __future__ import print_function
 from __future__ import division
@@ -20,10 +21,11 @@ from __future__ import absolute_import
 from builtins import object
 from random import shuffle
 import atexit
-import grpc
 import logging
 import os
 import yaml
+
+import grpc
 
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import comment_pb2_grpc
@@ -175,8 +177,9 @@ class Cuebot(object):
                 # Test the connection
                 Cuebot.getStub('cue').GetSystemStats(
                     cue_pb2.CueGetSystemStatsRequest(), timeout=Cuebot.Timeout)
+            # pylint: disable=broad-except
             except Exception:
-                logger.warning('Could not establish grpc channel with {}.'.format(connectStr))
+                logger.warning('Could not establish grpc channel with %s', connectStr)
                 continue
             atexit.register(Cuebot.closeChannel)
             return None
@@ -206,10 +209,9 @@ class Cuebot(object):
         :param facility: a facility named in the config file"""
         if facility not in list(config.get("cuebot.facility").keys()):
             default = config.get("cuebot.facility_default")
-            logger.warning("The facility '%s' does not exist, defaulting to %s"%
-                           (facility, default))
+            logger.warning("The facility '%s' does not exist, defaulting to %s", facility, default)
             facility = default
-        logger.debug("setting facility to: %s" % facility)
+        logger.debug("setting facility to: %s", facility)
         hosts = config.get("cuebot.facility")[facility]
         Cuebot.setHosts(hosts)
 
@@ -221,7 +223,7 @@ class Cuebot(object):
         :type hosts: list<str> or str"""
         if isinstance(hosts, str):
             hosts = [hosts]
-        logger.debug("setting new server hosts to: %s" % hosts)
+        logger.debug("setting new server hosts to: %s", hosts)
         Cuebot.Hosts = hosts
         Cuebot.resetChannel()
 
@@ -232,11 +234,12 @@ class Cuebot(object):
         :param timeout: The network connection timeout in millis.
         :type timeout: int
         """
-        logger.debug("setting new server timeout to: %d" % timeout)
+        logger.debug("setting new server timeout to: %d", timeout)
         Cuebot.Timeout = timeout
 
     @classmethod
     def getProto(cls, name):
+        """Returns a proto class for the given name."""
         proto = cls.PROTO_MAP.get(name)
         if proto is None:
             raise ValueError("Could not find proto for {}.".format(name))
@@ -244,6 +247,7 @@ class Cuebot(object):
 
     @classmethod
     def getService(cls, name):
+        """Returns the service for the given name."""
         service = cls.SERVICE_MAP.get(name)
         if service is None:
             raise ValueError("Could not find stub interface for {}.".format(name))
@@ -264,4 +268,5 @@ class Cuebot(object):
 
     @staticmethod
     def getConfig():
+        """Gets the Cuebot config object, originally read in from the config file on disk."""
         return config

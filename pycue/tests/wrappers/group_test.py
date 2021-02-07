@@ -14,15 +14,18 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.group`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.group
+import opencue.wrappers.job
 
 
 TEST_GROUP_NAME = 'testGroup'
@@ -215,7 +218,7 @@ class GroupTests(unittest.TestCase):
         stubMock = mock.Mock()
         stubMock.ReparentGroups.return_value = job_pb2.GroupReparentGroupsResponse()
         getStubMock.return_value = stubMock
-    
+
         groupId = 'ggg-gggg-ggg'
         groupIds = [groupId]
         groups = [opencue.wrappers.group.Group(job_pb2.Group(id='ggg-gggg-ggg'))]
@@ -223,7 +226,7 @@ class GroupTests(unittest.TestCase):
         group = opencue.wrappers.group.Group(
             job_pb2.Group(name=TEST_GROUP_NAME))
         group.reparentGroupIds(groupIds)
-    
+
         stubMock.ReparentGroups.assert_called_with(
             job_pb2.GroupReparentGroupsRequest(group=group.data, groups=groupSeq),
             timeout=mock.ANY)
