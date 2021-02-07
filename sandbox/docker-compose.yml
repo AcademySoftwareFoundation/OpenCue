@@ -11,11 +11,6 @@ services:
       - "5432:5432"
     volumes:
       - ./sandbox/db-data:/var/lib/postgresql/data
-    logging:
-      driver: loki
-      options:
-        loki-url: http://localhost:3100/loki/api/v1/push
-        loki-external-labels: job=db
 
   flyway:
     build:
@@ -34,9 +29,7 @@ services:
     command: /opt/scripts/migrate.sh
 
   cuebot:
-    build:
-      context: .
-      dockerfile: cuebot/Dockerfile
+    image: opencue/cuebot
     links:
       - db
     ports:
@@ -48,11 +41,6 @@ services:
     environment:
       - CUE_FRAME_LOG_DIR=$CUE_FRAME_LOG_DIR
     command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=$POSTGRES_PASSWORD
-    logging:
-      driver: loki
-      options:
-        loki-url: http://localhost:3100/loki/api/v1/push
-        loki-external-labels: job=cuebot
 
   rqd:
     image: opencue/rqd
@@ -67,8 +55,3 @@ services:
     volumes:
       - /tmp/rqd/logs:/tmp/rqd/logs
       - /tmp/rqd/shots:/tmp/rqd/shots
-    logging:
-      driver: loki
-      options:
-        loki-url: http://localhost:3100/loki/api/v1/push
-        loki-external-labels: job=rqd

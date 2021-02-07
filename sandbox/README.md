@@ -10,7 +10,7 @@ https://www.opencue.io/docs/quick-starts/.
 
 ## Monitoring
 
-To get started with monitoring there is also a additional docker-compose which sets up 
+To get started with monitoring there is also an additional docker-compose which sets up 
 monitoring for key services.
 
 This can be started from the OpenCue root directory with:
@@ -18,7 +18,7 @@ This can be started from the OpenCue root directory with:
 docker-compose --project-directory . -f sandbox/docker-compose.yml -f sandbox/docker-compose.monitoring.yml up
 ```
 
-Spins up a monitoring strack
+Spins up a monitoring stack
 
 http://localhost:3000/
 
