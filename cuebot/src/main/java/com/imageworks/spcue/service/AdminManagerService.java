@@ -40,6 +40,7 @@ import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.LimitDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
+import com.imageworks.spcue.service.JobSpec;
 
 @Transactional
 public class AdminManagerService implements AdminManager {
@@ -70,6 +71,8 @@ public class AdminManagerService implements AdminManager {
     }
 
     public void createShow(ShowEntity show) {
+
+        show.name = JobSpec.conformShowName(show.name);
 
         DepartmentInterface dept = getDefaultDepartment();
         showDao.insertShow(show);

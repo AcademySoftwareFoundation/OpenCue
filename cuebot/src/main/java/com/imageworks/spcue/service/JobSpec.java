@@ -157,11 +157,13 @@ public class JobSpec {
         return String.format("%s_%s", prefix, suffix).toLowerCase();
     }
 
-    public String conformLayerName(String name) {
+    public static String conformName(String type, String name) {
+
+         String lowerType = type.toLowerCase();
 
         if (name.length() < 3) {
             throw new SpecBuilderException(
-                    "The layer name must be at least 3 characters.");
+                    "The " + lowerType + " name must be at least 3 characters.");
         }
 
         String newName = name;
@@ -170,12 +172,24 @@ public class JobSpec {
 
         Matcher matcher = NAME_PATTERN.matcher(newName);
         if (!matcher.matches()) {
-            throw new SpecBuilderException("The layer name: " + newName
-                    + " is not in the proper format.  Layer names must be "
+            throw new SpecBuilderException("The " + lowerType + " name: " + newName
+                    + " is not in the proper format.  " + type + " names must be "
                     + "alpha numeric, no dashes or punctuation.");
         }
 
         return newName;
+    }
+
+    public static String conformShowName(String name) {
+        return conformName("Show", name);
+    }
+
+    public static String conformShotName(String name) {
+        return conformName("Shot", name);
+    }
+
+    public static String conformLayerName(String name) {
+        return conformName("Layer", name);
     }
 
     public static final String FRAME_NAME_REGEX = "^([\\d]{4,6})-([\\w]+)$";
@@ -204,7 +218,7 @@ public class JobSpec {
         }
 
         show = rootElement.getChildTextTrim("show");
-        shot = rootElement.getChildTextTrim("shot");
+        shot = conformShotName(rootElement.getChildTextTrim("shot"));
         user = rootElement.getChildTextTrim("user");
         uid = Optional.ofNullable(rootElement.getChildTextTrim("uid")).map(Integer::parseInt);
         email = rootElement.getChildTextTrim("email");

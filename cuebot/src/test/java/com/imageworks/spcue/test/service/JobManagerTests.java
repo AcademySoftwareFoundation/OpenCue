@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.JobDetail;
@@ -70,6 +71,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 
 @Transactional
@@ -278,6 +280,21 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         assertEquals(spec.conformJobName("blah_____blah_v1"),
                                          "pipe-dev.cue-testuser_blah_blah_v1");
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNonExistentShow() {
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec_nonexistent_show.xml"));
+        try {
+            jobLauncher.launch(spec);
+            fail("Expected exception");
+        } catch (EntityCreationError e) {
+            assertEquals(e.getMessage(),
+                    "The nonexistentshow does not exist. Please contact administrator of your " +
+                    "OpenCue deployment to have this show created.");
+        }
     }
 
     @Test

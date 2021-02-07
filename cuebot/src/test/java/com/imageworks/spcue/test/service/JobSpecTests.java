@@ -82,4 +82,17 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
                     "Failed to parse job spec XML, java.net.MalformedURLException");
         }
     }
+
+    @Test
+    public void testParseInvalidShot() {
+        String xml = readJobSpec("jobspec_invalid_shot.xml");
+        try {
+            jobLauncher.parse(xml);
+            fail("Expected exception");
+        } catch (SpecBuilderException e) {
+            assertEquals(e.getMessage(),
+                    "The shot name: invalid/shot is not in the proper format.  " +
+                    "Shot names must be alpha numeric, no dashes or punctuation.");
+        }
+    }
 }
