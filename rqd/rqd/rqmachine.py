@@ -415,7 +415,7 @@ class Machine(object):
         """Updates static machine information during initialization"""
         self.__renderHost.name = self.getHostname()
         self.__renderHost.boot_time = self.getBootTime()
-        self.__renderHost.facility = rqd.rqconstants.FACILITY
+        self.__renderHost.facility = rqd.rqconstants.DEFAULT_FACILITY
         self.__renderHost.attributes['SP_OS'] = rqd.rqconstants.SP_OS
 
         self.updateMachineStats()

@@ -550,7 +550,7 @@ class RqCoreTests(unittest.TestCase):
 class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
     def setUp(self):
         self.setUpPyfakefs()
-        rqd.rqconstants.SU_ARGUEMENT = '-c'
+        rqd.rqconstants.SU_ARGUMENT = '-c'
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('tempfile.gettempdir')

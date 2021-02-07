@@ -264,7 +264,7 @@ class FrameAttendantThread(threading.Thread):
         rqd.rqutil.permissionsHigh()
         try:
             if rqd.rqconstants.RQD_BECOME_JOB_USER:
-                tempCommand += ["/bin/su", runFrame.user_name, rqd.rqconstants.SU_ARGUEMENT,
+                tempCommand += ["/bin/su", runFrame.user_name, rqd.rqconstants.SU_ARGUMENT,
                                 '"' + self._createCommandFile(runFrame.command) + '"']
             else:
                 tempCommand += [self._createCommandFile(runFrame.command)]
