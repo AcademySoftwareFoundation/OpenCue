@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Main entry point for the application.
-"""
+"""Main entry point for the application."""
 
 
 from __future__ import absolute_import
@@ -23,6 +21,8 @@ from __future__ import print_function
 from __future__ import division
 
 import os
+import shutil
+import signal
 
 from PySide2 import QtCore
 from PySide2 import QtGui
@@ -42,6 +42,7 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueGuiApplication(QtWidgets.QApplication):
+    """The CueGUI application."""
 
     # Global signals
     display_log_file_content = QtCore.Signal(object)
@@ -56,19 +57,20 @@ class CueGuiApplication(QtWidgets.QApplication):
     status = QtCore.Signal()
     quit = QtCore.Signal()
 
-    def __init__(self, *args, **kwargs):
-        super(CueGuiApplication, self).__init__(*args, **kwargs)
-
 
 def cuetopia(argv):
+    """Starts the Cuetopia window."""
     startup("Cuetopia", cuegui.Constants.VERSION, argv)
 
 
 def cuecommander(argv):
+    """Starts the CueCommander window."""
     startup("CueCommander", cuegui.Constants.VERSION, argv)
 
 
 def startup(app_name, app_version, argv):
+    """Starts an application window."""
+
     app = CueGuiApplication(argv)
 
     # Start splash screen
@@ -76,7 +78,6 @@ def startup(app_name, app_version, argv):
         app, app_name, app_version, cuegui.Constants.RESOURCE_PATH)
 
     # Allow ctrl-c to kill the application
-    import signal
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     # Load window icon
@@ -99,20 +100,21 @@ def startup(app_name, app_version, argv):
 
     cuegui.Style.init()
 
-    # If the config file does not exist, copy over the default    
+    # If the config file does not exist, copy over the default
+    # pylint: disable=broad-except
     if not os.path.exists(local):
         default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
-        logger.warning('Not found: %s\nCopying:   %s' % (local, default))
+        logger.warning('Not found: %s\nCopying:   %s', local, default)
         try:
             os.mkdir(os.path.dirname(local))
         except Exception as e:
             logger.debug(e)
         try:
-            import shutil
             shutil.copy2(default, local)
         except Exception as e:
             logger.debug(e)
         settings.sync()
+    # pylint: enable=broad-except
 
     mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
     mainWindow.displayStartupNotice()
@@ -125,10 +127,12 @@ def startup(app_name, app_version, argv):
 
     # End splash screen
     splash.hide()
-    
+
     # TODO(#609) Refactor the CueGUI classes to make this garbage collector
     #   replacement unnecessary.
+    # pylint: disable=unused-variable
     gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)
+    # pylint: enable=unused-variable
     app.aboutToQuit.connect(closingTime)
     app.exec_()
 
@@ -136,5 +140,8 @@ def startup(app_name, app_version, argv):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    for thread in QtGui.qApp.threads:
+    # pylint: disable=no-member
+    threads = QtGui.qApp.threads
+    # pylint: enable=no-member
+    for thread in threads:
         cuegui.Utils.shutdownThread(thread)

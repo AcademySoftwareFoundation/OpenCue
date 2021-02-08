@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A confirmation dialog
-"""
+"""Confirmation dialog."""
 
 
 from __future__ import print_function
@@ -28,8 +26,11 @@ from PySide2 import QtWidgets
 
 
 class ConfirmationDialog(QtWidgets.QDialog):
-    def __init__(self, title, text, items = [], parent = None):
-        """A confirmation dialog
+    """Confirmation dialog."""
+
+    # pylint: disable=dangerous-default-value
+    def __init__(self, title, text, items=[], parent=None):
+        """
         @type  title: string
         @param title: The title for the confirmation dialog
         @type  text: string

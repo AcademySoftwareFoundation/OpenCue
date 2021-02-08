@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Tree widget for displaying a list of shows."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -34,6 +37,8 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget for displaying a list of shows."""
+
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_SHOW)
         self.addColumn("Show Name", 90, id=1,
@@ -58,7 +63,9 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self, self.updateSoon, self.selectedObjects)
 
         self.itemClicked.connect(self.__itemSingleClickedToDouble)
+        # pylint: disable=no-member
         QtGui.qApp.facility_changed.connect(self.__facilityChanged)
+        # pylint: enable=no-member
 
         self.setUpdateInterval(60)
 
@@ -76,16 +83,17 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param col: Column number single clicked on"""
         self.itemDoubleClicked.emit(item, col)
 
-    def _createItem(self, object):
+    def _createItem(self, rpcObject):
         """Creates and returns the proper item"""
-        item = ShowWidgetItem(object, self)
+        item = ShowWidgetItem(rpcObject, self)
         return item
 
+    # pylint: disable=no-self-use
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
             return opencue.api.getActiveShows()
-        except Exception as e:
+        except opencue.exception.CueException as e:
             logger.critical(e)
             return []
 
@@ -103,8 +111,13 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             menu.exec_(QtCore.QPoint(e.globalX(), e.globalY()))
 
+    def tick(self):
+        pass
+
 
 class ShowWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item representing a single show."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_SHOW, object, parent)
+            self, cuegui.Constants.TYPE_SHOW, rpcObject, parent)

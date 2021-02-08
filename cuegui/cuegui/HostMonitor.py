@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Widget for displaying a list of hosts with admin controls."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -36,10 +39,12 @@ FILTER_HEIGHT = 20
 
 
 class HostMonitor(QtWidgets.QWidget):
-    """This contains the frame list table with controls at the top"""
+    """Widget for displaying a list of hosts with admin controls."""
+
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
+        self.__filterByHostNameLastInput = None
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
 
         # Setup main vertical layout
@@ -52,40 +57,47 @@ class HostMonitor(QtWidgets.QWidget):
 
         # This hlayout would contain any filter/control buttons
         hlayout = QtWidgets.QHBoxLayout()
-        self.__filterByHostNameSetup(hlayout)     # Menu to filter by host name
-        self.__filterAllocationSetup(hlayout)     # Menu to filter by allocation
-        self.__filterHardwareStateSetup(hlayout)     # Menu to filter by hardware state
+        self.__filterByHostNameSetup(hlayout)
+        self.__filterAllocationSetup(hlayout)
+        self.__filterHardwareStateSetup(hlayout)
         hlayout.addStretch()
-        self.__refreshToggleCheckBoxSetup(hlayout)     # Checkbox to enable/disable auto refresh
-        self.__refreshButtonSetup(hlayout)     # Button to refresh
-        self.__clearButtonSetup(hlayout)     # Button to clear all filters
+        self.__refreshToggleCheckBoxSetup(hlayout)
+        self.__refreshButtonSetup(hlayout)
+        self.__clearButtonSetup(hlayout)
 
         self.layout().addLayout(hlayout)
         self.layout().addWidget(self.hostMonitorTree)
 
-        self.__viewHostsSetup()     # For view_hosts signal
-        
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):     # For refresh on launch
+        self.__viewHostsSetup()
+
+        # pylint: disable=no-member
+        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
+        # pylint: enable=no-member
 
     def updateRequest(self):
+        """Requests an update of the displayed information."""
         self.hostMonitorTree.updateRequest()
 
     def getColumnVisibility(self):
+        """Gets table column visibility."""
         return self.hostMonitorTree.getColumnVisibility()
 
     def setColumnVisibility(self, settings):
+        """Sets table column visibility."""
         self.hostMonitorTree.setColumnVisibility(settings)
 
     def getColumnOrder(self):
+        """Gets the table column order."""
         return self.hostMonitorTree.getColumnOrder()
 
     def setColumnOrder(self, settings):
+        """Sets the table column order."""
         self.hostMonitorTree.setColumnOrder(settings)
 
-# ==============================================================================
-# Text box to filter by host name
-# ==============================================================================
+    # ==============================================================================
+    # Text box to filter by host name
+    # ==============================================================================
     def __filterByHostNameSetup(self, layout):
         btn = QtWidgets.QLineEdit(self)
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -124,9 +136,9 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostName.setText("")
         self.hostMonitorTree.hostSearch.options['regex'] = []
 
-# ==============================================================================
-# Menu to filter by allocation
-# ==============================================================================
+    # ==============================================================================
+    # Menu to filter by allocation
+    # ==============================================================================
     def __filterAllocationSetup(self, layout):
         self.__filterAllocationList = sorted(
             [alloc.name() for alloc in opencue.api.getAllocations()])
@@ -188,9 +200,9 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.hostMonitorTree.updateRequest()
 
-# ==============================================================================
-# Menu to filter by hardware state
-# ==============================================================================
+    # ==============================================================================
+    # Menu to filter by hardware state
+    # ==============================================================================
     def __filterHardwareStateSetup(self, layout):
         self.__filterHardwareStateList = sorted(opencue.api.host_pb2.HardwareState.keys())
 
@@ -252,9 +264,9 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.hostMonitorTree.updateRequest()
 
-# ==============================================================================
-# Checkbox to toggle auto-refresh
-# ==============================================================================
+    # ==============================================================================
+    # Checkbox to toggle auto-refresh
+    # ==============================================================================
     def __refreshToggleCheckBoxSetup(self, layout):
         checkBox = QtWidgets.QCheckBox("Auto-refresh", self)
         layout.addWidget(checkBox)
@@ -267,11 +279,13 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
+        # pylint: disable=no-member
         QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
+        # pylint: enable=no-member
 
-# ==============================================================================
-# Button to refresh
-# ==============================================================================
+    # ==============================================================================
+    # Button to refresh
+    # ==============================================================================
     def __refreshButtonSetup(self, layout):
         """Sets up the refresh button, adds it to the given layout
         @param layout: The layout to add the button to
@@ -292,9 +306,9 @@ class HostMonitor(QtWidgets.QWidget):
         self.btn_refresh.setEnabled(False)
         QtCore.QTimer.singleShot(5000, self.__refreshButtonEnableHandle)
 
-# ==============================================================================
-# Button to clear all filters
-# ==============================================================================
+    # ==============================================================================
+    # Button to clear all filters
+    # ==============================================================================
     def __clearButtonSetup(self, layout):
         """Sets up the clear button, adds it to the given layout
         @param layout: The layout to add the button to
@@ -314,11 +328,13 @@ class HostMonitor(QtWidgets.QWidget):
         self.__filterByHostNameClear()
         self.hostMonitorTree.clearFilters()
 
-# ==============================================================================
-# Monitors and handles the view_hosts signal
-# ==============================================================================
+    # ==============================================================================
+    # Monitors and handles the view_hosts signal
+    # ==============================================================================
     def __viewHostsSetup(self):
+        # pylint: disable=no-member
         QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
+        # pylint: enable=no-member
 
     def __viewHostsHandle(self, hosts):
         self.__clearButtonHandle()

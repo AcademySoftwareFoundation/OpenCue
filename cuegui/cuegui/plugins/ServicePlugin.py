@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for listing services and performing administrative tasks."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -31,10 +34,13 @@ PLUGIN_PROVIDES = "ServicesDockWidget"
 
 
 class ServicesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Plugin for listing services and performing administrative tasks."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
         self.setWindowTitle("Facility Service Defaults")
         self.__serviceManager = cuegui.ServiceDialog.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
+        # pylint: disable=no-member
         QtGui.qApp.facility_changed.connect(self.__serviceManager.refresh)
+        # pylint: enable=no-member

@@ -32,7 +32,8 @@ from PySide2 import QtWidgets
 import opencue
 
 
-possible_version_path = os.path.join(os.path.abspath(os.path.join(__file__ , "../../..")), 'VERSION.in')
+possible_version_path = os.path.join(
+    os.path.abspath(os.path.join(__file__ , "../../..")), 'VERSION.in')
 if os.path.exists(possible_version_path):
     with open(possible_version_path) as fp:
         VERSION = fp.read().strip()
@@ -70,9 +71,10 @@ EMAIL_BODY_PREFIX = "Your PSTs request that you check "
 EMAIL_BODY_SUFFIX = "\n\n"
 EMAIL_DOMAIN = ""
 
+GITHUB_CREATE_ISSUE_URL = 'https://github.com/AcademySoftwareFoundation/OpenCue/issues/new'
 URL_USERGUIDE = "https://www.opencue.io/docs/"
-URL_SUGGESTION = "https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=enhancement&template=enhancement.md"
-URL_BUG = "https://github.com/AcademySoftwareFoundation/OpenCue/issues/new?labels=bug&template=bug_report.md"
+URL_SUGGESTION = "%s?labels=enhancement&template=enhancement.md" % GITHUB_CREATE_ISSUE_URL
+URL_BUG = "%s?labels=bug&template=bug_report.md" % GITHUB_CREATE_ISSUE_URL
 
 if platform.system() == "Windows":
     DEFAULT_EDITOR = "notepad"
@@ -129,6 +131,8 @@ COLOR_USER_4 = QtGui.QColor(50, 30, 0)
 
 QT_MAX_INT = 2147483647
 
-LOG_HIGHLIGHT_ERROR = ['error', 'aborted', 'fatal', 'failed', 'killed', 'command not found', 'no licenses could be found', 'killMessage']
+LOG_HIGHLIGHT_ERROR = [
+    'error', 'aborted', 'fatal', 'failed', 'killed', 'command not found',
+    'no licenses could be found', 'killMessage']
 LOG_HIGHLIGHT_WARN = ['warning', 'not found']
 LOG_HIGHLIGHT_INFO = ['info:', 'rqd cmd:']

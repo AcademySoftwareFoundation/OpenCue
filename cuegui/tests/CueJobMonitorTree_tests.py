@@ -13,19 +13,23 @@
 #  limitations under the License.
 
 
-import mock
+"""Tests for cuegui.CueJobMonitorTree."""
+
+
 import unittest
 
+import mock
 import PySide2.QtCore
 import PySide2.QtGui
 import PySide2.QtWidgets
 
-import cuegui.CueJobMonitorTree
-import cuegui.plugins.MonitorCuePlugin
-import cuegui.Style
 import opencue.compiled_proto.job_pb2
 import opencue.compiled_proto.show_pb2
 import opencue.wrappers.show
+
+import cuegui.CueJobMonitorTree
+import cuegui.plugins.MonitorCuePlugin
+import cuegui.Style
 
 from . import test_utils
 

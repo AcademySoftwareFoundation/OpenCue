@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin that lists attributes of the selected object."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -26,7 +29,8 @@ from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
-import opencue.compiled_proto
+import opencue.compiled_proto.depend_pb2
+import opencue.wrappers.job
 
 import cuegui.AbstractDockWidget
 import cuegui.Logger
@@ -42,15 +46,18 @@ PLUGIN_PROVIDES = "AttributesPlugin"
 
 
 class AttributesPlugin(cuegui.AbstractDockWidget.AbstractDockWidget):
+    """Plugin that lists attributes of the selected object."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(
             self, parent, PLUGIN_NAME, QtCore.Qt.RightDockWidgetArea)
         self.__attributes = Attributes(self)
         self.layout().addWidget(self.__attributes)
 
+
 def getDependsForm(depends):
-    """This is a temporary method unil a new widget factory can be made
-    that creates uber hawt dependency widgets"""
+    """This is a temporary method until a new widget factory can be made
+    that creates uber hawt dependency widgets."""
     if not depends:
         return None
 
@@ -71,6 +78,7 @@ def getDependsForm(depends):
             result[name]["onFrame"] = dep.data.depend_on_frame
 
     return result
+
 
 class Attributes(QtWidgets.QWidget):
     """Attributes
@@ -98,10 +106,13 @@ class Attributes(QtWidgets.QWidget):
         self.__scrollWidget.layout().addWidget(self.__stack)
         self.__scrollArea.setWidget(self.__scrollWidget)
         layout.addWidget(self.__scrollArea)
+        # pylint: disable=no-member
         QtGui.qApp.single_click.connect(self.setWidget)
+        # pylint: enable=no-member
 
         self.__load = None
 
+    # pylint: disable=inconsistent-return-statements
     def setWidget(self, item):
         """If the item is a known object, then it will be displayed.
         @type  item: any known object, otherwise ignored
@@ -129,15 +140,18 @@ class Attributes(QtWidgets.QWidget):
         if hasattr(function, "preload"):
             if hasattr(QtGui.qApp, "threadpool"):
                 self.__load = {"item": item, "function": function}
+                # pylint: disable=no-member
                 QtGui.qApp.threadpool.queue(self.__getUpdate,
                                             self.__processResults,
                                             "getting data for %s" % self.__class__)
+                # pylint: enable=no-member
             else:
                 logger.warning("threadpool not found, doing work in gui thread")
                 return self.__createItemAttribute(item, function, function.preload(item))
         else:
             return self.__createItemAttribute(item, function, None)
 
+    # pylint: disable=broad-except,inconsistent-return-statements
     def __getUpdate(self):
         """Called from the worker thread, gets results from preload"""
         try:
@@ -151,6 +165,7 @@ class Attributes(QtWidgets.QWidget):
 
     def __processResults(self, work, result):
         """Unpacks the worker thread results and calls function to create widget"""
+        del work
         if result:
             self.__createItemAttribute(result["item"],
                                        result["function"],
@@ -171,6 +186,12 @@ class Attributes(QtWidgets.QWidget):
 
 
 class AbstractAttributes(QtWidgets.QTreeWidget):
+    """Abstract class for listing object attributes.
+
+    Inheriting classes build on this, adding additional logic depending on the type of the
+    selected object.
+    """
+
     def __init__(self, rpcObject, preload, parent=None):
         QtWidgets.QTreeWidget.__init__(self, parent)
 
@@ -206,6 +227,7 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
         self.itemSelectionChanged.connect(self.itemSingleClickedCopy)
 
     def itemSingleClickedCopy(self):
+        """Event handler that copies the text of the selected line to the clipboard on click."""
         selected = self.selectedItems()
 
         if selected:
@@ -213,13 +235,18 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
 
 
 class LayerAttributes(AbstractAttributes):
+    """Class for listing attributes of a layer."""
+
     NAME = "LayerAttributes"
 
     @staticmethod
     def preload(layer):
+        """Prepopulates needed layer information."""
         return {"depends": layer.getWhatThisDependsOn()}
 
+    # pylint: disable=no-self-use
     def dataSource(self, layer, preload):
+        """Returns layer information structured as needed for the attributes list."""
         d = {
                 "id": opencue.util.id(layer),
                 "layer": layer.data.name,
@@ -263,9 +290,9 @@ class LayerAttributes(AbstractAttributes):
                 "depends": getDependsForm(preload["depends"]),
                 }
 
-
         for num, output in enumerate(layer.getOutputPaths()):
             # Try to formulate a unique name the output.
+            # pylint: disable=bare-except
             try:
                 # Outline only puts outputs in as filespecs,
                 # so we're just going to assume it is.
@@ -274,19 +301,26 @@ class LayerAttributes(AbstractAttributes):
                     rep = "%s #%d" % (rep, num)
             except:
                 rep = "output #%d" % num
+            # pylint: enable=bare-except
 
             d["outputs"][rep] = output
 
         return d
 
+
 class JobAttributes(AbstractAttributes):
+    """Class for listing attributes of a job."""
+
     NAME = "JobAttributes"
 
     @staticmethod
     def preload(jobObject):
+        """Prepopulates needed job information."""
         return {"depends": jobObject.getWhatThisDependsOn()}
 
+    # pylint: disable=no-self-use
     def dataSource(self, job, preload):
+        """Returns job information structured as needed for the attributes list."""
         if isinstance(job, opencue.wrappers.job.NestedJob):
             job = job.asJob()
         d = {
@@ -348,6 +382,7 @@ class JobAttributes(AbstractAttributes):
 
                 for num, output in enumerate(outputs):
                     # Try to formulate a unique name the output.
+                    # pylint: disable=bare-except
                     try:
                         # Outline only puts outputs in as filespecs,
                         # so we're just going to assume it is.
@@ -356,14 +391,21 @@ class JobAttributes(AbstractAttributes):
                             rep = "%s #%d" % (rep, num)
                     except:
                         rep = "output #%d" % num
+                    # pylint: enable=bare-except
 
                     entry[rep] = output
         return d
 
+
 class HostAttributes(AbstractAttributes):
+    """Class for listing attributes of a host."""
+
     NAME = "Host"
 
+    # pylint: disable=no-self-use
     def dataSource(self, host, preload):
+        """Returns host information structured as needed for the attributes list."""
+        del preload
         return {"hostname": host.data.name,
                 "id": opencue.util.id(host),
                 "alloc": host.data.alloc_name,

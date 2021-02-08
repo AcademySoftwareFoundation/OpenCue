@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Service related widgets."""
+"""Dialog for displaying and editing services."""
 
 
 from __future__ import absolute_import
@@ -34,9 +34,8 @@ import cuegui.Utils
 
 
 class ServiceForm(QtWidgets.QWidget):
-    """
-    An Widget for displaying and editing a service.
-    """
+    """Widget for displaying and editing a service."""
+
     saved = QtCore.Signal(object)
 
     def __init__(self, parent=None):
@@ -99,7 +98,6 @@ class ServiceForm(QtWidgets.QWidget):
         layout.addWidget(self.__buttons, 9, 1)
 
         self.__buttons.accepted.connect(self.save)
-
 
     def _cfg(self):
         """
@@ -178,7 +176,7 @@ class ServiceForm(QtWidgets.QWidget):
 class ServiceManager(QtWidgets.QWidget):
     """
     Wraps the ServiceForm widget with the logic and controls needed
-    to add, update, and detete services.
+    to add, update, and delete services.
     """
     def __init__(self, show, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -218,6 +216,8 @@ class ServiceManager(QtWidgets.QWidget):
         """
         Executes if an item is selected
         """
+        del old_item
+
         self.__new_service = False
 
         if not item:

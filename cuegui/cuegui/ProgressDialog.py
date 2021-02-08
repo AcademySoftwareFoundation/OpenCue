@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A progress dialog that accepts a list of work units and displays the progress.
-"""
+"""A progress dialog that accepts a list of work units and displays the progress."""
 
 
 from __future__ import absolute_import
@@ -37,8 +35,10 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class ProgressDialog(QtWidgets.QDialog):
+    """A progress dialog that accepts a list of work units and displays the progress."""
+
     def __init__(self, title, function, work, concurrent, cancelTitle,
-                 cancelText, parent = None):
+                 cancelText, parent=None):
         """Creates, displays and starts the progress bar.
         @type  title: str
         @param title: The title for the progress bar
@@ -87,7 +87,8 @@ class ProgressDialog(QtWidgets.QDialog):
 
         self.show()
 
-        for thread in range(max(concurrent, 1)):
+        # Submit a new unit of work to the threadpool for each concurrent thread.
+        for _ in range(max(concurrent, 1)):
             self._submitWork()
 
     def closeEvent(self, event):
@@ -124,6 +125,7 @@ class ProgressDialog(QtWidgets.QDialog):
             self.__workLock.unlock()
 
         if work:
+            # pylint: disable=broad-except
             try:
                 self.__function(*work)
             except Exception as e:
@@ -136,6 +138,9 @@ class ProgressDialog(QtWidgets.QDialog):
         @param work: From threadpool (unused)
         @type  result:
         @param result: From threadpool (unused)"""
+        del work
+        del result
+
         self.__count -= 1
 
         self.__bar.setValue(self.__bar.value() + 1)
@@ -157,9 +162,11 @@ class ProgressDialog(QtWidgets.QDialog):
         self.__count += 1
 
         if hasattr(QtGui.qApp, "threadpool"):
+            # pylint: disable=no-member
             QtGui.qApp.threadpool.queue(self.__doWork,
                                         self.__doneWork,
                                         "getting data for %s" % self.__class__)
+            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self.__doneWork(None, self.__doWork())

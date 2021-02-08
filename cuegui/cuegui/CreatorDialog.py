@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Dialog for creating a subscription."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -26,14 +29,13 @@ import opencue
 
 
 class SubscriptionCreator(QtWidgets.QWidget):
+    """Widget for creating a subscription."""
+
     def __init__(self, show=None, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         show_name = ""
         if show:
-            try:
-                show_name = show.data.name
-            except Exception:
-                show_name = str(show)
+            show_name = show.data.name
 
         self.__shows = opencue.api.getShows()
         self.__allocs = opencue.api.getAllocations()
@@ -70,7 +72,7 @@ class SubscriptionCreator(QtWidgets.QWidget):
 
             show.createSubscription(alloc, float(self.sizeBox.value()),
                                     float(self.burstBox.value()))
-        except Exception as e:
+        except opencue.exception.CueException as e:
             QtWidgets.QMessageBox.warning(
                 self,
                 "Create Subscription",
@@ -79,7 +81,11 @@ class SubscriptionCreator(QtWidgets.QWidget):
 
 
 class SubscriptionCreatorDialog(QtWidgets.QDialog):
+    """Dialog for creating a subscription."""
+
     def __init__(self, show=None, parent=None):
+        del parent
+
         QtWidgets.QDialog.__init__(self)
 
         self.__creator = SubscriptionCreator(show, self)

@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 
-"""
-Provides extended QWidgetItem functionality.
-"""
+"""Base class for CueGUI widget items.
+
+Provides extended QWidgetItem functionality."""
 
 
 from __future__ import absolute_import
@@ -27,11 +27,13 @@ from builtins import str
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
+import opencue
+import opencue.wrappers.job
+
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.Style
 
-import opencue
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -42,17 +44,21 @@ SORT_LAMBDA = 3
 
 
 class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
-    def __init__(self, itemType, object, parent, source=None):
+    """Base class for CueGUI widget items.
+
+    Provides extended QWidgetItem functionality."""
+
+    def __init__(self, itemType, rpcObject, parent, source=None):
         QtWidgets.QTreeWidgetItem.__init__(self, parent, itemType)
         self.column_info = self.treeWidget().getColumnInfo(itemType)
         self._cache = {}
         self._source = source
-        self.rpcObject = object
+        self.rpcObject = rpcObject
 
-    def update(self, object=None, parent=None):
+    def update(self, rpcObject=None, parent=None):
         """Updates visual representation with latest data
-        @type  object: Object
-        @param object: The object that contains updated information
+        @type  rpcObject: Object
+        @param rpcObject: The object that contains updated information
         @type  parent: QTreeWidgetItem
         @param parent: Changes the current parent to this parent if different"""
         # Changes parent if needed
@@ -60,8 +66,8 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
             self.parent().removeChild(self)
             parent.addChild(self)
 
-        if object:
-            self.rpcObject = object
+        if rpcObject:
+            self.rpcObject = rpcObject
             self._cache = {}
 
     def data(self, col, role):
@@ -75,12 +81,12 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         if role == QtCore.Qt.DisplayRole:
             return self.column_info[col][DISPLAY_LAMBDA](self.rpcObject)
 
-        elif role == QtCore.Qt.ForegroundRole:
+        if role == QtCore.Qt.ForegroundRole:
             if cuegui.Style.ColorTheme is None:
                 cuegui.Style.init()
             return cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
-        elif role == QtCore.Qt.UserRole:
+        if role == QtCore.Qt.UserRole:
             return self.type()
 
         return cuegui.Constants.QVARIANT_NULL
@@ -91,8 +97,9 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         column = self.treeWidget().sortColumn()
 
         if sortLambda and isinstance(other.rpcObject, opencue.wrappers.job.Job):
+            # pylint: disable=broad-except
             try:
                 return sortLambda(self.rpcObject) < sortLambda(other.rpcObject)
-            except:
-                logger.warning("Sort failed on column {}, using text sort.".format(column))
+            except Exception:
+                logger.warning("Sort failed on column %s, using text sort.", column)
         return str(self.text(column)) < str(other.text(column))

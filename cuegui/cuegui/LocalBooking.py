@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""A widget for creating RenderPartitions, otherwise known as local core booking."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -37,10 +40,7 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class LocalBookingWidget(QtWidgets.QWidget):
-    """
-    A widget for creating opencue RenderParitions, otherwise know
-    as local core booking.
-    """
+    """A widget for creating RenderPartitions, otherwise known as local core booking."""
 
     hosts_changed = QtCore.Signal()
 
@@ -65,7 +65,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             for host in owner.getHosts():
                 if host.data.lockState != opencue.api.host_pb2.OPEN:
                     self.__select_host.addItem(host.data.name)
-        except Exception:
+        except opencue.exception.CueException:
             pass
 
         self.__deed_button = None
@@ -82,10 +82,10 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__text_target = QtWidgets.QLabel(self.__target.data.name, self)
 
         self.__num_threads = QtWidgets.QSpinBox(self)
-        self.__num_threads.setValue(1);
+        self.__num_threads.setValue(1)
 
         self.__num_cores = QtWidgets.QLineEdit(self)
-        self.__num_cores.setText("1");
+        self.__num_cores.setText("1")
         self.__num_cores.setReadOnly(True)
 
         self.__num_frames = QtWidgets.QSpinBox(self)
@@ -94,7 +94,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__frame_warn = QtWidgets.QLabel(self)
 
         self.__num_mem = QtWidgets.QSlider(self)
-        self.__num_mem.setValue(4);
+        self.__num_mem.setValue(4)
         self.__num_mem.setOrientation(QtCore.Qt.Horizontal)
         self.__num_mem.setTickPosition(QtWidgets.QSlider.TicksBelow)
         self.__num_mem.setTickInterval(1)
@@ -123,7 +123,6 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__text_run_mem.setSuffix("GB")
 
         self.__btn_clear = QtWidgets.QPushButton("Clear", self)
-
 
         #
         # Setup the signals.
@@ -182,21 +181,23 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.layout().addLayout(self.__stack)
 
-        ## Set initial values.
+        # Set initial values.
         self.__host_changed(self.__select_host.currentText())
         self.resize(400, 400)
 
     def getTargetJobName(self):
+        """Gets the job name of the target."""
+
         if cuegui.Utils.isJob(self.__target):
             return self.__target.data.name
-        elif cuegui.Utils.isLayer(self.__target):
+        if cuegui.Utils.isLayer(self.__target):
             return self.__target.name
-        elif cuegui.Utils.isFrame(self.__target):
+        if cuegui.Utils.isFrame(self.__target):
             return self.__parent.getJob().data.name
-        else:
-            return ''
+        return ''
 
     def hostAvailable(self):
+        """Gets whether the host has cores available."""
         return self.__select_host.count() > 0
 
     def __host_changed(self, hostname):
@@ -206,7 +207,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         host = opencue.api.findHost(str(hostname))
         try:
             rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
-            
+
             if rp:
                 rp = rp[0]
                 self.__stack.setCurrentIndex(1)
@@ -223,15 +224,16 @@ class LocalBookingWidget(QtWidgets.QWidget):
                 self.__num_threads.setRange(1, host.data.idleCores)
                 self.__num_mem.setRange(1, int(host.data.totalMemory / 1024 / 1024))
                 self.__num_threads.setRange(1, host.data.idleCores)
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def deedLocalhost(self):
+        """Deeds the target to the local host."""
 
         show_name = os.environ.get("SHOW", "pipe")
         try:
             _show = opencue.api.findShow(show_name)
-        except Exception as e:
+        except opencue.exception.CueException as e:
             msg = QtWidgets.QMessageBox(self)
             msg.setText("Error %s, please setshot and rerun cuetopia", e)
             msg.exec_()
@@ -243,7 +245,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         except opencue.EntityNotFoundException as e:
             # Owner does not exist
             owner = _show.createOwner(user)
- 
+
         hostname = gethostname()
         try:
             host = opencue.api.findHost(hostname.rsplit(".",2)[0])
@@ -259,14 +261,14 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__msg_widget = None
             self.hosts_changed.emit()
 
-        except Exception as e:
+        except opencue.exception.CueException:
             msg = QtWidgets.QMessageBox(self)
             msg.setText("Unable to determine your machine's hostname. " +
                         "It is not setup properly for local booking")
-
             msg.exec_()
 
     def __calculateCores(self, ignore):
+        del ignore
         frames = self.__num_frames.value()
         threads = self.__num_threads.value()
 
@@ -284,16 +286,18 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         if frames * threads > self.__num_frames.maximum():
             return True
-        elif frames == 0:
+        if frames == 0:
             return True
-        elif cores % threads > 0:
+        if cores % threads > 0:
             return True
-        elif threads > cores:
+        if threads > cores:
             return True
 
         return False
 
     def clearCurrentHost(self):
+        """Clears the current host."""
+
         hostname = str(self.__select_host.currentText())
         if not hostname:
             return
@@ -305,23 +309,25 @@ class LocalBookingWidget(QtWidgets.QWidget):
             rp = [r for r in host.getRenderPartitions() if r.job == self.jobName]
             if rp:
                 rp = rp[0]
-        
+
                 rp.delete()
 
-                ## Wait for hosts to clear out, then switch
-                ## back to the booking widget
-                for i in range(0, 10):
+                # Wait for hosts to clear out, then switch back to the booking widget.
+                for _ in range(0, 10):
+                    # pylint: disable=broad-except
                     try:
                         rp = [r for r in host.getRenderPartitions() if r.job == self.jobName][0]
                         time.sleep(1)
-                    except:
+                    except Exception:
                         break
             self.__host_changed(hostname)
 
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
 
     def bookCurrentHost(self):
+        """Books the current host."""
+
         if self.__hasError():
             return
 
@@ -333,17 +339,14 @@ class LocalBookingWidget(QtWidgets.QWidget):
                                         int(self.__run_mem.value()) * 1024 * 1024,
                                         0)
         else:
-            self.__target.addRenderPartition(str(self.__select_host.currentText()),
-                                                   int(self.__num_threads.value()),
-                                                   int(self.__num_cores.text()),
-                                                   int(self.__num_mem.value() * 1048576),
-                                                   0)
+            self.__target.addRenderPartition(
+                str(self.__select_host.currentText()), int(self.__num_threads.value()),
+                int(self.__num_cores.text()), int(self.__num_mem.value() * 1048576), 0)
 
 
 class LocalBookingDialog(QtWidgets.QDialog):
-    """
-    A dialog to wrap a LocalBookingWidget.  Provides action buttons.
-    """
+    """A dialog to wrap a LocalBookingWidget. Provides action buttons."""
+
     def __init__(self, target, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         QtWidgets.QVBoxLayout(self)
@@ -372,6 +375,8 @@ class LocalBookingDialog(QtWidgets.QDialog):
         self.__btn_ok.setDisabled(not self.__booking.hostAvailable())
 
     def doLocalBooking(self):
+        """Performs the booking of local cores.."""
+        # pylint: disable=broad-except
         try:
             self.__booking.bookCurrentHost()
             self.close()
@@ -382,4 +387,3 @@ class LocalBookingDialog(QtWidgets.QDialog):
                         'that your job has waiting frames.')
             msg.setDetailedText(str(e))
             msg.exec_()
-
