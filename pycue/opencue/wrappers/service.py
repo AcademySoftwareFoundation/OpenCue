@@ -194,13 +194,18 @@ class Service(object):
         self.data.tags[:] = tags
 
     def timeout(self):
+        """Gets the default service timeout."""
         return self.data.timeout
 
     def setTimeout(self, timeout):
+        """Sets the default service timeout."""
         self.data.timeout = timeout
 
     def timeoutLLU(self):
+        """Gets the default service LLU timeout."""
         return self.data.timeout
 
     def setTimeoutLLU(self, timeout_llu):
+        """Sets the default service LLU timeout."""
         self.data.timeout_llu = timeout_llu
+
