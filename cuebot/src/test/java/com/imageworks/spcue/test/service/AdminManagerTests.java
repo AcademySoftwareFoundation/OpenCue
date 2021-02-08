@@ -30,10 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.LimitInterface;
+import com.imageworks.spcue.SpecBuilderException;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FacilityDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -44,6 +49,9 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
 
     @Resource
     FacilityDao facilityDao;
+
+    @Resource
+    ShowDao showDao;
 
     private static final String TEST_ALLOC_NAME = "testAlloc";
 
@@ -64,6 +72,24 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
         ShowEntity show = new ShowEntity();
         show.name = "testtest";
         adminManager.createShow(show);
+        ShowEntity result = showDao.findShowDetail(show.name);
+        assertEquals(result.name, show.name);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void createInvalidShow() {
+        ShowEntity show = new ShowEntity();
+        show.name = "test/test";
+        try {
+            adminManager.createShow(show);
+            fail("Expected exception");
+        } catch (SpecBuilderException e) {
+            assertEquals(e.getMessage(),
+                    "The show name: test/test is not in the proper format.  " +
+                    "Show names must be alpha numeric, no dashes or punctuation.");
+        }
     }
 
     @Test

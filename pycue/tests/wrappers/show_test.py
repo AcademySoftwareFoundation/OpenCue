@@ -14,14 +14,15 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for the opencue.wrappers.show module."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import host_pb2
@@ -29,6 +30,8 @@ from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import service_pb2
 from opencue.compiled_proto import show_pb2
 from opencue.compiled_proto import subscription_pb2
+import opencue.wrappers.allocation
+import opencue.wrappers.show
 
 
 TEST_ALLOCATION_ID = 'aaa-zzz-fff'
@@ -74,7 +77,8 @@ class ShowTests(unittest.TestCase):
         show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
         allocation = opencue.wrappers.allocation.Allocation(
             facility_pb2.Allocation(id=TEST_ALLOCATION_ID))
-        subscription = show.createSubscription(allocation, TEST_SUBSCRIPTION_SIZE, TEST_SUBSCRIPTION_BURST)
+        subscription = show.createSubscription(
+            allocation, TEST_SUBSCRIPTION_SIZE, TEST_SUBSCRIPTION_BURST)
 
         stubMock.CreateSubscription.assert_called_with(
             show_pb2.ShowCreateSubscriptionRequest(show=show.data,
@@ -200,12 +204,12 @@ class ShowTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
-        filter = show.findFilter(TEST_FILTER_NAME)
+        filter_found = show.findFilter(TEST_FILTER_NAME)
 
         stubMock.FindFilter.assert_called_with(
             show_pb2.ShowFindFilterRequest(show=show.data, name=TEST_FILTER_NAME),
             timeout=mock.ANY)
-        self.assertEqual(filter.name(), TEST_FILTER_NAME)
+        self.assertEqual(filter_found.name(), TEST_FILTER_NAME)
 
     def testCreateFilter(self, getStubMock):
         stubMock = mock.Mock()
@@ -214,12 +218,12 @@ class ShowTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
-        filter = show.createFilter(TEST_FILTER_NAME)
+        filter_created = show.createFilter(TEST_FILTER_NAME)
 
         stubMock.CreateFilter.assert_called_with(
             show_pb2.ShowCreateFilterRequest(show=show.data, name=TEST_FILTER_NAME),
             timeout=mock.ANY)
-        self.assertEqual(filter.name(), TEST_FILTER_NAME)
+        self.assertEqual(filter_created.name(), TEST_FILTER_NAME)
 
     def testGetGroups(self, getStubMock):
         stubMock = mock.Mock()

@@ -14,18 +14,23 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.job`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import os
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import depend_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.frame
+import opencue.wrappers.group
+import opencue.wrappers.job
+import opencue.wrappers.layer
 
 
 TEST_JOB_NAME = 'testJob'
@@ -438,14 +443,14 @@ class JobTests(unittest.TestCase):
         stubMock.ReorderFrames.return_value = job_pb2.JobReorderFramesResponse()
         getStubMock.return_value = stubMock
 
-        range = '1-10'
+        frameRange = '1-10'
         order = job_pb2.REVERSE
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
-        job.reorderFrames(range, order)
+        job.reorderFrames(frameRange, order)
 
         stubMock.ReorderFrames.assert_called_with(
-            job_pb2.JobReorderFramesRequest(job=job.data, range=range, order=order),
+            job_pb2.JobReorderFramesRequest(job=job.data, range=frameRange, order=order),
             timeout=mock.ANY)
 
     def testStaggerFrames(self, getStubMock):
@@ -453,14 +458,14 @@ class JobTests(unittest.TestCase):
         stubMock.StaggerFrames.return_value = job_pb2.JobStaggerFramesResponse()
         getStubMock.return_value = stubMock
 
-        range = '1-10'
+        frameRange = '1-10'
         stagger = 5
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
-        job.staggerFrames(range, stagger)
+        job.staggerFrames(frameRange, stagger)
 
         stubMock.StaggerFrames.assert_called_with(
-            job_pb2.JobStaggerFramesRequest(job=job.data, range=range, stagger=stagger),
+            job_pb2.JobStaggerFramesRequest(job=job.data, range=frameRange, stagger=stagger),
             timeout=mock.ANY)
 
     def testFrameStateTotals(self, getStubMock):
@@ -491,7 +496,7 @@ class JobTests(unittest.TestCase):
 class NestedJobTests(unittest.TestCase):
 
     def testAsJob(self, getStubMock):
-        id = 'nnn-nnnn-nnn'
+        jobId = 'nnn-nnnn-nnn'
         state = job_pb2.FINISHED
         name = 'testNestedJob'
         shot = 'shotname'
@@ -499,7 +504,7 @@ class NestedJobTests(unittest.TestCase):
         user = 'username'
         group = 'groupname'
         facility = 'facilityname'
-        os = 'os'
+        jobOs = 'os'
         uid = 12345
         priority = 14
         minCores = 5
@@ -507,13 +512,13 @@ class NestedJobTests(unittest.TestCase):
         logDir = '/path/to/logs'
         isPaused = False
         nestedJob = opencue.wrappers.job.NestedJob(
-            job_pb2.NestedJob(id=id, state=state, name=name, shot=shot, show=show, user=user,
-                              group=group, facility=facility, os=os, uid=uid, priority=priority,
+            job_pb2.NestedJob(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
+                              group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                               min_cores=minCores, max_cores=maxCores, log_dir=logDir,
                               is_paused=isPaused))
         job = opencue.wrappers.job.Job(
-            job_pb2.Job(id=id, state=state, name=name, shot=shot, show=show, user=user,
-                        group=group, facility=facility, os=os, uid=uid, priority=priority,
+            job_pb2.Job(id=jobId, state=state, name=name, shot=shot, show=show, user=user,
+                        group=group, facility=facility, os=jobOs, uid=uid, priority=priority,
                         min_cores=minCores, max_cores=maxCores, log_dir=logDir,
                         is_paused=isPaused))
 

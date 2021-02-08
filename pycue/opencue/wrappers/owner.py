@@ -12,81 +12,99 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Module for classes related to owners."""
 
-"""
-Project: opencue Library
-
-Module: owner.py - opencue Library implementation of a owner
-
-"""
-
-import opencue.wrappers.deed
-import opencue.wrappers.host
 from opencue import Cuebot
 from opencue.compiled_proto import host_pb2
+import opencue.wrappers.deed
+import opencue.wrappers.host
 
 
 class Owner(object):
     """This class contains the grpc implementation related to an Owner."""
 
     def __init__(self, owner=None):
-        """Host class initialization"""
         self.data = owner
         self.stub = Cuebot.getStub('owner')
 
     def delete(self):
-        """Delete the owner record"""
+        """Deletes the owner record."""
         self.stub.Delete(host_pb2.OwnerDeleteRequest(owner=self.data), timeout=Cuebot.Timeout)
 
     def getDeeds(self):
-        """Return the list of deeds for the owner.
+        """Returns the list of deeds for the owner.
 
-        :rtype:  List<opencue.wrappers..deed.Deed Wrapper>
-        :return: The list of deeds associated with this owner."""
+        :rtype:  list<opencue.wrappers.deed.Deed Wrapper>
+        :return: the list of deeds associated with this owner
+        """
         response = self.stub.GetDeeds(host_pb2.OwnerGetDeedsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
         return [opencue.wrappers.deed.Deed(deed) for deed in response.deeds.deeds]
 
     def getHosts(self):
-        """Get a list of all hosts this owner is responsible for.
+        """Returns a list of all hosts this owner is responsible for.
 
-        :rtype:  List<opencue.wrappers.host.Host Wrapper>
-        :return: List of hosts the owned by this owner."""
+        :rtype:  list<opencue.wrappers.host.Host>
+        :return: list of hosts owned by this owner
+        """
         response = self.stub.GetHosts(host_pb2.OwnerGetHostsRequest(owner=self.data),
                                       timeout=Cuebot.Timeout)
         return [opencue.wrappers.host.Host(host) for host in response.hosts.hosts]
 
     def getOwner(self, name):
-        """Return an owner by name.
+        """Returns an owner by name.
 
-        :type:   str
-        :param:  Name of the owner
-        :rtype:  opencue.wrappers.owner.Owner
-        :return: Owner that matches the specified name"""
+        :type  name: str
+        :param name: Name of the owner
+        :rtype: opencue.wrappers.owner.Owner
+        :return: owner that matches the specified name
+        """
         return Owner(self.stub.GetOwner(host_pb2.OwnerGetOwnerRequest(name=name),
                                         timeout=Cuebot.Timeout).owner)
 
     def setShow(self, show):
-        """Set the show for the owner.
+        """Sets the show for the owner.
 
-        :type:  str
-        :param: name of the show"""
+        :type  show: str
+        :param show: name of the show
+        """
         self.stub.SetShow(host_pb2.OwnerSetShowRequest(owner=self.data, show=show),
                           timeout=Cuebot.Timeout)
 
     def takeOwnership(self, host):
-        """Set the hosts new owner settings."""
+        """Sets the hosts for the owner.
+
+        :type  host: str
+        :param host: the name of the host to take ownership of
+        """
         self.stub.TakeOwnership(host_pb2.OwnerTakeOwnershipRequest(owner=self.data, host=host),
                                 timeout=Cuebot.Timeout)
 
     def hostCount(self):
+        """Returns the number of hosts owned by this owner.
+
+        :rtype:  int
+        :return: number of hosts owned by this owner
+        """
         return self.data.host_count
 
     def id(self):
+        """Returns the owner id.
+
+        :rtype: str
+        :return: the owner id"""
         return self.data.id
 
     def name(self):
+        """Returns the owner name.
+
+        :rtype:  str
+        :return: the owner name"""
         return self.data.name
 
     def show(self):
+        """Returns the name of the show of the owner.
+
+        :rtype:  str
+        :return: the name of the show of the owner"""
         return self.data.show

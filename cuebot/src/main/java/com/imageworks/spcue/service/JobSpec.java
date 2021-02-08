@@ -20,6 +20,8 @@
 package com.imageworks.spcue.service;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,6 +38,9 @@ import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.xml.sax.EntityResolver;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import com.imageworks.spcue.BuildableDependency;
 import com.imageworks.spcue.BuildableJob;
@@ -102,6 +107,8 @@ public class JobSpec {
 
     public static final String DEFAULT_SERVICE = "default";
 
+    public static final String SPCUE_DTD_URL = "http://localhost:8080/spcue/dtd/";
+
     private List<BuildableJob> jobs = new ArrayList<BuildableJob>();
 
     private List<BuildableDependency> depends = new ArrayList<BuildableDependency>();
@@ -150,11 +157,13 @@ public class JobSpec {
         return String.format("%s_%s", prefix, suffix).toLowerCase();
     }
 
-    public String conformLayerName(String name) {
+    public static String conformName(String type, String name) {
+
+         String lowerType = type.toLowerCase();
 
         if (name.length() < 3) {
             throw new SpecBuilderException(
-                    "The layer name must be at least 3 characters.");
+                    "The " + lowerType + " name must be at least 3 characters.");
         }
 
         String newName = name;
@@ -163,12 +172,24 @@ public class JobSpec {
 
         Matcher matcher = NAME_PATTERN.matcher(newName);
         if (!matcher.matches()) {
-            throw new SpecBuilderException("The layer name: " + newName
-                    + " is not in the proper format.  Layer names must be "
+            throw new SpecBuilderException("The " + lowerType + " name: " + newName
+                    + " is not in the proper format.  " + type + " names must be "
                     + "alpha numeric, no dashes or punctuation.");
         }
 
         return newName;
+    }
+
+    public static String conformShowName(String name) {
+        return conformName("Show", name);
+    }
+
+    public static String conformShotName(String name) {
+        return conformName("Shot", name);
+    }
+
+    public static String conformLayerName(String name) {
+        return conformName("Layer", name);
     }
 
     public static final String FRAME_NAME_REGEX = "^([\\d]{4,6})-([\\w]+)$";
@@ -197,7 +218,7 @@ public class JobSpec {
         }
 
         show = rootElement.getChildTextTrim("show");
-        shot = rootElement.getChildTextTrim("shot");
+        shot = conformShotName(rootElement.getChildTextTrim("shot"));
         user = rootElement.getChildTextTrim("user");
         uid = Optional.ofNullable(rootElement.getChildTextTrim("uid")).map(Integer::parseInt);
         email = rootElement.getChildTextTrim("email");
@@ -300,6 +321,11 @@ public class JobSpec {
                 job.maxRetries = FRAME_RETRIES_MIN;
             }
         }
+
+        if (jobTag.getChildTextTrim("priority") != null) {
+            job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
+        }
+
         handleLayerTags(buildableJob, jobTag);
 
         if (buildableJob.getBuildableLayers().size() > MAX_LAYERS) {
@@ -836,9 +862,30 @@ public class JobSpec {
         handleDependsTags();
     }
 
+    private class DTDRedirector implements EntityResolver {
+        public InputSource resolveEntity(String publicId,
+                String systemId) throws SAXException, IOException {
+            if (systemId.startsWith(SPCUE_DTD_URL)) {
+                // Redirect to resource file.
+                try {
+                    String filename = systemId.substring(SPCUE_DTD_URL.length());
+                    InputStream dtd = getClass().getResourceAsStream("/public/dtd/" + filename);
+                    return new InputSource(dtd);
+                } catch (Exception e) {
+                    throw new SpecBuilderException("Failed to redirect DTD " + systemId + ", " + e);
+                }
+            } else {
+                // Use default resolver.
+                return null;
+            }
+        }
+    }
+
     public void parse(String cjsl) {
         try {
-            doc = new SAXBuilder(true).build(new StringReader(cjsl));
+            SAXBuilder builder = new SAXBuilder(true);
+            builder.setEntityResolver(new DTDRedirector());
+            doc = builder.build(new StringReader(cjsl));
 
         } catch (Exception e) {
             throw new SpecBuilderException("Failed to parse job spec XML, " + e);
