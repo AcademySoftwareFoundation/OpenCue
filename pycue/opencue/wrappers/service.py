@@ -208,4 +208,3 @@ class Service(object):
     def setTimeoutLLU(self, timeout_llu):
         """Sets the default service LLU timeout."""
         self.data.timeout_llu = timeout_llu
-
