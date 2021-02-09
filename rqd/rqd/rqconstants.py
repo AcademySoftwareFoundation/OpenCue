@@ -128,8 +128,13 @@ try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
         __section = "Override"
-        import configparser
-        config = configparser.RawConfigParser()
+        import six
+        from six.moves import configparser
+        if six.PY2:
+            ConfigParser = configparser.SafeConfigParser
+        else:
+            ConfigParser = configparser.RawConfigParser
+        config = ConfigParser()
         logging.info('Loading config {}'.format(CONFIG_FILE))
         config.read(CONFIG_FILE)
 
