@@ -162,7 +162,7 @@ try:
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):
-            RQD_TAGS = config.getint(__section, "RQD_TAGS")
+            RQD_TAGS = config.get(__section, "RQD_TAGS")
         if config.has_option(__section, "DEFAULT_FACILITY"):
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
