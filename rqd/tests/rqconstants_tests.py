@@ -19,13 +19,13 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import mock
-import shutil
 import os.path
+import shutil
 import tempfile
 import unittest
 import uuid
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import six
@@ -65,7 +65,7 @@ class MockConfig(object):
         reload(rqd.rqconstants)
         return self
 
-    def __exit__(self, type, value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.patcher.stop()
 
     def __call__(self, func):
