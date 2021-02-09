@@ -28,8 +28,6 @@ from builtins import object
 import logging as log
 import os
 import random
-import re
-import sys
 
 import grpc
 

@@ -130,9 +130,6 @@ def main():
 
     logging.warning('RQD Starting Up')
 
-    if rqd.rqconstants.FACILITY == 'abq':
-        os.environ['TZ'] = 'PST8PDT'
-
     rqCore = rqd.rqcore.RqCore(optNimbyOff)
     rqCore.start()
 

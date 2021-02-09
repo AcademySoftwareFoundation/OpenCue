@@ -28,7 +28,6 @@ import subprocess
 import logging
 import os
 import platform
-import re
 import subprocess
 import sys
 import traceback
@@ -119,43 +118,11 @@ ALLOW_PLAYBLAST = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
 
 if subprocess.getoutput('/bin/su --help').find('session-command') != -1:
-    SU_ARGUEMENT = '--session-command'
+    SU_ARGUMENT = '--session-command'
 else:
-    SU_ARGUEMENT = '-c'
+    SU_ARGUMENT = '-c'
 
-SP_OS = FACILITY = ''
-proc = None
-# Try to read facility and os from studio environment
-if os.path.isfile('/usr/local/stdenv/.cshrc'):
-    proc = subprocess.Popen(
-        "csh -c 'unsetenv SP_PATH ; setenv CONSOLE 1 ; setenv HOME / ;"
-        " source /usr/local/stdenv/.cshrc ; echo $SP_OS $FACILITY'",
-        shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-elif os.path.isfile('/etc/csh.cshrc'):
-    # For maa on centos
-    proc = subprocess.Popen("csh -c 'source /etc/csh.cshrc ; echo $SP_OS $FACILITY'",
-                            shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-# If we have a popen process and it has successfully been run,
-# get os and facility from result.
-if proc:
-    out, err = proc.communicate()
-    if proc.returncode == 0:
-        SP_OS, FACILITY = out.split()[-2:]
-
-if not 3 <= len(SP_OS) <= 10 or not re.match('^[A-Za-z0-9]*$', SP_OS):
-    if SP_OS:
-        logging.warning('SP_OS value of %s is out of allowed range' % SP_OS)
-    SP_OS = platform.system()
-
-if len(FACILITY) != 3 or not re.match('^[A-Za-z0-9]*$', FACILITY):
-    if FACILITY:
-        logging.warning('FACILITY value of %s is out of allowed range' % FACILITY)
-    FACILITY = DEFAULT_FACILITY
-
-# maa is small so decrease the ping in interval
-if FACILITY == 'maa':
-    RQD_MAX_PING_INTERVAL_SEC = 30
+SP_OS = platform.system()
 
 try:
     if os.path.isfile(CONFIG_FILE):
@@ -165,6 +132,11 @@ try:
         config = configparser.RawConfigParser()
         logging.info('Loading config {}'.format(CONFIG_FILE))
         config.read(CONFIG_FILE)
+
+        if config.has_option(__section, "RQD_GRPC_PORT"):
+            RQD_GRPC_PORT = config.getint(__section, "RQD_GRPC_PORT")
+        if config.has_option(__section, "CUEBOT_GRPC_PORT"):
+            CUEBOT_GRPC_PORT = config.getint(__section, "CUEBOT_GRPC_PORT")
         if config.has_option(__section, "OVERRIDE_CORES"):
             OVERRIDE_CORES = config.getint(__section, "OVERRIDE_CORES")
         if config.has_option(__section, "OVERRIDE_PROCS"):
