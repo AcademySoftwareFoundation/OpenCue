@@ -219,8 +219,6 @@ class Machine(object):
                     rss = 0
                     vsize = 0
                     pcpu = 0
-                    if rqd.rqconstants.ENABLE_PTREE:
-                        ptree = []
                     for pid, data in pids.items():
                         if data["session"] == session:
                             try:
@@ -250,8 +248,6 @@ class Machine(object):
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
-                                if rqd.rqconstants.ENABLE_PTREE:
-                                    ptree.append({"pid": pid, "seconds": seconds, "total_time": totalTime})
                             except Exception as e:
                                 log.warning('Failure with pid rss update due to: %s at %s' % \
                                             (e, traceback.extract_tb(sys.exc_info()[2])))
@@ -270,10 +266,6 @@ class Machine(object):
                     frame.maxVsize = max(vsize, frame.maxVsize)
 
                     frame.runFrame.attributes["pcpu"] = str(pcpu)
-
-                    if rqd.rqconstants.ENABLE_PTREE:
-                        frame.runFrame.attributes["ptree"] = str(yaml.load("list: %s" % ptree,
-                                                                           Loader=yaml.SafeLoader))
 
             # Store the current data for the next check
             self.__pidHistory = pidData
