@@ -128,8 +128,13 @@ try:
     if os.path.isfile(CONFIG_FILE):
         # Hostname can come from here: rqutil.getHostname()
         __section = "Override"
-        import configparser
-        config = configparser.RawConfigParser()
+        import six
+        from six.moves import configparser
+        if six.PY2:
+            ConfigParser = configparser.SafeConfigParser
+        else:
+            ConfigParser = configparser.RawConfigParser
+        config = ConfigParser()
         logging.info('Loading config {}'.format(CONFIG_FILE))
         config.read(CONFIG_FILE)
 
@@ -162,7 +167,7 @@ try:
         if config.has_option(__section, "RQD_BECOME_JOB_USER"):
             RQD_BECOME_JOB_USER = config.getboolean(__section, "RQD_BECOME_JOB_USER")
         if config.has_option(__section, "RQD_TAGS"):
-            RQD_TAGS = config.getint(__section, "RQD_TAGS")
+            RQD_TAGS = config.get(__section, "RQD_TAGS")
         if config.has_option(__section, "DEFAULT_FACILITY"):
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
