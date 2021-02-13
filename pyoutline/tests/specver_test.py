@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+"""
+Tests for the outline.cfg spec_version
+"""
+
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
+import unittest
+
+from xml.etree import ElementTree as Et
+
+import outline
+import outline.modules.shell
+
+
+class SpecVersiondTest(unittest.TestCase):
+    def _makeSpec(self):
+        ol = outline.Outline(name="spec_version_test")
+        layer = outline.modules.shell.Shell("test_layer", command=["/bin/ls"])
+        layer.set_arg("timeout", 420)
+        layer.set_arg("timeout_llu", 4200)
+        ol.add_layer(layer)
+        l = outline.cuerun.OutlineLauncher(ol)
+        l.set_flag("priority", 42)
+        return Et.fromstring(l.serialize())
+
+    def test_1_9(self):
+        outline.config.set("outline", "spec_version", "1.9")
+        root = self._makeSpec()
+        self.assertIsNone(root.find("job/layers/layer/timeout"))
+        self.assertIsNone(root.find("job/layers/layer/timeout_llu"))
+        self.assertIsNone(root.find("job/priority"))
+
+    def test_1_10(self):
+        outline.config.set("outline", "spec_version", "1.10")
+        root = self._makeSpec()
+        self.assertEqual(root.find("job/layers/layer/timeout").text, "420")
+        self.assertEqual(root.find("job/layers/layer/timeout_llu").text, "4200")
+        self.assertIsNone(root.find("job/priority"))
+
+    def test_1_11(self):
+        outline.config.set("outline", "spec_version", "1.11")
+        root = self._makeSpec()
+        self.assertEqual(root.find("job/layers/layer/timeout").text, "420")
+        self.assertEqual(root.find("job/layers/layer/timeout_llu").text, "4200")
+        self.assertEqual(root.find("job/priority").text, "42")
