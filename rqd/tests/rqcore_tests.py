@@ -364,13 +364,13 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdNowNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdNow()
 
-        respawnMock.assert_called_with(self.rqcore)
+        respawnMock.assert_called_with()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'killAllFrame', autospec=True)
     def test_restartRqdNowWithFrames(self, killAllFrameMock):
@@ -383,13 +383,13 @@ class RqCoreTests(unittest.TestCase):
 
         killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdIdleNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdIdle()
 
-        respawnMock.assert_called_with(self.rqcore)
+        respawnMock.assert_called_with()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdIdleWithFrames(self, respawnMock):
