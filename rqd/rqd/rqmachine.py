@@ -13,27 +13,28 @@
 #  limitations under the License.
 
 
-"""
-Machine information access module.
-"""
+"""Machine information access module."""
 
 
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+# pylint: disable=wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
+# pylint: enable=wrong-import-position
+
 from builtins import str
 from builtins import range
 from builtins import object
 
+import ctypes
 import errno
 import logging as log
 import math
 import os
 import platform
-import psutil
 import re
 import subprocess
 import sys
@@ -41,12 +42,14 @@ import tempfile
 import time
 import traceback
 
+# pylint: disable=import-error,wrong-import-position
 if platform.system() in ('Linux', 'Darwin'):
     import resource
-    import yaml
 elif platform.system() == "win32":
-    import win32process
     import win32api
+# pylint: enable=import-error,wrong-import-position
+
+import psutil
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -82,10 +85,14 @@ class Machine(object):
         self.__initMachineStats()
 
         self.__bootReport = rqd.compiled_proto.report_pb2.BootReport()
+        # pylint: disable=no-member
         self.__bootReport.core_info.CopyFrom(self.__coreInfo)
+        # pylint: enable=no-member
 
         self.__hostReport = rqd.compiled_proto.report_pb2.HostReport()
+        # pylint: disable=no-member
         self.__hostReport.core_info.CopyFrom(self.__coreInfo)
+        # pylint: enable=no-member
 
         self.__pidHistory = {}
 
@@ -95,10 +102,12 @@ class Machine(object):
         """Returns False if nimby should be triggered due to resource limits"""
         if platform.system() == "Linux":
             self.updateMachineStats()
+            # pylint: disable=no-member
             if self.__renderHost.free_mem < rqd.rqconstants.MINIMUM_MEM:
                 return False
             if self.__renderHost.free_swap < rqd.rqconstants.MINIMUM_SWAP:
                 return False
+            # pylint: enable=no-member
         return True
 
     def isNimbySafeToUnlock(self):
@@ -109,6 +118,7 @@ class Machine(object):
             return False
         return True
 
+    # pylint: disable=no-self-use
     @rqd.rqutil.Memoize
     def isDesktop(self):
         """Returns True if machine starts in run level 5 (X11)
@@ -126,6 +136,8 @@ class Machine(object):
         return False
 
     def isUserLoggedIn(self):
+        """Returns whether a user is logged into the machine RQD is running on."""
+
         # For non-headless systems, first check to see if there
         # is a user logged into the display.
         displayNums = []
@@ -155,9 +167,7 @@ class Machine(object):
                         # is what shows up when gdm is running and
                         # showing a login screen.
                         if cols[0] != '(unknown)':
-                            log.warning(
-                                'User {} logged into display :{}'.format(
-                                    cols[0], displayNum))
+                            log.warning('User %s logged into display :%s', cols[0], displayNum)
                             return True
 
             # When there is a display, the above code is considered
@@ -203,9 +213,11 @@ class Machine(object):
                         "start_time": statFields[21],
                     }
 
-                except Exception as e:
-                    log.exception('failed to read stat file for pid %s' % pid)
+                # pylint: disable=broad-except
+                except Exception:
+                    log.exception('failed to read stat file for pid %s', pid)
 
+        # pylint: disable=too-many-nested-blocks
         try:
             now = int(time.time())
             pidData = {"time": now}
@@ -225,7 +237,8 @@ class Machine(object):
                                 rss += int(data["rss"])
                                 vsize += int(data["vsize"])
 
-                                # jiffies used by this process, last two means that dead children are counted
+                                # jiffies used by this process, last two means that dead
+                                # children are counted
                                 totalTime = int(data["utime"]) + \
                                             int(data["stime"]) + \
                                             int(data["cutime"]) + \
@@ -236,21 +249,26 @@ class Machine(object):
                                           float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
                                 if seconds:
                                     if pid in self.__pidHistory:
-                                        # Percent cpu using decaying average, 50% from 10 seconds ago, 50% from last 10 seconds:
-                                        oldTotalTime, oldSeconds, oldPidPcpu = self.__pidHistory[pid]
-                                        #checking if already updated data
+                                        # Percent cpu using decaying average, 50% from 10 seconds
+                                        # ago, 50% from last 10 seconds:
+                                        oldTotalTime, oldSeconds, oldPidPcpu = \
+                                            self.__pidHistory[pid]
+                                        # checking if already updated data
                                         if seconds != oldSeconds:
-                                            pidPcpu = (totalTime - oldTotalTime) / float(seconds - oldSeconds)
-                                            pcpu += (oldPidPcpu + pidPcpu) / 2 # %cpu
+                                            pidPcpu = ((totalTime - oldTotalTime) /
+                                                       float(seconds - oldSeconds))
+                                            pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
                                             pidData[pid] = totalTime, seconds, pidPcpu
                                     else:
                                         pidPcpu = totalTime / seconds
                                         pcpu += pidPcpu
                                         pidData[pid] = totalTime, seconds, pidPcpu
 
+                            # pylint: disable=broad-except
                             except Exception as e:
-                                log.warning('Failure with pid rss update due to: %s at %s' % \
-                                            (e, traceback.extract_tb(sys.exc_info()[2])))
+                                log.warning(
+                                    'Failure with pid rss update due to: %s at %s',
+                                    e, traceback.extract_tb(sys.exc_info()[2]))
 
                     rss = (rss * resource.getpagesize()) // 1024
                     vsize = int(vsize/1024)
@@ -270,8 +288,9 @@ class Machine(object):
             # Store the current data for the next check
             self.__pidHistory = pidData
 
+        # pylint: disable=broad-except
         except Exception as e:
-            log.exception('Failure with rss update due to: {0}'.format(e))
+            log.exception('Failure with rss update due to: %s', e)
 
     def getLoadAvg(self):
         """Returns average number of processes waiting to be served
@@ -305,6 +324,7 @@ class Machine(object):
         """Returns the available gpu memory in kb for CUE_GPU_MEMORY"""
         return self.__getGpuValues()['free']
 
+    # pylint: disable=attribute-defined-outside-init
     def __getGpuValues(self):
         if not hasattr(self, 'gpuNotSupported'):
             if not hasattr(self, 'gpuResults'):
@@ -326,19 +346,23 @@ class Machine(object):
                     results = cudaInfo.splitlines()[-1].split()
                     #  TotalMem 1023 Mb  FreeMem 968 Mb
                     # The int(math.ceil(int(x) / 32.0) * 32) rounds up to the next multiple of 32
-                    self.gpuResults['total'] = int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE
+                    self.gpuResults['total'] = (
+                            int(math.ceil(int(results[1]) / 32.0) * 32) * KILOBYTE)
                     self.gpuResults['free'] = int(results[4]) * KILOBYTE
                     self.gpuResults['updated'] = time.time()
+            # pylint: disable=broad-except
             except Exception as e:
-                log.warning('Failed to get FreeMem from cudaInfo due to: %s at %s' % \
-                            (e, traceback.extract_tb(sys.exc_info()[2])))
+                log.warning(
+                    'Failed to get FreeMem from cudaInfo due to: %s at %s',
+                    e, traceback.extract_tb(sys.exc_info()[2]))
         return self.gpuResults
 
     def __getSwapout(self):
         if platform.system() == "Linux":
             try:
                 return str(int(self.__vmstat.getRecentPgoutRate()))
-            except:
+            # pylint: disable=broad-except
+            except Exception:
                 return str(0)
         return str(0)
 
@@ -347,8 +371,7 @@ class Machine(object):
         """Returns the desired timezone"""
         if time.tzname[0] == 'IST':
             return 'IST'
-        else:
-            return 'PST8PDT'
+        return 'PST8PDT'
 
     @rqd.rqutil.Memoize
     def getHostname(self):
@@ -367,7 +390,7 @@ class Machine(object):
         """Returns the correct mcp path for the given machine"""
         if platform.system() == "win32":
             return win32api.GetTempPath()
-        elif os.path.isdir("/mcp/"):
+        if os.path.isdir("/mcp/"):
             return "/mcp/"
         return '%s/' % tempfile.gettempdir()
 
@@ -377,6 +400,7 @@ class Machine(object):
             log.warning("Rebooting machine")
             subprocess.Popen(['/usr/bin/sudo','/sbin/reboot', '-f'])
 
+    # pylint: disable=no-member
     def __initMachineTags(self):
         """Sets the hosts tags"""
         self.__renderHost.tags.append("rqdv-%s" % rqd.rqconstants.VERSION)
@@ -400,6 +424,7 @@ class Machine(object):
         self.__renderHost.tags.append(os.uname()[2].replace(".EL.spi", "").replace("smp", ""))
 
     def testInitMachineStats(self, pathCpuInfo):
+        """Initializes machine stats outside of normal startup process. Used for testing."""
         self.__initMachineStats(pathCpuInfo=pathCpuInfo)
         return self.__renderHost, self.__coreInfo
 
@@ -457,14 +482,12 @@ class Machine(object):
             self.__renderHost.total_swap = int(stat.ullTotalPageFile / 1024)
 
             # Windows CPU information
-            import psutil
             logical_core_count = psutil.cpu_count(logical=True)
             actual_core_count = psutil.cpu_count(logical=False)
             hyperthreadingMultiplier = logical_core_count // actual_core_count
 
             __totalCores = logical_core_count * rqd.rqconstants.CORE_VALUE
             __numProcs = 1  # TODO: figure out how to count sockets in Python
-
 
         # All other systems will just have one proc/core
         if not __numProcs or not __totalCores:
@@ -492,13 +515,15 @@ class Machine(object):
         self.__renderHost.cores_per_proc = __totalCores // __numProcs
 
         if hyperthreadingMultiplier > 1:
-           self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
+            self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
     def getWindowsMemory(self):
-        # From http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
-        import ctypes
+        """Gets information on system memory, Windows compatible version."""
+        # From
+        # http://stackoverflow.com/questions/2017545/get-memory-usage-of-computer-in-windows-with-python
         if not hasattr(self, '__windowsStat'):
             class MEMORYSTATUSEX(ctypes.Structure):
+                """Represents Windows memory information."""
                 _fields_ = [("dwLength", ctypes.c_uint),
                             ("dwMemoryLoad", ctypes.c_uint),
                             ("ullTotalPhys", ctypes.c_ulonglong),
@@ -519,6 +544,7 @@ class Machine(object):
         return self.__windowsStat
 
     def updateMacMemory(self):
+        """Updates the internal store of memory available, macOS compatible version."""
         memsizeOutput = subprocess.getoutput('sysctl hw.memsize').strip()
         memsizeRegex = re.compile(r'^hw.memsize: (?P<totalMemBytes>[\d]+)$')
         memsizeMatch = memsizeRegex.match(memsizeOutput)
@@ -640,23 +666,25 @@ class Machine(object):
             log.debug('Taskset: Can not reserveHT with fractional cores')
             return None
 
-        log.debug('Taskset: Requesting reserve of %d' % (reservedCores // 100))
+        log.debug('Taskset: Requesting reserve of %d', (reservedCores // 100))
 
         if len(self.__tasksets) < reservedCores // 100:
-            err = 'Not launching, insufficient hyperthreading cores to reserve based on reservedCores'
+            err = ('Not launching, insufficient hyperthreading cores to reserve '
+                   'based on reservedCores')
             log.critical(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         tasksets = []
-        for x in range(reservedCores // 100):
+        for _ in range(reservedCores // 100):
             core = self.__tasksets.pop()
             tasksets.append(str(core))
             tasksets.append(str(core + self.__coreInfo.total_cores // 100))
 
-        log.debug('Taskset: Reserving cores - %s' % ','.join(tasksets))
+        log.debug('Taskset: Reserving cores - %s', ','.join(tasksets))
 
         return ','.join(tasksets)
 
+    # pylint: disable=inconsistent-return-statements
     def releaseHT(self, reservedHT):
         """ Release cores used by taskset
         Format: 0,1,8,9
@@ -668,7 +696,7 @@ class Machine(object):
         if not self.__enabledHT():
             return None
 
-        log.debug('Taskset: Releasing cores - %s' % reservedHT)
+        log.debug('Taskset: Releasing cores - %s', reservedHT)
         for core in reservedHT.split(','):
             if int(core) < self.__coreInfo.total_cores // 100:
                 self.__tasksets.add(int(core))

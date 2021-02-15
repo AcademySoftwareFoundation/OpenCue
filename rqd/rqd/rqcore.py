@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Main RQD module, handles gRPC function implementation and job launching.
-"""
+"""Main RQD module, handles gRPC function implementation and job launching."""
 
 
 from __future__ import print_function
@@ -72,6 +70,7 @@ class FrameAttendantThread(threading.Thread):
     def __createEnvVariables(self):
         """Define the environmental variables for the frame"""
         # If linux specific, they need to move into self.runLinux()
+        # pylint: disable=attribute-defined-outside-init
         self.frameEnv = {}
         self.frameEnv["PATH"] = self.rqCore.machine.getPathEnv()
         self.frameEnv["TERM"] = "unknown"
@@ -131,9 +130,11 @@ class FrameAttendantThread(threading.Thread):
             rqexe.close()
             os.chmod(commandFile, 0o777)
             return commandFile
+        # pylint: disable=broad-except
         except Exception as e:
-            log.critical("Unable to make command file: %s due to %s at %s" % (
-                commandFile, e, traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                "Unable to make command file: %s due to %s at %s",
+                commandFile, e, traceback.extract_tb(sys.exc_info()[2]))
 
     def __writeHeader(self):
         """Writes the frame's log header"""
@@ -163,11 +164,11 @@ class FrameAttendantThread(threading.Thread):
             if 'CPU_LIST' in self.runFrame.attributes:
                 print('Hyper-threading enabled', file=self.rqlog)
 
+        # pylint: disable=broad-except
         except Exception as e:
-            log.critical("Unable to write header to rqlog: "
-                         "%s due to %s at %s" %
-                         (self.runFrame.log_dir_file, e,
-                          traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                "Unable to write header to rqlog: %s due to %s at %s",
+                self.runFrame.log_dir_file, e, traceback.extract_tb(sys.exc_info()[2]))
 
     def __writeFooter(self):
         """Writes frame's log footer"""
@@ -190,16 +191,20 @@ class FrameAttendantThread(threading.Thread):
             print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
             print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
             print("="*59, file=self.rqlog)
+
+        # pylint: disable=broad-except
         except Exception as e:
-            log.critical("Unable to write footer: %s due to %s at %s" %
-                         (self.runFrame.log_dir_file, e,
-                          traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                "Unable to write footer: %s due to %s at %s",
+                self.runFrame.log_dir_file, e, traceback.extract_tb(sys.exc_info()[2]))
 
     def __sendFrameCompleteReport(self):
         """Send report to cuebot that frame has finished"""
         report = rqd.compiled_proto.report_pb2.FrameCompleteReport()
+        # pylint: disable=no-member
         report.host.CopyFrom(self.rqCore.machine.getHostInfo())
         report.frame.CopyFrom(self.frameInfo.runningFrameInfo())
+        # pylint: enable=no-member
 
         if self.frameInfo.exitStatus is None:
             report.exit_status = 1
@@ -224,18 +229,22 @@ class FrameAttendantThread(threading.Thread):
                 if os.path.isfile(location):
                     try:
                         os.remove(location)
+                    # pylint: disable=broad-except
                     except Exception as e:
-                        log.warning("Unable to delete file: %s due to %s at %s" % (
-                            location, e, traceback.extract_tb(sys.exc_info()[2])))
+                        log.warning(
+                            "Unable to delete file: %s due to %s at %s",
+                            location, e, traceback.extract_tb(sys.exc_info()[2]))
         finally:
             rqd.rqutil.permissionsLow()
 
         # Close log file
         try:
             self.rqlog.close()
+        # pylint: disable=broad-except
         except Exception as e:
-            log.warning("Unable to close file: %s due to %s at %s" % (
-                self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2])))
+            log.warning(
+                "Unable to close file: %s due to %s at %s",
+                self.runFrame.log_file, e, traceback.extract_tb(sys.exc_info()[2]))
 
     def runLinux(self):
         """The steps required to handle a frame under linux"""
@@ -270,6 +279,7 @@ class FrameAttendantThread(threading.Thread):
                 tempCommand += [self._createCommandFile(runFrame.command)]
 
             # Actual cwd is set by /shots/SHOW/home/perl/etc/qwrap.cuerun
+            # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
@@ -305,8 +315,9 @@ class FrameAttendantThread(threading.Thread):
             frameInfo.utime = statFile.readline().split()[1]
             frameInfo.stime = statFile.readline().split()[1]
             statFile.close()
+        # pylint: disable=broad-except
         except Exception:
-            pass # This happens when frames are killed
+            pass  # This happens when frames are killed
 
         self.__writeFooter()
         self.__cleanup()
@@ -327,9 +338,11 @@ class FrameAttendantThread(threading.Thread):
                                                        stdin=subprocess.PIPE,
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog)
-        except:
-            log.critical("Failed subprocess.Popen: Due to: \n%s" % ''.join(
-                traceback.format_exception(*sys.exc_info())))
+        # pylint: disable=broad-except
+        except Exception:
+            log.critical(
+                "Failed subprocess.Popen: Due to: \n%s",
+                ''.join(traceback.format_exception(*sys.exc_info())))
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
@@ -364,6 +377,7 @@ class FrameAttendantThread(threading.Thread):
             tempCommand = ["/usr/bin/su", frameInfo.runFrame.user_name, "-c", '"' +
                            self._createCommandFile(frameInfo.runFrame.command) + '"']
 
+            # pylint: disable=subprocess-popen-preexec-fn
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
                                                        env=self.frameEnv,
                                                        cwd=self.rqCore.machine.getTempPath(),
@@ -395,19 +409,19 @@ class FrameAttendantThread(threading.Thread):
         self.__writeFooter()
         self.__cleanup()
 
-    def waitForFile(self, filepath, maxTries=5):
+    @staticmethod
+    def waitForFile(filepath, maxTries=5):
+        """Waits for a file to exist."""
         tries = 0
         while tries < maxTries:
             if os.path.exists(filepath):
                 return
-            else:
-                tries += 1
-                time.sleep(0.5 * tries)
+            tries += 1
+            time.sleep(0.5 * tries)
         raise IOError("Failed to create %s" % filepath)
 
     def runUnknown(self):
-        """The steps required to handle a frame under an unknown OS"""
-        pass
+        """The steps required to handle a frame under an unknown OS."""
 
     def run(self):
         """Thread initialization"""
@@ -415,6 +429,7 @@ class FrameAttendantThread(threading.Thread):
 
         runFrame = self.runFrame
 
+        # pylint: disable=too-many-nested-blocks
         try:
             runFrame.job_temp_dir = os.path.join(self.rqCore.machine.getTempPath(),
                                                  runFrame.job_name)
@@ -443,6 +458,7 @@ class FrameAttendantThread(threading.Thread):
                         try:
                             os.makedirs(runFrame.log_dir)
                             os.chmod(runFrame.log_dir, 0o777)
+                        # pylint: disable=broad-except
                         except Exception as e:
                             # This is expected to fail when called in abq
                             # But the directory should now be visible
@@ -466,6 +482,7 @@ class FrameAttendantThread(threading.Thread):
                                 rotateCount += 1
                             os.rename(runFrame.log_dir_file,
                                       "%s.%s" % (runFrame.log_dir_file, rotateCount))
+                    # pylint: disable=broad-except
                     except Exception as e:
                         err = "Unable to rotate previous log file due to %s" % e
                         # Windows might fail while trying to rotate logs for checking if file is
@@ -478,11 +495,13 @@ class FrameAttendantThread(threading.Thread):
                     try:
                         self.rqlog = open(runFrame.log_dir_file, "w", 1)
                         self.waitForFile(runFrame.log_dir_file)
+                    # pylint: disable=broad-except
                     except Exception as e:
                         err = "Unable to write to %s due to %s" % (runFrame.log_dir_file, e)
                         raise RuntimeError(err)
                     try:
                         os.chmod(runFrame.log_dir_file, 0o666)
+                    # pylint: disable=broad-except
                     except Exception as e:
                         err = "Failed to chmod log file! %s due to %s" % (runFrame.log_dir_file, e)
                         log.warning(err)
@@ -502,10 +521,11 @@ class FrameAttendantThread(threading.Thread):
                 else:
                     self.runUnknown()
 
-            except Exception as e:
-                log.critical("Failed launchFrame: For %s due to: \n%s" % (
-                    runFrame.frame_id,
-                    ''.join(traceback.format_exception(*sys.exc_info()))))
+            # pylint: disable=broad-except
+            except Exception:
+                log.critical(
+                    "Failed launchFrame: For %s due to: \n%s",
+                    runFrame.frame_id, ''.join(traceback.format_exception(*sys.exc_info())))
                 # Notifies the cuebot that there was an error launching
                 self.frameInfo.exitStatus = rqd.rqconstants.EXITSTATUS_FOR_FAILED_LAUNCH
                 # Delay keeps the cuebot from spamming failing booking requests
@@ -516,7 +536,8 @@ class FrameAttendantThread(threading.Thread):
             self.rqCore.deleteFrame(self.runFrame.frame_id)
 
             self.__sendFrameCompleteReport()
-            time_till_next = (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time()
+            time_till_next = (
+                    (self.rqCore.intervalStartTime + self.rqCore.intervalSleepTime) - time.time())
             if time_till_next > (2 * rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC):
                 self.rqCore.onIntervalThread.cancel()
                 self.rqCore.onInterval(rqd.rqconstants.RQD_MIN_PING_INTERVAL_SEC)
@@ -609,8 +630,11 @@ class RqCore(object):
             self.onIntervalThread = threading.Timer(self.intervalSleepTime, self.onInterval)
             self.intervalStartTime = time.time()
             self.onIntervalThread.start()
+        # pylint: disable=broad-except
         except Exception as e:
-            log.critical('Unable to schedule a ping due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                'Unable to schedule a ping due to %s at %s',
+                e, traceback.extract_tb(sys.exc_info()[2]))
 
         try:
             if self.__whenIdle and not self.__cache:
@@ -618,14 +642,18 @@ class RqCore(object):
                     self.shutdownRqdNow()
                 else:
                     log.warning('Shutdown requested but a user is logged in.')
-
+        # pylint: disable=broad-except
         except Exception as e:
-            log.warning('Unable to shutdown due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
+            log.warning(
+                'Unable to shutdown due to %s at %s', e, traceback.extract_tb(sys.exc_info()[2]))
 
         try:
             self.sendStatusReport()
+        # pylint: disable=broad-except
         except Exception as e:
-            log.critical('Unable to send status report due to {0} at {1}'.format(e, traceback.extract_tb(sys.exc_info()[2])))
+            log.critical(
+                'Unable to send status report due to %s at %s',
+                e, traceback.extract_tb(sys.exc_info()[2]))
 
     def updateRss(self):
         """Triggers and schedules the updating of rss information"""
@@ -633,7 +661,8 @@ class RqCore(object):
             try:
                 self.machine.rssUpdate(self.__cache)
             finally:
-                self.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
+                self.updateRssThread = threading.Timer(
+                    rqd.rqconstants.RSS_UPDATE_INTERVAL, self.updateRss)
                 self.updateRssThread.start()
 
     def getFrame(self, frameId):
@@ -659,7 +688,8 @@ class RqCore(object):
         self.__threadLock.acquire()
         try:
             if frameId in self.__cache:
-                raise rqd.rqexceptions.RqdException("frameId " + frameId + " is already running on this machine")
+                raise rqd.rqexceptions.RqdException(
+                    "frameId " + frameId + " is already running on this machine")
             self.__cache[frameId] = runningFrame
         finally:
             self.__threadLock.release()
@@ -681,12 +711,14 @@ class RqCore(object):
         @param reason: Reason for requesting all frames to be killed"""
 
         if self.__cache:
-            log.warning("killAllFrame called due to: %s\n%s" % (reason, ",".join(self.getFrameKeys())))
+            log.warning(
+                "killAllFrame called due to: %s\n%s", reason, ",".join(self.getFrameKeys()))
 
         while self.__cache:
             if reason.startswith("NIMBY"):
                 # Since this is a nimby kill, ignore any frames that are ignoreNimby
-                frameKeys = [frame.frameId for frame in list(self.__cache.values()) if not frame.ignoreNimby]
+                frameKeys = [
+                    frame.frameId for frame in list(self.__cache.values()) if not frame.ignoreNimby]
             else:
                 frameKeys = list(self.__cache.keys())
 
@@ -707,6 +739,7 @@ class RqCore(object):
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             self.cores.booked_cores -= reqRelease
             maxRelease = (self.cores.total_cores -
                           self.cores.locked_cores -
@@ -715,6 +748,7 @@ class RqCore(object):
 
             if maxRelease > 0:
                 self.cores.idle_cores += min(maxRelease, reqRelease)
+            # pylint: enable=no-member
 
             if releaseHT:
                 self.machine.releaseHT(releaseHT)
@@ -722,13 +756,16 @@ class RqCore(object):
         finally:
             self.__threadLock.release()
 
+        # pylint: disable=no-member
         if self.cores.idle_cores > self.cores.total_cores:
             log.critical(
-                "idle_cores (%d) have become greater than total_cores (%d): %s at %s" % (
-                    self.cores.idle_cores, self.cores.total_cores, sys.exc_info()[0],
-                    traceback.extract_tb(sys.exc_info()[2])))
+                "idle_cores (%d) have become greater than total_cores (%d): %s at %s",
+                self.cores.idle_cores, self.cores.total_cores, sys.exc_info()[0],
+                traceback.extract_tb(sys.exc_info()[2]))
+        # pylint: enable=no-member
 
-    def respawn_rqd(self):
+    @staticmethod
+    def respawn_rqd():
         """Restarts RQD"""
         os.system("/etc/init.d/rqd3 restart")
 
@@ -751,6 +788,8 @@ class RqCore(object):
 
     def handleExit(self, signalnum, flag):
         """Shutdown threads and exit RQD."""
+        del signalnum
+        del flag
         self.shutdown()
         self.network.stopGrpc()
         sys.exit()
@@ -760,8 +799,7 @@ class RqCore(object):
         If a problem is encountered, a CueException will be thrown.
         @type   runFrame: RunFrame
         @param  runFrame: rqd_pb2.RunFrame"""
-        log.info("Running command %s for %s" % (runFrame.command,
-                                                runFrame.frame_id))
+        log.info("Running command %s for %s", runFrame.command, runFrame.frame_id)
         log.debug(runFrame)
 
         #
@@ -801,10 +839,12 @@ class RqCore(object):
         # See if all requested cores are available
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             if self.cores.idle_cores < runFrame.num_cores:
                 err = "Not launching, insufficient idle cores"
                 log.critical(err)
                 raise rqd.rqexceptions.CoreReservationFailureException(err)
+            # pylint: enable=no-member
 
             if runFrame.environment.get('CUE_THREADABLE') == '1':
                 reserveHT = self.machine.reserveHT(runFrame.num_cores)
@@ -812,8 +852,10 @@ class RqCore(object):
                     runFrame.attributes['CPU_LIST'] = reserveHT
 
             # They must be available at this point, reserve them
+            # pylint: disable=no-member
             self.cores.idle_cores -= runFrame.num_cores
             self.cores.booked_cores += runFrame.num_cores
+            # pylint: enable=no-member
         finally:
             self.__threadLock.release()
 
@@ -822,16 +864,18 @@ class RqCore(object):
         runningFrame.frameAttendantThread.start()
 
     def getRunningFrame(self, frameId):
+        """Gets the currently running frame."""
         try:
             return self.__cache[frameId]
         except KeyError:
-            log.info("frameId {} is not running on this machine".format(frameId))
+            log.info("frameId %s is not running on this machine", frameId)
             return None
 
     def getCoreInfo(self):
+        """Gets the core info report."""
         return self.cores
 
-    def reportStatus(self, current=None):
+    def reportStatus(self):
         """Replies with hostReport"""
         return self.machine.getHostReport()
 
@@ -920,6 +964,7 @@ class RqCore(object):
         """This is called by nimby when it unlocks the machine due to sufficent
            idle. A new report is sent to the cuebot.
         @param asOf: Time when idle state began, if known."""
+        del asOf
         self.sendStatusReport()
 
     def lock(self, reqLock):
@@ -930,12 +975,14 @@ class RqCore(object):
         sendUpdate = False
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             numLock = min(self.cores.total_cores - self.cores.locked_cores,
                           reqLock)
             if numLock > 0:
                 self.cores.locked_cores += numLock
                 self.cores.idle_cores -= min(numLock, self.cores.idle_cores)
                 sendUpdate = True
+            # pylint: enable=no-member
         finally:
             self.__threadLock.release()
 
@@ -950,10 +997,12 @@ class RqCore(object):
         sendUpdate = False
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             if self.cores.locked_cores < self.cores.total_cores:
                 self.cores.locked_cores = self.cores.total_cores
                 self.cores.idle_cores = 0
                 sendUpdate = True
+            # pylint: enable=no-member
         finally:
             self.__threadLock.release()
 
@@ -971,7 +1020,8 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != rqd.compiled_proto.host_pb2.UP:
+        if (self.__whenIdle or self.__reboot or self.__respawn
+                or self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
@@ -981,11 +1031,13 @@ class RqCore(object):
 
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             numUnlock = min(self.cores.locked_cores, reqUnlock)
             if numUnlock > 0:
                 self.cores.locked_cores -= numUnlock
                 self.cores.idle_cores += numUnlock
                 sendUpdate = True
+            # pylint: enable=no-member
         finally:
             self.__threadLock.release()
 
@@ -1001,7 +1053,8 @@ class RqCore(object):
 
         sendUpdate = False
 
-        if self.__whenIdle or self.__reboot or self.__respawn or self.machine.state != rqd.compiled_proto.host_pb2.UP:
+        if (self.__whenIdle or self.__reboot or self.__respawn
+                or self.machine.state != rqd.compiled_proto.host_pb2.UP):
             sendUpdate = True
 
         self.__whenIdle = False
@@ -1011,11 +1064,13 @@ class RqCore(object):
 
         self.__threadLock.acquire()
         try:
+            # pylint: disable=no-member
             if self.cores.locked_cores > 0:
                 if not self.nimby.locked:
                     self.cores.idle_cores += self.cores.locked_cores
                 self.cores.locked_cores = 0
                 sendUpdate = True
+            # pylint: enable=no-member
         finally:
             self.__threadLock.release()
 
@@ -1025,7 +1080,9 @@ class RqCore(object):
             self.sendStatusReport()
 
     def sendStatusReport(self):
+        """Sends the current host report to Cuebot."""
         self.network.reportStatus(self.machine.getHostReport())
 
     def isWaitingForIdle(self):
+        """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle

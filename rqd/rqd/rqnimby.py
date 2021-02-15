@@ -58,6 +58,8 @@ class Nimby(threading.Thread):
 
     def signalHandler(self, sig, frame):
         """If a signal is detected, call .stop()"""
+        del sig
+        del frame
         self.stop()
 
     def lockNimby(self):
@@ -83,12 +85,12 @@ class Nimby(threading.Thread):
         try:
             for device in os.listdir("/dev/input/"):
                 if device.startswith("event") or device.startswith("mice"):
-                    log.debug("Found device: %s" % device)
+                    log.debug("Found device: %s", device)
                     try:
                         self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
                     except IOError as e:
                         # Bad device found
-                        log.debug("IOError: Failed to open %s, %s" % ("/dev/input/%s" % device, e))
+                        log.debug("IOError: Failed to open %s, %s", "/dev/input/%s" % device, e)
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -99,7 +101,8 @@ class Nimby(threading.Thread):
             for fileObj in self.fileObjList:
                 try:
                     fileObj.close()
-                except:
+                # pylint: disable=broad-except
+                except Exception:
                     pass
             self.fileObjList = []
 
@@ -110,7 +113,8 @@ class Nimby(threading.Thread):
         self._openEvents()
         try:
             self.results = select.select(self.fileObjList, [], [], 5)
-        except:
+        # pylint: disable=broad-except
+        except Exception:
             pass
         if self.active and self.results[0] == []:
             self.lockedIdle()
@@ -128,7 +132,8 @@ class Nimby(threading.Thread):
         try:
             self.results = select.select(self.fileObjList, [], [],
                                          rqd.rqconstants.MINIMUM_IDLE)
-        except:
+        # pylint: disable=broad-except
+        except Exception:
             pass
         if self.active and self.results[0] == [] and \
            self.rqCore.machine.isNimbySafeToUnlock():
@@ -150,7 +155,8 @@ class Nimby(threading.Thread):
             try:
                 self._openEvents()
                 self.results = select.select(self.fileObjList, [], [], 5)
-            except:
+            # pylint: disable=broad-except
+            except Exception:
                 pass
             if not self.rqCore.machine.isNimbySafeToRunJobs():
                 log.warning("memory threshold has been exceeded, locking nimby")

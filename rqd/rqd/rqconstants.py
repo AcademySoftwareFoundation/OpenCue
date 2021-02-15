@@ -13,18 +13,18 @@
 #  limitations under the License.
 
 
-"""
-Constants.
-"""
+"""Constants used throughout RQD."""
 
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+# pylint: disable=wrong-import-position
 from future import standard_library
 standard_library.install_aliases()
-import subprocess
+# pylint: enable=wrong-import-position
+
 import logging
 import os
 import platform
@@ -40,9 +40,9 @@ if platform.system() == 'Linux':
 VERSION = 'dev'
 
 if 'CUEBOT_HOSTNAME' in os.environ:
-  CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
+    CUEBOT_HOSTNAME = os.environ['CUEBOT_HOSTNAME']
 else:
-  CUEBOT_HOSTNAME = 'localhost'
+    CUEBOT_HOSTNAME = 'localhost'
 
 RQD_TIMEOUT = 10000
 DEFAULT_FACILITY = 'cloud'
@@ -79,12 +79,16 @@ else:
     RQD_GID = 0
 
 # Nimby behavior:
-CHECK_INTERVAL_LOCKED = 60  # = seconds to wait before checking if the user has become idle
-MINIMUM_IDLE = 900          # seconds of idle time required before nimby unlocks
-MINIMUM_MEM = 524288        # If available memory drops below this amount, lock nimby (need to take into account cache)
+# Number of seconds to wait before checking if the user has become idle.
+CHECK_INTERVAL_LOCKED = 60
+# Seconds of idle time required before nimby unlocks.
+MINIMUM_IDLE = 900
+# If available memory drops below this amount, lock nimby (need to take into account cache).
+MINIMUM_MEM = 524288
 MINIMUM_SWAP = 1048576
-MAXIMUM_LOAD = 75           # If (machine load * 100 / cores) goes over this amount, don't unlock nimby
-                            # 1.5 would mean a max load of 1.5 per core
+# If (machine load * 100 / cores) goes over this amount, don't unlock nimby.
+# 1.5 would mean a max load of 1.5 per core
+MAXIMUM_LOAD = 75
 
 EXITSTATUS_FOR_FAILED_LAUNCH = 256
 EXITSTATUS_FOR_NIMBY_KILL = 286
@@ -135,7 +139,7 @@ try:
         else:
             ConfigParser = configparser.RawConfigParser
         config = ConfigParser()
-        logging.info('Loading config {}'.format(CONFIG_FILE))
+        logging.info('Loading config %s', CONFIG_FILE)
         config.read(CONFIG_FILE)
 
         if config.has_option(__section, "RQD_GRPC_PORT"):
@@ -172,6 +176,8 @@ try:
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
+# pylint: disable=broad-except
 except Exception as e:
-    logging.warning("Failed to read values from config file %s due to %s at %s" % (CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2])))
-
+    logging.warning(
+        "Failed to read values from config file %s due to %s at %s",
+        CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2]))

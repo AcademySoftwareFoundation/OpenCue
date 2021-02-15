@@ -14,9 +14,7 @@
 #  limitations under the License.
 
 
-"""
-Utility functions.
-"""
+"""Utility functions."""
 
 
 from __future__ import absolute_import
@@ -29,7 +27,6 @@ import functools
 import logging as log
 import os
 import platform
-import random
 import socket
 import subprocess
 import threading
@@ -46,6 +43,8 @@ if platform.system() != 'Windows':
 
 
 class Memoize(object):
+    """Decorator used to cache the results of functions that only need to be run once."""
+
     def __init__(self, func):
         self.func = func
         self.memoized = {}
@@ -59,13 +58,17 @@ class Memoize(object):
         return self.cacheGet(
             self.methodCache, obj, lambda: self.__class__(functools.partial(self.func, obj)))
 
-    def isCached(self, cache, key):
-        """Mocked in tests to disable caching as needed."""
+    @staticmethod
+    def isCached(cache, key):
+        """Returns whether a given function has been cached already.
+
+        Mocked in tests to disable caching as needed."""
         if key in cache:
             return True
         return False
 
     def cacheGet(self, cache, key, func):
+        """Gets the cached result of a function."""
         if not self.isCached(cache, key):
             cache[key] = func()
         return cache[key]
@@ -80,6 +83,7 @@ def permissionsHigh():
     os.seteuid(os.getuid())
     try:
         os.setgroups(HIGH_PERMISSION_GROUPS)
+    # pylint: disable=broad-except
     except Exception:
         pass
 
@@ -108,6 +112,7 @@ def permissionsUser(uid, gid):
         username = pwd.getpwuid(uid).pw_name
         groups = [20] + [g.gr_gid for g in grp.getgrall() if username in g.gr_mem]
         os.setgroups(groups)
+    # pylint: disable=broad-except
     except Exception:
         pass
     os.setegid(gid)
@@ -121,6 +126,7 @@ def __becomeRoot():
         os.seteuid(os.getuid())
         try:
             os.setgroups(HIGH_PERMISSION_GROUPS)
+        # pylint: disable=broad-except
         except Exception:
             pass
 
@@ -136,7 +142,7 @@ def checkAndCreateUser(username):
     except KeyError:
         subprocess.check_call([
             'useradd',
-            '-p', str(uuid.uuid4()), # generate a random password
+            '-p', str(uuid.uuid4()),  # generate a random password
             username
         ])
 
@@ -145,8 +151,7 @@ def getHostIp():
     """Returns the machine's local ip address"""
     if rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
         return socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET6)[0][4][0]
-    else:
-        return socket.gethostbyname(socket.gethostname())
+    return socket.gethostbyname(socket.gethostname())
 
 
 def getHostname():
@@ -154,11 +159,9 @@ def getHostname():
     try:
         if rqd.rqconstants.OVERRIDE_HOSTNAME:
             return rqd.rqconstants.OVERRIDE_HOSTNAME
-        elif rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or \
-           rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
+        if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
             return getHostIp()
-        else:
-            return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
+        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     except (socket.herror, socket.gaierror):
         log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()
