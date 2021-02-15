@@ -34,5 +34,8 @@ if [[ "$1" == "--lint" ]]; then
 
   cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal && cd ..
   cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+
+  cd cuegui && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit && cd ..
+  cd cuegui && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
 fi
 
