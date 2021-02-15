@@ -1,3 +1,21 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Widgets to provide application specific settings."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -10,7 +28,7 @@ from cuesubmit.ui import Widgets
 
 
 class BaseSettingsWidget(QtWidgets.QWidget):
-    """Swappable widget to provide application specific settings. """
+    """Swappable widget to provide application specific settings."""
 
     dataChanged = QtCore.Signal(object)
 
@@ -32,6 +50,7 @@ class BaseSettingsWidget(QtWidgets.QWidget):
 class InMayaSettings(BaseSettingsWidget):
     """Settings widget to be used when launching from within Maya."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, cameras=None, filename=None, parent=None, *args, **kwargs):
         super(InMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:', filename)
@@ -40,6 +59,7 @@ class InMayaSettings(BaseSettingsWidget):
         self.setupUi()
 
     def setupUi(self):
+        """Creates the Maya-specific widget layout."""
         self.mainLayout.addWidget(self.mayaFileInput)
         self.selectorLayout.addWidget(self.cameraSelector)
         self.selectorLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
@@ -59,6 +79,7 @@ class InMayaSettings(BaseSettingsWidget):
 class BaseMayaSettings(BaseSettingsWidget):
     """Standard Maya settings widget to be used from outside Maya."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseMayaSettings, self).__init__(parent=parent)
         self.mayaFileInput = Widgets.CueLabelLineEdit('Maya File:')
@@ -66,9 +87,11 @@ class BaseMayaSettings(BaseSettingsWidget):
         self.setupConnections()
 
     def setupUi(self):
+        """Creates the widget layout with a single input for the path to the Maya scene."""
         self.mainLayout.addWidget(self.mayaFileInput)
 
     def setupConnections(self):
+        """Sets up widget signals."""
         self.mayaFileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
 
     def setCommandData(self, commandData):
@@ -83,6 +106,7 @@ class BaseMayaSettings(BaseSettingsWidget):
 class InNukeSettings(BaseSettingsWidget):
     """Settings widget to be used when launching from within Nuke."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, writeNodes=None, filename=None, parent=None, *args, **kwargs):
         super(InNukeSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Nuke File:', filename)
@@ -92,6 +116,7 @@ class InNukeSettings(BaseSettingsWidget):
         self.setupUi()
 
     def setupUi(self):
+        """Creates the Nuke-specific widget layout."""
         self.mainLayout.addWidget(self.fileInput)
         self.selectorLayout.addWidget(self.writeNodeSelector)
         self.selectorLayout.addSpacerItem(Widgets.CueSpacerItem(Widgets.SpacerTypes.HORIZONTAL))
@@ -111,6 +136,7 @@ class InNukeSettings(BaseSettingsWidget):
 class BaseNukeSettings(BaseSettingsWidget):
     """Standard Nuke settings widget to be used from outside Nuke."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseNukeSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Nuke File:')
@@ -118,9 +144,11 @@ class BaseNukeSettings(BaseSettingsWidget):
         self.setupConnections()
 
     def setupUi(self):
+        """Creates the widget layout with a single input for the path to the Nuke script."""
         self.mainLayout.addWidget(self.fileInput)
 
     def setupConnections(self):
+        """Sets up widget signals."""
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
 
     def setCommandData(self, commandData):
@@ -135,6 +163,7 @@ class BaseNukeSettings(BaseSettingsWidget):
 class ShellSettings(BaseSettingsWidget):
     """Basic settings widget for submitting simple shell commands."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, parent=None, *args, **kwargs):
         super(ShellSettings, self).__init__(parent=parent)
 
@@ -144,9 +173,11 @@ class ShellSettings(BaseSettingsWidget):
         self.setupConnections()
 
     def setupUi(self):
+        """Creates the widget layout with a single input for the shell command."""
         self.mainLayout.addWidget(self.commandTextBox)
 
     def setupConnections(self):
+        """Sets up widget signals."""
         self.commandTextBox.textChanged.connect(lambda: self.dataChanged.emit(None))
 
     def getCommandData(self):
@@ -159,6 +190,7 @@ class ShellSettings(BaseSettingsWidget):
 class BaseBlenderSettings(BaseSettingsWidget):
     """Standard Blender settings widget to be used from outside Blender."""
 
+    # pylint: disable=keyword-arg-before-vararg,unused-argument
     def __init__(self, parent=None, *args, **kwargs):
         super(BaseBlenderSettings, self).__init__(parent=parent)
         self.fileInput = Widgets.CueLabelLineEdit('Blender File:')
@@ -172,22 +204,24 @@ class BaseBlenderSettings(BaseSettingsWidget):
         self.outputLayout = QtWidgets.QHBoxLayout()
         self.setupUi()
         self.setupConnections()
-    
+
     def setupUi(self):
+        """Creates the Blender-specific widget layout."""
         self.mainLayout.addWidget(self.fileInput)
         self.mainLayout.addLayout(self.outputLayout)
         self.outputLayout.addWidget(self.outputPath)
         self.outputLayout.addWidget(self.outputSelector)
-    
+
     def setupConnections(self):
+        """Sets up widget signals."""
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
         self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
-      
+
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
         self.outputPath.setText(commandData.get('outputPath', ''))
         self.outputSelector.setChecked(commandData.get('outputFormat', ''))
-    
+
     def getCommandData(self):
         return {
             'blenderFile': self.fileInput.text(),
