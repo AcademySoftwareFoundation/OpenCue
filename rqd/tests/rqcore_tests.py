@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +14,18 @@
 #  limitations under the License.
 
 
+"""Tests for rqd.rqcore."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
-import mock
 import os.path
 import unittest
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.compiled_proto.host_pb2
@@ -249,7 +251,8 @@ class RqCoreTests(unittest.TestCase):
         num_booked_cores = 7
         num_cores_to_release = 5
         self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(
-            total_cores=50, idle_cores=num_idle_cores, locked_cores=2, booked_cores=num_booked_cores)
+            total_cores=50, idle_cores=num_idle_cores, locked_cores=2,
+            booked_cores=num_booked_cores)
 
         self.rqcore.releaseCores(num_cores_to_release)
 
