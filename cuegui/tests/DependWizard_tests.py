@@ -25,6 +25,8 @@ import PySide2.QtWidgets
 import PySide2.QtTest
 
 import opencue.compiled_proto.job_pb2
+import opencue.wrappers.frame
+import opencue.wrappers.layer
 import opencue.wrappers.job
 
 import cuegui.DependWizard
@@ -36,25 +38,234 @@ from . import test_utils
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class DependWizardTests(unittest.TestCase):
 
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
-    def setUp(self, getStubMock):
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
         test_utils.createApplication()
         PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
-        #self.show = opencue.wrappers.show.Show(opencue.compiled_proto.show_pb2.Show(name='fooShow'))
-        #filterProto = opencue.compiled_proto.filter_pb2.Filter(
-        #    id='filter-one-id', name='filterOne', order=1, enabled=True)
-        #self.filter = opencue.wrappers.filter.Filter(filterProto)
-
-        #getStubMock.return_value.GetFilters.return_value = \
-        #    opencue.compiled_proto.show_pb2.ShowGetFiltersResponse(
-        #        filters=opencue.compiled_proto.filter_pb2.FilterSeq(filters=[filterProto]))
-
         self.parentWidget = PySide2.QtWidgets.QWidget()
-        self.job = opencue.wrappers.job.Job(
-            opencue.compiled_proto.job_pb2.Job(id='arbitrary-job-id', show='arbitrary-show'))
-        self.filterDialog = cuegui.DependWizard.DependWizard(self.parentWidget, [self.job])
 
-    def test__init(self):
-        pass
+    @mock.patch('cuegui.Cuedepend.createJobOnLayerDepend')
+    @mock.patch('opencue.api.findJob')
+    @mock.patch('opencue.api.getJobNames')
+    def test_job_on_layer(self, get_job_names_mock, find_job_mock, create_depend_mock):
+        show_name = 'arbitraryshow'
+        shot_name = 'sh01'
+        user_name = 'arbitraryuser'
+        job_prefix = '%s-%s-%s' % (show_name, shot_name, user_name)
+        job_dependon_name = '%s_dependon' % job_prefix
+        job_depender_name = '%s_depender' % job_prefix
+        layer_dependon_name = 'arbitraryLayerName'
+
+        # Create depend-on job with one layer
+        job_dependon = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+                                               show='arbitraryshow'))
+        layer_dependon = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name=layer_dependon_name))
+        job_dependon.getLayers = lambda: [layer_dependon]
+
+        # Create depend-er job, no layers needed
+        job_depender = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+                                               show='arbitraryshow'))
+
+        # API mocks to allow wizard to load job information
+        get_job_names_mock.return_value = [job_dependon_name, job_depender_name]
+        find_job_mock.side_effect = lambda name: job_dependon if name == job_dependon_name else None
+
+        # Create the Depend Wizard
+        depend_wizard = cuegui.DependWizard.DependWizard(self.parentWidget, [job_depender])
+
+        # Select job-on-layer then go to next page
+        depend_type_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_DEPEND_TYPE)
+        jol_option = depend_type_page._PageDependType__options[cuegui.DependWizard.JOL]
+        jol_option.setChecked(True)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONJOB, depend_wizard.currentId())
+
+        # Ensure the depend-on job is the only one selected, then go to next page
+        select_on_job_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONJOB)
+        job_list = select_on_job_page._PageSelectOnJob__jobList
+        for job_list_index in range(job_list.count()):
+            if job_list.item(job_list_index).text() == job_dependon_name:
+                job_list.item(job_list_index).setSelected(True)
+            else:
+                job_list.item(job_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONLAYER, depend_wizard.currentId())
+
+        # Ensure the depend-on layer is the only one selected, then go to the next page
+        select_on_layer_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONLAYER)
+        layer_list = select_on_layer_page._PageSelectOnLayer__onLayerList
+        for layer_list_index in range(layer_list.count()):
+            if layer_list.item(layer_list_index).text() == layer_dependon_name:
+                layer_list.item(layer_list_index).setSelected(True)
+            else:
+                layer_list.item(layer_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_CONFIRMATION, depend_wizard.currentId())
+
+        # Proceed past confirmation screen to create the depend
+        depend_wizard.next()
+
+        create_depend_mock.assert_called_with(
+            job_depender_name, job_dependon_name, layer_dependon_name)
+
+    @mock.patch('cuegui.Cuedepend.createLayerOnJobDepend')
+    @mock.patch('opencue.api.findJob')
+    @mock.patch('opencue.api.getJobNames')
+    def test_layer_on_job(self, get_job_names_mock, find_job_mock, create_depend_mock):
+        show_name = 'arbitraryshow'
+        shot_name = 'sh01'
+        user_name = 'arbitraryuser'
+        job_prefix = '%s-%s-%s' % (show_name, shot_name, user_name)
+        job_dependon_name = '%s_dependon' % job_prefix
+        job_depender_name = '%s_depender' % job_prefix
+        layer_depender_name = 'arbitraryLayerName'
+
+        # Create depend-on job, no layers needed
+        job_dependon = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+                                               show='arbitraryshow'))
+
+        # Create depend-er job with one layer
+        job_depender = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+                                               show='arbitraryshow'))
+        layer_depender = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name=layer_depender_name))
+        job_depender.getLayers = lambda: [layer_depender]
+
+        # API mocks to allow wizard to load job information
+        get_job_names_mock.return_value = [job_dependon_name, job_depender_name]
+        find_job_mock.side_effect = lambda name: job_dependon if name == job_dependon_name else None
+
+        # Create the Depend Wizard
+        depend_wizard = cuegui.DependWizard.DependWizard(self.parentWidget, [job_depender])
+
+        # Select layer-on-job then go to next page
+        depend_type_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_DEPEND_TYPE)
+        loj_option = depend_type_page._PageDependType__options[cuegui.DependWizard.LOJ]
+        loj_option.setChecked(True)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_JOB_LAYER, depend_wizard.currentId())
+
+        # Ensure the depend-er layer is the only one selected, then go to next page
+        select_job_layer_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_JOB_LAYER)
+        layer_list = select_job_layer_page._PageSelectLayer__layerList
+        for layer_list_index in range(layer_list.count()):
+            if layer_list.item(layer_list_index).text() == layer_depender_name:
+                layer_list.item(layer_list_index).setSelected(True)
+            else:
+                layer_list.item(layer_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONJOB, depend_wizard.currentId())
+
+        # Ensure the depend-on job is the only one selected, then go to next page
+        select_on_job_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONJOB)
+        job_list = select_on_job_page._PageSelectOnJob__jobList
+        for job_list_index in range(job_list.count()):
+            if job_list.item(job_list_index).text() == job_dependon_name:
+                job_list.item(job_list_index).setSelected(True)
+            else:
+                job_list.item(job_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_CONFIRMATION, depend_wizard.currentId())
+
+        # Proceed past confirmation screen to create the depend
+        depend_wizard.next()
+
+        create_depend_mock.assert_called_with(
+            job_depender_name, layer_depender_name, job_dependon_name)
+
+    @mock.patch('cuegui.Cuedepend.createFrameOnFrameDepend')
+    @mock.patch('opencue.api.findJob')
+    @mock.patch('opencue.api.getJobNames')
+    def test_frame_on_frame(self, get_job_names_mock, find_job_mock, create_depend_mock):
+        show_name = 'arbitraryshow'
+        shot_name = 'sh01'
+        user_name = 'arbitraryuser'
+        job_prefix = '%s-%s-%s' % (show_name, shot_name, user_name)
+        job_dependon_name = '%s_dependon' % job_prefix
+        layer_dependon_name = 'layerDependonName'
+        frame_dependon_num = 1
+        job_depender_name = '%s_depender' % job_prefix
+        layer_depender_name = 'layerDependerName'
+        frame_depender_name = '0040-%s' % layer_depender_name
+        frame_depender_num = 40
+
+        # Create depend-on job with one layer, no frames needed (frame number only is used)
+        job_dependon = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_dependon_name, name=job_dependon_name,
+                                               show='arbitraryshow'))
+        layer_dependon = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name=layer_dependon_name))
+        job_dependon.getLayers = lambda: [layer_dependon]
+
+        # Create depend-er job with one layer and one frame
+        job_depender = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(id=job_depender_name, name=job_depender_name,
+                                               show='arbitraryshow'))
+        layer_depender = opencue.wrappers.layer.Layer(
+            opencue.compiled_proto.job_pb2.Layer(name=layer_depender_name))
+        frame_depender = opencue.wrappers.frame.Frame(
+            opencue.compiled_proto.job_pb2.Frame(
+                id='arbitrary-frame-id', name=frame_depender_name, layer_name=layer_depender_name,
+                number=frame_depender_num))
+
+        # API mocks to allow wizard to load job information
+        get_job_names_mock.return_value = [job_dependon_name, job_depender_name]
+        find_job_mock.side_effect = lambda name: job_dependon if name == job_dependon_name else None
+
+        # Create the Depend Wizard
+        depend_wizard = cuegui.DependWizard.DependWizard(
+            self.parentWidget, [job_depender], layers=[layer_depender], frames=[frame_depender])
+
+        # Select frame-on-frame then go to next page
+        depend_type_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_DEPEND_TYPE)
+        loj_option = depend_type_page._PageDependType__options[cuegui.DependWizard.FOF]
+        loj_option.setChecked(True)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONJOB, depend_wizard.currentId())
+
+        # Ensure the depend-on job is the only one selected, then go to next page
+        select_on_job_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONJOB)
+        job_list = select_on_job_page._PageSelectOnJob__jobList
+        for job_list_index in range(job_list.count()):
+            if job_list.item(job_list_index).text() == job_dependon_name:
+                job_list.item(job_list_index).setSelected(True)
+            else:
+                job_list.item(job_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONLAYER, depend_wizard.currentId())
+
+        # Ensure the depend-on layer is the only one selected, then go to the next page
+        select_on_layer_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONLAYER)
+        layer_list = select_on_layer_page._PageSelectOnLayer__onLayerList
+        for layer_list_index in range(layer_list.count()):
+            if layer_list.item(layer_list_index).text() == layer_dependon_name:
+                layer_list.item(layer_list_index).setSelected(True)
+            else:
+                layer_list.item(layer_list_index).setSelected(False)
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_SELECT_ONFRAME, depend_wizard.currentId())
+
+        # Input the depend-on frame number as the depend-on frame, then go to the next page
+        select_on_frame_page = depend_wizard.page(cuegui.DependWizard.PAGE_SELECT_ONFRAME)
+        frame_field = select_on_frame_page._PageSelectOnFrame__frame
+        frame_field.setText(str(frame_dependon_num))
+        depend_wizard.next()
+        self.assertEqual(cuegui.DependWizard.PAGE_CONFIRMATION, depend_wizard.currentId())
+
+        # Proceed past confirmation screen to create the depend
+        depend_wizard.next()
+
+        create_depend_mock.assert_called_with(
+            job_depender_name, layer_depender_name, frame_depender_num, job_dependon_name,
+            layer_dependon_name, frame_dependon_num)
+
+
+if __name__ == '__main__':
+    unittest.main()
