@@ -295,8 +295,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "host_stat.ts_ping, " +
             "host.int_cores, " +
             "host.int_cores_idle, " +
-            "host.int_gpu, " +
-            "host.int_gpu_idle, " +
+            "host.int_gpu_mem, " +
+            "host.int_gpu_mem_idle, " +
             "host.int_mem, " +
             "host.int_mem_idle, " +
             "host.str_lock_state, " +
@@ -310,15 +310,15 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "host_stat.int_swap_free, " +
             "host_stat.int_mcp_total, " +
             "host_stat.int_mcp_free, " +
-            "host_stat.int_gpu_total, " +
-            "host_stat.int_gpu_free, " +
+            "host_stat.int_gpu_mem_total, " +
+            "host_stat.int_gpu_mem_free, " +
             "host_stat.int_load, " +
             "proc.pk_proc, " +
             "proc.int_cores_reserved AS proc_cores, " +
             "proc.int_mem_reserved AS proc_memory, " +
             "proc.int_mem_used AS used_memory, " +
             "proc.int_mem_max_used AS max_memory, " +
-            "proc.int_gpu_reserved AS proc_gpu, " +
+            "proc.int_gpu_mem_reserved AS proc_gpu, " +
             "proc.ts_ping, " +
             "proc.ts_booked, " +
             "proc.ts_dispatched, " +

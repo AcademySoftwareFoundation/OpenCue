@@ -205,7 +205,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.range = rs.getString("str_range");
             layer.minimumCores = rs.getInt("int_cores_min");
             layer.minimumMemory = rs.getLong("int_mem_min");
-            layer.minimumGpu = rs.getLong("int_gpu_min");
+            layer.minimumGpu = rs.getLong("int_gpu_mem_min");
             layer.type = LayerType.valueOf(rs.getString("str_type"));
             layer.tags = Sets.newHashSet(
                     rs.getString("str_tags").replaceAll(" ", "").split("\\|"));
@@ -311,7 +311,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
          "int_cores_max, "+
          "b_threadable, " +
          "int_mem_min, " +
-         "int_gpu_min, " +
+         "int_gpu_mem_min, " +
          "str_services, " +
          "int_timeout," +
          "int_timeout_llu " +
@@ -341,7 +341,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void updateLayerMinGpu(LayerInterface layer, long gpu) {
-        getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=?",
+        getJdbcTemplate().update("UPDATE layer SET int_gpu_mem_min=? WHERE pk_layer=?",
                 gpu, layer.getLayerId());
     }
 
@@ -393,7 +393,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     @Override
     public void increaseLayerMinGpu(LayerInterface layer, long gpu) {
-        getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=? AND int_gpu_min < ?",
+        getJdbcTemplate().update("UPDATE layer SET int_gpu_mem_min=? WHERE pk_layer=? AND int_gpu_mem_min < ?",
                 gpu, layer.getLayerId(), gpu);
     }
 
@@ -610,7 +610,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     @Override
     public void updateMinGpu(JobInterface job, long gpu, LayerType type) {
         getJdbcTemplate().update(
-                "UPDATE layer SET int_gpu_min=? WHERE pk_job=? AND str_type=?",
+                "UPDATE layer SET int_gpu_mem_min=? WHERE pk_job=? AND str_type=?",
                 gpu, job.getJobId(), type.toString());
     }
 

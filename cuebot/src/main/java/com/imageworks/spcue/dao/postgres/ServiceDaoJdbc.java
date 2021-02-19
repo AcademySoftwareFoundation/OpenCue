@@ -60,7 +60,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.timeout = rs.getInt("int_timeout");
@@ -79,7 +79,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpu = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.showId = rs.getString("pk_show");
@@ -97,7 +97,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "service.int_cores_min," +
             "service.int_cores_max," +
             "service.int_mem_min," +
-            "service.int_gpu_min," +
+            "service.int_gpu_mem_min," +
             "service.str_tags, " +
             "service.int_timeout, " +
             "service.int_timeout_llu " +
@@ -119,7 +119,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "show_service.int_cores_min," +
             "show_service.int_cores_max, "+
             "show_service.int_mem_min," +
-            "show_service.int_gpu_min," +
+            "show_service.int_gpu_mem_min," +
             "show_service.str_tags," +
             "show_service.int_timeout," +
             "show_service.int_timeout_llu," +
@@ -167,7 +167,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
              "int_cores_min," +
              "int_cores_max, "+
              "int_mem_min," +
-             "int_gpu_min," +
+             "int_gpu_mem_min," +
              "str_tags," +
              "int_timeout," +
              "int_timeout_llu " +
@@ -194,7 +194,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min," +
             "int_cores_max," +
             "int_mem_min," +
-            "int_gpu_min," +
+            "int_gpu_mem_min," +
             "str_tags," +
             "int_timeout," +
             "int_timeout_llu " +
@@ -219,7 +219,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min=?," +
             "int_cores_max=?,"+
             "int_mem_min=?," +
-            "int_gpu_min=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=?," +
             "int_timeout=?," +
             "int_timeout_llu=? " +
@@ -243,7 +243,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min=?," +
             "int_cores_max=?," +
             "int_mem_min=?," +
-            "int_gpu_min=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=?," +
             "int_timeout=?," +
             "int_timeout_llu=? " +
