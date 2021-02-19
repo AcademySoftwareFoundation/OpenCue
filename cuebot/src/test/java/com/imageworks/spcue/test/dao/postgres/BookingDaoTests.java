@@ -149,7 +149,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -161,7 +161,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -212,7 +212,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(
@@ -264,7 +264,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 Long.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT int_gpu_max FROM host_local WHERE pk_job=?",
+                "SELECT int_gpu_mem_max FROM host_local WHERE pk_job=?",
                 Integer.class, j.getJobId()));
 
         assertEquals(Integer.valueOf(200), jdbcTemplate.queryForObject(

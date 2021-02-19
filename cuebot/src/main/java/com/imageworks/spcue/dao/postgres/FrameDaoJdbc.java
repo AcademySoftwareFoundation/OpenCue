@@ -149,7 +149,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host = ?, " +
             "int_cores = ?, " +
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, " +
@@ -226,7 +226,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host=?, " +
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
@@ -276,7 +276,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
             frame.minMemory = rs.getLong("int_mem_min");
-            frame.minGpu = rs.getLong("int_gpu_min");
+            frame.minGpu = rs.getLong("int_gpu_mem_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             return frame;
@@ -308,7 +308,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "layer.int_cores_max,"+
             "layer.b_threadable,"+
             "layer.int_mem_min, "+
-            "layer.int_gpu_min, "+
+            "layer.int_gpu_mem_min, "+
             "layer.str_range, "+
             "layer.int_chunk_size, " +
             "layer.str_services " +

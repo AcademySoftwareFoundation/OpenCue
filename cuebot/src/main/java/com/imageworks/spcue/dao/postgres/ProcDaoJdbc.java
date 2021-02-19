@@ -108,7 +108,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_mem_reserved, " +
             "int_mem_pre_reserved, " +
             "int_mem_used, "+
-            "int_gpu_reserved, " +
+            "int_gpu_mem_reserved, " +
             "b_local " +
         ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ";
 
@@ -278,7 +278,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.coresReserved =rs.getInt("int_cores_reserved");
                 proc.memoryReserved = rs.getLong("int_mem_reserved");
                 proc.memoryMax = rs.getLong("int_mem_max_used");
-                proc.gpuReserved = rs.getLong("int_gpu_reserved");
+                proc.gpuReserved = rs.getLong("int_gpu_mem_reserved");
                 proc.virtualMemoryMax = rs.getLong("int_virt_max_used");
                 proc.virtualMemoryUsed = rs.getLong("int_virt_used");
                 proc.memoryUsed = rs.getLong("int_mem_used");
@@ -305,7 +305,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_mem_reserved,"+
             "proc.int_mem_max_used,"+
             "proc.int_mem_used,"+
-            "proc.int_gpu_reserved,"+
+            "proc.int_gpu_mem_reserved,"+
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
@@ -551,7 +551,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "int_mem_reserved," +
               "int_mem_max_used,"+
               "int_mem_used,"+
-              "int_gpu_reserved," +
+              "int_gpu_mem_reserved," +
               "int_virt_max_used,"+
               "int_virt_used,"+
               "host_name, " +
@@ -580,7 +580,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
       public long getReservedGpu(ProcInterface proc) {
           return getJdbcTemplate().queryForObject(
-                  "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
+                  "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
                   Long.class, proc.getProcId());
       }
 
@@ -694,7 +694,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "SET " +
                   "int_cores_idle = int_cores_idle + ?," +
                   "int_mem_idle = int_mem_idle + ?, " +
-                  "int_gpu_idle = int_gpu_idle + ? " +
+                  "int_gpu_mem_idle = int_gpu_mem_idle + ? " +
               "WHERE " +
                   "pk_host = ?",
             proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());
@@ -774,7 +774,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                       "SET " +
                           "int_cores_idle = int_cores_idle + ?, " +
                           "int_mem_idle = int_mem_idle + ?, " +
-                          "int_gpu_idle = int_gpu_idle + ? " +
+                          "int_gpu_mem_idle = int_gpu_mem_idle + ? " +
                       "WHERE " +
                           "pk_job = ? " +
                       "AND " +
@@ -802,7 +802,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 "SET " +
                     "int_cores_idle = int_cores_idle - ?," +
                     "int_mem_idle = int_mem_idle - ?, " +
-                    "int_gpu_idle = int_gpu_idle - ? " +
+                    "int_gpu_mem_idle = int_gpu_mem_idle - ? " +
                 "WHERE " +
                     "pk_host = ?",
                 proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());

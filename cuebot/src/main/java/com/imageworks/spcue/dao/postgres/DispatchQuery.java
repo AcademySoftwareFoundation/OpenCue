@@ -66,7 +66,7 @@ public class DispatchQuery {
                 "AND layer.int_cores_min            <= ? " +
                 "AND layer.int_mem_min              <= ? " +
                 "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
-                "AND layer.int_gpu_min              BETWEEN ? AND ? " +
+                "AND layer.int_gpu_mem_min          BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
                 "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
                 "AND host.str_name = ? " +
@@ -165,7 +165,7 @@ public class DispatchQuery {
                     "AND " +
                         "l.int_mem_min <= host_local.int_mem_idle " +
                     "AND " +
-                        "l.int_gpu_min <= host_local.int_gpu_idle " +
+                        "l.int_gpu_mem_min <= host_local.int_gpu_mem_idle " +
                     "AND " +
                         "l.pk_layer IN (" +
                             "SELECT " +
@@ -263,7 +263,7 @@ public class DispatchQuery {
                 "AND " +
                     "l.int_mem_min <= ? " +
                 "AND " +
-                    "l.int_gpu_min = ? " +
+                    "l.int_gpu_mem_min = ? " +
                 "AND " +
                     "h.str_tags ~* ('(?x)' || l.str_tags) " +
                 "AND " +
@@ -360,7 +360,7 @@ public class DispatchQuery {
                     "AND " +
                         "l.int_mem_min <= ? " +
                     "AND " +
-                        "l.int_gpu_min = ? " +
+                        "l.int_gpu_mem_min = ? " +
                     "AND " +
                         "h.str_tags ~* ('(?x)' || l.str_tags) " +
                     "AND " +
@@ -417,7 +417,7 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -450,7 +450,7 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -468,7 +468,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min BETWEEN ? AND ? " +
+                "layer.int_gpu_mem_min BETWEEN ? AND ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -526,7 +526,7 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -559,7 +559,7 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -579,7 +579,7 @@ public class DispatchQuery {
             "AND " +
                 "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
             "AND " +
-                "layer.int_gpu_min BETWEEN ? AND ? " +
+                "layer.int_gpu_mem_min BETWEEN ? AND ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -636,7 +636,7 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -669,7 +669,7 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -685,7 +685,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -741,7 +741,7 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -774,7 +774,7 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -790,7 +790,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -849,7 +849,7 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -882,7 +882,7 @@ public class DispatchQuery {
                 "layer.int_cores_min, " +
                 "layer.int_cores_max, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -900,7 +900,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min = ? " +
+                "layer.int_gpu_mem_min = ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -958,7 +958,7 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -991,7 +991,7 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1011,7 +1011,7 @@ public class DispatchQuery {
             "AND " +
                 "(CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -1068,7 +1068,7 @@ public class DispatchQuery {
             "int_cores_min, " +
             "int_cores_max, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -1100,7 +1100,7 @@ public class DispatchQuery {
                 "layer.b_threadable, " +
                 "layer.int_cores_min, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.int_cores_max, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
@@ -1117,7 +1117,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
@@ -1173,7 +1173,7 @@ public class DispatchQuery {
             "int_cores_max, " +
             "b_threadable, " +
             "int_mem_min, " +
-            "int_gpu_min, " +
+            "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
@@ -1206,7 +1206,7 @@ public class DispatchQuery {
                 "layer.int_cores_max, " +
                 "layer.b_threadable, " +
                 "layer.int_mem_min, " +
-                "layer.int_gpu_min, " +
+                "layer.int_gpu_mem_min, " +
                 "layer.str_cmd, " +
                 "layer.str_range, " +
                 "layer.int_chunk_size, " +
@@ -1222,7 +1222,7 @@ public class DispatchQuery {
             "AND " +
                 "layer.int_mem_min <= ? " +
             "AND " +
-                "layer.int_gpu_min <= ? " +
+                "layer.int_gpu_mem_min <= ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +

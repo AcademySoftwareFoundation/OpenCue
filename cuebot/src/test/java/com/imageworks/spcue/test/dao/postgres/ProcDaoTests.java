@@ -646,7 +646,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
         assertEquals(Long.valueOf(Dispatcher.GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
-                        "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
+                        "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
                         Long.class, _proc.id));
         assertEquals(Dispatcher.GPU_RESERVED_DEFAULT,
                 procDao.getReservedGpu(_proc));

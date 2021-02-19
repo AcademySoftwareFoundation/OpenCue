@@ -55,8 +55,8 @@ public class BookingDaoJdbc extends
             "int_mem_idle,"+
             "int_cores_max,"+
             "int_cores_idle,"+
-            "int_gpu_idle,"+
-            "int_gpu_max,"+
+            "int_gpu_mem_idle,"+
+            "int_gpu_mem_max,"+
             "int_threads "+
         ") " +
         "VALUES " +
@@ -155,11 +155,11 @@ public class BookingDaoJdbc extends
             l.id = rs.getString("pk_host_local");
             l.setMaxCoreUnits(rs.getInt("int_cores_max"));
             l.setMaxMemory(rs.getLong("int_mem_max"));
-            l.setMaxGpu(rs.getLong("int_gpu_max"));
+            l.setMaxGpu(rs.getLong("int_gpu_mem_max"));
             l.setThreads(rs.getInt("int_threads"));
             l.setIdleCoreUnits(rs.getInt("int_cores_idle"));
             l.setIdleMemory(rs.getLong("int_mem_idle"));
-            l.setIdleGpu(rs.getLong("int_gpu_idle"));
+            l.setIdleGpu(rs.getLong("int_gpu_mem_idle"));
             l.setJobId(rs.getString("pk_job"));
             l.setLayerId(rs.getString("pk_layer"));
             l.setFrameId(rs.getString("pk_frame"));
@@ -180,8 +180,8 @@ public class BookingDaoJdbc extends
             "int_mem_max,"+
             "int_cores_idle,"+
             "int_cores_max,"+
-            "int_gpu_idle,"+
-            "int_gpu_max,"+
+            "int_gpu_mem_idle,"+
+            "int_gpu_mem_max,"+
             "int_threads, "+
             "str_type " +
         "FROM " +
@@ -291,8 +291,8 @@ public class BookingDaoJdbc extends
         "UPDATE " +
             "host_local " +
         "SET " +
-            "int_gpu_idle = int_gpu_idle + (? - int_gpu_max), " +
-            "int_gpu_max = ? "+
+            "int_gpu_mem_idle = int_gpu_mem_idle + (? - int_gpu_mem_max), " +
+            "int_gpu_mem_max = ? "+
         "WHERE " +
             "pk_host_local = ? ";
 
@@ -354,7 +354,7 @@ public class BookingDaoJdbc extends
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host_local WHERE " +
                 "(int_cores_max < int_cores_max - int_cores_idle OR " +
-                "int_gpu_max < int_gpu_max - int_gpu_idle OR " +
+                "int_gpu_mem_max < int_gpu_mem_max - int_gpu_mem_idle OR " +
                 "int_mem_max < int_mem_max - int_mem_idle) AND " +
                 "host_local.pk_host= ?",
                 Integer.class, host.getHostId()) > 0;

@@ -476,7 +476,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         LayerDetail layer = getLayer();
         layerDao.updateMinGpu(layer, gpu, LayerType.RENDER);
         assertEquals(Long.valueOf(gpu),jdbcTemplate.queryForObject(
-                "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
+                "SELECT int_gpu_mem_min FROM layer WHERE pk_layer=?",
                 Long.class, layer.getLayerId()));
     }
 
