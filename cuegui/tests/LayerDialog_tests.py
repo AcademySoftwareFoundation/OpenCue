@@ -249,7 +249,9 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         layer2_mock.setTimeoutLLU.assert_called_with(new_timeout_llu)
         layer1_mock.setTags.assert_called_with(new_tags)
         layer2_mock.setTags.assert_called_with(new_tags)
-        layer1_mock.addLimit.assert_has_calls([mock.call('limit3Id'), mock.call('limit4Id')])
-        layer1_mock.dropLimit.assert_has_calls([mock.call('limit1Id'), mock.call('limit2Id')])
+        layer1_mock.addLimit.assert_has_calls(
+            [mock.call('limit3Id'), mock.call('limit4Id')], any_order=True)
+        layer1_mock.dropLimit.assert_has_calls(
+            [mock.call('limit1Id'), mock.call('limit2Id')], any_order=True)
         layer2_mock.addLimit.assert_has_calls([mock.call('limit4Id')])
         layer2_mock.dropLimit.assert_has_calls([mock.call('limit2Id')])
