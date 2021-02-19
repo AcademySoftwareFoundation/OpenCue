@@ -73,6 +73,7 @@ disable=arguments-differ,
         too-many-lines,
         too-many-locals,
         too-many-public-methods,
+        too-many-statements,
         unused-argument,
         unused-variable,
         useless-object-inheritance
