@@ -135,18 +135,6 @@ public class HostReportHandler {
         long startTime = System.currentTimeMillis();
         try {
 
-            long totalGpu;
-            if (report.getHost().getAttributesMap().containsKey("totalGpu"))
-                totalGpu = Integer.parseInt(report.getHost().getAttributesMap().get("totalGpu"));
-            else
-                totalGpu = 0;
-
-            long freeGpu;
-            if (report.getHost().getAttributesMap().containsKey("freeGpu"))
-                freeGpu = Integer.parseInt(report.getHost().getAttributesMap().get("freeGpu"));
-            else
-                freeGpu = 0;
-
             long swapOut = 0;
             if (report.getHost().getAttributesMap().containsKey("swapout")) {
                 swapOut = Integer.parseInt(report.getHost().getAttributesMap().get("swapout"));
@@ -163,7 +151,7 @@ public class HostReportHandler {
                         rhost.getTotalMem(), rhost.getFreeMem(),
                         rhost.getTotalSwap(), rhost.getFreeSwap(),
                         rhost.getTotalMcp(), rhost.getFreeMcp(),
-                        totalGpu, freeGpu,
+                        rhost.getTotalGpuMem(), rhost.getFreeGpuMem(),
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 

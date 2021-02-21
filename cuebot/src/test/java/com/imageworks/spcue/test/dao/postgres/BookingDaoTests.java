@@ -109,8 +109,8 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
         DispatchHost dh = hostManager.createHost(host);
         hostManager.setAllocation(dh,
@@ -424,7 +424,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
     @Test
     @Transactional
     @Rollback(true)
-    public void updateMaxGpu() {
+    public void updateMaxGpuMemory() {
 
         DispatchHost h = createHost();
         JobDetail j = launchJob();
@@ -444,7 +444,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         assertEquals(CueUtil.GB2, lj2.getMaxMemory());
         assertEquals(1, lj2.getMaxGpuMemory());
 
-        bookingDao.updateMaxGpu(lja, 2);
+        bookingDao.updateMaxGpuMemory(lja, 2);
 
         lj2 = bookingDao.getLocalJobAssignment(lja.id);
 

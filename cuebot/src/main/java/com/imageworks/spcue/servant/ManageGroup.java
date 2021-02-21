@@ -55,6 +55,10 @@ import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxCoresResponse;
 import com.imageworks.spcue.grpc.job.GroupSetDefJobMinCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetDefJobMinCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxGpusRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMaxGpusResponse;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMinGpusRequest;
+import com.imageworks.spcue.grpc.job.GroupSetDefJobMinGpusResponse;
 import com.imageworks.spcue.grpc.job.GroupSetDefJobPriorityRequest;
 import com.imageworks.spcue.grpc.job.GroupSetDefJobPriorityResponse;
 import com.imageworks.spcue.grpc.job.GroupSetDeptRequest;
@@ -65,6 +69,10 @@ import com.imageworks.spcue.grpc.job.GroupSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetMaxCoresResponse;
 import com.imageworks.spcue.grpc.job.GroupSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.GroupSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.GroupSetMaxGpusRequest;
+import com.imageworks.spcue.grpc.job.GroupSetMaxGpusResponse;
+import com.imageworks.spcue.grpc.job.GroupSetMinGpusRequest;
+import com.imageworks.spcue.grpc.job.GroupSetMinGpusResponse;
 import com.imageworks.spcue.grpc.job.GroupSetNameRequest;
 import com.imageworks.spcue.grpc.job.GroupSetNameResponse;
 import com.imageworks.spcue.grpc.job.Job;
@@ -190,6 +198,24 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
     }
 
     @Override
+    public void setDefaultJobMaxGpus(GroupSetDefJobMaxGpusRequest request,
+                                     StreamObserver<GroupSetDefJobMaxGpusResponse> responseObserver) {
+        GroupInterface group = getGroupInterface(request.getGroup());
+        groupManager.setGroupDefaultJobMaxGpus(group, request.getMaxGpus());
+        responseObserver.onNext(GroupSetDefJobMaxGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setDefaultJobMinGpus(GroupSetDefJobMinGpusRequest request,
+                                     StreamObserver<GroupSetDefJobMinGpusResponse> responseObserver) {
+        GroupInterface group = getGroupInterface(request.getGroup());
+        groupManager.setGroupDefaultJobMinGpus(group, request.getMinGpus());
+        responseObserver.onNext(GroupSetDefJobMinGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void setName(GroupSetNameRequest request, StreamObserver<GroupSetNameResponse> responseObserver) {
         GroupInterface group = getGroupInterface(request.getGroup());
         groupDao.updateName(group, request.getName());
@@ -259,6 +285,24 @@ public class ManageGroup extends GroupInterfaceGrpc.GroupInterfaceImplBase {
         groupManager.setGroupMinCores(group,
                 Convert.coresToWholeCoreUnits(request.getMinCores()));
         responseObserver.onNext(GroupSetMinCoresResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMaxGpus(GroupSetMaxGpusRequest request,
+                            StreamObserver<GroupSetMaxGpusResponse> responseObserver) {
+        GroupInterface group = getGroupInterface(request.getGroup());
+        groupManager.setGroupMaxGpus(group, request.getMaxGpus());
+        responseObserver.onNext(GroupSetMaxGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setMinGpus(GroupSetMinGpusRequest request,
+                            StreamObserver<GroupSetMinGpusResponse> responseObserver) {
+        GroupInterface group = getGroupInterface(request.getGroup());
+        groupManager.setGroupMinGpus(group, request.getMinGpus());
+        responseObserver.onNext(GroupSetMinGpusResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 

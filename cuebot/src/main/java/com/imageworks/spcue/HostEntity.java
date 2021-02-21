@@ -36,10 +36,12 @@ public class HostEntity extends Entity implements HostInterface {
     public int procs;
     public int cores;
     public int idleCores;
-    public int memory;
-    public int idleMemory;
-    public int gpuMemory;
-    public int idleGpuMemory;
+    public long memory;
+    public long idleMemory;
+    public int gpus;
+    public int idleGpus;
+    public long gpuMemory;
+    public long idleGpuMemory;
 
     public boolean unlockAtBoot;
 
@@ -57,10 +59,12 @@ public class HostEntity extends Entity implements HostInterface {
         this.nimbyEnabled = grpcHost.getNimbyEnabled();
         this.cores = (int) grpcHost.getCores();
         this.idleCores = (int) grpcHost.getIdleCores();
-        this.memory = (int) grpcHost.getMemory();
-        this.idleMemory = (int) grpcHost.getIdleMemory();
-        this.gpuMemory = (int) grpcHost.getGpuMemory();
-        this.idleGpuMemory = (int) grpcHost.getIdleGpuMemory();
+        this.memory = grpcHost.getMemory();
+        this.idleMemory = grpcHost.getIdleMemory();
+        this.gpus = (int) grpcHost.getGpus();
+        this.idleGpus = (int) grpcHost.getIdleGpus();
+        this.gpuMemory = grpcHost.getGpuMemory();
+        this.idleGpuMemory = grpcHost.getIdleGpuMemory();
     }
 
     public String getHostId() {

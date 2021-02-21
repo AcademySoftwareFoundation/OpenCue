@@ -60,6 +60,7 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -126,8 +127,8 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 .addAllTags(ImmutableList.of("mcore", "4core", "8g"))
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", "512")
-                .putAttributes("totalGpu", "512")
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host);

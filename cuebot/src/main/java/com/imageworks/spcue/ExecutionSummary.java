@@ -28,6 +28,9 @@ public class ExecutionSummary {
     public long coreTime;
     public long coreTimeSuccess;
     public long coreTimeFail;
+    public long gpuTime;
+    public long gpuTimeSuccess;
+    public long gpuTimeFail;
     public long highMemoryKb;
 
     public long getHighMemoryKb() {
@@ -68,6 +71,30 @@ public class ExecutionSummary {
 
     public void setCoreTimeFail(long coreTimeFail) {
         this.coreTimeFail = coreTimeFail;
+    }
+
+    public long getGpuTime() {
+        return gpuTime;
+    }
+
+    public void setGpuTime(long gpuTime) {
+        this.gpuTime = gpuTime;
+    }
+
+    public long getGpuTimeSuccess() {
+        return gpuTimeSuccess;
+    }
+
+    public void setGpuTimeSuccess(long gpuTimeSuccess) {
+        this.gpuTimeSuccess = gpuTimeSuccess;
+    }
+
+    public long getGpuTimeFail() {
+        return gpuTimeFail;
+    }
+
+    public void setGpuTimeFail(long gpuTimeFail) {
+        this.gpuTimeFail = gpuTimeFail;
     }
 }
 

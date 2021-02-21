@@ -263,8 +263,8 @@ public interface HostDao {
      * @param freeSwap    long
      * @param totalMcp    long
      * @param freeMcp     long
-     * @param totalGpu    long
-     * @param freeGpu     long
+     * @param totalGpuMemory long
+     * @param freeGpuMemory  long
      * @param load        int
      * @param os          String
      */
@@ -272,7 +272,7 @@ public interface HostDao {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime, String os);
 
     /**
@@ -292,6 +292,16 @@ public interface HostDao {
      * @return int
      */
     int getStrandedCoreUnits(HostInterface h);
+
+    /**
+     * Return the number of whole stranded gpus on this host. The must have
+     * less than Dispacher.MEM_STRANDED_THRESHHOLD for the gpus to be
+     * considered stranded.
+     *
+     * @param h HostInterface
+     * @return int
+     */
+    int getStrandedGpus(HostInterface h);
 
     /**
      * Return true if the host is preferring a particular show.
