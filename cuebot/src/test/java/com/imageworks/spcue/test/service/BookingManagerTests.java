@@ -325,7 +325,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
 
         assertEquals(100, l2.getMaxCoreUnits());
         assertEquals(CueUtil.GB2, l2.getMaxMemory());
-        assertEquals(CueUtil.MB256, l2.getMaxGpu());
+        assertEquals(CueUtil.MB256, l2.getMaxGpuMemory());
 
         /*
          * Raise the values.
@@ -335,7 +335,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         l2 = bookingManager.getLocalHostAssignment(lja.id);
         assertEquals(200, l2.getMaxCoreUnits());
         assertEquals(CueUtil.GB4, l2.getMaxMemory());
-        assertEquals(CueUtil.MB512, l2.getMaxGpu());
+        assertEquals(CueUtil.MB512, l2.getMaxGpuMemory());
     }
 
     @Test
@@ -351,7 +351,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         LocalHostAssignment lja = new LocalHostAssignment();
         lja.setMaxCoreUnits(200);
         lja.setMaxMemory(CueUtil.GB4);
-        lja.setMaxGpu(CueUtil.MB512);
+        lja.setMaxGpuMemory(CueUtil.MB512);
         lja.setThreads(2);
 
         bookingManager.createLocalHostAssignment(h, j, lja);

@@ -55,7 +55,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         service.minCores = request.getData().getMinCores();
         service.maxCores = request.getData().getMaxCores();
         service.minMemory = request.getData().getMinMemory();
-        service.minGpu = request.getData().getMinGpu();
+        service.minGpu = request.getData().getMinGpuMemory();
         service.tags = Sets.newLinkedHashSet(request.getData().getTagsList());
         service.threadable = request.getData().getThreadable();
         service.timeout = request.getData().getTimeout();
@@ -129,7 +129,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         entity.minCores = service.getMinCores();
         entity.maxCores = service.getMaxCores();
         entity.minMemory = service.getMinMemory();
-        entity.minGpu = service.getMinGpu();
+        entity.minGpu = service.getMinGpuMemory();
         entity.tags = new LinkedHashSet<> (service.getTagsList());
         entity.threadable = service.getThreadable();
         entity.timeout = service.getTimeout();

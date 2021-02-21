@@ -94,8 +94,8 @@ import com.imageworks.spcue.grpc.job.LayerSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMaxCoresResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinCoresResponse;
-import com.imageworks.spcue.grpc.job.LayerSetMinGpuRequest;
-import com.imageworks.spcue.grpc.job.LayerSetMinGpuResponse;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryRequest;
+import com.imageworks.spcue.grpc.job.LayerSetMinGpuMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryRequest;
 import com.imageworks.spcue.grpc.job.LayerSetMinMemoryResponse;
 import com.imageworks.spcue.grpc.job.LayerSetTagsRequest;
@@ -234,10 +234,11 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     }
 
     @Override
-    public void setMinGpu(LayerSetMinGpuRequest request, StreamObserver<LayerSetMinGpuResponse> responseObserver) {
+    public void setMinGpuMemory(LayerSetMinGpuMemoryRequest request,
+                                StreamObserver<LayerSetMinGpuMemoryResponse> responseObserver) {
         updateLayer(request.getLayer());
-        layerDao.updateLayerMinGpu(layer, request.getGpu());
-        responseObserver.onNext(LayerSetMinGpuResponse.newBuilder().build());
+        layerDao.updateLayerMinGpu(layer, request.getGpuMemory());
+        responseObserver.onNext(LayerSetMinGpuMemoryResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
@@ -388,7 +389,7 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
         lha.setThreads(request.getThreads());
         lha.setMaxCoreUnits(request.getMaxCores() * 100);
         lha.setMaxMemory(request.getMaxMemory());
-        lha.setMaxGpu(request.getMaxGpu());
+        lha.setMaxGpuMemory(request.getMaxGpuMemory());
         lha.setType(RenderPartitionType.LAYER_PARTITION);
         if (localBookingSupport.bookLocal(layer, request.getHost(), request.getUsername(), lha)) {
             RenderPartition partition = whiteboard.getRenderPartition(lha);

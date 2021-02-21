@@ -38,8 +38,8 @@ public class HostEntity extends Entity implements HostInterface {
     public int idleCores;
     public int memory;
     public int idleMemory;
-    public int gpu;
-    public int idleGpu;
+    public int gpuMemory;
+    public int idleGpuMemory;
 
     public boolean unlockAtBoot;
 
@@ -59,8 +59,8 @@ public class HostEntity extends Entity implements HostInterface {
         this.idleCores = (int) grpcHost.getIdleCores();
         this.memory = (int) grpcHost.getMemory();
         this.idleMemory = (int) grpcHost.getIdleMemory();
-        this.gpu = (int) grpcHost.getGpu();
-        this.idleGpu = (int) grpcHost.getIdleGpu();
+        this.gpuMemory = (int) grpcHost.getGpuMemory();
+        this.idleGpuMemory = (int) grpcHost.getIdleGpuMemory();
     }
 
     public String getHostId() {

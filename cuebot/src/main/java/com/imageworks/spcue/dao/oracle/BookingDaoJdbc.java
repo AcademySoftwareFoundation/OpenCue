@@ -71,7 +71,7 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.JOB_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpu(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -85,8 +85,8 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
                 l.getThreads());
     }
 
@@ -100,7 +100,7 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.LAYER_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpu(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -114,8 +114,8 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
                 l.getThreads());
     }
 
@@ -130,7 +130,7 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.FRAME_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpu(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -144,8 +144,8 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
                 l.getThreads());
     }
     public static final RowMapper<LocalHostAssignment> LJA_MAPPER =
@@ -155,7 +155,7 @@ public class BookingDaoJdbc extends
             l.id = rs.getString("pk_host_local");
             l.setMaxCoreUnits(rs.getInt("int_cores_max"));
             l.setMaxMemory(rs.getLong("int_mem_max"));
-            l.setMaxGpu(rs.getLong("int_gpu_max"));
+            l.setMaxGpuMemory(rs.getLong("int_gpu_max"));
             l.setThreads(rs.getInt("int_threads"));
             l.setIdleCoreUnits(rs.getInt("int_cores_idle"));
             l.setIdleMemory(rs.getLong("int_mem_idle"));

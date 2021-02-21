@@ -289,8 +289,12 @@ public class JobSpec {
                 job.localMaxMemory = Integer.parseInt(local.getAttributeValue("memory"));
             if (local.getAttributeValue("threads") != null)
                 job.localThreadNumber = Integer.parseInt(local.getAttributeValue("threads"));
-            if (local.getAttributeValue("gpu") != null)
-                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
+            if (local.getAttributeValue("gpu") != null) {
+                logger.warn(job.name + " localbook has the deprecated gpu. Use gpu_memory.");
+                job.localMaxGpuMemory = Integer.parseInt(local.getAttributeValue("gpu"));
+            }
+            if (local.getAttributeValue("gpu_memory") != null)
+                job.localMaxGpuMemory = Integer.parseInt(local.getAttributeValue("gpu_memory"));
         }
 
         job.maxCoreUnits = 20000;
@@ -521,7 +525,7 @@ public class JobSpec {
     }
 
     /**
-     * If the gpu option is set, set minimumGpu to that supplied value
+     * If the gpu_memory option is set, set minimumGpu to that supplied value
      *
      * @param layerTag
      * @param layer
@@ -529,19 +533,28 @@ public class JobSpec {
     private void determineMinimumGpu(BuildableJob buildableJob, Element layerTag,
     		LayerDetail layer) {
 
-        if (layerTag.getChildTextTrim("gpu") == null) {
+        String gpu = layerTag.getChildTextTrim("gpu");
+        String gpuMemory = layerTag.getChildTextTrim("gpu_memory");
+        if (gpu == null && gpuMemory == null) {
             return;
         }
 
-        long minGpu;
-        String memory = layerTag.getChildTextTrim("gpu").toLowerCase();
+        String memory = null;
+        if (gpu != null) {
+            logger.warn(buildableJob.detail.name + "/" + layer.name +
+                    " has the deprecated gpu. Use gpu_memory.");
+            memory = gpu.toLowerCase();
+        }
+        if (gpuMemory != null)
+            memory = gpuMemory.toLowerCase();
 
+        long minGpu;
         try {
             minGpu = convertMemoryInput(memory);
 
             // Some quick sanity checks to make sure gpu memory hasn't gone
             // over or under reasonable defaults.
-            if (minGpu> Dispatcher.GPU_RESERVED_MAX) {
+            if (minGpu > Dispatcher.GPU_RESERVED_MAX) {
                 throw new SpecBuilderException("Gpu memory requirements exceed " +
                         "maximum. Are you specifying the correct units?");
             }

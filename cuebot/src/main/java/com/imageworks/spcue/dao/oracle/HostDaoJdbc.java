@@ -73,8 +73,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.idleCores = rs.getInt("int_cores_idle");
             host.memory = rs.getInt("int_mem");
             host.idleMemory = rs.getInt("int_mem_idle");
-            host.gpu = rs.getInt("int_gpu");
-            host.idleGpu = rs.getInt("int_gpu_idle");
+            host.gpuMemory = rs.getInt("int_gpu");
+            host.idleGpuMemory = rs.getInt("int_gpu_idle");
             host.dateBooted = rs.getDate("ts_booted");
             host.dateCreated = rs.getDate("ts_created");
             host.datePinged = rs.getDate("ts_ping");
