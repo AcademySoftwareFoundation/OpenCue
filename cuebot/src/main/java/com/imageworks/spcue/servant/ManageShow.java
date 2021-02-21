@@ -361,7 +361,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         service.minCores = requestService.getMinCores();
         service.maxCores = requestService.getMaxCores();
         service.minMemory = requestService.getMinMemory();
-        service.minGpu = requestService.getMinGpu();
+        service.minGpu = requestService.getMinGpuMemory();
         service.tags = Sets.newLinkedHashSet(requestService.getTagsList());
         service.threadable = requestService.getThreadable();
         serviceManager.createService(service);

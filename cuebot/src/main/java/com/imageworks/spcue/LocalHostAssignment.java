@@ -38,7 +38,7 @@ public class LocalHostAssignment extends Entity
     private long idleGpu;
 
     private long maxMemory;
-    private long maxGpu;
+    private long maxGpuMemory;
     private int maxCoreUnits;
 
     private int threads;
@@ -52,11 +52,11 @@ public class LocalHostAssignment extends Entity
 
     public LocalHostAssignment() { }
 
-    public LocalHostAssignment(int maxCores, int threads, long maxMemory, long maxGpu) {
+    public LocalHostAssignment(int maxCores, int threads, long maxMemory, long maxGpuMemory) {
         this.maxCoreUnits = maxCores;
         this.threads = threads;
         this.maxMemory = maxMemory;
-        this.maxGpu = maxGpu;
+        this.maxGpuMemory = maxGpuMemory;
     }
 
     @Override
@@ -110,12 +110,12 @@ public class LocalHostAssignment extends Entity
         return this.idleMemory;
     }
 
-    public long getMaxGpu() {
-        return maxGpu;
+    public long getMaxGpuMemory() {
+        return maxGpuMemory;
     }
 
-    public void setMaxGpu(long maxGpu) {
-        this.maxGpu = maxGpu;
+    public void setMaxGpuMemory(long maxGpuMemory) {
+        this.maxGpuMemory = maxGpuMemory;
     }
 
     public long getIdleGpu() {

@@ -772,7 +772,7 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             lha.setThreads(request.getThreads());
             lha.setMaxCoreUnits(request.getMaxCores() * 100);
             lha.setMaxMemory(request.getMaxMemory());
-            lha.setMaxGpu(request.getMaxGpu());
+            lha.setMaxGpuMemory(request.getMaxGpuMemory());
             lha.setType(RenderPartitionType.JOB_PARTITION);
 
             if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
