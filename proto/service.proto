@@ -46,11 +46,13 @@ message Service {
     bool threadable = 3;
     int32 min_cores = 4;
     int32 max_cores = 5;
-    int32 min_memory = 6;
-    int32 min_gpu = 7;
+    int64 min_memory = 6;
+    int64 min_gpu_memory = 7;
     repeated string tags = 8;
     int32 timeout = 9;
     int32 timeout_llu = 10;
+    int32 min_gpus = 11;
+    int32 max_gpus = 12;
 }
 
 message ServiceSeq {

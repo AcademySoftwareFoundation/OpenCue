@@ -110,6 +110,7 @@ message RunFrame {
     bool ignore_nimby = 20;
     map<string, string> environment = 21;
     map<string, string> attributes = 22;
+    int32 num_gpus = 23;
 }
 
 message RunFrameSeq {
