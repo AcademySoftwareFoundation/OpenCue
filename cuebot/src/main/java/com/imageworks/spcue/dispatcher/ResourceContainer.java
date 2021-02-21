@@ -27,19 +27,21 @@ public interface ResourceContainer {
      *
      * @param minCores
      * @param minMemory
-     * @param minGpu
+     * @param minGpus
+     * @param minGpuMemory
      * @return
      */
-    public boolean hasAdditionalResources(int minCores, long minMemory, long minGpu);
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory);
 
     /**
      * Subtract the given resources from the grand totals.
      *
      * @param coreUnits
      * @param memory
-     * @param gpu
+     * @param gpuUnits
+     * @param gpuMemory
      */
-    public void useResources(int coreUnits, long memory, long gpu);
+    public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory);
 
 }
 

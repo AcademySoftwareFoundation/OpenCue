@@ -192,11 +192,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     s.getShowId(), host.getFacilityId(), host.os,
                     host.idleCores, host.idleMemory,
                     threadMode(host.threadMode),
-                    (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                    (host.idleGpuMemory > 0) ? 1: 0, host.idleGpuMemory,
                     hostString(host.getName()), numJobs * 10));
 
             if (result.size() < 1) {
-                if (host.gpu == 0) {
+                if (host.gpuMemory == 0) {
                     s.skip(host.tags, host.idleCores, host.idleMemory);
                 }
             }
@@ -227,7 +227,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 g.getGroupId(),host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                (host.idleGpuMemory > 0) ? 1: 0, host.idleGpuMemory,
                 hostString(host.getName()), 50));
 
         return result;
@@ -242,7 +242,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved,
-                    proc.gpuReserved,
+                    proc.gpuMemoryReserved,
                     job.getJobId(),
                     limit);
         }
@@ -252,7 +252,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved,
                     proc.memoryReserved,
-                    (proc.gpuReserved > 0) ? 1: 0, proc.gpuReserved,
+                    (proc.gpuMemoryReserved > 0) ? 1: 0, proc.gpuMemoryReserved,
                     job.getJobId(), job.getJobId(),
                     hostString(proc.hostName), limit);
         }
@@ -266,7 +266,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory,  host.idleGpu, job.getJobId(),
+                    host.idleMemory,  host.idleGpuMemory, job.getJobId(),
                     limit);
 
         } else {
@@ -275,7 +275,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                (host.idleGpuMemory > 0) ? 1: 0, host.idleGpuMemory,
                 job.getJobId(), job.getJobId(),
                 hostString(host.getName()), limit);
         }
@@ -290,7 +290,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.memoryReserved, proc.gpuReserved,
+                    proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(),
                     limit);
         }
@@ -299,7 +299,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved, proc.memoryReserved,
-                    proc.gpuReserved,
+                    proc.gpuMemoryReserved,
                     layer.getLayerId(), layer.getLayerId(),
                     hostString(proc.hostName), limit);
         }
@@ -313,7 +313,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             return getJdbcTemplate().query(
                     FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory, host.idleGpu, layer.getLayerId(),
+                    host.idleMemory, host.idleGpuMemory, layer.getLayerId(),
                     limit);
 
         } else {
@@ -322,7 +322,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                host.idleGpu, layer.getLayerId(), layer.getLayerId(),
+                host.idleGpuMemory, layer.getLayerId(), layer.getLayerId(),
                 hostString(host.getName()), limit);
         }
     }
@@ -347,7 +347,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     Integer.class, excludeJob.getShowId(), proc.getFacilityId(),
                     proc.os, excludeJob.getShowId(),
                     proc.getFacilityId(), proc.os,
-                    proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
+                    proc.coresReserved, proc.memoryReserved, proc.gpuMemoryReserved,
                     hostString(proc.hostName)) > 0;
          } catch (org.springframework.dao.EmptyResultDataAccessException e) {
              return false;
@@ -365,7 +365,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS,
                     Boolean.class, baseJob.priority, proc.getFacilityId(),
                     proc.os, proc.getFacilityId(), proc.os,
-                    proc.coresReserved, proc.memoryReserved, proc.gpuReserved,
+                    proc.coresReserved, proc.memoryReserved, proc.gpuMemoryReserved,
                     hostString(proc.hostName));
         } catch (org.springframework.dao.EmptyResultDataAccessException e) {
             return false;
@@ -386,7 +386,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 show.getShowId(), host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+                (host.idleGpuMemory > 0) ? 1: 0, host.idleGpuMemory,
                 hostString(host.getName()), numJobs * 10));
 
         return result;

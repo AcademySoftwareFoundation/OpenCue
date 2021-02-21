@@ -949,7 +949,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             return Proc.newBuilder()
                     .setId(SqlUtil.getString(rs, "pk_proc"))
                     .setName(CueUtil.buildProcName(SqlUtil.getString(rs, "host_name"),
-                            rs.getInt("int_cores_reserved")))
+                            rs.getInt("int_cores_reserved"), 0))
                     .setReservedCores(Convert.coreUnitsToCores(rs.getInt("int_cores_reserved")))
                     .setReservedMemory(rs.getLong("int_mem_reserved"))
                     .setReservedGpuMemory(rs.getLong("int_gpu_reserved"))
@@ -1367,7 +1367,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
 
                 if (SqlUtil.getString(rs, "str_host") != null) {
                     builder.setLastResource(CueUtil.buildProcName(SqlUtil.getString(rs, "str_host"),
-                            rs.getInt("int_cores")));
+                            rs.getInt("int_cores"), 0));
                 } else {
                     builder.setLastResource("");
                 }

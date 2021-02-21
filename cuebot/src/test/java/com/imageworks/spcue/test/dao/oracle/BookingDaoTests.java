@@ -444,7 +444,7 @@ public class BookingDaoTests  extends AbstractTransactionalJUnit4SpringContextTe
         assertEquals(CueUtil.GB2, lj2.getMaxMemory());
         assertEquals(1, lj2.getMaxGpuMemory());
 
-        bookingDao.updateMaxGpu(lja, 2);
+        bookingDao.updateMaxGpuMemory(lja, 2);
 
         lj2 = bookingDao.getLocalJobAssignment(lja.id);
 

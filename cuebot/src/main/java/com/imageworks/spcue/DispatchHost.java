@@ -35,13 +35,16 @@ public class DispatchHost extends Entity
     public int cores;
     public int idleCores;
 
+    public int gpus;
+    public int idleGpus;
+
     // Basically an 0 = auto, 1 = all.
     public int threadMode;
 
     public long memory;
     public long idleMemory;
-    public long gpu;
-    public long idleGpu;
+    public long gpuMemory;
+    public long idleGpuMemory;
     public String tags;
     public String os;
 
@@ -53,11 +56,13 @@ public class DispatchHost extends Entity
      * booked to this host.
      */
     public int strandedCores = 0;
+    public int strandedGpus = 0;
 
     // To reserve resources for future gpu job
     long idleMemoryOrig = 0;
     int idleCoresOrig = 0;
-    long idleGpuOrig = 0;
+    long idleGpuMemoryOrig = 0;
+    int idleGpusOrig = 0;
 
     public String getHostId() {
         return id;
@@ -72,7 +77,7 @@ public class DispatchHost extends Entity
     }
 
     @Override
-    public boolean hasAdditionalResources(int minCores, long minMemory, long minGpu) {
+    public boolean hasAdditionalResources(int minCores, long minMemory, int minGpus, long minGpuMemory) {
 
         if (idleCores < minCores) {
             return false;
@@ -80,7 +85,10 @@ public class DispatchHost extends Entity
         else if (idleMemory <  minMemory) {
             return false;
         }
-        else if (idleGpu <  minGpu) {
+        else if (idleGpus < minGpus) {
+            return false;
+        }
+        else if (idleGpuMemory <  minGpuMemory) {
             return false;
         }
 
@@ -88,10 +96,11 @@ public class DispatchHost extends Entity
     }
 
     @Override
-    public void useResources(int coreUnits, long memory, long gpu) {
+    public void useResources(int coreUnits, long memory, int gpuUnits, long gpuMemory) {
         idleCores = idleCores - coreUnits;
         idleMemory = idleMemory - memory;
-        idleGpu = idleGpu - gpu;
+        idleGpus = idleGpus - gpuUnits;
+        idleGpuMemory = idleGpuMemory - gpuMemory;
     }
 
     /**
@@ -99,14 +108,16 @@ public class DispatchHost extends Entity
      *
      */
     public void removeGpu() {
-        if (idleGpu > 0 && idleGpuOrig == 0) {
+        if (idleGpuMemory > 0 && idleGpuMemoryOrig == 0) {
             idleMemoryOrig = idleMemory;
             idleCoresOrig = idleCores;
-            idleGpuOrig = idleGpu;
+            idleGpuMemoryOrig = idleGpuMemory;
+            idleGpusOrig = idleGpus;
 
             idleMemory = idleMemory - Math.min(CueUtil.GB4, idleMemory);
             idleCores = idleCores - Math.min(100, idleCores);
-            idleGpu = 0;
+            idleGpuMemory = idleGpuMemory - Math.min(CueUtil.GB4, idleGpuMemory);
+            idleGpus = idleGpus - Math.min(1, idleGpus);
         }
     }
 
@@ -115,14 +126,16 @@ public class DispatchHost extends Entity
      *
      */
     public void restoreGpu() {
-        if (idleGpuOrig > 0) {
+        if (idleGpuMemoryOrig > 0) {
             idleMemory = idleMemoryOrig;
             idleCores = idleCoresOrig;
-            idleGpu = idleGpuOrig;
+            idleGpuMemory = idleGpuMemoryOrig;
+            idleGpus = idleGpusOrig;
 
             idleMemoryOrig = 0;
             idleCoresOrig = 0;
-            idleGpuOrig = 0;
+            idleGpuMemoryOrig = 0;
+            idleGpusOrig = 0;
         }
     }
 }

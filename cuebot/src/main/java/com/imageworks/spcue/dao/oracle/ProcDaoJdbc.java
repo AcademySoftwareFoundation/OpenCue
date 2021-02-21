@@ -122,7 +122,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                      proc.getLayerId(), proc.getJobId(), proc.getFrameId(),
                      proc.coresReserved, proc.memoryReserved,
                      proc.memoryReserved, Dispatcher.MEM_RESERVED_MIN,
-                     proc.gpuReserved, proc.isLocalDispatch);
+                     proc.gpuMemoryReserved, proc.isLocalDispatch);
 
             // Update all of the resource counts
             procCreated(proc);
@@ -280,7 +280,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.coresReserved =rs.getInt("int_cores_reserved");
                 proc.memoryReserved = rs.getInt("int_mem_reserved");
                 proc.memoryMax = rs.getInt("int_mem_max_used");
-                proc.gpuReserved = rs.getInt("int_gpu_reserved");
+                proc.gpuMemoryReserved = rs.getInt("int_gpu_reserved");
                 proc.virtualMemoryMax = rs.getLong("int_virt_max_used");
                 proc.virtualMemoryUsed = rs.getLong("int_virt_used");
                 proc.memoryUsed = rs.getInt("int_mem_used");
@@ -581,7 +581,12 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   Long.class, proc.getProcId());
       }
 
-      public long getReservedGpu(ProcInterface proc) {
+    @Override
+    public long getReservedGpuMemory(ProcInterface proc) {
+        return 0;
+    }
+
+    public long getReservedGpu(ProcInterface proc) {
           return getJdbcTemplate().queryForObject(
                   "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
                   Long.class, proc.getProcId());
@@ -700,7 +705,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   "int_gpu_idle = int_gpu_idle + ? " +
               "WHERE " +
                   "pk_host = ?",
-            proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());
+            proc.coresReserved, proc.memoryReserved, proc.gpuMemoryReserved, proc.getHostId());
 
           if (!proc.isLocalDispatch) {
               getJdbcTemplate().update(
@@ -784,7 +789,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                           "pk_host = ? ",
                       proc.coresReserved,
                       proc.memoryReserved,
-                      proc.gpuReserved,
+                      proc.gpuMemoryReserved,
                       proc.getJobId(),
                       proc.getHostId());
           }
@@ -808,7 +813,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     "int_gpu_idle = int_gpu_idle - ? " +
                 "WHERE " +
                     "pk_host = ?",
-                proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());
+                proc.coresReserved, proc.memoryReserved, proc.gpuMemoryReserved, proc.getHostId());
 
 
           /**

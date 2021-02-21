@@ -114,8 +114,8 @@ public class HostManagerTests extends AbstractTransactionalJUnit4SpringContextTe
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addAllTags(ImmutableList.of("linux", "64bit"))
-                .putAttributes("freeGpu", "512")
-                .putAttributes("totalGpu", "512")
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostDao.insertRenderHost(host,

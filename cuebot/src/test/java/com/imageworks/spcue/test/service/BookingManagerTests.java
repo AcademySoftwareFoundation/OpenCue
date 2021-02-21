@@ -125,8 +125,8 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
                 .setState(HardwareState.UP)
                 .setFacility("spi")
                 .addTags("general")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         DispatchHost dh = hostManager.createHost(host);
@@ -319,7 +319,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         /*
          * Lower the cores.
          */
-        bookingManager.setMaxResources(lja, 100, CueUtil.GB2, CueUtil.MB256);
+        bookingManager.setMaxResources(lja, 100, CueUtil.GB2, 1, CueUtil.MB256);
 
         LocalHostAssignment l2 = bookingManager.getLocalHostAssignment(lja.id);
 
@@ -330,7 +330,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         /*
          * Raise the values.
          */
-        bookingManager.setMaxResources(lja, 200, CueUtil.GB4, CueUtil.MB512);
+        bookingManager.setMaxResources(lja, 200, CueUtil.GB4, 1, CueUtil.MB512);
 
         l2 = bookingManager.getLocalHostAssignment(lja.id);
         assertEquals(200, l2.getMaxCoreUnits());
@@ -359,7 +359,7 @@ public class BookingManagerTests extends AbstractTransactionalJUnit4SpringContex
         /*
          * Raise the cores too high
          */
-        bookingManager.setMaxResources(lja, 800, CueUtil.GB2, 0);
+        bookingManager.setMaxResources(lja, 800, CueUtil.GB2, 0, 0);
     }
 
     @Test

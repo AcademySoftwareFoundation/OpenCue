@@ -1243,7 +1243,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         whiteboardDao.getRenderPartition(lba);
@@ -1260,7 +1260,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         assertEquals(1, whiteboardDao.getRenderPartitions(hd).getRenderPartitionsCount());

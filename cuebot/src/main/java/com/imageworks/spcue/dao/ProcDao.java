@@ -54,7 +54,7 @@ public interface ProcDao {
      * @return
      */
 
-    long getReservedGpu(ProcInterface proc);
+    long getReservedGpuMemory(ProcInterface proc);
 
     /**
      * Return the proc that has exceeded its reserved memory by the largest factor.

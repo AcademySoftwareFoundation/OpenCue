@@ -206,7 +206,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
             layer.range = rs.getString("str_range");
             layer.minimumCores = rs.getInt("int_cores_min");
             layer.minimumMemory = rs.getLong("int_mem_min");
-            layer.minimumGpu = rs.getLong("int_gpu_min");
+            layer.minimumGpuMemory = rs.getLong("int_gpu_min");
             layer.type = LayerType.valueOf(rs.getString("str_type"));
             layer.tags = Sets.newHashSet(
                     rs.getString("str_tags").replaceAll(" ", "").split("\\|"));
@@ -323,7 +323,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
                 l.range, l.chunkSize, l.dispatchOrder,
                 StringUtils.join(l.tags," | "), l.type.toString(),
                 l.minimumCores, l.maximumCores, l.isThreadable,
-                l.minimumMemory, l.minimumGpu, StringUtils.join(l.services,","));
+                l.minimumMemory, l.minimumGpus, StringUtils.join(l.services,","));
     }
 
     @Override
@@ -336,9 +336,8 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateLayerMinGpu(LayerInterface layer, long gpu) {
-        getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=?",
-                gpu, layer.getLayerId());
+    public void updateLayerMinGpuMemory(LayerInterface layer, long val) {
+
     }
 
     private static final String BALANCE_MEM =
@@ -388,7 +387,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void increaseLayerMinGpu(LayerInterface layer, long gpu) {
+    public void increaseLayerMinGpuMemory(LayerInterface layer, long gpu) {
         getJdbcTemplate().update("UPDATE layer SET int_gpu_min=? WHERE pk_layer=? AND int_gpu_min < ?",
                 gpu, layer.getLayerId(), gpu);
     }
@@ -403,9 +402,19 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
+    public void updateLayerMinGpus(LayerInterface layer, int val) {
+
+    }
+
+    @Override
     public void updateLayerMaxCores(LayerInterface layer, int val) {
         getJdbcTemplate().update("UPDATE layer SET int_cores_max=? WHERE pk_layer=?",
                 val, layer.getLayerId());
+    }
+
+    @Override
+    public void updateLayerMaxGpus(LayerInterface layer, int val) {
+
     }
 
     private static final String UPDATE_LAYER_MAX_RSS =
@@ -604,7 +613,7 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
-    public void updateMinGpu(JobInterface job, long gpu, LayerType type) {
+    public void updateMinGpuMemory(JobInterface job, long gpu, LayerType type) {
         getJdbcTemplate().update(
                 "UPDATE layer SET int_gpu_min=? WHERE pk_job=? AND str_type=?",
                 gpu, job.getJobId(), type.toString());
@@ -615,6 +624,11 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         getJdbcTemplate().update(
                 "UPDATE layer SET int_cores_min=? WHERE pk_job=? AND str_type=?",
                 cores, job.getJobId(), type.toString());
+    }
+
+    @Override
+    public void updateMinGpus(JobInterface job, int gpu, LayerType type) {
+
     }
 
     @Override

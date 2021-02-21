@@ -198,7 +198,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
         int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
                 FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId(),
+                proc.memoryReserved, proc.gpuMemoryReserved, frame.getFrameId(),
                 FrameState.WAITING.toString(), frame.getVersion());
 
         if (result == 0) {
@@ -238,7 +238,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     public boolean updateFrameFixed(VirtualProc proc, FrameInterface frame) {
         return getJdbcTemplate().update(UPDATE_FRAME_FIXED,
                 FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId()) == 1;
+                proc.memoryReserved, proc.gpuMemoryReserved, frame.getFrameId()) == 1;
     }
 
     @Override
@@ -274,7 +274,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
             frame.minMemory = rs.getLong("int_mem_min");
-            frame.minGpu = rs.getLong("int_gpu_min");
+            frame.minGpuMemory = rs.getLong("int_gpu_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             return frame;
@@ -968,7 +968,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 int rowNum) throws SQLException {
             return new ResourceUsage(
                     rs.getLong("int_clock_time"),
-                    rs.getInt("int_cores"));
+                    rs.getInt("int_cores"),
+                    0);
         }
 
     };

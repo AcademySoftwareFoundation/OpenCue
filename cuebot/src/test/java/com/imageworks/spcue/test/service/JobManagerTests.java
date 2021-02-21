@@ -463,7 +463,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
                 .stream()
                 .limit(5)
                 .forEach(frame -> frameDao.updateFrameState(frame, FrameState.SUCCEEDED));
-        layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5), 0);
+        layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5, 0), 0);
 
         // Test to make sure our optimization
         jobManager.optimizeLayer(layer, 100, CueUtil.MB512, 120);

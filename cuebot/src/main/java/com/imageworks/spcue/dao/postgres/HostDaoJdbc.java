@@ -71,10 +71,12 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.unlockAtBoot = rs.getBoolean("b_unlock_boot");
             host.cores = rs.getInt("int_cores");
             host.idleCores = rs.getInt("int_cores_idle");
-            host.memory = rs.getInt("int_mem");
-            host.idleMemory = rs.getInt("int_mem_idle");
-            host.gpuMemory = rs.getInt("int_gpu_mem");
-            host.idleGpuMemory = rs.getInt("int_gpu_mem_idle");
+            host.memory = rs.getLong("int_mem");
+            host.idleMemory = rs.getLong("int_mem_idle");
+            host.gpus = rs.getInt("int_gpus");
+            host.idleGpus = rs.getInt("int_gpus_idle");
+            host.gpuMemory = rs.getLong("int_gpu_mem");
+            host.idleGpuMemory = rs.getLong("int_gpu_mem_idle");
             host.dateBooted = rs.getDate("ts_booted");
             host.dateCreated = rs.getDate("ts_created");
             host.datePinged = rs.getDate("ts_ping");
@@ -110,6 +112,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host.int_cores_idle,"+
             "host.int_mem,"+
             "host.int_mem_idle,"+
+            "host.int_gpus,"+
+            "host.int_gpus_idle,"+
             "host.int_gpu_mem,"+
             "host.int_gpu_mem_idle,"+
             "host.ts_created,"+
@@ -199,12 +203,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             host.facilityId = rs.getString("pk_facility");
             host.name = rs.getString("str_name");
             host.lockState = LockState.valueOf(rs.getString("str_lock_state"));
-            host.memory = rs.getInt("int_mem");
+            host.memory = rs.getLong("int_mem");
             host.cores = rs.getInt("int_cores");
-            host.gpu= rs.getInt("int_gpu_mem");
-            host.idleMemory= rs.getInt("int_mem_idle");
+            host.gpus = rs.getInt("int_gpus");
+            host.gpuMemory = rs.getLong("int_gpu_mem");
+            host.idleMemory= rs.getLong("int_mem_idle");
             host.idleCores = rs.getInt("int_cores_idle");
-            host.idleGpu= rs.getInt("int_gpu_mem_idle");
+            host.idleGpuMemory = rs.getLong("int_gpu_mem_idle");
+            host.idleGpus = rs.getInt("int_gpus_idle");
             host.isNimby = rs.getBoolean("b_nimby");
             host.threadMode = rs.getInt("int_thread_mode");
             host.tags = rs.getString("str_tags");
@@ -225,6 +231,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "host.int_cores_idle, " +
             "host.int_mem,"+
             "host.int_mem_idle, "+
+            "host.int_gpus, "+
+            "host.int_gpus_idle, " +
             "host.int_gpu_mem,"+
             "host.int_gpu_mem_idle, "+
             "host.b_nimby, "+
@@ -276,12 +284,14 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             "int_cores_idle, " +
             "int_mem,"+
             "int_mem_idle,"+
+            "int_gpus, " +
+            "int_gpus_idle, " +
             "int_gpu_mem,"+
             "int_gpu_mem_idle,"+
             "str_fqdn, " +
             "int_thread_mode "+
         ") " +
-        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
 
         "INSERT INTO " +
         "host_stat " +
@@ -347,28 +357,17 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             os = Dispatcher.OS_DEFAULT;
         }
 
-        long totalGpu;
-        if (host.getAttributesMap().containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(host.getAttributesMap().get("totalGpu"));
-        else
-            totalGpu = 0;
-
-        long freeGpu;
-        if (host.getAttributesMap().containsKey("freeGpu"))
-            freeGpu = Integer.parseInt(host.getAttributesMap().get("freeGpu"));
-        else
-            freeGpu = 0;
-
-
         getJdbcTemplate().update(INSERT_HOST_DETAIL[0],
                 hid, a.getAllocationId(), name, host.getNimbyEnabled(),
                 LockState.OPEN.toString(), host.getNumProcs(), coreUnits, coreUnits,
-                memUnits, memUnits, totalGpu, totalGpu,
+                memUnits, memUnits,
+                host.getNumGpus(), host.getNumGpus(),
+                host.getTotalGpuMem(), host.getTotalGpuMem(),
                 fqdn, threadMode.getNumber());
 
         getJdbcTemplate().update(INSERT_HOST_DETAIL[1],
                 hid, hid, host.getTotalMem(), host.getFreeMem(),
-                totalGpu, freeGpu,
+                host.getTotalGpuMem(), host.getFreeGpuMem(),
                 host.getTotalSwap(), host.getFreeSwap(),
                 host.getTotalMcp(), host.getFreeMcp(),
                 host.getLoad(), new Timestamp(host.getBootTime() * 1000l),
@@ -410,7 +409,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime,
             String os) {
 
@@ -420,7 +419,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         getJdbcTemplate().update(UPDATE_RENDER_HOST,
                 totalMemory, freeMemory, totalSwap,
-                freeSwap, totalMcp, freeMcp, totalGpu, freeGpu, load,
+                freeSwap, totalMcp, freeMcp, totalGpuMemory, freeGpuMemory, load,
                 bootTime, os, host.getHostId());
     }
 
@@ -440,12 +439,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         long memory = convertMemoryUnits(report.getHost());
         int cores = report.getHost().getNumProcs() * report.getHost().getCoresPerProc();
-
-        long totalGpu;
-        if (report.getHost().getAttributesMap().containsKey("totalGpu"))
-            totalGpu = Integer.parseInt(report.getHost().getAttributesMap().get("totalGpu"));
-        else
-            totalGpu = 0;
+        long gpu_memory = report.getHost().getTotalGpuMem();
+        int gpus = report.getHost().getNumGpus();
 
         getJdbcTemplate().update(
                 "UPDATE " +
@@ -456,6 +451,8 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     "int_cores_idle=?," +
                     "int_mem=?," +
                     "int_mem_idle=?, " +
+                    "int_gpus=?," +
+                    "int_gpus_idle=?," +
                     "int_gpu_mem=?," +
                     "int_gpu_mem_idle=? " +
                 "WHERE " +
@@ -463,9 +460,11 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 "AND " +
                     "int_cores = int_cores_idle " +
                 "AND " +
-                    "int_mem = int_mem_idle",
+                    "int_mem = int_mem_idle " +
+                "AND " +
+                    "int_gpus = int_gpus_idle",
                     report.getHost().getNimbyEnabled(), cores, cores,
-                    memory, memory, totalGpu, totalGpu, host.getId());
+                    memory, memory, gpus, gpus, gpu_memory, gpu_memory, host.getId());
     }
 
     @Override
@@ -623,6 +622,18 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                     Integer.class, h.getHostId(),
                     Dispatcher.MEM_STRANDED_THRESHHOLD);
             return (int) (Math.floor(idle_cores / 100.0)) * 100;
+        } catch (EmptyResultDataAccessException e) {
+            return 0;
+        }
+    }
+
+    @Override
+    public int getStrandedGpus(HostInterface h) {
+        try {
+            int idle_gpus = getJdbcTemplate().queryForObject(
+                    "SELECT int_gpus_idle FROM host WHERE pk_host = ?",
+                    Integer.class, h.getHostId());
+            return idle_gpus;
         } catch (EmptyResultDataAccessException e) {
             return 0;
         }

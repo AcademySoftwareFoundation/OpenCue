@@ -60,7 +60,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpuMemory = rs.getLong("int_gpu_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             return s;
@@ -77,7 +77,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpuMemory = rs.getLong("int_gpu_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.showId = rs.getString("pk_show");
@@ -168,7 +168,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         service.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SERVICE, service.id,
                 service.name, service.threadable, service.minCores,
-                service.maxCores, service.minMemory, service.minGpu,
+                service.maxCores, service.minMemory, service.minGpuMemory,
                 StringUtils.join(service.tags.toArray(), " | "));
     }
 
@@ -193,7 +193,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id,
                 service.showId, service.name, service.threadable,
                 service.minCores, service.maxCores, service.minMemory,
-                service.minGpu, joinTags(service.tags));
+                service.minGpuMemory, joinTags(service.tags));
     }
 
     private static final String UPDATE_SERVICE =
@@ -214,7 +214,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpuMemory, joinTags(service.tags),
                 service.getId());
     }
 
@@ -236,7 +236,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceOverrideEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpuMemory, joinTags(service.tags),
                 service.getId());
     }
 

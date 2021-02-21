@@ -341,6 +341,16 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     }
 
     @Override
+    public void updateMaxGpus(GroupInterface g, int gpus) {
+
+    }
+
+    @Override
+    public void updateMinGpus(GroupInterface g, int gpus) {
+
+    }
+
+    @Override
     public void updateMaxCores(GroupInterface g, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE " +
                 "pk_job IN (SELECT pk_job FROM job WHERE pk_folder=?)",
@@ -357,6 +367,16 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     public void updateMaxCores(JobInterface j, int v) {
         getJdbcTemplate().update("UPDATE job_resource SET int_max_cores=? WHERE pk_job=?",
                 v, j.getJobId());
+    }
+
+    @Override
+    public void updateMinGpus(JobInterface j, int v) {
+
+    }
+
+    @Override
+    public void updateMaxGpus(JobInterface j, int v) {
+
     }
 
     @Override
@@ -609,6 +629,26 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
     public boolean isOverMaxCores(JobInterface job, int coreUnits) {
         return getJdbcTemplate().queryForObject(IS_JOB_OVER_MAX_CORES,
                 Integer.class, job.getJobId(), coreUnits) > 0;
+    }
+
+    @Override
+    public boolean isOverMinGpus(JobInterface job) {
+        return false;
+    }
+
+    @Override
+    public boolean isOverMaxGpus(JobInterface job) {
+        return false;
+    }
+
+    @Override
+    public boolean isAtMaxGpus(JobInterface job) {
+        return false;
+    }
+
+    @Override
+    public boolean isOverMaxGpus(JobInterface job, int gpus) {
+        return false;
     }
 
 

@@ -154,9 +154,9 @@ public class CueUtilTester extends TestCase {
 
     @Test
     public void testBuildProcName() {
-        assertEquals("drack100/1.00", CueUtil.buildProcName("drack100",100));
-        assertEquals("drack100/1.40", CueUtil.buildProcName("drack100",140));
-        assertEquals("drack100/2.01", CueUtil.buildProcName("drack100",201));
+        assertEquals("drack100/1.00/1", CueUtil.buildProcName("drack100",100,1));
+        assertEquals("drack100/1.40/0", CueUtil.buildProcName("drack100",140,0));
+        assertEquals("drack100/2.01/2", CueUtil.buildProcName("drack100",201,2));
     }
 
     @Test

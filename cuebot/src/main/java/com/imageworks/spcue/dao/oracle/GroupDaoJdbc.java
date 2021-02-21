@@ -213,6 +213,26 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 value, group.getId());
     }
 
+    @Override
+    public void updateDefaultJobMaxGpus(GroupInterface group, int value) {
+
+    }
+
+    @Override
+    public void updateDefaultJobMinGpus(GroupInterface group, int value) {
+
+    }
+
+    @Override
+    public void updateMaxGpus(GroupInterface group, int value) {
+
+    }
+
+    @Override
+    public void updateMinGpus(GroupInterface group, int value) {
+
+    }
+
     private static final String IS_OVER_MIN_CORES =
         "SELECT " +
             "COUNT(1) " +
@@ -230,6 +250,11 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     public boolean isOverMinCores(JobInterface job) {
         return getJdbcTemplate().queryForObject(IS_OVER_MIN_CORES,
                 Integer.class, job.getJobId()) > 0;
+    }
+
+    @Override
+    public boolean isOverMinGpus(JobInterface job) {
+        return false;
     }
 
     @Override
