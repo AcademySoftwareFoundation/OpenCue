@@ -59,17 +59,20 @@ message RenderHost {
     string facility= 4; // The name of the facility that the host is in
     int32 num_procs = 5; // the number of physical procs on this machine
     int32 cores_per_proc = 6; // the number of cores per proc
-    int32 total_swap = 7; // the total size of the swap in kB
-    int32 total_mem = 8; // the total size of the main memory pool in kB
-    int32 total_mcp = 9; // the total size of MCP in kB
-    int32 free_swap = 10; // the current amount of free swap in kB
-    int32 free_mem = 11; // the current amount of free memory in kB
-    int32 free_mcp = 12; // the current amount of free MCP in kB
+    int64 total_swap = 7; // the total size of the swap in kB
+    int64 total_mem = 8; // the total size of the main memory pool in kB
+    int64 total_mcp = 9; // the total size of MCP in kB
+    int64 free_swap = 10; // the current amount of free swap in kB
+    int64 free_mem = 11; // the current amount of free memory in kB
+    int64 free_mcp = 12; // the current amount of free MCP in kB
     int32 load = 13; // the current load on the proc
     int32 boot_time = 14; // the time the proc was booted
     repeated string tags = 15; // an array of default tags that are added to the host record
     host.HardwareState state = 16; // hardware state for the host
     map<string, string> attributes = 17; // additional data can be provided about the host
+    int32 num_gpus = 18; // the number of physical GPU's
+    int64 free_gpu_mem = 19; // the current amount of free gpu memory in kB
+    int64 total_gpu_mem = 20; // the total size of gpu memory in kB
 };
 
 message RunningFrameInfo {
@@ -87,6 +90,9 @@ message RunningFrameInfo {
     int64 vsize = 12; // kB
     map<string, string> attributes = 13; //additional data can be provided about the running frame
     int64 llu_time = 14;
+    int32 num_gpus = 15;
+    int64 max_used_gpu_memory = 16; // kB
+    int64 used_gpu_memory = 17; // kB
 };
 
 

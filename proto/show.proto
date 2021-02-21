@@ -99,6 +99,12 @@ service ShowInterface {
 
     // sets a show's default min procs
     rpc SetDefaultMinCores(ShowSetDefaultMinCoresRequest) returns (ShowSetDefaultMinCoresResponse);
+
+    // sets a show's default max Gpus
+    rpc SetDefaultMaxGpus(ShowSetDefaultMaxGpusRequest) returns (ShowSetDefaultMaxGpusResponse);
+
+    // sets a show's default min Gpus
+    rpc SetDefaultMinGpus(ShowSetDefaultMinGpusRequest) returns (ShowSetDefaultMinGpusResponse);
 }
 
 
@@ -114,6 +120,8 @@ message Show {
     bool dispatch_enabled = 7;
     bool active = 8;
     ShowStats show_stats = 9;
+    float default_min_gpus = 10;
+    float default_max_gpus = 11;
 }
 
 message ShowSeq {
@@ -130,6 +138,7 @@ message ShowStats {
     int64 rendered_frame_count = 7;
     int64 failed_frame_count = 8;
     float reserved_cores = 9;
+    float reserved_gpus = 10;
 }
 
 
@@ -375,3 +384,19 @@ message ShowSetDefaultMinCoresRequest {
 }
 
 message ShowSetDefaultMinCoresResponse {} // Empty
+
+// SetDefaultMaxGpus
+message ShowSetDefaultMaxGpusRequest {
+    Show show = 1;
+    int32 max_gpus = 2;
+}
+
+message ShowSetDefaultMaxGpusResponse {} // Empty
+
+// SetDefaultMinGpus
+message ShowSetDefaultMinGpusRequest {
+    Show show = 1;
+    int32 min_gpus = 2;
+}
+
+message ShowSetDefaultMinGpusResponse {} // Empty
