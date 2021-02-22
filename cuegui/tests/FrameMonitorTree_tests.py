@@ -120,7 +120,7 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     def test_getCores(self):
         frame = opencue.wrappers.frame.Frame(
-            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723'))
+            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723/0'))
 
         self.assertEqual(125.82723, self.frameMonitorTree.getCores(frame))
         self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format_as_string=True))

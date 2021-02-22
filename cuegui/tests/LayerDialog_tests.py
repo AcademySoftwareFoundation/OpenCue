@@ -55,13 +55,15 @@ class LayerPropertiesDialogTests(unittest.TestCase):
             'layer1Id': opencue.wrappers.layer.Layer(
                 opencue.compiled_proto.job_pb2.Layer(
                     id='layer1Id', name='layer1Name', range='1-5', tags=['tag1', 'tag2'],
-                    min_cores=1, max_cores=3, is_threadable=False, min_memory=2097152, min_gpu=1,
+                    min_cores=1, max_cores=3, is_threadable=False,
+                    min_memory=2097152, min_gpu_memory=1,
                     chunk_size=1, timeout=30, timeout_llu=1, memory_optimizer_enabled=True,
                     limits=['limit1Name', 'limit2Name'])),
             'layer2Id': opencue.wrappers.layer.Layer(
                 opencue.compiled_proto.job_pb2.Layer(
                     id='layer2Id', name='layer2Name', range='2-22', tags=['tag2', 'tag3'],
-                    min_cores=2, max_cores=2, is_threadable=True, min_memory=6291456, min_gpu=2,
+                    min_cores=2, max_cores=2, is_threadable=True,
+                    min_memory=6291456, min_gpu_memory=2,
                     chunk_size=5, timeout=60, timeout_llu=5, memory_optimizer_enabled=False,
                     limits=['limit2Name', 'limit3Name'])),
         }
@@ -124,12 +126,12 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         self.assertTrue(self.layer_properties_dialog._LayerPropertiesDialog__thread.isChecked())
 
         self.assertEqual(
-            int(self.layer_properties_dialog.gpu_min_gb * 1024 * 1024),
-            self.layer_properties_dialog._LayerPropertiesDialog__gpu.slider.minimum())
+            int(self.layer_properties_dialog.gpu_mem_min_gb * 1024 * 1024),
+            self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.slider.minimum())
         self.assertEqual(
-            int(self.layer_properties_dialog.gpu_max_gb * 1024 * 1024) //
-            int(self.layer_properties_dialog.gpu_tick_gb * 1024 * 1024),
-            self.layer_properties_dialog._LayerPropertiesDialog__gpu.slider.maximum())
+            int(self.layer_properties_dialog.gpu_mem_max_gb * 1024 * 1024) //
+            int(self.layer_properties_dialog.gpu_mem_tick_gb * 1024 * 1024),
+            self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.slider.maximum())
 
         # Layer with the highest timeout determines the initial value.
         self.assertEqual(60, self.layer_properties_dialog._LayerPropertiesDialog__timeout.value())
@@ -163,13 +165,13 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_fail_on_gpu_too_high(self):
-        self.layer_properties_dialog._LayerPropertiesDialog__gpu.slider.setValue(
-            self.layer_properties_dialog.gpu_max_kb * 2)
+        self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.slider.setValue(
+            self.layer_properties_dialog.gpu_mem_max_kb * 2)
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_fail_on_gpu_too_low(self):
-        self.layer_properties_dialog._LayerPropertiesDialog__gpu.slider.setValue(
-            self.layer_properties_dialog.gpu_min_kb / 3)
+        self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.slider.setValue(
+            self.layer_properties_dialog.gpu_mem_min_kb / 3)
         self.assertFalse(self.layer_properties_dialog.verify())
 
     def test__should_apply_new_settings(self):
@@ -206,9 +208,10 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         self.layer_properties_dialog._LayerPropertiesDialog__thread.parent().parent().enable(True)
         self.layer_properties_dialog._LayerPropertiesDialog__thread.setChecked(new_is_threadable)
 
-        new_min_gpu = 6
-        self.layer_properties_dialog._LayerPropertiesDialog__gpu.parent().parent().enable(True)
-        self.layer_properties_dialog._LayerPropertiesDialog__gpu.slider.setValue(new_min_gpu)
+        new_min_gpu_memory = 6
+        self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.parent().parent().enable(True)
+        self.layer_properties_dialog._LayerPropertiesDialog__gpu_mem.slider.setValue(
+            new_min_gpu_memory)
 
         new_timeout = 20
         self.layer_properties_dialog._LayerPropertiesDialog__timeout.parent().parent().enable(True)
@@ -239,10 +242,10 @@ class LayerPropertiesDialogTests(unittest.TestCase):
         layer2_mock.setMaxCores.assert_called_with(100 * new_max_cores)
         layer1_mock.setThreadable.assert_called_with(new_is_threadable)
         layer2_mock.setThreadable.assert_called_with(new_is_threadable)
-        layer1_mock.setMinGpu.assert_called_with(
-            new_min_gpu * self.layer_properties_dialog.gpu_tick_kb)
-        layer2_mock.setMinGpu.assert_called_with(
-            new_min_gpu * self.layer_properties_dialog.gpu_tick_kb)
+        layer1_mock.setMinGpuMemory.assert_called_with(
+            new_min_gpu_memory * self.layer_properties_dialog.gpu_mem_tick_kb)
+        layer2_mock.setMinGpuMemory.assert_called_with(
+            new_min_gpu_memory * self.layer_properties_dialog.gpu_mem_tick_kb)
         layer1_mock.setTimeout.assert_called_with(new_timeout)
         layer2_mock.setTimeout.assert_called_with(new_timeout)
         layer1_mock.setTimeoutLLU.assert_called_with(new_timeout_llu)

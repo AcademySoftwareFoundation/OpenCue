@@ -60,7 +60,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             tip="The amount of memory used.")
         self.addColumn(
             "GPU Used", 100, id=5,
-            data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_gpu),
+            data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_gpu_memory),
             tip="The amount of gpu memory used.")
         self.addColumn(
             "Age", 60, id=6,
