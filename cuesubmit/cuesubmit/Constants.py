@@ -13,6 +13,11 @@
 #  limitations under the License.
 
 
+"""Constants used throughout the code.
+
+Some values can be overridden by custom config, see Config.py."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import

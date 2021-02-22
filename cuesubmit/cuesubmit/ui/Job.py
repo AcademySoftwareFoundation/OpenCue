@@ -1,3 +1,21 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Widget showing a tree view of a job and its layers."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -37,6 +55,7 @@ class CueJobWidget(QtWidgets.QWidget):
         self.selected = self.jobRow.child(0)
 
     def setupUi(self):
+        """Creates the widget layout."""
         self.setLayout(self.mainLayout)
         self.table.setModel(self.model)
         header = self.table.header()
@@ -52,6 +71,7 @@ class CueJobWidget(QtWidgets.QWidget):
         self.initLayers()
 
     def setupConnections(self):
+        """Sets up widget signals."""
         self.table.selectionModel().selectionChanged.connect(self.updateSelection)
         self.addLayerButton.clicked.connect(self.newLayer)
         self.deleteLayerButton.clicked.connect(self.removeRow)
@@ -59,6 +79,7 @@ class CueJobWidget(QtWidgets.QWidget):
         self.downButton.clicked.connect(self.moveDown)
 
     def setupButtons(self):
+        """Creates buttons working with job layers."""
         self.addLayerButton.setAccessibleName('editLayer')
         self.addLayerButton.setText('+')
         self.deleteLayerButton.setAccessibleName('editLayer')
@@ -170,8 +191,7 @@ class CueJobWidget(QtWidgets.QWidget):
         item = self.getSelectedItem()
         if item:
             return item.row()
-        else:
-            return None
+        return None
 
     def getDependOnItem(self):
         """Return the layer that the current layer depends on.
@@ -181,8 +201,7 @@ class CueJobWidget(QtWidgets.QWidget):
         currentRow = self.getCurrentRow()
         if currentRow == 0:
             return None
-        else:
-            return self.jobRow.child(currentRow - 1, 0)
+        return self.jobRow.child(currentRow - 1, 0)
 
     def getSelectedItem(self):
         """Return the selected item from the tree.
@@ -281,6 +300,7 @@ class CueJobWidget(QtWidgets.QWidget):
 
 
 class CueJobTree(QtWidgets.QTreeView):
+    """Inner table for displaying job data."""
 
     def __init__(self, parent=None):
         super(CueJobTree, self).__init__(parent=parent)
@@ -290,6 +310,7 @@ class CueJobTree(QtWidgets.QTreeView):
 
 
 class CueJobModel(QtGui.QStandardItemModel):
+    """Data model for a job, in Qt format."""
 
     def __init__(self):
         super(CueJobModel, self).__init__()
