@@ -292,6 +292,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.machine.rssUpdate(frameCache)
 
         updatedFrameInfo = frameCache[frameId].runningFrameInfo()
+        # pylint: disable=no-member
         self.assertEqual(616, updatedFrameInfo.max_rss)
         self.assertEqual(616, updatedFrameInfo.rss)
         self.assertEqual(4356, updatedFrameInfo.max_vsize)
