@@ -12,6 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
+"""Utility functions used throughout the application."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -23,26 +27,27 @@ from cuesubmit import Constants
 
 
 def getLimits():
-    """Return a list of limit names from cuebot."""
+    """Returns a list of limit names from cuebot."""
     return [limit.name() for limit in opencue.api.getLimits()]
 
 
 def getServices():
-    """Return a list of service names from cuebot."""
+    """Returns a list of service names from cuebot."""
     return [service.name() for service in opencue.api.getDefaultServices()]
 
 
 def getShows():
-    """Return a list of show names from cuebot."""
+    """Returns a list of show names from cuebot."""
     return [show.name() for show in opencue.api.getShows()]
 
 
 def getAllocations():
-    """Return a list of Allocations from cuebot."""
+    """Returns a list of Allocations from cuebot."""
     return opencue.api.getAllocations()
 
 
 def getPresetFacility():
+    """Returns the default facility defined via environment variable, if set."""
     if os.getenv('RENDER_TO', None):
         return os.environ['RENDER_TO']
     if os.getenv('FACILITY', None):
@@ -51,7 +56,7 @@ def getPresetFacility():
 
 
 def getFacilities(allocations):
-    """Return a list of facility names from the allocations."""
+    """Returns a list of facility names from the allocations."""
     default_facilities = [Constants.DEFAULT_FACILITY_TEXT]
     facilities = set(alloc.data.facility for alloc in allocations)
     return default_facilities + list(facilities)

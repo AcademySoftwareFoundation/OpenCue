@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,15 +14,18 @@
 #  limitations under the License.
 
 
+"""Tests for rqd.rqcore."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 from builtins import str
-import mock
 import os.path
 import unittest
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.compiled_proto.host_pb2
@@ -249,10 +251,12 @@ class RqCoreTests(unittest.TestCase):
         num_booked_cores = 7
         num_cores_to_release = 5
         self.rqcore.cores = rqd.compiled_proto.report_pb2.CoreDetail(
-            total_cores=50, idle_cores=num_idle_cores, locked_cores=2, booked_cores=num_booked_cores)
+            total_cores=50, idle_cores=num_idle_cores, locked_cores=2,
+            booked_cores=num_booked_cores)
 
         self.rqcore.releaseCores(num_cores_to_release)
 
+        # pylint: disable=no-member
         self.assertEqual(num_booked_cores-num_cores_to_release, self.rqcore.cores.booked_cores)
         self.assertEqual(num_idle_cores+num_cores_to_release, self.rqcore.cores.idle_cores)
 
@@ -364,13 +368,13 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(frame, self.rqcore.getRunningFrame(frameId))
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdNowNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdNow()
 
-        respawnMock.assert_called_with(self.rqcore)
+        respawnMock.assert_called_with()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'killAllFrame', autospec=True)
     def test_restartRqdNowWithFrames(self, killAllFrameMock):
@@ -383,13 +387,13 @@ class RqCoreTests(unittest.TestCase):
 
         killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd', autospec=True)
+    @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdIdleNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdIdle()
 
-        respawnMock.assert_called_with(self.rqcore)
+        respawnMock.assert_called_with()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
     def test_restartRqdIdleWithFrames(self, respawnMock):
@@ -471,6 +475,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.lock(20)
 
+        # pylint: disable=no-member
         self.assertEqual(20, self.rqcore.cores.idle_cores)
         self.assertEqual(30, self.rqcore.cores.locked_cores)
 
@@ -481,6 +486,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.lock(100)
 
+        # pylint: disable=no-member
         self.assertEqual(0, self.rqcore.cores.idle_cores)
         self.assertEqual(50, self.rqcore.cores.locked_cores)
 
@@ -491,6 +497,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.lockAll()
 
+        # pylint: disable=no-member
         self.assertEqual(0, self.rqcore.cores.idle_cores)
         self.assertEqual(50, self.rqcore.cores.locked_cores)
 
@@ -502,6 +509,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.unlock(20)
 
+        # pylint: disable=no-member
         self.assertEqual(30, self.rqcore.cores.idle_cores)
         self.assertEqual(20, self.rqcore.cores.locked_cores)
 
@@ -513,6 +521,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.unlock(100)
 
+        # pylint: disable=no-member
         self.assertEqual(50, self.rqcore.cores.idle_cores)
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
@@ -525,6 +534,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.unlockAll()
 
+        # pylint: disable=no-member
         self.assertEqual(50, self.rqcore.cores.idle_cores)
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 
@@ -537,6 +547,7 @@ class RqCoreTests(unittest.TestCase):
 
         self.rqcore.unlockAll()
 
+        # pylint: disable=no-member
         self.assertEqual(40, self.rqcore.cores.idle_cores)
         self.assertEqual(0, self.rqcore.cores.locked_cores)
 

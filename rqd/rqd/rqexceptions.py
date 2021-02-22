@@ -13,19 +13,25 @@
 #  limitations under the License.
 
 
+"""Custom exception classes used throughout RQD."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
 
 class RqdException(Exception):
-    pass
+    """Generic exception from the RQD code."""
+
 
 class CoreReservationFailureException(Exception):
-    pass
+    """RQD failed to reserve the required number of cores."""
+
 
 class DuplicateFrameViolationException(Exception):
-    pass
+    """RQD attempted to book a frame that was already running."""
+
 
 class InvalidUserException(Exception):
-    pass
+    """RQD attempted to assume the role of an invalid user."""

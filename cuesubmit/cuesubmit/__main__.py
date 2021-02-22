@@ -15,6 +15,9 @@
 #  limitations under the License.
 
 
+"""Entrypoint for the CueSubmit application."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -29,13 +32,14 @@ from cuesubmit.ui import Submit
 
 
 class CueSubmitApp(QtWidgets.QApplication):
-    """Standalone submission application"""
+    """Standalone submission application."""
 
     def __init__(self, args):
         super(CueSubmitApp, self).__init__(args)
         self.mainWindow = CueSubmitMainWindow(Constants.SUBMIT_APP_WINDOW_TITLE)
 
     def startup(self):
+        """Initializes the application and makes it appear on screen."""
         self.setApplicationName(Constants.SUBMIT_APP_WINDOW_TITLE)
         Style.init()
         self.mainWindow.show()
@@ -43,7 +47,7 @@ class CueSubmitApp(QtWidgets.QApplication):
 
 
 class CueSubmitMainWindow(QtWidgets.QMainWindow):
-    """Main Window object for the standalone submission"""
+    """Main Window object for the standalone submission."""
 
     def __init__(self, name, *args, **kwargs):
         super(CueSubmitMainWindow, self).__init__(*args, **kwargs)
@@ -59,6 +63,7 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
 
 
 def main():
+    """Entrypoint for the CueSubmit application."""
     app = CueSubmitApp(sys.argv)
     app.startup()
     app.exec_()
