@@ -37,5 +37,8 @@ if [[ "$1" == "--lint" ]]; then
 
   cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit && cd ..
   cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
+
+  cd rqd && python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto && cd ..
+  cd rqd && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
 fi
 
