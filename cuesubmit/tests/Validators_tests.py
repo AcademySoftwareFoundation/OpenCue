@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Tests for cuesubmit.Validators"""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -28,6 +31,7 @@ from cuesubmit.Validators import (
                                 matchPositiveIntegers,
                                 moreThan3Chars,
 )
+
 
 class ValidatorsTests(unittest.TestCase):
 
@@ -73,7 +77,8 @@ class ValidatorsTests(unittest.TestCase):
     def testMatchNumbersOnly(self):
         self.assertTrue(matchNumbersOnly('0123'))
         self.assertTrue(matchNumbersOnly('3.14'))
-        self.assertTrue(matchNumbersOnly('800.555.555')) # bit weird, but thats how the function is written
+        # bit weird, but that's how the function is written
+        self.assertTrue(matchNumbersOnly('800.555.555'))
 
         self.assertFalse(matchNumbersOnly(''))
 

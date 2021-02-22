@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Validator functions."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -21,43 +24,43 @@ import re
 
 
 def matchLettersAndNumbersOnly(value):
-    """Match strings of letters and numbers."""
-    if re.match('^[a-zA-Z0-9]+$', value):
+    """Matches strings of letters and numbers."""
+    if re.match(r'^[a-zA-Z0-9]+$', value):
         return True
     return False
 
 
 def matchNoSpecialCharactersOnly(value):
-    """Match strings containing letters, numbers, '.', '-','_', \t and \n"""
-    if re.match('^[a-zA-Z0-9.\-_\s]+$', value):
+    """Matches strings containing letters, numbers, '.', '-','_', \t and \n"""
+    if re.match(r'^[a-zA-Z0-9.\-_\s]+$', value):
         return True
     return False
 
 
 def matchLettersOnly(value):
-    """Match strings container letters only."""
-    if re.match('^[a-zA-Z]+$', value):
+    """Matches strings container letters only."""
+    if re.match(r'^[a-zA-Z]+$', value):
         return True
     return False
 
 
 def matchNoSpaces(value):
-    """Match strings with no spaces."""
-    if re.search('\s', value):
+    """Matches strings with no spaces."""
+    if re.search(r'\s', value):
         return False
     return True
 
 
 def matchNumbersOnly(value):
-    """Match strings with numbers and '.' only."""
-    if re.match('^[0-9.]+$', value):
+    """Matches strings with numbers and '.' only."""
+    if re.match(r'^[0-9.]+$', value):
         return True
     return False
 
 
 def matchPositiveIntegers(value):
-    """Match integers greater than 0."""
-    if re.match('^[0-9]+$', value) and int(value) >= 1:
+    """Matches integers greater than 0."""
+    if re.match(r'^[0-9]+$', value) and int(value) >= 1:
         return True
     return False
 

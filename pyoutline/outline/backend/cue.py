@@ -32,6 +32,7 @@ import time
 from xml.dom.minidom import parseString
 from xml.etree import ElementTree as Et
 
+from packaging.version import Version
 import six
 
 import FileSequence
@@ -216,6 +217,10 @@ def serialize_simple(launcher):
     return _serialize(launcher, use_pycuerun=False)
 
 
+def _warning_spec_version(spec_version, feature):
+    logger.warning("spec_version=%s doesn't support %s", spec_version, feature)
+
+
 def _serialize(launcher, use_pycuerun):
     """
     Serialize the outline part of the given L{OutlineLauncher} into a
@@ -228,6 +233,8 @@ def _serialize(launcher, use_pycuerun):
     :return: A opencue job specification.
     """
     ol = launcher.get_outline()
+
+    spec_version = Version(outline.config.get("outline", "spec_version"))
 
     root = Et.Element("spec")
     depends = Et.Element("depends")
@@ -246,7 +253,10 @@ def _serialize(launcher, use_pycuerun):
 
     j = Et.SubElement(root, "job", {"name": ol.get_name()})
     sub_element(j, "paused", str(launcher.get("pause")))
-    sub_element(j, "priority", str(launcher.get("priority")))
+    if spec_version >= Version("1.11"):
+        sub_element(j, "priority", str(launcher.get("priority")))
+    elif launcher.get("priority"):
+        _warning_spec_version(spec_version, "priority")
     sub_element(j, "maxretries", str(launcher.get("maxretries")))
     sub_element(j, "autoeat", str(launcher.get("autoeat")))
 
@@ -309,10 +319,16 @@ def _serialize(launcher, use_pycuerun):
             sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
 
         if layer.get_arg("timeout"):
-            sub_element(spec_layer, "timeout", "%s" % (layer.get_arg("timeout")))
+            if spec_version >= Version("1.10"):
+                sub_element(spec_layer, "timeout", "%s" % (layer.get_arg("timeout")))
+            else:
+                _warning_spec_version(spec_version, "timeout")
 
         if layer.get_arg("timeout_llu"):
-            sub_element(spec_layer, "timeout_llu", "%s" % (layer.get_arg("timeout_llu")))
+            if spec_version >= Version("1.10"):
+                sub_element(spec_layer, "timeout_llu", "%s" % (layer.get_arg("timeout_llu")))
+            else:
+                _warning_spec_version(spec_version, "timeout_llu")
 
         if os.environ.get("OL_TAG_OVERRIDE", False):
             sub_element(spec_layer, "tags",
@@ -352,7 +368,7 @@ def _serialize(launcher, use_pycuerun):
     xml = [
         '<?xml version="1.0"?>',
         '<!DOCTYPE spec PUBLIC "SPI Cue  Specification Language" '
-            '"http://localhost:8080/spcue/dtd/cjsl-1.11.dtd">',
+        '"http://localhost:8080/spcue/dtd/cjsl-%s.dtd">' % spec_version,
         Et.tostring(root).decode()
     ]
 
