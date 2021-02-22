@@ -318,6 +318,30 @@ def _serialize(launcher, use_pycuerun):
         if layer.get_arg("memory"):
             sub_element(spec_layer, "memory", "%s" % (layer.get_arg("memory")))
 
+        gpus = None
+        if layer.get_arg("gpus"):
+            if spec_version >= Version("1.12"):
+                gpus = layer.get_arg("gpus")
+            else:
+                _warning_spec_version(spec_version, "gpus")
+
+        gpu_memory = None
+        if layer.get_arg("gpu_memory"):
+            if spec_version >= Version("1.12"):
+                gpu_memory = layer.get_arg("gpu_memory")
+            else:
+                _warning_spec_version(spec_version, "gpu_memory")
+
+        if gpus or gpu_memory:
+            # Cuebot expects non-zero positive value on gpus and gpu_memory
+            if gpus is None:
+                gpus = 1
+            if gpu_memory is None:
+                gpu_memory = "1g"
+
+            sub_element(spec_layer, "gpus", "%d" % gpus)
+            sub_element(spec_layer, "gpu_memory", "%s" % gpu_memory)
+
         if layer.get_arg("timeout"):
             if spec_version >= Version("1.10"):
                 sub_element(spec_layer, "timeout", "%s" % (layer.get_arg("timeout")))
