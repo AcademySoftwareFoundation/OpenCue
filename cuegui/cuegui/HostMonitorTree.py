@@ -78,9 +78,9 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: cuegui.Utils.memoryToString(host.data.free_memory),
                        sort=lambda host: host.data.free_memory,
                        tip="The amount of used memory (red) vs available gpu memory (green)")
-        self.addColumn("GPU", 60, id=6,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu),
-                       sort=lambda host: host.data.free_gpu,
+        self.addColumn("GPU Memory", 60, id=6,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.free_gpu_memory),
+                       sort=lambda host: host.data.free_gpu_memory,
                        delegate=cuegui.ItemDelegate.HostGpuBarDelegate,
                        tip="The amount of used gpu memory (red) vs available gpu memory (green)")
         self.addColumn("freeMcp", 60, id=7,
@@ -105,27 +105,36 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda host: cuegui.Utils.memoryToString(host.data.idle_memory),
                        sort=lambda host: host.data.idle_memory,
                        tip="The amount of unreserved memory.")
-        self.addColumn("GPU", 50, id=12,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.gpu),
-                       sort=lambda host: host.data.gpu,
+        self.addColumn("GPUs", 50, id=12,
+                       data=lambda host: "%d" % host.data.gpus,
+                       sort=lambda host: host.data.gpus,
+                       tip="The total number of gpus.\n\n"
+                           "On a frame it is the number of gpus reserved.")
+        self.addColumn("Idle GPUs", 40, id=13,
+                       data=lambda host: "%d" % host.data.idle_gpus,
+                       sort=lambda host: host.data.idle_gpus,
+                       tip="The number of gpus that are not reserved.")
+        self.addColumn("GPU Mem", 50, id=14,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.gpu_memory),
+                       sort=lambda host: host.data.gpu_memory,
                        tip="The total amount of reservable gpu memory.\n\n"
                            "On a frame it is the amount of gpu memory reserved.")
-        self.addColumn("Idle", 50, id=13,
-                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_gpu),
-                       sort=lambda host: host.data.idle_gpu,
+        self.addColumn("Gpu Mem Idle", 50, id=15,
+                       data=lambda host: cuegui.Utils.memoryToString(host.data.idle_gpu_memory),
+                       sort=lambda host: host.data.idle_gpu_memory,
                        tip="The amount of unreserved gpu memory.")
-        self.addColumn("Ping", 50, id=14,
+        self.addColumn("Ping", 50, id=16,
                        data=lambda host: int(time.time() - host.data.ping_time),
                        sort=lambda host: host.data.ping_time,
                        tip="The number of seconds since the cuebot last received\n"
                            "a report from the host. A host is configured to report\n"
                            "in every 60 seconds so a number larger than this\n"
                            "indicates a problem")
-        self.addColumn("Hardware", 70, id=15,
+        self.addColumn("Hardware", 70, id=17,
                        data=lambda host: HardwareState.Name(host.data.state),
                        tip="The state of the hardware as Up or Down.\n\n"
                            "On a frame it is the amount of memory used.")
-        self.addColumn("Locked", 90, id=16,
+        self.addColumn("Locked", 90, id=18,
                        data=lambda host: LockState.Name(host.data.lock_state),
                        tip="A host can be:\n"
                            "Locked \t\t It was manually locked to prevent booking\n"
@@ -133,12 +142,12 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "NimbyLocked \t It is a desktop machine and there is\n"
                            "\t\t someone actively using it or not enough \n"
                            "\t\t resources are available on a desktop.")
-        self.addColumn("ThreadMode", 80, id=17,
+        self.addColumn("ThreadMode", 80, id=19,
                        data=lambda host: ThreadMode.Name(host.data.thread_mode),
                        tip="A frame that runs on this host will:\n"
                            "All:  Use all cores.\n"
                            "Auto: Use the number of cores as decided by the cuebot.\n")
-        self.addColumn("Tags/Job", 50, id=18,
+        self.addColumn("Tags/Job", 50, id=20,
                        data=lambda host: ",".join(host.data.tags),
                        tip="The tags applied to the host.\n\n"
                            "On a frame it is the name of the job.")
@@ -340,7 +349,8 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                     self.rpcObject.data.total_memory]
 
         if role == QtCore.Qt.UserRole + 3:
-            return [self.rpcObject.data.total_gpu - self.rpcObject.data.free_gpu,
-                    self.rpcObject.data.total_gpu]
+            return [self.rpcObject.data.total_gpu_memory -
+                    self.rpcObject.data.free_gpu_memory,
+                    self.rpcObject.data.total_gpu_memory]
 
         return cuegui.Constants.QVARIANT_NULL
