@@ -33,6 +33,7 @@ import future.types
 import mock
 
 import outline
+import outline.layer
 import outline.io
 import outline.modules.shell
 
@@ -321,17 +322,6 @@ class LayerTest(unittest.TestCase):
         # Ensure that the layer has the right ol reference
         self.assertEqual(ol, ol.get_layer('test').get_outline())
 
-    def test_dependency_creation(self):
-        with test_utils.TemporarySessionDirectory():
-            outline.Outline.current = None
-            ol = outline.Outline('after_init')
-            ol.add_layer(TestAfterInit('test'))
-            ol.add_layer(TestB('testb', require='test'))
-            ol.setup()
-
-            # check the depend was setup properly
-            self.assertEqual(1, len(ol.get_layer('testb').get_depends()))
-
     def test_type_arg(self):
         """Test to ensure the type argument is handled properly."""
         outline.Outline.current = None
@@ -363,6 +353,238 @@ class LayerTest(unittest.TestCase):
 
             self.assertRaises(
                 outline.LayerException, self.layer.set_name, 'this-should-fail')
+
+    def test_should_fail_on_invalid_parent(self):
+        invalid_object = 'some-string-object'
+
+        self.assertRaises(outline.LayerException, self.layer.set_parent, invalid_object)
+
+    def test_should_fail_on_invalid_child(self):
+        invalid_object = 'some-string-object'
+
+        self.assertRaises(outline.LayerException, self.layer.add_child, invalid_object)
+
+    def test_should_add_event_listener(self):
+        event_type = 'arbitrary-event-type'
+        callback = lambda x: x
+
+        self.layer.add_event_listener(event_type, callback)
+
+        self.assertEqual([callback], self.layer.get_event_handler().get_event_listeners(event_type))
+
+    def test_should_fail_on_invalid_layer_type(self):
+        invalid_layer_type = 'invalid-layer-type'
+
+        self.assertRaises(outline.LayerException, self.layer.set_type, invalid_layer_type)
+
+    def test_should_create_dependency_from_outline(self):
+        with test_utils.TemporarySessionDirectory():
+            outline.Outline.current = None
+            ol = outline.Outline('after_init')
+            ol.add_layer(TestAfterInit('test'))
+            ol.add_layer(TestB('testb', require='test'))
+            ol.setup()
+
+            new_depend = ol.get_layer('testb').get_depends()[0]
+            self.assertEqual('testb', new_depend.get_dependant_layer().get_name())
+            self.assertEqual('test', new_depend.get_depend_on_layer().get_name())
+
+    def test_should_create_dependency_from_layer(self):
+        depend_on_layer = TestAfterInit('test')
+        depend_er_layer = TestB('testb')
+
+        depend_er_layer.depend_on(depend_on_layer)
+
+        new_depend = depend_er_layer.get_depends()[0]
+        self.assertEqual('testb', new_depend.get_dependant_layer().get_name())
+        self.assertEqual('test', new_depend.get_depend_on_layer().get_name())
+
+    def test_should_skip_duplicate_depend(self):
+        depend_on_layer = TestAfterInit('test')
+        depend_er_layer = TestB('testb')
+        depend_er_layer.depend_on(depend_on_layer)
+        num_depends = len(depend_er_layer.get_depends())
+
+        depend_er_layer.depend_on(depend_on_layer)
+
+        self.assertEqual(num_depends, len(depend_er_layer.get_depends()))
+
+    def test_should_skip_depend_on_self(self):
+        depend_layer = TestAfterInit('test')
+
+        depend_layer.depend_on(depend_layer)
+
+        self.assertEqual(0, len(depend_layer.get_depends()))
+
+    def test_should_remove_depend(self):
+        depend_on_layer = TestAfterInit('test')
+        depend_er_layer = TestB('testb')
+        depend_er_layer.depend_on(depend_on_layer)
+        depend_to_remove = depend_er_layer.get_depends()[0]
+
+        depend_er_layer.undepend(depend_to_remove)
+
+        self.assertEqual(0, len(depend_er_layer.get_depends()))
+
+    def test_should_get_dependents(self):
+        with test_utils.TemporarySessionDirectory():
+            depend_on_layer = TestAfterInit('test')
+            depend_er_layer = TestB('testb', require='test')
+            outline.Outline.current = None
+            ol = outline.Outline('after_init')
+            ol.add_layer(depend_on_layer)
+            ol.add_layer(depend_er_layer)
+            ol.setup()
+
+            depend = depend_on_layer.get_dependents()[0]
+            self.assertEqual('testb', depend.get_dependant_layer().get_name())
+            self.assertEqual('test', depend.get_depend_on_layer().get_name())
+
+    def test_should_add_inputs(self):
+        layer = TestAfterInit('test')
+        unnamed_input = outline.io.Path('/path/to/first/input')
+        named_input = outline.io.Path('/path/to/second/input')
+        bare_path = '/path/to/third/input'
+
+        layer.add_input(None, unnamed_input)
+        layer.add_input('named-input-name', named_input)
+        layer.add_input('bare-path-name', bare_path)
+
+        inputs = layer.get_inputs()
+        self.assertEqual(unnamed_input, inputs['input0'])
+        self.assertEqual(named_input, inputs['named-input-name'])
+        self.assertEqual(bare_path, inputs['bare-path-name'].get_path())
+        self.assertEqual(unnamed_input, layer.get_input('input0'))
+        self.assertEqual(named_input, layer.get_input('named-input-name'))
+        self.assertEqual(bare_path, layer.get_input('bare-path-name').get_path())
+
+    def test_should_fail_on_duplicate_input(self):
+        layer = TestAfterInit('test')
+        input_to_add = outline.io.Path('/path/to/input')
+        layer.add_input('input-name', input_to_add)
+
+        self.assertRaises(outline.LayerException, layer.add_input, 'input-name', input_to_add)
+
+    def test_should_check_input(self):
+        layer = TestAfterInit('test')
+        input_to_check = outline.io.Path('/path/to/input')
+        input_to_check.set_attribute('checked', True)
+        input_to_check.exists = mock.Mock()
+        input_to_check.exists.return_value = True
+        layer.add_input('input-name', input_to_check)
+
+        layer.check_input()
+
+        input_to_check.exists.assert_called()
+
+    def test_should_skip_checking_input(self):
+        layer = TestAfterInit('test')
+        input_to_check = outline.io.Path('/path/to/input')
+        input_to_check.set_attribute('checked', False)
+        input_to_check.exists = mock.Mock()
+        input_to_check.exists.return_value = True
+        layer.add_input('input-name', input_to_check)
+
+        layer.check_input()
+
+        input_to_check.exists.assert_not_called()
+
+    def test_should_fail_on_nonexistent_input(self):
+        layer = TestAfterInit('test')
+        input_to_check = outline.io.Path('/path/to/input')
+        input_to_check.set_attribute('checked', True)
+        input_to_check.exists = mock.Mock()
+        input_to_check.exists.return_value = False
+        layer.add_input('input-name', input_to_check)
+
+        self.assertRaises(outline.LayerException, layer.check_input)
+
+    def test_should_set_attribute_on_all_inputs(self):
+        layer = TestAfterInit('test')
+        input1 = outline.io.Path('/path/to/input')
+        input2 = outline.io.Path('/path/to/another/input')
+        layer.add_input('input-one', input1)
+        layer.add_input('input-two', input2)
+        attr_name = 'arbitrary-attribute-name'
+        attr_val = 'arbitrary-attribute-value'
+
+        layer.set_input_attribute(attr_name, attr_val)
+
+        self.assertEqual(attr_val, input1.get_attribute(attr_name))
+        self.assertEqual(attr_val, input2.get_attribute(attr_name))
+
+    def test_should_add_outputs(self):
+        layer = TestAfterInit('test')
+        unnamed_output = outline.io.Path('/path/to/first/output')
+        named_output = outline.io.Path('/path/to/second/output')
+        bare_path = '/path/to/third/output'
+
+        layer.add_output(None, unnamed_output)
+        layer.add_output('named-output-name', named_output)
+        layer.add_output('bare-path-name', bare_path)
+
+        outputs = layer.get_outputs()
+        self.assertEqual(unnamed_output, outputs['output0'])
+        self.assertEqual(named_output, outputs['named-output-name'])
+        self.assertEqual(bare_path, outputs['bare-path-name'].get_path())
+        self.assertEqual(unnamed_output, layer.get_output('output0'))
+        self.assertEqual(named_output, layer.get_output('named-output-name'))
+        self.assertEqual(bare_path, layer.get_output('bare-path-name').get_path())
+
+    def test_should_fail_on_duplicate_output(self):
+        layer = TestAfterInit('test')
+        output_to_add = outline.io.Path('/path/to/output')
+        layer.add_output('output-name', output_to_add)
+
+        self.assertRaises(outline.LayerException, layer.add_output, 'output-name', output_to_add)
+
+    def test_should_check_output(self):
+        layer = TestAfterInit('test')
+        output_to_check = outline.io.Path('/path/to/output')
+        output_to_check.set_attribute('checked', True)
+        output_to_check.exists = mock.Mock()
+        output_to_check.exists.return_value = True
+        layer.add_output('output-name', output_to_check)
+
+        layer.check_output()
+
+        output_to_check.exists.assert_called()
+
+    def test_should_skip_checking_output(self):
+        layer = TestAfterInit('test')
+        output_to_check = outline.io.Path('/path/to/output')
+        output_to_check.set_attribute('checked', False)
+        output_to_check.exists = mock.Mock()
+        output_to_check.exists.return_value = True
+        layer.add_output('output-name', output_to_check)
+
+        layer.check_output()
+
+        output_to_check.exists.assert_not_called()
+
+    def test_should_fail_on_nonexistent_output(self):
+        layer = TestAfterInit('test')
+        output_to_check = outline.io.Path('/path/to/output')
+        output_to_check.set_attribute('checked', True)
+        output_to_check.exists = mock.Mock()
+        output_to_check.exists.return_value = False
+        layer.add_output('output-name', output_to_check)
+
+        self.assertRaises(outline.LayerException, layer.check_output)
+
+    def test_should_set_attribute_on_all_outputs(self):
+        layer = TestAfterInit('test')
+        output1 = outline.io.Path('/path/to/output')
+        output2 = outline.io.Path('/path/to/another/output')
+        layer.add_output('output-one', output1)
+        layer.add_output('output-two', output2)
+        attr_name = 'arbitrary-attribute-name'
+        attr_val = 'arbitrary-attribute-value'
+
+        layer.set_output_attribute(attr_name, attr_val)
+
+        self.assertEqual(attr_val, output1.get_attribute(attr_name))
+        self.assertEqual(attr_val, output1.get_attribute(attr_name))
 
 
 class OutputRegistrationTest(unittest.TestCase):
@@ -405,6 +627,131 @@ class OutputRegistrationTest(unittest.TestCase):
             # the outputs are automatically loaded.
             layer1.execute(1000)
             self.assertEqual(1, len(layer1.get_outputs()))
+
+
+class FrameTests(unittest.TestCase):
+
+    def test_should_return_first_frame_of_outline_range(self):
+        """Test getting/setting the frame range.  If the frame
+        range is not set on a layer, then it should default to
+        the outline frame range.
+        """
+        frame_range = '55-65'
+        outline.Outline.current = None
+        ol = outline.Outline('after_init')
+        ol.set_frame_range(frame_range)
+        layer = outline.layer.Frame('layer-name')
+        ol.add_layer(layer)
+        self.assertEqual('55', layer.get_frame_range())
+
+    def test_should_return_default_frame_range(self):
+        """Test getting/setting the frame range.  If the frame
+        range is not set on a layer, then it should default to
+        the outline frame range.
+        """
+        outline.Outline.current = None
+        ol = outline.Outline('after_init')
+        layer = outline.layer.Frame('layer-name')
+        ol.add_layer(layer)
+        self.assertEqual(outline.layer.DEFAULT_FRAME_RANGE, layer.get_frame_range())
+
+
+class LayerPreProcessTests(unittest.TestCase):
+
+    def test_should_be_util_type_and_preprocess_service(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        preprocess_layer = outline.layer.LayerPreProcess(parent_layer)
+
+        self.assertEqual('Util', preprocess_layer.get_type())
+        self.assertEqual('preprocess', preprocess_layer.get_service())
+
+    def test_should_setup_depend_and_preprocess_layer(self):
+        parent_layer_name = 'parent-layer'
+        preprocess_layer_name = '%s_preprocess' % parent_layer_name
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        preprocess_layer = outline.layer.LayerPreProcess(parent_layer)
+
+        self.assertEqual(preprocess_layer_name, preprocess_layer.get_name())
+        self.assertEqual(
+            preprocess_layer_name, parent_layer.get_depends()[0].get_depend_on_layer().get_name())
+        self.assertEqual(preprocess_layer, parent_layer.get_preprocess_layers()[0])
+
+    def test_should_get_parent_layer(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        preprocess_layer = outline.layer.LayerPreProcess(parent_layer)
+
+        self.assertEqual(parent_layer, preprocess_layer.get_creator())
+
+    def test_should_get_first_frame_of_layer_range(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        parent_layer.set_frame_range('540-600')
+        preprocess_layer = outline.layer.LayerPreProcess(parent_layer)
+
+        self.assertEqual('540', preprocess_layer.get_frame_range())
+
+    @mock.patch('outline.Layer.system', new=mock.Mock())
+    def test_should_call_put_data_on_parent(self):
+        os.environ = {}
+
+        outline.Outline.current = None
+        ol = outline.Outline('outline-name')
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        parent_layer.put_data = mock.Mock()
+        ol.add_layer(parent_layer)
+
+        preprocess_layer = outline.layer.LayerPreProcess(parent_layer)
+        output = outline.io.Path('/path/to/output')
+        preprocess_layer.add_output('output-name', output)
+        ol.add_layer(preprocess_layer)
+
+        with test_utils.TemporarySessionDirectory():
+            ol.setup()
+            preprocess_layer.execute(1)
+
+            parent_layer.put_data.assert_called_with(
+                'ol:outputs', {'output-name': output}, force=True)
+
+
+class LayerPostProcessTests(unittest.TestCase):
+
+    def test_should_be_util_type(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        postprocess_layer = outline.layer.LayerPostProcess(parent_layer)
+
+        self.assertEqual('Util', postprocess_layer.get_type())
+
+    def test_should_setup_depend(self):
+        parent_layer_name = 'parent-layer'
+        postprocess_layer_name = '%s_postprocess' % parent_layer_name
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        postprocess_layer = outline.layer.LayerPostProcess(parent_layer)
+
+        self.assertEqual(postprocess_layer_name, postprocess_layer.get_name())
+        self.assertEqual(
+            parent_layer_name, postprocess_layer.get_depends()[0].get_depend_on_layer().get_name())
+
+    def test_should_get_parent_layer(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        postprocess_layer = outline.layer.LayerPostProcess(parent_layer)
+
+        self.assertEqual(parent_layer, postprocess_layer.get_creator())
+
+
+class OutlinePostCommandTests(unittest.TestCase):
+
+    def test_should_be_post_type_and_postprocess_service(self):
+        parent_layer_name = 'parent-layer'
+        parent_layer = outline.layer.Layer(parent_layer_name)
+        post_layer = outline.layer.OutlinePostCommand(parent_layer)
+
+        self.assertEqual('Post', post_layer.get_type())
+        self.assertEqual('postprocess', post_layer.get_service())
 
 
 class TestAfterInit(outline.Layer):

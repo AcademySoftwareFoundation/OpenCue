@@ -54,7 +54,7 @@ class EventHandler(object):
     """
     def __init__(self, component):
         self.__component = component
-        self.__listeners = { }
+        self.__listeners = {}
 
     def add_event_listener(self, event_type, callback):
         """
@@ -63,7 +63,7 @@ class EventHandler(object):
         """
         logger.debug("adding event listener %s", event_type)
         if event_type not in self.__listeners:
-            self.__listeners[event_type] = [ ]
+            self.__listeners[event_type] = []
         self.__listeners[event_type].append(callback)
 
     # pylint: disable=broad-except

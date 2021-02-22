@@ -53,6 +53,7 @@ class DependType(object):
     sim = LayerOnSimFrame
     prev = PreviousFrame
 
+
 def parse_require_str(require):
     """
     Parse a require string and returns its components.
@@ -64,6 +65,7 @@ def parse_require_str(require):
     if len(parts) == 1:
         return (parts[0], DependType.FrameByFrame)
     return (parts[0], getattr(DependType, parts[1]))
+
 
 class Depend(object):
     """A dependency"""

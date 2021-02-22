@@ -122,7 +122,7 @@ class Path(object):
         object.__init__(self)
         self.__path = resolve(str(path))
 
-        self.__attributes = { }
+        self.__attributes = {}
         self.__attributes["checked"] = False
         self.__attributes["mkdir"] = False
         self.__attributes.update(args)
