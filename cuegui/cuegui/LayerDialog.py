@@ -180,7 +180,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         # Limits
         self.__limits = LayerLimitsWidget(self.__layers, self)
 
-        ## GPU Memory
+        # GPU Memory
         self.__gpu = SlideSpinner(self)
         self.__gpu.slider.setMinimumWidth(200)
         self.__gpu.slider.setRange(self.gpu_min_kb, self.gpu_max_kb // self.gpu_tick_kb)
@@ -470,7 +470,7 @@ class LayerLimitsWidget(QtWidgets.QWidget):
 
 
 class LayerTagsDialog(QtWidgets.QDialog):
-    """Dialog for displayer a layer's tags."""
+    """Dialog for displaying a layer's tags."""
 
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
