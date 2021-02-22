@@ -1169,7 +1169,7 @@ class LayerPreProcess(Frame):
         Perform pre-propcess execute methods and call
         the super class's exceute method.
         """
-        super().execute(frame)
+        super(LayerPreProcess, self).execute(frame)
         self.__save_outputs()
 
     def get_frame_range(self):
