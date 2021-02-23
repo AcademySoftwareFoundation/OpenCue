@@ -59,6 +59,30 @@ class Proc(object):
             host_pb2.ProcUnbookRequest(proc=self.data, kill=kill), timeout=Cuebot.Timeout)
         return response
 
+    def redirectToJob(self, job, kill=False):
+        """Unbooks the current frame from this proc and redirects the proc to a specific job.
+
+        :type job: opencue.wrappers.job.Job
+        :param job: job which the proc should be booked to
+        :type kill: bool
+        :param kill: if true, the frame will be immediately killed
+        """
+        self.stub.RedirectToJob(
+            host_pb2.ProcRedirectToJobRequest(proc=self.data, job_id=job.data.id, kill=kill),
+            timeout=Cuebot.Timeout)
+
+    def redirectToGroup(self, group, kill=False):
+        """Unbooks the current frame from this proc and redirects the proc to another group.
+
+        :type group: opencue.wrappers.group.Group
+        :param group: group which the proc should be booked to
+        :type kill: bool
+        :param kill: if true, the frame will be immediately killed
+        """
+        self.stub.RedirectToGroup(
+            host_pb2.ProcRedirectToGroupRequest(proc=self.data, group_id=group.data.id, kill=kill),
+            timeout=Cuebot.Timeout)
+
     def getHost(self):
         """Returns the host this proc is allocated from.
 

@@ -94,6 +94,12 @@ class Subscription(object):
     def name(self):
         """Returns the name of the subscription.
 
+        Subscription names follow the format `<allocation name>.<show name>`, which can also be
+        read as `<facility name>.<tag>.<show name>` due to the way allocations are named. For
+        example the subscription name `local.general.testing` would indicate the show `testing`
+        has a subscription to the `local.general` allocation. The `local.general` allocation
+        indicates all hosts in the facility `local` containing the `general` tag.
+
         :rtype:  str
         :return: name of the subscription
         """

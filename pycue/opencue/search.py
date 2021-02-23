@@ -77,6 +77,11 @@ class BaseSearch(object):
     def __init__(self, **options):
         self.options = options
 
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            return False
+        return self.options == other.options
+
     def search(self):
         """Executes the search using the options provided at initiation."""
         return self.byOptions(**self.options)
