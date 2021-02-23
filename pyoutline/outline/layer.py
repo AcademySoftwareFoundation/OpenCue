@@ -105,14 +105,14 @@ class Layer(with_metaclass(LayerType, object)):
         self.__parent = None
 
         # Contains IO objects that are considered input.
-        self.__input = { }
+        self.__input = {}
 
         # Contains IO objects that are considered output.
-        self.__output = { }
+        self.__output = {}
 
         # A dictionary of environment variables to apply before execute.
-        self.__env = { }
-        self.__env.update(args.get("env", { }))
+        self.__env = {}
+        self.__env.update(args.get("env", {}))
 
         # Children are unregistered layers that are executed
         # after the parent layer.
@@ -224,7 +224,7 @@ class Layer(with_metaclass(LayerType, object)):
         # would be defined within the relevant backend module or in
         # the outline configuration file.
 
-        defaults = { }
+        defaults = {}
 
         # By default all layers are registerd.  Registered layers show up
         # as discrete layers.  Unregisterd layers are generally embedded
@@ -606,6 +606,7 @@ class Layer(with_metaclass(LayerType, object)):
         return self.__outline.get_session().sym_file(src,
                                                      layer=self,
                                                      rename=rename)
+
     def put_file(self, src, rename=None):
         """
         Copy the given file into the layer's session path.  If
@@ -1168,7 +1169,7 @@ class LayerPreProcess(Frame):
         Perform pre-propcess execute methods and call
         the super class's exceute method.
         """
-        super().execute(frame)
+        super(LayerPreProcess, self).execute(frame)
         self.__save_outputs()
 
     def get_frame_range(self):
