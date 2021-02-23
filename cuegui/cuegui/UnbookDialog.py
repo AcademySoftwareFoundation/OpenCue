@@ -27,6 +27,7 @@ import re
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
+import six
 
 import opencue
 
@@ -165,7 +166,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         if isinstance(mixed, (float, int)):
             result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                 value=_convert(mixed))
-        elif isinstance(mixed, str):
+        elif isinstance(mixed, six.string_types):
             if mixed.startswith("gt"):
                 result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
                     value=_convert(mixed[2:]))

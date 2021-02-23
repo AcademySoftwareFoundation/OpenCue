@@ -241,6 +241,7 @@ class SelectItemsWithSearchDialogTests(unittest.TestCase):
         self.assertEqual(['item2', 'item3'], dialog.selected())
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class KillConfirmationDialogTests(unittest.TestCase):
 
     def setUp(self):
