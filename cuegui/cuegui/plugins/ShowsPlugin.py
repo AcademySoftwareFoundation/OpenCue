@@ -20,7 +20,10 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+from PySide2 import QtWidgets
+
 import cuegui.AbstractDockWidget
+import cuegui.CreateShowDialog
 import cuegui.ShowsWidget
 
 
@@ -38,7 +41,11 @@ class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         super(ShowsDockWidget, self).__init__(parent, PLUGIN_NAME)
 
         self.__showsWidget = cuegui.ShowsWidget.ShowsWidget(self)
+        self.__createShowButton = QtWidgets.QPushButton("Create Show")
+        self.__createShowButton.setFixedWidth(150)
+        self.__createShowButton.clicked.connect(self.onCreateShowClicked)
 
+        self.layout().addWidget(self.__createShowButton)
         self.layout().addWidget(self.__showsWidget)
 
         self.pluginRegisterSettings([("columnVisibility",
@@ -47,3 +54,8 @@ class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       ("columnOrder",
                                       self.__showsWidget.getColumnOrder,
                                       self.__showsWidget.setColumnOrder)])
+
+    def onCreateShowClicked(self):
+        """Show the dialog for creating new shows"""
+        d = cuegui.CreateShowDialog.CreateShowDialog(self)
+        d.exec_()

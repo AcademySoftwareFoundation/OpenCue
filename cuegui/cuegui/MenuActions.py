@@ -41,7 +41,6 @@ import cuegui.Action
 import cuegui.Comments
 import cuegui.Constants
 import cuegui.CreatorDialog
-import cuegui.CreateShowDialog
 import cuegui.DependDialog
 import cuegui.DependWizard
 import cuegui.EmailDialog
@@ -1091,11 +1090,6 @@ class ShowActions(AbstractActions):
 
     def __init__(self, *args):
         AbstractActions.__init__(self, *args)
-
-    createShow_info = ["Create Show...", None, "configure"]
-    def createShow(self, rpcObjects=None):
-        d = cuegui.CreateShowDialog.CreateShowDialog(self._caller)
-        d.exec_()
 
     properties_info = ["Show Properties", None, "view"]
     def properties(self, rpcObjects=None):

@@ -48,7 +48,6 @@ class CreateShowDialog(QtWidgets.QDialog):
         self.setWindowTitle("Create New Show")
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setSizeGripEnabled(True)
-        self.resize(400, 300)
 
         self.__create_btn = QtWidgets.QPushButton("Create", self)
         self.__cancel_btn = QtWidgets.QPushButton("Close", self)
@@ -68,6 +67,7 @@ class CreateShowDialog(QtWidgets.QDialog):
 
         self.__create_btn.clicked.connect(self.__createShow)
         self.__cancel_btn.clicked.connect(self.__cancelDialog)
+        self.adjustSize()
 
     def __createSubscriptionWidget(self):
         """Create the groupbox widget containing subscription fields"""

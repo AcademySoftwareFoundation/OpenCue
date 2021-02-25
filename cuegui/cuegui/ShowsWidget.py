@@ -104,8 +104,6 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu = QtWidgets.QMenu()
 
         if count:
-            self.__menuActions.shows().addAction(menu, "createShow")
-            menu.addSeparator()
             self.__menuActions.shows().addAction(menu, "properties")
             if count == 1:
                 menu.addSeparator()
