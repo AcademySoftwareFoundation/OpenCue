@@ -55,16 +55,3 @@ services:
     volumes:
       - /tmp/rqd/logs:/tmp/rqd/logs
       - /tmp/rqd/shots:/tmp/rqd/shots
-
-  metrics:
-    build:
-      context: ./
-      dockerfile: ./connectors/prometheus_metrics/Dockerfile
-    environment:
-      - CUEBOT_HOSTS=cuebot
-    depends_on:
-      - cuebot
-    links:
-      - cuebot
-    ports:
-      - "8302:8302"
