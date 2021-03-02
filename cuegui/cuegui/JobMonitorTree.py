@@ -435,7 +435,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 if proxy in self.__userColors:
                     self._items[proxy].setUserColor(self.__userColors[proxy])
 
-            self.verticalScrollBar().setValue(scrolled)
+            self.verticalScrollBar().setRange(scrolled, len(jobObjects.keys() - scrolled))
             list(map(lambda key: self._items[key].setSelected(True),
                      [key for key in selectedKeys if key in self._items]))
 
