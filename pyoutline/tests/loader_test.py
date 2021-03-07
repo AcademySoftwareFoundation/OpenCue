@@ -90,12 +90,8 @@ class OutlineTest(unittest.TestCase):
             ol = outline.load_outline(self.path)
 
             ol.set_env("ENV_1", "a")
-            ol.set_env("ENV_2", "b", True)
 
             self.assertEqual(ol.get_env("ENV_1"), "a")
-            self.assertFalse(ol.get_env()["ENV_1"][1])
-            self.assertEqual(ol.get_env("ENV_2"), "b")
-            self.assertTrue(ol.get_env()["ENV_2"][1])
 
     def test_add_get_remove_layer(self):
         with test_utils.TemporarySessionDirectory():
