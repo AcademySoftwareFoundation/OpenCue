@@ -361,11 +361,11 @@ class FileSpec(Path):
 
     def get_rep(self):
         """
-        Return the repesentation.  The repesentation is
+        Return the representation.  The representation is
         the oav_resolution_colorspace.
 
         :rtype:  string
-        :return: the repesentation.
+        :return: the representation.
         """
         return self.__fs.getDirname().rsplit("/", 2)[1]
 

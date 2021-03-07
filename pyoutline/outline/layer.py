@@ -416,17 +416,17 @@ class Layer(with_metaclass(LayerType, object)):
         # Check for the existance of required inputs.
         self.check_input(frames)
 
-        # Set all post set shot environement variables.
+        # Set all post set shot environment variables.
         for env_k, env_v in self.__outline.get_env().items():
             if not env_v[1]:
-                logger.info("Setting post-set shot environement var: %s %s",
+                logger.info("Setting post-set shot environment var: %s %s",
                             env_k, env_v[0])
                 os.environ[env_k] = env_v[0]
 
         # Set all layer specific post set shot env variables
         try:
             for env_k, env_v in self.__env.items():
-                logger.info("Setting post-set shot environement var: %s %s",
+                logger.info("Setting post-set shot environment var: %s %s",
                             env_k, env_v)
                 os.environ[str(env_k)] = str(env_v)
         except AttributeError:
@@ -628,7 +628,7 @@ class Layer(with_metaclass(LayerType, object)):
 
     def get_file(self, name, check=True, new=False):
         """
-        Retrieve the sesion path path to the given file.  The
+        Retrieve the session path path to the given file.  The
         file does not have to exist.
 
         :type name: str
@@ -741,7 +741,7 @@ class Layer(with_metaclass(LayerType, object)):
         # Remove the duplicates out of our frame range.
         #
         frame_range = FileSequence.FrameSet(self.get_frame_range())
-        frame_set = outline.util.deaggregate_frame_set(frame_range)
+        frame_set = outline.util.disaggregate_frame_set(frame_range)
 
         #
         # Now find the index for the current frame and start
@@ -871,10 +871,10 @@ class Layer(with_metaclass(LayerType, object)):
         # C, which means layer D must now also depend on layer B.
         #
         # Currently this creates a depend-all (LayerOnLayer) between
-        # the propigated depends.
+        # the propagated depends.
         #
         for depend in on_layer.get_depends():
-            if depend.is_propigated():
+            if depend.is_propagated():
                 for my_depend in self.get_depends():
                     dependant = my_depend.get_depend_on_layer()
                     logger.info(
