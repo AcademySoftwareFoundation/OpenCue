@@ -270,11 +270,8 @@ def _serialize(launcher, use_pycuerun):
 
     env = Et.SubElement(j, "env")
     for env_k, env_v in ol.get_env().items():
-        # Only pre-setshot environment variables are
-        # passed up to the cue.
-        if env_v[1]:
-            pair = Et.SubElement(env, "key", {"name": env_k})
-            pair.text = env_v[0]
+        pair = Et.SubElement(env, "key", {"name": env_k})
+        pair.text = env_v
 
     layers = Et.SubElement(j, "layers")
     for layer in ol.get_layers():

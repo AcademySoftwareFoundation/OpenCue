@@ -678,7 +678,7 @@ class Outline(object):
         """
         return self.__frame_range
 
-    def set_env(self, key, value, pre=False):
+    def set_env(self, key, value):
         """
         Set an environment variable that is propigated to
         every frame.
@@ -688,13 +688,6 @@ class Outline(object):
 
         :type value: str
         :param value: Value to associate with the name.
-
-        :type pre: boolean
-        :param pre: If this value is set to true, the environement
-                    variable is applied pre-setshot.  The default
-                    is for the environment variable to be set
-                    post set shot.
-
         """
         if key in self.__env:
             logger.warning(
@@ -708,7 +701,7 @@ class Outline(object):
             raise outline.exception.OutlineException(
                 "Invalid value type for env var: %s" % type(value))
 
-        self.__env[key] = (value, pre)
+        self.__env[key] = value
 
     def get_env(self, key=None):
         """
