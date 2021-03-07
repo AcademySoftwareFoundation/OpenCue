@@ -13,7 +13,7 @@ services:
     environment:
       - DATA_SOURCE_URI=db:5432/postgres?sslmode=disable
       - DATA_SOURCE_USER=cuebot
-      - DATA_SOURCE_PASS=$POSTGRES_PASSWORD
+      - DATA_SOURCE_PASS=cuebot_password
       - PG_EXPORTER_AUTO_DISCOVER_DATABASES=true
     ports:
       - 9187:9187
