@@ -149,7 +149,7 @@ read -n 1 -p "Select mode of population: " POPULATING_OPT
 if [[ $POPULATING_OPT -eq 1 ]]
 then
     wget ${BASE_URL}"${VERSION}"/schema-"${VERSION}".sql -P ./db-data/
-    wget ${BASE_URL}"${VERSION}"/demo_data-"${VERSION}".sql -P ./db-data/
+    wget ${BASE_URL}"${VERSION}"/seed_data-"${VERSION}".sql -P ./db-data/
     
     echo ""
     echo "Populating the database schema and some initial data"
@@ -164,7 +164,7 @@ elif [[ $POPULATING_OPT -eq 2 ]]
 then
     brew install flyway ||
     flyway -url=jdbc:postgresql://$DB_HOST/$DB_NAME -user="$USER" -n -locations=filesystem:/cuebot/src/main/resources/conf/ddl/postgres/migrations migrate
-    psql -h $DB_HOST -f /cuebot/src/main/resources/conf/ddl/postgres/demo_data.sql $DB_NAME
+    psql -h $DB_HOST -f /cuebot/src/main/resources/conf/ddl/postgres/seed_data.sql $DB_NAME
 else
     echo ""
     echo "Invalid option!"

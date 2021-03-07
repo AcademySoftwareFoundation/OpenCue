@@ -34,7 +34,7 @@ docker exec -t --user=${DB_USER} ${PG_CONTAINER} pg_dump --no-privileges --no-ow
     | tee "${ARTIFACT_DIRECTORY}/schema-${BUILD_ID}.sql"
 
 # The demo data gets its own build artifact too.
-cp "${SCHEMA_DIRECTORY}/demo_data.sql" "${ARTIFACT_DIRECTORY}/demo_data-${BUILD_ID}.sql"
+cp "${SCHEMA_DIRECTORY}/seed_data.sql" "${ARTIFACT_DIRECTORY}/seed_data-${BUILD_ID}.sql"
 
 docker kill ${FLYWAY_CONTAINER}
 docker kill ${PG_CONTAINER}

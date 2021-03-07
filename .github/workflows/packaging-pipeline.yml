@@ -140,7 +140,7 @@ jobs:
           aws s3 cp LICENSE s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp VERSION s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/schema-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
-          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/demo_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
+          aws s3 cp "${GITHUB_WORKSPACE}/artifacts/seed_data-${BUILD_ID}.sql" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
           aws s3 cp "${GITHUB_WORKSPACE}/artifacts/build_metadata.json" s3://${S3_BUCKET}/opencue/${BUILD_ID}/
 
       - name: Display artifacts
