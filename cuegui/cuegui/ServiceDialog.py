@@ -115,6 +115,7 @@ class ServiceForm(QtWidgets.QWidget):
         """
         Update the form with data from the given service.
         """
+        self.__service = service
         self.__buttons.setDisabled(False)
         self.name.setText(service.data.name)
         self.threadable.setChecked(service.data.threadable)
@@ -159,7 +160,7 @@ class ServiceForm(QtWidgets.QWidget):
 
         service = opencue.wrappers.service.Service()
         if self.__service:
-            service.data.id = self.__service.id
+            service.data.id = self.__service.data.id
         service.setName(str(self.name.text()))
         service.setThreadable(self.threadable.isChecked())
         service.setMinCores(self.min_cores.value())
