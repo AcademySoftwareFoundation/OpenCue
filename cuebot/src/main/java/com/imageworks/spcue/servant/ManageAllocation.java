@@ -24,6 +24,8 @@ import com.imageworks.spcue.grpc.facility.AllocFindRequest;
 import com.imageworks.spcue.grpc.facility.AllocFindResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetAllRequest;
 import com.imageworks.spcue.grpc.facility.AllocGetAllResponse;
+import com.imageworks.spcue.grpc.facility.AllocGetDefaultRequest;
+import com.imageworks.spcue.grpc.facility.AllocGetDefaultResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetHostsRequest;
 import com.imageworks.spcue.grpc.facility.AllocGetHostsResponse;
 import com.imageworks.spcue.grpc.facility.AllocGetRequest;
@@ -34,6 +36,8 @@ import com.imageworks.spcue.grpc.facility.AllocReparentHostsRequest;
 import com.imageworks.spcue.grpc.facility.AllocReparentHostsResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetBillableRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetBillableResponse;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultRequest;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetNameRequest;
 import com.imageworks.spcue.grpc.facility.AllocSetNameResponse;
 import com.imageworks.spcue.grpc.facility.AllocSetTagRequest;
@@ -218,6 +222,28 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationTag(alloc, request.getTag());
         responseObserver.onNext(AllocSetTagResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void getDefault(
+            AllocGetDefaultRequest request,
+            StreamObserver<AllocGetDefaultResponse> responseObserver) {
+        AllocationEntity alloc = adminManager.getDefaultAllocation();
+        responseObserver.onNext(AllocGetDefaultResponse.newBuilder()
+                .setAllocation(whiteboard.getAllocation(alloc.id))
+                .build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setDefault(
+            AllocSetDefaultRequest request,
+            StreamObserver<AllocSetDefaultResponse> responseObserver) {
+        AllocationEntity alloc = adminManager.findAllocationDetail(
+                request.getAllocation().getFacility(), request.getAllocation().getName());
+        adminManager.setDefaultAllocation(alloc);
+        responseObserver.onNext(AllocSetDefaultResponse.newBuilder().build());
         responseObserver.onCompleted();
     }
 
