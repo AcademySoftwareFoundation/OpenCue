@@ -124,6 +124,8 @@ def load_json(json_str):
 
     if "name" in data:
         ol.set_name(data["name"])
+    if "facility" in data:
+        ol.set_facility(data["facility"])
     if "range" in data:
         ol.set_frame_range(data["range"])
 
