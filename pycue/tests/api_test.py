@@ -720,6 +720,32 @@ class AllocTests(unittest.TestCase):
             facility_pb2.AllocDeleteRequest(allocation=allocToDelete), timeout=mock.ANY)
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetDefaultAlloc(self, getStubMock):
+        arbitraryId = '00000000-0000-0000-0000-012345678980'
+        stubMock = mock.Mock()
+        stubMock.GetDefault.return_value = facility_pb2.AllocGetDefaultResponse(
+            allocation=facility_pb2.Allocation(id=arbitraryId))
+        getStubMock.return_value = stubMock
+
+        alloc = opencue.api.getDefaultAllocation()
+
+        stubMock.GetDefault.assert_called_with(
+            facility_pb2.AllocGetDefaultRequest(), timeout=mock.ANY)
+        self.assertEqual(arbitraryId, alloc.id())
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testSetDefaultAlloc(self, getStubMock):
+        alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
+        stubMock = mock.Mock()
+        stubMock.SetDefault.return_value = facility_pb2.AllocSetDefaultResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.setDefaultAllocation(alloc)
+
+        stubMock.SetDefault.assert_called_with(
+            facility_pb2.AllocSetDefaultRequest(allocation=alloc), timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testAllocSetBillable(self, getStubMock):
         alloc = facility_pb2.Allocation(name=TEST_ALLOC_NAME)
         isBillable = True
