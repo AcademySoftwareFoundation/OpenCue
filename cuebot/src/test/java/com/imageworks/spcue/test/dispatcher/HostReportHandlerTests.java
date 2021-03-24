@@ -27,9 +27,11 @@ import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
+import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.CoreDetail;
@@ -58,6 +60,7 @@ public class HostReportHandlerTests extends TransactionalTest {
     Dispatcher dispatcher;
 
     private static final String HOSTNAME = "beta";
+    private static final String NEW_HOSTNAME = "gamma";
 
     @Before
     public void setTestMode() {
@@ -106,6 +109,29 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .build();
     }
 
+    private static RenderHost getNewRenderHost() {
+        return RenderHost.newBuilder()
+                .setName(NEW_HOSTNAME)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem(53500)
+                .setFreeSwap(20760)
+                .setLoad(0)
+                .setTotalMcp(195430)
+                .setTotalMem(8173264)
+                .setTotalSwap(20960)
+                .setNimbyEnabled(false)
+                .setNumProcs(2)
+                .setCoresPerProc(100)
+                .addTags("test")
+                .setState(HardwareState.UP)
+                .setFacility("spi")
+                .putAttributes("SP_OS", "Linux")
+                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
+                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .build();
+    }
+
     @Test
     @Transactional
     @Rollback(true)
@@ -120,6 +146,32 @@ public class HostReportHandlerTests extends TransactionalTest {
         hostReportHandler.handleHostReport(report, isBoot);
         DispatchHost host = getHost();
         assertEquals(host.lockState, LockState.OPEN);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHandleHostReportWithAllocation() {
+        FacilityInterface facility = adminManager.getFacility(
+                "AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAA0");
+        assertEquals(facility.getName(), "spi");
+
+        AllocationEntity detail = new AllocationEntity();
+        detail.name = "test";
+        detail.tag = "test";
+        adminManager.createAllocation(facility, detail);
+        detail = adminManager.findAllocationDetail("spi", "test");
+
+        boolean isBoot = true;
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+        HostReport report = HostReport.newBuilder()
+                .setHost(getNewRenderHost())
+                .setCoreInfo(cores)
+                .build();
+
+        hostReportHandler.handleHostReport(report, isBoot);
+        DispatchHost host = hostManager.findDispatchHost(NEW_HOSTNAME);
+        assertEquals(host.getAllocationId(), detail.id);
     }
 }
 
