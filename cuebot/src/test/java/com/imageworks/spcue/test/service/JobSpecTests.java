@@ -29,6 +29,8 @@ import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
+import com.imageworks.spcue.BuildableJob;
+import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.SpecBuilderException;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.service.JobLauncher;
@@ -95,4 +97,21 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
                     "Shot names must be alpha numeric, no dashes or punctuation.");
         }
     }
+
+    @Test
+    public void testParseGpuSuccess() {
+        String xml = readJobSpec("jobspec_1_12.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(),
+                "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.12.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        BuildableJob job = spec.getJobs().get(0);
+        assertEquals(job.detail.name, "testing-default-testuser_test");
+        LayerDetail layer = job.getBuildableLayers().get(0).layerDetail;
+        assertEquals(layer.getMinimumGpus(), 1);
+        assertEquals(layer.getMinimumGpuMemory(), 1048576);
+    }
+
 }
