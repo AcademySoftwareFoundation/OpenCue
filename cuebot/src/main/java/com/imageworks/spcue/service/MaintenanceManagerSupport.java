@@ -22,6 +22,8 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.CannotGetJdbcConnectionException;
 
 import com.imageworks.spcue.FrameInterface;
@@ -29,6 +31,7 @@ import com.imageworks.spcue.MaintenanceTask;
 import com.imageworks.spcue.PointDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
+import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.MaintenanceDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
@@ -41,11 +44,16 @@ public class MaintenanceManagerSupport {
 
     private static final Logger logger = Logger.getLogger(MaintenanceManagerSupport.class);
 
+    @Autowired
+    private Environment env;
+
     private MaintenanceDao maintenanceDao;
 
     private ProcDao procDao;
 
     private FrameDao frameDao;
+
+    private HostDao hostDao;
 
     private JobManager jobManager;
 
@@ -90,6 +98,12 @@ public class MaintenanceManagerSupport {
                 int hosts = maintenanceDao.setUpHostsToDown();
                 if (hosts > 0) {
                     clearDownProcs();
+
+                    boolean autoDeleteDownHosts = env.getProperty(
+                            "maintenance.auto_delete_down_hosts", Boolean.class, false);
+                    if (autoDeleteDownHosts) {
+                        hostDao.deleteDownHosts();
+                    }
                 }
                 clearOrphanedProcs();
             } finally {
@@ -191,6 +205,10 @@ public class MaintenanceManagerSupport {
 
     public void setFrameDao(FrameDao frameDao) {
         this.frameDao = frameDao;
+    }
+
+    public void setHostDao(HostDao hostDao) {
+        this.hostDao = hostDao;
     }
 
     public DispatchSupport getDispatchSupport() {
