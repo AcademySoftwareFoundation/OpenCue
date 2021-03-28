@@ -40,7 +40,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
 
     public boolean unbooked;
     public boolean usageRecorded = false;
-    public boolean isLocalDispatch = false;
 
     public String getProcId() {
         return id;
@@ -87,7 +86,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
 
         proc.hostName = host.getName();
         proc.unbooked = false;
-        proc.isLocalDispatch = host.isLocalDispatch;
 
         proc.coresReserved = frame.minCores;
         proc.memoryReserved = frame.minMemory;
@@ -187,42 +185,6 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         }
 
         return proc;
-    }
-
-    public static final VirtualProc build(DispatchHost host,
-            DispatchFrame frame, LocalHostAssignment lja) {
-
-        VirtualProc proc = new VirtualProc();
-        proc.allocationId = host.getAllocationId();
-        proc.hostId = host.getHostId();
-        proc.frameId = null;
-        proc.layerId = frame.getLayerId();
-        proc.jobId = frame.getJobId();
-        proc.showId = frame.getShowId();
-        proc.facilityId = frame.getFacilityId();
-        proc.os = host.os;
-
-        proc.hostName = host.getName();
-        proc.unbooked = false;
-        proc.isLocalDispatch = host.isLocalDispatch;
-
-        proc.coresReserved = lja.getThreads() * 100;
-        proc.memoryReserved = frame.minMemory;
-        proc.gpuReserved = frame.minGpu;
-
-        int wholeCores = (int) (Math.floor(host.idleCores / 100.0));
-        if (wholeCores == 0) {
-            throw new EntityException(
-                    "The host had only a fraction of a core remaining "
-                            + "but the frame required " + frame.minCores);
-        }
-
-        if (proc.coresReserved > host.idleCores) {
-            proc.coresReserved = wholeCores * 100;
-        }
-
-        return proc;
-
     }
 
     /**

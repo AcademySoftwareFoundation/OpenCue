@@ -22,12 +22,6 @@ opencue.wrappers.comment module
 .. automodule:: opencue.wrappers.comment
     :members:
 
-opencue.wrappers.deed module
-----------------------------
-
-.. automodule:: opencue.wrappers.deed
-    :members:
-
 opencue.wrappers.depend module
 ------------------------------
 
@@ -74,12 +68,6 @@ opencue.wrappers.limit module
 -----------------------------
 
 .. automodule:: opencue.wrappers.limit
-    :members:
-
-opencue.wrappers.owner module
------------------------------
-
-.. automodule:: opencue.wrappers.owner
     :members:
 
 opencue.wrappers.proc module

@@ -31,7 +31,6 @@ import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
@@ -55,8 +54,6 @@ import com.imageworks.spcue.grpc.job.FrameSeq;
 import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobAddCommentRequest;
 import com.imageworks.spcue.grpc.job.JobAddCommentResponse;
-import com.imageworks.spcue.grpc.job.JobAddRenderPartRequest;
-import com.imageworks.spcue.grpc.job.JobAddRenderPartResponse;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnFrameRequest;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnFrameResponse;
 import com.imageworks.spcue.grpc.job.JobCreateDependencyOnJobRequest;
@@ -134,8 +131,6 @@ import com.imageworks.spcue.grpc.job.JobStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.FilterManager;
@@ -144,7 +139,6 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.service.JobSpec;
-import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
@@ -160,8 +154,6 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private DependManager dependManager;
     private CommentManager commentManager;
     private DispatchQueue manageQueue;
-    private Dispatcher localDispatcher;
-    private LocalBookingSupport localBookingSupport;
     private FilterManager filterManager;
     private JobInterface job;
     private FrameSearchFactory frameSearchFactory;
@@ -764,43 +756,6 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     }
 
     @Override
-    public void addRenderPartition(JobAddRenderPartRequest request, StreamObserver<JobAddRenderPartResponse> responseObserver) {
-        try {
-            setupJobData(request.getJob());
-            LocalHostAssignment lha = new LocalHostAssignment();
-            lha.setJobId(job.getId());
-            lha.setThreads(request.getThreads());
-            lha.setMaxCoreUnits(request.getMaxCores() * 100);
-            lha.setMaxMemory(request.getMaxMemory());
-            lha.setMaxGpu(request.getMaxGpu());
-            lha.setType(RenderPartitionType.JOB_PARTITION);
-
-            if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {
-                try {
-                    RenderPartition renderPart = whiteboard.getRenderPartition(lha);
-                    responseObserver.onNext(JobAddRenderPartResponse.newBuilder()
-                            .setRenderPartition(renderPart)
-                            .build());
-                    responseObserver.onCompleted();
-                } catch (EmptyResultDataAccessException e) {
-                    responseObserver.onError(Status.INTERNAL
-                            .withDescription("Failed to allocate render partition to host.")
-                            .asRuntimeException());
-                }
-            } else {
-                responseObserver.onError(Status.INTERNAL
-                        .withDescription("Failed to find suitable frames.")
-                        .asRuntimeException());
-            }
-        }
-        catch (EmptyResultDataAccessException e) {
-            responseObserver.onError(Status.INTERNAL
-                    .withDescription("Failed to find job data")
-                    .asRuntimeException());
-        }
-    }
-
-    @Override
     public void runFilters(JobRunFiltersRequest request, StreamObserver<JobRunFiltersResponse> responseObserver) {
         try {
             setupJobData(request.getJob());
@@ -886,22 +841,6 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
 
     public void setGroupManager(GroupManager groupManager) {
         this.groupManager = groupManager;
-    }
-
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
-
-    public LocalBookingSupport getLocalBookingSupport() {
-        return localBookingSupport;
-    }
-
-    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-        this.localBookingSupport = localBookingSupport;
     }
 
     public FilterManager getFilterManager() {

@@ -46,7 +46,6 @@ public class DispatchHost extends Entity
     public String os;
 
     public boolean isNimby;
-    public boolean isLocalDispatch = false;
 
     /**
      * Number of cores that will be added to the first proc

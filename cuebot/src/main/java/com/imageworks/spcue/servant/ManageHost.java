@@ -46,20 +46,14 @@ import com.imageworks.spcue.grpc.host.HostFindHostRequest;
 import com.imageworks.spcue.grpc.host.HostFindHostResponse;
 import com.imageworks.spcue.grpc.host.HostGetCommentsRequest;
 import com.imageworks.spcue.grpc.host.HostGetCommentsResponse;
-import com.imageworks.spcue.grpc.host.HostGetDeedRequest;
-import com.imageworks.spcue.grpc.host.HostGetDeedResponse;
 import com.imageworks.spcue.grpc.host.HostGetHostRequest;
 import com.imageworks.spcue.grpc.host.HostGetHostResponse;
 import com.imageworks.spcue.grpc.host.HostGetHostWhiteboardRequest;
 import com.imageworks.spcue.grpc.host.HostGetHostWhiteboardResponse;
 import com.imageworks.spcue.grpc.host.HostGetHostsRequest;
 import com.imageworks.spcue.grpc.host.HostGetHostsResponse;
-import com.imageworks.spcue.grpc.host.HostGetOwnerRequest;
-import com.imageworks.spcue.grpc.host.HostGetOwnerResponse;
 import com.imageworks.spcue.grpc.host.HostGetProcsRequest;
 import com.imageworks.spcue.grpc.host.HostGetProcsResponse;
-import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsRequest;
-import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsResponse;
 import com.imageworks.spcue.grpc.host.HostInterfaceGrpc;
 import com.imageworks.spcue.grpc.host.HostLockRequest;
 import com.imageworks.spcue.grpc.host.HostLockResponse;
@@ -273,34 +267,6 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
         HostInterface host = getHostInterface(request.getHost());
         hostDao.updateHostState(host, request.getState());
         responseObserver.onNext(HostSetHardwareStateResponse.newBuilder().build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void getOwner(HostGetOwnerRequest request, StreamObserver<HostGetOwnerResponse> responseObserver) {
-        HostInterface host = getHostInterface(request.getHost());
-        responseObserver.onNext(HostGetOwnerResponse.newBuilder()
-                .setOwner(whiteboard.getOwner(host))
-                .build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void getDeed(HostGetDeedRequest request, StreamObserver<HostGetDeedResponse> responseObserver) {
-        HostInterface host = getHostInterface(request.getHost());
-        responseObserver.onNext(HostGetDeedResponse.newBuilder()
-                .setDeed(whiteboard.getDeed(host))
-                .build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void getRenderPartitions(HostGetRenderPartitionsRequest request,
-                                    StreamObserver<HostGetRenderPartitionsResponse> responseObserver) {
-        HostInterface host = getHostInterface(request.getHost());
-        responseObserver.onNext(HostGetRenderPartitionsResponse.newBuilder()
-                .setRenderPartitions(whiteboard.getRenderPartitions(host))
-                .build());
         responseObserver.onCompleted();
     }
 

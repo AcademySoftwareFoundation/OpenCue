@@ -34,7 +34,6 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
@@ -108,9 +107,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_mem_reserved, " +
             "int_mem_pre_reserved, " +
             "int_mem_used, "+
-            "int_gpu_reserved, " +
-            "b_local " +
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ";
+            "int_gpu_reserved " +
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?) ";
 
     public void insertVirtualProc(VirtualProc proc) {
         proc.id = SqlUtil.genKeyRandom();
@@ -121,7 +119,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                      proc.getLayerId(), proc.getJobId(), proc.getFrameId(),
                      proc.coresReserved, proc.memoryReserved,
                      proc.memoryReserved, Dispatcher.MEM_RESERVED_MIN,
-                     proc.gpuReserved, proc.isLocalDispatch);
+                     proc.gpuReserved);
 
             // Update all of the resource counts
             procCreated(proc);
@@ -283,7 +281,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.virtualMemoryUsed = rs.getLong("int_virt_used");
                 proc.memoryUsed = rs.getLong("int_mem_used");
                 proc.unbooked = rs.getBoolean("b_unbooked");
-                proc.isLocalDispatch = rs.getBoolean("b_local");
                 proc.os = rs.getString("str_os");
                 return proc;
             }
@@ -298,7 +295,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.pk_layer,"+
             "proc.pk_frame,"+
             "proc.b_unbooked,"+
-            "proc.b_local,"+
             "host.pk_alloc, " +
             "alloc.pk_facility,"+
             "proc.int_cores_reserved,"+
@@ -397,22 +393,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
       public List<VirtualProc> findVirtualProcs(JobInterface job) {
           return getJdbcTemplate().query(GET_VIRTUAL_PROC_LIST + " AND proc.pk_job=?",
                   VIRTUAL_PROC_MAPPER, job.getJobId());
-      }
-
-      private static final String FIND_VIRTUAL_PROCS_LJA =
-          GET_VIRTUAL_PROC_LIST +
-              "AND proc.pk_job=( " +
-                  "SELECT pk_job FROM host_local WHERE pk_host_local = ?) " +
-              "AND proc.pk_host=(" +
-                  "SELECT pk_host FROM host_local WHERE pk_host_local = ?) ";
-
-      @Override
-      public List<VirtualProc> findVirtualProcs(LocalHostAssignment l) {
-          return getJdbcTemplate().query(
-                  FIND_VIRTUAL_PROCS_LJA,
-                  VIRTUAL_PROC_MAPPER,
-                  l.getId(),
-                  l.getId());
       }
 
       public List<VirtualProc> findVirtualProcs(HardwareState state) {
@@ -544,7 +524,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "pk_layer,"+
               "pk_frame,"+
               "b_unbooked,"+
-              "b_local, "+
               "pk_alloc, "+
               "pk_facility, " +
               "int_cores_reserved,"+
@@ -699,19 +678,17 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                   "pk_host = ?",
             proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());
 
-          if (!proc.isLocalDispatch) {
-              getJdbcTemplate().update(
-                  "UPDATE " +
-                      "subscription " +
-                  "SET " +
-                      "int_cores = int_cores - ? " +
-                  "WHERE " +
-                      "pk_show = ? " +
-                  "AND " +
-                      "pk_alloc = ?",
-                  proc.coresReserved, proc.getShowId(),
-                  proc.getAllocationId());
-          }
+          getJdbcTemplate().update(
+              "UPDATE " +
+                  "subscription " +
+              "SET " +
+                  "int_cores = int_cores - ? " +
+              "WHERE " +
+                  "pk_show = ? " +
+              "AND " +
+                  "pk_alloc = ?",
+              proc.coresReserved, proc.getShowId(),
+              proc.getAllocationId());
 
           getJdbcTemplate().update(
                   "UPDATE " +
@@ -722,69 +699,37 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                       "pk_layer = ?",
                   proc.coresReserved, proc.getLayerId());
 
-          if (!proc.isLocalDispatch) {
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "job_resource " +
+                  "SET " +
+                      "int_cores = int_cores - ? " +
+                  "WHERE " +
+                      "pk_job = ?",
+                  proc.coresReserved, proc.getJobId());
 
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "job_resource " +
-                      "SET " +
-                          "int_cores = int_cores - ? " +
-                      "WHERE " +
-                          "pk_job = ?",
-                      proc.coresReserved, proc.getJobId());
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "folder_resource " +
+                  "SET " +
+                      "int_cores = int_cores - ? " +
+                  "WHERE " +
+                      "pk_folder = " +
+                      "(SELECT pk_folder FROM job WHERE pk_job=?)",
+                  proc.coresReserved, proc.getJobId());
 
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "folder_resource " +
-                      "SET " +
-                          "int_cores = int_cores - ? " +
-                      "WHERE " +
-                          "pk_folder = " +
-                          "(SELECT pk_folder FROM job WHERE pk_job=?)",
-                      proc.coresReserved, proc.getJobId());
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "point " +
-                      "SET " +
-                          "int_cores = int_cores - ? " +
-                      "WHERE " +
-                          "pk_dept = " +
-                          "(SELECT pk_dept FROM job WHERE pk_job=?) " +
-                      "AND " +
-                          "pk_show = " +
-                          "(SELECT pk_show FROM job WHERE pk_job=?) ",
-                      proc.coresReserved, proc.getJobId(), proc.getJobId());
-          }
-
-          if (proc.isLocalDispatch) {
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "job_resource " +
-                      "SET " +
-                          "int_local_cores = int_local_cores - ? " +
-                      "WHERE " +
-                          "pk_job = ?",
-                      proc.coresReserved, proc.getJobId());
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "host_local " +
-                      "SET " +
-                          "int_cores_idle = int_cores_idle + ?, " +
-                          "int_mem_idle = int_mem_idle + ?, " +
-                          "int_gpu_idle = int_gpu_idle + ? " +
-                      "WHERE " +
-                          "pk_job = ? " +
-                      "AND " +
-                          "pk_host = ? ",
-                      proc.coresReserved,
-                      proc.memoryReserved,
-                      proc.gpuReserved,
-                      proc.getJobId(),
-                      proc.getHostId());
-          }
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "point " +
+                  "SET " +
+                      "int_cores = int_cores - ? " +
+                  "WHERE " +
+                      "pk_dept = " +
+                      "(SELECT pk_dept FROM job WHERE pk_job=?) " +
+                  "AND " +
+                      "pk_show = " +
+                      "(SELECT pk_show FROM job WHERE pk_job=?) ",
+                  proc.coresReserved, proc.getJobId(), proc.getJobId());
       }
 
       /**
@@ -808,23 +753,17 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.coresReserved, proc.memoryReserved, proc.gpuReserved, proc.getHostId());
 
 
-          /**
-           * Not keeping track of local cores this way.
-           */
-
-          if (!proc.isLocalDispatch) {
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "subscription " +
-                      "SET " +
-                          "int_cores = int_cores + ? " +
-                      "WHERE " +
-                          "pk_show = ? " +
-                      "AND " +
-                          "pk_alloc = ?",
-                      proc.coresReserved, proc.getShowId(),
-                      proc.getAllocationId());
-          }
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "subscription " +
+                  "SET " +
+                      "int_cores = int_cores + ? " +
+                  "WHERE " +
+                      "pk_show = ? " +
+                  "AND " +
+                      "pk_alloc = ?",
+                  proc.coresReserved, proc.getShowId(),
+                  proc.getAllocationId());
 
           getJdbcTemplate().update(
                   "UPDATE " +
@@ -835,67 +774,37 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                       "pk_layer = ?",
                   proc.coresReserved, proc.getLayerId());
 
-          if (!proc.isLocalDispatch) {
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "job_resource " +
+                  "SET " +
+                      "int_cores = int_cores + ? " +
+                  "WHERE " +
+                      "pk_job = ?",
+                  proc.coresReserved, proc.getJobId());
 
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "job_resource " +
-                      "SET " +
-                          "int_cores = int_cores + ? " +
-                      "WHERE " +
-                          "pk_job = ?",
-                      proc.coresReserved, proc.getJobId());
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "folder_resource " +
+                  "SET " +
+                      "int_cores = int_cores + ? " +
+                  "WHERE " +
+                      "pk_folder = " +
+                      "(SELECT pk_folder FROM job WHERE pk_job=?)",
+                  proc.coresReserved, proc.getJobId());
 
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "folder_resource " +
-                      "SET " +
-                          "int_cores = int_cores + ? " +
-                      "WHERE " +
-                          "pk_folder = " +
-                          "(SELECT pk_folder FROM job WHERE pk_job=?)",
-                      proc.coresReserved, proc.getJobId());
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "point " +
-                      "SET " +
-                          "int_cores = int_cores + ? " +
-                      "WHERE " +
-                          "pk_dept = " +
-                          "(SELECT pk_dept FROM job WHERE pk_job=?) " +
-                      "AND " +
-                          "pk_show = " +
-                          "(SELECT pk_show FROM job WHERE pk_job=?) ",
-                      proc.coresReserved, proc.getJobId(), proc.getJobId());
-          }
-
-          if (proc.isLocalDispatch) {
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "job_resource " +
-                      "SET " +
-                          "int_local_cores = int_local_cores + ? " +
-                      "WHERE " +
-                          "pk_job = ?",
-                      proc.coresReserved, proc.getJobId());
-
-              getJdbcTemplate().update(
-                      "UPDATE " +
-                          "host_local " +
-                      "SET " +
-                          "int_cores_idle = int_cores_idle - ?, " +
-                          "int_mem_idle = int_mem_idle - ? " +
-                      "WHERE " +
-                          "pk_job = ? " +
-                      "AND " +
-                          "pk_host = ?",
-                      proc.coresReserved,
-                      proc.memoryReserved,
-                      proc.getJobId(),
-                      proc.getHostId());
-          }
+          getJdbcTemplate().update(
+                  "UPDATE " +
+                      "point " +
+                  "SET " +
+                      "int_cores = int_cores + ? " +
+                  "WHERE " +
+                      "pk_dept = " +
+                      "(SELECT pk_dept FROM job WHERE pk_job=?) " +
+                  "AND " +
+                      "pk_show = " +
+                      "(SELECT pk_show FROM job WHERE pk_job=?) ",
+                  proc.coresReserved, proc.getJobId(), proc.getJobId());
       }
 }
 

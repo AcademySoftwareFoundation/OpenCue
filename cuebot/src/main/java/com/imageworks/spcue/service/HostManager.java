@@ -28,7 +28,6 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
@@ -213,36 +212,12 @@ public interface HostManager {
     int getStrandedCoreUnits(HostInterface h);
 
     /**
-     * Return true of the host prefers a particular show.
-     *
-     * @param host
-     * @return
-     */
-    boolean isPreferShow(HostInterface host);
-
-    /**
-     * Return a host's preferred show.
-     *
-     * @param host
-     * @return
-     */
-    ShowInterface getPreferredShow(HostInterface host);
-
-    /**
      * Return all running procs for the given host.
      *
      * @param host
      * @return
      */
     List<VirtualProc> findVirtualProcs(HostInterface host);
-
-    /**
-     * Return all running procs for the given LocalHostAssignment.
-     *
-     * @param l
-     * @return
-     */
-    List<VirtualProc> findVirtualProcs(LocalHostAssignment l);
 
     /**
      * Set the hosts available idle cores and memory.

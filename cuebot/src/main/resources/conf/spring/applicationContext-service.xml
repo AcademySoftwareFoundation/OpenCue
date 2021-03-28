@@ -99,13 +99,6 @@
   <!-- Service Domain -->
   <!-- ##################################################################################### -->
 
-  <bean id="ownerManager" class="com.imageworks.spcue.service.OwnerManagerService">
-    <property name="ownerDao" ref="ownerDao" />
-    <property name="deedDao" ref="deedDao" />
-    <property name="hostDao" ref="hostDao" />
-  </bean>
-
-
   <bean id="departmentManager" class="com.imageworks.spcue.service.DepartmentManagerService">
     <property name="taskDao" ref="taskDao" />
     <property name="showDao" ref="showDao" />
@@ -139,7 +132,6 @@
     <property name="rqdClient" ref="rqdClient" />
     <property name="subscriptionDao" ref="subscriptionDao" />
     <property name="redirectManager" ref="redirectManager" />
-    <property name="bookingManager" ref="bookingManager" />
     <property name="bookingDao" ref="bookingDao" />
   </bean>
 
@@ -203,7 +195,6 @@
     <property name="jobManager" ref="jobManager"/>
     <property name="emailSupport" ref="emailSupport"/>
     <property name="jmsMover" ref="jmsMover"/>
-    <property name="localBookingSupport" ref="localBookingSupport" />
   </bean>
 
   <bean id="hostManager" class="com.imageworks.spcue.service.HostManagerService">
@@ -253,35 +244,9 @@
   <!-- Dispatcher -->
   <!-- ##################################################################################### -->
 
-  <bean id="bookingManager" class="com.imageworks.spcue.service.BookingManagerService">
-    <property name="bookingQueue" ref="bookingQueue" />
-    <property name="bookingDao" ref="bookingDao" />
-    <property name="localDispatcher" ref="localDispatcher" />
-    <property name="jobManager" ref="jobManager" />
-    <property name="jobManagerSupport" ref="jobManagerSupport" />
-    <property name="jobDao" ref="jobDao" />
-    <property name="hostDao" ref="hostDao" />
-    <property name="procDao" ref="procDao" />
-  </bean>
-
-  <bean id="localBookingSupport" class="com.imageworks.spcue.service.LocalBookingSupport">
-    <property name="hostManager" ref="hostManager" />
-    <property name="bookingManager" ref="bookingManager" />
-    <property name="localDispatcher" ref="localDispatcher" />
-    <property name="ownerManager" ref="ownerManager" />
-  </bean>
-
   <bean id="dispatcher" class="com.imageworks.spcue.dispatcher.CoreUnitDispatcher">
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="jobManager" ref="jobManager" />
-    <property name="hostManager" ref="hostManager" />
-    <property name="rqdClient" ref="rqdClient" />
-  </bean>
-
-  <bean id="localDispatcher" class="com.imageworks.spcue.dispatcher.LocalDispatcher">
-    <property name="dispatchSupport" ref="dispatchSupport" />
-    <property name="jobManager" ref="jobManager" />
-    <property name="bookingManager" ref="bookingManager" />
     <property name="hostManager" ref="hostManager" />
     <property name="rqdClient" ref="rqdClient" />
   </bean>
@@ -308,11 +273,9 @@
     <property name="jobManager" ref="jobManager" />
     <property name="jobManagerSupport" ref="jobManagerSupport" />
     <property name="redirectManager" ref="redirectManager"/>
-    <property name="bookingManager" ref="bookingManager"/>
     <property name="dispatchQueue" ref="dispatchQueue" />
     <property name="bookingQueue" ref="bookingQueue" />
     <property name="dispatcher" ref="dispatcher" />
-    <property name="localDispatcher" ref="localDispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="jmsMover" ref="jmsMover"/>
   </bean>
@@ -323,10 +286,8 @@
     <property name="reportQueue" ref="reportQueue" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="dispatcher" ref="dispatcher" />
-    <property name="localDispatcher" ref="localDispatcher" />
     <property name="rqdClient" ref="rqdClient" />
     <property name="jobManager" ref="jobManager" />
-    <property name="bookingManager" ref="bookingManager" />
     <property name="jobManagerSupport" ref="jobManagerSupport" />
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />

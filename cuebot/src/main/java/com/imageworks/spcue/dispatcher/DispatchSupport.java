@@ -312,13 +312,6 @@ public interface DispatchSupport {
     Set<String> findDispatchJobs(DispatchHost host, GroupInterface p);
 
     /**
-     *
-     * @param host
-     * @return  A set of unique job ids.
-     */
-    Set<String> findLocalDispatchJobs(DispatchHost host);
-
-    /**
      * Creates and returns and RQD RunFrame object.
      *
      * Once the RunFrame object is created string replacement is done
@@ -344,10 +337,9 @@ public interface DispatchSupport {
      * frames, and if its paused.
      *
      * @param job
-     * @param local indicates a local dispatch or not
      * @return boolean
      */
-    boolean isJobDispatchable(JobInterface job, boolean local);
+    boolean isJobDispatchable(JobInterface job);
 
     /**
      * returns true of the cue has jobs with pending frames

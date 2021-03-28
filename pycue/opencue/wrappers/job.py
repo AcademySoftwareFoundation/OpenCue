@@ -211,29 +211,6 @@ class Job(object):
         self.stub.SetAutoEat(job_pb2.JobSetAutoEatRequest(job=self.data, value=value),
                              timeout=Cuebot.Timeout)
 
-    def addRenderPartition(self, hostname, threads, max_cores, num_mem, max_gpu):
-        """Adds a render partition to the job.
-
-        :type  hostname: str
-        :param hostname: hostname of the partition
-        :type  threads: int
-        :param threads: number of threads of the partition
-        :type  max_cores: int
-        :param max_cores: max cores enabled for the partition
-        :type  num_mem: int
-        :param num_mem: amount of memory reserved for the partition
-        :type  max_gpu: int
-        :param max_gpu: max gpu cores enabled for the partition
-        """
-        self.stub.AddRenderPartition(
-            job_pb2.JobAddRenderPartRequest(job=self.data,
-                                            host=hostname,
-                                            threads=threads,
-                                            max_cores=max_cores,
-                                            max_memory=num_mem,
-                                            max_gpu=max_gpu,
-                                            username=os.getenv("USER", "unknown")))
-
     def getWhatDependsOnThis(self):
         """Returns a list of dependencies that depend directly on this job.
 

@@ -134,14 +134,6 @@ public interface DispatcherDao {
    Set<String> findDispatchJobs(DispatchHost host, ShowInterface show, int numJobs);
 
    /**
-    * Find a list of local dispatch jobs.
-    *
-    * @param host
-    * @return
-    */
-   Set<String> findLocalDispatchJobs(DispatchHost host);
-
-   /**
     * Return a list of frames from the given layer.
     *
     * @param layer

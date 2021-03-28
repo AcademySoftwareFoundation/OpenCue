@@ -34,7 +34,6 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FilterInterface;
@@ -43,9 +42,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherInterface;
-import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
@@ -78,14 +75,11 @@ import com.imageworks.spcue.grpc.filter.MatchSubject;
 import com.imageworks.spcue.grpc.filter.MatchType;
 import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.filter.MatcherSeq;
-import com.imageworks.spcue.grpc.host.Deed;
-import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSeq;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.host.NestedHost;
-import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.grpc.host.Proc;
 import com.imageworks.spcue.grpc.host.ProcSeq;
 import com.imageworks.spcue.grpc.host.ThreadMode;
@@ -108,9 +102,6 @@ import com.imageworks.spcue.grpc.job.UpdatedFrame;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
 import com.imageworks.spcue.grpc.job.UpdatedFrameSeq;
 import com.imageworks.spcue.grpc.limit.Limit;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
 import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
@@ -646,103 +637,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     }
 
     @Override
-    public DeedSeq getDeeds(OwnerEntity owner) {
-        List<Deed> deeds = getJdbcTemplate().query(
-                QUERY_FOR_DEED + " AND owner.pk_owner=?",
-                DEED_MAPPER, owner.getId());
-        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
-    }
-
-    @Override
-    public DeedSeq getDeeds(ShowInterface show) {
-        List<Deed> deeds =  getJdbcTemplate().query(
-                QUERY_FOR_DEED + " AND show.pk_show=?",
-                DEED_MAPPER, show.getId());
-        return DeedSeq.newBuilder().addAllDeeds(deeds).build();
-    }
-
-    @Override
-    public Host getHost(DeedEntity deed) {
-        return getJdbcTemplate().queryForObject(
-                GET_HOST + " AND host.pk_host=?",
-                HOST_MAPPER, deed.id);
-    }
-
-    @Override
-    public Deed getDeed(HostInterface host) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_DEED + " AND host.pk_host=?",
-                DEED_MAPPER, host.getHostId());
-    }
-
-    @Override
-    public HostSeq getHosts(OwnerEntity owner) {
-        StringBuilder sb = new StringBuilder(4096);
-        String query = GET_HOST;
-        query = query.replace("FROM " , "FROM owner, deed,");
-        sb.append(query);
-        sb.append("AND deed.pk_host = host.pk_host ");
-        sb.append("AND deed.pk_owner = owner.pk_owner ");
-        sb.append("AND owner.pk_owner = ?");
-
-        List<Host> hosts = getJdbcTemplate().query(
-                sb.toString(), HOST_MAPPER, owner.getId());
-        return HostSeq.newBuilder().addAllHosts(hosts).build();
-    }
-
-    @Override
-    public Owner getOwner(DeedEntity deed) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_OWNER + " AND " +
-                "pk_owner = (SELECT deed.pk_owner FROM deed " +
-                "WHERE pk_deed=?)", OWNER_MAPPER, deed.getId());
-    }
-
-    @Override
-    public Owner getOwner(HostInterface host) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_OWNER + " AND " +
-                "pk_owner = (SELECT deed.pk_owner FROM deed " +
-                "WHERE pk_host=?)", OWNER_MAPPER, host.getHostId());
-    }
-
-    @Override
-    public List<Owner> getOwners(ShowInterface show) {
-        return getJdbcTemplate().query(
-                QUERY_FOR_OWNER + " AND owner.pk_show=?", OWNER_MAPPER,
-                show.getShowId());
-    }
-
-
-    @Override
-    public RenderPartition getRenderPartition(LocalHostAssignment l) {
-        return getJdbcTemplate().queryForObject(QUERY_FOR_RENDER_PART +
-                "WHERE host_local.pk_host_local = ?",
-                RENDER_PARTION_MAPPER, l.getId());
-    }
-
-
-    @Override
-    public RenderPartitionSeq getRenderPartitions(HostInterface host) {
-        List<RenderPartition> partitions = getJdbcTemplate().query(QUERY_FOR_RENDER_PART +
-                        "WHERE host_local.pk_host = ?",
-                RENDER_PARTION_MAPPER, host.getHostId());
-        return RenderPartitionSeq.newBuilder().addAllRenderPartitions(partitions).build();
-    }
-
-
-    @Override
-    public Owner getOwner(String name) {
-        return getJdbcTemplate().queryForObject(
-                QUERY_FOR_OWNER + " AND " +
-                        "(" +
-                            "owner.str_username = ? " +
-                        "OR " +
-                            "owner.pk_owner = ?" +
-                        ")", OWNER_MAPPER, name, name);
-    }
-
-    @Override
     public Facility getFacility(String name) {
         return getJdbcTemplate().queryForObject(
                 QUERY_FOR_FACILITY +
@@ -870,61 +764,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setId(rs.getString("pk_facility"))
                         .build();
             }
-    };
-
-
-    public static final RowMapper<Deed> DEED_MAPPER =
-            new RowMapper<Deed>() {
-                public Deed mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    return Deed.newBuilder()
-                            .setId(SqlUtil.getString(rs,"pk_deed"))
-                            .setHost(SqlUtil.getString(rs,"str_host"))
-                            .setOwner(SqlUtil.getString(rs,"str_username"))
-                            .build();
-                }
-            };
-
-    public static final RowMapper<RenderPartition>
-            RENDER_PARTION_MAPPER = new RowMapper<RenderPartition>() {
-        public RenderPartition mapRow(ResultSet rs, int rowNum) throws SQLException {
-
-            RenderPartition.Builder builder = RenderPartition.newBuilder()
-                    .setId(SqlUtil.getString(rs,"pk_host_local"))
-                    .setCores(rs.getInt("int_cores_max") - rs.getInt("int_cores_idle"))
-                    .setMaxCores(rs.getInt("int_cores_max"))
-                    .setThreads(rs.getInt("int_threads"))
-                    .setMaxMemory(rs.getLong("int_mem_max"))
-                    .setMemory( rs.getLong("int_mem_max") - rs.getLong("int_mem_idle"))
-                    .setMaxGpu(rs.getLong("int_gpu_max"))
-                    .setHost(SqlUtil.getString(rs,"str_host_name"))
-                    .setJob(SqlUtil.getString(rs,"str_job_name"))
-                    .setRenderPartType(RenderPartitionType.valueOf(SqlUtil.getString(rs,"str_type")))
-                    .setLayer("")
-                    .setFrame("");
-
-            if (SqlUtil.getString(rs,"str_layer_name") != null) {
-                builder.setLayer(SqlUtil.getString(rs,"str_layer_name"));
-            }
-
-            if (SqlUtil.getString(rs,"str_frame_name") != null) {
-                builder.setFrame(SqlUtil.getString(rs,"str_frame_name"));
-            }
-
-            return builder.build();
-
-        }
-    };
-
-    public static final RowMapper<Owner>
-            OWNER_MAPPER = new RowMapper<Owner>() {
-        public Owner mapRow(ResultSet rs, int rowNum) throws SQLException {
-            return Owner.newBuilder()
-                    .setName(SqlUtil.getString(rs,"str_username"))
-                    .setId(SqlUtil.getString(rs,"pk_owner"))
-                    .setShow(SqlUtil.getString(rs,"str_show"))
-                    .setHostCount(rs.getInt("host_count"))
-                    .build();
-        }
     };
 
     public static final RowMapper<Department> DEPARTMENT_MAPPER =
@@ -1684,41 +1523,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         "AND " +
             "point.pk_show = ? ";
 
-    private static final String QUERY_FOR_OWNER =
-        "SELECT " +
-            "owner.pk_owner," +
-            "owner.str_username,"+
-            "show.str_name AS str_show, " +
-            "(SELECT COUNT(1) FROM deed WHERE deed.pk_owner = owner.pk_owner) " +
-                " AS host_count " +
-        "FROM " +
-            "owner, " +
-            "show " +
-        "WHERE " +
-            "owner.pk_show = show.pk_show";
-
-    private static final String QUERY_FOR_RENDER_PART =
-        "SELECT " +
-            "host_local.pk_host_local,"+
-            "host_local.int_cores_idle,"+
-            "host_local.int_cores_max,"+
-            "host_local.int_threads,"+
-            "host_local.int_mem_idle,"+
-            "host_local.int_mem_max,"+
-            "host_local.int_gpu_idle,"+
-            "host_local.int_gpu_max,"+
-            "host_local.str_type,"+
-            "(SELECT str_name FROM host WHERE host.pk_host = host_local.pk_host) " +
-                "AS str_host_name,"+
-            "(SELECT str_name FROM job WHERE job.pk_job = host_local.pk_job) " +
-                "AS str_job_name,"+
-            "(SELECT str_name FROM layer WHERE layer.pk_layer = host_local.pk_layer) " +
-                "AS str_layer_name,"+
-            "(SELECT str_name FROM frame WHERE frame.pk_frame = host_local.pk_frame) " +
-                "AS str_frame_name " +
-        "FROM " +
-            "host_local ";
-
     private static final String QUERY_FOR_FACILITY =
         "SELECT " +
             "facility.pk_facility," +
@@ -1848,7 +1652,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "job_usage.int_clock_time_high,"+
             "job_usage.int_clock_time_success,"+
             "job_mem.int_max_rss,"+
-            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores " +
+            "job_resource.int_cores AS int_cores " +
         "FROM " +
             "job,"+
             "folder,"+
@@ -2151,24 +1955,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "frame.pk_layer = layer.pk_layer "+
         "AND "+
             "frame.pk_job= job.pk_job ";
-
-    private static final String QUERY_FOR_DEED =
-        "SELECT " +
-            "host.str_name AS str_host,"+
-            "show.str_name AS str_show,"+
-            "owner.str_username," +
-            "deed.pk_deed " +
-        "FROM " +
-            "deed,"+
-            "owner,"+
-            "host,"+
-            "show "+
-        "WHERE " +
-            "deed.pk_host = host.pk_host " +
-        "AND " +
-            "deed.pk_owner = owner.pk_owner " +
-        "AND " +
-            "owner.pk_show = show.pk_show ";
 
     public FrameSearchFactory getFrameSearchFactory() {
         return frameSearchFactory;

@@ -20,9 +20,6 @@ service ShowInterface {
     // Creates a new empty filter
     rpc CreateFilter(ShowCreateFilterRequest) returns (ShowCreateFilterResponse);
 
-    // Create a new owner.
-    rpc CreateOwner(ShowCreateOwnerRequest) returns (ShowCreateOwnerResponse);
-
     // Add a new service overrides.
     rpc CreateServiceOverride(ShowCreateServiceOverrideRequest) returns (ShowCreateServiceOverrideResponse);
 
@@ -51,9 +48,6 @@ service ShowInterface {
 
     // Returns a list of all active shows.
     rpc GetActiveShows(ShowGetActiveShowsRequest) returns (ShowGetActiveShowsResponse);
-
-    // Return all the host deeds for the specified show.
-    rpc GetDeeds(ShowGetDeedsRequest) returns (ShowGetDeedsResponse);
 
     // Returns the department manager for the specified department
     rpc GetDepartment(ShowGetDepartmentRequest) returns (ShowGetDepartmentResponse);
@@ -145,16 +139,6 @@ message ShowCreateFilterResponse {
     filter.Filter filter = 1;
 }
 
-// CreateOwner
-message ShowCreateOwnerRequest {
-    Show show = 1;
-    string name = 2;
-}
-
-message ShowCreateOwnerResponse {
-    host.Owner owner = 1;
-}
-
 // CreateServiceOverride
 message ShowCreateServiceOverrideRequest {
     Show show = 1;
@@ -233,15 +217,6 @@ message ShowGetActiveShowsRequest {} // Empty
 
 message ShowGetActiveShowsResponse {
     ShowSeq shows = 1;
-}
-
-// GetDeeds
-message ShowGetDeedsRequest {
-    Show show = 1;
-}
-
-message ShowGetDeedsResponse {
-    host.DeedSeq deeds = 1;
 }
 
 // GetDepartment

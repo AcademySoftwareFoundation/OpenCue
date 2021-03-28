@@ -42,7 +42,6 @@ import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
-import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JmsMover;
 import com.imageworks.spcue.service.JobManager;
@@ -63,11 +62,9 @@ public class FrameCompleteHandler {
     private HostManager hostManager;
     private JobManager jobManager;
     private RedirectManager redirectManager;
-    private BookingManager bookingManager;
     private DispatchQueue dispatchQueue;
     private BookingQueue bookingQueue;
     private Dispatcher dispatcher;
-    private Dispatcher localDispatcher;
     private JobManagerSupport jobManagerSupport;
     private DispatchSupport dispatchSupport;
     private JmsMover jsmMover;
@@ -279,18 +276,6 @@ public class FrameCompleteHandler {
             }
 
             /*
-             * Check for local dispatching.
-             */
-
-            if (proc.isLocalDispatch) {
-
-                if (!bookingManager.hasLocalHostAssignment(proc)) {
-                    logger.info("the proc " + proc + " no longer has a local assignment.");
-                    unbookProc = true;
-                }
-            }
-
-            /*
              * An exit status of NO_RETRY (256) indicates that the frame could
              * not be launched due to some unforeseen unrecoverable error that
              * is not checked when the launch command is given. The most common
@@ -307,10 +292,8 @@ public class FrameCompleteHandler {
 
             else if (report.getHost().getNimbyLocked()) {
 
-                if (!proc.isLocalDispatch) {
-                    logger.info("unbooking " + proc + " was NIMBY locked.");
-                    unbookProc = true;
-                }
+                logger.info("unbooking " + proc + " was NIMBY locked.");
+                unbookProc = true;
 
                 /* Update the NIMBY locked state */
                 hostManager.setHostLock(proc, LockState.NIMBY_LOCKED,
@@ -333,11 +316,9 @@ public class FrameCompleteHandler {
                 logger.info("the proc " + proc + " is not in the update state.");
                 unbookProc = true;
             } else if (hostManager.isLocked(proc)) {
-                if (!proc.isLocalDispatch) {
-                    logger.info("the proc " + proc
-                            + " is not in the open state.");
-                    unbookProc = true;
-                }
+                logger.info("the proc " + proc
+                        + " is not in the open state.");
+                unbookProc = true;
             } else if (redirectManager.hasRedirect(proc)) {
 
                 logger.info("the proc " + proc + " has been redirected.");
@@ -360,20 +341,17 @@ public class FrameCompleteHandler {
              * dispatchable.
              */
             if (job.state.equals(JobState.FINISHED)
-                    || !dispatchSupport.isJobDispatchable(job,
-                            proc.isLocalDispatch)) {
+                    || !dispatchSupport.isJobDispatchable(job)) {
 
                 logger.info("The " + job + " is no longer dispatchable.");
                 dispatchSupport.unbookProc(proc);
 
                 /*
-                 * Only rebook whole cores that have not been locally
-                 * dispatched. Rebooking fractional can cause storms of booking
+                 * Rebooking fractional can cause storms of booking
                  * requests that don't have a chance of finding a suitable frame
                  * to run.
                  */
-                if (!proc.isLocalDispatch && proc.coresReserved >= 100
-                        && dispatchSupport.isCueBookable(job)) {
+                if (proc.coresReserved >= 100 && dispatchSupport.isCueBookable(job)) {
 
                     bookingQueue.execute(new DispatchBookHost(hostManager
                             .getDispatchHost(proc.getHostId()), dispatcher));
@@ -393,8 +371,7 @@ public class FrameCompleteHandler {
              * This will handle show balancing in the future.
              */
 
-            if (!proc.isLocalDispatch
-                    && randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
+            if (randomNumber.nextInt(100) <= Dispatcher.UNBOOK_FREQUENCY
                     && System.currentTimeMillis() > lastUnbook.get()) {
 
                 // First make sure all jobs have their min cores
@@ -441,8 +418,7 @@ public class FrameCompleteHandler {
                 /*
                  * Check for stranded cores on the host.
                  */
-                if (!proc.isLocalDispatch
-                        && dispatchSupport.hasStrandedCores(proc)
+                if (dispatchSupport.hasStrandedCores(proc)
                         && jobManager.isLayerThreadable(frame)
                         && dispatchSupport.isJobBookable(job)) {
 
@@ -460,13 +436,8 @@ public class FrameCompleteHandler {
                 }
 
                 // Book the next frame of this job on the same proc
-                if (proc.isLocalDispatch) {
-                    dispatchQueue.execute(new DispatchNextFrame(job, proc,
-                            localDispatcher));
-                } else {
-                    dispatchQueue.execute(new DispatchNextFrame(job, proc,
-                            dispatcher));
-                }
+                dispatchQueue.execute(new DispatchNextFrame(job, proc,
+                        dispatcher));
             } else {
                 dispatchSupport.unbookProc(proc, "frame state was "
                         + newFrameState.toString());
@@ -628,22 +599,6 @@ public class FrameCompleteHandler {
 
     public void setDispatchSupport(DispatchSupport dispatchSupport) {
         this.dispatchSupport = dispatchSupport;
-    }
-
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
-
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
     }
 
     public JmsMover getJmsMover() {

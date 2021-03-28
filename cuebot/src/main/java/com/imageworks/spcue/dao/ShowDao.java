@@ -45,14 +45,6 @@ public interface ShowDao {
     ShowEntity getShowDetail(String id);
 
     /**
-     * Get show detail from its preferred show.
-     *
-     * @param id
-     * @return ShowDetail
-     */
-    ShowEntity getShowDetail(HostInterface host);
-
-    /**
      * create a show from ShowDetail
      *
      * @param show

@@ -45,11 +45,6 @@ public class BuildableJob {
     private BuildableJob postJob = null;
 
     /**
-     * Stores the local core assignment if one was launched with the job.
-     */
-    private LocalHostAssignment runLocalConf = null;
-
-    /**
      * Job specific environment variables
      */
     public Map<String,String> env = new HashMap<String,String>();
@@ -89,14 +84,6 @@ public class BuildableJob {
 
     public BuildableJob getPostJob() {
         return this.postJob;
-    }
-
-    public void setRunLocalConf(LocalHostAssignment runLocalConf) {
-        this.runLocalConf = runLocalConf;
-    }
-
-    public LocalHostAssignment getRunLocalConf() {
-        return this.runLocalConf;
     }
 }
 

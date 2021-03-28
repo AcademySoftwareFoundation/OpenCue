@@ -27,7 +27,6 @@ import mock
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import host_pb2
-from opencue.compiled_proto import renderPartition_pb2
 import opencue.wrappers.allocation
 import opencue.wrappers.host
 
@@ -93,24 +92,6 @@ class HostTests(unittest.TestCase):
             timeout=mock.ANY)
         self.assertEqual(len(procs), 1)
         self.assertEqual(procs[0].name(), procName)
-
-    def testGetRenderPartitions(self, getStubMock):
-        renderPartId = 'rpr-rprp-rpr'
-        stubMock = mock.Mock()
-        stubMock.GetRenderPartitions.return_value = host_pb2.HostGetRenderPartitionsResponse(
-            render_partitions=renderPartition_pb2.RenderPartitionSeq(
-                render_partitions=[renderPartition_pb2.RenderPartition(id=renderPartId)]))
-        getStubMock.return_value = stubMock
-
-        host = opencue.wrappers.host.Host(
-            host_pb2.Host(name=TEST_HOST_NAME))
-        renderParts = host.getRenderPartitions()
-
-        stubMock.GetRenderPartitions.assert_called_with(
-            host_pb2.HostGetRenderPartitionsRequest(host=host.data),
-            timeout=mock.ANY)
-        self.assertEqual(len(renderParts), 1)
-        self.assertEqual(renderParts[0].id, renderPartId)
 
     def testRebootWhenIdle(self, getStubMock):
         stubMock = mock.Mock()

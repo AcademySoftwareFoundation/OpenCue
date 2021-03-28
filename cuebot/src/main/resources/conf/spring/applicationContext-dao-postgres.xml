@@ -123,14 +123,6 @@
         <property name="dataSource" ref="cueDataSource" />
     </bean>
 
-    <bean id="ownerDao" class="com.imageworks.spcue.dao.postgres.OwnerDaoJdbc">
-        <property name="dataSource" ref="cueDataSource" />
-    </bean>
-
-    <bean id="deedDao" class="com.imageworks.spcue.dao.postgres.DeedDaoJdbc">
-        <property name="dataSource" ref="cueDataSource" />
-    </bean>
-
     <bean id="serviceDao" class="com.imageworks.spcue.dao.postgres.ServiceDaoJdbc">
         <property name="dataSource" ref="cueDataSource" />
     </bean>

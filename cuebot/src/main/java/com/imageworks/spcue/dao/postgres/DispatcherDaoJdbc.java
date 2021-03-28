@@ -50,12 +50,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAM
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
@@ -235,48 +230,28 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             VirtualProc proc,  int limit) {
 
-        if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.memoryReserved,
-                    proc.gpuReserved,
-                    job.getJobId(),
-                    limit);
-        }
-        else {
-            return getJdbcTemplate().query(
-                    FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.coresReserved,
-                    proc.memoryReserved,
-                    (proc.gpuReserved > 0) ? 1: 0, proc.gpuReserved,
-                    job.getJobId(), proc.hostName,
-                    job.getJobId(), limit);
-        }
+        return getJdbcTemplate().query(
+                FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                proc.coresReserved,
+                proc.memoryReserved,
+                (proc.gpuReserved > 0) ? 1: 0, proc.gpuReserved,
+                job.getJobId(), proc.hostName,
+                job.getJobId(), limit);
     }
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
             DispatchHost host, int limit) {
 
-        if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory,  host.idleGpu, job.getJobId(),
-                    limit);
-
-        } else {
-            return getJdbcTemplate().query(
-                FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                (host.idleGpu > 0) ? 1: 0, host.idleGpu,
-                job.getJobId(), host.getName(),
-                job.getJobId(), limit);
-        }
+        return getJdbcTemplate().query(
+            FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
+            FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            host.idleCores, host.idleMemory,
+            threadMode(host.threadMode),
+            (host.idleGpu > 0) ? 1: 0, host.idleGpu,
+            job.getJobId(), host.getName(),
+            job.getJobId(), limit);
     }
 
 
@@ -284,45 +259,26 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             VirtualProc proc,  int limit) {
 
-        if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.memoryReserved, proc.gpuReserved,
-                    layer.getLayerId(),
-                    limit);
-        }
-        else {
-            return getJdbcTemplate().query(
-                    FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    proc.coresReserved, proc.memoryReserved,
-                    proc.gpuReserved,
-                    layer.getLayerId(), layer.getLayerId(),
-                    proc.hostName, limit);
-        }
+        return getJdbcTemplate().query(
+                FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                proc.coresReserved, proc.memoryReserved,
+                proc.gpuReserved,
+                layer.getLayerId(), layer.getLayerId(),
+                proc.hostName, limit);
     }
 
     @Override
     public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
 
-        if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                    host.idleMemory, host.idleGpu, layer.getLayerId(),
-                    limit);
-
-        } else {
-            return getJdbcTemplate().query(
-                FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-                host.idleCores, host.idleMemory,
-                threadMode(host.threadMode),
-                host.idleGpu, layer.getLayerId(), layer.getLayerId(),
-                host.getName(), limit);
-        }
+        return getJdbcTemplate().query(
+            FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
+            FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            host.idleCores, host.idleMemory,
+            threadMode(host.threadMode),
+            host.idleGpu, layer.getLayerId(), layer.getLayerId(),
+            host.getName(), limit);
     }
 
 
@@ -386,18 +342,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 threadMode(host.threadMode),
                 (host.idleGpu > 0) ? 1: 0, host.idleGpu,
                 host.getName(), numJobs * 10));
-
-        return result;
-    }
-
-    @Override
-    public Set<String> findLocalDispatchJobs(DispatchHost host) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>(5);
-        result.addAll(getJdbcTemplate().query(
-                    FIND_JOBS_BY_LOCAL,
-                    PKJOB_MAPPER,
-                    host.getHostId(), host.getFacilityId(),
-                    host.os, host.getHostId(), host.getFacilityId(), host.os));
 
         return result;
     }

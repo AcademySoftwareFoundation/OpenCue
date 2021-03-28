@@ -34,7 +34,6 @@ import com.imageworks.spcue.EntityModificationError;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
@@ -291,12 +290,6 @@ public class HostManagerService implements HostManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public List<VirtualProc> findVirtualProcs(LocalHostAssignment l) {
-        return procDao.findVirtualProcs(l);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public List<VirtualProc> findVirtualProcs(ProcSearchInterface r) {
         return procDao.findVirtualProcs(r);
     }
@@ -347,18 +340,6 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean isOprhan(ProcInterface proc) {
         return procDao.isOrphan(proc);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isPreferShow(HostInterface host) {
-        return hostDao.isPreferShow(host);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public ShowInterface getPreferredShow(HostInterface host) {
-        return showDao.getShowDetail(host);
     }
 
     public void deleteHost(HostInterface host) {

@@ -8,7 +8,6 @@ option java_multiple_files = true;
 import "comment.proto";
 import "depend.proto";
 import "limit.proto";
-import "renderPartition.proto";
 
 // Job related messages and services
 // This includes Job, Layer, Frame, and Group objects
@@ -17,9 +16,6 @@ import "renderPartition.proto";
 // -------- Services --------]
 
 service FrameInterface {
-    // Add a render partition to the frame.
-    rpc AddRenderPartition(FrameAddRenderPartitionRequest) returns (FrameAddRenderPartitionResponse);
-
     // Sets up and returns a FrameOnFrame dependency.
     rpc CreateDependencyOnFrame(FrameCreateDependencyOnFrameRequest) returns (FrameCreateDependencyOnFrameResponse);
 
@@ -122,10 +118,6 @@ service GroupInterface {
 service JobInterface {
     // Add a comment on this job
     rpc AddComment(JobAddCommentRequest) returns (JobAddCommentResponse);
-
-    // Add a render partition to the local host.  This partition will
-    // run frames on the specified job.
-    rpc AddRenderPartition(JobAddRenderPartRequest) returns (JobAddRenderPartResponse);
 
     // Setup and retunrn a JobOnFrame dependency
     rpc CreateDependencyOnFrame(JobCreateDependencyOnFrameRequest) returns (JobCreateDependencyOnFrameResponse);
@@ -258,9 +250,6 @@ service JobInterface {
 service LayerInterface {
     // Add Limit to the Layer
     rpc AddLimit(LayerAddLimitRequest) returns (LayerAddLimitResponse);
-
-    // Add RenderPartition to Layer
-    rpc AddRenderPartition(LayerAddRenderPartitionRequest) returns (LayerAddRenderPartitionResponse);
 
     // Setup and return a LayerOnFrame dependency
     rpc CreateDependencyOnFrame(LayerCreateDependOnFrameRequest) returns (LayerCreateDependOnFrameResponse);
@@ -712,21 +701,6 @@ message NestedJob {
 // -------- Requests & Responses --------]
 
 // FRAME ----
-// AddRenderPartition
-message FrameAddRenderPartitionRequest {
-    Frame frame = 1;
-    string host = 2;
-    int32 threads = 3;
-    int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
-}
-
-message FrameAddRenderPartitionResponse {
-    renderPartition.RenderPartition render_partition = 1;
-}
-
 // CreateDependencyOnFrame
 message FrameCreateDependencyOnFrameRequest {
     Frame frame = 1;
@@ -1000,21 +974,6 @@ message JobAddCommentRequest {
 }
 
 message JobAddCommentResponse {} // Empty
-
-// AddRenderPartition
-message JobAddRenderPartRequest {
-    Job job = 1;
-    string host = 2;
-    int32 threads = 3;
-    int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
-}
-
-message JobAddRenderPartResponse {
-    renderPartition.RenderPartition render_partition = 1;
-}
 
 // CreateDependencyOnFrame
 message JobCreateDependencyOnFrameRequest {
@@ -1338,21 +1297,6 @@ message LayerAddLimitRequest {
 }
 
 message LayerAddLimitResponse {} // Empty
-
-// AddRenderPartion
-message LayerAddRenderPartitionRequest {
-    Layer layer = 1;
-    string host = 2;
-    int32 threads = 3;
-    int32 max_cores = 4;
-    int64 max_memory = 5;
-    int64 max_gpu = 6;
-    string username = 7;
-}
-
-message LayerAddRenderPartitionResponse {
-    renderPartition.RenderPartition render_partition = 1;
-}
 
 // CreateDependencyOnFrame
 message LayerCreateDependOnFrameRequest {

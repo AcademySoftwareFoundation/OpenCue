@@ -41,7 +41,6 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -174,13 +173,6 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public HostInterface getHost(String id) {
         return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host=?",
                 HOST_MAPPER, id);
-    }
-
-    @Override
-    public HostInterface getHost(LocalHostAssignment l) {
-        return getJdbcTemplate().queryForObject(GET_HOST + " AND host.pk_host = ("+
-                "SELECT pk_host FROM host_local WHERE pk_host_local=?)",
-                HOST_MAPPER, l.getId());
     }
 
     @Override
@@ -643,26 +635,6 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         return getJdbcTemplate().queryForObject(IS_HOST_UP,
                 Integer.class, HardwareState.UP.toString(),
                 host.getHostId()) == 1;
-    }
-
-    private static final String IS_PREFER_SHOW =
-        "SELECT " +
-            "COUNT(1) " +
-        "FROM " +
-            "host," +
-            "owner," +
-            "deed "+
-        "WHERE " +
-            "host.pk_host = deed.pk_host " +
-        "AND " +
-            "deed.pk_owner = owner.pk_owner " +
-        "AND " +
-            "host.pk_host = ?";
-
-    @Override
-    public boolean isPreferShow(HostInterface h) {
-        return getJdbcTemplate().queryForObject(IS_PREFER_SHOW,
-                Integer.class, h.getHostId()) > 0;
     }
 
     @Override

@@ -25,7 +25,6 @@ import io.grpc.stub.StreamObserver;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
@@ -47,8 +46,6 @@ import com.imageworks.spcue.grpc.job.FrameSeq;
 import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerAddLimitRequest;
 import com.imageworks.spcue.grpc.job.LayerAddLimitResponse;
-import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionRequest;
-import com.imageworks.spcue.grpc.job.LayerAddRenderPartitionResponse;
 import com.imageworks.spcue.grpc.job.LayerCreateDependOnFrameRequest;
 import com.imageworks.spcue.grpc.job.LayerCreateDependOnFrameResponse;
 import com.imageworks.spcue.grpc.job.LayerCreateDependOnJobRequest;
@@ -109,12 +106,9 @@ import com.imageworks.spcue.grpc.job.LayerSetTimeoutLLUResponse;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.LayerStaggerFramesResponse;
 import com.imageworks.spcue.grpc.limit.Limit;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
@@ -129,7 +123,6 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private LayerDao layerDao;
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
-    private LocalBookingSupport localBookingSupport;
     private FrameSearchFactory frameSearchFactory;
 
     @Override
@@ -381,30 +374,6 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     }
 
     @Override
-    public void addRenderPartition(LayerAddRenderPartitionRequest request,
-                                   StreamObserver<LayerAddRenderPartitionResponse> responseObserver) {
-        updateLayer(request.getLayer());
-        LocalHostAssignment lha = new LocalHostAssignment();
-        lha.setThreads(request.getThreads());
-        lha.setMaxCoreUnits(request.getMaxCores() * 100);
-        lha.setMaxMemory(request.getMaxMemory());
-        lha.setMaxGpu(request.getMaxGpu());
-        lha.setType(RenderPartitionType.LAYER_PARTITION);
-        if (localBookingSupport.bookLocal(layer, request.getHost(), request.getUsername(), lha)) {
-            RenderPartition partition = whiteboard.getRenderPartition(lha);
-            responseObserver.onNext(LayerAddRenderPartitionResponse.newBuilder()
-                    .setRenderPartition(partition)
-                    .build());
-            responseObserver.onCompleted();
-        } else {
-            responseObserver.onError(Status.INTERNAL
-                    .withDescription("Failed to find suitable frames.")
-                    .asRuntimeException());
-        }
-
-    }
-
-    @Override
     public void registerOutputPath(LayerRegisterOutputPathRequest request,
                                    StreamObserver<LayerRegisterOutputPathResponse> responseObserver) {
         updateLayer(request.getLayer());
@@ -503,14 +472,6 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
 
     public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
         this.jobManagerSupport = jobManagerSupport;
-    }
-
-    public LocalBookingSupport getLocalBookingSupport() {
-        return localBookingSupport;
-    }
-
-    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-        this.localBookingSupport = localBookingSupport;
     }
 
     public FrameSearchFactory getFrameSearchFactory() {

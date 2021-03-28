@@ -25,7 +25,6 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.Redirect;
 import com.imageworks.spcue.VirtualProc;
@@ -308,14 +307,5 @@ public interface ProcDao {
      * @return
      */
     boolean isOrphan(ProcInterface proc);
-
-    /**
-     * Return a list of all procs that are booked as part
-     * of the given local job assignment.
-     *
-     * @param l
-     * @return
-     */
-    List<VirtualProc> findVirtualProcs(LocalHostAssignment l);
 }
 

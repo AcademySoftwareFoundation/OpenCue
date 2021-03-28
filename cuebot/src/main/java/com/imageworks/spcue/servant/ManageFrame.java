@@ -24,7 +24,6 @@ import io.grpc.stub.StreamObserver;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.FrameEntity;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
@@ -38,8 +37,6 @@ import com.imageworks.spcue.dispatcher.commands.DispatchKillFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchRetryFrames;
 import com.imageworks.spcue.grpc.depend.Depend;
 import com.imageworks.spcue.grpc.job.Frame;
-import com.imageworks.spcue.grpc.job.FrameAddRenderPartitionRequest;
-import com.imageworks.spcue.grpc.job.FrameAddRenderPartitionResponse;
 import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnFrameRequest;
 import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnFrameResponse;
 import com.imageworks.spcue.grpc.job.FrameCreateDependencyOnJobRequest;
@@ -71,12 +68,9 @@ import com.imageworks.spcue.grpc.job.FrameRetryRequest;
 import com.imageworks.spcue.grpc.job.FrameRetryResponse;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateRequest;
 import com.imageworks.spcue.grpc.job.FrameSetCheckpointStateResponse;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
-import com.imageworks.spcue.service.LocalBookingSupport;
 import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
@@ -87,7 +81,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     private FrameDao frameDao;
     private DispatchQueue manageQueue;
     private Whiteboard whiteboard;
-    private LocalBookingSupport localBookingSupport;
     private FrameSearchFactory frameSearchFactory;
 
     @Override
@@ -260,34 +253,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
     }
 
     @Override
-    public void addRenderPartition(FrameAddRenderPartitionRequest request,
-                                   StreamObserver<FrameAddRenderPartitionResponse> responseObserver) {
-        updateManagers();
-        FrameEntity frame = getFrameEntity(request.getFrame());
-        LocalHostAssignment lha = new LocalHostAssignment();
-        lha.setFrameId(frame.id);
-        lha.setThreads(request.getThreads());
-        lha.setMaxCoreUnits(request.getMaxCores() * 100);
-        lha.setMaxMemory(request.getMaxMemory());
-        lha.setMaxGpu(request.getMaxGpu());
-        lha.setType(RenderPartitionType.FRAME_PARTITION);
-
-        if (localBookingSupport.bookLocal(frame, request.getHost(), request.getUsername(), lha)) {
-            RenderPartition partition = whiteboard.getRenderPartition(lha);
-
-            responseObserver.onNext(FrameAddRenderPartitionResponse.newBuilder()
-                    .setRenderPartition(partition)
-                    .build());
-            responseObserver.onCompleted();
-        } else {
-            responseObserver.onError(Status.INTERNAL
-                    .withDescription("Failed to find suitable frames.")
-                    .augmentDescription("customException()")
-                    .asRuntimeException());
-        }
-    }
-
-    @Override
     public void setCheckpointState(FrameSetCheckpointStateRequest request,
                                    StreamObserver<FrameSetCheckpointStateResponse> responseObserver) {
         updateManagers();
@@ -343,14 +308,6 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
 
     public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
         this.jobManagerSupport = jobManagerSupport;
-    }
-
-    public LocalBookingSupport getLocalBookingSupport() {
-        return localBookingSupport;
-    }
-
-    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-        this.localBookingSupport = localBookingSupport;
     }
 
     private FrameEntity getFrameEntity(Frame frame) {

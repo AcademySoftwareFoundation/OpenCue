@@ -39,7 +39,6 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
@@ -252,75 +251,6 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByHostAndJobLocal() {
-        DispatchHost host = getHost();
-        JobDetail job = getJob1();
-        host.isLocalDispatch = true;
-        List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(job, host, 10);
-        assertEquals(10, frames.size());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testFindNextDispatchFramesByHostAndLayerLocal() {
-        DispatchHost host = getHost();
-        JobDetail job = getJob1();
-        LayerInterface layer = jobManager.getLayers(job).get(0);
-        host.isLocalDispatch = true;
-
-        List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(layer, host, 10);
-        assertEquals(10, frames.size());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testFindNextDispatchFramesByProcAndJobLocal() {
-        DispatchHost host = getHost();
-        JobDetail job = getJob1();
-        host.isLocalDispatch = true;
-        List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(job, host, 10);
-        assertEquals(10, frames.size());
-
-        DispatchFrame frame = frames.get(0);
-        VirtualProc proc = VirtualProc.build(host, frame);
-        proc.coresReserved = 100;
-        proc.isLocalDispatch = true;
-
-        frames = dispatcherDao.findNextDispatchFrames(job, proc, 10);
-        assertEquals(10, frames.size());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testFindNextDispatchFramesByProcAndLayerLocal() {
-        DispatchHost host = getHost();
-        JobDetail job = getJob1();
-        LayerInterface layer = jobManager.getLayers(job).get(0);
-        host.isLocalDispatch = true;
-
-        List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(layer, host, 10);
-        assertEquals(10, frames.size());
-
-        DispatchFrame frame = frames.get(0);
-        VirtualProc proc = VirtualProc.build(host, frame);
-        proc.coresReserved = 100;
-        proc.isLocalDispatch = true;
-
-        frames = dispatcherDao.findNextDispatchFrames(layer, proc, 10);
-        assertEquals(10, frames.size());
-    }
-
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testFindDispatchJobs() {
         DispatchHost host = getHost();
 
@@ -356,28 +286,6 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host,
                 adminManager.findShowEntity("pipe"), 5);
-        assertTrue(jobs.size() > 0);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testFindDispatchJobsByLocal() {
-        DispatchHost host = getHost();
-        final JobDetail job = getJob1();
-        assertNotNull(job);
-
-        Set<String> jobs = dispatcherDao.findLocalDispatchJobs(host);
-        assertEquals(0, jobs.size());
-
-        LocalHostAssignment lja = new LocalHostAssignment();
-        lja.setThreads(1);
-        lja.setMaxMemory(CueUtil.GB16);
-        lja.setMaxCoreUnits(200);
-        lja.setMaxGpu(1);
-        bookingDao.insertLocalHostAssignment(host, job, lja);
-
-        jobs = dispatcherDao.findLocalDispatchJobs(host);
         assertTrue(jobs.size() > 0);
     }
 

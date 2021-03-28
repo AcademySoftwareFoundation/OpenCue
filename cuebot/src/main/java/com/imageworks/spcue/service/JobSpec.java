@@ -278,21 +278,6 @@ public class JobSpec {
         job.state = JobState.STARTUP;
         job.isPaused = Convert.stringToBool(jobTag.getChildTextTrim("paused"));
         job.isAutoEat = Convert.stringToBool(jobTag.getChildTextTrim("autoeat"));
-        job.isLocal = false;
-        Element local = jobTag.getChild("localbook");
-        if (local != null) {
-            job.isLocal = true;
-            job.localHostName = local.getAttributeValue("host");
-            if (local.getAttributeValue("cores") != null)
-                job.localMaxCores = Integer.parseInt(local.getAttributeValue("cores"));
-            if (local.getAttributeValue("memory") != null)
-                job.localMaxMemory = Integer.parseInt(local.getAttributeValue("memory"));
-            if (local.getAttributeValue("threads") != null)
-                job.localThreadNumber = Integer.parseInt(local.getAttributeValue("threads"));
-            if (local.getAttributeValue("gpu") != null)
-                job.localMaxGpu = Integer.parseInt(local.getAttributeValue("gpu"));
-        }
-
         job.maxCoreUnits = 20000;
         job.minCoreUnits = 100;
         job.startTime = CueUtil.getTime();

@@ -16,9 +16,3 @@ outline.backend.cue module
 .. automodule:: outline.backend.cue
     :members:
 
-outline.backend.local module
-----------------------------
-
-.. automodule:: outline.backend.local
-    :members:
-

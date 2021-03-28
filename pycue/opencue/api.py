@@ -28,7 +28,6 @@ from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import limit_pb2
-from opencue.compiled_proto import renderPartition_pb2
 from opencue.compiled_proto import report_pb2
 from opencue.compiled_proto import service_pb2
 from opencue.compiled_proto import show_pb2
@@ -48,7 +47,6 @@ from .wrappers.host import Host, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
 from .wrappers.limit import Limit
-from .wrappers.owner import Owner
 from .wrappers.proc import Proc
 from .wrappers.service import Service
 from .wrappers.show import Show
@@ -59,7 +57,7 @@ from . import util
 
 
 __protobufs = [comment_pb2, criterion_pb2, cue_pb2, department_pb2, depend_pb2, facility_pb2,
-               filter_pb2, host_pb2, job_pb2, renderPartition_pb2, report_pb2, service_pb2,
+               filter_pb2, host_pb2, job_pb2, report_pb2, service_pb2,
                show_pb2, subscription_pb2, task_pb2]
 
 __wrappers = [Action, Allocation, Comment, Depend, Filter, Frame, Group, Host, Job, Layer, Matcher,
@@ -546,20 +544,6 @@ def getHost(uniq):
     return Host(Cuebot.getStub('host').GetHost(
         host_pb2.HostGetHostRequest(id=uniq), timeout=Cuebot.Timeout).host)
 
-
-#
-# Owners
-#
-@util.grpcExceptionParser
-def getOwner(owner_id):
-    """Return an Owner object from the ID or name.
-
-    :type  owner_id: str
-    :param owner_id: a unique owner identifier or name
-    :rtype:  Owner
-    :return: An Owner object"""
-    return Owner(Cuebot.getStub('owner').GetOwner(
-        host_pb2.OwnerGetOwnerRequest(name=owner_id), timeout=Cuebot.Timeout).owner)
 
 #
 # Filters

@@ -130,18 +130,6 @@ opencue.compiled_proto.limit_pb2 module
 .. automodule:: opencue.compiled_proto.limit_pb2
     :members:
 
-opencue.compiled_proto.renderPartition_pb2_grpc module
-------------------------------------------------------
-
-.. automodule:: opencue.compiled_proto.renderPartition_pb2_grpc
-    :members:
-
-opencue.compiled_proto.renderPartition_pb2 module
--------------------------------------------------
-
-.. automodule:: opencue.compiled_proto.renderPartition_pb2
-    :members:
-
 opencue.compiled_proto.report_pb2_grpc module
 ---------------------------------------------
 

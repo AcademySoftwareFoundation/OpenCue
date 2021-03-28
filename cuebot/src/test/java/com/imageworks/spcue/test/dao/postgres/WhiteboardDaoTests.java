@@ -37,7 +37,6 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.ActionEntity;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.CommentDetail;
-import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
@@ -50,9 +49,7 @@ import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LightweightDependency;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherEntity;
-import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.ShowEntity;
@@ -95,7 +92,6 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
 import com.imageworks.spcue.grpc.host.LockState;
-import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.grpc.host.ProcSearchCriteria;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
@@ -105,14 +101,12 @@ import com.imageworks.spcue.grpc.job.JobSearchCriteria;
 import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.grpc.report.RenderHost;
-import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
-import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
@@ -194,12 +188,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     DispatchSupport dispatchSupport;
-
-    @Resource
-    OwnerManager ownerManager;
-
-    @Resource
-    BookingManager bookingManager;
 
     @Resource
     ServiceManager serviceManager;
@@ -1121,153 +1109,6 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .addMaxResults(2)
                 .build());
         assertEquals(2, whiteboardDao.getProcs(r).getProcsCount());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getOwner() {
-        ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-        whiteboardDao.getOwner("spongebob");
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getOwnersByShow() {
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-
-        ownerManager.takeOwnership(owner, hd);
-
-        assertTrue(whiteboardDao.getOwners(
-                showDao.findShowDetail("pipe")).size() != 0);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getDeedsByShow() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-
-        ownerManager.takeOwnership(owner, hd);
-        assertTrue(whiteboardDao.getDeeds(
-                showDao.findShowDetail("pipe")).getDeedsCount() != 0);
-
-        assertTrue(whiteboardDao.getDeeds(
-                showDao.findShowDetail("pipe")).getDeedsCount() != 0);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getDeedsByOwner() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-
-        ownerManager.takeOwnership(owner, hd);
-        assertTrue(whiteboardDao.getDeeds(
-                owner).getDeedsCount() != 0);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getHostsByOwner() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-        ownerManager.takeOwnership(owner, hd);
-
-        assertEquals(1, whiteboardDao.getHosts(owner).getHostsCount());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getOwnerFromDeed() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-        DeedEntity deed = ownerManager.takeOwnership(owner, hd);
-
-        Owner o2 = whiteboardDao.getOwner(deed);
-
-        assertEquals(owner.getName(), o2.getName());
-        assertEquals(1, o2.getHostCount());
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getOwnerFromHost() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        OwnerEntity owner = ownerManager.createOwner("spongebob",
-                showDao.findShowDetail("pipe"));
-        ownerManager.takeOwnership(owner, hd);
-
-        Owner o2 = whiteboardDao.getOwner(hd);
-
-        assertEquals(owner.getName(), o2.getName());
-        assertEquals(1, o2.getHostCount());
-    }
-
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getRenderPartition() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
-
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
-        bookingManager.createLocalHostAssignment(hd, job, lba);
-
-        whiteboardDao.getRenderPartition(lba);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void getRenderPartitionsByHost() {
-
-        RenderHost host = getRenderHost();
-        DispatchHost hd = hostManager.createHost(host);
-
-        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
-        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
-
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
-        bookingManager.createLocalHostAssignment(hd, job, lba);
-
-        assertEquals(1, whiteboardDao.getRenderPartitions(hd).getRenderPartitionsCount());
-
     }
 
     @Test

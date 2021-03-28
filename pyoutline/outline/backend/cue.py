@@ -260,9 +260,6 @@ def _serialize(launcher, use_pycuerun):
     sub_element(j, "maxretries", str(launcher.get("maxretries")))
     sub_element(j, "autoeat", str(launcher.get("autoeat")))
 
-    if ol.get_arg("localbook"):
-        Et.SubElement(j, "localbook", ol.get_arg("localbook"))
-
     if launcher.get("os"):
         sub_element(j, "os", launcher.get("os"))
     elif os.environ.get("OL_OS", False):

@@ -614,23 +614,6 @@ class DependTests(unittest.TestCase):
         self.assertEqual(arbitraryId, depend.id())
 
 
-class OwnerTests(unittest.TestCase):
-
-    @mock.patch('opencue.cuebot.Cuebot.getStub')
-    def testGetOwner(self, getStubMock):
-        ownerName = 'arbitrary-name'
-        stubMock = mock.Mock()
-        stubMock.GetOwner.return_value = host_pb2.OwnerGetOwnerResponse(
-            owner=host_pb2.Owner(name=ownerName))
-        getStubMock.return_value = stubMock
-
-        owner = opencue.api.getOwner(ownerName)
-
-        stubMock.GetOwner.assert_called_with(
-            host_pb2.OwnerGetOwnerRequest(name=ownerName), timeout=mock.ANY)
-        self.assertEqual(ownerName, owner.name())
-
-
 class FilterTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')

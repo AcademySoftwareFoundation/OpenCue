@@ -474,15 +474,6 @@ class JobActionsTests(unittest.TestCase):
 
         group.reparentJobs.assert_not_called()
 
-    @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
-    def test_useLocalCores(self, localBookingDialogMock):
-        job = opencue.wrappers.job.Job()
-
-        self.job_actions.useLocalCores(rpcObjects=[job])
-
-        localBookingDialogMock.assert_called_with(job, self.widgetMock)
-        localBookingDialogMock.return_value.exec_.assert_called()
-
     @mock.patch('PySide2.QtWidgets.QApplication.clipboard')
     def test_copyLogFileDir(self, clipboardMock):
         logDir1 = '/some/random/dir'
@@ -614,15 +605,6 @@ class LayerActionsTests(unittest.TestCase):
         self.layer_actions.setMinMemoryKb(rpcObjects=[layer1, layer2])
 
         setMinMemoryMock.assert_not_called()
-
-    @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
-    def test_useLocalCores(self, localBookingDialogMock):
-        layer = opencue.wrappers.layer.Layer(opencue.compiled_proto.job_pb2.Layer())
-
-        self.layer_actions.useLocalCores(rpcObjects=[layer])
-
-        localBookingDialogMock.assert_called_with(layer, self.widgetMock)
-        localBookingDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.LayerDialog.LayerPropertiesDialog')
     def test_setProperties(self, layerPropertiesDialogMock):
@@ -817,15 +799,6 @@ class FrameActionsTests(unittest.TestCase):
         self.frame_actions.viewLastLog(rpcObjects=[frame])
 
         popupViewMock.assert_called_with(frame_log_path)
-
-    @mock.patch('cuegui.LocalBooking.LocalBookingDialog')
-    def test_useLocalCores(self, localBookingDialogMock):
-        frame = opencue.wrappers.frame.Frame()
-
-        self.frame_actions.useLocalCores(rpcObjects=[frame])
-
-        localBookingDialogMock.assert_called_with(frame, self.widgetMock)
-        localBookingDialogMock.return_value.exec_.assert_called()
 
     @mock.patch('cuegui.Utils.popupFrameXdiff')
     def test_xdiff2(self, popupFrameXdiffMock):
@@ -1197,15 +1170,10 @@ class HostActionsTests(unittest.TestCase):
     def test_delete(self):
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id'))
-        rp1 = mock.MagicMock()
-        rp2 = mock.MagicMock()
-        host.getRenderPartitions = lambda: [rp1, rp2]
         host.delete = mock.MagicMock()
 
         self.host_actions.delete(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        rp1.delete.assert_called()
-        rp2.delete.assert_called()
         host.delete.assert_called()
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))

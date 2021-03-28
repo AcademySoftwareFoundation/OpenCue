@@ -844,8 +844,6 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        self.__menuActions.frames().addAction(self, "useLocalCores")
-
         # pylint: disable=no-member
         if QtGui.qApp.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")

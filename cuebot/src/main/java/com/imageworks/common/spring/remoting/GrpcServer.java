@@ -15,7 +15,6 @@ import com.imageworks.spcue.servant.CueStatic;
 import com.imageworks.spcue.servant.ManageAction;
 import com.imageworks.spcue.servant.ManageAllocation;
 import com.imageworks.spcue.servant.ManageComment;
-import com.imageworks.spcue.servant.ManageDeed;
 import com.imageworks.spcue.servant.ManageDepartment;
 import com.imageworks.spcue.servant.ManageDepend;
 import com.imageworks.spcue.servant.ManageFacility;
@@ -27,9 +26,7 @@ import com.imageworks.spcue.servant.ManageJob;
 import com.imageworks.spcue.servant.ManageLayer;
 import com.imageworks.spcue.servant.ManageLimit;
 import com.imageworks.spcue.servant.ManageMatcher;
-import com.imageworks.spcue.servant.ManageOwner;
 import com.imageworks.spcue.servant.ManageProc;
-import com.imageworks.spcue.servant.ManageRenderPartition;
 import com.imageworks.spcue.servant.ManageService;
 import com.imageworks.spcue.servant.ManageServiceOverride;
 import com.imageworks.spcue.servant.ManageShow;
@@ -78,7 +75,6 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageAction", ManageAction.class))
                 .addService(applicationContext.getBean("manageAllocation", ManageAllocation.class))
                 .addService(applicationContext.getBean("manageComment", ManageComment.class))
-                .addService(applicationContext.getBean("manageDeed", ManageDeed.class))
                 .addService(applicationContext.getBean("manageDepartment", ManageDepartment.class))
                 .addService(applicationContext.getBean("manageDepend", ManageDepend.class))
                 .addService(applicationContext.getBean("manageFacility", ManageFacility.class))
@@ -90,9 +86,7 @@ public class GrpcServer implements ApplicationContextAware {
                 .addService(applicationContext.getBean("manageLayer", ManageLayer.class))
                 .addService(applicationContext.getBean("manageLimit", ManageLimit.class))
                 .addService(applicationContext.getBean("manageMatcher", ManageMatcher.class))
-                .addService(applicationContext.getBean("manageOwner", ManageOwner.class))
                 .addService(applicationContext.getBean("manageProc", ManageProc.class))
-                .addService(applicationContext.getBean("manageRenderPartition", ManageRenderPartition.class))
                 .addService(applicationContext.getBean("manageService", ManageService.class))
                 .addService(applicationContext.getBean("manageServiceOverride", ManageServiceOverride.class))
                 .addService(applicationContext.getBean("manageShow", ManageShow.class))

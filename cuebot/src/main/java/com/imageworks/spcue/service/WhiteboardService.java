@@ -27,7 +27,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FilterInterface;
@@ -36,9 +35,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherInterface;
-import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
@@ -63,12 +60,9 @@ import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.filter.MatcherSeq;
-import com.imageworks.spcue.grpc.host.Deed;
-import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSeq;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
-import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.grpc.host.ProcSeq;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSeq;
@@ -81,8 +75,6 @@ import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.NestedGroup;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
 import com.imageworks.spcue.grpc.limit.Limit;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
 import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
@@ -398,64 +390,6 @@ public class WhiteboardService implements Whiteboard {
     @Override
     public Depend getDepend(AbstractDepend depend) {
         return whiteboardDao.getDepend(depend);
-    }
-
-    @Override
-    public Host getHost(DeedEntity deed) {
-        return whiteboardDao.getHost(deed);
-    }
-
-    @Override
-    public Owner getOwner(DeedEntity deed) {
-        return whiteboardDao.getOwner(deed);
-    }
-
-    @Override
-    public DeedSeq getDeeds(
-            OwnerEntity owner) {
-        return whiteboardDao.getDeeds(owner);
-    }
-
-    @Override
-    public DeedSeq getDeeds(
-            ShowInterface show) {
-        return whiteboardDao.getDeeds(show);
-    }
-
-    @Override
-    public HostSeq getHosts(OwnerEntity owner) {
-        return whiteboardDao.getHosts(owner);
-    }
-
-    @Override
-    public Owner getOwner(HostInterface host) {
-        return whiteboardDao.getOwner(host);
-    }
-
-    @Override
-    public List<Owner> getOwners(ShowInterface show) {
-        return whiteboardDao.getOwners(show);
-    }
-
-    @Override
-    public Owner getOwner(String name) {
-        return whiteboardDao.getOwner(name);
-    }
-
-    @Override
-    public Deed getDeed(HostInterface host) {
-        return whiteboardDao.getDeed(host);
-    }
-
-    @Override
-    public RenderPartition getRenderPartition(LocalHostAssignment l) {
-        return whiteboardDao.getRenderPartition(l);
-    }
-
-    @Override
-    public RenderPartitionSeq getRenderPartitions(
-            HostInterface host) {
-        return whiteboardDao.getRenderPartitions(host);
     }
 
     @Override

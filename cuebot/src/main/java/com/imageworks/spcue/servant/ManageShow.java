@@ -40,8 +40,6 @@ import com.imageworks.spcue.grpc.service.ServiceOverride;
 import com.imageworks.spcue.grpc.show.Show;
 import com.imageworks.spcue.grpc.show.ShowCreateFilterRequest;
 import com.imageworks.spcue.grpc.show.ShowCreateFilterResponse;
-import com.imageworks.spcue.grpc.show.ShowCreateOwnerRequest;
-import com.imageworks.spcue.grpc.show.ShowCreateOwnerResponse;
 import com.imageworks.spcue.grpc.show.ShowCreateServiceOverrideRequest;
 import com.imageworks.spcue.grpc.show.ShowCreateServiceOverrideResponse;
 import com.imageworks.spcue.grpc.show.ShowCreateShowRequest;
@@ -60,8 +58,6 @@ import com.imageworks.spcue.grpc.show.ShowFindShowRequest;
 import com.imageworks.spcue.grpc.show.ShowFindShowResponse;
 import com.imageworks.spcue.grpc.show.ShowGetActiveShowsRequest;
 import com.imageworks.spcue.grpc.show.ShowGetActiveShowsResponse;
-import com.imageworks.spcue.grpc.show.ShowGetDeedsRequest;
-import com.imageworks.spcue.grpc.show.ShowGetDeedsResponse;
 import com.imageworks.spcue.grpc.show.ShowGetDepartmentRequest;
 import com.imageworks.spcue.grpc.show.ShowGetDepartmentResponse;
 import com.imageworks.spcue.grpc.show.ShowGetDepartmentsRequest;
@@ -98,7 +94,6 @@ import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
 import com.imageworks.spcue.service.FilterManager;
-import com.imageworks.spcue.service.OwnerManager;
 import com.imageworks.spcue.service.ServiceManager;
 import com.imageworks.spcue.service.Whiteboard;
 import com.imageworks.spcue.util.Convert;
@@ -110,7 +105,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     private ShowDao showDao;
     private DepartmentManager departmentManager;
     private FilterManager filterManager;
-    private OwnerManager ownerManager;
     private ServiceManager serviceManager;
     private JobSearchFactory jobSearchFactory;
 
@@ -325,25 +319,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     }
 
     @Override
-    public void getDeeds(ShowGetDeedsRequest request, StreamObserver<ShowGetDeedsResponse> responseObserver) {
-        ShowEntity show = getShowEntity(request.getShow());
-        responseObserver.onNext(ShowGetDeedsResponse.newBuilder()
-                .setDeeds(whiteboard.getDeeds(show))
-                .build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void createOwner(ShowCreateOwnerRequest request, StreamObserver<ShowCreateOwnerResponse> responseObserver) {
-        ownerManager.createOwner(request.getName(), getShowEntity(request.getShow()));
-        ShowCreateOwnerResponse response = ShowCreateOwnerResponse.newBuilder()
-                .setOwner(whiteboard.getOwner(request.getName()))
-                .build();
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-    }
-
-    @Override
     public void setActive(ShowSetActiveRequest request, StreamObserver<ShowSetActiveResponse> responseObserver) {
         adminManager.setShowActive(getShowEntity(request.getShow()), request.getValue());
         responseObserver.onNext(ShowSetActiveResponse.newBuilder().build());
@@ -447,14 +422,6 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
 
     public void setDepartmentManager(DepartmentManager departmentManager) {
         this.departmentManager = departmentManager;
-    }
-
-    public OwnerManager getOwnerManager() {
-        return ownerManager;
-    }
-
-    public void setOwnerManager(OwnerManager ownerManager) {
-        this.ownerManager = ownerManager;
     }
 
     public ServiceManager getServiceManager() {

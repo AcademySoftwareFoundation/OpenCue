@@ -8,21 +8,9 @@ option java_multiple_files = true;
 import "comment.proto";
 import "criterion.proto";
 import "job.proto";
-import "renderPartition.proto";
 
 
 // -------- Services --------]
-
-service DeedInterface {
-    // Remove the deed
-    rpc Delete(DeedDeleteRequest) returns (DeedDeleteResponse);
-
-    // Returns the full host for these settings.
-    rpc GetHost(DeedGetHostRequest) returns (DeedGetHostResponse);
-
-    // Returns the owner for these settings.
-    rpc GetOwner(DeedGetOwnerRequest) returns (DeedGetOwnerResponse);
-}
 
 service HostInterface {
     // Add a comment on this host.
@@ -40,9 +28,6 @@ service HostInterface {
     // Get the comments for this host.
     rpc GetComments(HostGetCommentsRequest) returns (HostGetCommentsResponse);
 
-    // Return the deed for this host.
-    rpc GetDeed(HostGetDeedRequest) returns (HostGetDeedResponse);
-
     // Return a host by its id
     rpc GetHost(HostGetHostRequest) returns (HostGetHostResponse);
 
@@ -52,14 +37,8 @@ service HostInterface {
     // Return the host whiteboard
     rpc GetHostWhiteboard(HostGetHostWhiteboardRequest) returns (HostGetHostWhiteboardResponse);
 
-    // Get the owner settings of this particular host.
-    rpc GetOwner(HostGetOwnerRequest) returns (HostGetOwnerResponse);
-
     // Returns the list of proc resources allocated from this host.
     rpc GetProcs(HostGetProcsRequest) returns (HostGetProcsResponse);
-
-    // Return any render partitions that are setup on this host.
-    rpc GetRenderPartitions(HostGetRenderPartitionsRequest) returns (HostGetRenderPartitionsResponse);
 
     // Locks the host.  Its possible we'll need to pass in a show name here in the future
     rpc Lock(HostLockRequest) returns (HostLockResponse);
@@ -97,27 +76,6 @@ service HostInterface {
 
     // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.
     rpc Unlock(HostUnlockRequest) returns (HostUnlockResponse);
-}
-
-service OwnerInterface {
-    // Deletes the owner record.
-    rpc Delete(OwnerDeleteRequest) returns (OwnerDeleteResponse);
-
-    // Get a list of all deeds this owner has.
-    rpc GetDeeds(OwnerGetDeedsRequest) returns (OwnerGetDeedsResponse);
-
-    // Get a list of all hosts this owner is responsible for.
-    rpc GetHosts(OwnerGetHostsRequest) returns (OwnerGetHostsResponse);
-
-    // Return an Owner record by name, id, or email.
-    rpc GetOwner(OwnerGetOwnerRequest) returns (OwnerGetOwnerResponse);
-
-    //Sets the owners show.
-    rpc SetShow(OwnerSetShowRequest) returns (OwnerSetShowResponse);
-
-    // Set the hosts new owner settings.  Any host may have an owner, not just desktops.  This allows direct control of
-    // the cores.  By default hosts have no owner settings.
-    rpc TakeOwnership(OwnerTakeOwnershipRequest) returns (OwnerTakeOwnershipResponse);
 }
 
 service ProcInterface {
@@ -223,17 +181,6 @@ enum ThreadMode {
 
 
 // -------- Primary Message Types --------]
-
-message Deed {
-    string id = 1;
-    string host = 2;
-    string owner = 3;
-    string show = 4;
-}
-
-message DeedSeq {
-    repeated Deed deeds = 1;
-}
 
 message HardwareStateSeq {
     repeated HardwareState state = 1;
@@ -342,13 +289,6 @@ message NestedProcSeq {
     repeated NestedProc nested_procs = 1;
 }
 
-message Owner {
-    string id = 1;
-    string name = 2;
-    string show = 3;
-    int32 host_count = 4;
-}
-
 message Proc {
     string id = 1;
     string name = 2;
@@ -405,32 +345,6 @@ message ProcSeq {
 
 // -------- Requests & Responses --------]
 
-// DEED ----
-// Delete
-message DeedDeleteRequest {
-    Deed deed = 1;
-}
-
-message DeedDeleteResponse {} // Empty
-
-// GetHost
-message DeedGetHostRequest {
-    Deed deed = 1;
-}
-
-message DeedGetHostResponse {
-    Host host = 1;
-}
-
-// GetOwner
-message DeedGetOwnerRequest {
-    Deed deed = 1;
-}
-
-message DeedGetOwnerResponse {
-    Owner owner = 1;
-}
-
 // HOST ----
 // AddComment
 message HostAddCommentRequest {
@@ -473,15 +387,6 @@ message HostGetCommentsResponse {
     comment.CommentSeq comments = 1;
 }
 
-// GetDeed
-message HostGetDeedRequest {
-    Host host = 1;
-}
-
-message HostGetDeedResponse {
-    Deed deed = 1;
-}
-
 // GetHost
 message HostGetHostRequest {
     string id = 1;
@@ -507,15 +412,6 @@ message HostGetHostWhiteboardResponse {
     NestedHostSeq nested_hosts = 1;
 }
 
-// GetOwner
-message HostGetOwnerRequest {
-    Host host = 1;
-}
-
-message HostGetOwnerResponse {
-    Owner owner = 1;
-}
-
 // GetProcs
 message HostGetProcsRequest {
     Host host = 1;
@@ -523,15 +419,6 @@ message HostGetProcsRequest {
 
 message HostGetProcsResponse {
     ProcSeq procs = 1;
-}
-
-// GetRenderPartitions
-message HostGetRenderPartitionsRequest {
-    Host host = 1;
-}
-
-message HostGetRenderPartitionsResponse {
-    renderPartition.RenderPartitionSeq render_partitions = 1;
 }
 
 // Lock
@@ -621,58 +508,6 @@ message HostUnlockRequest {
 }
 
 message HostUnlockResponse {} // Empty
-
-
-// OWNER ----
-// Delete
-message OwnerDeleteRequest {
-    Owner owner = 1;
-}
-
-message OwnerDeleteResponse {} // Empty
-
-// GetDeeds
-message OwnerGetDeedsRequest {
-    Owner owner = 1;
-}
-
-message OwnerGetDeedsResponse {
-    DeedSeq deeds = 1;
-}
-
-// GetHosts
-message OwnerGetHostsRequest {
-    Owner owner = 1;
-}
-
-message OwnerGetHostsResponse {
-    HostSeq hosts = 1;
-}
-
-// GetOwner
-message OwnerGetOwnerRequest {
-    string name = 1;
-}
-
-message OwnerGetOwnerResponse {
-    Owner owner = 1;
-}
-
-// SetShow
-message OwnerSetShowRequest {
-    Owner owner = 1;
-    string show = 2;
-}
-
-message OwnerSetShowResponse {} // Empty
-
-// TakeOwnership
-message OwnerTakeOwnershipRequest {
-    Owner owner = 1;
-    string host = 2;
-}
-
-message OwnerTakeOwnershipResponse {} // Empty
 
 // PROC ---
 // ClearRedirect

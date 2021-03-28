@@ -10,12 +10,6 @@ Module contents
 Submodules
 ----------
 
-outline.plugins.local module
-----------------------------
-
-.. automodule:: outline.plugins.local
-    :members:
-
 outline.plugins.manager module
 ------------------------------
 

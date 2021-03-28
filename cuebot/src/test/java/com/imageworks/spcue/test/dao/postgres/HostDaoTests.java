@@ -628,14 +628,6 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testIsPreferShow() {
-        DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
-        assertFalse(hostDao.isPreferShow(host));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testIsNimby() {
         DispatchHost host = hostManager.createHost(buildRenderHost(TEST_HOST));
         assertFalse(hostDao.isNimbyHost(host));

@@ -23,7 +23,6 @@ import java.util.List;
 
 import com.imageworks.spcue.ActionInterface;
 import com.imageworks.spcue.AllocationInterface;
-import com.imageworks.spcue.DeedEntity;
 import com.imageworks.spcue.DepartmentInterface;
 import com.imageworks.spcue.DependInterface;
 import com.imageworks.spcue.FacilityInterface;
@@ -33,9 +32,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.MatcherInterface;
-import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.HostSearchInterface;
@@ -57,11 +54,8 @@ import com.imageworks.spcue.grpc.filter.Filter;
 import com.imageworks.spcue.grpc.filter.FilterSeq;
 import com.imageworks.spcue.grpc.filter.Matcher;
 import com.imageworks.spcue.grpc.filter.MatcherSeq;
-import com.imageworks.spcue.grpc.host.Deed;
-import com.imageworks.spcue.grpc.host.DeedSeq;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSeq;
-import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.grpc.host.ProcSeq;
 import com.imageworks.spcue.grpc.job.Frame;
 import com.imageworks.spcue.grpc.job.FrameSeq;
@@ -73,8 +67,6 @@ import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerSeq;
 import com.imageworks.spcue.grpc.job.UpdatedFrameCheckResult;
 import com.imageworks.spcue.grpc.limit.Limit;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartition;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionSeq;
 import com.imageworks.spcue.grpc.service.Service;
 import com.imageworks.spcue.grpc.service.ServiceOverride;
 import com.imageworks.spcue.grpc.service.ServiceOverrideSeq;
@@ -526,94 +518,6 @@ public interface WhiteboardDao {
      * @return Depend
      */
     Depend getDepend(AbstractDepend depend);
-
-    /**
-     * Return the Host record for the given Deed.
-     *
-     * @param deed DeedEntity
-     * @return Host
-     */
-    Host getHost(DeedEntity deed);
-
-    /**
-     * Return the Owner of the given Deed.
-     *
-     * @param deed DeedEntity
-     * @return Owner
-     */
-    Owner getOwner(DeedEntity deed);
-
-    /**
-     * Return a list of all Deeds controlled by the given Owner.
-     *
-     * @param owner OwnerEntity
-     * @return DeedSeq
-     */
-    DeedSeq getDeeds(OwnerEntity owner);
-
-    /**
-     * Return a list of all Hosts controlled by the given Owner.
-     *
-     * @param owner OwnerEntity
-     * @return HostSeq
-     */
-    HostSeq getHosts(OwnerEntity owner);
-
-    /**
-     * Return the Owner of the given host.
-     *
-     * @param host HostInterface
-     * @return Owner
-     */
-    Owner getOwner(HostInterface host);
-
-    /**
-     * Return the Deed for the given Host.
-     *
-     * @param host HostInterface
-     * @return Deed
-     */
-    Deed getDeed(HostInterface host);
-
-    /**
-     * Return the owner by name.
-     *
-     * @param name String
-     * @return Owner
-     */
-    Owner getOwner(String name);
-
-    /**
-     * Return a list of owners by show.
-     *
-     * @param show ShowInterface
-     * @return List of Owners
-     */
-    List<Owner> getOwners(ShowInterface show);
-
-    /**
-     * Return a list of Deeds by show.
-     *
-     * @param show ShowInterface
-     * @return DeedSeq
-     */
-    DeedSeq getDeeds(ShowInterface show);
-
-    /**
-     * Return a RenderPartion from its associated LocalHostAssignment.
-     *
-     * @param l LocalHostAssignment
-     * @return RenderPartition
-     */
-    RenderPartition getRenderPartition(LocalHostAssignment l);
-
-    /**
-     * Return a list or RenderPartition for the given Host.
-     *
-     * @param host HostInterface
-     * @return RenderPartitionSeq
-     */
-    RenderPartitionSeq getRenderPartitions(HostInterface host);
 
     /**
      * Return a facility by name or id.

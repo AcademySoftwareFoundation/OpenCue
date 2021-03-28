@@ -97,17 +97,6 @@ class Host(object):
                                               proc_names=[proc.data.id for proc in procs],
                                               job_id=job.data.id), timeout=Cuebot.Timeout)
 
-    def getRenderPartitions(self):
-        """Returns a list of render partitions associated with this host
-
-        :rtype:  list<renderPartition_pb2.RenderPartition>
-        :return: list of render partitions under this host
-        """
-        response = self.stub.GetRenderPartitions(host_pb2.HostGetRenderPartitionsRequest(
-            host=self.data), timeout=Cuebot.Timeout)
-        partitionSeq = response.render_partitions
-        return partitionSeq.render_partitions
-
     def rebootWhenIdle(self):
         """Sets the machine to reboot once idle.
 

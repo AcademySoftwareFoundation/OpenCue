@@ -37,13 +37,11 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
-import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 import com.imageworks.spcue.dispatcher.commands.DispatchRqdKillFrame;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -55,7 +53,6 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
-import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
@@ -66,14 +63,12 @@ public class HostReportHandler {
 
     private static final Logger logger = Logger.getLogger(HostReportHandler.class);
 
-    private BookingManager bookingManager;
     private HostManager hostManager;
     private BookingQueue bookingQueue;
     private ThreadPoolExecutor reportQueue;
     private ThreadPoolExecutor killQueue;
     private DispatchSupport dispatchSupport;
     private Dispatcher dispatcher;
-    private Dispatcher localDispatcher;
     private RqdClient rqdClient;
     private JobManager jobManager;
     private JobManagerSupport jobManagerSupport;
@@ -228,15 +223,6 @@ public class HostReportHandler {
              * a bunch of hosts that can't be booked.
              */
             String msg = null;
-            boolean hasLocalJob = bookingManager.hasLocalHostAssignment(host);
-
-            if (hasLocalJob) {
-                List<LocalHostAssignment> lcas =
-                    bookingManager.getLocalHostAssignment(host);
-                for (LocalHostAssignment lca : lcas) {
-                    bookingManager.removeInactiveLocalHostAssignment(lca);
-                }
-            }
 
             if (host.idleCores < Dispatcher.CORE_POINTS_RESERVED_MIN) {
                 msg = String.format("%s doesn't have enough idle cores, %d needs %d",
@@ -257,9 +243,7 @@ public class HostReportHandler {
                 msg = host + " is locked.";
             }
             else if (report.getHost().getNimbyLocked()) {
-                if (!hasLocalJob) {
-                    msg = host + " is NIMBY locked.";
-                }
+                msg = host + " is NIMBY locked.";
             }
             else if (!dispatchSupport.isCueBookable(host)) {
                 msg = "The cue has no pending jobs";
@@ -273,32 +257,6 @@ public class HostReportHandler {
                 logger.trace(msg);
             }
             else {
-
-                // check again. The dangling local host assignment could be removed.
-                hasLocalJob = bookingManager.hasLocalHostAssignment(host);
-
-                /*
-                 * Check to see if a local job has been assigned.
-                 */
-                if (hasLocalJob) {
-                    if (!bookingManager.hasResourceDeficit(host)) {
-                        bookingQueue.execute(
-                                new DispatchBookHostLocal(
-                                        host, localDispatcher));
-                    }
-                    return;
-                }
-
-                /*
-                 * Check if the host prefers a show.  If it does , dispatch
-                 * to that show first.
-                 */
-                if (hostManager.isPreferShow(host)) {
-                    bookingQueue.execute(new DispatchBookHost(
-                            host, hostManager.getPreferredShow(host), dispatcher));
-                    return;
-                }
-
                 bookingQueue.execute(new DispatchBookHost(host, dispatcher));
             }
 
@@ -428,13 +386,6 @@ public class HostReportHandler {
             VirtualProc proc = null;
             try {
                 proc = hostManager.getVirtualProc(f.getResourceId());
-
-                // TODO: handle memory management for local dispatches
-                // Skip local dispatches for now.
-                if (proc.isLocalDispatch) {
-                    continue;
-                }
-
 
                 if (f.getRss() > host.memory) {
                     try{
@@ -864,21 +815,6 @@ public class HostReportHandler {
         this.layerDao = layerDao;
     }
 
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
-    }
-
-    public Dispatcher getLocalDispatcher() {
-        return localDispatcher;
-    }
-
-    public void setLocalDispatcher(Dispatcher localDispatcher) {
-        this.localDispatcher = localDispatcher;
-    }
     public ThreadPoolExecutor getKillQueue() {
         return killQueue;
     }

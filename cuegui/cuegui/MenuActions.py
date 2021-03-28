@@ -47,7 +47,6 @@ import cuegui.EmailDialog
 import cuegui.FilterDialog
 import cuegui.GroupDialog
 import cuegui.LayerDialog
-import cuegui.LocalBooking
 import cuegui.Logger
 import cuegui.PreviewWidget
 import cuegui.ServiceDialog
@@ -509,16 +508,6 @@ class JobActions(AbstractActions):
         groups[str(group)].reparentJobs(jobs)
         self._update()
 
-    useLocalCores_info = [
-        "Use local cores...", "Set a single job to use the local desktop cores", "configure"]
-
-    def useLocalCores(self, rpcObjects=None):
-        jobs = self._getOnlyJobObjects(rpcObjects)
-        if jobs:
-            job = jobs[0]
-            dialog = cuegui.LocalBooking.LocalBookingDialog(job, self._caller)
-            dialog.exec_()
-
     copyLogFileDir_info = ["Copy log file directory", None, "configure"]
 
     def copyLogFileDir(self, rpcObjects=None):
@@ -612,16 +601,6 @@ class LayerActions(AbstractActions):
                 for layer in layers:
                     layer.setMinMemory(int(value * 1048576))
                 self._update()
-
-    useLocalCores_info = [
-        "Use local cores...", "Set a single layer to use the local desktop cores.", "configure"]
-
-    def useLocalCores(self, rpcObjects=None):
-        layers = self._getOnlyLayerObjects(rpcObjects)
-        if layers:
-            layer = layers[0]
-            dialog = cuegui.LocalBooking.LocalBookingDialog(layer, self._caller)
-            dialog.exec_()
 
     setProperties_info = ["Properties", None, "configure"]
 
@@ -820,17 +799,6 @@ class FrameActions(AbstractActions):
                 cuegui.Utils.popupView(files[sorted(files.keys())[-1]])
             else:
                 cuegui.Utils.popupView(path)
-
-    useLocalCores_info = ["Use local cores...",
-                          "Set a single frame to use the local desktop cores.",
-                          "configure"]
-
-    def useLocalCores(self, rpcObjects=None):
-        frames = self._getOnlyFrameObjects(rpcObjects)
-        if frames:
-            frame = frames[0]
-            dialog = cuegui.LocalBooking.LocalBookingDialog(frame, self._caller)
-            dialog.exec_()
 
     xdiff2_info = ["View xdiff of 2 logs", None, "log"]
 
@@ -1341,9 +1309,6 @@ class HostActions(AbstractActions):
                                          body,
                                          [host.data.name for host in hosts]):
             for host in hosts:
-                for rp in host.getRenderPartitions():
-                    rp.delete()
-
                 self.cuebotCall(host.delete,
                                 "Delete %s Failed" % host.data.name)
             self._update()

@@ -25,7 +25,6 @@ import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostTagType;
@@ -133,14 +132,6 @@ public interface HostDao {
      * @return HostInterface
      */
     HostInterface getHost(String id);
-
-    /**
-     * Return the host involved with the given LocalJobAssignment.
-     *
-     * @param l LocalHostAssignment
-     * @return HostInterface
-     */
-    HostInterface getHost(LocalHostAssignment l);
 
     /**
      * Inserts a render host and its supporting procs into an allocation.
@@ -292,14 +283,6 @@ public interface HostDao {
      * @return int
      */
     int getStrandedCoreUnits(HostInterface h);
-
-    /**
-     * Return true if the host is preferring a particular show.
-     *
-     * @param h HostInterface
-     * @return boolean
-     */
-    boolean isPreferShow(HostInterface h);
 
     /**
      * Return true if the host is a NIMBY host.

@@ -28,18 +28,6 @@ class Show(object):
         self.data = show
         self.stub = Cuebot.getStub('show')
 
-    def createOwner(self, user):
-        """Creates a new owner for the show.
-
-        :type  user: str
-        :param user: user name
-        :rtype:  host_pb2.Owner
-        :return: the created owner object
-        """
-        response = self.stub.CreateOwner(show_pb2.ShowCreateOwnerRequest(show=self.data, name=user),
-                                         timeout=Cuebot.Timeout)
-        return response.owner
-
     def createSubscription(self, allocation, size, burst):
         """Creates a new subscription for the show.
 

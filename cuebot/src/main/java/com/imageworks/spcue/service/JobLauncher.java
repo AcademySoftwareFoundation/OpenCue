@@ -34,10 +34,8 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import com.imageworks.spcue.BuildableJob;
 import com.imageworks.spcue.EntityCreationError;
 import com.imageworks.spcue.JobDetail;
-import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.dispatcher.commands.DispatchLaunchJob;
-import com.imageworks.spcue.grpc.renderpartition.RenderPartitionType;
 
 /**
  * Job launching functions.
@@ -52,7 +50,6 @@ public class JobLauncher implements ApplicationContextAware {
     private ThreadPoolTaskExecutor launchQueue;
     private EmailSupport emailSupport;
     private JmsMover jmsMover;
-    private LocalBookingSupport localBookingSupport;
 
     /**
      * When true, disables log path creation and
@@ -96,30 +93,6 @@ public class JobLauncher implements ApplicationContextAware {
 
         try {
             jobManager.launchJobSpec(spec);
-
-            for (BuildableJob job: spec.getJobs()) {
-                /*
-                 * If isLocal is set, need to create local host assignment.
-                 */
-                JobDetail d = job.detail;
-                if (d.isLocal) {
-                    logger.info(d.localHostName + " will do local dispatch. " + d.getJobId() + " " + d.localHostName);
-                    LocalHostAssignment lha = new LocalHostAssignment();
-                    lha.setJobId(d.getJobId());
-                    lha.setThreads(d.localThreadNumber);
-                    lha.setMaxCoreUnits(d.localMaxCores * 100);
-                    lha.setMaxMemory(d.localMaxMemory);
-                    lha.setMaxGpu(d.localMaxGpu);
-                    lha.setType(RenderPartitionType.JOB_PARTITION);
-
-                    try {
-                        localBookingSupport.bookLocal(d, d.localHostName, d.user, lha);
-                    }
-                    catch (DataIntegrityViolationException e) {
-                        logger.info(d.name + " failed to create host local assignment.");
-                    }
-                }
-            }
 
             /*
              * This has to happen outside of the job launching transaction
@@ -225,14 +198,6 @@ public class JobLauncher implements ApplicationContextAware {
 
     public void setJmsMover(JmsMover jmsMover) {
         this.jmsMover = jmsMover;
-    }
-
-    public LocalBookingSupport getLocalBookingSupport() {
-        return localBookingSupport;
-    }
-
-    public void setLocalBookingSupport(LocalBookingSupport localBookingSupport) {
-        this.localBookingSupport = localBookingSupport;
     }
 }
 

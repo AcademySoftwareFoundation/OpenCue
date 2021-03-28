@@ -96,30 +96,6 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                 GET_SHOW + "WHERE show.pk_show=?", SHOW_MAPPER, id);
     }
 
-    private static final String GET_PREFERRED_SHOW =
-        "SELECT " +
-            "show.pk_show, " +
-            "show.int_default_max_cores, " +
-            "show.int_default_min_cores, " +
-            "show.str_name, " +
-            "show.b_active, " +
-            "show.str_comment_email " +
-        "FROM " +
-            "show, "+
-            "owner,"+
-            "deed " +
-        "WHERE " +
-            "show.pk_show = owner.pk_show " +
-        "AND " +
-            "deed.pk_owner = owner.pk_owner " +
-        "AND " +
-            "deed.pk_host = ?";
-
-    public ShowEntity getShowDetail(HostInterface host) {
-        return getJdbcTemplate().queryForObject(
-                GET_PREFERRED_SHOW, SHOW_MAPPER, host.getHostId());
-    }
-
     private static final String INSERT_SHOW =
         "INSERT INTO show (pk_show,str_name) VALUES (?,?)";
 

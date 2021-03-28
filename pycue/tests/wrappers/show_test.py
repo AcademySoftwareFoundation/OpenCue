@@ -25,7 +25,6 @@ import mock
 
 from opencue.compiled_proto import facility_pb2
 from opencue.compiled_proto import filter_pb2
-from opencue.compiled_proto import host_pb2
 from opencue.compiled_proto import job_pb2
 from opencue.compiled_proto import service_pb2
 from opencue.compiled_proto import show_pb2
@@ -36,7 +35,6 @@ import opencue.wrappers.show
 
 TEST_ALLOCATION_ID = 'aaa-zzz-fff'
 TEST_SHOW_NAME = 'pipe'
-TEST_OWNER_NAME = 'opencue'
 TEST_FILTER_NAME = 'unittest_filter'
 TEST_SERVICE_NAME = 'unittest_service'
 TEST_SUBSCRIPTION_NAME = 'unittest_subscription'
@@ -51,20 +49,6 @@ TEST_GROUP_DEPT = 'lighting'
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
 class ShowTests(unittest.TestCase):
-
-    def testCreateOwner(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.CreateOwner.return_value = show_pb2.ShowCreateOwnerResponse(
-            owner=host_pb2.Owner(name=TEST_OWNER_NAME))
-        getStubMock.return_value = stubMock
-
-        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
-        owner = show.createOwner(TEST_OWNER_NAME)
-
-        stubMock.CreateOwner.assert_called_with(
-            show_pb2.ShowCreateOwnerRequest(show=show.data, name=TEST_OWNER_NAME),
-            timeout=mock.ANY)
-        self.assertEqual(owner.name, TEST_OWNER_NAME)
 
     def testCreateSubscription(self, getStubMock):
         stubMock = mock.Mock()

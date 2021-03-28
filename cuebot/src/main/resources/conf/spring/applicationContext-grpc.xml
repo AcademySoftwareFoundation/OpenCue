@@ -48,11 +48,6 @@
         <property name="commentManager" ref="commentManager" />
     </bean>
 
-    <bean scope="prototype" id="manageDeed" class="com.imageworks.spcue.servant.ManageDeed">
-        <property name="ownerManager" ref="ownerManager" />
-        <property name="whiteboard" ref="whiteboard" />
-    </bean>
-
     <bean scope="prototype" id="manageDepartment" class="com.imageworks.spcue.servant.ManageDepartment">
         <property name="adminManager" ref="adminManager" />
         <property name="departmentManager" ref="departmentManager" />
@@ -85,7 +80,6 @@
         <property name="frameDao" ref="frameDao" />
         <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
-        <property name="localBookingSupport" ref="localBookingSupport" />
         <property name="frameSearchFactory" ref="frameSearchFactory" />
     </bean>
 
@@ -117,8 +111,6 @@
         <property name="jobLauncher" ref="jobLauncher" />
         <property name="commentManager" ref="commentManager" />
         <property name="manageQueue" ref="manageQueue" />
-        <property name="localDispatcher" ref="localDispatcher" />
-        <property name="localBookingSupport" ref="localBookingSupport" />
         <property name="filterManager" ref="filterManager" />
         <property name="frameSearchFactory" ref="frameSearchFactory" />
         <property name="jobSearchFactory" ref="jobSearchFactory" />
@@ -129,7 +121,6 @@
         <property name="layerDao" ref="layerDao" />
         <property name="manageQueue" ref="manageQueue" />
         <property name="whiteboard" ref="whiteboard" />
-        <property name="localBookingSupport" ref="localBookingSupport" />
         <property name="frameSearchFactory" ref="frameSearchFactory" />
     </bean>
 
@@ -143,13 +134,6 @@
         <property name="whiteboard" ref="whiteboard" />
     </bean>
 
-    <bean scope="prototype" id="manageOwner" class="com.imageworks.spcue.servant.ManageOwner">
-        <property name="adminManager" ref="adminManager" />
-        <property name="hostManager" ref="hostManager" />
-        <property name="ownerManager" ref="ownerManager" />
-        <property name="whiteboard" ref="whiteboard" />
-    </bean>
-
     <bean scope="prototype" id="manageProc" class="com.imageworks.spcue.servant.ManageProc">
         <property name="procDao" ref="procDao" />
         <property name="whiteboard" ref="whiteboard" />
@@ -158,10 +142,6 @@
         <property name="groupManager" ref="groupManager" />
         <property name="redirectManager" ref="redirectManager" />
         <property name="procSearchFactory" ref="procSearchFactory" />
-    </bean>
-
-    <bean scope="prototype" id="manageRenderPartition" class="com.imageworks.spcue.servant.ManageRenderPartition">
-        <property name="bookingManager" ref="bookingManager" />
     </bean>
 
     <bean scope="prototype" id="manageService" class="com.imageworks.spcue.servant.ManageService">
@@ -178,7 +158,6 @@
         <property name="showDao" ref="showDao" />
         <property name="departmentManager" ref="departmentManager" />
         <property name="filterManager" ref="filterManager" />
-        <property name="ownerManager" ref="ownerManager" />
         <property name="serviceManager" ref="serviceManager" />
         <property name="whiteboard" ref="whiteboard" />
         <property name="jobSearchFactory" ref="jobSearchFactory" />

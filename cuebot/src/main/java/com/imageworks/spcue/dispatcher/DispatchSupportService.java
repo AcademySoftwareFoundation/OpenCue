@@ -57,7 +57,6 @@ import com.imageworks.spcue.grpc.job.CheckpointState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.rqd.RunFrame;
 import com.imageworks.spcue.rqd.RqdClient;
-import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.DependManager;
 import com.imageworks.spcue.util.FrameSet;
 
@@ -76,7 +75,6 @@ public class DispatchSupportService implements DispatchSupport {
     private SubscriptionDao subscriptionDao;
     private RqdClient rqdClient;
     private RedirectManager redirectManager;
-    private BookingManager bookingManager;
     private BookingDao bookingDao;
 
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
@@ -164,12 +162,6 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public Set<String> findLocalDispatchJobs(DispatchHost host) {
-        return dispatcherDao.findLocalDispatchJobs(host);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
     public Set<String> findDispatchJobs(DispatchHost host, ShowInterface show,
             int numJobs) {
         return dispatcherDao.findDispatchJobs(host, show, numJobs);
@@ -215,13 +207,13 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isJobDispatchable(JobInterface job, boolean local) {
+    public boolean isJobDispatchable(JobInterface job) {
 
         if (!jobDao.hasPendingFrames(job)) {
             return false;
         }
 
-        if (!local && jobDao.isOverMaxCores(job)) {
+        if (jobDao.isOverMaxCores(job)) {
             return false;
         }
 
@@ -364,7 +356,7 @@ public class DispatchSupportService implements DispatchSupport {
                 .setResourceId(proc.getProcId())
                 .setNumCores(proc.coresReserved)
                 .setStartTime(System.currentTimeMillis())
-                .setIgnoreNimby(proc.isLocalDispatch)
+                .setIgnoreNimby(false)
                 .putAllEnvironment(jobDao.getEnvironment(frame))
                 .putAllEnvironment(layerDao.getLayerEnvironment(frame))
                 .putEnvironment("CUE3", "1")
@@ -481,19 +473,6 @@ public class DispatchSupportService implements DispatchSupport {
         procDao.deleteVirtualProc(proc);
         DispatchSupport.unbookedProcs.getAndIncrement();
         logger.info(proc + " " + reason);
-
-        /*
-         * Remove the local dispatch record if it has gone inactive.
-         */
-        if (proc.isLocalDispatch) {
-            try {
-                bookingManager.removeInactiveLocalHostAssignment(
-                    bookingDao.getLocalJobAssignment(proc.getHostId(), proc.getJobId()));
-            }
-            catch (EmptyResultDataAccessException e) {
-                // Eat the exception.
-            }
-        }
     }
 
     @Override
@@ -661,14 +640,6 @@ public class DispatchSupportService implements DispatchSupport {
 
     public void setShowDao(ShowDao showDao) {
         this.showDao = showDao;
-    }
-
-    public BookingManager getBookingManager() {
-        return bookingManager;
-    }
-
-    public void setBookingManager(BookingManager bookingManager) {
-        this.bookingManager = bookingManager;
     }
 
     public BookingDao getBookingDao() {

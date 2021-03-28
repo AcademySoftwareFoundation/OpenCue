@@ -105,7 +105,7 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
             "job_usage.int_frame_fail_count, " +
             "job_usage.int_clock_time_high, " +
             "job_usage.int_clock_time_success, " +
-            "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores, " +
+            "job_resource.int_cores AS int_cores, " +
             "job_resource.int_min_cores, " +
             "job_resource.int_max_cores, " +
             "job_mem.int_max_rss " +

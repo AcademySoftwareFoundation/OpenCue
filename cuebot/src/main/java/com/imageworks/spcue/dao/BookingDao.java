@@ -25,130 +25,8 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
-import com.imageworks.spcue.LocalHostAssignment;
 
 public interface BookingDao {
-
-    /**
-     * Updates the maximum number of cores the given local
-     * host assignment should use.
-     *
-     * @param l
-     * @return
-     */
-    boolean updateMaxCores(LocalHostAssignment l, int maxCoreUnits);
-
-    /**
-     * Updates the maximum amount of memory a given local host
-     * assignment should use.
-     *
-     * @param l
-     * @return
-     */
-    boolean updateMaxMemory(LocalHostAssignment l, long maxMemory);
-
-    /**
-     * Updates the maximum amount of gpu memory a given local host
-     * assignment should use.
-     *
-     * @param l
-     * @return
-     */
-    boolean updateMaxGpu(LocalHostAssignment l, long maxGpu);
-
-    /**
-     * Create a new LocalHostAssignment attached to the given job.
-     *
-     * @param host
-     * @param job
-     * @param lha
-     */
-    void insertLocalHostAssignment(HostInterface host, JobInterface job,
-                                   LocalHostAssignment lha);
-
-    /**
-     * Create a new LocalHostAssignment attached to the given layer.
-     *
-     * @param host
-     * @param layer
-     * @param lha
-     */
-    void insertLocalHostAssignment(HostInterface host, LayerInterface layer,
-                                   LocalHostAssignment lha);
-
-    /**
-     * Create a new LocalHostAssignment attached to the given frame.
-     *
-     * @param host
-     * @param frame
-     * @param lha
-     */
-    void insertLocalHostAssignment(HostInterface host, FrameInterface frame,
-                                   LocalHostAssignment lha);
-
-    /**
-     * Return the host + jobs local booking assignment properties.
-     * @param host
-     * @param job
-     * @return
-     */
-    List<LocalHostAssignment> getLocalJobAssignment(HostInterface host);
-
-    /**
-     * Return the host + jobs local booking assignment properties.
-     * @param host
-     * @param job
-     * @return
-     */
-    LocalHostAssignment getLocalJobAssignment(String id);
-
-    /**
-     * Return the host + jobs local booking assignment properties.
-     * @param hostId
-     * @param jobId
-     * @return
-     */
-    LocalHostAssignment getLocalJobAssignment(String hostId, String jobId);
-
-    /**
-     * Return true if the host has a local job assignment.
-     *
-     * @param host
-     * @return
-     */
-    boolean hasLocalJob(HostInterface host);
-
-    /**
-     * Returns true if the host has an active local booking.
-     *
-     * @param host
-     * @return
-     */
-    boolean hasActiveLocalJob(HostInterface host);
-
-    /**
-     * Delete the given LocalHostAssignment.
-     *
-     * @param e
-     */
-    boolean deleteLocalJobAssignment(LocalHostAssignment lha);
-
-    /**
-     * Deactivate the given LocalHostAssignment.
-     *
-     * @param l
-     */
-    boolean deactivate(LocalHostAssignment l);
-
-    /**
-     * Return the difference between the number of assigned cores and
-     * the given coreUnits.
-     *
-     * @param l
-     * @param coreUnits
-     * @return
-     */
-    int getCoreUsageDifference(LocalHostAssignment l, int coreUnits);
 
     /**
      * Allocate additional cores from the given host.
@@ -167,16 +45,5 @@ public interface BookingDao {
      * @return
      */
     boolean deallocateCoresFromHost(HostInterface h, int cores);
-
-    /**
-     * Return true if the Host has a resource deficit.  A
-     * deficit can occur if there are more resources in use than the
-     * maximum allowed due to changes from the user.
-     *
-     * @param l
-     * @return
-     */
-    boolean hasResourceDeficit(HostInterface host);
-
 }
 
