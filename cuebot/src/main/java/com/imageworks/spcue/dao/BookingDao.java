@@ -127,14 +127,6 @@ public interface BookingDao {
     boolean hasActiveLocalJob(HostInterface host);
 
     /**
-     * Return true if the host is in blackout time.
-     *
-     * @param h
-     * @return
-     */
-    boolean isBlackoutTime(HostInterface h);
-
-    /**
      * Delete the given LocalHostAssignment.
      *
      * @param e

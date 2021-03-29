@@ -290,16 +290,6 @@ public class HostReportHandler {
                 }
 
                 /*
-                 * Check for NIMBY blackout time.
-                 */
-                /*
-                if (bookingManager.isBlackOutTime(host)) {
-                    logger.trace(host + " is blacked out.");
-                    return ;
-                }
-                */
-
-                /*
                  * Check if the host prefers a show.  If it does , dispatch
                  * to that show first.
                  */

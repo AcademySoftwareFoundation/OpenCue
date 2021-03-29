@@ -41,9 +41,6 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
                 o.id = rs.getString("pk_deed");
                 o.owner = rs.getString("str_username");
                 o.host = rs.getString("str_hostname");
-                o.isBlackoutEnabled = rs.getBoolean("b_blackout");
-                o.blackoutStart = rs.getInt("int_blackout_start");
-                o.blackoutStop = rs.getInt("int_blackout_stop");
                 return o;
         }
     };
@@ -94,9 +91,6 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
     private static final String QUERY_FOR_DEED =
         "SELECT " +
             "deed.pk_deed, "+
-            "deed.b_blackout,"+
-            "deed.int_blackout_start,"+
-            "deed.int_blackout_stop, " +
             "host.str_name as str_hostname, " +
             "owner.str_username " +
         "FROM " +
@@ -120,21 +114,6 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
         return getJdbcTemplate().query(
                 QUERY_FOR_DEED + " AND owner.pk_owner = ?",
                 DEED_MAPPER, owner.getId());
-    }
-
-    @Override
-    public void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds) {
-        getJdbcTemplate().update(
-                "UPDATE deed SET int_blackout_start = ?, " +
-                "int_blackout_stop = ? WHERE deed.pk_deed = ?",
-                startSeconds, stopSeconds, deed.getId());
-    }
-
-    @Override
-    public void updateBlackoutTimeEnabled(DeedEntity deed, boolean bool) {
-        getJdbcTemplate().update(
-                "UPDATE deed SET b_blackout = ? WHERE deed.pk_deed = ?",
-                bool, deed.getId());
     }
 }
 
