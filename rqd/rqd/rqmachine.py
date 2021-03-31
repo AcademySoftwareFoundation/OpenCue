@@ -284,7 +284,7 @@ class Machine(object):
                             usedGpuMemory += self.getGpuMemoryUsed(unitId)
 
                         frame.usedGpuMemory = usedGpuMemory
-                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.usedGpuMemory)
+                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
 
                     if os.path.exists(frame.runFrame.log_dir_file):
                         stat = os.stat(frame.runFrame.log_dir_file).st_mtime
