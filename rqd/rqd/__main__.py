@@ -16,7 +16,7 @@
 
 
 """
-Initializes and starts rqd.
+Initializes and starts RQD.
 
 - RQD allows the cuebot to launch frames on a remote host.
 - RQD monitors the resources on a machine.
@@ -61,12 +61,13 @@ import rqd.rqutil
 
 def setupLogging():
     """Sets up the logging for RQD.
-       Logs to /var/log/messages"""
+
+    Logs to /var/log/messages"""
     # TODO(bcipriano) These should be config based. (Issue #72)
     consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel  = logging.DEBUG
-    fileFormat    = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel     = logging.WARNING # Equal to or greater than the consoleLevel
+    consoleLevel = logging.DEBUG
+    fileFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
+    fileLevel = logging.WARNING  # Equal to or greater than the consoleLevel
 
     logging.basicConfig(level=consoleLevel, format=consoleFormat)
     if platform.system() in ('Linux', 'Darwin'):
@@ -98,7 +99,9 @@ def usage():
     print("                            Defaults to /etc/rqd3/rqd3.conf", file=s)
     print("                            Config file is optional", file=s)
 
+
 def main():
+    """Entrypoint for RQD."""
     setupLogging()
 
     if platform.system() == 'Linux' and os.getuid() != 0 and \
@@ -107,36 +110,29 @@ def main():
         sys.exit(1)
 
     try:
-        opts, argv = getopt.getopt(sys.argv[1:], 'hdc:', ['help',
-                                                          'daemon',
-                                                          'nimbyoff',
-                                                          'update'])
+        opts, _ = getopt.getopt(sys.argv[1:], 'hdc:', ['help', 'daemon', 'nimbyoff', 'update'])
     except getopt.GetoptError:
         usage()
         sys.exit(1)
 
     optNimbyOff = False
-    for o, a in opts:
-        if o in ["-h", "--help"]:
+    for option, _ in opts:
+        if option in ["-h", "--help"]:
             usage()
             sys.exit(0)
-        if o in ["-d", "--daemon"]:
+        if option in ["-d", "--daemon"]:
             # TODO(bcipriano) Background the process. (Issue #153)
             pass
-        if o in ["--nimbyoff"]:
+        if option in ["--nimbyoff"]:
             optNimbyOff = True
 
     rqd.rqutil.permissionsLow()
 
     logging.warning('RQD Starting Up')
 
-    if rqd.rqconstants.FACILITY == 'abq':
-        os.environ['TZ'] = 'PST8PDT'
-
     rqCore = rqd.rqcore.RqCore(optNimbyOff)
     rqCore.start()
 
 
 if __name__ == "__main__":
-  main()
-
+    main()

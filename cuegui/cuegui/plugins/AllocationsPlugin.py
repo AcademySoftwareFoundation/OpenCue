@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for managing allocations."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -40,8 +43,10 @@ PLUGIN_DESCRIPTION = "An administrator interface to allocations"
 PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "AllocationsDockWidget"
 
+
 class AllocationsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Widget that lists allocations and allows management of them."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
@@ -55,11 +60,15 @@ class AllocationsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                       self.__monitorAllocations.getColumnOrder,
                                       self.__monitorAllocations.setColumnOrder)])
 
+
 ################################################################################
 # Allocations
 ################################################################################
 
+
 class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Inner widget that builds and displays the allocation list."""
+
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_ALLOC)
         self.addColumn("Name", 150, id=1,
@@ -95,25 +104,28 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
+        # Signals are defined in code, so pylint thinks they don't exist.
+        # pylint: disable=no-member
         QtGui.qApp.facility_changed.connect(self._update)
+        # pylint: enable=no-member
 
         self.setUpdateInterval(60)
 
-    def _createItem(self, object):
+    def _createItem(self, rpcObject):
         """Creates and returns the proper item"""
-        return AllocationWidgetItem(object, self)
+        return AllocationWidgetItem(rpcObject, self)
 
+    # pylint: disable=no-self-use
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
             return opencue.api.getAllocations()
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        pass
 
     def dragEnterEvent(self, event):
         cuegui.Utils.dragEnterEvent(event, "application/x-host-ids")
@@ -135,7 +147,14 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 item.rpcObject.reparentHostIds(hostIds)
                 self.updateSoon()
 
+    def tick(self):
+        # tick is unused in this widget
+        pass
+
+
 class AllocationWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget element representing a single allocation."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_ALLOC, object, parent)
+            self, cuegui.Constants.TYPE_ALLOC, rpcObject, parent)

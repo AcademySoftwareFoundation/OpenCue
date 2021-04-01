@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Displays the show dialog with show configuration options
-"""
+"""A dialog displaying show configuration options."""
 
 
 from __future__ import absolute_import
@@ -31,6 +29,8 @@ import cuegui.Utils
 
 
 class ShowDialog(QtWidgets.QDialog):
+    """A dialog displaying show configuration options."""
+
     def __init__(self, show, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
@@ -127,8 +127,6 @@ class ShowDialog(QtWidgets.QDialog):
         text.setPlainText("%s" % self.__show.data.show_stats)
         page.layout().addWidget(text)
 
-        #page.layout().setRowStretch(10, 100)
-
         return page
 
     def __createRawShowDataPage(self):
@@ -147,6 +145,7 @@ class ShowDialog(QtWidgets.QDialog):
 
     def __valueChanged(self, value=None):
         """Called when something changes to enable the save button"""
+        del value
         self.__btnSave.setEnabled(True)
 
     def __closeDialog(self):

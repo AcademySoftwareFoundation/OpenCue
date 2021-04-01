@@ -65,11 +65,11 @@ public final class CueUtil {
     public static final long MB256 = 262144;
     public static final long MB512 = 524288;
     public static final long GB = 1048576;
-    public static final long GB2 = 1048576 * 2;
-    public static final long GB4 = 1048576 * 4;
-    public static final long GB8 = 1048576 * 8;
-    public static final long GB16 = 1048576 * 16;
-    public static final long GB32 = 1048576 * 32;
+    public static final long GB2 = 1048576L * 2;
+    public static final long GB4 = 1048576L * 4;
+    public static final long GB8 = 1048576L * 8;
+    public static final long GB16 = 1048576L * 16;
+    public static final long GB32 = 1048576L * 32;
 
     /**
      * Features that relay on an integer greated than 0 to work

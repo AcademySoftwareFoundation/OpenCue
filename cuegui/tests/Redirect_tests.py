@@ -13,16 +13,20 @@
 #  limitations under the License.
 
 
-import mock
+"""Tests for cuegui.Redirect."""
+
+
 import unittest
 
+import mock
 import PySide2.QtCore
 import PySide2.QtGui
 
-import cuegui.Redirect
-import cuegui.Style
 import opencue.compiled_proto.show_pb2
 import opencue.wrappers.show
+
+import cuegui.Redirect
+import cuegui.Style
 
 from . import test_utils
 

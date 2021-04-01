@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Implements the server side of the RQD gRPC service."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -26,7 +29,7 @@ import rqd.compiled_proto.rqd_pb2_grpc
 
 
 class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer):
-    """Service interface for RqdStatic gRPC definition"""
+    """Service interface for RqdStatic gRPC definition."""
 
     def __init__(self, rqCore):
         self.rqCore = rqCore
@@ -40,7 +43,8 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
     def ReportStatus(self, request, context):
         """RPC call that returns reportStatus"""
         log.info("Request received: reportStatus")
-        return rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusResponse(host_report=self.rqCore.reportStatus())
+        return rqd.compiled_proto.rqd_pb2.RqdStaticReportStatusResponse(
+            host_report=self.rqCore.reportStatus())
 
     def GetRunningFrameStatus(self, request, context):
         """RPC call to return the frame info for the given frame id"""
@@ -49,11 +53,10 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
         if frame:
             return rqd.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse(
                 running_frame_info=frame.runningFrameInfo())
-        else:
-            context.set_details(
-                "The requested frame was not found. frameId: {}".format(request.frameId))
-            context.set_code(grpc.StatusCode.NOT_FOUND)
-            return rqd.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
+        context.set_details(
+            "The requested frame was not found. frameId: {}".format(request.frameId))
+        context.set_code(grpc.StatusCode.NOT_FOUND)
+        return rqd.compiled_proto.rqd_pb2.RqdStaticGetRunningFrameStatusResponse()
 
     def KillRunningFrame(self, request, context):
         """RPC call that kills the running frame with the given id"""
@@ -116,7 +119,7 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
 
     def Lock(self, request, context):
         """RPC call that locks a specific number of cores"""
-        log.info("Request received: lock %d" % request.cores)
+        log.info("Request received: lock %d", request.cores)
         self.rqCore.lock(request.cores)
         return rqd.compiled_proto.rqd_pb2.RqdStaticLockResponse()
 
@@ -128,7 +131,7 @@ class RqdInterfaceServicer(rqd.compiled_proto.rqd_pb2_grpc.RqdInterfaceServicer)
 
     def Unlock(self, request, context):
         """RPC call that unlocks a specific number of cores"""
-        log.info("Request received: unlock %d" % request.cores)
+        log.info("Request received: unlock %d", request.cores)
         self.rqCore.unlock(request.cores)
         return rqd.compiled_proto.rqd_pb2.RqdStaticUnlockResponse()
 

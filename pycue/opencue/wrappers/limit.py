@@ -12,13 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-"""
-Project: opencue Library
-
-Module: limit.py - opencue Library implementation of a limit
-
-"""
+"""Module for classes related to limits."""
 
 from opencue import Cuebot
 from opencue.compiled_proto import limit_pb2
@@ -28,85 +22,104 @@ class Limit(object):
     """This class contains the grpc implementation related to a Limit."""
 
     def __init__(self, limit=None):
-        """Limit class initialization"""
         self.data = limit
         self.stub = Cuebot.getStub('limit')
 
     def create(self):
-        """Create a new Limit from the current Limit object.
-        
-        :rtype: Limit
-        :return: The newly created Limit
+        """Creates a new Limit from the current Limit object.
+
+        :rtype:  opencue.wrappers.limit.Limit
+        :return: the newly created Limit
         """
         return Limit(self.stub.Create(
             limit_pb2.LimitCreateRequest(name=self.name(), max_value=self.maxValue()),
             timeout=Cuebot.Timeout))
 
     def delete(self):
-        """Delete the limit record"""
+        """Deletes the limit."""
         self.stub.Delete(limit_pb2.LimitDeleteRequest(name=self.name()), timeout=Cuebot.Timeout)
 
     def find(self, name):
-        """Find an existing limit by it's name.
-        
-        :type name: str
-        :param name: Name of limit to find.
-        :rtype: opencue.wrappers.limit.Limit
-        :return: The limit found by name.
-        """
-        return Limit(self.stub.Find(limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)
+        """Finds an existing limit by its name.
 
-    def get(self, id):
-        """Return an existing limit by it's id.
-        
-        :type id: str
-        :param id: Name of limit to find.
-        :rtype: opencue.wrappers.limit.Limit
-        :return: The limit found by id.
+        :type  name: str
+        :param name: name of limit to find
+        :rtype:  opencue.wrappers.limit.Limit
+        :return: the limit found by name
         """
-        return Limit(self.stub.Get(limit_pb2.LimitGetRequest(id=id), timeout=Cuebot.Timeout).limit)
+        return Limit(
+            self.stub.Find(limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)
+
+    def get(self, limit_id):
+        """Returns an existing limit by its id.
+
+        :type  limit_id: str
+        :param limit_id: id of limit to find
+        :rtype:  opencue.wrappers.limit.Limit
+        :return: the limit found by id.
+        """
+        return Limit(
+            self.stub.Get(limit_pb2.LimitGetRequest(id=limit_id), timeout=Cuebot.Timeout).limit)
 
     def rename(self, newName):
-        """Rename the current limit to the provided newName.
-        
-        :type newName: str
-        :param newName: Name to rename the limit to.
+        """Renames the limit.
+
+        :type  newName: str
+        :param newName: new limit name
         """
         self.stub.Rename(limit_pb2.LimitRenameRequest(old_name=self.name(), new_name=newName),
                          timeout=Cuebot.Timeout)
         self._update()
 
     def setMaxValue(self, maxValue):
-        """Set the max value of an existing limit.
-        
-        :type maxValue: int
-        :param maxValue: Max value number to set limit to.
+        """Sets the maximum value of an existing limit.
+
+        :type  maxValue: int
+        :param maxValue: new limit maximum
         """
-        self.stub.SetMaxValue(limit_pb2.LimitSetMaxValueRequest(name=self.name(), max_value=maxValue),
-                              timeout=Cuebot.Timeout)
+        self.stub.SetMaxValue(
+            limit_pb2.LimitSetMaxValueRequest(name=self.name(), max_value=maxValue),
+            timeout=Cuebot.Timeout)
         self._update()
 
     def _update(self):
-        """Update the current data object from the DB."""
+        """Updates the current data object from the database."""
         self.data = self.stub.Get(limit_pb2.LimitGetRequest(id=self.id()), timeout=Cuebot.Timeout)
 
     def id(self):
+        """Returns the limit id.
+
+        :rtype:  str
+        :return: the limit id
+        """
         return self.data.id
 
     def name(self):
+        """Returns the limit name.
+
+        :rtype:  str
+        :return: the limit name
+        """
         if hasattr(self.data, 'name'):
             return self.data.name
-        else:
-            return ""
+        return ""
 
     def maxValue(self):
+        """Returns the limit maximum.
+
+        :rtype: int
+        :return: the limit maximum
+        """
         if hasattr(self.data, 'max_value'):
             return self.data.max_value
-        else:
-            return -1
+        return -1
 
     def currentRunning(self):
+        """Returns the current amount of the limit in use.
+
+        :rtype: int
+        :return: current limit usage
+        """
         if hasattr(self.data, 'current_running'):
             return self.data.current_running
-        else:
-            return -1
+        return -1

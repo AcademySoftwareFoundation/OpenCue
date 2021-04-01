@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Main CueAdmin code."""
+
+
 from __future__ import print_function
 from __future__ import absolute_import
 from __future__ import division
@@ -21,9 +24,10 @@ from builtins import str
 from builtins import object
 import argparse
 import logging
-import six
 import sys
 import traceback
+
+import six
 
 import opencue
 import opencue.wrappers.job
@@ -57,18 +61,21 @@ __ALL__ = ["testServer",
            "AllocUtil"]
 
 
+# pylint: disable=broad-except
 def handleParserException(args, e):
+    """Custom argument parser error handling."""
     try:
         if args.verbose:
             traceback.print_exc(file=sys.stderr)
         raise e
     except ValueError as ex:
-            print("Error: %s. Try the -verbose or -h flags for more info." % ex, file=sys.stderr)
+        print("Error: %s. Try the -verbose or -h flags for more info." % ex, file=sys.stderr)
     except Exception as ex:
         print("Error: %s." % ex, file=sys.stderr)
 
 
 def getParser():
+    """Constructs and returns the CueAdmin argument parser."""
     parser = argparse.ArgumentParser(description="CueAdmin OpenCue Administrator Tool",
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
 
@@ -225,12 +232,14 @@ def getParser():
     host.add_argument("-repair", action="store_true", help="Sets hosts into the repair state.")
     host.add_argument("-fixed", action="store_true", help="Sets hosts into Up state.")
     host.add_argument("-thread", action="store", help="Set the host's thread mode.",
-                      choices=[mode.lower() for mode in list(opencue.api.host_pb2.ThreadMode.keys())])
+                      choices=[
+                          mode.lower() for mode in list(opencue.api.host_pb2.ThreadMode.keys())])
 
     return parser
 
 
 class QueryAction(argparse.Action):
+    """Sets various query modes if arguments are detected."""
     def __call__(self, parser, namespace, values, option_string=None):
         if option_string == '-lh':
             namespace.lh = True
@@ -338,46 +347,51 @@ def handleIntCriterion(mixed, convert=None):
 
 
 def resolveHostNames(names=None, substr=None):
+    """Returns a list of hosts using their names."""
     items = []
     if names:
         items = opencue.search.HostSearch.byName(names)
-        logger.debug("found %d of %d supplied hosts" % (len(items), len(names)))
-        if len(names) != len(items) and len(items):
-            logger.warn("Unable to match all host names with valid hosts on the cue.")
-            logger.warn("Operations executed for %s" % set(names).intersection(
-                [i.data.name for i in items]))
-            logger.warn("Operations NOT executed for %s" % set(names).difference([
-                i.data.name for i in items]))
+        logger.debug("found %d of %d supplied hosts", len(items), len(names))
+        if len(names) != len(items) and items:
+            logger.warning("Unable to match all host names with valid hosts on the cue.")
+            logger.warning(
+                "Operations executed for %s", set(names).intersection([i.data.name for i in items]))
+            logger.warning(
+                "Operations NOT executed for %s", set(names).difference(
+                    [i.data.name for i in items]))
     elif substr:
         items = opencue.search.HostSearch.byMatch(substr)
-        logger.debug("matched %d hosts using patterns %s" % (len(items), substr))
+        logger.debug("matched %d hosts using patterns %s", len(items), substr)
     if not items:
         raise ValueError("no valid hosts")
     return items
 
 
 def resolveShowNames(names):
+    """Returns a list of shows using their names."""
     items = []
     try:
         for name in names:
             items.append(opencue.api.findShow(name))
     except opencue.CueException:
         pass
-    logger.debug("found %d of %d supplied shows" % (len(items), len(names)))
-    if len(names) != len(items) and len(items):
-        logger.warn("Unable to match all show names with active shows.")
-        logger.warn("Operations executed for %s" % set(names).intersection(
+    logger.debug("found %d of %d supplied shows", len(items), len(names))
+    if len(names) != len(items) and items:
+        logger.warning("Unable to match all show names with active shows.")
+        logger.warning("Operations executed for %s", set(names).intersection(
             [i.data.name for i in items]))
-        logger.warn("Operations NOT executed for %s" % set(names).difference(
+        logger.warning("Operations NOT executed for %s", set(names).difference(
             [i.data.name for i in items]))
     if not items:
         raise ValueError("no valid shows")
     return items
 
 
+# pylint: disable=inconsistent-return-statements
 def confirm(msg, force, func, *args, **kwargs):
+    """Prompts user for confirmation the given function should be executed."""
     if cueadmin.util.promptYesNo("Please confirm. %s?" % msg, force):
-        logger.debug("%s [forced %s]" % (msg, force))
+        logger.debug("%s [forced %s]", msg, force)
         return func(*args, **kwargs)
 
 
@@ -385,45 +399,52 @@ def confirm(msg, force, func, *args, **kwargs):
 # need to be moved to the server, but should be someplace common
 #
 class DependUtil(object):
+    """Utility class for working with depends."""
 
     @staticmethod
     def dropAllDepends(job, layer=None, frame=None):
+        """Drops all depends on the given object."""
         if frame:
-            logger.debug("dropping all depends on: %s/%04d-%s" % (job, layer, frame))
+            logger.debug("dropping all depends on: %s/%04d-%s", job, layer, frame)
             depend_er_frame = opencue.api.findFrame(job, layer, frame)
             for depend in depend_er_frame.getWhatThisDependsOn():
                 depend.proxy.satisfy()
         elif layer:
-            logger.debug("dropping all depends on: %s/%s" % (job, layer))
+            logger.debug("dropping all depends on: %s/%s", job, layer)
             depend_er_layer = opencue.api.findLayer(job, layer)
             for depend in depend_er_layer.getWhatThisDependsOn():
                 depend.proxy.satisfy()
         else:
-            logger.debug("dropping all depends on: %s" % job)
+            logger.debug("dropping all depends on: %s", job)
             depend_er_job = opencue.api.findJob(job)
             for depend in depend_er_job.getWhatThisDependsOn():
-                logger.debug("dropping depend %s %s" % (depend.data.type, opencue.id(depend)))
+                logger.debug("dropping depend %s %s", depend.data.type, opencue.id(depend))
                 depend.proxy.satisfy()
 
 
 class Convert(object):
+    """Utility class for converting between units."""
 
     @staticmethod
     def gigsToKB(val):
+        """Converts gigabytes to kilobytes."""
         return int(1048576 * val)
 
     @staticmethod
     def hoursToSeconds(val):
+        """Converts hours to seconds."""
         return int(3600 * val)
 
     @staticmethod
     def stringToBoolean(val):
+        """Converts a string to a boolean, see code for values accepted as True."""
         if val.lower() in ("yes", "on", "enabled", "true"):
             return True
         return False
 
     @staticmethod
     def strToMatchSubject(val):
+        """Converts a string to a MatchSubject."""
         try:
             return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
@@ -431,6 +452,7 @@ class Convert(object):
 
     @staticmethod
     def strToMatchType(val):
+        """Converts a string to a MatchType."""
         try:
             return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
@@ -438,6 +460,7 @@ class Convert(object):
 
     @staticmethod
     def strToActionType(val):
+        """Converts a string ActionType."""
         try:
             return getattr(opencue.api.filter_pb2, str(val).upper())
         except Exception:
@@ -445,6 +468,7 @@ class Convert(object):
 
     @staticmethod
     def strToFrameState(val):
+        """Converts a string to a FrameState."""
         try:
             return getattr(opencue.api.job_pb2, str(val).upper())
         except Exception:
@@ -452,6 +476,7 @@ class Convert(object):
 
     @staticmethod
     def strToHardwareState(val):
+        """Converts a string to a HardwareState."""
         try:
             return opencue.api.host_pb2.HardwareState.Value(str(val.upper()))
         except ValueError:
@@ -467,9 +492,11 @@ class Convert(object):
 
 
 class ActionUtil(object):
+    """Utility class for interacting with Actions."""
 
     @staticmethod
     def factory(actionType, value):
+        """Creates an Action."""
         a = opencue.api.filter_pb2.Action()
         a.type = Convert.strToActionType(actionType)
         ActionUtil.setValue(a, value)
@@ -477,24 +504,25 @@ class ActionUtil(object):
 
     @staticmethod
     def getValue(a):
+        """Gets an action's value."""
         valueType = str(a.data.value_type)
         if valueType == "GroupType":
             return a.data.group_value
-        elif valueType == "StringType":
+        if valueType == "StringType":
             return a.data.string_value
-        elif valueType == "IntegerType":
+        if valueType == "IntegerType":
             return a.data.integer_value
-        elif valueType == "FloatType":
+        if valueType == "FloatType":
             return a.data.float_value
-        elif valueType == "BooleanType":
+        if valueType == "BooleanType":
             return a.data.boolean_value
-        else:
-            return None
+        return None
 
     @staticmethod
     def setValue(act, value):
+        """Sets an action's value."""
         if act.type == opencue.api.filter_pb2.MOVE_JOB_TO_GROUP:
-            act.groupValue = opencue.proxy(value)
+            act.groupValue = opencue.proxy(value, 'Group')
             act.valueType = opencue.api.filter_pb2.GROUP_TYPE
 
         elif act.type == opencue.api.filter_pb2.PAUSE_JOB:
@@ -523,16 +551,17 @@ class ActionUtil(object):
 
 
 def handleArgs(args):
+    """Process the given arguments and execute the function described by them."""
 
     if args.verbose:
         cueadmin.util.enableDebugLogging()
 
     if args.server:
-        logger.debug("setting opencue host servers to %s" % args.server)
+        logger.debug("setting opencue host servers to %s", args.server)
         opencue.Cuebot.setHosts(args.server)
 
     if args.facility:
-        logger.debug("setting facility to %s" % args.facility)
+        logger.debug("setting facility to %s", args.facility)
         opencue.Cuebot.setFacility(args.facility)
 
     #
@@ -560,18 +589,18 @@ def handleArgs(args):
                 [opencue.wrappers.proc.Proc(proc) for proc in result.procs.procs])
         return
 
-    elif args.lh:
+    if args.lh:
         states = [Convert.strToHardwareState(s) for s in args.state]
         cueadmin.output.displayHosts(
             opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc))
         return
 
-    elif args.lba:
+    if args.lba:
         allocation = opencue.api.findAllocation(args.lba)
         cueadmin.output.displaySubscriptions(allocation.getSubscriptions(), "All Shows")
         return
 
-    elif args.lv is not None:
+    if args.lv is not None:
         if args.lv:
             show = opencue.api.findShow(args.lv[0])
             cueadmin.output.displayServices(show.getServiceOverrides())
@@ -579,27 +608,27 @@ def handleArgs(args):
             cueadmin.output.displayServices(opencue.api.getDefaultServices())
         return
 
-    elif args.lj:
+    if args.lj:
         for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs:
             print(job.name)
         return
 
-    elif args.lji:
+    if args.lji:
         cueadmin.output.displayJobs(
             [opencue.wrappers.job.Job(job)
              for job in opencue.search.JobSearch.byMatch(args.query).jobs.jobs])
         return
 
-    elif args.la:
+    if args.la:
         cueadmin.output.displayAllocations(opencue.api.getAllocations())
         return
 
-    elif args.lb:
+    if args.lb:
         for show in resolveShowNames(args.lb):
             cueadmin.output.displaySubscriptions(show.getSubscriptions(), show.data.name)
         return
 
-    elif args.ls:
+    if args.ls:
         cueadmin.output.displayShows(opencue.api.getShows())
         return
 
@@ -704,14 +733,14 @@ def handleArgs(args):
         if not hosts:
             raise ValueError(host_error_msg)
         for host in hosts:
-            logger.debug("locking host: %s" % opencue.rep(host))
+            logger.debug("locking host: %s", opencue.rep(host))
             host.lock()
 
     elif args.unlock:
         if not hosts:
             raise ValueError(host_error_msg)
         for host in hosts:
-            logger.debug("unlocking host: %s" % opencue.rep(host))
+            logger.debug("unlocking host: %s", opencue.rep(host))
             host.unlock()
 
     elif args.move:
@@ -720,7 +749,7 @@ def handleArgs(args):
 
         def moveHosts(hosts_, dst_):
             for host_ in hosts_:
-                logger.debug("moving %s to %s" % (opencue.rep(host_), opencue.rep(dst_)))
+                logger.debug("moving %s to %s", opencue.rep(host_), opencue.rep(dst_))
                 host_.setAllocation(dst_)
 
         confirm("Move %d hosts to %s" % (len(hosts), args.move),
@@ -732,7 +761,7 @@ def handleArgs(args):
 
         def deleteHosts(hosts_):
             for host_ in hosts_:
-                logger.debug("deleting host: %s" % host_)
+                logger.debug("deleting host: %s", host_)
                 host_.delete()
 
         confirm("Delete %s hosts" % len(hosts), args.force, deleteHosts, hosts)
@@ -743,7 +772,7 @@ def handleArgs(args):
 
         def safeReboot(hosts_):
             for host_ in hosts_:
-                logger.debug("locking host and rebooting when idle %s" % opencue.rep(host_))
+                logger.debug("locking host and rebooting when idle %s", opencue.rep(host_))
                 host_.rebootWhenIdle()
 
         confirm("Lock and reboot %d hosts when idle" % len(hosts),
@@ -755,7 +784,7 @@ def handleArgs(args):
 
         def setThreadMode(hosts_, mode):
             for host_ in hosts_:
-                logger.debug("setting host %s to thread mode %s" % (host_.data.name, mode))
+                logger.debug("setting host %s to thread mode %s", host_.data.name, mode)
                 host_.setThreadMode(Convert.strToThreadMode(mode))
 
         confirm("Set %d hosts to thread mode %s" % (len(hosts), args.thread), args.force,
@@ -767,7 +796,7 @@ def handleArgs(args):
 
         def setRepairState(hosts_):
             for host_ in hosts_:
-                logger.debug("setting host into the repair state %s" % host_.data.name)
+                logger.debug("setting host into the repair state %s", host_.data.name)
                 host_.setHardwareState(opencue.api.host_pb2.REPAIR)
 
         confirm("Set %d hosts into the Repair state?" % len(hosts),
@@ -779,7 +808,7 @@ def handleArgs(args):
 
         def setUpState(hosts_):
             for host_ in hosts_:
-                logger.debug("setting host into the repair state %s" % host_.data.name)
+                logger.debug("setting host into the repair state %s", host_.data.name)
                 host_.setHardwareState(opencue.api.host_pb2.UP)
 
         confirm("Set %d hosts into the Up state?" % len(hosts),

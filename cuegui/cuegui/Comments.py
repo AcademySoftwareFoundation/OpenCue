@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Dialog for displaying a comment list."""
+
+
 from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
@@ -37,9 +40,11 @@ SAVE_NEW = "Save New Comment"
 
 
 class CommentListDialog(QtWidgets.QDialog):
-    """A dialog to display a comment list"""
+    """Dialog for displaying a comment list."""
+
     def __init__(self, source, parent=None):
-        """Initialize the dialog
+        """Initialize the dialog.
+
         @type  source: Job or Host
         @param source: The source to get the comments from
         @type  parent: QWidget
@@ -103,6 +108,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __textEdited(self, text=None):
         """Called when the text boxes are modified, enables the save button"""
+        del text
         self.__btnSave.setEnabled(True)
 
     def __close(self):
@@ -198,8 +204,10 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
+        # pylint: disable=no-member
         self.__macroList = pickle.loads(
             str(QtGui.qApp.settings.value("Comments", pickle.dumps({}))))
+        # pylint: enable=no-member
         self.__macroRefresh()
 
     def __macroRefresh(self):
@@ -213,7 +221,9 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroSave(self):
         """Saves the current comment macros to settings"""
+        # pylint: disable=no-member
         QtGui.qApp.settings.setValue("Comments", pickle.dumps(self.__macroList))
+        # pylint: enable=no-member
 
     def __macroHandle(self, selection):
         """Called when the comment macro combo box is selected

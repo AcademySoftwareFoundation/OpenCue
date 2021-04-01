@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for viewing the list of hosts and performing administrative tasks."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -33,7 +36,8 @@ PLUGIN_PROVIDES = "HostMonitorDockWidget"
 
 
 class HostMonitorDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Plugin for viewing the list of hosts and performing administrative tasks."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 

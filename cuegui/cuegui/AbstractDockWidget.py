@@ -13,9 +13,9 @@
 #  limitations under the License.
 
 
-"""
-Extends QDockWidget to provide a standard setup
-"""
+"""Base class for all CueGUI widgets.
+
+Extends QDockWidget to provide a standard setup."""
 
 
 from __future__ import absolute_import
@@ -29,6 +29,9 @@ import cuegui.Plugins
 
 
 class AbstractDockWidget(cuegui.Plugins.Plugin, QtWidgets.QDockWidget):
+    """Base class for all CueGUI widgets.
+
+    Extends QDockWidget to provide a standard setup."""
 
     closed = QtCore.Signal(object)
     enabled = QtCore.Signal()
@@ -40,7 +43,8 @@ class AbstractDockWidget(cuegui.Plugins.Plugin, QtWidgets.QDockWidget):
         self.parent = parent
 
         self.setAllowedAreas(QtCore.Qt.AllDockWidgetAreas)
-        self.setFeatures(QtWidgets.QDockWidget.DockWidgetClosable | QtWidgets.QDockWidget.DockWidgetMovable)
+        self.setFeatures(
+            QtWidgets.QDockWidget.DockWidgetClosable | QtWidgets.QDockWidget.DockWidgetMovable)
         self.setObjectName(name)
         parent.addDockWidget(area, self)
 
@@ -53,9 +57,11 @@ class AbstractDockWidget(cuegui.Plugins.Plugin, QtWidgets.QDockWidget):
         self.widget().setLayout(self.__layout)
 
     def closeEvent(self, event):
+        del event
         self.closed.emit(self)
 
     def showEvent(self, event):
+        del event
         self.enabled.emit()
 
     def layout(self):

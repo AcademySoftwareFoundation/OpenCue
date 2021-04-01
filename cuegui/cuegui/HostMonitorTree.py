@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A frame list based on AbstractTreeWidget
-"""
+"""Tree widget for displaying a list of hosts."""
 
 
 from __future__ import absolute_import
@@ -23,7 +21,6 @@ from __future__ import division
 from __future__ import print_function
 
 from builtins import map
-from builtins import str
 import time
 
 from PySide2 import QtCore
@@ -31,6 +28,9 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
+from opencue.compiled_proto.host_pb2 import HardwareState
+from opencue.compiled_proto.host_pb2 import LockState
+from opencue.compiled_proto.host_pb2 import ThreadMode
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -41,10 +41,6 @@ import cuegui.MenuActions
 import cuegui.Style
 import cuegui.Utils
 
-from opencue.compiled_proto.host_pb2 import HardwareState
-from opencue.compiled_proto.host_pb2 import LockState
-from opencue.compiled_proto.host_pb2 import ThreadMode
-
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -52,6 +48,8 @@ COMMENT_COLUMN = 1
 
 
 class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget for displaying a list of hosts."""
+
     def __init__(self, parent):
 
         self.startColumnsForType(cuegui.Constants.TYPE_HOST)
@@ -160,12 +158,17 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedComment)
 
         # Don't use the standard space bar to refresh
+        # pylint: disable=no-member
         QtGui.qApp.request_update.connect(self.updateRequest)
+        # pylint: enable=no-member
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
         self.ticksWithoutUpdate = -1
+
+        # pylint: disable=no-member
         self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)))
+        # pylint: enable=no-member
 
     def tick(self):
         if self.ticksWithoutUpdate >= self.updateInterval and \
@@ -196,6 +199,8 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
+        del item
+        del col
         selected = [host.data.name for host in self.selectedObjects() if cuegui.Utils.isHost(host)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
@@ -212,6 +217,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.hosts().viewComments([host])
 
     def clearFilters(self):
+        """Clears any sorting and filtering, restoring the default view."""
         self.clearSelection()
         self.hostSearch = opencue.search.HostSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
@@ -229,28 +235,27 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             # Sorting by name here incase that makes displaying it faster
             hosts.sort(key=lambda host: host.data.name)
             return hosts
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
-    def _createItem(self, object, parent=None):
+    def _createItem(self, rpcObject, parent=None):
         """Creates and returns the proper item
-        @type  object: Host
-        @param object: The object for this item
+        @type  rpcObject: Host
+        @param rpcObject: The object for this item
         @type  parent: QTreeWidgetItem
         @param parent: Optional parent for this item
         @rtype:  QTreeWidgetItem
         @return: The created item"""
         if not parent:
             parent = self
-        return HostWidgetItem(object, parent)
+        return HostWidgetItem(rpcObject, parent)
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
         menu = QtWidgets.QMenu()
         self.__menuActions.hosts().addAction(menu, "viewComments")
         self.__menuActions.hosts().addAction(menu, "viewProc")
-        self.__menuActions.hosts().addAction(menu, "hinv")
         self.__menuActions.hosts().addAction(menu, "lock")
         self.__menuActions.hosts().addAction(menu, "unlock")
         self.__menuActions.hosts().addAction(menu, "addTags")
@@ -275,20 +280,25 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
 
 class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+    """Widget item representing a single host."""
+
     __initialized = False
 
-    def __init__(self, object, parent):
+    # pylint: disable=protected-access
+    def __init__(self, rpcObject, parent):
         if not self.__initialized:
             cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            # pylint: disable=no-member
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
             self.__class__.__type = cuegui.Constants.TYPE_HOST
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_HOST, object, parent)
+            self, cuegui.Constants.TYPE_HOST, rpcObject, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -304,32 +314,32 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                     self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
             return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
 
-        elif role == QtCore.Qt.ForegroundRole:
+        if role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
 
-        elif role == QtCore.Qt.BackgroundRole:
+        if role == QtCore.Qt.BackgroundRole:
             if not self.rpcObject.data.state == opencue.api.host_pb2.UP:
                 return self.__dyingColor
             if self.rpcObject.data.lock_state == opencue.api.host_pb2.LOCKED:
                 return self.__pausedColor
             return self.__backgroundColor
 
-        elif role == QtCore.Qt.DecorationRole:
+        if role == QtCore.Qt.DecorationRole:
             if col == COMMENT_COLUMN and self.rpcObject.data.has_comment:
                 return self.__commentIcon
 
-        elif role == QtCore.Qt.UserRole:
+        if role == QtCore.Qt.UserRole:
             return self.__type
 
-        elif role == QtCore.Qt.UserRole + 1:
+        if role == QtCore.Qt.UserRole + 1:
             return [self.rpcObject.data.total_swap - self.rpcObject.data.free_swap,
                     self.rpcObject.data.total_swap]
 
-        elif role == QtCore.Qt.UserRole + 2:
+        if role == QtCore.Qt.UserRole + 2:
             return [self.rpcObject.data.total_memory - self.rpcObject.data.free_memory,
                     self.rpcObject.data.total_memory]
 
-        elif role == QtCore.Qt.UserRole + 3:
+        if role == QtCore.Qt.UserRole + 3:
             return [self.rpcObject.data.total_gpu - self.rpcObject.data.free_gpu,
                     self.rpcObject.data.total_gpu]
 

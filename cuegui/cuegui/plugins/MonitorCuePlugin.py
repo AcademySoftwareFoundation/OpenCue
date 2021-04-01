@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for general administration of the show/job hierarchy."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -47,9 +50,12 @@ PLUGIN_PROVIDES = "MonitorCueDockWidget"
 
 
 class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
-    """This builds what is displayed on the dock widget"""
+    """Plugin for general administration of the show/job hierarchy."""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
+
+        self.__showMenuActions = None
 
         self.__monitorCue = cuegui.CueJobMonitorTree.CueJobMonitorTree(self)
         self.__toolbar = QtWidgets.QToolBar(self)
@@ -72,7 +78,9 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.layout().addLayout(self.__hlayout)
 
+        # pylint: disable=no-member
         self.__monitorCue.view_object.connect(QtGui.qApp.view_object.emit)
+        # pylint: enable=no-member
 
         self.pluginRegisterSettings([("shows",
                                       self.__monitorCue.getShowNames,
@@ -90,7 +98,10 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.addShows([os.getenv('SHOW')])
 
     def __cueStateBarSetup(self, layout):
-        if QtGui.qApp.settings.value("CueStateBar", False):
+        # pylint: disable=no-member
+        cueStateBarEnabled = QtGui.qApp.settings.value("CueStateBar", False)
+        # pylint: enable=no-member
+        if cueStateBarEnabled:
             self.__cueStateBar = cuegui.CueStateBarWidget.CueStateBarWidget(self.__monitorCue, self)
             layout.addWidget(self.__cueStateBar)
 
@@ -149,9 +160,10 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         btn.clicked.connect(self.__monitorCue.actionResumeSelectedItems)
 
 
-################################################################################
-# Show selection menu
-################################################################################
+    ################################################################################
+    # Show selection menu
+    ################################################################################
+
     def __showMenuSetup(self):
         """Sets up the show selection menu"""
         self.__showMenuBtn = QtWidgets.QPushButton("Shows ",self)
@@ -164,7 +176,9 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__showMenuBtn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.__showMenu.setFont(cuegui.Constants.STANDARD_FONT)
         self.__showMenu.triggered.connect(self.__showMenuHandle)
+        # pylint: disable=no-member
         QtGui.qApp.facility_changed.connect(self.__showMenuUpdate)
+        # pylint: enable=no-member
 
         self.__showMenuUpdate()
 
@@ -205,7 +219,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         try:
             shows = sorted([show.name() for show in opencue.api.getActiveShows()])
-        except Exception as e:
+        except opencue.exception.CueException as e:
             logger.critical(e)
             shows = []
 
@@ -310,24 +324,29 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         else:
             self.__jobSelectedLineEdit.setText("")
 ################################################################################
+
     def addShows(self, shows):
+        """Adds a list of shows to be monitored."""
         for show in shows:
             if show in self.__showMenuActions:
                 self.__monitorCue.addShow(show, False)
                 self.__showMenuActions[show].setChecked(True)
 
-    def pluginRestoreState(self, settings):
+    def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
-        @param settings: Last state of the plugin instance
-        @type  settings: any"""
-        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, settings)
+        @param saved_settings: Last state of the plugin instance
+        @type  saved_settings: any"""
+        cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, saved_settings)
 
+        # pylint: disable=protected-access
         self.__monitorCue._update()
+        # pylint: enable=protected-access
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
 
 
 class JobSelectEditBox(QtWidgets.QLineEdit):
-    """An edit box intended for selecting matching jobs"""
+    """An edit box for selecting matching jobs."""
+
     def __init__(self, parent):
         QtWidgets.QLineEdit.__init__(self)
         self.parent = weakref.proxy(parent)

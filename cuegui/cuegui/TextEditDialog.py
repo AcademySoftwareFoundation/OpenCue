@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A TextEdit dialog
-"""
+"""A TextEdit dialog."""
 
 
 from __future__ import print_function
@@ -27,8 +25,10 @@ from PySide2 import QtWidgets
 
 
 class TextEditDialog(QtWidgets.QDialog):
-    def __init__(self, title, text, default = "", parent = None):
-        """A confirmation dialog
+    """A TextEdit dialog."""
+
+    def __init__(self, title, text, default="", parent=None):
+        """
         @type  title: string
         @param title: The title for the confirmation dialog
         @type  text: string
@@ -64,4 +64,5 @@ class TextEditDialog(QtWidgets.QDialog):
         self.__textEdit.setFocus(QtCore.Qt.OtherFocusReason)
 
     def results(self):
+        """Gets the dialog results as plaintext."""
         return self.__textEdit.toPlainText()

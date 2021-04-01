@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Widget that graphically displays the state of all jobs displayed."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -32,22 +35,29 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class CueStateBarWidget(QtWidgets.QWidget):
-    """Creates a bar that graphically displays the state of all jobs displayed"""
+    """Widget that graphically displays the state of all jobs displayed."""
+
     __colorInvalid = QtGui.QColor()
     __brushPattern = QtGui.QBrush(QtCore.Qt.Dense4Pattern)
-    def __init__(self, sourceTree, parent = None):
+
+    def __init__(self, sourceTree, parent=None):
         """CueStateBar init
         @type  sourceTree: QTreeWidget
         @param sourceTree: The tree to get the jobs from
         @type  parent: QWidget
         @param parent: The parent widget"""
         QtWidgets.QWidget.__init__(self, parent)
+
+        self.__background = None
+
         self.setContentsMargins(8, 1, 1, 1)
         self.setFixedWidth(22)
 
         self.__sourceTree = weakref.proxy(sourceTree)
         self.__colors = []
+        # pylint: disable=no-member
         self.__baseColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+        # pylint: enable=no-member
         self.__colorsLock = QtCore.QReadWriteLock()
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0
@@ -84,6 +94,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         """Called when the widget is being redrawn
         @type  event: QEvent
         @param event: The draw event"""
+        del event
         assert threading.currentThread().getName() == "MainThread"
         self.__colorsLock.lockForWrite()
         try:

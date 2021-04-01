@@ -14,6 +14,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.util`."""
 
 from __future__ import print_function
 from __future__ import division
@@ -24,6 +25,7 @@ import time
 import unittest
 
 import opencue.wrappers.util
+
 
 TEST_SECONDS_A = 1557942905
 TEST_SECONDS_B = 2000

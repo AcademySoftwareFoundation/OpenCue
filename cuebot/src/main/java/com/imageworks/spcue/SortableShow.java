@@ -107,12 +107,11 @@ public class SortableShow implements Comparable<SortableShow> {
         if (other == null) {
             return false;
         }
-        try {
-            SortableShow that = (SortableShow) other;
-            return that.getShowId().equals(this.getShowId());
-        } catch (ClassCastException e) {
+        if (this.getClass() != other.getClass()) {
             return false;
         }
+        SortableShow that = (SortableShow) other;
+        return that.getShowId().equals(this.getShowId());
     }
 }
 

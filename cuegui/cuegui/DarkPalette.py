@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-The dark widget color scheme used by image viewing applications.
-"""
+"""The dark widget color scheme used by image viewing applications."""
 
 
 from __future__ import absolute_import
@@ -34,6 +32,7 @@ def init():
     """Convenience function that takes the QApplication object for the
     application and configures the palette and style for the Plastique
     color scheme"""
+    # pylint: disable=no-member
     QtGui.qApp.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
@@ -44,13 +43,13 @@ def init():
 
 
 def setDarkStyleSheet():
+    """Sets the stylesheet."""
+    # pylint: disable=no-member
     QtGui.qApp.setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():
-    """The dark widget color scheme used by image viewing applications
-    at Imageworks.
-    """
+    """The dark widget color scheme used by image viewing applications."""
     p = QtGui.QPalette()
 
     c = GreyF(0.175)
@@ -103,12 +102,14 @@ def DarkPalette():
 
 
 def GreyF(value):
+    """Creates a grey color."""
     c = QtGui.QColor()
     c.setRgbF(value, value, value)
     return c
 
 
 def ColorF(r, g, b):
+    """Creates an RGB color."""
     c = QtGui.QColor()
     c.setRgbF(r, g, b)
     return c

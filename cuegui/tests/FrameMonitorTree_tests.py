@@ -13,13 +13,20 @@
 #  limitations under the License.
 
 
-import mock
+"""Tests for cuegui.FrameMonitorTree."""
+
+
 import unittest
 
+import mock
 import PySide2.QtCore
 import PySide2.QtGui
 import PySide2.QtTest
 import PySide2.QtWidgets
+
+import opencue.compiled_proto.job_pb2
+import opencue.wrappers.frame
+import opencue.wrappers.job
 
 import cuegui.Constants
 import cuegui.FrameMonitor
@@ -27,9 +34,6 @@ import cuegui.FrameMonitorTree
 import cuegui.Main
 import cuegui.plugins.MonitorJobDetailsPlugin
 import cuegui.Style
-import opencue.compiled_proto.job_pb2
-import opencue.wrappers.frame
-import opencue.wrappers.job
 
 from . import test_utils
 
@@ -115,10 +119,11 @@ class FrameMonitorTreeTests(unittest.TestCase):
         getUpdatedFramesMock.assert_not_called()
 
     def test_getCores(self):
-        frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723'))
+        frame = opencue.wrappers.frame.Frame(
+            opencue.compiled_proto.job_pb2.Frame(last_resource='foo/125.82723'))
 
         self.assertEqual(125.82723, self.frameMonitorTree.getCores(frame))
-        self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format=True))
+        self.assertEqual('125.83', self.frameMonitorTree.getCores(frame, format_as_string=True))
 
     @mock.patch.object(cuegui.FrameMonitorTree.FrameContextMenu, 'exec_')
     def test_rightClickItem(self, execMock):

@@ -12,5 +12,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""
+PyOutline "modules" help to translate between a set of job options and an OpenCue job outline.
 
-"""Dev-Group supported modules."""
+For example, the Shell module translates the given job options into a job outline containing
+shell commands to be run on render hosts.
+"""

@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A layer list based on AbstractTreeWidget
-"""
+"""Tree widget for displaying a list of layers."""
 
 
 from __future__ import absolute_import
@@ -35,12 +33,14 @@ import cuegui.Utils
 
 
 def displayRange(layer):
+    """Returns a string representation of a layer's frame range."""
     if layer.data.chunk_size != 1:
         return '%s chunked %s' % (layer.data.range, layer.data.chunk_size)
     return layer.data.range
 
 
 class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget for displaying a list of layers."""
 
     handle_filter_layers_byLayer = QtCore.Signal(list)
 
@@ -58,6 +58,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("Limits", 100, id=4,
                        data=lambda layer: ",".join(layer.data.limits),
                        tip="The limits that have been applied to this layer's frames.")
+        # pylint: disable=unnecessary-lambda
         self.addColumn("Range", 150, id=5,
                        data=lambda layer: displayRange(layer),
                        tip="The range of frames that the layer should render.")
@@ -79,11 +80,12 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The amount of gpu memory each frame in this layer\n"
                            "will reserve for its use. Note that we may not have\n"
                            "machines as much gpu memory as you request.")
-        self.addColumn("MaxRss", 60, id=9,
-                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.layer_stats.max_rss),
-                       sort=lambda layer: layer.data.layer_stats.max_rss,
-                       tip="Maximum amount of memory used by any frame in\n"
-                           "this layer at any time since the job was launched.")
+        self.addColumn(
+            "MaxRss", 60, id=9,
+            data=lambda layer: cuegui.Utils.memoryToString(layer.data.layer_stats.max_rss),
+            sort=lambda layer: layer.data.layer_stats.max_rss,
+            tip="Maximum amount of memory used by any frame in\n"
+                "this layer at any time since the job was launched.")
         self.addColumn("Total", 40, id=10,
                        data=lambda layer: layer.data.layer_stats.total_frames,
                        sort=lambda layer: layer.data.layer_stats.total_frames,
@@ -112,11 +114,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda layer: layer.data.layer_stats.dead_frames,
                        sort=lambda layer: layer.data.layer_stats.dead_frames,
                        tip="Total number of dead frames in this layer.")
-        self.addColumn("Avg", 65, id=17,
-                       data=lambda layer: cuegui.Utils.secondsToHHMMSS(layer.data.layer_stats.avg_frame_sec),
-                       sort=lambda layer: layer.data.layer_stats.avg_frame_sec,
-                       tip="Average number of HOURS:MINUTES:SECONDS per frame\n"
-                           "in this layer.")
+        self.addColumn(
+            "Avg", 65, id=17,
+            data=lambda layer: cuegui.Utils.secondsToHHMMSS(layer.data.layer_stats.avg_frame_sec),
+            sort=lambda layer: layer.data.layer_stats.avg_frame_sec,
+            tip="Average number of HOURS:MINUTES:SECONDS per frame\nin this layer.")
         self.addColumn("Tags", 100, id=18,
                        data=lambda layer: " | ".join(layer.data.tags),
                        tip="The tags define what resources may be booked on\n"
@@ -126,7 +128,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         data=lambda layer: layer.percentCompleted(),
                         sort=lambda layer: layer.percentCompleted(),
                         tip="Progress for the Layer")
-
+        self.addColumn("Timeout", 45, id=20,
+                       data=lambda layer: cuegui.Utils.secondsToHHHMM(layer.data.timeout*60),
+                       sort=lambda layer: layer.data.timeout,
+                       tip="Timeout for the frames, Hours:Minutes")
+        self.addColumn("Timeout LLU", 45, id=21,
+                       data=lambda layer: cuegui.Utils.secondsToHHHMM(layer.data.timeout_llu*60),
+                       sort=lambda layer: layer.data.timeout_llu,
+                       tip="Timeout for a frames\' LLU, Hours:Minutes")
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         self.itemDoubleClicked.connect(self.__itemDoubleClickedFilterLayer)
@@ -140,6 +149,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__load = None
         self.startTicksUpdate(20, False, 60*60*24)
 
+    # pylint: disable=attribute-defined-outside-init
     def tick(self):
         if self.__load:
             self.__job = self.__load
@@ -162,8 +172,10 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         since last updated"""
         self.ticksWithoutUpdate = 9999
 
+    # pylint: disable=inconsistent-return-statements
     def setJob(self, job):
-        """Sets the current job
+        """Sets the current job.
+
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None"""
         if job is None:
@@ -181,6 +193,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.removeAllItems()
 
     def getJob(self):
+        """Gets the current job."""
         return self.__job
 
     def _createItem(self, obj):
@@ -214,7 +227,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if len(__selectedObjects) == 1:
             menu.addSeparator()
             self.__menuActions.layers().addAction(menu, "useLocalCores")
-            if len(set([layer.data.range for layer in __selectedObjects])) == 1:
+            if len({layer.data.range for layer in __selectedObjects}) == 1:
                 self.__menuActions.layers().addAction(menu, "reorder")
             self.__menuActions.layers().addAction(menu, "stagger")
 
@@ -231,9 +244,13 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         menu.exec_(e.globalPos())
 
     def __itemDoubleClickedFilterLayer(self, item, col):
+        del col
         self.handle_filter_layers_byLayer.emit([item.rpcObject.data.name])
 
+
 class LayerWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item for displaying a single layer."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_LAYER, object, parent)
+            self, cuegui.Constants.TYPE_LAYER, rpcObject, parent)

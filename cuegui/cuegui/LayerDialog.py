@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Dialog for editing a layer."""
+
+
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
@@ -30,15 +33,14 @@ import cuegui.Utils
 
 
 def warning(msg, parent=None):
-    """
-    Utility method for poping up a warning.
-    """
+    """Utility method for popping up a warning."""
     box = QtWidgets.QMessageBox(parent)
     box.setText(msg)
     box.exec_()
 
 
 class EnableableItem(QtWidgets.QWidget):
+    """General class for widget items which can be enabled and disabled."""
     def __init__(self, widget, enable, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.__widget = widget
@@ -53,21 +55,22 @@ class EnableableItem(QtWidgets.QWidget):
         layout.addWidget(self.__widget)
 
     def getWidget(self):
+        """Gets the wrapped widget."""
         return self.__widget
 
     def isEnabled(self):
+        """Gets the enabled state."""
         return self.__checkbox.isChecked()
 
-    def enable(self, b):
-        self.__checkbox.setChecked(b)
-        self.__widget.setDisabled(b == False)
+    def enable(self, is_enabled):
+        """Sets the enabled state."""
+        self.__checkbox.setChecked(is_enabled)
+        self.__widget.setDisabled(is_enabled is False)
 
 
 class LayerPropertiesItem(QtWidgets.QWidget):
-    """
-    An key/value widget for populating a dialog box.
-    """
-    def __init__(self, label, widget, stretch=True, help=None, parent=None):
+    """An key/value widget for populating a dialog box."""
+    def __init__(self, label, widget, stretch=True, help_widget=None, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         self.__label = label
         self.__widget = widget
@@ -78,14 +81,12 @@ class LayerPropertiesItem(QtWidgets.QWidget):
         if stretch:
             layout.addStretch()
         layout.addWidget(self.__widget)
-        if help:
-            layout.addWidget(help)
+        if help_widget:
+            layout.addWidget(help_widget)
 
 
 class SlideSpinner(QtWidgets.QWidget):
-    """
-    A QSlider and QSpinBox
-    """
+    """A QSlider and QSpinBox."""
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
@@ -101,12 +102,11 @@ class SlideSpinner(QtWidgets.QWidget):
 
 
 class LayerPropertiesDialog(QtWidgets.QDialog):
-    """
-    A dialog box for editing a layer.
-    """
+    """Dialog for editing a layer."""
+
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
-        self.__layers = [opencue.api.getLayer(opencue.id(l)) for l in layers]
+        self.__layers = [opencue.api.getLayer(opencue.id(layer)) for layer in layers]
 
         self.setWindowTitle("Layer Properties")
 
@@ -126,7 +126,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         self.__group = QtWidgets.QGroupBox("Resource Options", self)
 
-        ## Memory
+        # Memory
         self.__mem = SlideSpinner(self)
         self.__mem.slider.setMinimumWidth(200)
         self.__mem.slider.setRange(self.mem_min_kb, self.mem_max_kb)
@@ -135,24 +135,40 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__mem.spinner.setSuffix(" GB")
         self.__mem.spinner.setRange(self.mem_min_gb, self.mem_max_gb)
 
-        ## Cores
+        # Cores
         self.__core = QtWidgets.QDoubleSpinBox(self)
         self.__core.setDecimals(1)
         self.__core.setRange(0, int(self._cfg().get('max_cores', 16)))
         self.__core.setSingleStep(1)
 
-        ## Max cores
+        # Max cores
         self.__max_cores = QtWidgets.QSpinBox(self)
         self.__max_cores.setRange(0, int(self._cfg().get('max_cores', 16)))
         self.__max_cores.setSingleStep(1)
 
-        ## Disable this for everything except commander.
+        # Disable this for everything except commander.
+        # pylint: disable=no-member
         if QtGui.qApp.applicationName() != "CueCommander":
             self.__core.setDisabled(True)
+        # pylint: enable=no-member
 
         # Threads
         self.__thread = QtWidgets.QCheckBox(self)
         self.__thread.setChecked(self.getThreading())
+
+        # Timeout
+        self.__timeout = QtWidgets.QSpinBox(self)
+        self.__timeout.setRange(0, 4320)
+        self.__timeout.setSingleStep(1)
+        self.__timeout.setSuffix(" minutes")
+        self.__timeout.setSpecialValueText("No timeout")
+
+        # Timeout LLU
+        self.__timeout_llu = QtWidgets.QSpinBox(self)
+        self.__timeout_llu.setRange(0, 4320)
+        self.__timeout_llu.setSingleStep(1)
+        self.__timeout_llu.setSuffix(" minutes")
+        self.__timeout_llu.setSpecialValueText("No timeout")
 
         # Memory Optimizer
         self.__mem_opt = QtWidgets.QCheckBox()
@@ -160,11 +176,11 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
 
         # Tags
         self.__tags = LayerTagsWidget(self.__layers, self)
-        
+
         # Limits
         self.__limits = LayerLimitsWidget(self.__layers, self)
 
-        ## GPU Memory
+        # GPU Memory
         self.__gpu = SlideSpinner(self)
         self.__gpu.slider.setMinimumWidth(200)
         self.__gpu.slider.setRange(self.gpu_min_kb, self.gpu_max_kb // self.gpu_tick_kb)
@@ -194,6 +210,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__gpu.slider.setValue(self.getMaxGpu())
         self.__core.setValue(self.getMinCores())
         self.__max_cores.setValue(self.getMaxCores())
+        self.__timeout.setValue(self.getTimeout())
+        self.__timeout_llu.setValue(self.getTimeoutLLU())
 
         QtWidgets.QVBoxLayout(self)
 
@@ -222,6 +240,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                             self.__gpu,
                                                             False),
                                                             multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout:",
+                                                            self.__timeout,
+                                                            False),
+                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem("Timeout LLU:",
+                                                            self.__timeout_llu,
+                                                            False),
+                                                            multiSelect))
         layout.addStretch()
         self.__group.setLayout(layout)
 
@@ -231,17 +257,18 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.layout().addWidget(self.__buttons)
 
     def _cfg(self):
-        '''
+        """
         Loads (if necessary) and returns the config values.
         Warns and returns an empty dict if there's a problem reading the config
 
         @return: The keys & values stored in the config file
         @rtype: dict<str:str>
-        '''
+        """
         if not hasattr(self, '__config'):
             self.__config = cuegui.Utils.getResourceConfig()
         return self.__config
 
+    # pylint: disable=inconsistent-return-statements
     def verify(self):
         """
         Verify the contents of all widgets.
@@ -277,7 +304,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setThreadable(self.__thread.isChecked())
             if self.__gpu.isEnabled():
                 layer.setMinGpu(self.__gpu.slider.value() * self.gpu_tick_kb)
-
+            if self.__timeout.isEnabled():
+                layer.setTimeout(self.__timeout.value())
+            if self.__timeout_llu.isEnabled():
+                layer.setTimeoutLLU(self.__timeout_llu.value())
         if self.__tags.isEnabled():
             self.__tags.apply()
         if self.__limits.isEnabled():
@@ -285,6 +315,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.close()
 
     def getMaxMemory(self):
+        """Gets the layer max memory."""
         result = 0
         for layer in self.__layers:
             if layer.data.min_memory > result:
@@ -292,9 +323,11 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def getMaxGpu(self):
+        """Gets the layer max GPU."""
         return max([layer.data.min_gpu // self.gpu_tick_kb for layer in self.__layers])
 
     def getMinCores(self):
+        """Gets the layer min cores."""
         result = 0
         for layer in self.__layers:
             if layer.data.min_cores > result:
@@ -302,6 +335,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def getMaxCores(self):
+        """Gets the layer max cores."""
         result = 0
         for layer in self.__layers:
             if layer.data.max_cores > result:
@@ -309,6 +343,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         return result
 
     def getThreading(self):
+        """Gets whether the layer is threadable."""
         result = False
         for layer in self.__layers:
             if layer.data.is_threadable:
@@ -316,7 +351,24 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 break
         return result
 
+    def getTimeout(self):
+        """Gets the layer timeout."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.timeout > result:
+                result = layer.data.timeout
+        return result
+
+    def getTimeoutLLU(self):
+        """Gets the layer LLU timeout."""
+        result = 0
+        for layer in self.__layers:
+            if layer.data.timeout_llu > result:
+                result = layer.data.timeout_llu
+        return result
+
     def getMemoryOptSetting(self):
+        """Gets whether the layer has memory optimizer enabled."""
         result = False
         for layer in self.__layers:
             if layer.data.memory_optimizer_enabled:
@@ -368,10 +420,10 @@ class LayerTagsWidget(QtWidgets.QWidget):
             for layer in self.__layers:
                 layer.setTags(tags)
         except opencue.CueException as e:
-            warning = QtWidgets.QMessageBox(self)
-            warning.setText("Error applying layer tags.")
-            warning.setDetailedText("%s" % e)
-            warning.exec_()
+            warning_dialog = QtWidgets.QMessageBox(self)
+            warning_dialog.setText("Error applying layer tags.")
+            warning_dialog.setDetailedText("%s" % e)
+            warning_dialog.exec_()
 
     def verify(self):
         """
@@ -381,7 +433,7 @@ class LayerTagsWidget(QtWidgets.QWidget):
             warning("You must have at least 1 tag selected.")
             return False
         return True
-    
+
 
 class LayerLimitsWidget(QtWidgets.QWidget):
     """
@@ -418,12 +470,14 @@ class LayerLimitsWidget(QtWidgets.QWidget):
 
 
 class LayerTagsDialog(QtWidgets.QDialog):
+    """Dialog for displaying a layer's tags."""
+
     def __init__(self, layers, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
         self._tags_widget = LayerTagsWidget(layers=layers,
                                             parent=parent)
-        self.__warning = QtWidgets.QLabel("Warning: Changing these tags may cause "
-                                      "your job to not run any frames")
+        self.__warning = QtWidgets.QLabel(
+            'Warning: Changing these tags may cause your job to not run any frames')
         self.__buttons = QtWidgets.QDialogButtonBox(
             QtWidgets.QDialogButtonBox.Save | QtWidgets.QDialogButtonBox.Cancel,
             QtCore.Qt.Horizontal,
@@ -435,4 +489,3 @@ class LayerTagsDialog(QtWidgets.QDialog):
     def accept(self):
         self._tags_widget.apply()
         self.close()
-

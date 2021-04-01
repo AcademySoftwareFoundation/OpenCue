@@ -13,17 +13,22 @@
 #  limitations under the License.
 
 
+"""Tests for cuesubmit.Submission"""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import mock
 import unittest
+
+import mock
+
+import outline.depend
 
 import cuesubmit.JobTypes
 import cuesubmit.Layer
 import cuesubmit.Submission
-import outline.depend
 
 
 MAYA_LAYER_DATA = {
@@ -67,9 +72,9 @@ class SubmissionTests(unittest.TestCase):
             'layers': [cuesubmit.Layer.LayerData.buildFactory(**MAYA_LAYER_DATA)],
         })
 
-        outline = launchMock.call_args[0][0]
-        self.assertEqual(1, len(outline.get_layers()))
-        layer = outline.get_layer(MAYA_LAYER_DATA['name'])
+        ol = launchMock.call_args[0][0]
+        self.assertEqual(1, len(ol.get_layers()))
+        layer = ol.get_layer(MAYA_LAYER_DATA['name'])
         self.assertEqual(MAYA_LAYER_DATA['name'], layer.get_name())
         self.assertEqual(
             [
@@ -90,9 +95,9 @@ class SubmissionTests(unittest.TestCase):
             'layers': [cuesubmit.Layer.LayerData.buildFactory(**NUKE_LAYER_DATA)],
         })
 
-        outline = launchMock.call_args[0][0]
-        self.assertEqual(1, len(outline.get_layers()))
-        layer = outline.get_layer(NUKE_LAYER_DATA['name'])
+        ol = launchMock.call_args[0][0]
+        self.assertEqual(1, len(ol.get_layers()))
+        layer = ol.get_layer(NUKE_LAYER_DATA['name'])
         self.assertEqual(NUKE_LAYER_DATA['name'], layer.get_name())
         self.assertEqual(
             [
@@ -153,8 +158,8 @@ class SubmissionTests(unittest.TestCase):
             'facility': 'my-facility'
         })
 
-        outline = launchMock.call_args[0][0]
-        facility = outline.get_facility()
+        ol = launchMock.call_args[0][0]
+        facility = ol.get_facility()
         self.assertEqual('my-facility', facility)
 
     def testSubmitJobWithoutFacility(self, launchMock):
@@ -166,8 +171,8 @@ class SubmissionTests(unittest.TestCase):
             'layers': [cuesubmit.Layer.LayerData.buildFactory(**NUKE_LAYER_DATA)]
         })
 
-        outline = launchMock.call_args[0][0]
-        self.assertIsNone(outline.get_facility())
+        ol = launchMock.call_args[0][0]
+        self.assertIsNone(ol.get_facility())
 
 
 if __name__ == '__main__':

@@ -31,9 +31,6 @@ from .exception import FailImmediately
 
 logger = logging.getLogger("outline.event")
 
-#
-# A List of event types.
-
 EVENT_TYPES = ("AFTER_INIT",
                "AFTER_PARENTED",
                "SETUP",
@@ -43,9 +40,9 @@ EVENT_TYPES = ("AFTER_INIT",
                "BEFORE_LAUNCH")
 
 AFTER_INIT = EVENT_TYPES[0]
-AFTER_PARENTED =  EVENT_TYPES[1]
-SETUP =  EVENT_TYPES[2]
-BEFORE_EXECUTE =  EVENT_TYPES[3]
+AFTER_PARENTED = EVENT_TYPES[1]
+SETUP = EVENT_TYPES[2]
+BEFORE_EXECUTE = EVENT_TYPES[3]
 AFTER_EXECUTE = EVENT_TYPES[4]
 AFTER_LAUNCH = EVENT_TYPES[5]
 BEFORE_LAUNCH = EVENT_TYPES[6]
@@ -57,28 +54,30 @@ class EventHandler(object):
     """
     def __init__(self, component):
         self.__component = component
-        self.__listeners = { }
+        self.__listeners = {}
 
     def add_event_listener(self, event_type, callback):
         """
         Adds an event listener for the given type and
         callback function.
         """
-        logger.debug("adding event listener %s" % event_type)
+        logger.debug("adding event listener %s", event_type)
         if event_type not in self.__listeners:
-            self.__listeners[event_type] = [ ]
+            self.__listeners[event_type] = []
         self.__listeners[event_type].append(callback)
 
+    # pylint: disable=broad-except
     def emit(self, event):
-        logger.debug("fire event %s" % event)
+        """Fires an event, calling any registered listeners."""
+        logger.debug("fire event %s", event)
         for callback in self.__listeners.get(event.type, []):
             try:
                 callback(event)
             except FailImmediately as fi:
-                logger.debug("FailImmediately exception thrown, %s, %s" % (event.type, fi))
+                logger.debug("FailImmediately exception thrown, %s, %s", event.type, fi)
                 raise fi
             except Exception as e:
-                logger.debug("failed to execute event %s, %s" % (event.type, e))
+                logger.debug("failed to execute event %s, %s", event.type, e)
 
     def get_event_listeners(self, event_type):
         """
@@ -89,6 +88,7 @@ class EventHandler(object):
             return self.__listeners[event_type]
         except KeyError:
             return list()
+
 
 class LaunchEvent(object):
     """
@@ -102,6 +102,7 @@ class LaunchEvent(object):
     def __str__(self):
         return str(self.__dict__)
 
+
 class LayerEvent(object):
     """
     A LayerEvent occurs within a layer.
@@ -113,4 +114,3 @@ class LayerEvent(object):
 
     def __str__(self):
         return str(self.__dict__)
-

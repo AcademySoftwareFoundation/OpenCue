@@ -36,6 +36,7 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobEntity;
 import com.imageworks.spcue.LayerEntity;
+import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
@@ -202,6 +203,17 @@ public class HostReportHandler {
              * jobs, and layers.
              */
             updateMemoryUsage(report.getFramesList());
+
+            /*
+             * Updates usage for the proc, frames,
+             * jobs, and layers.
+             */
+            updateFrameUsage(report.getFramesList());
+
+            /*
+             * kill frames that have over run.
+             */
+            killTimedOutFrames(report);
 
             /*
              * Increase/decreased reserved memory.
@@ -506,6 +518,68 @@ public class HostReportHandler {
     }
 
     /**
+     *  Kill frames that over run.
+     *
+     * @param rFrames
+     */
+    private void killTimedOutFrames(HostReport report) {
+
+        final Map<String, LayerDetail> layers = new HashMap<String, LayerDetail>(5);
+
+        for (RunningFrameInfo frame: report.getFramesList()) {
+            String layerId = frame.getLayerId();
+            LayerDetail layer = layerDao.getLayerDetail(layerId);
+            long runtimeMinutes = ((System.currentTimeMillis() - frame.getStartTime()) / 1000l) / 60;
+
+            if (layer.timeout != 0 && runtimeMinutes > layer.timeout){
+                try {
+                    killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
+                            frame.getFrameId(),
+                            "This frame has reached it timeout.",
+                            rqdClient));
+                    } catch (TaskRejectedException e) {
+                        logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                }
+            }
+
+            if (layer.timeout_llu == 0){
+                continue;
+            }
+
+            if (frame.getLluTime() == 0){
+                continue;
+            }
+
+            long r = System.currentTimeMillis() / 1000;
+            long lastUpdate = (r - frame.getLluTime()) / 60;
+
+            if (layer.timeout_llu != 0 && lastUpdate > (layer.timeout_llu -1)){
+                try {
+                    killQueue.execute(new DispatchRqdKillFrame(report.getHost().getName(),
+                            frame.getFrameId(),
+                            "This frame has reached it LLU timeout.",
+                            rqdClient));
+                    } catch (TaskRejectedException e) {
+                        logger.warn("Unable to queue  RQD kill, task rejected, " + e);
+                }
+            }
+        }
+    }
+
+    /**
+     *  Update IO usage for the given list of frames.
+     *
+     * @param rFrames
+     */
+    private void updateFrameUsage(List<RunningFrameInfo> rFrames) {
+
+        for (RunningFrameInfo rf: rFrames) {
+            FrameInterface frame = jobManager.getFrame(rf.getFrameId());
+            dispatchSupport.updateFrameUsage(frame, rf.getLluTime());
+        }
+    }
+
+    /**
      *  Update memory usage for the given list of frames.
      *
      * @param rFrames
@@ -708,7 +782,7 @@ public class HostReportHandler {
                 } catch (Exception e) {
                     CueExceptionUtil.logStackTrace("failed", e);
                     logger.warn("failed to verify " +
-                            runningFrame.getJobName() +"/" +
+                            runningFrame.getJobName() + "/" +
                             runningFrame.getFrameName() +
                             " was running but the frame was " +
                             " unable to be killed, " + e);

@@ -12,9 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
+"""
+outline.versions is a module for versioning external Python modules.
+"""
 
 from .main import *

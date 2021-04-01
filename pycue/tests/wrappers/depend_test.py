@@ -14,15 +14,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.depend`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import depend_pb2
+import opencue.wrappers.depend
 
 
 TEST_DEPEND_ID = 'zzz-aaa-fff'

@@ -534,6 +534,22 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
+    public void updateFrameUsage(FrameInterface frame, long lluTime) {
+
+        try {
+            frameDao.updateFrameUsage(frame, lluTime);
+        }
+        catch (FrameReservationException ex) {
+            // Eat this, the frame was not in the correct state or
+            // was locked by another thread. The only reason it would
+            // be locked by another thread would be if the state is
+            // changing.
+            logger.warn("failed to update io stats for frame: " + frame);
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
     public void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss) {
 
         try {

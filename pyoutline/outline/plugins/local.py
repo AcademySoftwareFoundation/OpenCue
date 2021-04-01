@@ -19,12 +19,14 @@
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
+
 from builtins import str
 import os
 import logging
 from socket import gethostname
 import subprocess
 
+import opencue
 from outline import event
 
 
@@ -33,27 +35,39 @@ logger = logging.getLogger("outline.plugins.local")
 USE_LOCAL_CORES = 1
 USE_LOCAL_THREADS = 0
 
-def init_cuerun_plugin(cuerun):
-    cuerun.get_parser().add_plugin_option("-L", "--run-local",
-                                          action="callback",
-                                          type="int",
-                                          nargs=1,
-                                          help="Run local cores",
-                                          callback=setup_event,
-                                          callback_args=(cuerun,))
 
-    cuerun.get_parser().add_plugin_option("-T", "--run-local-threads",
-                                          action="callback",
-                                          type="int",
-                                          nargs=1,
-                                          help="Set number of threads for local cores to run per frame.",
-                                          callback=setup_local_threads,
-                                          callback_args=(cuerun,))
+def init_cuerun_plugin(cuerun):
+    """Initialize the cuerun plugin."""
+
+    cuerun.get_parser().add_plugin_option(
+        "-L", "--run-local",
+        action="callback",
+        type="int",
+        nargs=1,
+        help="Run local cores",
+        callback=setup_event,
+        callback_args=(cuerun,))
+
+    cuerun.get_parser().add_plugin_option(
+        "-T", "--run-local-threads",
+        action="callback",
+        type="int",
+        nargs=1,
+        help="Set number of threads for local cores to run per frame.",
+        callback=setup_local_threads,
+        callback_args=(cuerun,))
 
 
 def setup_event(option, opt, value, parser, *args, **kwargs):
+    """Main callback for the plugin, to set up the event listener."""
+    del option
+    del opt
+    del parser
+    del kwargs
+
     # Don't have a way to pass this to the event but
     # a global will do.
+    # pylint: disable=global-statement
     global USE_LOCAL_CORES
     USE_LOCAL_CORES = value
 
@@ -61,38 +75,52 @@ def setup_event(option, opt, value, parser, *args, **kwargs):
 
 
 def setup_local_threads(option, opt, value, parser, *args, **kwargs):
+    """Callback for the --run-local-threads option."""
+
+    del option
+    del opt
+    del parser
+    del args
+    del kwargs
+
+    # pylint: disable=global-statement
     global USE_LOCAL_THREADS
     USE_LOCAL_THREADS = value
 
+
 def deed_local_machine():
-    import opencue
+    """Deed the local machine to the current user."""
 
     user = os.environ.get("USER")
-    show = opencue.findShow(os.environ.get("SHOW", "pipe"))
+    show = opencue.api.findShow(os.environ.get("SHOW", "pipe"))
     try:
-        owner = opencue.getOwner(user)
-    except opencue.CueException as e:
+        owner = opencue.api.getOwner(user)
+    except opencue.CueException:
         owner = show.createOwner(user)
 
     owner.takeOwnership(gethostname())
 
+
 def setup_local_cores(e):
+    """Configure the outline to use the local machine."""
 
     deed_local_machine()
 
     threads = USE_LOCAL_THREADS or USE_LOCAL_CORES
     outline = e.outline
-    outline.set_arg("localbook", { "host": gethostname(),
-                                   "cores": str(USE_LOCAL_CORES),
-                                   "memory": get_half_host_memory(),
-                                   "threads": str(threads),
-                                   "gpu": str(0) })
+    outline.set_arg("localbook", {"host": gethostname(),
+                                  "cores": str(USE_LOCAL_CORES),
+                                  "memory": get_half_host_memory(),
+                                  "threads": str(threads),
+                                  "gpu": str(0)})
+
 
 def get_half_host_memory():
+    """Returns half of the amount of RAM the local machine has."""
+
     pipe = subprocess.Popen("vmstat -s",
                             shell=True, bufsize=1000, stdout=subprocess.PIPE).stdout
     data = pipe.read().strip()
     data = int(data[0:data.find(" ")])
     data = data / 2
     return str(data)
-

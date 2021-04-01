@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-utility functions for creating QActions
-"""
+"""Utility functions for creating QActions."""
 
 
 from __future__ import absolute_import
@@ -49,12 +47,12 @@ def create(parent, text, tip, callback=None, icon=None):
     return a
 
 
-def createAction(parent, id, text, tip, callback=None, icon=None):
-    """create(QtWidgets.QWidget, string text, string tip, callable callback=None, string icon=None)
-        creates a QtGui.QAction and optionally connects it to a slot
-    """
-    if id in Actions:
-        raise Exception("Action %s has already been created" % (id))
+def createAction(parent, action_id, text, tip, callback=None, icon=None):
+    """Creates a QtGui.QAction and optionally connects it to a slot.
+
+    create(QtWidgets.QWidget, string text, string tip, callable callback=None, string icon=None)"""
+    if action_id in Actions:
+        raise Exception("Action %s has already been created" % (action_id))
 
     a = QtWidgets.QAction(parent)
     a.setText(text)
@@ -64,42 +62,41 @@ def createAction(parent, id, text, tip, callback=None, icon=None):
         a.setIcon(QtGui.QIcon(":/images/%s.png" % icon))
     if callback:
         connectActionSlot(a,callback)
-    Actions[id] = a
+    Actions[action_id] = a
     return a
 
 
-def getAction(id):
-    return Actions[id]
+def getAction(action_id):
+    """Gets an action by ID."""
+    return Actions[action_id]
 
 
-def createActionGroup(parent, id, actions):
+def createActionGroup(parent, action_id, actions):
+    """Creates an action group."""
     g = QtWidgets.QActionGroup(parent)
     for action in actions:
         g.addAction(action)
-    Groups[id] = g
+    Groups[action_id] = g
 
 
-def getActionGroup(id):
-    return Groups[id]
+def getActionGroup(group_id):
+    """Gets an action group."""
+    return Groups[group_id]
 
 
-def applyActionGroup(id, menu):
-    for act in getActionGroup(id).actions():
+def applyActionGroup(group_id, menu):
+    """Add all actions in a group to the given menu."""
+    for act in getActionGroup(group_id).actions():
         menu.addAction(act)
 
 
-def connectActionSlot(action, callable):
-    """connectActionSlot
-        connects an action's triggered() signal to a callable object
-    """
-    action.triggered.connect(callable)
+def connectActionSlot(action, actionCallable):
+    """Connects an action's triggered() signal to a callable object."""
+    action.triggered.connect(actionCallable)
 
 
 class Refresh(QtWidgets.QAction):
-    """Refresh
-
-        refresh something
-    """
+    """Refreshes something."""
 
     def __init__(self,callback=None, parent=None):
         QtWidgets.QAction.__init__(self,parent)

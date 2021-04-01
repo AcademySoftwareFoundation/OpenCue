@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-A frame list based on AbstractTreeWidget
-"""
+"""Tree widget for displaying a list of procs."""
 
 
 from __future__ import absolute_import
@@ -43,36 +41,41 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget for displaying a list of procs."""
+
     def __init__(self, parent):
         self.startColumnsForType(cuegui.Constants.TYPE_PROC)
-        self.addColumn("Name", 150, id=1,
-                       data=lambda proc: proc.data.name,
-                       tip="Name of the running proc.")
-        self.addColumn("Cores", 50, id=2,
-                       data=lambda proc: ("%.2f" % proc.data.reserved_cores),
-                       tip="The number of cores reserved.")
-        self.addColumn("Mem Reserved", 100, id=3,
-                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_memory),
-                       tip="The amount of memory reserved.")
-        self.addColumn("Mem Used", 100, id=4,
-                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.used_memory),
-                       tip="The amount of memory used.")
-        self.addColumn("GPU Used", 100, id=5,
-                       data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_gpu),
-                       tip="The amount of gpu memory used.")
-        self.addColumn("Age", 60, id=6,
-                       data=lambda proc: cuegui.Utils.secondsToHHHMM(time.time() - proc.data.dispatch_time),
-                       tip="The age of the running frame.")
-        self.addColumn("Unbooked", 80, id=7,
-                       data=lambda proc: proc.data.unbooked,
-                       tip="If the proc has been unbooked.\n If it is unbooked then"
-                           "when the frame finishes the job will stop using this proc")
-        self.addColumn("Name", 300, id=8,
-                       data=lambda proc: proc.data.frame_name ,
-                       tip="The name of the proc, includes frame number and layer name.")
-        self.addColumn("Job", 50, id=9,
-                       data=lambda proc: proc.data.job_name ,
-                       tip="The job that this proc is running on.")
+        self.addColumn(
+            "Name", 150, id=1, data=lambda proc: proc.data.name, tip="Name of the running proc.")
+        self.addColumn(
+            "Cores", 50, id=2, data=lambda proc: ("%.2f" % proc.data.reserved_cores),
+            tip="The number of cores reserved.")
+        self.addColumn(
+            "Mem Reserved", 100, id=3,
+            data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_memory),
+            tip="The amount of memory reserved.")
+        self.addColumn(
+            "Mem Used", 100, id=4,
+            data=lambda proc: cuegui.Utils.memoryToString(proc.data.used_memory),
+            tip="The amount of memory used.")
+        self.addColumn(
+            "GPU Used", 100, id=5,
+            data=lambda proc: cuegui.Utils.memoryToString(proc.data.reserved_gpu),
+            tip="The amount of gpu memory used.")
+        self.addColumn(
+            "Age", 60, id=6,
+            data=lambda proc: cuegui.Utils.secondsToHHHMM(time.time() - proc.data.dispatch_time),
+            tip="The age of the running frame.")
+        self.addColumn(
+            "Unbooked", 80, id=7, data=lambda proc: proc.data.unbooked,
+            tip="If the proc has been unbooked.\n If it is unbooked then"
+                "when the frame finishes the job will stop using this proc")
+        self.addColumn(
+            "Name", 300, id=8, data=lambda proc: proc.data.frame_name,
+            tip="The name of the proc, includes frame number and layer name.")
+        self.addColumn(
+            "Job", 50, id=9, data=lambda proc: proc.data.job_name,
+            tip="The job that this proc is running on.")
 
         self.procSearch = opencue.search.ProcSearch()
 
@@ -86,12 +89,17 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
 
         # Don't use the standard space bar to refresh
+        # pylint: disable=no-member
         QtGui.qApp.request_update.connect(self.updateRequest)
+        # pylint: enable=no-member
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
         self.ticksWithoutUpdate = -1
+
+        # pylint: disable=no-member
         self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1)))
+        # pylint: enable=no-member
 
     def tick(self):
         if self.ticksWithoutUpdate >= self.updateInterval and \
@@ -117,20 +125,27 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
+        del item
+        del col
         selected = [proc.data.name for proc in self.selectedObjects() if cuegui.Utils.isProc(proc)]
         if selected:
             QtWidgets.QApplication.clipboard().setText(",".join(selected))
 
+    # pylint: disable=no-self-use
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a proc is double clicked
         @type  item: QTreeWidgetItem
         @param item: The item double clicked on
         @type  col: int
         @param col: Column number double clicked on"""
+        del col
         job_name = item.rpcObject.data.job_name
+        # pylint: disable=no-member
         QtGui.qApp.view_object.emit(opencue.api.findJob(job_name))
+        # pylint: enable=no-member
 
     def clearFilters(self):
+        """Removes all sorting and filtering to restore default state."""
         self.clearSelection()
         self.procSearch = opencue.search.ProcSearch()
         self.sortByColumn(0, QtCore.Qt.AscendingOrder)
@@ -141,6 +156,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         since last updated"""
         self.ticksWithoutUpdate = 999
 
+    # pylint: disable=too-many-boolean-expressions
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
         try:
@@ -155,21 +171,21 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                not self.procSearch.options.get('durationRange'):
                 return []
             return opencue.api.getProcs(**self.procSearch.options)
-        except Exception as e:
+        except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
-    def _createItem(self, object, parent = None):
+    def _createItem(self, rpcObject, parent=None):
         """Creates and returns the proper item
-        @type  object: Proc
-        @param object: The object for this item
+        @type  rpcObject: Proc
+        @param rpcObject: The object for this item
         @type  parent: QTreeWidgetItem
         @param parent: Optional parent for this item
         @rtype:  QTreeWidgetItem
         @return: The created item"""
         if not parent:
             parent = self
-        return ProcWidgetItem(object, parent)
+        return ProcWidgetItem(rpcObject, parent)
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
@@ -182,6 +198,8 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
 
 class ProcWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
-    def __init__(self, object, parent):
+    """Widget item representing a single proc."""
+
+    def __init__(self, rpcObject, parent):
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_PROC, object, parent)
+            self, cuegui.Constants.TYPE_PROC, rpcObject, parent)

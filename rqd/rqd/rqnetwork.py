@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Network specific module, implements the interface with gRPC.
-"""
+"""Network specific module, implements the interface with gRPC."""
 
 
 from __future__ import absolute_import
@@ -43,6 +41,7 @@ import rqd.rqutil
 
 
 class RunningFrame(object):
+    """Represents a running frame."""
 
     def __init__(self, rqCore, runFrame):
         self.rqCore = rqCore
@@ -67,6 +66,8 @@ class RunningFrame(object):
         self.utime = 0
         self.stime = 0
 
+        self.lluTime = 0
+
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
         runningFrameInfo = rqd.compiled_proto.report_pb2.RunningFrameInfo(
@@ -82,7 +83,8 @@ class RunningFrame(object):
             rss=self.rss,
             max_vsize=self.maxVsize,
             vsize=self.vsize,
-            attributes=self.runFrame.attributes
+            attributes=self.runFrame.attributes,
+            llu_time=self.lluTime
         )
         return runningFrameInfo
 
@@ -94,12 +96,12 @@ class RunningFrame(object):
         """Kills the frame"""
         log.info("Request recieved: kill")
         if self.frameAttendantThread is None:
-            log.warning("Kill requested before frameAttendantThread is created "
-                        "for: %s" % self.frameId)
+            log.warning(
+                "Kill requested before frameAttendantThread is created for: %s", self.frameId)
         elif self.frameAttendantThread.isAlive() and self.pid is None:
-            log.warning("Kill requested before pid is available for: %s"
-                        % self.frameId)
+            log.warning("Kill requested before pid is available for: %s", self.frameId)
         elif self.frameAttendantThread.isAlive():
+            # pylint: disable=broad-except
             try:
                 if not self.killMessage and message:
                     self.killMessage = message
@@ -112,21 +114,21 @@ class RunningFrame(object):
                 finally:
                     rqd.rqutil.permissionsLow()
             except OSError as e:
-                log.warning("kill() tried to kill a non-existant pid for: %s "
-                            "Error: %s" % (self.frameId, e))
+                log.warning(
+                    "kill() tried to kill a non-existant pid for: %s Error: %s", self.frameId, e)
             except Exception as e:
-                log.warning("kill() encountered an unknown error: %s" % e)
+                log.warning("kill() encountered an unknown error: %s", e)
         else:
-            log.warning("Kill requested after frameAttendantThread has exited "
-                        "for: %s" % self.frameId)
+            log.warning(
+                "Kill requested after frameAttendantThread has exited for: %s", self.frameId)
             self.rqCore.deleteFrame(self.frameId)
 
 
 class GrpcServer(object):
-    """
-    gRPC server class for managing messages from cuebot back to rqd.
-    This is used for controlling the render host and task actions initiated by cuebot and cuegui.
-    """
+    """gRPC server class for managing messages from Cuebot back to RQD.
+
+    This is used for controlling the render host and task actions initiated by
+    Cuebot and CueGUI."""
 
     def __init__(self, rqCore):
         self.rqCore = rqCore
@@ -136,25 +138,31 @@ class GrpcServer(object):
         self.server.add_insecure_port('[::]:{0}'.format(rqd.rqconstants.RQD_GRPC_PORT))
 
     def addServicers(self):
+        """Registers the gRPC servicers defined in rqdservicers.py."""
         for servicer in self.servicers:
             addFunc = getattr(rqd.compiled_proto.rqd_pb2_grpc, 'add_{0}_to_server'.format(servicer))
             servicerClass = getattr(rqd.rqdservicers, servicer)
             addFunc(servicerClass(self.rqCore), self.server)
 
     def connectGrpcWithRetries(self):
+        """Connects to the Cuebot gRPC, with built-in retries."""
         while True:
             try:
                 self.rqCore.grpcConnected()
                 break
             except grpc.RpcError as exc:
+                # pylint: disable=no-member
                 if exc.code() == grpc.StatusCode.UNAVAILABLE:
-                    log.warning('GRPC connection failed. Retrying in {} seconds'.format(
-                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC))
+                    log.warning(
+                        'GRPC connection failed. Retrying in %s seconds',
+                        rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
                     time.sleep(rqd.rqconstants.RQD_GRPC_CONNECTION_ATTEMPT_SLEEP_SEC)
                 else:
                     raise exc
+                # pylint: enable=no-member
 
     def serve(self):
+        """Starts serving gRPC."""
         self.addServicers()
         self.server.start()
         if rqd.rqconstants.RQD_GRPC_RETRY_CONNECTION:
@@ -163,14 +171,17 @@ class GrpcServer(object):
             self.rqCore.grpcConnected()
 
     def serveForever(self):
+        """Starts serving gRPC, then enters a loop to keep running until killed."""
         self.serve()
         self.stayAlive()
 
     def shutdown(self):
+        """Stops the gRPC server."""
         log.info('Stopping grpc server.')
         self.server.stop(0)
 
     def stayAlive(self):
+        """Runs forever until killed."""
         try:
             while True:
                 time.sleep(rqd.rqconstants.RQD_GRPC_SLEEP_SEC)
@@ -187,14 +198,17 @@ class Network(object):
         self.channel = None
 
     def start_grpc(self):
+        """Starts the gRPC server."""
         self.grpcServer = GrpcServer(self.rqCore)
         self.grpcServer.serveForever()
 
     def stopGrpc(self):
+        """Stops the gRPC server."""
         self.grpcServer.shutdown()
         del self.grpcServer
 
     def closeChannel(self):
+        """Closes the gRPC channel."""
         self.channel.close()
         del self.channel
         self.channel = None

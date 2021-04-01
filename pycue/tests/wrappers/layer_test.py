@@ -14,16 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.layer`"""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import depend_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.frame
+import opencue.wrappers.layer
+import opencue.wrappers.job
 
 
 TEST_LAYER_NAME = 'testLayer'
@@ -32,6 +36,7 @@ TEST_OUTPUT_PATH = '/path/to/file.txt'
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
 class LayerTests(unittest.TestCase):
+    """Tests for `opencue.wrappers.layer.Layer`."""
 
     def testKill(self, getStubMock):
         stubMock = mock.Mock()
@@ -370,14 +375,13 @@ class LayerTests(unittest.TestCase):
         stubMock.ReorderFrames.return_value = job_pb2.LayerReorderFramesResponse()
         getStubMock.return_value = stubMock
 
-        range = '1-10'
+        frameRange = '1-10'
         order = job_pb2.REVERSE
-        layer = opencue.wrappers.layer.Layer(
-            job_pb2.Layer(name=TEST_LAYER_NAME))
-        layer.reorderFrames(range, order)
+        layer = opencue.wrappers.layer.Layer(job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.reorderFrames(frameRange, order)
 
         stubMock.ReorderFrames.assert_called_with(
-            job_pb2.LayerReorderFramesRequest(layer=layer.data, range=range, order=order),
+            job_pb2.LayerReorderFramesRequest(layer=layer.data, range=frameRange, order=order),
             timeout=mock.ANY)
 
     def testStaggerFrames(self, getStubMock):
@@ -385,14 +389,14 @@ class LayerTests(unittest.TestCase):
         stubMock.StaggerFrames.return_value = job_pb2.LayerStaggerFramesResponse()
         getStubMock.return_value = stubMock
 
-        range = '1-10'
+        frameRange = '1-10'
         stagger = 4
         layer = opencue.wrappers.layer.Layer(
             job_pb2.Layer(name=TEST_LAYER_NAME))
-        layer.staggerFrames(range, stagger)
+        layer.staggerFrames(frameRange, stagger)
 
         stubMock.StaggerFrames.assert_called_with(
-            job_pb2.LayerStaggerFramesRequest(layer=layer.data, range=range, stagger=stagger),
+            job_pb2.LayerStaggerFramesRequest(layer=layer.data, range=frameRange, stagger=stagger),
             timeout=mock.ANY)
 
 

@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.dispatcher;
 
+import java.sql.Timestamp;
 import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
@@ -30,6 +31,7 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
@@ -132,10 +134,9 @@ public class FrameCompleteHandler {
             }
 
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
-            final DispatchFrame frame = jobManager.getDispatchFrame(
-                    report.getFrame().getFrameId());
-            final FrameState newFrameState = determineFrameState(job,
-                    frame, report);
+            final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
+            final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+            final FrameState newFrameState = determineFrameState(job, layer, frame, report);
 
             if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
                     report.getFrame().getMaxRss())) {
@@ -228,7 +229,7 @@ public class FrameCompleteHandler {
         try {
 
             /*
-             * The default behavior is to keep the proc on the same.
+             * The default behavior is to keep the proc on the same job.
              */
             boolean unbookProc = proc.unbooked;
 
@@ -513,7 +514,7 @@ public class FrameCompleteHandler {
      * @param report
      * @return
      */
-    public static final FrameState determineFrameState(DispatchJob job, DispatchFrame frame, FrameCompleteReport report) {
+    public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer, DispatchFrame frame, FrameCompleteReport report) {
 
         if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(
                 frame.state)) {
@@ -528,6 +529,9 @@ public class FrameCompleteHandler {
             }
         } else if (report.getExitStatus() != 0) {
 
+            long r = System.currentTimeMillis() / 1000;
+            long lastUpdate = (r - report.getFrame().getLluTime()) / 60;
+
             FrameState newState = FrameState.WAITING;
             if (report.getExitStatus() == FrameExitStatus.SKIP_RETRY_VALUE
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
@@ -535,6 +539,11 @@ public class FrameCompleteHandler {
                 newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;
+            // ETC Time out and LLU timeout
+            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0 && lastUpdate > (layer.timeout_llu -1)) {
+                newState = FrameState.DEAD;
+            } else if (layer.timeout != 0 && report.getRunTime() > layer.timeout * 60) {
+                newState = FrameState.DEAD;
             } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
                 newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {

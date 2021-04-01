@@ -12,14 +12,7 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-
-
-"""
-Project: opencue Library
-
-Module: service.py - opencue Library implementation of a service
-
-"""
+"""Module for classes related to services."""
 
 import grpc
 
@@ -35,18 +28,21 @@ class Service(object):
         self.stub = Cuebot.getStub('service')
 
     def create(self):
+        """Creates a service in the database using the current instance data."""
         response = self.stub.CreateService(
             service_pb2.ServiceCreateServiceRequest(data=self.data),
             timeout=Cuebot.Timeout)
         return Service(response.service)
 
     def delete(self):
+        """Deletes the service."""
         return self.stub.Delete(
             service_pb2.ServiceDeleteRequest(service=self.data),
             timeout=Cuebot.Timeout)
 
     @staticmethod
     def getDefaultServices():
+        """Returns the default services."""
         response = Cuebot.getStub('service').GetDefaultServices(
             service_pb2.ServiceGetDefaultServicesRequest(),
             timeout=Cuebot.Timeout)
@@ -54,17 +50,25 @@ class Service(object):
 
     @staticmethod
     def getService(name):
+        """Returns a service by name.
+
+        :type  name: str
+        :param name: service name to find
+        """
         try:
             response = Cuebot.getStub('service').GetService(
                 service_pb2.ServiceGetServiceRequest(name=name),
                 timeout=Cuebot.Timeout)
         except grpc.RpcError as e:
+            # pylint: disable=no-member
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 return None
+            # pylint: enable=no-member
             raise e
         return Service(response.service)
 
     def update(self):
+        """Updates the service database record with the current instance data."""
         return self.stub.Update(
             service_pb2.ServiceUpdateRequest(service=self.data),
             timeout=Cuebot.Timeout)
@@ -73,102 +77,134 @@ class Service(object):
         """Returns the id of the service.
 
         :rtype:  str
-        :return: Frame uuid"""
+        :return: service id
+        """
         return self.data.id
 
     def name(self):
         """Returns the name of the service.
 
         :rtype:  str
-        :return: service name"""
+        :return: service name
+        """
         return self.data.name
 
     def setName(self, name):
-        """Set the name field of the message.
+        """Sets the service name.
 
         :type: string
-        :param: name to set"""
+        :param: new service name
+        """
         self.data.name = name
 
     def threadable(self):
-        """Returns if the service is threadable.
+        """Returns whether the service is threadable.
 
         :rtype:  bool
-        :return: is service threadable"""
+        :return: whether service is threadable
+        """
         return self.data.threadable
 
     def setThreadable(self, threadable):
-        """Set the threadabel field of the message.
+        """Sets the threadable field of the service.
 
-        :type: bool
-        :param: whether or not the service should be threadable"""
+        :type:  bool
+        :param: whether or not the service should be threadable
+        """
         self.data.threadable = threadable
 
     def minCores(self):
-        """Returns the min_cores of the service.
+        """Returns the minimum cores of the service.
 
         :rtype:  int
-        :return: min_cores"""
+        :return: min cores
+        """
         return self.data.min_cores
 
     def setMinCores(self, minCores):
-        """Set the minCores field of the message.
+        """Sets the minimum cores of the service.
 
         :type: int
-        :param: min_cores"""
+        :param: new min cores
+        """
         self.data.min_cores = minCores
 
     def maxCores(self):
-        """Returns the max_cores of the service.
+        """Returns the maximum cores of the service.
 
         :rtype:  int
-        :return: max_cores"""
+        :return: max cores
+        """
         return self.data.max_cores
 
     def setMaxCores(self, maxCores):
-        """Set the maxCores field of the message.
+        """Sets the maximum cores of the service.
 
         :type: int
-        :param: max_cores"""
+        :param: new max cores
+        """
         self.data.max_cores = maxCores
 
     def minMemory(self):
-        """Returns the min_memory of the service.
+        """Returns the minimum memory of the service.
 
         :rtype:  int
-        :return: min_memory"""
+        :return: min memory
+        """
         return self.data.min_memory
 
     def setMinMemory(self, minMemory):
-        """Set the minMemory field of the message.
+        """Sets the minimum memory field of the service.
 
         :type: int
-        :param: min_memory"""
+        :param: new min memory
+        """
         self.data.min_memory = minMemory
 
     def minGpu(self):
-        """Returns the min_gpu of the service.
+        """Returns the minimum gpu of the service.
 
         :rtype:  int
-        :return: min_gpu"""
+        :return: min gpu
+        """
         return self.data.min_gpu
 
     def setMinGpu(self, minGpu):
-        """Set the minGpu field of the message.
+        """Sets the minimum gpu of the service.
 
         :type: int
-        :param: min_gpu"""
+        :param: new min gpu
+        """
         self.data.min_gpu = minGpu
 
     def tags(self):
         """Returns the list of tags for the service.
 
         :rtype:  list<string>
-        :return: tags"""
+        :return: list of service tags
+        """
         return self.data.tags
 
     def setTags(self, tags):
-        """Clear and set the tags.
-        :type: list<string>
-        :param: list of tags to set"""
+        """Clears and sets the service tags.
+
+        :type:  list<string>
+        :param: new list of service tags
+        """
         self.data.tags[:] = tags
+
+    def timeout(self):
+        """Gets the default service timeout."""
+        return self.data.timeout
+
+    def setTimeout(self, timeout):
+        """Sets the default service timeout."""
+        self.data.timeout = timeout
+
+    def timeoutLLU(self):
+        """Gets the default service LLU timeout."""
+        return self.data.timeout
+
+    def setTimeoutLLU(self, timeout_llu):
+        """Sets the default service LLU timeout."""
+        self.data.timeout_llu = timeout_llu

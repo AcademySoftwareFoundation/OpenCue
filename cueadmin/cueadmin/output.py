@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Functions for displaying output to the terminal."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -23,6 +26,7 @@ import time
 import opencue
 import opencue.compiled_proto.job_pb2
 
+# pylint: disable=cyclic-import
 import cueadmin.common
 import cueadmin.format
 
@@ -66,7 +70,8 @@ def displayHosts(hosts):
                              "[ %0.2f / %s ]" % (host.data.idle_cores,
                                                  cueadmin.format.formatMem(host.data.idle_memory)),
                              host.data.os,
-                             cueadmin.format.formatLongDuration(int(time.time()) - host.data.boot_time),
+                             cueadmin.format.formatLongDuration(
+                                 int(time.time()) - host.data.boot_time),
                              opencue.api.host_pb2.HardwareState.Name(host.data.state),
                              opencue.api.host_pb2.LockState.Name(host.data.lock_state),
                              host.data.alloc_name,
@@ -212,8 +217,8 @@ def displayFrames(frames):
         stopTime = cueadmin.format.formatTime(frame.data.stop_time)
 
         if frame.data.start_time:
-            duration = cueadmin.format.formatDuration(cueadmin.format.findDuration(frame.data.start_time,
-                                                                                   frame.data.stop_time))
+            duration = cueadmin.format.formatDuration(
+                cueadmin.format.findDuration(frame.data.start_time, frame.data.stop_time))
         else:
             duration = ""
 

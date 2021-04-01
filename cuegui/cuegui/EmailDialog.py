@@ -13,9 +13,7 @@
 #  limitations under the License.
 
 
-"""
-Displays the email dialog when emailing an artist.
-"""
+"""Dialog for emailing a job owner."""
 
 
 from __future__ import absolute_import
@@ -55,12 +53,14 @@ logger = cuegui.Logger.getLogger(__file__)
 
 
 class EmailDialog(QtWidgets.QDialog):
-    def __init__(self, job, format, parent = None):
+    """Dialog for emailing a job owner."""
+
+    def __init__(self, job, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
         try:
             self.__frames = job.getFrames(state=[opencue.api.job_pb2.DEAD])
-        except:
+        except opencue.exception.CueException:
             self.__frames = []
 
         self.setWindowTitle("Email For: %s" % job.data.name)
@@ -68,7 +68,7 @@ class EmailDialog(QtWidgets.QDialog):
         self.setSizeGripEnabled(True)
         self.setFixedSize(1000,600)
 
-        self.__email = EmailWidget(job, format, self)
+        self.__email = EmailWidget(job, self)
         self.__appendDeadFrameInfo(job)
         self.__logView = LogViewWidget(job, self.__frames, self)
 
@@ -96,13 +96,13 @@ class EmailDialog(QtWidgets.QDialog):
                     cuegui.Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
                 i_total_render_time += frame.retries() * frame.runTime()
                 i_total_retries += frame.retries()
-            try:
-                self.__email.appendToBody("\nEstimated Proc Hours: %0.2f\n\n" % \
-                                              ((i_total_render_time / 3600.0)))
-            except:
-                pass
+            self.__email.appendToBody(
+                "\nEstimated Proc Hours: %0.2f\n\n" % (i_total_render_time / 3600.0))
+
 
 class LogViewWidget(QtWidgets.QWidget):
+    """Widget for displaying a log within the email dialog."""
+
     def __init__(self, job, frames, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
         QtWidgets.QVBoxLayout(self)
@@ -133,16 +133,19 @@ class LogViewWidget(QtWidgets.QWidget):
         self.__sel_frames.activated.connect(self.switchLogEvent)
         self.__txt_find.returnPressed.connect(self.findEvent)
 
+    # pylint: disable=inconsistent-return-statements
     def __getFrame(self, name):
         for frame in self.__frames:
             if frame.data.name == name:
                 return frame
 
     def switchLogEvent(self, str_frame):
+        """Displays the log for the given frame."""
+        # pylint: disable=broad-except
         try:
             self.__txt_log.clear()
             log_file_path = cuegui.Utils.getFrameLogFile(self.__job, self.__getFrame(str_frame))
-            fp = open(log_file_path,"r")
+            fp = open(log_file_path, "r")
             if os.path.getsize(log_file_path) > 1242880:
                 fp.seek(0, 2)
                 fp.seek(-1242880, 1)
@@ -155,7 +158,7 @@ class LogViewWidget(QtWidgets.QWidget):
 
         except Exception as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
-            logger.info("error loading frame: %s, %s" % (str_frame, e))
+            logger.info("error loading frame: %s, %s", str_frame, e)
 
     def findEvent(self):
         """attempts to find the text from the find text box,
@@ -164,17 +167,19 @@ class LogViewWidget(QtWidgets.QWidget):
         cursor = document.find(
             str(self.__txt_find.text()).strip(),
             self.__txt_log.textCursor().position(),
-            QtWidgets.QTextDocument.FindBackward)
+            QtGui.QTextDocument.FindBackward)
         if cursor.position() > 1:
             self.__txt_log.setTextCursor(cursor)
 
+
 class EmailWidget(QtWidgets.QWidget):
+    """Widget for displaying an email form."""
 
     send = QtCore.Signal()
     cancel = QtCore.Signal()
 
-    def __init__(self, job, format, parent=None):
-        QtWidgets.QWidget.__init__(self)
+    def __init__(self, job, parent=None):
+        QtWidgets.QWidget.__init__(self, parent=parent)
 
         self.__job = job
 
@@ -210,7 +215,7 @@ class EmailWidget(QtWidgets.QWidget):
         self.__email_bcc = QtWidgets.QLineEdit(__default_bcc, self)
         self.__email_subject = QtWidgets.QLineEdit(__default_subject, self)
 
-        # Main Virtical Layout
+        # Main Vertical Layout
         vlayout = QtWidgets.QVBoxLayout(self)
 
         # Top Grid Layout
@@ -246,6 +251,7 @@ class EmailWidget(QtWidgets.QWidget):
         self.__btnCancel.clicked.connect(self.cancel.emit)
 
     def giveFocus(self):
+        """Initializes widget state when the widget gains focus."""
         self.__email_body.setFocus(QtCore.Qt.OtherFocusReason)
         self.__email_body.moveCursor(QtGui.QTextCursor.Start)
         self.__email_body.moveCursor(QtGui.QTextCursor.Down)
@@ -254,30 +260,39 @@ class EmailWidget(QtWidgets.QWidget):
         self.__email_body.moveCursor(QtGui.QTextCursor.Down)
 
     def email_from(self):
+        """Gets the email sender."""
         return "%s" % self.__email_from.text()
 
     def email_to(self):
+        """Gets the email recipient."""
         return "%s" % self.__email_to.text()
 
     def email_cc(self):
+        """Gets the email CC field."""
         return "%s" % self.__email_cc.text()
 
     def email_bcc(self):
+        """Gets the email BCC field."""
         return "%s" % self.__email_bcc.text()
 
     def email_subject(self):
+        """Gets the email subject."""
         return "%s" % self.__email_subject.text()
 
     def email_body(self):
+        """Get the email body text."""
         return "%s" % self.__email_body.toPlainText().toAscii()
 
     def appendToBody(self, txt):
+        """Appends text to the email body."""
         self.__email_body.append(txt)
 
     def setBody(self, txt):
+        """Sets the value of the email body."""
         self.__email_body.setText(txt)
 
     def sendEmail(self):
+        """Sends the email."""
         self.send.emit()
 
         msg = MIMEText(self.email_body())

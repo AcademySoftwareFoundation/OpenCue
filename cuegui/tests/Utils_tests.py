@@ -13,8 +13,12 @@
 #  limitations under the License.
 
 
-import mock
+"""Tests for cuegui.Utils."""
+
+
 import unittest
+
+import mock
 
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.job

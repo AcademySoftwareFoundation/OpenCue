@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -14,13 +13,17 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+
+"""Tests for rqd.rqnimby."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import mock
 import unittest
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.rqcore

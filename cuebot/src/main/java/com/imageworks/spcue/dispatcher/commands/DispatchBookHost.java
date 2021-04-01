@@ -103,13 +103,14 @@ public class DispatchBookHost implements Runnable  {
 
     @Override
     public boolean equals(Object other) {
-       try {
-         DispatchBookHost that = (DispatchBookHost) other;
-         return that.host.name.equals(host.name);
-       }
-       catch (ClassCastException e) {
-         return false;
-       }
+        if (other == null) {
+            return false;
+        }
+        if (this.getClass() != other.getClass()) {
+            return false;
+        }
+        DispatchBookHost that = (DispatchBookHost) other;
+        return that.host.name.equals(host.name);
     };
 }
 

@@ -70,6 +70,8 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
         entity.minGpu = service.getMinGpu();
         entity.tags = new LinkedHashSet<>(service.getTagsList());
         entity.threadable = service.getThreadable();
+        entity.timeout = service.getTimeout();
+        entity.timeout_llu = service.getTimeoutLlu();
         return entity;
     }
 }

@@ -14,16 +14,20 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Tests for `opencue.wrappers.filter`."""
 
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
-import mock
 import unittest
 
-import opencue
+import mock
+
 from opencue.compiled_proto import filter_pb2
 from opencue.compiled_proto import job_pb2
+import opencue.wrappers.filter
+import opencue.wrappers.group
+import opencue.wrappers.job
 
 
 TEST_ACTION_ID = 'aaa-aaaa-aaa'
@@ -39,12 +43,11 @@ class FilterTests(unittest.TestCase):
         stubMock.Delete.return_value = filter_pb2.FilterDeleteResponse()
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.delete()
+        filterToDelete = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToDelete.delete()
 
         stubMock.Delete.assert_called_with(
-            filter_pb2.FilterDeleteRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterDeleteRequest(filter=filterToDelete.data), timeout=mock.ANY)
 
     def testCreateMatcher(self, getStubMock):
         matcherId = 'mmm-mmmm-mmm'
@@ -56,15 +59,13 @@ class FilterTests(unittest.TestCase):
         queryStr = 'john'
         subject = filter_pb2.USER
         matcherType = filter_pb2.IS_NOT
-        matcherData = opencue.wrappers.filter.MatcherData(subject=subject,
-                                                          type=matcherType,
-                                                          input=queryStr)
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        matcher = filter.createMatcher(subject, matcherType, queryStr)
+        matcherData = opencue.wrappers.filter.MatcherData(
+            subject=subject, type=matcherType, input=queryStr)
+        filterForMatcher = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        matcher = filterForMatcher.createMatcher(subject, matcherType, queryStr)
 
         stubMock.CreateMatcher.assert_called_with(
-            filter_pb2.FilterCreateMatcherRequest(filter=filter.data, data=matcherData),
+            filter_pb2.FilterCreateMatcherRequest(filter=filterForMatcher.data, data=matcherData),
             timeout=mock.ANY)
         self.assertEqual(matcher.id(), matcherId)
 
@@ -77,9 +78,8 @@ class FilterTests(unittest.TestCase):
 
         actionType = filter_pb2.PAUSE_JOB
         value = 10
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        action = filter.createAction(actionType, value)
+        filterForAction = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        action = filterForAction.createAction(actionType, value)
         actionData = opencue.wrappers.filter.ActionData(
             type=actionType,
             value_type=filter_pb2.INTEGER_TYPE,
@@ -90,7 +90,7 @@ class FilterTests(unittest.TestCase):
             boolean_value=False)
 
         stubMock.CreateAction.assert_called_with(
-            filter_pb2.FilterCreateActionRequest(filter=filter.data, data=actionData),
+            filter_pb2.FilterCreateActionRequest(filter=filterForAction.data, data=actionData),
             timeout=mock.ANY)
         self.assertEqual(action.id(), actionId)
 
@@ -101,12 +101,11 @@ class FilterTests(unittest.TestCase):
             actions=filter_pb2.ActionSeq(actions=[filter_pb2.Action(id=actionId)]))
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        actions = filter.getActions()
+        filterForActions = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        actions = filterForActions.getActions()
 
         stubMock.GetActions.assert_called_with(
-            filter_pb2.FilterGetActionsRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterGetActionsRequest(filter=filterForActions.data), timeout=mock.ANY)
         self.assertEqual(len(actions), 1)
         self.assertEqual(actions[0].id(), actionId)
 
@@ -117,12 +116,11 @@ class FilterTests(unittest.TestCase):
             matchers=filter_pb2.MatcherSeq(matchers=[filter_pb2.Matcher(id=matcherId)]))
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        matchers = filter.getMatchers()
+        filterForMatchers = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        matchers = filterForMatchers.getMatchers()
 
         stubMock.GetMatchers.assert_called_with(
-            filter_pb2.FilterGetMatchersRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterGetMatchersRequest(filter=filterForMatchers.data), timeout=mock.ANY)
         self.assertEqual(len(matchers), 1)
         self.assertEqual(matchers[0].id(), matcherId)
 
@@ -131,74 +129,56 @@ class FilterTests(unittest.TestCase):
         stubMock.LowerOrder.return_value = filter_pb2.FilterLowerOrderResponse()
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.lowerOrder()
+        filterInst = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterInst.lowerOrder()
 
         stubMock.LowerOrder.assert_called_with(
-            filter_pb2.FilterLowerOrderRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterLowerOrderRequest(filter=filterInst.data), timeout=mock.ANY)
 
     def testRaiseOrder(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.RaiseOrder.return_value = filter_pb2.FilterRaiseOrderResponse()
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.raiseOrder()
+        filterInst = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterInst.raiseOrder()
 
         stubMock.RaiseOrder.assert_called_with(
-            filter_pb2.FilterRaiseOrderRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterRaiseOrderRequest(filter=filterInst.data), timeout=mock.ANY)
 
     def testOrderFirst(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.OrderFirst.return_value = filter_pb2.FilterOrderFirstResponse()
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.orderFirst()
+        filterInst = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterInst.orderFirst()
 
         stubMock.OrderFirst.assert_called_with(
-            filter_pb2.FilterOrderFirstRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterOrderFirstRequest(filter=filterInst.data), timeout=mock.ANY)
 
     def testOrderLast(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.OrderLast.return_value = filter_pb2.FilterOrderLastResponse()
         getStubMock.return_value = stubMock
 
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.orderLast()
+        filterInst = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterInst.orderLast()
 
         stubMock.OrderLast.assert_called_with(
-            filter_pb2.FilterOrderLastRequest(filter=filter.data), timeout=mock.ANY)
-
-    def testOrderLast(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.OrderLast.return_value = filter_pb2.FilterOrderLastResponse()
-        getStubMock.return_value = stubMock
-
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.orderLast()
-
-        stubMock.OrderLast.assert_called_with(
-            filter_pb2.FilterOrderLastRequest(filter=filter.data), timeout=mock.ANY)
+            filter_pb2.FilterOrderLastRequest(filter=filterInst.data), timeout=mock.ANY)
 
     def testRunFilterOnGroup(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.RunFilterOnGroup.return_value = filter_pb2.FilterRunFilterOnGroupResponse()
         getStubMock.return_value = stubMock
 
-        group = opencue.wrappers.group.Group(
-            job_pb2.Group(name='testGroup'))
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.runFilterOnGroup(group)
+        group = opencue.wrappers.group.Group(job_pb2.Group(name='testGroup'))
+        filterToRun = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToRun.runFilterOnGroup(group)
 
         stubMock.RunFilterOnGroup.assert_called_with(
-            filter_pb2.FilterRunFilterOnGroupRequest(filter=filter.data, group=group.data),
+            filter_pb2.FilterRunFilterOnGroupRequest(filter=filterToRun.data, group=group.data),
             timeout=mock.ANY)
 
     def testRunFilterOnJobs(self, getStubMock):
@@ -208,12 +188,11 @@ class FilterTests(unittest.TestCase):
 
         jobs = [opencue.wrappers.job.Job(job_pb2.Job(name='testJob'))]
         jobSeq = job_pb2.JobSeq(jobs=[job.data for job in jobs])
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.runFilterOnJobs(jobs)
+        filterToRun = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToRun.runFilterOnJobs(jobs)
 
         stubMock.RunFilterOnJobs.assert_called_with(
-            filter_pb2.FilterRunFilterOnJobsRequest(filter=filter.data, jobs=jobSeq),
+            filter_pb2.FilterRunFilterOnJobsRequest(filter=filterToRun.data, jobs=jobSeq),
             timeout=mock.ANY)
 
     def testSetEnabled(self, getStubMock):
@@ -222,12 +201,12 @@ class FilterTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         value = True
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.setEnabled(value)
+        filterToEnable = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToEnable.setEnabled(value)
 
         stubMock.SetEnabled.assert_called_with(
-            filter_pb2.FilterSetEnabledRequest(filter=filter.data, enabled=value), timeout=mock.ANY)
+            filter_pb2.FilterSetEnabledRequest(
+                filter=filterToEnable.data, enabled=value), timeout=mock.ANY)
 
     def testSetName(self, getStubMock):
         stubMock = mock.Mock()
@@ -235,12 +214,11 @@ class FilterTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         value = 'newname'
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.setName(value)
+        filterToSet = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToSet.setName(value)
 
         stubMock.SetName.assert_called_with(
-            filter_pb2.FilterSetNameRequest(filter=filter.data, name=value), timeout=mock.ANY)
+            filter_pb2.FilterSetNameRequest(filter=filterToSet.data, name=value), timeout=mock.ANY)
 
     def testSetType(self, getStubMock):
         stubMock = mock.Mock()
@@ -248,12 +226,11 @@ class FilterTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         value = filter_pb2.MATCH_ALL
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.setType(value)
+        filterToSet = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToSet.setType(value)
 
         stubMock.SetType.assert_called_with(
-            filter_pb2.FilterSetTypeRequest(filter=filter.data, type=value), timeout=mock.ANY)
+            filter_pb2.FilterSetTypeRequest(filter=filterToSet.data, type=value), timeout=mock.ANY)
 
     def testSetOrder(self, getStubMock):
         stubMock = mock.Mock()
@@ -261,12 +238,12 @@ class FilterTests(unittest.TestCase):
         getStubMock.return_value = stubMock
 
         value = 2
-        filter = opencue.wrappers.filter.Filter(
-            filter_pb2.Filter(name=TEST_FILTER_NAME))
-        filter.setOrder(value)
+        filterToSet = opencue.wrappers.filter.Filter(filter_pb2.Filter(name=TEST_FILTER_NAME))
+        filterToSet.setOrder(value)
 
         stubMock.SetOrder.assert_called_with(
-            filter_pb2.FilterSetOrderRequest(filter=filter.data, order=value), timeout=mock.ANY)
+            filter_pb2.FilterSetOrderRequest(
+                filter=filterToSet.data, order=value), timeout=mock.ANY)
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -278,21 +255,19 @@ class ActionTests(unittest.TestCase):
             filter=filter_pb2.Filter(name=TEST_FILTER_NAME))
         getStubMock.return_value = stubMock
 
-        action = opencue.wrappers.filter.Action(
-            filter_pb2.Action(id=TEST_ACTION_ID))
-        filter = action.getParentFilter()
+        action = opencue.wrappers.filter.Action(filter_pb2.Action(id=TEST_ACTION_ID))
+        filterReturned = action.getParentFilter()
 
         stubMock.GetParentFilter.assert_called_with(
             filter_pb2.ActionGetParentFilterRequest(action=action.data), timeout=mock.ANY)
-        self.assertEqual(filter.name(), TEST_FILTER_NAME)
+        self.assertEqual(filterReturned.name(), TEST_FILTER_NAME)
 
     def testDelete(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.Delete.return_value = filter_pb2.ActionDeleteResponse()
         getStubMock.return_value = stubMock
 
-        action = opencue.wrappers.filter.Action(
-            filter_pb2.Action(id=TEST_ACTION_ID))
+        action = opencue.wrappers.filter.Action(filter_pb2.Action(id=TEST_ACTION_ID))
         action.delete()
 
         stubMock.Delete.assert_called_with(
@@ -462,13 +437,12 @@ class MatcherTests(unittest.TestCase):
             filter=filter_pb2.Filter(name=TEST_FILTER_NAME))
         getStubMock.return_value = stubMock
 
-        matcher = opencue.wrappers.filter.Matcher(
-            filter_pb2.Matcher(id=TEST_MATCHER_ID))
-        filter = matcher.getParentFilter()
+        matcher = opencue.wrappers.filter.Matcher(filter_pb2.Matcher(id=TEST_MATCHER_ID))
+        filterReturns = matcher.getParentFilter()
 
         stubMock.GetParentFilter.assert_called_with(
             filter_pb2.MatcherGetParentFilterRequest(matcher=matcher.data), timeout=mock.ANY)
-        self.assertEqual(filter.name(), TEST_FILTER_NAME)
+        self.assertEqual(filterReturns.name(), TEST_FILTER_NAME)
 
     def testDelete(self, getStubMock):
         stubMock = mock.Mock()
@@ -526,7 +500,7 @@ class ActionEnumTests(unittest.TestCase):
         self.assertEqual(opencue.api.Action.ActionType.MOVE_JOB_TO_GROUP,
                          opencue.compiled_proto.filter_pb2.MOVE_JOB_TO_GROUP)
         self.assertEqual(opencue.api.Action.ActionType.MOVE_JOB_TO_GROUP, 0)
-      
+
     def testActionValueType(self):
         self.assertEqual(opencue.api.Action.ActionValueType.INTEGER_TYPE,
                          opencue.compiled_proto.filter_pb2.INTEGER_TYPE)

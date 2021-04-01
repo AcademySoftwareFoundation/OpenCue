@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 #  Copyright Contributors to the OpenCue Project
 #
 #  Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,14 +14,17 @@
 #  limitations under the License.
 
 
+"""Tests for rqd.rqmachine."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-import mock
 import os
 import unittest
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import rqd.rqconstants
@@ -34,6 +36,7 @@ import rqd.rqutil
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
 import rqd.compiled_proto.rqd_pb2
+
 
 CPUINFO = """processor	: 0
 vendor_id	: GenuineIntel
@@ -278,7 +281,6 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
     @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
     def test_rssUpdate(self):
         rqd.rqconstants.SYS_HERTZ = 100
-        rqd.rqconstants.ENABLE_PTREE = True
         pid = 105
         frameId = 'unused-frame-id'
         self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
@@ -290,14 +292,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.machine.rssUpdate(frameCache)
 
         updatedFrameInfo = frameCache[frameId].runningFrameInfo()
+        # pylint: disable=no-member
         self.assertEqual(616, updatedFrameInfo.max_rss)
         self.assertEqual(616, updatedFrameInfo.rss)
         self.assertEqual(4356, updatedFrameInfo.max_vsize)
         self.assertEqual(4356, updatedFrameInfo.vsize)
         self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
-        self.assertEqual(
-            {'list': [{'seconds': 1277.4100000000035, 'total_time': 44, 'pid': '105'}]},
-            eval(updatedFrameInfo.attributes['ptree']))
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
@@ -369,6 +369,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         'subprocess.getoutput',
         new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getHostInfo(self):
+        # pylint: disable=no-member
         hostInfo = self.machine.getHostInfo()
 
         self.assertEqual(4105212, hostInfo.free_swap)
@@ -400,6 +401,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         hostReport = self.machine.getHostReport()
 
+        # pylint: disable=no-member
+
         # Verify host info was copied into the report.
         self.assertEqual(4105212, hostReport.host.free_swap)
         self.assertEqual(25699176, hostReport.host.free_mem)
@@ -411,6 +414,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     def test_getBootReport(self):
         bootReport = self.machine.getBootReport()
+
+        # pylint: disable=no-member
 
         # Verify host info was copied into the report.
         self.assertEqual(4105212, bootReport.host.free_swap)
@@ -429,6 +434,14 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.machine.releaseHT(tasksets)
 
         self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7}, self.machine._Machine__tasksets)
+
+    def test_tags(self):
+        tags = ["test1", "test2", "test3"]
+        rqd.rqconstants.RQD_TAGS = " ".join(tags)
+
+        machine = rqd.rqmachine.Machine(self.rqCore, self.coreDetail)
+
+        self.assertTrue(all(tag in machine.__dict__['_Machine__renderHost'].tags for tag in tags))
 
 
 class CpuinfoTests(unittest.TestCase):
@@ -471,6 +484,8 @@ class CpuinfoTests(unittest.TestCase):
         pathCpuInfo = os.path.join(os.path.dirname(__file__), 'cpuinfo', pathCpuInfo)
         renderHost, coreInfo = self.rqd.machine.testInitMachineStats(pathCpuInfo)
         totalCores, coresPerProc, numProcs = pathCpuInfo.split('_')[-1].split('-')[:3]
+
+        # pylint: disable=no-member
         self.assertEqual(renderHost.num_procs, int(numProcs))
         self.assertEqual(renderHost.cores_per_proc, int(coresPerProc) * 100)
         self.assertEqual(coreInfo.total_cores, int(totalCores) * 100)
