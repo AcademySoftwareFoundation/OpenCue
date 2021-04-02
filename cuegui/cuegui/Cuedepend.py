@@ -22,7 +22,7 @@ Dependency Types:
     JobOnJob / joj       JobOnLayer / jol       JobOnFrame / jof
     LayerOnJob / loj     LayerOnLayer / lol     LayerOnFrame / lof
     FrameOnJob / foj     FrameOnLayer / fol     FrameOnFrame / fof
-    FrameByFRame / fbf   HardDepend / hd
+    FrameByFrame / fbf   HardDepend / hd
 """
 
 
@@ -44,13 +44,13 @@ ERR_INVALID_ON_JOB = (
 ERR_INVALID_ON_LAYER = (
     "Error, a dependency of this type requires a valid layer name to depend on. See -on-layer.")
 ERR_INVALID_ON_FRAME = (
-    "Error, a dependency of this type requries a valid frame name to depend on. See -on-frame.")
+    "Error, a dependency of this type requires a valid frame name to depend on. See -on-frame.")
 ERR_INVALID_ER_JOB = (
     "Error, a dependency of this type requires a valid job name to depend on.  See -job.")
 ERR_INVALID_ER_LAYER = (
     "Error, a dependency of this type requires a valid layer name to depend on. See -layer.")
 ERR_INVALID_ER_FRAME = (
-    "Error, a dependency of this type requries a valid frame name to depend on. See -frame.")
+    "Error, a dependency of this type requires a valid frame name to depend on. See -frame.")
 
 
 def __is_valid(value, error):
