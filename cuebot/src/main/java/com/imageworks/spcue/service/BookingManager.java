@@ -134,13 +134,6 @@ public interface BookingManager {
     void removeInactiveLocalHostAssignment(LocalHostAssignment lha);
 
     /**
-     *
-     * @param host
-     * @return
-     */
-    boolean isBlackOutTime(HostInterface host);
-
-    /**
      * Return true if the host is running more cores than the maximum allowed.
      *
      * @param host

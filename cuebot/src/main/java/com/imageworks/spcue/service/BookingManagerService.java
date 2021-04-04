@@ -174,12 +174,6 @@ public class BookingManagerService implements BookingManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isBlackOutTime(HostInterface host) {
-        return bookingDao.isBlackoutTime(host);
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public boolean hasResourceDeficit(HostInterface host) {
         return bookingDao.hasResourceDeficit(host);
     }

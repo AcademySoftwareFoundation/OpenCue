@@ -882,9 +882,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                         .setId(SqlUtil.getString(rs, "pk_deed"))
                         .setHost(SqlUtil.getString(rs, "str_host"))
                         .setOwner(SqlUtil.getString(rs, "str_username"))
-                        .setBlackout(rs.getBoolean("b_blackout"))
-                        .setBlackoutStartTime(rs.getInt("int_blackout_start"))
-                        .setBlackoutStopTime(rs.getInt("int_blackout_stop"))
                         .build();
             }
     };
@@ -2166,9 +2163,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "host.str_name AS str_host,"+
             "show.str_name AS str_show,"+
             "owner.str_username," +
-            "deed.b_blackout,"+
-            "deed.int_blackout_start,"+
-            "deed.int_blackout_stop,"+
             "deed.pk_deed " +
         "FROM " +
             "deed,"+

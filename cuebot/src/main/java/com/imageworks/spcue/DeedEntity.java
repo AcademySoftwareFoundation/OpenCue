@@ -25,20 +25,6 @@ public class DeedEntity extends Entity {
     public String host;
     public String show;
 
-    /**
-     * The owner can set a black out time for booking where Cue will not
-     * automatically book the cores, even if NIMBY locked.
-     *
-     * This is measured in seconds past midnight.
-     */
-    public int blackoutStart = 0;
-    public int blackoutStop = 0;
-
-    /**
-     * Quickly disable and enable the current black out time settings.
-     */
-    public boolean isBlackoutEnabled = false;
-
     public String getName() {
         return String.format("%s.%s", owner, host);
     }
