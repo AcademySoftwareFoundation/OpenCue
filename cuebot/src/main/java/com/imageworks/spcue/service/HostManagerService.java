@@ -23,6 +23,7 @@ import java.sql.Timestamp;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -163,7 +164,7 @@ public class HostManagerService implements HostManager {
                             " to the given allocation " + alloc.getName());
                     break;
                 }
-                catch (Exception e) {
+                catch (EmptyResultDataAccessException e) {
                     // Allocation doesn't exist. ignore.
                 }
             }
