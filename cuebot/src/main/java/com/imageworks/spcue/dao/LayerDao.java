@@ -167,7 +167,7 @@ public interface LayerDao {
     void insertLayerEnvironment(LayerInterface layer, String key, String value);
 
     /**
-     * Insert a map key/value pairs into the layer environement
+     * Insert a map key/value pairs into the layer environment
      *
      * @param layer
      * @param env

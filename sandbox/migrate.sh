@@ -18,5 +18,5 @@ done
 
 # Check if a show exists, if not apply demo data
 if psql -c "select 1 from show"|grep "(0 rows)"; then
-    psql -a -f /opt/scripts/demo_data.sql
+    psql -a -f /opt/scripts/seed_data.sql
 fi

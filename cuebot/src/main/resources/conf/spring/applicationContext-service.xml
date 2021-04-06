@@ -342,6 +342,7 @@
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="procDao" ref="procDao" />
     <property name="frameDao" ref="frameDao" />
+    <property name="hostDao" ref="hostDao" />
     <property name="maintenanceDao" ref="maintenanceDao" />
     <property name="historicalSupport" ref="historicalSupport" />
     <property name="departmentManager" ref="departmentManager" />

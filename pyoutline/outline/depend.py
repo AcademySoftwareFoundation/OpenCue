@@ -108,18 +108,18 @@ class Depend(object):
         """
         return self.__type
 
-    def is_propigated(self):
+    def is_propagated(self):
         """
-        A propigated dependency is propigated to to others layers
+        A propagated dependency is propagated to to others layers
         automatically.  For example when a L{Layer} A depends on L{Layer} B through
-        a propigated dependency, then setting up a dependency from L{Layer} C to
+        a propagated dependency, then setting up a dependency from L{Layer} C to
         L{Layer} A would automatically create a depend from L{Layer} C to L{Layer} B.
 
         Depends that are automatically setup between L{LayerPreProcess} and
-        a L{Layer} are propigated dependencies.
+        a L{Layer} are propagated dependencies.
 
         :rtype: boolean
-        :return: True if he depend is propigated, false if it is not.
+        :return: True if he depend is propagated, false if it is not.
 
         """
         return self.__propigate

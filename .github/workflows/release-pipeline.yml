@@ -161,8 +161,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ github.workspace }}/artifacts/demo_data-${{ env.BUILD_ID }}.sql
-          asset_name: demo_data-${{ env.BUILD_ID }}.sql
+          asset_path: ${{ github.workspace }}/artifacts/seed_data-${{ env.BUILD_ID }}.sql
+          asset_name: seed_data-${{ env.BUILD_ID }}.sql
           asset_content_type: application/octet-stream
 
       - name: Upload Cuebot JAR

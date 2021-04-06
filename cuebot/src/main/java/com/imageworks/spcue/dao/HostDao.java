@@ -66,6 +66,11 @@ public interface HostDao {
     void deleteHost(HostInterface host);
 
     /**
+     * deletes the down state hosts
+     */
+    void deleteDownHosts();
+
+    /**
      * updates a host with the passed hardware state
      *
      * @param host  HostInterface

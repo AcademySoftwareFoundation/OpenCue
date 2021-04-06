@@ -489,6 +489,11 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     }
 
     @Override
+    public void deleteDownHosts() {
+        // Not implemented.
+    }
+
+    @Override
     public void updateHostState(HostInterface host, HardwareState state) {
         getJdbcTemplate().update(
                 "UPDATE host_stat SET str_state=? WHERE pk_host=?",

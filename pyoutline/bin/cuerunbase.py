@@ -68,7 +68,7 @@ def handle_core_arguments():
     --repos = specify an alternate outline repository
 
     All of these options need to be handled to setup the right
-    environement to imported the versioned cuerun/outline code.
+    environment to imported the versioned cuerun/outline code.
 
     """
     repos = None
