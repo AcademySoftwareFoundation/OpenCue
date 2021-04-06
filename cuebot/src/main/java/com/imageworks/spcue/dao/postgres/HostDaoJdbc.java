@@ -489,6 +489,34 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
                 "DELETE FROM host WHERE pk_host=?",host.getHostId());
     }
 
+    private static final String DELETE_DOWN_HOST_COMMENTS =
+        "DELETE " +
+        "FROM " +
+            "comments " +
+        "USING " +
+            "host_stat " +
+        "WHERE " +
+            "comments.pk_host = host_stat.pk_host " +
+        "AND " +
+            "host_stat.str_state = ?";
+
+    private static final String DELETE_DOWN_HOSTS =
+        "DELETE " +
+        "FROM " +
+            "host " +
+        "USING " +
+            "host_stat " +
+        "WHERE " +
+            "host.pk_host = host_stat.pk_host " +
+        "AND " +
+            "host_stat.str_state=?";
+
+    @Override
+    public void deleteDownHosts() {
+        getJdbcTemplate().update(DELETE_DOWN_HOST_COMMENTS, HardwareState.DOWN.toString());
+        getJdbcTemplate().update(DELETE_DOWN_HOSTS, HardwareState.DOWN.toString());
+    }
+
     @Override
     public void updateHostState(HostInterface host, HardwareState state) {
         getJdbcTemplate().update(
