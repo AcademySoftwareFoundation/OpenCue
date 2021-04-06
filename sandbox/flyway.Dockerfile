@@ -12,7 +12,7 @@ RUN ["cp", "/usr/share/java/postgresql-jdbc.jar", "jars/"]
 RUN ["mkdir", "/opt/migrations"]
 RUN ["mkdir", "/opt/scripts"]
 COPY ./cuebot/src/main/resources/conf/ddl/postgres/migrations /opt/migrations
-COPY ./cuebot/src/main/resources/conf/ddl/postgres/demo_data.sql /opt/scripts
+COPY ./cuebot/src/main/resources/conf/ddl/postgres/seed_data.sql /opt/scripts
 COPY ./sandbox/migrate.sh /opt/scripts/
 
 CMD ["/bin/bash"]

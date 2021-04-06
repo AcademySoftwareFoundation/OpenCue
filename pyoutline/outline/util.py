@@ -31,16 +31,16 @@ import FileSequence
 from .config import config
 
 
-def deaggregate_frame_set(frameset):
-    """Deaggregates a FileSequence.FrameSet into its individual frames
+def disaggregate_frame_set(frameset):
+    """Disaggregates a FileSequence.FrameSet into its individual frames
     and removes duplicates.  FrameSet objects can have duplicates if
     the user specifies duplicates, which they tend to do even though
     they don't want duplicates.
 
     :type    frameset: FileSequence.FrameSet
-    :param   frameset: The frameset to deaggregate
+    :param   frameset: The frameset to disaggregate
     :rtype:            List
-    :return:           The list of deaggregated frames.
+    :return:           The list of disaggregated frames.
     """
     # This is not a Set because sets are unordered.
 

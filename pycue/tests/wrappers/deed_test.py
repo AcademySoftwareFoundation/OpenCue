@@ -72,36 +72,6 @@ class DeedTests(unittest.TestCase):
             host_pb2.DeedGetOwnerRequest(deed=deed.data), timeout=mock.ANY)
         self.assertEqual(owner.name(), TEST_DEED_OWNER)
 
-    def testSetBlackoutTime(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.SetBlackoutTime.return_value = host_pb2.DeedSetBlackoutTimeResponse()
-        getStubMock.return_value = stubMock
-
-        testStartTime = 100
-        testStopTime = 200
-        deed = opencue.wrappers.deed.Deed(host_pb2.Deed(id=TEST_DEED_ID))
-        deed.setBlackoutTime(testStartTime, testStopTime)
-
-        stubMock.SetBlackoutTime.assert_called_with(
-            host_pb2.DeedSetBlackoutTimeRequest(deed=deed.data,
-                                                start_time=testStartTime,
-                                                stop_time=testStopTime),
-            timeout=mock.ANY)
-
-    def testSetBlackoutTimeEnabled(self, getStubMock):
-        stubMock = mock.Mock()
-        stubMock.SetBlackoutTimeEnabled.return_value = host_pb2.DeedSetBlackoutTimeEnabledResponse()
-        getStubMock.return_value = stubMock
-
-        testBlackoutEnabled = True
-        deed = opencue.wrappers.deed.Deed(host_pb2.Deed(id=TEST_DEED_ID))
-        deed.setBlackoutTimeEnabled(testBlackoutEnabled)
-
-        stubMock.SetBlackoutTimeEnabled.assert_called_with(
-            host_pb2.DeedSetBlackoutTimeEnabledRequest(deed=deed.data,
-                                                       enabled=testBlackoutEnabled),
-            timeout=mock.ANY)
-
 
 if __name__ == '__main__':
     unittest.main()

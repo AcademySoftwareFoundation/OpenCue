@@ -165,48 +165,5 @@ public class DeedDaoTests  extends AbstractTransactionalJUnit4SpringContextTests
         assertEquals(1, deedDao.getDeeds(o).size());
         assertEquals(d, deedDao.getDeeds(o).get(0));
     }
-
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testEnableDisableBlackoutTime() {
-
-        DispatchHost host = createHost();
-        ShowInterface s = adminManager.findShowEntity("pipe");
-        OwnerEntity o = ownerManager.createOwner("squarepants", s);
-        DeedEntity d = deedDao.insertDeed(o, host);
-
-        deedDao.updateBlackoutTimeEnabled(d, true);
-        assertTrue(jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Boolean.class, d.getId()));
-
-        deedDao.updateBlackoutTimeEnabled(d, false);
-        assertFalse(jdbcTemplate.queryForObject(
-                "SELECT b_blackout FROM deed WHERE pk_deed=?",
-                Boolean.class, d.getId()));
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testSetBlackOutTimes() {
-
-        DispatchHost host = createHost();
-        ShowInterface s = adminManager.findShowEntity("pipe");
-        OwnerEntity o = ownerManager.createOwner("squarepants", s);
-        DeedEntity d = deedDao.insertDeed(o, host);
-
-        deedDao.setBlackoutTime(d, 3600, 7200);
-
-        assertEquals(Integer.valueOf(3600), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_start FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
-
-        assertEquals(Integer.valueOf(7200), jdbcTemplate.queryForObject(
-                "SELECT int_blackout_stop FROM deed WHERE pk_deed=?",
-                Integer.class, d.getId()));
-    }
 }
 

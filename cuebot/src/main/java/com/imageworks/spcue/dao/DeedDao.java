@@ -67,22 +67,6 @@ public interface DeedDao {
     List<DeedEntity> getDeeds(OwnerEntity owner);
 
     /**
-     * Enable/Disable the blackout time.
-     *
-     * @param value
-     */
-    void updateBlackoutTimeEnabled(DeedEntity deed, boolean value);
-
-    /**
-     * Set blackout times.  During blackout times, machines
-     * cannot be booked.
-     *
-     * @param start
-     * @param stop
-     */
-    void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds);
-
-    /**
      *
      *
      * @param owner
