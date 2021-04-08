@@ -122,10 +122,18 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
         }
     }
 
+    private AllocationEntity findAllocationDetail(String facility, String name) {
+        // If they pass name in the format <facility>.<name>, just remove the facility.
+        if (CueUtil.verifyAllocationNameFormat(name)) {
+            name = CueUtil.splitAllocationName(name)[1];
+        }
+        return adminManager.findAllocationDetail(facility, name);
+    }
+
     @Override
     public void delete(
             AllocDeleteRequest request, StreamObserver<AllocDeleteResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.deleteAllocation(alloc);
         responseObserver.onNext(AllocDeleteResponse.newBuilder().build());
@@ -186,7 +194,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     public void setBillable(
             AllocSetBillableRequest request,
             StreamObserver<AllocSetBillableResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationBillable(alloc, request.getValue());
         responseObserver.onNext(AllocSetBillableResponse.newBuilder().build());
@@ -196,7 +204,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void setName(
             AllocSetNameRequest request, StreamObserver<AllocSetNameResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationName(alloc, request.getName());
         responseObserver.onNext(AllocSetNameResponse.newBuilder().build());
@@ -206,7 +214,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     @Override
     public void setTag(
             AllocSetTagRequest request, StreamObserver<AllocSetTagResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setAllocationTag(alloc, request.getTag());
         responseObserver.onNext(AllocSetTagResponse.newBuilder().build());
