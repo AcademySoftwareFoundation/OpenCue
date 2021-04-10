@@ -38,6 +38,12 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
         pip install -r ${REQUIREMENTS_GUI}
     fi
     cd ${PACKAGE}-${VERSION}-all
+
+    # remove *.pyc files and __pycache__ folders contained on
+    # <PACKAGE-VERSION>-all.tar.gz file
+    find . -path '*/__pycache__*' -delete
+    find . -name '*.pyc'  -type f -delete
+
     python setup.py install
     cd ..
 done
