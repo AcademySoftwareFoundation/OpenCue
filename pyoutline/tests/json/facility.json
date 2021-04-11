@@ -1,0 +1,12 @@
+{
+  "name": "shell_command",
+  "facility": "test_facility",
+  "range": "1",
+  "layers": [
+    {
+      "name": "shell_layer",
+      "module": "outline.modules.shell.Shell",
+      "command": ["/bin/ls"]
+    }
+  ]
+}
