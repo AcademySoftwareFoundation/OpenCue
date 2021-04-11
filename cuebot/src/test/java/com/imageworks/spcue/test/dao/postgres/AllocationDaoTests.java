@@ -182,6 +182,26 @@ public class AllocationDaoTests extends AbstractTransactionalJUnit4SpringContext
                 "SELECT b_billable FROM alloc WHERE pk_alloc=?",
                 Boolean.class, alloc.getId()));
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetDefaultAllocation() {
+        AllocationEntity newAlloc = new AllocationEntity();
+        newAlloc.name = "spi.new_alloc";
+        newAlloc.tag = "new_alloc";
+        allocDao.insertAllocation(
+                facilityDao.getFacility("spi"),  newAlloc);
+
+        allocDao.setDefaultAllocation(newAlloc);
+        AllocationEntity defaultAlloc = allocDao.getDefaultAllocationEntity();
+        assertEquals(newAlloc.getAllocationId(), defaultAlloc.getAllocationId());
+        assertEquals(newAlloc.name, defaultAlloc.name);
+        assertEquals(newAlloc.tag, defaultAlloc.tag);
+        assertEquals(
+                facilityDao.getFacility("spi").getFacilityId(),
+                defaultAlloc.getFacilityId());
+    }
 }
 
 
