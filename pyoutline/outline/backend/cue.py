@@ -308,7 +308,12 @@ def _serialize(launcher, use_pycuerun):
         sub_element(spec_layer, "chunk", str(layer.get_chunk_size()))
 
         # opencue specific options
-        if layer.get_arg("threads"):
+        # Keeping 'threads' for backward compatibility
+        if layer.get_arg("cores"):
+            if layer.get_arg("threads"):
+                logger.warning("%s has both cores and threads. Use cores.", layer.get_name())
+            sub_element(spec_layer, "cores", "%0.1f" % (layer.get_arg("cores")))
+        elif layer.get_arg("threads"):
             sub_element(spec_layer, "cores", "%0.1f" % (layer.get_arg("threads")))
 
         if layer.is_arg_set("threadable"):
