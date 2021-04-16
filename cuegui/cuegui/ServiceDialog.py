@@ -42,7 +42,7 @@ class ServiceForm(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent)
         self.__service = None
 
-        self.gpu_max_mb = 2 * 1024
+        self.gpu_max_mb = 2147483647  # Qt doesnt allow inf, setting to int32 max value.
         self.gpu_min_mb = 0
         self.gpu_tick_mb = 256
 
