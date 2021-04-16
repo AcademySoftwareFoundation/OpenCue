@@ -61,7 +61,7 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_memory.setValue(3276)
         self.min_gpu = QtWidgets.QSpinBox(self)
         self.min_gpu.setRange(self.gpu_min_mb, self.gpu_max_mb)
-        self.min_gpu.setValue(0)
+        self.min_gpu.setValue(self.gpu_min_mb)
         self.min_gpu.setSingleStep(self.gpu_tick_mb)
         self.min_gpu.setSuffix(" MB")
         self.timeout = QtWidgets.QSpinBox(self)
