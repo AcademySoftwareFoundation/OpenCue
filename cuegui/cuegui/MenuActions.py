@@ -528,17 +528,21 @@ class JobActions(AbstractActions):
             return
 
         title = "Send jobs to group"
-        groups = {
-            group.data.name: group for group in opencue.api.findShow(jobs[0].data.show).getGroups()}
-        body = "What group should these jobs move to?\n" + \
-               "\n".join([job.data.name for job in jobs])
+        groups = {group.data.name: group for group in opencue.api.findShow(
+                                                      jobs[0].data.show).getGroups()}
 
-        (group, choice) = QtWidgets.QInputDialog.getItem(
-            self._caller, title, body, sorted(groups.keys()), 0, False)
-        if not choice:
-            return
+        body_content = cuegui.CueJobMonitorTree.Body(group_names=[],
+                                                     group_ids=[],
+                                                     job_names=[job.name() for job in jobs],
+                                                     job_ids=jobs)
 
-        groups[str(group)].reparentJobs(jobs)
+        dialog = cuegui.CueJobMonitorTree.MoveDialog(title=title,
+                                                     text="What group should these jobs move to?",
+                                                     event_item=None,
+                                                     items=body_content,
+                                                     dst_groups=groups,
+                                                     send_to_groups=True)
+        dialog.exec_()
         self._update()
 
     useLocalCores_info = [

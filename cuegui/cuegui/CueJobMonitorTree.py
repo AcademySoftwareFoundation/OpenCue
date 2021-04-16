@@ -22,6 +22,7 @@ from __future__ import print_function
 
 from builtins import str
 from builtins import map
+from collections import namedtuple
 import time
 
 from PySide2 import QtCore
@@ -44,6 +45,7 @@ import cuegui.Utils
 
 
 logger = cuegui.Logger.getLogger(__file__)
+Body = namedtuple("Body", "group_names, group_ids, job_names, job_ids")
 
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
@@ -292,35 +294,23 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if item and item.type() in (cuegui.Constants.TYPE_ROOTGROUP, cuegui.Constants.TYPE_GROUP):
             job_ids = cuegui.Utils.dropEvent(event, "application/x-job-ids")
             group_ids = cuegui.Utils.dropEvent(event, "application/x-group-ids")
+            job_names = cuegui.Utils.dropEvent(event, "application/x-job-names")
+            group_names = cuegui.Utils.dropEvent(event, "application/x-group-names")
 
             if job_ids or group_ids:
-                body = ""
-                if group_ids:
-                    body += "Groups:\n" + "\n".join(
-                        cuegui.Utils.dropEvent(event, "application/x-group-names"))
-                if group_ids and job_ids:
-                    body += "\n\n"
-                if job_ids:
-                    body += "Jobs:\n" + "\n".join(
-                        cuegui.Utils.dropEvent(event, "application/x-job-names"))
+                body_content = Body(group_names=group_names,
+                                    group_ids=group_ids,
+                                    job_names=job_names,
+                                    job_ids=job_ids)
 
-                result = QtWidgets.QMessageBox.question(
-                    self,
-                    "Move groups/jobs?",
-                    "Move the following into the group: " +
-                    "\"%s\"?\n\n%s" % (
-                        item.rpcObject.data.name, body),
-                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
-
-                if result == QtWidgets.QMessageBox.Yes:
-                    if job_ids:
-                        jobs = [opencue.api.getJob(id_) for id_ in job_ids]
-                        item.rpcObject.asGroup().reparentJobs(jobs)
-
-                    if group_ids:
-                        item.rpcObject.asGroup().reparentGroupIds(group_ids)
-
-                    self.updateRequest()
+                dialog = MoveDialog(title="Move Groups/Jobs",
+                                    text="Move the following into the group: %s?" \
+                                          % item.rpcObject.data.name,
+                                    event_item=item,
+                                    items=body_content,
+                                    dist_groups={},
+                                    parent=self)
+                dialog.exec_()
 
     def addShow(self, show, update=True):
         """Adds a show to the list of monitored shows
@@ -814,3 +804,78 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
 
         return cuegui.Constants.QVARIANT_NULL
+
+
+class MoveDialog(QtWidgets.QDialog):
+    """
+    A dialog for moving selected Jobs/Groups into another Group
+    """
+    def __init__(self, title, text, event_item, items, dst_groups,
+                 send_to_groups=False, parent=None):
+        """
+        Initializes the list of jobs/groups to move
+        @type  title: str
+        @param title: Window Title
+        @type  text: str
+        @param text: Confirmation question to the user
+        @type  event_item: rpcObject
+        @param event_item: the rpcObject to act on
+        @type  items: namedtuple
+        @param items: object that holds job_ids, group_ids, group_names, job_names to act on
+        @type dst_groups: dict
+        @param dst_groups: dict of destination groups to move jobs/groups to
+        @type  parent: AbstractTreeWidget
+        @param parent: The dialog's parent
+        """
+        QtWidgets.QDialog.__init__(self, parent)
+        self.parent = parent
+        self.items = items
+        self.event_item = event_item
+        self.send_to_groups = send_to_groups
+        self.dst_groups = dst_groups
+        _btn_accept = QtWidgets.QPushButton("Ok", self)
+        _btn_cancel = QtWidgets.QPushButton("Cancel", self)
+        _label_text = QtWidgets.QLabel(text, self)
+        _label_text.setWordWrap(True)
+
+        _vlayout = QtWidgets.QVBoxLayout(self)
+        _vlayout.addWidget(_label_text)
+
+        self._listView = QtWidgets.QListView(self)
+        _vlayout.addWidget(self._listView)
+        _model = QtGui.QStandardItemModel(self._listView)
+        self.setWindowTitle(title)
+        for item in self.items.job_names:
+            standard_item = QtGui.QStandardItem(item)
+            _model.appendRow(standard_item)
+        for item in self.items.group_names:
+            _standard_item = QtGui.QStandardItem(item)
+            _model.appendRow(_standard_item)
+        self._listView.setModel(_model)
+
+        if self.send_to_groups:
+            self.combo = QtWidgets.QComboBox(self)
+            self.combo.addItems(sorted(self.dst_groups.keys()))
+            self.layout().addWidget(self.combo)
+
+        _hlayout = QtWidgets.QHBoxLayout()
+        _hlayout.addWidget(_btn_accept)
+        _hlayout.addWidget(_btn_cancel)
+        _vlayout.addLayout(_hlayout)
+
+        _btn_accept.clicked.connect(self._move_items)
+        _btn_cancel.clicked.connect(self.reject)
+
+    def _move_items(self):
+        if not self.send_to_groups:
+            if self.items.job_ids:
+                jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
+                self.event_item.rpcObject.asGroup().reparentJobs(jobs)
+
+            if self.items.group_ids:
+                self.event_item.rpcObject.asGroup().reparentGroupIds(self.items.group_ids)
+            self.parent.updateRequest()
+        else:
+            selected_group = self.combo.currentText()
+            self.dst_groups[str(selected_group)].reparentJobs(self.items.job_ids)
+        self.accept()
