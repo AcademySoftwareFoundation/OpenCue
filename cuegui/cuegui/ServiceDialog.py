@@ -42,8 +42,8 @@ class ServiceForm(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent)
         self.__service = None
 
-        # NOTE: As this value will be passed on later in KB, it's max value in 
-        # *KiloBytes* should not be higher than be Int32(2147483647).
+        # NOTE: As min_gpu value will be passed on later in KB, its max value in
+        # *KiloBytes* should not be higher than Int32(2147483647).
         self.gpu_max_mb = int(2147483647 / 1024)
         self.gpu_min_mb = 0
         self.gpu_tick_mb = 256
