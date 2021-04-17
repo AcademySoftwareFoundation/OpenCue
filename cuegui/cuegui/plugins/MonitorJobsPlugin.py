@@ -45,6 +45,7 @@ PLUGIN_NAME = "Monitor Jobs"
 PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
+REGEX_EMPTY_STRING = re.compile("^$")
 
 
 class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
@@ -173,9 +174,10 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             for job in opencue.api.getJobs(substr=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
         else:
-            # Otherwise, just load current matching jobs
-            for job in opencue.api.getJobs(regex=[substring]):
-                self.jobMonitor.addJob(job)
+            # Otherwise, just load current matching jobs (except for the empty string)
+            if not re.search(REGEX_EMPTY_STRING, substring):
+                for job in opencue.api.getJobs(regex=[substring]):
+                    self.jobMonitor.addJob(job)
 
     def _buttonSetup(self, layout):
         clearButton = QtWidgets.QPushButton("Clr")

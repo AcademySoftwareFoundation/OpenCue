@@ -22,12 +22,6 @@ service DeedInterface {
 
     // Returns the owner for these settings.
     rpc GetOwner(DeedGetOwnerRequest) returns (DeedGetOwnerResponse);
-
-    // Sets a blackout time for the host.
-    rpc SetBlackoutTime(DeedSetBlackoutTimeRequest) returns (DeedSetBlackoutTimeResponse);
-
-    // Enable/Disable blackout time without changing the times.
-    rpc SetBlackoutTimeEnabled(DeedSetBlackoutTimeEnabledRequest) returns (DeedSetBlackoutTimeEnabledResponse);
 }
 
 service HostInterface {
@@ -235,9 +229,6 @@ message Deed {
     string host = 2;
     string owner = 3;
     string show = 4;
-    bool blackout = 5;
-    int32 blackout_start_time = 6;
-    int32 blackout_stop_time = 7;
 }
 
 message DeedSeq {
@@ -439,23 +430,6 @@ message DeedGetOwnerRequest {
 message DeedGetOwnerResponse {
     Owner owner = 1;
 }
-
-// SetBlackoutTimeEnabled
-message DeedSetBlackoutTimeEnabledRequest {
-    Deed deed = 1;
-    bool enabled = 2;
-}
-
-message DeedSetBlackoutTimeEnabledResponse {} // Empty
-
-// SetBlackoutTime
-message DeedSetBlackoutTimeRequest {
-    Deed deed = 1;
-    int32 start_time = 2;
-    int32 stop_time = 3;
-}
-
-message DeedSetBlackoutTimeResponse {} // Empty
 
 // HOST ----
 // AddComment

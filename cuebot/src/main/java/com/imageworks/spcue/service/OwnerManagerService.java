@@ -71,16 +71,6 @@ public class OwnerManagerService implements OwnerManager {
     }
 
     @Override
-    public void setBlackoutTime(DeedEntity deed, int startSeconds, int stopSeconds) {
-        deedDao.setBlackoutTime(deed, startSeconds, stopSeconds);
-    }
-
-    @Override
-    public void setBlackoutTimeEnabled(DeedEntity deed, boolean value) {
-        deedDao.updateBlackoutTimeEnabled(deed, value);
-    }
-
-    @Override
     public DeedEntity takeOwnership(OwnerEntity owner, HostInterface host) {
         if (!hostDao.isNimbyHost(host)) {
             throw new SpcueRuntimeException(

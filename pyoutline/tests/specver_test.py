@@ -32,6 +32,8 @@ import outline.modules.shell
 
 class SpecVersiondTest(unittest.TestCase):
     def _makeSpec(self):
+        # Ensure to reset current
+        outline.Outline.current = None
         ol = outline.Outline(name="spec_version_test")
         layer = outline.modules.shell.Shell("test_layer", command=["/bin/ls"])
         layer.set_arg("timeout", 420)

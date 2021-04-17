@@ -392,6 +392,30 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
+    public void testDeleteDownHosts() {
+        for (int i = 0; i < 3; i++) {
+            String name = TEST_HOST + i;
+            hostDao.insertRenderHost(buildRenderHost(name),
+                    hostManager.getDefaultAllocationDetail(),
+                    false);
+            if (i != 1) {
+                HostEntity host = hostDao.findHostDetail(name);
+                assertEquals(name, host.name);
+                hostDao.updateHostState(host, HardwareState.DOWN);
+            }
+        }
+
+        hostDao.deleteDownHosts();
+
+        for (int i = 0; i < 3; i++) {
+            String name = TEST_HOST + i;
+            assertEquals(hostDao.hostExists(name), i == 1);
+        }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateHostRebootWhenIdle() {
         hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
                 hostManager.getDefaultAllocationDetail(),

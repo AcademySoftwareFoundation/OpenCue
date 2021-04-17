@@ -16,17 +16,22 @@
  */
 
 
+package com.imageworks.spcue.test.servant;
 
-package com.imageworks.spcue;
+import io.grpc.stub.StreamObserver;
 
-public class DeedEntity extends Entity {
+public class FakeStreamObserver<T> implements StreamObserver<T> {
 
-    public String owner;
-    public String host;
-    public String show;
+    @Override
+    public void onNext(T value) {
+    }
 
-    public String getName() {
-        return String.format("%s.%s", owner, host);
+    @Override
+    public void onError(Throwable t) {
+    }
+
+    @Override
+    public void onCompleted() {
     }
 }
 

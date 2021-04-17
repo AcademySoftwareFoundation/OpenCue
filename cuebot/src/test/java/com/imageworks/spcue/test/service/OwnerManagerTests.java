@@ -178,41 +178,6 @@ public class OwnerManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Test
     @Transactional
     @Rollback(true)
-    public void testSetBlackoutTimes() {
-        OwnerEntity o = ownerManager.createOwner("spongebob",
-                adminManager.findShowEntity("pipe"));
-
-        DispatchHost host = createHost();
-        DeedEntity d = ownerManager.takeOwnership(o, host);
-
-        ownerManager.setBlackoutTime(d, 0, 3600);
-
-        assertEquals(0, deedDao.getDeed(d.id).blackoutStart);
-        assertEquals(3600, deedDao.getDeed(d.id).blackoutStop);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testEnableDisableBlackout() {
-        OwnerEntity o = ownerManager.createOwner("spongebob",
-                adminManager.findShowEntity("pipe"));
-
-        DispatchHost host = createHost();
-        DeedEntity d = ownerManager.takeOwnership(o, host);
-
-        ownerManager.setBlackoutTimeEnabled(d, true);
-
-        assertTrue(deedDao.getDeed(d.id).isBlackoutEnabled);
-
-        ownerManager.setBlackoutTimeEnabled(d, false);
-
-        assertFalse(deedDao.getDeed(d.id).isBlackoutEnabled);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testRemoveDeed() {
         OwnerEntity o = ownerManager.createOwner("spongebob",
                 adminManager.findShowEntity("pipe"));

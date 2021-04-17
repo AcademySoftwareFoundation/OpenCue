@@ -30,10 +30,6 @@ import com.imageworks.spcue.grpc.host.DeedGetHostResponse;
 import com.imageworks.spcue.grpc.host.DeedGetOwnerRequest;
 import com.imageworks.spcue.grpc.host.DeedGetOwnerResponse;
 import com.imageworks.spcue.grpc.host.DeedInterfaceGrpc;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeEnabledRequest;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeEnabledResponse;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeRequest;
-import com.imageworks.spcue.grpc.host.DeedSetBlackoutTimeResponse;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.Owner;
 import com.imageworks.spcue.service.OwnerManager;
@@ -65,23 +61,6 @@ public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
         responseObserver.onCompleted();
     }
 
-    @Override
-    public void setBlackoutTime(DeedSetBlackoutTimeRequest request,
-                                StreamObserver<DeedSetBlackoutTimeResponse> responseObserver) {
-        ownerManager.setBlackoutTime(toEntity(request.getDeed()), request.getStartTime(), request.getStopTime());
-        responseObserver.onNext(DeedSetBlackoutTimeResponse.newBuilder().build());
-        responseObserver.onCompleted();
-    }
-
-    @Override
-    public void setBlackoutTimeEnabled(DeedSetBlackoutTimeEnabledRequest request,
-                                StreamObserver<DeedSetBlackoutTimeEnabledResponse> responseObserver) {
-        ownerManager.setBlackoutTimeEnabled(toEntity(request.getDeed()), request.getEnabled());
-        responseObserver.onNext(DeedSetBlackoutTimeEnabledResponse.newBuilder().build());
-        responseObserver.onCompleted();
-    }
-
-
     public OwnerManager getOwnerManager() {
         return ownerManager;
     }
@@ -104,9 +83,6 @@ public class ManageDeed extends DeedInterfaceGrpc.DeedInterfaceImplBase {
         entity.host = deed.getHost();
         entity.owner = deed.getOwner();
         entity.show = deed.getShow();
-        entity.isBlackoutEnabled = deed.getBlackout();
-        entity.blackoutStart = deed.getBlackoutStartTime();
-        entity.blackoutStop = deed.getBlackoutStopTime();
         return entity;
     }
 }

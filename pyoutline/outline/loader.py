@@ -97,7 +97,7 @@ def load_outline(path):
 
 def load_json(json_str):
     """
-    Parse a json repesentation of an outline file.
+    Parse a json representation of an outline file.
 
     :type  json_str: str
     :param json_str: A json string.
@@ -124,6 +124,8 @@ def load_json(json_str):
 
     if "name" in data:
         ol.set_name(data["name"])
+    if "facility" in data:
+        ol.set_facility(data["facility"])
     if "range" in data:
         ol.set_frame_range(data["range"])
 
@@ -296,7 +298,7 @@ class Outline(object):
         self.__args = {}
 
         #
-        # See contsants for the description of outline modes
+        # See constants for the description of outline modes
         #
         self.__mode = outline.constants.OUTLINE_MODE_INIT
 
@@ -307,7 +309,7 @@ class Outline(object):
         self.__layers = []
 
         #
-        # A hash of environement variables that are passed up
+        # A hash of environment variables that are passed up
         # to opencue and then set before each frame is run.
         # These are set "pre" setshot, so they can be used
         # to modify setshot behavior.
@@ -680,17 +682,17 @@ class Outline(object):
 
     def set_env(self, key, value, pre=False):
         """
-        Set an environment variable that is propigated to
+        Set an environment variable that is propagated to
         every frame.
 
         :type  key:  str
-        :param key: Name of environement variable.
+        :param key: Name of environment variable.
 
         :type value: str
         :param value: Value to associate with the name.
 
         :type pre: boolean
-        :param pre: If this value is set to true, the environement
+        :param pre: If this value is set to true, the environment
                     variable is applied pre-setshot.  The default
                     is for the environment variable to be set
                     post set shot.
@@ -712,11 +714,11 @@ class Outline(object):
 
     def get_env(self, key=None):
         """
-        Return the environement hash setup using set_env.
+        Return the environment hash setup using set_env.
 
         :rtype: dict
-        :return: the dictionary of values that will be propigated into
-                 every frame's environement on the cue.
+        :return: the dictionary of values that will be propagated into
+                 every frame's environment on the cue.
         """
         if key:
             return self.__env[key][0]
@@ -749,7 +751,7 @@ class Outline(object):
 
     def get_arg(self, key, default=None):
         """
-        Return the value assoiciated with the given key.  Throw an
+        Return the value associated with the given key.  Throw an
         OutlineException if the key does not exist.  If a default value
         is provided then that value is returned instead of throwing
         an OutlineException.
@@ -789,7 +791,7 @@ class Outline(object):
 
     def get_file(self, name, check=True, new=False):
         """
-        Retrieve the sesion path path to the given file.  The
+        Retrieve the session path path to the given file.  The
         file does not have to exist.
 
         :type name: str

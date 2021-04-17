@@ -118,7 +118,7 @@ def proxy(idOrObject, cls):
 
 def rep(entity):
     """rep(entity)
-    Extracts a string repesentation of a opencue entity"""
+    Extracts a string representation of a opencue entity"""
     try:
         return entity.name
     # pylint: disable=bare-except

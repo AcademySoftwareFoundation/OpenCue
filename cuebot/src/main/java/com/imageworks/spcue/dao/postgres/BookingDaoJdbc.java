@@ -250,61 +250,6 @@ public class BookingDaoJdbc extends
                 Integer.class, host.getHostId()) > 0;
     }
 
-    private static final String IS_BLACKOUT_TIME =
-        "SELECT " +
-            "int_blackout_start,"+
-            "int_blackout_duration " +
-        "FROM " +
-            "host,"+
-            "deed "+
-        "WHERE " +
-            "host.pk_host = deed.pk_host " +
-        "AND " +
-            "deed.b_blackout = true " +
-        "AND " +
-            "host.pk_host = ? ";
-
-    public static final RowMapper<Boolean> BLACKOUT_MAPPER =
-        new RowMapper<Boolean>() {
-        public Boolean mapRow(final ResultSet rs, int rowNum) throws SQLException {
-
-            int startTimeSeconds = rs.getInt("int_backout_start");
-            int stopTimeSeconds = rs.getInt("int_blackout_stop");
-            if (stopTimeSeconds <= startTimeSeconds) {
-                stopTimeSeconds = stopTimeSeconds + 86400;
-            }
-
-            Calendar startTime = Calendar.getInstance();
-            startTime.set(Calendar.HOUR_OF_DAY, 0);
-            startTime.set(Calendar.MINUTE, 0);
-            startTime.set(Calendar.SECOND, 0);
-            startTime.add(Calendar.SECOND, startTimeSeconds);
-
-            Calendar stopTime = Calendar.getInstance();
-            stopTime.set(Calendar.HOUR_OF_DAY, 0);
-            stopTime.set(Calendar.MINUTE, 0);
-            stopTime.set(Calendar.SECOND, 0);
-            stopTime.add(Calendar.SECOND, stopTimeSeconds);
-
-            Calendar now = Calendar.getInstance();
-            if (now.compareTo(startTime) >= 0 && now.compareTo(stopTime) <= 0) {
-                return true;
-            }
-
-            return false;
-        }
-    };
-
-    @Override
-    public boolean isBlackoutTime(HostInterface h) {
-        try {
-            return getJdbcTemplate().queryForObject(IS_BLACKOUT_TIME,
-                    BLACKOUT_MAPPER, h.getHostId());
-        } catch (Exception e) {
-            return false;
-        }
-    }
-
     @Override
     public int getCoreUsageDifference(LocalHostAssignment l, int coreUnits) {
         return getJdbcTemplate().queryForObject(
