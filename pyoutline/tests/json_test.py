@@ -77,6 +77,12 @@ class JsonTest(unittest.TestCase):
             systemMock.assert_has_calls([mock.call(['/bin/ls'], frame=1000)])
             self.assertEqual('LAYER_VALUE', os.environ['LAYER_KEY'])
 
+    def testFacility(self):
+        """Test facility from JSON"""
+        with open(os.path.join(JSON_DIR, 'facility.json')) as fp:
+            ol = outline.load_json(fp.read())
+            self.assertEqual('test_facility', ol.get_facility())
+
 
 if __name__ == '__main__':
     unittest.main()

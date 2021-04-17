@@ -5,7 +5,7 @@ services:
     image: postgres
     environment:
       - POSTGRES_USER=cuebot
-      - POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+      - POSTGRES_PASSWORD=cuebot_password
       - POSTGRES_DB=cuebot
     ports:
       - "5432:5432"
@@ -22,7 +22,7 @@ services:
       - db
     environment:
       - PGUSER=cuebot
-      - PGPASSWORD=$POSTGRES_PASSWORD
+      - PGPASSWORD=cuebot_password
       - PGDATABASE=cuebot
       - PGHOST=db
       - PGPORT=5432
@@ -39,8 +39,8 @@ services:
       - flyway
     restart: always
     environment:
-      - CUE_FRAME_LOG_DIR=$CUE_FRAME_LOG_DIR
-    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=$POSTGRES_PASSWORD
+      - CUE_FRAME_LOG_DIR=/tmp/rqd/logs
+    command: --datasource.cue-data-source.jdbc-url=jdbc:postgresql://db/cuebot --datasource.cue-data-source.username=cuebot --datasource.cue-data-source.password=cuebot_password
 
   rqd:
     image: opencue/rqd
