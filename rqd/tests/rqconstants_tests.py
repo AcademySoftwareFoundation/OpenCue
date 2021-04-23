@@ -128,7 +128,7 @@ DEFAULT_FACILITY =  test_facility
         self.assertEqual(rqd.rqconstants.DEFAULT_FACILITY, "test_facility")
 
         machine = self.makeRqMachine()
-        self.assertEqual(machine.renderHost.facility, "test_facility")
+        self.assertEqual(machine.renderHost.facility, "cloud")
 
     @MockConfig(
         tempdir,
@@ -141,7 +141,6 @@ RQD_TAGS =  test_tag1 test_tag2  test_tag3
         self.assertEqual(rqd.rqconstants.RQD_TAGS, "test_tag1 test_tag2  test_tag3")
 
         machine = self.makeRqMachine()
-        self.assertEqual(machine.renderHost.facility, "cloud")
         self.assertTrue(
             set(["test_tag1", "test_tag2", "test_tag3"]).issubset(
                 machine.renderHost.tags
