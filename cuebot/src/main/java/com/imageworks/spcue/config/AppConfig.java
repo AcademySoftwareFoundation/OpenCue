@@ -40,16 +40,10 @@ import org.springframework.context.annotation.PropertySource;
                  "classpath:conf/spring/applicationContext-grpcServer.xml",
                  "classpath:conf/spring/applicationContext-service.xml",
                  "classpath:conf/spring/applicationContext-jms.xml",
-                 "classpath:conf/spring/applicationContext-trackit.xml",
                  "classpath:conf/spring/applicationContext-criteria.xml"})
 @EnableConfigurationProperties
 @PropertySource({"classpath:opencue.properties"})
 public class AppConfig {
-
-    @Configuration
-    @Conditional(OracleDatabaseCondition.class)
-    @ImportResource({"classpath:conf/spring/applicationContext-dao-oracle.xml"})
-    static class OracleEngineConfig {}
 
     @Configuration
     @Conditional(PostgresDatabaseCondition.class)
@@ -60,12 +54,6 @@ public class AppConfig {
     @Primary
     @ConfigurationProperties(prefix="datasource.cue-data-source")
     public DataSource cueDataSource() {
-        return DataSourceBuilder.create().build();
-    }
-
-    @Bean
-    @ConfigurationProperties(prefix="datasource.trackit-data-source")
-    public DataSource trackitDataSource() {
         return DataSourceBuilder.create().build();
     }
 

@@ -38,7 +38,6 @@ import com.imageworks.spcue.dao.PointDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.DepartmentManager;
-import com.imageworks.spcue.test.AssumingTrackitEnabled;
 
 import static org.junit.Assert.assertTrue;
 
@@ -46,10 +45,6 @@ import static org.junit.Assert.assertTrue;
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
 public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringContextTests  {
-
-    @Autowired
-    @Rule
-    public AssumingTrackitEnabled assumingTrackitEnabled;
 
     @Resource
     DepartmentManager departmentManager;
@@ -78,13 +73,6 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
 
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
-
-        // TODO(bcipriano) Once this test is enabled this assert should be updated to use
-        //  DAO objects instead of querying the db directly.
-        assertTrue(0 < jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
-                "point.pk_dept=? AND point.pk_show=?",
-                Integer.class, dept.getDepartmentId(), show.getShowId()));
     }
 
     @Test
@@ -105,20 +93,7 @@ public class DepartmentManagerTests extends AbstractTransactionalJUnit4SpringCon
         departmentManager.disableTiManaged(rp);
         departmentManager.enableTiManaged(rp, TEST_TI_TASK_NAME, 1000);
 
-        // TODO(bcipriano) Once this test is enabled these asserts should be updated to use
-        //  DAO objects instead of querying the db directly.
-
-        assertTrue(0 < jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
-                "point.pk_dept=? AND point.pk_show=?",
-                Integer.class, dept.getDepartmentId(), show.getShowId()));
-
         departmentManager.updateManagedTasks(rp);
-
-        assertTrue(0 < jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM task,point WHERE point.pk_point = task.pk_point AND " +
-                "point.pk_dept=? AND point.pk_show=?",
-                Integer.class, dept.getDepartmentId(), show.getShowId()));
 
         departmentManager.disableTiManaged(rp);
 
