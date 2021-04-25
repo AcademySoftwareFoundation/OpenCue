@@ -27,6 +27,7 @@ import re
 
 from PySide2 import QtCore
 from PySide2 import QtWidgets
+import six
 
 import opencue
 
@@ -163,22 +164,23 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
             return int(convert(float(val)))
 
         if isinstance(mixed, (float, int)):
-            result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(_convert(mixed))
-        elif isinstance(mixed, str):
+            result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
+                value=_convert(mixed))
+        elif isinstance(mixed, six.string_types):
             if mixed.startswith("gt"):
                 result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
-                    _convert(mixed[2:]))
+                    value=_convert(mixed[2:]))
             elif mixed.startswith("lt"):
                 result = opencue.api.criterion_pb2.LessThanIntegerSearchCriterion(
-                    _convert(mixed[2:]))
+                    value=_convert(mixed[2:]))
             elif mixed.find("-") > -1:
                 min_frame, max_frame = mixed.split("-", 1)
                 result = opencue.api.criterion_pb2.InRangeIntegerSearchCriterion(
-                    _convert(min_frame), _convert(max_frame))
+                    min=_convert(min_frame), max=_convert(max_frame))
             else:
                 try:
                     result = opencue.api.criterion_pb2.GreaterThanIntegerSearchCriterion(
-                        _convert(mixed))
+                        value=_convert(mixed))
                 except ValueError:
                     raise Exception("invalid int search input value: " + str(mixed))
         elif issubclass(mixed.__class__, opencue.api.criterion_pb2.EqualsIntegerSearchCriterion):
@@ -195,15 +197,17 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
             self.close()
 
         procSearch = opencue.search.ProcSearch()
-        procSearch.maxResults = [int(self.__amount.value())]
-        procSearch.jobs = self.__jobs
-        procSearch.allocs = [str(checkedBox.text()) for checkedBox in self.__matrix.checkedBoxes()]
+        procSearch.options['maxResults'] = [int(self.__amount.value())]
+        procSearch.options['jobs'] = self.__jobs
+        procSearch.options['allocs'] = [
+            str(checkedBox.text()) for checkedBox in self.__matrix.checkedBoxes()]
         memoryRange = self.__memoryRangeBox.result()
         if memoryRange:
-            procSearch.memoryRange = self.handleIntCriterion(memoryRange, lambda mb: (mb*1024))
+            procSearch.options['memoryRange'] = self.handleIntCriterion(
+                memoryRange, lambda mb: (mb*1024))
         runtimeRange = self.__runtimeRangeBox.result()
         if runtimeRange:
-            procSearch.durationRange = self.handleIntCriterion(
+            procSearch.options['durationRange'] = self.handleIntCriterion(
                 runtimeRange, lambda rangeMin: (rangeMin*60))
 
         if self.__redirect.isChecked():
@@ -253,7 +257,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
                 group = groups[str(group)]
 
             if job or group:
-                procs = opencue.api.getProcs(procSearch)
+                procs = opencue.api.getProcs(**procSearch.options)
                 kill = self.__kill.isChecked()
                 amount = 0
 
@@ -277,7 +281,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
                 if dialog.result():
                     self.close()
             else:
-                procs = opencue.api.getProcs(procSearch)
+                procs = opencue.api.getProcs(**procSearch.options)
                 amount = 0
                 for proc in procs:
                     try:
@@ -400,7 +404,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         self.setWindowTitle("Unbook and kill frames?")
 
         self.__procSearch = procSearch
-        self.__procs = opencue.api.getProcs(procSearch)
+        self.__procs = opencue.api.getProcs(**procSearch.options)
         self.__amount = len(self.__procs)
 
         if self.__amount == 1:
@@ -413,7 +417,7 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         self.__jobList = QtWidgets.QTextEdit(self)
         self.__jobList.setText(
             "\n".join(
-                ["%s %s" % (proc.data.jobName, proc.data.frameName) for proc in self.__procs]))
+                ["%s %s" % (proc.data.job_name, proc.data.frame_name) for proc in self.__procs]))
         self.__jobList.setReadOnly(True)
         self.__jobList.setSizePolicy(
             QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum))

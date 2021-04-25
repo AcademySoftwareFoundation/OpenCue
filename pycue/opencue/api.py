@@ -742,7 +742,7 @@ def getProcs(**options):
          - "lt5" is less than 5 hours
          - "5-10" is range of 5 to 10 hours
 
-    :rtype:  list
+    :rtype:  list[opencue.wrapper.proc.Proc]
     :return: a list of Proc objects"""
     procSeq = search.ProcSearch.byOptions(**options).procs
     return [Proc(p) for p in procSeq.procs]
