@@ -5,8 +5,6 @@ set -e
 python_version=$(python3 -V)
 echo "Will run tests using ${python_version}"
 
-
-
 pip install --user -r requirements.txt -r requirements_gui.txt
 
 # Protos need to have their Python code generated in order for tests to pass.
