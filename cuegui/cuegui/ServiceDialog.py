@@ -42,7 +42,9 @@ class ServiceForm(QtWidgets.QWidget):
         QtWidgets.QWidget.__init__(self, parent)
         self.__service = None
 
-        self.gpu_max_mb = 2 * 1024
+        # NOTE: As min_gpu value will be passed on later in KB, its max value in
+        # *KiloBytes* should not be higher than Int32(2147483647).
+        self.gpu_max_mb = int(2147483647 / 1024)
         self.gpu_min_mb = 0
         self.gpu_tick_mb = 256
 
@@ -61,7 +63,7 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_memory.setValue(3276)
         self.min_gpu = QtWidgets.QSpinBox(self)
         self.min_gpu.setRange(self.gpu_min_mb, self.gpu_max_mb)
-        self.min_gpu.setValue(0)
+        self.min_gpu.setValue(self.gpu_min_mb)
         self.min_gpu.setSingleStep(self.gpu_tick_mb)
         self.min_gpu.setSuffix(" MB")
         self.timeout = QtWidgets.QSpinBox(self)
@@ -139,7 +141,7 @@ class ServiceForm(QtWidgets.QWidget):
         self.min_cores.setValue(100)
         self.max_cores.setValue(100)
         self.min_memory.setValue(3276)
-        self.min_gpu.setValue(0)
+        self.min_gpu.setValue(self.gpu_min_mb)
         self.timeout.setValue(0)
         self.timeout_llu.setValue(0)
         self._tags_w.set_tags(['general'])
