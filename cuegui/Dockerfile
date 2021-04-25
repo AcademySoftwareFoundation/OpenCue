@@ -26,10 +26,8 @@ RUN yum -y install \
   python36-devel \
   python36-pip
 
-RUN python -m pip install --upgrade 'pip<21'
 RUN python3.6 -m pip install --upgrade pip
 
-RUN python -m pip install --upgrade 'setuptools<45'
 RUN python3.6 -m pip install --upgrade setuptools
 
 RUN dbus-uuidgen > /etc/machine-id
@@ -38,7 +36,6 @@ COPY LICENSE ./
 COPY requirements.txt ./
 COPY requirements_gui.txt ./
 
-RUN python -m pip install -r requirements.txt -r requirements_gui.txt
 RUN python3.6 -m pip install -r requirements.txt -r requirements_gui.txt
 
 COPY proto/ ./proto
@@ -47,7 +44,7 @@ COPY pycue/setup.py ./pycue/
 COPY pycue/FileSequence ./pycue/FileSequence
 COPY pycue/opencue ./pycue/opencue
 
-RUN python -m grpc_tools.protoc \
+RUN python3.6 -m grpc_tools.protoc \
   -I=./proto \
   --python_out=./pycue/opencue/compiled_proto \
   --grpc_python_out=./pycue/opencue/compiled_proto \
@@ -65,13 +62,7 @@ COPY cuegui/cuegui ./cuegui/cuegui
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-RUN cd pycue && python setup.py install
-
 RUN cd pycue && python3.6 setup.py install
-
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
-RUN cd cuegui && xvfb-run -d python setup.py test
 
 RUN cd cuegui && xvfb-run -d python3.6 setup.py test
 

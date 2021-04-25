@@ -2,6 +2,11 @@
 
 set -e
 
+python_version=$(python3 -V)
+echo "Will run tests using ${python_version}"
+
+
+
 pip install --user -r requirements.txt -r requirements_gui.txt
 
 # Protos need to have their Python code generated in order for tests to pass.
@@ -16,9 +21,13 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 python pycue/setup.py test
 PYTHONPATH=pycue python pyoutline/setup.py test
 PYTHONPATH=pycue python cueadmin/setup.py test
-PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 PYTHONPATH=pycue:pyoutline python cuesubmit/setup.py test
 python rqd/setup.py test
+
+# Xvfb no longer supports Python 2.
+if [[ "$python_version" =~ "Python 3" ]]; then
+  PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
+fi
 
 # Some environments don't have pylint available, for ones that do they should pass this flag.
 if [[ "$1" == "--lint" ]]; then
