@@ -240,7 +240,7 @@ public class ManageAllocation extends AllocationInterfaceGrpc.AllocationInterfac
     public void setDefault(
             AllocSetDefaultRequest request,
             StreamObserver<AllocSetDefaultResponse> responseObserver) {
-        AllocationEntity alloc = adminManager.findAllocationDetail(
+        AllocationEntity alloc = findAllocationDetail(
                 request.getAllocation().getFacility(), request.getAllocation().getName());
         adminManager.setDefaultAllocation(alloc);
         responseObserver.onNext(AllocSetDefaultResponse.newBuilder().build());

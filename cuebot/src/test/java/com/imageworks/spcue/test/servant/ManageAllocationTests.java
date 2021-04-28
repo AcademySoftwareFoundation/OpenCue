@@ -30,6 +30,7 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -37,6 +38,8 @@ import com.imageworks.spcue.grpc.facility.AllocCreateRequest;
 import com.imageworks.spcue.grpc.facility.AllocCreateResponse;
 import com.imageworks.spcue.grpc.facility.AllocDeleteRequest;
 import com.imageworks.spcue.grpc.facility.AllocDeleteResponse;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultRequest;
+import com.imageworks.spcue.grpc.facility.AllocSetDefaultResponse;
 import com.imageworks.spcue.grpc.facility.Allocation;
 import com.imageworks.spcue.grpc.facility.Facility;
 import com.imageworks.spcue.servant.ManageAllocation;
@@ -121,6 +124,30 @@ public class ManageAllocationTests extends AbstractTransactionalJUnit4SpringCont
             assertEquals(e.getMessage(),
                     "Incorrect result size: expected 1, actual 0");
         }
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSetDefault() {
+        AllocationEntity alloc = allocationDao.getDefaultAllocationEntity();
+        assertEquals(alloc.getName(), "lax.unassigned");
+
+        Allocation allocation = Allocation.newBuilder()
+                .setName("spi.general")
+                .setTag("general")
+                .setFacility("spi")
+                .build();
+        AllocSetDefaultRequest request = AllocSetDefaultRequest.newBuilder()
+                .setAllocation(allocation)
+                .build();
+
+        FakeStreamObserver<AllocSetDefaultResponse> observer =
+                new FakeStreamObserver<AllocSetDefaultResponse>();
+        manageAllocation.setDefault(request, observer);
+
+        alloc = allocationDao.getDefaultAllocationEntity();
+        assertEquals(alloc.getName(), "spi.general");
     }
 }
 
