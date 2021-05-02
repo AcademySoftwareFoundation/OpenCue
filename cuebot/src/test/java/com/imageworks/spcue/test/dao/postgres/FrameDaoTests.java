@@ -148,15 +148,6 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void testCheckRetries() {
-        JobDetail job = launchJob();
-        frameDao.checkRetries(frameDao.findFrame(job,"0001-pass_1"));
-        // TODO: check to see if it actually works
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
     public void testGetFrameDetail() {
         JobDetail job = launchJob();
         FrameInterface f = frameDao.findFrame(job, "0001-pass_1");

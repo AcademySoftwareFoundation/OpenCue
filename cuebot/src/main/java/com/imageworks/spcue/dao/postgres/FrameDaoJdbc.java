@@ -647,21 +647,6 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 FRAME_MAPPER, name, job.getJobId());
     }
 
-    @Override
-    public void checkRetries(FrameInterface frame) {
-        int max_retries = getJdbcTemplate().queryForObject(
-                "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class,
-                frame.getJobId());
-
-        if (getJdbcTemplate().queryForObject(
-                "SELECT int_retries FROM frame WHERE pk_frame=?", Integer.class,
-                frame.getFrameId()) >= max_retries) {
-            getJdbcTemplate().update(
-                    "UPDATE frame SET str_state=? WHERE pk_frame=?",
-                    FrameState.DEAD.toString(), frame.getFrameId());
-        }
-    }
-
     private static final String UPDATE_FRAME_STATE =
         "UPDATE " +
             "frame "+
