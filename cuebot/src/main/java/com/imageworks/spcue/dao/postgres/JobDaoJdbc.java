@@ -110,7 +110,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 JobDetail job = new JobDetail();
                 job.id = rs.getString("pk_job");
                 job.showId = rs.getString("pk_show");
-                job.facilityId = rs.getString("pk_show");
+                job.facilityId = rs.getString("pk_facility");
                 job.deptId = rs.getString("pk_dept");
                 job.groupId = rs.getString("pk_folder");
                 job.logDir = rs.getString("str_log_dir");
