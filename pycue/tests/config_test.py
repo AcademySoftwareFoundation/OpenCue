@@ -19,6 +19,7 @@
 import os
 import unittest
 
+import mock
 import pyfakefs.fake_filesystem_unittest
 
 import opencue.config
@@ -63,6 +64,18 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         os.unsetenv('OPENCUE_CONFIG_FILE')
         os.unsetenv('OPENCUE_CONF')
 
+    @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
+    @mock.patch('os.path.expanduser', new=mock.Mock(return_value='/home/username'))
+    def test__should_return_config_dir_unix(self):
+        self.assertEqual('/home/username/.config/opencue', opencue.config.config_base_directory())
+
+    @mock.patch('platform.system', new=mock.Mock(return_value='Windows'))
+    @mock.patch(
+        'os.path.expandvars', new=mock.Mock(return_value='C:/Users/username/AppData/Roaming'))
+    def test__should_return_config_dir_windows(self):
+        self.assertEqual(
+            'C:/Users/username/AppData/Roaming/opencue', opencue.config.config_base_directory())
+
     def test__should_load_default_config(self):
         self.assertIsNone(os.environ.get('OPENCUE_CONFIG_FILE'))
         self.assertIsNone(os.environ.get('OPENCUE_CONF'))
@@ -96,6 +109,23 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         config_file_path = '/path/to/config.yaml'
         self.fs.create_file(config_file_path, contents=USER_CONFIG)
         os.environ['OPENCUE_CONF'] = config_file_path
+
+        config = opencue.config.load_config_from_file()
+
+        self.assertEqual('fake-facility-01', config['cuebot.facility_default'])
+        self.assertEqual(['fake-cuebot-01:1234'], config['cuebot.facility']['fake-facility-01'])
+        self.assertEqual(
+            ['fake-cuebot-02:5678', 'fake-cuebot-03:9012'],
+            config['cuebot.facility']['fake-facility-02'])
+        # Settings not defined in user config should still have default values.
+        self.assertEqual(10000, config['cuebot.timeout'])
+        self.assertEqual(3, config['cuebot.exception_retries'])
+
+    @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
+    @mock.patch('os.path.expanduser', new=mock.Mock(return_value='/home/username'))
+    def test__should_load_user_config_from_user_profile(self):
+        config_file_path = '/home/username/.config/opencue/opencue.yaml'
+        self.fs.create_file(config_file_path, contents=USER_CONFIG)
 
         config = opencue.config.load_config_from_file()
 
