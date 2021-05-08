@@ -35,6 +35,20 @@ __CONFIG_FILE_ENV_VARS = [
 
 
 def config_base_directory():
+    """Returns the OpenCue config base directory.
+
+    This platform-dependent directory, stored within your user profile, is used by
+    OpenCue components as the default location for various configuration files. Typically
+    if you store your config files in this location, there is no need to set environment
+    variables to indicate where your config files are located -- OpenCue should recognize
+    them automatically.
+
+    NOTE: This work is ongoing. Over time more OpenCue components will start using this
+    base directory. See https://github.com/AcademySoftwareFoundation/OpenCue/issues/785.
+
+    :rtype: str
+    :return: config file base directory
+    """
     if platform.system() == 'Windows':
         return os.path.join(os.path.expandvars('%APPDATA%'), 'opencue')
     return os.path.join(os.path.expanduser('~'), '.config', 'opencue')
@@ -47,10 +61,10 @@ def load_config_from_file():
     User-provided config is then read from disk, in order of preference:
     - Path defined by the OPENCUE_CONFIG_FILE environment variable.
     - Path defined by the OPENCUE_CONF environment variable.
-    - Path within the config base directory (i.e. ~/.config/opencue)
+    - Path within the config base directory (i.e. ~/.config/opencue/opencue.yaml)
 
-    :rtype dict
-    :return config settings
+    :rtype: dict
+    :return: config settings
     """
     with open(__DEFAULT_CONFIG_FILE) as file_object:
         config = yaml.load(file_object, Loader=yaml.SafeLoader)

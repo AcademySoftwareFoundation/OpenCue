@@ -167,7 +167,8 @@ class Cuebot(object):
             if ':' in host:
                 connectStr = host
             else:
-                connectStr = '%s:%s' % (host, Cuebot.Config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
+                connectStr = '%s:%s' % (
+                    host, Cuebot.Config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
             logger.debug('connecting to gRPC at %s', connectStr)
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
