@@ -649,35 +649,40 @@ class StuckFrameWidget(QtWidgets.QWidget):
         return self.controls
 
 class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
-    def __init__(self, parent):
 
+    _updateProgress = QtCore.Signal(int)
+    _updateProgressMax = QtCore.Signal(int)
+    _itemSingleClickedComment = QtCore.Signal(QtWidgets.QTreeWidgetItem, int)
+
+    def __init__(self, parent):
+        self.parent = parent
         self.startColumnsForType(cuegui.Constants.TYPE_FRAME)
         self.addColumn("Name", 300, id=1,
-                       data=lambda item:(item.data.jobName or ""),
+                       data=lambda item:(item.data.name or ""),
                        tip="The job name.")
         self.addColumn("_Comment", 20, id=2,
                        tip="A comment icon will appear if a job has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("Frame", 40, id=3,
-                       data=lambda item:(item.data.number or ""),
+                       data=lambda item:(item.number or ""),
                        tip="Frame number")
         self.addColumn("Host", 120, id=4,
-                       data=lambda item:(item.data.lastResource or ""),
+                       data=lambda item:(item.lastResource or ""),
                        tip="Host the frame is currently running on")
         self.addColumn("LLU", 60, id=5,
-                       data=lambda item:(self.numFormat(item.data.lastLogUpdate, "t") or ""),
+                       data=lambda item:(self.numFormat(item.lastLogUpdate, "t") or ""),
                        tip="Last Log Update")
         self.addColumn("Runtime", 60, id=6,
-                       data=lambda item:(self.numFormat(item.data.timeRunning, "t") or ""),
+                       data=lambda item:(self.numFormat(item.timeRunning, "t") or ""),
                        tip="Length the Frame has been running")
         self.addColumn("% Stuck", 50, id=7,
-                       data=lambda item:(self.numFormat(item.data.stuckness, "f") or ""),
+                       data=lambda item:(self.numFormat(item.stuckness, "f") or ""),
                        tip="Percent of frame's total runtime that the log has not been updated")
         self.addColumn("Average", 60, id=8,
-                       data=lambda item:(self.numFormat(item.data.averageFrameTime, "t") or ""),
+                       data=lambda item:(self.numFormat(item.averageFrameTime, "t") or ""),
                        tip="Average time for a frame of this type to complete")
         self.addColumn("Last Line", 250, id=9,
-                       data=lambda item:(cuegui.Utils.getLastLine(item.data.logPath) or ""),
+                       data=lambda item:(cuegui.Utils.getLastLine(item.log_path) or ""),
                        tip="The last line of a running frame's log file.")
 
         self.startColumnsForType(cuegui.Constants.TYPE_GROUP)
@@ -693,7 +698,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("", 0, id=9)
 
 
-        self.parent = cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
         self.procSearch = opencue.search.ProcSearch()
 
         # Used to build right click context menus
@@ -707,23 +712,15 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.groups_created = {}
         self.currentHosts = []
 
-        # Bring Up a Job if you click on it
-        self.connect(QtGui.qApp,
-                        QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                        self.__itemSingleClicked)
         # Bring Up a comment if it exists
-        self.connect(QtGui.qApp,
-                        QtCore.SIGNAL('itemClicked(QTreeWidgetItem*,int)'),
-                        self.__itemSingleClickedComment)
+        self._itemSingleClickedComment.connect(self.__itemSingleClickedComment)
         # Set progress bar current value
-        self.connect(QtGui.qApp, QtCore.SIGNAL('updatedProgress()'), 
-                        self.updateProgress)
+        self._updateProgress.connect(self.updateProgress)
 
         # Set total number of procs for the progress bar max
-        self.connect(QtGui.qApp, QtCore.SIGNAL('updatedProgressMax()'), 
-                        self.updateProgressMax)
+        self._updateProgressMax.connect(self.updateProgressMax)
 
-        # Don't use the standard space bar to refresh
+        # Don't use the standard space bar to refres
         self.disconnect(QtGui.qApp,
                             QtCore.SIGNAL('request_update()'),
                             self.updateRequest)
@@ -747,7 +744,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         else:
             logger.warning("threadpool not found, doing work in gui thread")
 
-    def logResult(self, work, iceObjects):
+    def logResult(self, work, rpcObjects):
         self.frames = {}
         return
 
@@ -802,18 +799,18 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: The item clicked on
         @type  col: int
         @param col: The column clicked on"""
-        commentItem = item.iceObject
+        commentItem = item.rpcObject
         if col == COMMENT_COLUMN and cuegui.Utils.isJob(commentItem) and commentItem.data.hasComment:
             self.__menuActions.jobs().viewComments([commentItem])
         self.update()
 
     def updateProgressMax(self, newMax):
         """Send an update to the progress bar of the new maximum value"""
-        self.parent().getControls().getProgress().setMaximum(newMax)
+        self.parent.getControls().getProgress().setMaximum(newMax)
 
     def updateProgress(self, currentValue):
         """Send an update of the current value for the progress bar"""
-        self.parent().getControls().getProgress().setValue(currentValue)
+        self.parent.getControls().getProgress().setValue(currentValue)
 
     def updateSoon(self):
         """Returns immediately. Causes an update to happen
@@ -825,22 +822,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Returns the current job
         @return: The current job
         @rtype:  job"""
-        return cuegui.Utils.findJob(self.selectedObjects()[0].data.fullJobName)
-
-    def __itemSingleClicked(self, item, col):
-        """Called when an item is clicked on, bringing the job up in CueCommander
-        @type  item: QTreeWidgetItem
-        @param item: The item clicked on
-        @type  col: int
-        @param col: The column clicked on"""
-        try:
-            QtGui.qApp.emit(QtCore.SIGNAL("view_object(PyQt_PyObject)"), self.getJob())
-            selected = [self.selectedObjects()[0].data.fullJobName]
-            if selected:
-                QtGui.QApplication.clipboard().setText(" ".join(selected),
-                                                       QtGui.QClipboard.Selection)
-        except:
-            self.update()
+        return cuegui.Utils.findJob(self.selectedObjects()[0].data.name)
 
     def clearItems(self):
         self.clearSelection()
@@ -855,9 +837,9 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def get_frame_run_time(self, item):
         if cuegui.Utils.isProc(item):
-            start_time = item.data.dispatchTime
+            start_time = item.data.dispatch_time
         elif cuegui.Utils.isFrame(item):
-            start_time = item.data.startTime
+            start_time = item.data.start_time
         else:
             return ""
         current_time = time.time()
@@ -865,8 +847,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return run_time
 
     def get_llu_time(self, item):
-        if cuegui.Utils.isProc(item) or cuegui.Utils.isFrame(item):
-            log_file = item.data.logPath
+
+        if cuegui.Utils.isProc(item):
+            log_file = item.data.log_path
+        elif  cuegui.Utils.isFrame(item):
+            log_file = item.log_path
         else:
             return ""
 
@@ -880,8 +865,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return llu_time
 
     def find_layer(self, proc):
-        jobName = proc.data.jobName
-        layerName = proc.data.frameName.split("-")[1]
+        jobName = proc.data.job_name
+        layerName = proc.data.frame_name.split("-")[1]
         key = "%s/%s" % (jobName, layerName)
 
         if not self.layer_cache.get(key, None):
@@ -900,12 +885,12 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 frame = self.currentHosts[index]
                 nextIndex = nextIndex + 3
 
-                if frame.data.service in self.filters.keys():
-                    self.runtime_filter = self.filters[frame.data.service][4]
-                    self.min_llu_filter = self.filters[frame.data.service][2]
-                    self.time_filter = self.filters[frame.data.service][1]
-                    self.avg_comp_filter = self.filters[frame.data.service][3]
-                    self.excludes = [x.strip() for x in self.filters[frame.data.service][0].split(',') if x != ""]
+                if frame.service in self.filters.keys():
+                    self.runtime_filter = self.filters[frame.service][4]
+                    self.min_llu_filter = self.filters[frame.service][2]
+                    self.time_filter = self.filters[frame.service][1]
+                    self.avg_comp_filter = self.filters[frame.service][3]
+                    self.excludes = [x.strip() for x in self.filters[frame.service][0].split(',') if x != ""]
                 else:
                     if "All (Click + to Add Specific Filter)" in self.filters.keys():
                         key =  "All (Click + to Add Specific Filter)"
@@ -919,19 +904,19 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.avg_comp_filter = self.filters[key][3]
                     self.excludes = [x.strip() for x in self.filters[key][0].split(',') if x != ""]
 
-
-                layerName = frame.data.jobName
+                layerName = frame.data.layer_name
                 frameRunTime = self.get_frame_run_time(frame)
-                jobName = frame.data.fullJobName
+                jobName = frame.data.name
                 lluTime = self.get_llu_time(frame)
-                avgFrameTime = frame.data.averageFrameTime
+                avgFrameTime = frame.averageFrameTime
                 percentStuck = lluTime/frameRunTime
 
-                frame.data.stuckness = percentStuck
-                frame.data.lastLogUpdate = lluTime
-                frame.data.timeRunning = frameRunTime
+                frame.stuckness = percentStuck
+                frame.lastLogUpdate = lluTime
+                frame.timeRunning = frameRunTime
 
-                if (lluTime > ( self.min_llu_filter * 60)) and ( percentStuck*100 > self.time_filter) and (frameRunTime >  (avgFrameTime * self.avg_comp_filter/100) and percentStuck < 1.1 and frameRunTime > 500):
+                if (lluTime > ( self.min_llu_filter * 60)) and ( percentStuck*100 > self.time_filter) and \
+                        (frameRunTime >  (avgFrameTime * self.avg_comp_filter/100) and percentStuck < 1.1 and frameRunTime > 500):
                     currentHostsNew.append(self.currentHosts[index - 2])
                     currentHostsNew.append(self.currentHosts[index - 1])
                     currentHostsNew.append(frame)
@@ -945,18 +930,17 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
-
         try:
             treeItems = []
             procs = []
             self.groups = []
             self.procSearch.hosts = []
             self.procSearch.shows = [self.show]
-            procs = opencue.api.getProcs(self.procSearch)
+            procs = opencue.api.getProcs()
 
             current_prog = 0
             self.emit(QtCore.SIGNAL("updatedProgressMax"), (len(procs)))
-
+            self._updateProgressMax.emit(len(procs))
             for proc in procs:
                 if proc.data.services[0] in self.filters.keys():
                     self.runtime_filter = self.filters[proc.data.services[0]][4]
@@ -978,8 +962,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.excludes = [x.strip() for x in self.filters[key][0].split(',') if x != ""]
 
 
-                jobName = proc.data.jobName
-                (frameNumber, layerName) = proc.data.frameName.split("-")
+                jobName = proc.data.job_name
+                (frameNumber, layerName) = proc.data.frame_name.split("-")
 
                 frameRunTime = self.get_frame_run_time(proc)
                 frameResource = proc.data.name
@@ -992,7 +976,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     avgFrameTime = layer.avgFrameTimeSeconds()
 
                     if frameRunTime >  (avgFrameTime * self.avg_comp_filter/100):
-                        log_path = proc.data.logPath  # Get the log file path for last line
+                        log_path = proc.data.log_path  # Get the log file path for last line
                         lluTime = self.get_llu_time(proc)
                         if lluTime == "None": continue    # Skip processing if there was any error with reading the log file(path did not exist,permissions)
 
@@ -1011,50 +995,54 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                 if please_exclude == True:
                                     continue
 
-                                frame = opencue.api.findFrame(jobName, layerName, int(frameNumber))
-                                frame.data.jobName = layerName
-                                frame.data.fullJobName = jobName
-                                frame.data.logPath = proc.data.logPath
-                                frame.data.lastLogUpdate = lluTime
-                                frame.data.averageFrameTime = avgFrameTime
-                                frame.data.stuckness = percentStuck
-                                frame.data.timeRunning = frameRunTime
-                                frame.data.service = proc.data.services[0]
+                                # Job may have finished/killed put in a try
+                                # Injecting into rpcObjects extra data not available via client API
+                                # to support cue3 iceObject backwards capability
+                                try:
+                                    frame = opencue.api.findFrame(jobName, layerName, int(frameNumber))
+                                    frame.data.layer_name = layerName
+                                    frame.__dict__['job_name'] = jobName
+                                    frame.__dict__['log_path'] = proc.data.log_path
+                                    frame.__dict__['number'] = frame.data.number
+                                    frame.__dict__['lastLogUpdate'] = lluTime
+                                    frame.__dict__['averageFrameTime'] = avgFrameTime
+                                    frame.__dict__['stuckness'] = percentStuck
+                                    frame.__dict__['timeRunning'] = frameRunTime
+                                    frame.__dict__['lastResource'] = frame.data.last_resource
+                                    frame.__dict__['service'] = proc.data.services[0]
 
-                                job = cuegui.Utils.findJob(jobName)
-                                job.data.logPath = ""
-                                job.data.lastLogUpdate = ""
-                                job.data.averageFrameTime = ""
-                                job.data.number = ""
-                                job.data.layerName = ""
-                                job.data.jobName = jobName
-                                job.data.stuckness = ""
-                                job.data.timeRunning = ""
-                                job.data.logPath = ""
-                                job.data.lastResource = ""
-                                job.data.fullJobName = jobName
-                                job.data.hostUsage = ""
-                                job.data.service = proc.data.services[0]
+                                    job = opencue.api.findJob(jobName)
+                                    job.__dict__['log_path'] = job.data.log_dir
+                                    job.__dict__['lastLogUpdate'] = ""
+                                    job.__dict__['averageFrameTime'] = ""
+                                    job.__dict__['number'] = ""
+                                    job.__dict__['stuckness'] = ""
+                                    job.__dict__['timeRunning'] = ""
+                                    job.__dict__['lastResource'] = ""
+                                    job.__dict__['hostUsage'] = ""
+                                    job.__dict__['service'] = proc.data.services[0]
+                                    if self.show == job.data.show:
+                                        group = opencue.api.findGroup(self.show, job.data.group)
 
-                                group = opencue.api.findGroup(self.show, job.data.group)
-                                group.data.fullJobName = "A Group"
-
-                                treeItems.append(group)
-                                treeItems.append(job)
-                                treeItems.append(frame)
+                                        treeItems.append(group)
+                                        treeItems.append(job)
+                                        treeItems.append(frame)
+                                except Exception as e:
+                                    # Can safely ignore if a Job has already completed
+                                    pass
 
                 current_prog = current_prog + 1
-                self.emit(QtCore.SIGNAL("updatedProgress"), (current_prog))
+                self._updateProgress.emit(current_prog)
 
-            self.emit(QtCore.SIGNAL("updatedProgress"), (len(procs)))
+            self._updateProgress.emit(len(procs))
             self.currentHosts[:]=[]
             self.currentHosts = treeItems
-
 
             self.confirm(0)
 
             return self.currentHosts
         except Exception, e:
+            print(cuegui.Utils.exceptionOutput(e))
             map(logger.warning, cuegui.Utils.exceptionOutput(e))
             return []
 
@@ -1074,11 +1062,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             return groupWidget
         elif cuegui.Utils.isJob(object):
             jobWidget = HostWidgetItem(object,  self.groups_created[object.data.group])
-            self.jobs_created[object.data.jobName] = jobWidget # Store parents created
+            self.jobs_created[object.data.name] = jobWidget # Store parents created
             jobWidget.setExpanded(True)
             return jobWidget
         elif cuegui.Utils.isFrame(object):
-            frameWidget = HostWidgetItem(object, self.jobs_created[object.data.fullJobName]) # Find the Job to serve as its parent
+            frameWidget = HostWidgetItem(object, self.jobs_created[object.job_name]) # Find the Job to serve as its parent
             return frameWidget
 
 
@@ -1102,9 +1090,9 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             elif cuegui.Utils.isGroup(item):
                 isGroup = True
             if not jobName:
-                jobName = item.data.fullJobName
+                jobName = item.data.name
             else:
-                if item.data.fullJobName != jobName:
+                if item.data.name != jobName:
                     sameJob = False
 
         if isJob and not isFrame and sameJob:
@@ -1126,7 +1114,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__menuActions.frames().addAction(menu, "view")
 
             if count == 1:
-                if self.selectedObjects()[0].data.retryCount >= 1:
+                if self.selectedObjects()[0].data.retry_count >= 1:
                     self.__menuActions.frames().addAction(menu, "viewLastLog")
 
             if count >= 3:
@@ -1173,28 +1161,25 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """A generic function that Will:
         Create new TreeWidgetItems if an item does not exist for the object.
         Update existing TreeWidgetItems if an item already exists for the object.
-        Remove items that were not updated with iceObjects.
+        Remove items that were not updated with rpcObjects.
         @param work:
         @type  work: from ThreadPool
-        @param iceObjects: A list of ice objects
-        @type  iceObjects: list<ice object> """
+        @param rpcObjects: A list of ice objects
+        @type  rpcObjects: list<ice object> """
         self._itemsLock.lockForWrite()
         try:
             updated = []
-            for rpcObject in iceObjects:
-                updated.append(iceObject)
-
+            for rpcObject in rpcObjects:
+                updated.append(cuegui.Utils.getObjectKey(rpcObject)) #rpcObject)
                 # If id already exists, update it
                 if self._items.has_key(cuegui.Utils.getObjectKey(rpcObject)):
-                    self._items[cuegui.Utils.getObjectKey(rpcObject)].update(icerpcObjectObject)
+                    self._items[cuegui.Utils.getObjectKey(rpcObject)].update(rpcObject)
                 # If id does not exist, create it
                 else:
                     self._items[cuegui.Utils.getObjectKey(rpcObject)] = self._createItem(rpcObject)
-
             # Remove any items that were not updated
             for rpcObject in list(set(self._items.keys()) - set(updated)):
                 self._removeItem(rpcObject)
-
             self.redraw()
         finally:
             self._itemsLock.unlock()
@@ -1207,7 +1192,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         job = self.selectedObjects()[0]
 
-        command = ' xhost ' + job.data.lastResource.split('/')[0] + '; rsh ' + job.data.lastResource.split('/')[0] + ' \"setenv DISPLAY '+str(socket.gethostname()).split('.')[0]+':0; xterm -e top\" &'
+        command = ' xhost ' + job.lastResource.split('/')[0] + '; rsh ' + job.lastResource.split('/')[0] + ' \"setenv DISPLAY '+str(socket.gethostname()).split('.')[0]+':0; xterm -e top\" &'
         os.system(command)
         signal.alarm(0)
 
@@ -1294,24 +1279,24 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def log(self):
         self.ticksSinceLogFlush = 0
-        currentJob = self.selectedObjects()[0].data.fullJobName
+        currentJob = self.selectedObjects()[0].data.name
         framesForJob = {}
         for frame in self.selectedObjects():
             frameData = {}
-            frameData['layer'] = frame.data.jobName
-            frameData['host'] = frame.data.lastResource
+            frameData['layer'] = frame.job_name
+            frameData['host'] = frame.lastResource
             frameData['llu'] = self.get_llu_time(frame)
             frameData['runtime'] = self.get_frame_run_time(frame)
-            frameData['average'] = frame.data.averageFrameTime
-            frameData['log'] = cuegui.Utils.getLastLine(frame.data.logPath)
+            frameData['average'] = frame.averageFrameTime
+            frameData['log'] = cuegui.Utils.getLastLine(frame.log_path)
             framesForJob[str(frame.data.number)+'-'+str(time.time())] = frameData
 
         self.frames[currentJob] = framesForJob
 
     def AddJobToExcludes(self):
         currentJob = self.selectedObjects()[0]
-        currentJobName = currentJob.data.fullJobName
-        currentJobService = currentJob.data.service
+        currentJobName = currentJob.data.name
+        currentJobService = currentJob.service
         filters = self.parent().getControls().getFilters()
 
         key = ""
@@ -1345,7 +1330,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.RemoveJob()
 
     def RemoveJob(self):
-        jobName = self.selectedObjects()[0].data.fullJobName
+        jobName = self.selectedObjects()[0].data.name
         currentHostsNew = []
         nextIndex = 2
         for index in range(len(self.currentHosts)):
@@ -1353,7 +1338,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                 nextIndex = nextIndex + 3
 
-                if self.currentHosts[index].data.fullJobName != jobName:
+                if self.currentHosts[index].data.name != jobName:
                     currentHostsNew.append(self.currentHosts[index - 2])
                     currentHostsNew.append(self.currentHosts[index - 1])
                     currentHostsNew.append(self.currentHosts[index])
@@ -1382,13 +1367,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  item: AbstractTreeWidgetItem or String
         @param item: A tree widget item or the string with the id of the item"""
 
-        if hasattr(item, "ice_getEndpoints"):
-            if self._items.has_key(item):
-                item = self._items[item]
-            else:
-                # if the parent was already deleted, then this one was too
-                return
-
+        if item in self._items:
+            item = self._items[item]
+        elif not isinstance(item, cuegui.AbstractWidgetItem.AbstractWidgetItem):
+            # if the parent was already deleted, then this one was too
+            return
 
         # If it has children, they must be deleted first
         if item.childCount() > 0:
@@ -1399,11 +1382,17 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             item.setSelected(False)
 
         if item.parent():
-            #This allowed more segfaults
-            item.parent().removeChild(item)
-            #self.invisibleRootItem().removeChild(item)
+            self.invisibleRootItem().removeChild(item)
         self.takeTopLevelItem(self.indexOfTopLevelItem(item))
-        del self._items[cuegui.Utils.getObjectKey(rpcObject)]
+        objectClass = item.rpcObject.__class__.__name__
+        objectId = item.rpcObject.id()
+        try:
+            del self._items['{}.{}'.format(objectClass, objectId)]
+        except KeyError:
+            # Dependent jobs are not stored in as keys the main self._items
+            # dictionary, trying to remove dependent jobs from self._items
+            # raises a KeyError, which we can safely ignore
+            pass
 
     def finalize(self, frames):
 
@@ -1442,20 +1431,19 @@ class CommentWidget (QtWidgets.QWidget):
         def getMessage(self):
             return str(self.__textMessage.toPlainText())
 
-class GroupWidgetItem(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
     __initialized = False
-    def __init__(self, object, parent):
+    def __init__(self, rpcObject, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__icon = QtCore.QVariant(QtGui.QIcon(":group.png"))
-            self.__class__.__foregroundColor = \
-                QtCore.QVariant(cuegui.Style.ColorTheme.COLOR_GROUP_FOREGROUND)
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(cuegui.Style.ColorTheme.COLOR_GROUP_BACKGROUND)
-            self.__class__.__type = QtCore.QVariant(cuegui.Constants.TYPE_GROUP)
+            self.__class__.__icon = QtGui.QIcon(":group.png")
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_FOREGROUND
+            self.__class__.__backgroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_BACKGROUND
+            self.__class__.__type = cuegui.Constants.TYPE_GROUP
 
-        cuegui.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_GROUP, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
+            self, cuegui.Constants.TYPE_GROUP, rpcObject, parent)
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role
@@ -1466,7 +1454,7 @@ class GroupWidgetItem(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @rtype:  QtCore.QVariant
         @return: The desired data wrapped in a QVariant"""
         if role == QtCore.Qt.DisplayRole:
-            return QtCore.QVariant(self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
@@ -1517,25 +1505,23 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
-            self.__class__.__commentIcon = QtCore.QVariant(QtGui.QIcon(":comment.png"))
-            self.__class__.__backgroundColor = \
-                QtCore.QVariant(QtGui.qApp.palette().color(QtGui.QPalette.Base))
-            self.__class__.__foregroundColor = \
-                QtCore.QVariant(cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND)
+            self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
+            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_FRAME, object, parent)
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
             if not self._cache.has_key(col):
-                self._cache[col] = QtCore.QVariant(self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.iceObject))
+                self._cache[col] = self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
             return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
         elif role == QtCore.Qt.DecorationRole:
-            if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.iceObject)  and self.iceObject.data.hasComment:
+            #todo: get rpcOject comment!!
+            if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.rpcObject) : # and self.rpcObject.hasComment:
                 return self.__commentIcon
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
-
         return cuegui.Constants.QVARIANT_NULL
 
 
@@ -1612,7 +1598,7 @@ class CoreUpWindow(QtWidgets.QDialog):
             self.listWidget.selectAll()
 
     def selectedLayers(self):
-        """Return a list of selected layer IceObjects."""
+        """Return a list of selected layer rpcObjects."""
         indexs = map(lambda x: str(x.text()), self.listWidget.selectedItems())
         return [self._layers[index] for index in indexs]
 
@@ -1701,7 +1687,7 @@ class DJArnold(object):
                 fs.states = [opencue.search.FrameState(2)]
                 frames = layer.getFrames(fs)
             for frame in frames:
-                frame_cores = float(frame.data.lastResource.split('/')[1])
+                frame_cores = float(frame.lastResource.split('/')[1])
                 if frame_cores != cores:
                     if frame_cores not in cores_list:
                         built_frames.append((frame, frame_cores))
