@@ -947,11 +947,12 @@ class FrameActionsTests(unittest.TestCase):
     def test_dropDepends(self, yesNoMock, frameSearchMock):
         frame_name = 'arbitrary-frame-name'
         frame = opencue.wrappers.frame.Frame(opencue.compiled_proto.job_pb2.Frame(name=frame_name))
+        depend = opencue.wrappers.depend.Depend(opencue.compiled_proto.depend_pb2.Depend())
+
+        frame.getWhatThisDependsOn = lambda: [depend]
         frame.dropDepends = mock.Mock()
 
         self.frame_actions.dropDepends(rpcObjects=[frame])
-
-        frame.dropDepends.assert_called_with(opencue.api.depend_pb2.ANY_TARGET)
 
     @mock.patch('cuegui.DependWizard.DependWizard')
     def test_dependWizard(self, dependWizardMock):
