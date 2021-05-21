@@ -699,7 +699,6 @@ class LogViewWidget(QtWidgets.QWidget):
                                                 QtGui.QTextCursor.KeepAnchor,
                                                 match[-1])
             self._highlight_cursor.setCharFormat(self._format)
-            self._matches_to_highlight.discard(match)
 
     def _clear_search_text(self):
         """
@@ -721,19 +720,27 @@ class LogViewWidget(QtWidgets.QWidget):
                         are also removed.
         """
 
+        if not self._log_file:
+            return
+
+        # find matched text to "unhighlight" red by resetting the char format
+        highlight = self._matches[max(self._current_match - 300, 0):
+                                  min(self._current_match + 300, len(self._matches))]
+        matches = list(set(highlight).intersection(self._matches_to_highlight))
+
+        for match in matches:
+            self._highlight_cursor.setPosition(match[0])
+            self._highlight_cursor.movePosition(QtGui.QTextCursor.Right,
+                                                QtGui.QTextCursor.KeepAnchor,
+                                                match[-1])
+            self._highlight_cursor.setCharFormat(QtGui.QTextCharFormat())
+            self._highlight_cursor.clearSelection()
+
+        # reset text matches
         self._matches = []
         self._matches_to_highlight = set()
         self._search_timestamp = 0
         self._matches_label.setText('')
-        if not self._log_file:
-            return
-
-        charFormat = QtGui.QTextCharFormat()
-        self._highlight_cursor.setPosition(QtGui.QTextCursor.Start)
-        self._highlight_cursor.movePosition(
-            QtGui.QTextCursor.End, mode=QtGui.QTextCursor.KeepAnchor)
-        self._highlight_cursor.setCharFormat(charFormat)
-        self._highlight_cursor.clearSelection()
 
     def _set_scrollbar_value(self, val):
         """
