@@ -109,6 +109,8 @@ class CommentListDialog(QtWidgets.QDialog):
     def __textEdited(self, text=None):
         """Called when the text boxes are modified, enables the save button"""
         del text
+        self.__textSubject.setReadOnly(False)
+        self.__textMessage.setReadOnly(False)
         self.__btnSave.setEnabled(True)
 
     def __close(self):
