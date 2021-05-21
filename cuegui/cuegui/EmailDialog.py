@@ -281,7 +281,7 @@ class EmailWidget(QtWidgets.QWidget):
 
     def email_body(self):
         """Get the email body text."""
-        return "%s" % self.__email_body.toPlainText().toAscii()
+        return "%s" % self.__email_body.toPlainText()
 
     def appendToBody(self, txt):
         """Appends text to the email body."""
@@ -295,8 +295,8 @@ class EmailWidget(QtWidgets.QWidget):
         """Sends the email."""
         self.send.emit()
 
-        msg = MIMEText(self.email_body())
-        msg["Subject"] = Header(self.email_subject(), continuation_ws=' ')
+        msg = MIMEText(self.email_body(), 'plain', 'utf-8')
+        msg["Subject"] = Header(self.email_subject(), 'utf-8', continuation_ws=' ')
         msg["To"] = self.email_to()
         msg["From"] = self.email_from()
         msg["Cc"] = self.email_cc()
