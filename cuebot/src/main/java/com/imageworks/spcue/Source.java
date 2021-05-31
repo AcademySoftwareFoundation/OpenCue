@@ -49,7 +49,11 @@ public class Source {
     }
 
     public String toString() {
-        return this.source + this.username + this.pid + this.host_kill + this.reason;
+        return "User: " + this.username +
+                ", Pid: " + this.pid +
+                ", Hostname: " + this.host_kill +
+                ", Reason: " + this.reason +
+                "\n" + this.source;
     }
 }
 
