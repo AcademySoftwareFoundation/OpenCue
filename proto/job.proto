@@ -1283,6 +1283,10 @@ message JobIsJobPendingResponse {
 // Kill
 message JobKillRequest {
     Job job = 1;
+    string username = 2;
+    string pid = 3;
+    string host_kill = 4;
+    string reason = 5;
 }
 
 message JobKillResponse {} // Empty

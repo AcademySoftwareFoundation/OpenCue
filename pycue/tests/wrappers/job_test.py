@@ -46,10 +46,18 @@ class JobTests(unittest.TestCase):
 
         job = opencue.wrappers.job.Job(
             job_pb2.Job(name=TEST_JOB_NAME))
-        job.kill()
+        username = getpass.getuser()
+        pid = os.getpid()
+        host_kill = os.uname()[1]
+        reason = "Job Kill Request"
+        job.kill(username=username, pid=pid, host_kill=host_kill, reason=reason)
 
         stubMock.Kill.assert_called_with(
-            job_pb2.JobKillRequest(job=job.data), timeout=mock.ANY)
+            job_pb2.JobKillRequest(job=job.data,
+                                   username=username,
+                                   pid=str(pid),
+                                   host_kill=host_kill,
+                                   reason=reason), timeout=mock.ANY)
 
     def testPause(self, getStubMock):
         stubMock = mock.Mock()

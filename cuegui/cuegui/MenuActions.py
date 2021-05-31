@@ -24,6 +24,7 @@ from __future__ import print_function
 from builtins import filter
 from builtins import str
 from builtins import object
+import getpass
 import glob
 import subprocess
 import time
@@ -65,7 +66,7 @@ logger = cuegui.Logger.getLogger(__file__)
 TITLE = 0
 TOOLTIP = 1
 ICON = 2
-
+DEFAULT_JOB_KILL_REASON = "Manual Job Kill Request in Cuegui by " + getpass.getuser()
 
 # pylint: disable=missing-function-docstring,no-self-use,unused-argument
 
@@ -368,7 +369,7 @@ class JobActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Kill jobs?", msg,
                                              [job.data.name for job in jobs]):
                 for job in jobs:
-                    job.kill()
+                    job.kill(reason=DEFAULT_JOB_KILL_REASON)
                 self.killDependents(jobs)
                 self._update()
 
@@ -384,10 +385,9 @@ class JobActions(AbstractActions):
                                   sorted([dep.name() for dep in dependents])):
             for depJob in dependents:
                 try:
-                    depJob.kill()
-                except opencue.exception.CueException as e:
-                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
-                    logger.warning(errMsg)
+                    depJob.kill(reason=DEFAULT_JOB_KILL_REASON)
+                except Exception as e:
+                    logger.warning("Failed to kill depending job: %s - %s" % (depJob.name(), e))
         else:
             # Drop only direct dependents.
             for job in dependents:

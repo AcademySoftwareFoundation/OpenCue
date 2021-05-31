@@ -44,9 +44,17 @@ class Job(object):
         self.stub = Cuebot.getStub('job')
         self.__frameStateTotals = {}
 
-    def kill(self):
+    def kill(self, username=None, pid=None, host_kill=None, reason=None):
         """Kills the job."""
-        self.stub.Kill(job_pb2.JobKillRequest(job=self.data), timeout=Cuebot.Timeout)
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else os.uname()[1]
+        self.stub.Kill(job_pb2.JobKillRequest(job=self.data,
+                                              username=username,
+                                              pid=str(pid),
+                                              host_kill=host_kill,
+                                              reason=reason),
+                       timeout=Cuebot.Timeout)
 
     def pause(self):
         """Pauses the job."""

@@ -75,7 +75,12 @@ public class JobManagerSupport {
 
     public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {
 
-        if (jobManager.shutdownJob(job)) {
+        if (isManualKill && source.getReason().isEmpty()) {
+            logger.info(job.getName() + "/" + job.getId() +
+                    " **Invalid Job Kill Request** for " + source.toString());
+        }
+        else {
+            if (jobManager.shutdownJob(job)) {
 
             /*
              * Satisfy any dependencies on just the

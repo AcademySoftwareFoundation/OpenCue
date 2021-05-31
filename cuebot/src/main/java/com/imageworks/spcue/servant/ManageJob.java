@@ -275,7 +275,9 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
         try {
             setupJobData(request.getJob());
             manageQueue.execute(new DispatchJobComplete(job,
-                    new Source(request.toString()), true, jobManagerSupport));
+                    new Source(request.toString(), request.getUsername(), request.getPid(),
+                               request.getHostKill(), request.getReason()),
+                    true, jobManagerSupport));
             responseObserver.onNext(JobKillResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
