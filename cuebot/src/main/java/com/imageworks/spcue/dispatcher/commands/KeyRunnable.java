@@ -22,25 +22,20 @@ package com.imageworks.spcue.dispatcher.commands;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
-public class DispatchBookHostLocal extends KeyRunnable {
+public abstract class KeyRunnable implements Runnable {
 
-    private DispatchHost host;
-    private Dispatcher dispatcher;
+    private String key;
 
-    public DispatchBookHostLocal(DispatchHost host, Dispatcher d) {
-        super(host.getId());
-
-        this.host = host;
-        this.dispatcher = d;
+    public KeyRunnable(String key) {
+        this.key = key;
     }
 
-    @Override
-    public void run() {
-        new DispatchCommandTemplate() {
-            public void wrapDispatchCommand() {
-                dispatcher.dispatchHost(host);
-            }
-        }.execute();
+    public String getKey() {
+        return key;
+    }
+
+    public void setKey(String key) {
+        this.key = key;
     }
 }
 

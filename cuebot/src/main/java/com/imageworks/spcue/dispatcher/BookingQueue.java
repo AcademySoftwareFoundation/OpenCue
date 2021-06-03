@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.dispatcher;
 
+import java.util.concurrent.TimeUnit;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
@@ -26,35 +28,27 @@ import org.apache.log4j.Logger;
 
 public class BookingQueue {
 
-    private final int healthThreshold;
-    private final int minUnhealthyPeriodMin;
-    private final int queueCapacity;
-    private final int corePoolSize;
-    private final int maxPoolSize;
-    private static final int BASE_SLEEP_TIME_MILLIS = 300;
+    private static final int HEALTH_THRESHOLD = 10;
+    private static final int MIN_UNHEALTHY_PERIOD_MIN = 3;
+    private static final int QUEUE_SIZE = 2000;
+    private static final int THREADS_MINIMUM = 10;
+    private static final int THREADS_MAXIMUM = 14;
 
-    private static final Logger logger = Logger.getLogger("HEALTH");
+    private static final Logger logger = Logger.getLogger("BOOKING");
     private HealthyThreadPool healthyThreadPool;
 
-    public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
-                        int corePoolSize, int maxPoolSize) {
-        this.healthThreshold = healthThreshold;
-        this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
-        this.queueCapacity = queueCapacity;
-        this.corePoolSize = corePoolSize;
-        this.maxPoolSize = maxPoolSize;
+    public BookingQueue() {
         initThreadPool();
     }
 
     public void initThreadPool() {
         healthyThreadPool = new HealthyThreadPool(
                 "BookingQueue",
-                healthThreshold,
-                minUnhealthyPeriodMin,
-                queueCapacity,
-                corePoolSize,
-                maxPoolSize,
-                BASE_SLEEP_TIME_MILLIS);
+                HEALTH_THRESHOLD,
+                MIN_UNHEALTHY_PERIOD_MIN,
+                QUEUE_SIZE,
+                THREADS_MINIMUM,
+                THREADS_MAXIMUM);
     }
 
     public boolean isHealthy() {
@@ -76,6 +70,7 @@ public class BookingQueue {
     public void execute(KeyRunnable r) {
         healthyThreadPool.execute(r);
     }
+
 
     public long getRejectedTaskCount() {
         return healthyThreadPool.getRejectedTaskCount();
