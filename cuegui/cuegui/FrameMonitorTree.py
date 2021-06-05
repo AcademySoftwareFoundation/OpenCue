@@ -299,7 +299,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         selected = [
             frame.data.name for frame in self.selectedObjects() if cuegui.Utils.isFrame(frame)]
         if selected:
-            QtWidgets.QApplication.clipboard().setText(" ".join(selected))
+            QtWidgets.QApplication.clipboard().setText(" ".join(selected),
+                                                       QtGui.QClipboard.Selection)
 
     def __itemSingleClickedViewLog(self, item, col):
         """Called when an item is clicked on. Views the log file contents
