@@ -14,10 +14,14 @@
 
 """OpenCue configuration."""
 
+import logging
 import os
 import platform
 
 import yaml
+
+
+logger = logging.getLogger("opencue")
 
 
 # Config file from which default settings are loaded. This file is distributed with the
@@ -72,6 +76,7 @@ def load_config_from_file():
     user_config_file = None
 
     for config_file_env_var in __CONFIG_FILE_ENV_VARS:
+        logger.debug('Checking for opencue config file path in %s', config_file_env_var)
         config_file_from_env = os.environ.get(config_file_env_var)
         if config_file_from_env and os.path.exists(config_file_from_env):
             user_config_file = config_file_from_env
@@ -79,10 +84,12 @@ def load_config_from_file():
 
     if not user_config_file:
         config_from_user_profile = os.path.join(config_base_directory(), 'opencue.yaml')
+        logger.debug('Checking for opencue config at %s', config_from_user_profile)
         if os.path.exists(config_from_user_profile):
             user_config_file = config_from_user_profile
 
     if user_config_file:
+        logger.info('Loading opencue config from %s', user_config_file)
         with open(user_config_file) as file_object:
             config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
