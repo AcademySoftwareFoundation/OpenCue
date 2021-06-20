@@ -35,7 +35,16 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - name: Run Python Tests
-        run: ci/run_python_tests.sh --lint
+        run: ci/run_python_tests.sh
+
+  lint_python_2020:
+    name: Lint Python Code (CY2020)
+    runs-on: ubuntu-latest
+    container: aswf/ci-opencue:2020
+    steps:
+      - uses: actions/checkout@v2
+      - name: Lint Python Code
+        run: ci/run_python_lint.sh
 
   test_cuebot_2020:
     name: Build Cuebot and Run Unit Tests (CY2020)
