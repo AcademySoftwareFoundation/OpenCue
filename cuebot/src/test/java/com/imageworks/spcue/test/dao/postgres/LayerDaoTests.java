@@ -471,12 +471,12 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void updateMinGpu() {
-        long gpu = CueUtil.GB;
+    public void updateMinGpuMemory() {
+        long mem = CueUtil.GB;
         LayerDetail layer = getLayer();
-        layerDao.updateMinGpu(layer, gpu, LayerType.RENDER);
-        assertEquals(Long.valueOf(gpu),jdbcTemplate.queryForObject(
-                "SELECT int_gpu_min FROM layer WHERE pk_layer=?",
+        layerDao.updateMinGpuMemory(layer, mem, LayerType.RENDER);
+        assertEquals(Long.valueOf(mem),jdbcTemplate.queryForObject(
+                "SELECT int_gpu_mem_min FROM layer WHERE pk_layer=?",
                 Long.class, layer.getLayerId()));
     }
 
@@ -590,7 +590,7 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 Integer.class, layer.getId()));
 
         /** 60 seconds of 100 core units **/
-        ResourceUsage usage = new ResourceUsage(60, 33);
+        ResourceUsage usage = new ResourceUsage(60, 33, 0);
 
         assertTrue(usage.getClockTimeSeconds() > 0);
         assertTrue(usage.getCoreTimeSeconds() > 0);

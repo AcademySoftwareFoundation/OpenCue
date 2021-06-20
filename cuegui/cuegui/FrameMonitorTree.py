@@ -100,25 +100,29 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job, frame: (self.getCores(frame, format_as_string=True) or ""),
                        sort=lambda job, frame: (self.getCores(frame)),
                        tip="The number of cores a frame is using")
-        self.addColumn("Host", 120, id=6,
+        self.addColumn("GPUs", 55, id=6,
+                       data=lambda job, frame: (self.getGpus(frame, format_as_string=True) or ""),
+                       sort=lambda job, frame: (self.getGpus(frame)),
+                       tip="The number of gpus a frame is using")
+        self.addColumn("Host", 120, id=7,
                        data=lambda job, frame: frame.data.last_resource,
                        sort=lambda job, frame: frame.data.last_resource,
                        tip="The last or current resource that the frame used or is using.")
-        self.addColumn("Retries", 55, id=7,
+        self.addColumn("Retries", 55, id=8,
                        data=lambda job, frame: frame.data.retry_count,
                        sort=lambda job, frame: frame.data.retry_count,
                        tip="The number of times that each frame has had to retry.")
-        self.addColumn("_CheckpointEnabled", 20, id=8,
+        self.addColumn("_CheckpointEnabled", 20, id=9,
                        data=lambda job, frame: "",
                        sort=lambda job, frame: (
                                frame.data.checkpoint_state == opencue.api.job_pb2.ENABLED),
                        tip="A green check mark here indicates the frame has written out at least "
                            "1 checkpoint segment.")
-        self.addColumn("CheckP", 55, id=9,
+        self.addColumn("CheckP", 55, id=10,
                        data=lambda job, frame: frame.data.checkpoint_count,
                        sort=lambda job, frame: frame.data.checkpoint_count,
                        tip="The number of times a frame has been checkpointed.")
-        self.addColumn("Runtime", 70, id=10,
+        self.addColumn("Runtime", 70, id=11,
                        data=lambda job, frame: (cuegui.Utils.secondsToHMMSS(
                            frame.data.start_time and
                            frame.data.stop_time and
@@ -138,7 +142,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        tip="The amount of HOURS:MINUTES:SECONDS that the frame\n"
                            "has run for or last ran for.\n")
 
-        self.addColumn("LLU", 70, id=11,
+        self.addColumn("LLU", 70, id=12,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LLU] or ""),
@@ -150,7 +154,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "time without an update is an indication of a stuck\n"
                            "frame for most types of jobs")
 
-        self.addColumn("Memory", 60, id=12,
+        self.addColumn("Memory", 60, id=13,
                        data=lambda job, frame: (
                                frame.data.state == opencue.api.job_pb2.RUNNING and
                                cuegui.Utils.memoryToString(frame.data.used_memory) or
@@ -162,7 +166,20 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "If a frame is not running:\n"
                            "\t The most memory this frame has used at one time.")
 
-        self.addColumn("Remain", 70, id=13,
+        self.addColumn("GPU Memory", 60, id=14,
+                       data=lambda job, frame: (
+                               frame.data.state == opencue.api.job_pb2.RUNNING and
+                               cuegui.Utils.memoryToString(frame.data.used_gpu_memory) or
+                               cuegui.Utils.memoryToString(frame.data.max_gpu_memory)),
+                       sort=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
+                                                frame.data.used_gpu_memory or
+                                                frame.data.max_gpu_memory),
+                       tip="If a frame is running:\n"
+                           "\t The amount of GPU memory currently used by the frame.\n"
+                           "If a frame is not running:\n"
+                           "\t The most GPU memory this frame has used at one time.")
+
+        self.addColumn("Remain", 70, id=15,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameEtaDataBuffer.getEtaFormatted(job, frame)
                                                 or ""),
@@ -170,16 +187,16 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                                 self.frameEtaDataBuffer.getEta(job, frame) or -1),
                        tip="Hours:Minutes:Seconds remaining.")
 
-        self.addColumn("Start Time", 100, id=14,
+        self.addColumn("Start Time", 100, id=16,
                        data=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.start_time) or ""),
                        tip="The time the frame was started or retried.")
-        self.addColumn("Stop Time", 100, id=15,
+        self.addColumn("Stop Time", 100, id=17,
                        data=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        sort=lambda job, frame: (self.getTimeString(frame.data.stop_time) or ""),
                        tip="The time that the frame finished or died.")
 
-        self.addColumn("Last Line", 0, id=16,
+        self.addColumn("Last Line", 0, id=18,
                        data=lambda job, frame: (frame.data.state == opencue.api.job_pb2.RUNNING and
                                                 self.frameLogDataBuffer.getLastLineData(
                                                     job, frame)[FrameLogDataBuffer.LASTLINE] or ""),
@@ -240,7 +257,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Gets the number of cores a frame is using."""
         cores = None
 
-        m = re.search(r".*\/(\d+\.?\d*)", frame.data.last_resource)
+        m = re.search(r".*\/(\d+\.?\d*)\/.*", frame.data.last_resource)
         if m:
             cores = float(m.group(1))
 
@@ -248,6 +265,20 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 cores = "{:.2f}".format(cores)
 
         return cores
+
+    @staticmethod
+    def getGpus(frame, format_as_string=False):
+        """Gets the number of gpus a frame is using."""
+        gpus = None
+
+        m = re.search(r".*\/.*\/(\d+)", frame.data.last_resource)
+        if m:
+            gpus = m.group(1)
+
+            if not format_as_string:
+                gpus = int(gpus)
+
+        return gpus
 
     @staticmethod
     def getTimeString(timestamp):

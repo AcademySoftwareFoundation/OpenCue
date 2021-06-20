@@ -633,7 +633,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
     @Test
     @Transactional
     @Rollback(true)
-    public void testGetReservedGpu() {
+    public void testGetReservedGpuMemory() {
         DispatchHost host = createHost();
         JobDetail job = launchJob();
 
@@ -645,11 +645,11 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
 
         VirtualProc _proc = procDao.findVirtualProc(frame);
-        assertEquals(Long.valueOf(Dispatcher.GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
-                        "SELECT int_gpu_reserved FROM proc WHERE pk_proc=?",
+        assertEquals(Long.valueOf(Dispatcher.MEM_GPU_RESERVED_DEFAULT), jdbcTemplate.queryForObject(
+                        "SELECT int_gpu_mem_reserved FROM proc WHERE pk_proc=?",
                         Long.class, _proc.id));
-        assertEquals(Dispatcher.GPU_RESERVED_DEFAULT,
-                procDao.getReservedGpu(_proc));
+        assertEquals(Dispatcher.MEM_GPU_RESERVED_DEFAULT,
+                procDao.getReservedGpuMemory(_proc));
     }
 
     @Test

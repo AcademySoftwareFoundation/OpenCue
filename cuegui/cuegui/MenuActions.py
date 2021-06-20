@@ -269,6 +269,38 @@ class JobActions(AbstractActions):
                     job.setMaxCores(float(value))
                 self._update()
 
+    setMinGpu_info = ["Set Minimum Gpu...", "Set Job(s) Minimum Gpu", "configure"]
+    def setMinGpu(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.min_cores for job in jobs])
+            title = "Set Minimum Gpu"
+            body = "Please enter the new minimum gpu value:"
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 50000, 0)
+            if choice:
+                for job in jobs:
+                    job.setMinGpu(float(value))
+                self._update()
+
+    setMaxGpu_info = ["Set Maximum Gpu...", "Set Job(s) Maximum Gpu", "configure"]
+    def setMaxGpu(self, rpcObjects=None):
+        jobs = self._getOnlyJobObjects(rpcObjects)
+        if jobs:
+            current = max([job.data.max_cores for job in jobs])
+            title = "Set Maximum Gpu"
+            body = "Please enter the new maximum gpu value:"
+            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
+                                                               title, body,
+                                                               current,
+                                                               0, 50000, 0)
+            if choice:
+                for job in jobs:
+                    job.setMaxGpu(float(value))
+                self._update()
+
     setPriority_info = ["Set Priority...", None, "configure"]
 
     def setPriority(self, rpcObjects=None):
@@ -1458,6 +1490,24 @@ class HostActions(AbstractActions):
         for host in hosts:
             if host.data.state == repair:
                 host.setHardwareState(down)
+        self._update()
+
+    setThreadModeAuto_info = ["Thread Mode Auto", None, "configure"]
+    def setThreadModeAuto(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("AUTO")
+        self._update()
+
+    setThreadModeAll_info = ["Thread Mode All", None, "configure"]
+    def setThreadModeAll(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("ALL")
+        self._update()
+
+    setThreadModeVariable_info = ["Thread Mode Variable", None, "configure"]
+    def setThreadModeVariable(self, rpcObjects=None):
+        for host in self._getOnlyHostObjects(rpcObjects):
+            host.setThreadMode("VARIABLE")
         self._update()
 
 

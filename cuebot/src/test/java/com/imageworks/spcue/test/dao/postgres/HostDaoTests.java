@@ -100,8 +100,8 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .addAllTags(ImmutableList.of("linux", "64bit"))
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         return host;

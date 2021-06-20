@@ -129,6 +129,7 @@ public abstract class AbstractDispatcher {
             dispatchSummary(proc, frame, "Booking");
             DispatchSupport.bookedProcs.getAndIncrement();
             DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+            DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
             return true;
         } catch (FrameReservationException fre) {
             /*
@@ -222,8 +223,10 @@ public abstract class AbstractDispatcher {
             " cores / " +
             CueUtil.KbToMb(p.memoryReserved) +
             " memory / " +
-            p.gpuReserved +
-            " gpu on " +
+            p.gpusReserved +
+            " gpus / " +
+            CueUtil.KbToMb(p.gpuMemoryReserved) +
+            " gpu memory " +
             p.getName() +
             " to " + f.show + "/" + f.shot;
         logger.info(msg);
