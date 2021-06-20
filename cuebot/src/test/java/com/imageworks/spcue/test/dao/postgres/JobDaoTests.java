@@ -227,7 +227,7 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         assertEquals(job.localMaxCores, src.localMaxCores);
         assertEquals(job.localMaxMemory, src.localMaxMemory);
         assertEquals(job.localThreadNumber, src.localThreadNumber);
-        assertEquals(job.localMaxGpu, src.localMaxGpu);
+        assertEquals(job.localMaxGpus, src.localMaxGpus);
     }
 
     @Test
