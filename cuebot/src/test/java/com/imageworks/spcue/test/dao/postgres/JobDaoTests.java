@@ -120,10 +120,14 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobDetail job = this.buildJobDetail();
         job.groupId = ROOT_FOLDER;
         job.showId = ROOT_SHOW;
+        job.showName = "pipe";
         job.logDir = jobLogUtil.getJobLogPath(job);
         job.deptId = departmentDao.getDefaultDepartment().getId();
+        job.deptName = departmentDao.getDefaultDepartment().getName();
         job.facilityId = facilityDao.getDefaultFacility().getId();
+        job.facilityName = facilityDao.getDefaultFacility().getName();
         job.state = JobState.PENDING;
+        job.maxCoreUnits = 10000;
         jobDao.insertJob(job, jobLogUtil);
         return job;
     }
@@ -184,6 +188,46 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
         JobDetail job = insertJob();
         jobDao.getJobDetail(job.id);
         jobDao.getJob(job.id);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetJobDetail() {
+        JobDetail src = insertJob();
+        JobDetail job = jobDao.getJobDetail(src.id);
+        assertEquals(job.id, src.id);
+        assertEquals(job.name, src.name);
+        assertEquals(job.showId, src.showId);
+        assertEquals(job.facilityId, src.facilityId);
+        assertEquals(job.groupId, src.groupId);
+        assertEquals(job.deptId, src.deptId);
+        assertEquals(job.state, src.state);
+        assertEquals(job.shot, src.shot);
+        assertEquals(job.user, src.user);
+        assertEquals(job.email, src.email);
+        assertEquals(job.uid, src.uid);
+        assertEquals(job.logDir, src.logDir);
+        assertEquals(job.isPaused, src.isPaused);
+        assertEquals(job.isAutoEat, src.isAutoEat);
+        assertEquals(job.totalFrames, src.totalFrames);
+        assertEquals(job.totalLayers, src.totalLayers);
+        assertEquals(job.startTime, src.startTime);
+        assertEquals(job.stopTime, src.stopTime);
+        assertEquals(job.maxRetries, src.maxRetries);
+        assertEquals(job.os, src.os);
+        assertEquals(job.facilityName, src.facilityName);
+        assertEquals(job.deptName, src.deptName);
+        assertEquals(job.showName, src.showName);
+        assertEquals(job.priority, src.priority);
+        assertEquals(job.minCoreUnits, src.minCoreUnits);
+        assertEquals(job.maxCoreUnits, src.maxCoreUnits);
+        assertEquals(job.isLocal, src.isLocal);
+        assertEquals(job.localHostName, src.localHostName);
+        assertEquals(job.localMaxCores, src.localMaxCores);
+        assertEquals(job.localMaxMemory, src.localMaxMemory);
+        assertEquals(job.localThreadNumber, src.localThreadNumber);
+        assertEquals(job.localMaxGpu, src.localMaxGpu);
     }
 
     @Test
