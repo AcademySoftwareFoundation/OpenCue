@@ -109,8 +109,8 @@ public class LocalDispatcherTests extends TransactionalTest {
                 .setFacility("spi")
                 .addTags("test")
                 .putAttributes("SP_OS", "Linux")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         hostManager.createHost(host,
@@ -171,7 +171,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         JobDetail job = getJob();
         LayerInterface layer = jobManager.getLayers(job).get(0);
 
-        LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, layer, lba);
 
         List<VirtualProc> procs =  localDispatcher.dispatchHost(host);
@@ -205,7 +205,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LayerInterface layer = jobManager.getLayers(job).get(0);
         FrameInterface frame = jobManager.findFrame(layer, 5);
 
-        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
         List<VirtualProc> procs = localDispatcher.dispatchHost(host);
@@ -228,7 +228,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 
-        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, job, lba);
 
         List<VirtualProc> procs = localDispatcher.dispatchHost(host, job);
@@ -258,7 +258,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         JobDetail job = getJob();
         LayerInterface layer = jobManager.getLayers(job).get(0);
 
-        LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(300, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, layer, lba);
 
         List<VirtualProc> procs = localDispatcher.dispatchHost(host, layer);
@@ -292,7 +292,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LayerInterface layer = jobManager.getLayers(job).get(0);
         FrameInterface frame = jobManager.findFrame(layer, 5);
 
-        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
         List<VirtualProc> procs = localDispatcher.dispatchHost(host, frame);
@@ -317,7 +317,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         LayerInterface layer = jobManager.getLayers(job).get(0);
         FrameInterface frame = jobManager.findFrame(layer, 5);
 
-        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(200, 1, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, frame, lba);
 
         List<VirtualProc> procs =  localDispatcher.dispatchHost(host, frame);
@@ -345,7 +345,7 @@ public class LocalDispatcherTests extends TransactionalTest {
         DispatchHost host = getHost();
         JobDetail job = getJob();
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 0, 0);
         bookingManager.createLocalHostAssignment(host, job, lba);
 
         List<VirtualProc> procs =  localDispatcher.dispatchHost(host, job);
@@ -365,7 +365,7 @@ public class LocalDispatcherTests extends TransactionalTest {
          * Now, lower our min cores to create a deficit.
          */
         assertFalse(bookingManager.hasResourceDeficit(host));
-        bookingManager.setMaxResources(lba, 700, 0, 1);
+        bookingManager.setMaxResources(lba, 700, 0, 0, 0);
         assertTrue(bookingManager.hasResourceDeficit(host));
     }
 }

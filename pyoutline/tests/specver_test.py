@@ -63,3 +63,24 @@ class SpecVersiondTest(unittest.TestCase):
         self.assertEqual(root.find("job/layers/layer/timeout").text, "420")
         self.assertEqual(root.find("job/layers/layer/timeout_llu").text, "4200")
         self.assertEqual(root.find("job/priority").text, "42")
+
+    def _makeGpuSpec(self):
+        ol = outline.Outline(name="spec_version_test")
+        layer = outline.modules.shell.Shell("test_layer", command=["/bin/ls"])
+        layer.set_arg("gpus", 4)
+        layer.set_arg("gpu_memory", 8 * 1024 * 1024)
+        ol.add_layer(layer)
+        l = outline.cuerun.OutlineLauncher(ol)
+        return Et.fromstring(l.serialize())
+
+    def test_gpu_1_11(self):
+        outline.config.set("outline", "spec_version", "1.11")
+        root = self._makeGpuSpec()
+        self.assertIsNone(root.find("job/layers/layer/gpus"))
+        self.assertIsNone(root.find("job/layers/layer/gpus_memory"))
+
+    def test_gpu_1_12(self):
+        outline.config.set("outline", "spec_version", "1.12")
+        root = self._makeGpuSpec()
+        self.assertEqual(root.find("job/layers/layer/gpus").text, "4")
+        self.assertEqual(root.find("job/layers/layer/gpu_memory").text, "8388608")

@@ -124,10 +124,14 @@ import com.imageworks.spcue.grpc.job.JobSetGroupRequest;
 import com.imageworks.spcue.grpc.job.JobSetGroupResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpusRequest;
+import com.imageworks.spcue.grpc.job.JobSetMaxGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesRequest;
 import com.imageworks.spcue.grpc.job.JobSetMaxRetriesResponse;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresRequest;
 import com.imageworks.spcue.grpc.job.JobSetMinCoresResponse;
+import com.imageworks.spcue.grpc.job.JobSetMinGpusRequest;
+import com.imageworks.spcue.grpc.job.JobSetMinGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetPriorityRequest;
 import com.imageworks.spcue.grpc.job.JobSetPriorityResponse;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesRequest;
@@ -367,6 +371,36 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             setupJobData(request.getJob());
             jobDao.updateMinCores(job, Convert.coresToWholeCoreUnits(request.getVal()));
             responseObserver.onNext(JobSetMinCoresResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMaxGpus(JobSetMaxGpusRequest request, StreamObserver<JobSetMaxGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMaxGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMaxGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMinGpus(JobSetMinGpusRequest request, StreamObserver<JobSetMinGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMinGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMinGpusResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
         catch (EmptyResultDataAccessException e) {
@@ -772,7 +806,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             lha.setThreads(request.getThreads());
             lha.setMaxCoreUnits(request.getMaxCores() * 100);
             lha.setMaxMemory(request.getMaxMemory());
-            lha.setMaxGpu(request.getMaxGpu());
+            lha.setMaxGpuUnits(request.getMaxGpus());
+            lha.setMaxGpuMemory(request.getMaxGpuMemory());
             lha.setType(RenderPartitionType.JOB_PARTITION);
 
             if (localBookingSupport.bookLocal(job, request.getHost(), request.getUsername(), lha)) {

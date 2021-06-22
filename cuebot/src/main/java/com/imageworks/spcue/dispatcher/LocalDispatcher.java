@@ -111,7 +111,8 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
                     frame.minMemory,
-                    frame.minGpu)) {
+                    frame.minGpus,
+                    frame.minGpuMemory)) {
                 continue;
             }
 
@@ -141,10 +142,11 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
                  * This should stay here and not go into VirtualProc
                  * or else the count will be off if you fail to book.
                  */
-                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpuReserved);
+                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!lha.hasAdditionalResources(lha.getThreads() * 100,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     break;
                 }
 
@@ -196,7 +198,8 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
              */
             if (!lha.hasAdditionalResources(lha.getThreads() * 100,
                     frame.minMemory,
-                    frame.minGpu)) {
+                    frame.minGpus,
+                    frame.minGpuMemory)) {
                 continue;
             }
 
@@ -226,10 +229,11 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
                  * This should stay here and not go into VirtualProc
                  * or else the count will be off if you fail to book.
                  */
-                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpuReserved);
+                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!lha.hasAdditionalResources(100,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     break;
                 }
 
@@ -272,7 +276,8 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         DispatchFrame dframe = jobManager.getDispatchFrame(frame.getId());
         if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(),
                 dframe.minMemory,
-                dframe.minGpu)) {
+                lha.getMaxGpuUnits(),
+                dframe.minGpuMemory)) {
             return procs;
         }
 
@@ -382,7 +387,8 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         host.isLocalDispatch = true;
         host.idleCores = lha.getIdleCoreUnits();
         host.idleMemory = lha.getIdleMemory();
-        host.idleGpu = lha.getIdleGpu();
+        host.idleGpus = lha.getIdleGpuUnits();
+        host.idleGpuMemory = lha.getIdleGpuMemory();
     }
 
 

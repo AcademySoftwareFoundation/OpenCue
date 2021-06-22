@@ -92,14 +92,16 @@ public class DispatchBookHost implements Runnable  {
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     dispatcher.dispatchHost(host);
                 }
 
                 if (host.hasAdditionalResources(
                         Dispatcher.CORE_POINTS_RESERVED_MIN,
                         Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_RESERVED_MIN)) {
+                        Dispatcher.GPU_UNITS_RESERVED_MIN,
+                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
                     dispatcher.dispatchHostToAllShows(host);
                 }
             }

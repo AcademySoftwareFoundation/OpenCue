@@ -207,11 +207,11 @@ public final class CueUtil {
         return String.format("%dMB", kb / 1024);
     }
 
-    public static final long convertKbToFakeKb64bit(int Kb) {
+    public static final long convertKbToFakeKb64bit(long Kb) {
         return (long) (Math.ceil((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
     }
 
-    public static final long convertKbToFakeKb32bit(int Kb) {
+    public static final long convertKbToFakeKb32bit(long Kb) {
         return (long) (Math.floor((Kb * 0.0009765625) * 0.0009765625) * 1048576) - Dispatcher.MEM_RESERVED_SYSTEM;
     }
 
@@ -235,10 +235,10 @@ public final class CueUtil {
         return String.format("%04d-%s", num, layer.getName());
     }
 
-    public final static String buildProcName(String host, int cores) {
-        return String.format(Locale.ROOT, "%s/%4.2f", host, Convert.coreUnitsToCores(cores));
-
+    public final static String buildProcName(String host, int cores, int gpus) {
+        return String.format(Locale.ROOT, "%s/%4.2f/%d", host, Convert.coreUnitsToCores(cores), gpus);
     }
+
     /**
      * for logging how long an operation took
      *

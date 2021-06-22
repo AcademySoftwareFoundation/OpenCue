@@ -167,6 +167,32 @@ class Show(object):
             timeout=Cuebot.Timeout)
         return response
 
+    def setDefaultMaxGpus(self, maxgpus):
+        """Sets the default maximum number of gpus
+        that new jobs are launched with.
+        :type: float
+        :param: value to set maxGpu to
+        :rtype: show_pb2.ShowSetDefaultMaxGpuResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMaxGpus(show_pb2.ShowSetDefaultMaxGpusRequest(
+            show=self.data, max_gpu=maxgpus),
+            timeout=Cuebot.Timeout)
+        return response
+
+    def setDefaultMinGpus(self, mingpus):
+        """Sets the default minimum number of gpus
+        all new jobs are launched with.
+        :type: float
+        :param: value to set minGpus to
+        :rtype: show_pb2.ShowSetDefaultMinGpusResponse
+        :return: response is empty
+        """
+        response = self.stub.SetDefaultMinGpus(show_pb2.ShowSetDefaultMinGpusRequest(
+            show=self.data, min_gpu=mingpus),
+            timeout=Cuebot.Timeout)
+        return response
+
     def findFilter(self, name):
         """Finds a filter by name.
 

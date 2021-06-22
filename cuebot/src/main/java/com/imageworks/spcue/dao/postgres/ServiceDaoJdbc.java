@@ -60,7 +60,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpus = rs.getInt("int_gpus_min");
+            s.maxGpus = rs.getInt("int_gpus_max");
+            s.minGpuMemory = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.timeout = rs.getInt("int_timeout");
@@ -79,7 +81,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             s.minCores = rs.getInt("int_cores_min");
             s.maxCores = rs.getInt("int_cores_max");
             s.minMemory = rs.getLong("int_mem_min");
-            s.minGpu = rs.getLong("int_gpu_min");
+            s.minGpus = rs.getInt("int_gpus_min");
+            s.maxGpus = rs.getInt("int_gpus_max");
+            s.minGpuMemory = rs.getLong("int_gpu_mem_min");
             s.threadable = rs.getBoolean("b_threadable");
             s.tags = splitTags(rs.getString("str_tags"));
             s.showId = rs.getString("pk_show");
@@ -97,7 +101,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "service.int_cores_min," +
             "service.int_cores_max," +
             "service.int_mem_min," +
-            "service.int_gpu_min," +
+            "service.int_gpus_min," +
+            "service.int_gpus_max," +
+            "service.int_gpu_mem_min," +
             "service.str_tags, " +
             "service.int_timeout, " +
             "service.int_timeout_llu " +
@@ -119,7 +125,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "show_service.int_cores_min," +
             "show_service.int_cores_max, "+
             "show_service.int_mem_min," +
-            "show_service.int_gpu_min," +
+            "show_service.int_gpus_min," +
+            "show_service.int_gpus_max, "+
+            "show_service.int_gpu_mem_min," +
             "show_service.str_tags," +
             "show_service.int_timeout," +
             "show_service.int_timeout_llu," +
@@ -167,18 +175,21 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
              "int_cores_min," +
              "int_cores_max, "+
              "int_mem_min," +
-             "int_gpu_min," +
+             "int_gpus_min," +
+             "int_gpus_max, "+
+             "int_gpu_mem_min," +
              "str_tags," +
              "int_timeout," +
              "int_timeout_llu " +
-         ") VALUES (?,?,?,?,?,?,?,?,?,?)";
+         ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceEntity service) {
         service.id = SqlUtil.genKeyRandom();
         getJdbcTemplate().update(INSERT_SERVICE, service.id,
                 service.name, service.threadable, service.minCores,
-                service.maxCores, service.minMemory, service.minGpu,
+                service.maxCores, service.minMemory,
+                service.minGpus, service.maxGpus, service.minGpuMemory,
                 StringUtils.join(service.tags.toArray(), " | "),
                 service.timeout, service.timeout_llu);
     }
@@ -194,11 +205,13 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min," +
             "int_cores_max," +
             "int_mem_min," +
-            "int_gpu_min," +
+            "int_gpus_min," +
+            "int_gpus_max," +
+            "int_gpu_mem_min," +
             "str_tags," +
             "int_timeout," +
             "int_timeout_llu " +
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceOverrideEntity service) {
@@ -206,7 +219,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
         getJdbcTemplate().update(INSERT_SERVICE_WITH_SHOW, service.id,
                 service.showId, service.name, service.threadable,
                 service.minCores, service.maxCores, service.minMemory,
-                service.minGpu, joinTags(service.tags),
+                service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
                 service.timeout, service.timeout_llu);
     }
 
@@ -219,7 +232,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min=?," +
             "int_cores_max=?,"+
             "int_mem_min=?," +
-            "int_gpu_min=?," +
+            "int_gpus_min=?," +
+            "int_gpus_max=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=?," +
             "int_timeout=?," +
             "int_timeout_llu=? " +
@@ -230,7 +245,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
                 service.timeout, service.timeout_llu, service.getId());
     }
 
@@ -243,7 +258,9 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_cores_min=?," +
             "int_cores_max=?," +
             "int_mem_min=?," +
-            "int_gpu_min=?," +
+            "int_gpus_min=?," +
+            "int_gpus_max=?," +
+            "int_gpu_mem_min=?," +
             "str_tags=?," +
             "int_timeout=?," +
             "int_timeout_llu=? " +
@@ -254,7 +271,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
     public void update(ServiceOverrideEntity service) {
         getJdbcTemplate().update(UPDATE_SERVICE_WITH_SHOW, service.name,
                 service.threadable, service.minCores, service.maxCores,
-                service.minMemory, service.minGpu, joinTags(service.tags),
+                service.minMemory, service.minGpus, service.maxGpus, service.minGpuMemory, joinTags(service.tags),
                 service.timeout, service.timeout_llu, service.getId());
     }
 

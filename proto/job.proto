@@ -100,6 +100,12 @@ service GroupInterface {
     // Set the Default Job Min Core values to all in the provided group
     rpc SetDefaultJobMinCores(GroupSetDefJobMinCoresRequest) returns (GroupSetDefJobMinCoresResponse);
 
+    // Set the Default Job Max Gpu values to all in the provided group
+    rpc SetDefaultJobMaxGpus(GroupSetDefJobMaxGpusRequest) returns (GroupSetDefJobMaxGpusResponse);
+
+    // Set the Default Job Min Gpu values to all in the provided group
+    rpc SetDefaultJobMinGpus(GroupSetDefJobMinGpusRequest) returns (GroupSetDefJobMinGpusResponse);
+
     // Set the Default Job Priority values to all in the provided group
     rpc SetDefaultJobPriority(GroupSetDefJobPriorityRequest) returns (GroupSetDefJobPriorityResponse);
 
@@ -114,6 +120,12 @@ service GroupInterface {
 
     // Set the groups Min Cores values
     rpc SetMinCores(GroupSetMinCoresRequest) returns (GroupSetMinCoresResponse);
+
+    // Set the group's Max Gpu value
+    rpc SetMaxGpus(GroupSetMaxGpusRequest) returns (GroupSetMaxGpusResponse);
+
+    // Set the groups Min Gpu values
+    rpc SetMinGpus(GroupSetMinGpusRequest) returns (GroupSetMinGpusResponse);
 
     // Set the groups name
     rpc SetName(GroupSetNameRequest) returns (GroupSetNameResponse);
@@ -248,6 +260,12 @@ service JobInterface {
     // Sets the minimum number of procs that can run on this job
     rpc SetMinCores(JobSetMinCoresRequest) returns (JobSetMinCoresResponse);
 
+    // Sets the maximum number of Gpu that can run on this job
+    rpc SetMaxGpus(JobSetMaxGpusRequest) returns (JobSetMaxGpusResponse);
+
+    // Sets the minimum number of Gpu that can run on this job
+    rpc SetMinGpus(JobSetMinGpusRequest) returns (JobSetMinGpusResponse);
+
     // Sets the job priority
     rpc SetPriority(JobSetPriorityRequest) returns (JobSetPriorityResponse);
 
@@ -331,7 +349,16 @@ service LayerInterface {
     // Set the Min Cores for this layer
     rpc SetMinCores(LayerSetMinCoresRequest) returns (LayerSetMinCoresResponse);
 
-    // Set the Min gpu value for the layer
+    // The maximum number of Gpu to run on a given frame within this layer.
+    rpc SetMaxGpus(LayerSetMaxGpusRequest) returns (LayerSetMaxGpusResponse);
+
+    // Set the Min Gpus for this layer
+    rpc SetMinGpus(LayerSetMinGpusRequest) returns (LayerSetMinGpusResponse);
+
+    // Set the Min gpu memory value for the layer
+    rpc SetMinGpuMemory(LayerSetMinGpuMemoryRequest) returns (LayerSetMinGpuMemoryResponse);
+
+    // [Deprecated] Set the Min gpu memory value for the layer
     rpc SetMinGpu(LayerSetMinGpuRequest) returns (LayerSetMinGpuResponse);
 
     // Set the Min Memory value for the layer
@@ -450,12 +477,15 @@ message Frame {
     int64 max_rss = 11;
     int64 used_memory = 12;
     int64 reserved_memory = 13;
-    int64 reserved_gpu = 14;
+    int64 reserved_gpu_memory = 14;
     string last_resource = 15;
     CheckpointState checkpoint_state = 16;
     int32 checkpoint_count = 17;
     int32 total_core_time = 18;
     int32 llu_time = 19;
+    int32 total_gpu_time = 20;
+    int64 max_gpu_memory = 21;
+    int64 used_gpu_memory = 22;
 }
 
 // Object for frame searching
@@ -499,6 +529,8 @@ message UpdatedFrame {
     int64 used_memory = 8;
     string last_resource = 9;
     int32 llu_time = 10;
+    int64 max_gpu_memory = 11;
+    int64 used_gpu_memory = 12;
 }
 
 message UpdatedFrameSeq {
@@ -528,6 +560,10 @@ message Group {
     int32 level = 9;
     string parent_id = 10;
     GroupStats group_stats = 11;
+    float default_job_min_gpus = 12;
+    float default_job_max_gpus = 13;
+    float min_gpus = 14;
+    float max_gpus = 15;
 }
 
 message GroupSeq {
@@ -541,6 +577,7 @@ message GroupStats {
     int32 waiting_frames = 4;
     int32 pending_jobs = 5;
     float reserved_cores = 6;
+    float reserved_gpus = 7;
 }
 
 // JOB ----
@@ -567,6 +604,8 @@ message Job {
     int32 start_time = 18;
     int32 stop_time = 19;
     JobStats job_stats = 20;
+    float min_gpus = 21;
+    float max_gpus = 22;
 }
 
 // Use to filter the job search.  Please note that by searching for non-pending jobs, the output is limited to 200 jobs
@@ -606,6 +645,11 @@ message JobStats {
     int64 failed_core_sec = 18;
     int64 max_rss = 19;
     float reserved_cores = 20;
+    int64 total_gpu_sec = 21;
+    int64 rendered_gpu_sec = 22;
+    int64 failed_gpu_sec = 23;
+    float reserved_gpus = 24;
+    int64 max_gpu_memory = 25;
 }
 
 // LAYER ----
@@ -618,7 +662,7 @@ message Layer {
     float max_cores = 6;
     bool is_threadable = 7;
     int64 min_memory = 8;
-    int64 min_gpu = 9;
+    int64 min_gpu_memory = 9;
     int32 chunk_size = 10;
     int32 dispatch_order = 11;
     LayerType type = 12;
@@ -631,6 +675,8 @@ message Layer {
     repeated string limits = 17;
     int32 timeout = 18;
     int32 timeout_llu = 19;
+    float min_gpus = 20;
+    float max_gpus = 21;
 }
 
 message LayerSeq {
@@ -658,6 +704,11 @@ message LayerStats {
     int64 failed_core_sec = 18;
     int64 max_rss = 19;
     float reserved_cores = 20;
+    int64 total_gpu_sec = 21;
+    int64 rendered_gpu_sec = 22;
+    int64 failed_gpu_sec = 23;
+    float reserved_gpus = 24;
+    int64 max_gpu_memory = 25;
 }
 
 // NestedGroup ---
@@ -675,6 +726,10 @@ message NestedGroup {
     NestedGroupSeq groups = 11;
     repeated string jobs = 12;
     GroupStats stats = 13;
+    float default_job_min_gpus = 14;
+    float default_job_max_gpus = 15;
+    float min_gpus = 16;
+    float max_gpus = 17;
 }
 
 message NestedGroupSeq {
@@ -706,6 +761,8 @@ message NestedJob {
     int32 stop_time = 19;
     NestedGroup parent = 20;
     JobStats stats = 21;
+    float min_gpus = 22;
+    float max_gpus = 23;
 }
 
 
@@ -719,8 +776,9 @@ message FrameAddRenderPartitionRequest {
     int32 threads = 3;
     int32 max_cores = 4;
     int64 max_memory = 5;
-    int64 max_gpu = 6;
+    int64 max_gpu_memory = 6;
     string username = 7;
+    int32 max_gpus = 8;
 }
 
 message FrameAddRenderPartitionResponse {
@@ -944,6 +1002,22 @@ message GroupSetDefJobMinCoresRequest {
 
 message GroupSetDefJobMinCoresResponse {} // Empty
 
+// SetDefaultJobMaxGpus
+message GroupSetDefJobMaxGpusRequest {
+    Group group = 1;
+    int32 max_gpus = 2;
+}
+
+message GroupSetDefJobMaxGpusResponse {} // Empty
+
+// SetDefaultJobMinGpus
+message GroupSetDefJobMinGpusRequest {
+    Group group = 1;
+    int32 min_gpus = 2;
+}
+
+message GroupSetDefJobMinGpusResponse {} // Empty
+
 // SetDefJobPriority
 message GroupSetDefJobPriorityRequest {
     Group group = 1;
@@ -984,6 +1058,22 @@ message GroupSetMinCoresRequest {
 
 message GroupSetMinCoresResponse {} // Empty
 
+// SetMaxGpus
+message GroupSetMaxGpusRequest {
+    Group group = 1;
+    int32 max_gpus = 2;
+}
+
+message GroupSetMaxGpusResponse {} // Empty
+
+// SetMinGpus
+message GroupSetMinGpusRequest {
+    Group group = 1;
+    int32 min_gpus = 2;
+}
+
+message GroupSetMinGpusResponse {} // Empty
+
 // SetName
 message GroupSetNameRequest {
     Group group = 1;
@@ -1008,8 +1098,9 @@ message JobAddRenderPartRequest {
     int32 threads = 3;
     int32 max_cores = 4;
     int64 max_memory = 5;
-    int64 max_gpu = 6;
+    int64 max_gpu_memory = 6;
     string username = 7;
+    int32 max_gpus = 8;
 }
 
 message JobAddRenderPartResponse {
@@ -1296,6 +1387,14 @@ message JobSetMaxCoresRequest {
 
 message JobSetMaxCoresResponse {} // Empty
 
+// SetMaxGpus
+message JobSetMaxGpusRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMaxGpusResponse {} // Empty
+
 // SetMaxRetries
 message JobSetMaxRetriesRequest {
     Job job = 1;
@@ -1311,6 +1410,14 @@ message JobSetMinCoresRequest {
 }
 
 message JobSetMinCoresResponse {} // Empty
+
+// SetMinGpus
+message JobSetMinGpusRequest {
+    Job job = 1;
+    int32 val = 2;
+}
+
+message JobSetMinGpusResponse {} // Empty
 
 // SetPriority
 message JobSetPriorityRequest {
@@ -1346,8 +1453,9 @@ message LayerAddRenderPartitionRequest {
     int32 threads = 3;
     int32 max_cores = 4;
     int64 max_memory = 5;
-    int64 max_gpu = 6;
+    int64 max_gpu_memory = 6;
     string username = 7;
+    int32 max_gpus = 8;
 }
 
 message LayerAddRenderPartitionResponse {
@@ -1545,13 +1653,38 @@ message LayerSetMinCoresRequest {
 
 message LayerSetMinCoresResponse {} // Empty
 
-// SetMinGpu
+// [Deprecated] SetMinGpu
 message LayerSetMinGpuRequest {
-    Layer layer = 1;
-    int64 gpu = 2;
+    Layer layer = 1 [deprecated=true];
+    int64 gpu = 2 [deprecated=true];
 }
 
+// [Deprecated]
 message LayerSetMinGpuResponse {} // Empty
+
+// SetMaxGpus
+message LayerSetMaxGpusRequest {
+    Layer layer = 1;
+    int32 max_gpus = 2;
+}
+
+message LayerSetMaxGpusResponse {} // Empty
+
+// SetMinGpus
+message LayerSetMinGpusRequest {
+    Layer layer = 1;
+    int32 min_gpus = 2;
+}
+
+message LayerSetMinGpusResponse {} // Empty
+
+// SetMinGpuMemory
+message LayerSetMinGpuMemoryRequest {
+    Layer layer = 1;
+    int64 gpu_memory = 2;
+}
+
+message LayerSetMinGpuMemoryResponse {} // Empty
 
 // SetMinMemory
 message LayerSetMinMemoryRequest {

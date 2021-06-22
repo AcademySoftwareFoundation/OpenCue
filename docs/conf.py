@@ -25,9 +25,9 @@ copyright = u'2020, Contributors to the OpenCue Project'
 author = u'Academy Software Foundation'
 
 # The short X.Y version
-version = u'0.3.6'
+version = u'built from source'
 # The full version, including alpha/beta/rc tags
-release = u'0.3.6'
+release = u'built from source'
 
 
 # -- General configuration ---------------------------------------------------

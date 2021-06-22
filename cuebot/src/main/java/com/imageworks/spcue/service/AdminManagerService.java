@@ -108,6 +108,17 @@ public class AdminManagerService implements AdminManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public AllocationEntity getDefaultAllocation() {
+        return allocationDao.getDefaultAllocationEntity();
+    }
+
+    @Override
+    public void setDefaultAllocation(AllocationInterface a) {
+        allocationDao.setDefaultAllocation(a);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public ShowEntity findShowEntity(String name) {
         return showDao.findShowDetail(name);
     }

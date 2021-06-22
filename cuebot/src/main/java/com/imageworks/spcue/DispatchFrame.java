@@ -43,7 +43,9 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     public int maxCores;
     public boolean threadable;
     public long minMemory;
-    public long minGpu;
+    public int minGpus;
+    public int maxGpus;
+    public long minGpuMemory;
 
     public String services;
 }

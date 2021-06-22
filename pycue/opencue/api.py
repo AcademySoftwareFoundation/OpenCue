@@ -645,6 +645,28 @@ def deleteAllocation(alloc):
 
 
 @util.grpcExceptionParser
+def getDefaultAllocation():
+    """Get the default allocation.
+
+    :rtype:  Allocation
+    :return: an Allocation object"""
+    return Allocation(Cuebot.getStub('allocation').GetDefault(
+        facility_pb2.AllocGetDefaultRequest(), timeout=Cuebot.Timeout).allocation)
+
+
+@util.grpcExceptionParser
+def setDefaultAllocation(alloc):
+    """Set the default allocation.
+
+    :type  alloc: facility_pb2.Allocation
+    :param alloc: allocation to set default
+    :rtype:  facility_pb2.AllocSetDefaultResponse
+    :return: empty response"""
+    return Cuebot.getStub('allocation').SetDefault(
+        facility_pb2.AllocSetDefaultRequest(allocation=alloc), timeout=Cuebot.Timeout)
+
+
+@util.grpcExceptionParser
 def allocSetBillable(alloc, is_billable):
     """Sets an allocation billable or not.
 
@@ -742,7 +764,7 @@ def getProcs(**options):
          - "lt5" is less than 5 hours
          - "5-10" is range of 5 to 10 hours
 
-    :rtype:  list
+    :rtype:  list[opencue.wrapper.proc.Proc]
     :return: a list of Proc objects"""
     procSeq = search.ProcSearch.byOptions(**options).procs
     return [Proc(p) for p in procSeq.procs]

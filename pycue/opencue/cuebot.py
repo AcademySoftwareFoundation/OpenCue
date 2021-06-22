@@ -77,6 +77,9 @@ if os.path.exists(fcnf):
 DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
 
+# Avoid spamming users with epoll fork warning messages
+os.environ["GRPC_POLL_STRATEGY"] = "epoll1"
+
 class Cuebot(object):
     """Used to manage the connection to the Cuebot.  Normally the connection
        to the Cuebot is made automatically as needed so you don't have to explicitly

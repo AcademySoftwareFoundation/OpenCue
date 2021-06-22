@@ -67,7 +67,9 @@ public class ManageServiceOverride extends ServiceOverrideInterfaceGrpc.ServiceO
         entity.minCores = service.getMinCores();
         entity.maxCores = service.getMaxCores();
         entity.minMemory = service.getMinMemory();
-        entity.minGpu = service.getMinGpu();
+        entity.minGpus = service.getMinGpus();
+        entity.maxGpus = service.getMaxGpus();
+        entity.minGpuMemory = service.getMinGpuMemory();
         entity.tags = new LinkedHashSet<>(service.getTagsList());
         entity.threadable = service.getThreadable();
         entity.timeout = service.getTimeout();

@@ -285,7 +285,7 @@ def checkShellOut(cmdList, lockGui=False):
     if not lockGui and platform.system() != "Windows":
         cmdList.append('&')
     try:
-        subprocess.check_call(cmdList)
+        subprocess.check_call(" ".join(cmdList), shell=True)
     except subprocess.CalledProcessError as e:
         text = 'Command {cmd} failed with returncode {code}. {msg}.\n' \
                'Please check your EDITOR environment variable and the ' \

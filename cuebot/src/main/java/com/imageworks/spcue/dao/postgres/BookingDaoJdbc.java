@@ -55,12 +55,14 @@ public class BookingDaoJdbc extends
             "int_mem_idle,"+
             "int_cores_max,"+
             "int_cores_idle,"+
-            "int_gpu_idle,"+
-            "int_gpu_max,"+
+            "int_gpu_mem_idle,"+
+            "int_gpu_mem_max,"+
+            "int_gpus_max,"+
+            "int_gpus_idle,"+
             "int_threads "+
         ") " +
         "VALUES " +
-            "(?,?,?,?,?,?,?,?,?,?,?,?,?)";
+            "(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insertLocalHostAssignment(HostInterface h, JobInterface job, LocalHostAssignment l) {
@@ -71,7 +73,8 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.JOB_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpuUnits(l.getMaxGpuUnits());
+        l.setIdleGpuMemory(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -85,8 +88,10 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuUnits(),
+                l.getMaxGpuUnits(),
                 l.getThreads());
     }
 
@@ -100,7 +105,8 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.LAYER_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpuUnits(l.getMaxGpuUnits());
+        l.setIdleGpuMemory(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -114,8 +120,10 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuUnits(),
+                l.getMaxGpuUnits(),
                 l.getThreads());
     }
 
@@ -130,7 +138,8 @@ public class BookingDaoJdbc extends
         l.setType(RenderPartitionType.FRAME_PARTITION);
         l.setIdleCoreUnits(l.getMaxCoreUnits());
         l.setIdleMemory(l.getMaxMemory());
-        l.setIdleGpu(l.getMaxGpu());
+        l.setIdleGpuUnits(l.getMaxGpuUnits());
+        l.setIdleGpuMemory(l.getMaxGpuMemory());
 
         getJdbcTemplate().update(
                 INSERT_LOCAL_JOB_ASSIGNMENT,
@@ -144,8 +153,10 @@ public class BookingDaoJdbc extends
                 l.getMaxMemory(),
                 l.getMaxCoreUnits(),
                 l.getMaxCoreUnits(),
-                l.getMaxGpu(),
-                l.getMaxGpu(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuMemory(),
+                l.getMaxGpuUnits(),
+                l.getMaxGpuUnits(),
                 l.getThreads());
     }
     public static final RowMapper<LocalHostAssignment> LJA_MAPPER =
@@ -155,11 +166,13 @@ public class BookingDaoJdbc extends
             l.id = rs.getString("pk_host_local");
             l.setMaxCoreUnits(rs.getInt("int_cores_max"));
             l.setMaxMemory(rs.getLong("int_mem_max"));
-            l.setMaxGpu(rs.getLong("int_gpu_max"));
+            l.setMaxGpuUnits(rs.getInt("int_gpus_max"));
+            l.setMaxGpuMemory(rs.getLong("int_gpu_mem_max"));
             l.setThreads(rs.getInt("int_threads"));
             l.setIdleCoreUnits(rs.getInt("int_cores_idle"));
             l.setIdleMemory(rs.getLong("int_mem_idle"));
-            l.setIdleGpu(rs.getLong("int_gpu_idle"));
+            l.setIdleGpuUnits(rs.getInt("int_gpus_idle"));
+            l.setIdleGpuMemory(rs.getLong("int_gpu_mem_idle"));
             l.setJobId(rs.getString("pk_job"));
             l.setLayerId(rs.getString("pk_layer"));
             l.setFrameId(rs.getString("pk_frame"));
@@ -180,8 +193,10 @@ public class BookingDaoJdbc extends
             "int_mem_max,"+
             "int_cores_idle,"+
             "int_cores_max,"+
-            "int_gpu_idle,"+
-            "int_gpu_max,"+
+            "int_gpu_mem_idle,"+
+            "int_gpu_mem_max,"+
+            "int_gpus_idle,"+
+            "int_gpus_max,"+
             "int_threads, "+
             "str_type " +
         "FROM " +
@@ -257,6 +272,13 @@ public class BookingDaoJdbc extends
                 Integer.class, coreUnits, l.getId());
     }
 
+    @Override
+    public int getGpuUsageDifference(LocalHostAssignment l, int gpuUnits) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT ? - int_gpus_max FROM host_local WHERE pk_host_local=?",
+                Integer.class, gpuUnits, l.getId());
+    }
+
     private static final String UPDATE_MAX_CORES =
         "UPDATE " +
             "host_local " +
@@ -270,6 +292,21 @@ public class BookingDaoJdbc extends
     public boolean updateMaxCores(LocalHostAssignment l, int coreUnits) {
         return getJdbcTemplate().update(UPDATE_MAX_CORES,
                 coreUnits, coreUnits, l.getId()) > 0;
+    }
+
+    private static final String UPDATE_MAX_GPUS =
+        "UPDATE " +
+            "host_local " +
+        "SET " +
+            "int_gpus_idle = int_gpus_idle + (? - int_gpus_max), " +
+            "int_gpus_max = ? "+
+        "WHERE " +
+            "pk_host_local = ? ";
+
+    @Override
+    public boolean updateMaxGpus(LocalHostAssignment l, int gpuUnits) {
+        return getJdbcTemplate().update(UPDATE_MAX_GPUS,
+                gpuUnits, gpuUnits, l.getId()) > 0;
     }
 
     private static final String UPDATE_MAX_MEMORY =
@@ -287,19 +324,19 @@ public class BookingDaoJdbc extends
                 UPDATE_MAX_MEMORY, maxMemory, maxMemory, l.getId()) > 0;
     }
 
-    private static final String UPDATE_MAX_GPU =
+    private static final String UPDATE_MAX_GPU_MEMORY =
         "UPDATE " +
             "host_local " +
         "SET " +
-            "int_gpu_idle = int_gpu_idle + (? - int_gpu_max), " +
-            "int_gpu_max = ? "+
+            "int_gpu_mem_idle = int_gpu_mem_idle + (? - int_gpu_mem_max), " +
+            "int_gpu_mem_max = ? "+
         "WHERE " +
             "pk_host_local = ? ";
 
     @Override
-    public boolean updateMaxGpu(LocalHostAssignment l, long maxGpu) {
+    public boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory) {
         return getJdbcTemplate().update(
-                UPDATE_MAX_GPU, maxGpu, maxGpu, l.getId()) > 0;
+                UPDATE_MAX_GPU_MEMORY, maxGpuMemory, maxGpuMemory, l.getId()) > 0;
     }
 
     @Override
@@ -334,6 +371,26 @@ public class BookingDaoJdbc extends
     /**
      *
      * @param h HostInterface
+     * @param gpus int
+     * @return boolean
+     */
+    @Override
+    public boolean allocateGpusFromHost(HostInterface h, int gpus) {
+
+        try {
+            return getJdbcTemplate().update(
+                    "UPDATE host SET int_gpus_idle = int_gpus_idle - ? " +
+                    "WHERE pk_host = ?",
+                    gpus, h.getHostId()) > 0;
+        } catch (DataAccessException e) {
+            throw new ResourceReservationFailureException("Failed to allocate " +
+                    gpus + " GPU from host, " + e);
+        }
+    }
+
+    /**
+     *
+     * @param h HostInterface
      * @param cores int
      * @return boolean
      */
@@ -349,12 +406,31 @@ public class BookingDaoJdbc extends
         }
     }
 
+    /**
+     *
+     * @param h HostInterface
+     * @param gpus int
+     * @return boolean
+     */
+    @Override
+    public boolean deallocateGpusFromHost(HostInterface h, int gpus) {
+        try {
+            return getJdbcTemplate().update(
+                    "UPDATE host SET int_gpus_idle = int_gpus_idle + ? WHERE pk_host = ?",
+                    gpus, h.getHostId()) > 0;
+        } catch (DataAccessException e) {
+            throw new ResourceReservationFailureException("Failed to de-allocate " +
+                    gpus + " GPU from host, " + e);
+        }
+    }
+
     @Override
     public boolean hasResourceDeficit(HostInterface host) {
         return getJdbcTemplate().queryForObject(
                 "SELECT COUNT(1) FROM host_local WHERE " +
                 "(int_cores_max < int_cores_max - int_cores_idle OR " +
-                "int_gpu_max < int_gpu_max - int_gpu_idle OR " +
+                "int_gpus_max < int_gpus_max - int_gpus_idle OR " +
+                "int_gpu_mem_max < int_gpu_mem_max - int_gpu_mem_idle OR " +
                 "int_mem_max < int_mem_max - int_mem_idle) AND " +
                 "host_local.pk_host= ?",
                 Integer.class, host.getHostId()) > 0;

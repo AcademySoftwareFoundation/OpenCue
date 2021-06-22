@@ -68,6 +68,34 @@ public class AdminManagerTests extends AbstractTransactionalJUnit4SpringContextT
     @Test
     @Transactional
     @Rollback(true)
+    public void deleteAllocation() {
+        AllocationEntity a = new AllocationEntity();
+        a.name = facilityDao.getDefaultFacility().getName() + "." + TEST_ALLOC_NAME;
+        a.tag = "general";
+        adminManager.createAllocation(facilityDao.getDefaultFacility(), a);
+        adminManager.deleteAllocation(a);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void setDefaultAllocation() {
+        AllocationEntity a = adminManager.getDefaultAllocation();
+        assertEquals(a.name, facilityDao.getDefaultFacility().getName() + ".unassigned");
+
+        a = new AllocationEntity();
+        a.name = TEST_ALLOC_NAME;
+        a.tag = "general";
+        adminManager.createAllocation(facilityDao.getDefaultFacility(), a);
+        adminManager.setDefaultAllocation(a);
+
+        a = adminManager.getDefaultAllocation();
+        assertEquals(a.name, facilityDao.getDefaultFacility().getName() + "." + TEST_ALLOC_NAME);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void createShow() {
         ShowEntity show = new ShowEntity();
         show.name = "testtest";

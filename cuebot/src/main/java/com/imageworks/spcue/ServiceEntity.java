@@ -41,6 +41,17 @@ public class ServiceEntity extends Entity {
     public int maxCores = 0;
 
     /**
+     * Determines the default minimum gpus per frame.
+     */
+    public int minGpus = 0;
+
+    /**
+     * Determines the default minimum gpus per frame.  0 indicates
+     * the feature is disabled.
+     */
+    public int maxGpus = 0;
+
+    /**
      * Determines the default minimum memory per frame.
      */
     public long minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
@@ -48,7 +59,7 @@ public class ServiceEntity extends Entity {
     /**
      * Determines the default minimum gpu per frame.
      */
-    public long minGpu = Dispatcher.GPU_RESERVED_DEFAULT;
+    public long minGpuMemory = Dispatcher.MEM_GPU_RESERVED_DEFAULT;
 
     /**
      * Determines the default tags.

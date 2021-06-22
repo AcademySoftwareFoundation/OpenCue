@@ -62,6 +62,12 @@ service AllocationInterface {
 
     // Set the allocation tag.  Setting this will re-tag all the hosts in this allocation.
     rpc SetTag(AllocSetTagRequest) returns (AllocSetTagResponse);
+
+    // Return the default allocation.
+    rpc GetDefault(AllocGetDefaultRequest) returns (AllocGetDefaultResponse);
+
+    // Set the default allocation.
+    rpc SetDefault(AllocSetDefaultRequest) returns (AllocSetDefaultResponse);
 }
 
 
@@ -99,6 +105,11 @@ message AllocationStats {
     int32 hosts = 6;
     int32 locked_hosts = 7;
     int32 down_hosts = 8;
+    float gpus = 9;
+    float available_gpus = 10;
+    float idle_gpus = 11;
+    float running_gpus = 12;
+    float locked_gpus = 13;
 }
 
 
@@ -245,4 +256,18 @@ message AllocSetTagRequest {
     string tag = 2;
 }
 
-message AllocSetTagResponse {} //
+message AllocSetTagResponse {} // Empty
+
+// GetDefault
+message AllocGetDefaultRequest {} // Empty
+
+message AllocGetDefaultResponse {
+    Allocation allocation = 1;
+}
+
+// SetDefault
+message AllocSetDefaultRequest {
+    Allocation allocation = 1;
+}
+
+message AllocSetDefaultResponse {} // Empty

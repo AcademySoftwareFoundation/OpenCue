@@ -39,6 +39,15 @@ public interface BookingDao {
     boolean updateMaxCores(LocalHostAssignment l, int maxCoreUnits);
 
     /**
+     * Updates the maximum number of gpus the given local
+     * host assignment should use.
+     *
+     * @param l
+     * @return
+     */
+    boolean updateMaxGpus(LocalHostAssignment l, int gpus);
+
+    /**
      * Updates the maximum amount of memory a given local host
      * assignment should use.
      *
@@ -54,7 +63,7 @@ public interface BookingDao {
      * @param l
      * @return
      */
-    boolean updateMaxGpu(LocalHostAssignment l, long maxGpu);
+    boolean updateMaxGpuMemory(LocalHostAssignment l, long maxGpuMemory);
 
     /**
      * Create a new LocalHostAssignment attached to the given job.
@@ -151,6 +160,16 @@ public interface BookingDao {
     int getCoreUsageDifference(LocalHostAssignment l, int coreUnits);
 
     /**
+     * Return the difference between the number of assigned gpus and
+     * the given gpuUnits.
+     *
+     * @param l
+     * @param gpuUnits
+     * @return
+     */
+    int getGpuUsageDifference(LocalHostAssignment l, int gpuUnits);
+
+    /**
      * Allocate additional cores from the given host.
      *
      * @param h
@@ -167,6 +186,24 @@ public interface BookingDao {
      * @return
      */
     boolean deallocateCoresFromHost(HostInterface h, int cores);
+
+    /**
+     * Allocate additional gpus from the given host.
+     *
+     * @param h
+     * @param gpus
+     * @return
+     */
+    boolean allocateGpusFromHost(HostInterface h, int gpus);
+
+    /**
+     * Deallocate gpu from the given host, returning them to its pool.
+     *
+     * @param h
+     * @param gpus
+     * @return
+     */
+    boolean deallocateGpusFromHost(HostInterface h, int gpus);
 
     /**
      * Return true if the Host has a resource deficit.  A

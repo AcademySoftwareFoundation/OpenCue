@@ -10,6 +10,9 @@
 max_cores: 32
 max_memory: 128
 
+max_gpus: 8
+max_gpu_memory: 128
+
 
 # Redirect Plugin maximum allowed core-hour cutoff. 
 # Users will not be able to search for procs with frames that have been 

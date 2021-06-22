@@ -374,7 +374,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         lja.setThreads(1);
         lja.setMaxMemory(CueUtil.GB16);
         lja.setMaxCoreUnits(200);
-        lja.setMaxGpu(1);
+        lja.setMaxGpuMemory(1);
         bookingDao.insertLocalHostAssignment(host, job, lja);
 
         jobs = dispatcherDao.findLocalDispatchJobs(host);

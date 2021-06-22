@@ -258,6 +258,8 @@ public class RedirectManager {
         DispatchHost host = hostManager.getDispatchHost(proc.getHostId());
         host.idleCores = proc.coresReserved;
         host.idleMemory = proc.memoryReserved;
+        host.idleGpus = proc.gpusReserved;
+        host.idleGpuMemory = proc.gpuMemoryReserved;
 
         if (dispatchSupport.findDispatchJobs(host, group).size() < 1) {
             logger.info("Failed to find a pending job in group: " + group.getName());

@@ -98,53 +98,71 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda job: "%.02f" % job.data.job_stats.reserved_cores,
                        sort=lambda job: job.data.job_stats.reserved_cores,
                        tip="The number of reserved cores.")
-        self.addColumn("Wait", 45, id=6,
+        self.addColumn("Gpus", 55, id=6,
+                       data=lambda job: "%d" % job.data.job_stats.reserved_gpus,
+                       sort=lambda job: job.data.job_stats.reserved_gpus,
+                       tip="The number of reserved gpus.")
+        self.addColumn("Wait", 45, id=7,
                        data=lambda job: job.data.job_stats.waiting_frames,
                        sort=lambda job: job.data.job_stats.waiting_frames,
                        tip="The number of waiting frames.")
-        self.addColumn("Depend", 55, id=7,
+        self.addColumn("Depend", 55, id=8,
                        data=lambda job: job.data.job_stats.depend_frames,
                        sort=lambda job: job.data.job_stats.depend_frames,
                        tip="The number of dependent frames.")
-        self.addColumn("Total", 50, id=8,
+        self.addColumn("Total", 50, id=9,
                        data=lambda job: job.data.job_stats.total_frames,
                        sort=lambda job: job.data.job_stats.total_frames,
                        tip="The total number of frames.")
-        self.addColumn("_Booking Bar", 150, id=9,
+        self.addColumn("_Booking Bar", 150, id=10,
                        delegate=cuegui.ItemDelegate.JobBookingBarDelegate)
-        self.addColumn("Min", 38, id=10,
+        self.addColumn("Min", 38, id=11,
                        data=lambda job: "%.0f" % job.data.min_cores,
                        sort=lambda job: job.data.min_cores,
                        tip="The minimum number of running cores that the cuebot\n"
                            "will try to maintain.")
-        self.addColumn("Max", 38, id=11,
+        self.addColumn("Max", 38, id=12,
                        data=lambda job: "%.0f" % job.data.max_cores,
                        sort=lambda job: job.data.max_cores,
                        tip="The maximum number of running cores that the cuebot\n"
                            "will allow.")
+        self.addColumn("Min Gpus", 38, id=13,
+                       data=lambda job: "%d" % job.data.min_gpus,
+                       sort=lambda job: job.data.min_gpus,
+                       tip="The minimum number of running gpus that the cuebot\n"
+                           "will try to maintain.")
+        self.addColumn("Max Gpus", 38, id=14,
+                       data=lambda job: "%d" % job.data.max_gpus,
+                       sort=lambda job: job.data.max_gpus,
+                       tip="The maximum number of running gpus that the cuebot\n"
+                           "will allow.")
         self.addColumn(
-            "Age", 50, id=12,
+            "Age", 50, id=15,
             data=lambda job: cuegui.Utils.secondsToHHHMM(self.currtime - job.data.start_time),
             sort=lambda job: self.currtime - job.data.start_time,
             tip="The HOURS:MINUTES since the job was launched.")
-        self.addColumn("Pri", 30, id=13,
+        self.addColumn("Pri", 30, id=16,
                        data=lambda job: job.data.priority,
                        sort=lambda job: job.data.priority,
                        tip="The job priority. The cuebot uses this as a suggestion\n"
                            "to determine what job needs the next available matching\n"
                            "resource.")
-        self.addColumn("ETA", 65, id=14,
+        self.addColumn("ETA", 65, id=17,
                        data=lambda job: "",
                        tip="(Inacurate and disabled until a better solution exists)\n"
                            "A very rough estimate of the number of HOURS:MINUTES\n"
                            "it will be before the entire job is done.")
-        self.addColumn("MaxRss", 60, id=15,
+        self.addColumn("MaxRss", 60, id=18,
                        data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_rss),
                        sort=lambda job: job.data.job_stats.max_rss,
                        tip="The most memory used at one time by any single frame.")
-        self.addColumn("_Blank", 20, id=16,
+        self.addColumn("MaxGpuMem", 60, id=19,
+                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_gpu_mem),
+                       sort=lambda job: job.data.job_stats.max_gpu_mem,
+                       tip="The most gpu memory used at one time by any single frame.")
+        self.addColumn("_Blank", 20, id=20,
                        tip="Spacer")
-        self.addColumn("Progress", 0, id=17,
+        self.addColumn("Progress", 0, id=21,
                        delegate=cuegui.ItemDelegate.JobThinProgressBarDelegate,
                        tip="A visual overview of the job progress.\n"
                            "Green \t is succeeded\n"
@@ -164,23 +182,31 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.addColumn("", 0, id=5,
                            data=lambda group: "%.2f" % group.data.stats.reserved_cores)
             self.addColumn("", 0, id=6,
+                           data=lambda group: "%d" % group.data.stats.reserved_gpus)
+            self.addColumn("", 0, id=7,
                            data=lambda group: group.data.stats.waiting_frames)
-            self.addColumn("", 0, id=7)
             self.addColumn("", 0, id=8)
-            self.addColumn("", 0, id=9,
-                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=9)
             self.addColumn("", 0, id=10,
+                           data=lambda group: (group.data.min_cores or ""))
+            self.addColumn("", 0, id=11,
                            data=lambda group: (
                                    group.data.max_cores > 0 and group.data.max_cores or ""))
-            self.addColumn("", 0, id=11)
-            self.addColumn("", 0, id=12)
-            self.addColumn("", 0, id=13)
+            self.addColumn("", 0, id=12,
+                           data=lambda group: (group.data.min_gpus or ""))
+            self.addColumn("", 0, id=13,
+                           data=lambda group: (
+                                   group.data.max_gpus > 0 and group.data.max_gpus or ""))
             self.addColumn("", 0, id=14)
             self.addColumn("", 0, id=15)
-            self.addColumn("", 0, id=16,
+            self.addColumn("", 0, id=16)
+            self.addColumn("", 0, id=17)
+            self.addColumn("", 0, id=18)
+            self.addColumn("", 0, id=19)
+            self.addColumn("", 0, id=20,
                            data=lambda group: (group.data.department != "Unknown" and
                                                group.data.department or ""))
-            self.addColumn("", 0, id=17)
+            self.addColumn("", 0, id=21)
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -528,6 +554,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             menu.addSeparator()
             self.__menuActions.jobs().addAction(menu, "setMinCores")
             self.__menuActions.jobs().addAction(menu, "setMaxCores")
+            self.__menuActions.jobs().addAction(menu, "setMinGpu")
+            self.__menuActions.jobs().addAction(menu, "setMaxGpu")
             self.__menuActions.jobs().addAction(menu, "setPriority")
             self.__menuActions.jobs().addAction(menu, "setMaxRetries")
             if counts["job"] == 1:

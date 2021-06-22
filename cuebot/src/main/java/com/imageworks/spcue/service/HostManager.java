@@ -112,8 +112,8 @@ public interface HostManager {
      * @param freeSwap
      * @param totalMcp
      * @param freeMcp
-     * @param totalGpu
-     * @param freeGpu
+     * @param totalGpuMemory
+     * @param freeGpuMemory
      * @param load
      * @param bootTime
      * @param os
@@ -122,7 +122,7 @@ public interface HostManager {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime, String os);
 
 
@@ -211,6 +211,11 @@ public interface HostManager {
      * Return the number of stranded cores on the host.
      */
     int getStrandedCoreUnits(HostInterface h);
+
+    /**
+     * Return the number of stranded cores on the host.
+     */
+    int getStrandedGpuUnits(HostInterface h);
 
     /**
      * Return true of the host prefers a particular show.

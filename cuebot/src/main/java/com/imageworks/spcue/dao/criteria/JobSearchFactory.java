@@ -26,14 +26,7 @@ public class JobSearchFactory {
     private DatabaseEngine dbEngine;
 
     public JobSearchInterface create() {
-        if (dbEngine.equals(DatabaseEngine.POSTGRES)) {
-            return new JobSearch();
-        } else if (dbEngine.equals(DatabaseEngine.ORACLE)) {
-            return new com.imageworks.spcue.dao.criteria.oracle.JobSearch();
-        } else {
-            throw new RuntimeException(
-                    "current database engine is not supported by JobSearchFactory");
-        }
+        return new JobSearch();
     }
 
     public JobSearchInterface create(JobSearchCriteria criteria) {

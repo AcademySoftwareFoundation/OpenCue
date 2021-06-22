@@ -38,6 +38,16 @@ for PACKAGE in "${CLIENT_PACKAGES[@]}"; do
         pip install -r ${REQUIREMENTS_GUI}
     fi
     cd ${PACKAGE}-${VERSION}-all
+
+    # remove *.pyc files and __pycache__ folders contained on
+    # <PACKAGE-VERSION>-all.tar.gz. As these files might be generated from
+    # a different operating system and/or python version than current host has
+    # `python setup.py install` may raise a `ValueError: bad marshal data` error.
+    # Removing these files before invoking `setup.py` prevent this error.
+    # NOTE: Temporary solution until pip distribution is ready.
+    find . -path '*/__pycache__*' -delete
+    find . -name '*.pyc'  -type f -delete
+
     python setup.py install
     cd ..
 done

@@ -23,6 +23,7 @@ import java.sql.Timestamp;
 import java.util.List;
 
 import org.apache.log4j.Logger;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -123,7 +124,7 @@ public class HostManagerService implements HostManager {
             long totalMemory, long freeMemory,
             long totalSwap, long freeSwap,
             long totalMcp, long freeMcp,
-            long totalGpu, long freeGpu,
+            long totalGpuMemory, long freeGpuMemory,
             int load, Timestamp bootTime,
             String os) {
 
@@ -131,7 +132,7 @@ public class HostManagerService implements HostManager {
                 totalMemory, freeMemory,
                 totalSwap, freeSwap,
                 totalMcp, freeMcp,
-                totalGpu, freeGpu,
+                totalGpuMemory, freeGpuMemory,
                 load, bootTime, os);
     }
 
@@ -152,7 +153,28 @@ public class HostManagerService implements HostManager {
 
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(RenderHost rhost) {
-        return createHost(rhost, getDefaultAllocationDetail());
+        // Find suitable allocation with facility and tags.
+        AllocationEntity alloc = null;
+        if (rhost.getTagsCount() > 0) {
+            String facility = rhost.getFacility();
+            for (String tag : rhost.getTagsList()) {
+                try {
+                    alloc = allocationDao.findAllocationEntity(facility, tag);
+                    logger.info("set " + rhost.getName() +
+                            " to the given allocation " + alloc.getName());
+                    break;
+                }
+                catch (EmptyResultDataAccessException e) {
+                    // Allocation doesn't exist. ignore.
+                }
+            }
+        }
+        if (alloc == null) {
+            alloc = getDefaultAllocationDetail();
+            logger.info("set " + rhost.getName() +
+                    " to the default allocation " + alloc.getName());
+        }
+        return createHost(rhost, alloc);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -244,6 +266,12 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public int getStrandedCoreUnits(HostInterface h) {
         return hostDao.getStrandedCoreUnits(h);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
+    public int getStrandedGpuUnits(HostInterface h) {
+        return hostDao.getStrandedGpus(h);
     }
 
     @Override

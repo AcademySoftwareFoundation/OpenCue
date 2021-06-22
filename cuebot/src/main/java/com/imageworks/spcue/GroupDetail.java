@@ -23,10 +23,15 @@ public class GroupDetail extends Entity implements GroupInterface, DepartmentInt
 
     public int jobMinCores = -1;
     public int jobMaxCores = -1;
+    public int jobMinGpus = -1;
+    public int jobMaxGpus = -1;
     public int jobPriority = -1;
 
     public int minCores = -1;
     public int maxCores = -1;
+
+    public int minGpus = -1;
+    public int maxGpus = -1;
 
     public String parentId = null;
     public String showId;

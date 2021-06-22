@@ -90,7 +90,7 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["maxframetime"] = "0"
         self.frameEnv["minspace"] = "200"
         self.frameEnv["CUE3"] = "True"
-        self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemory())
+        self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
         for key in self.runFrame.environment:
@@ -102,6 +102,10 @@ class FrameAttendantThread(threading.Thread):
                 int(self.frameEnv['CUE_THREADS']),
                 len(self.runFrame.attributes['CPU_LIST'].split(','))))
             self.frameEnv['CUE_HT'] = "True"
+
+        # Add GPU's to use all assigned GPU cores
+        if 'GPU_LIST' in self.runFrame.attributes:
+            self.frameEnv['CUE_GPU_CORES'] = self.runFrame.attributes['GPU_LIST']
 
     def _createCommandFile(self, command):
         """Creates a file that subprocess. Popen then executes.
@@ -187,6 +191,8 @@ class FrameAttendantThread(threading.Thread):
             print("%-20s%s" % ("endTime",
                                          time.ctime(self.endTime)), file=self.rqlog)
             print("%-20s%s" % ("maxrss", self.frameInfo.maxRss), file=self.rqlog)
+            print("%-20s%s" % ("maxUsedGpuMemory",
+                                         self.frameInfo.maxUsedGpuMemory), file=self.rqlog)
             print("%-20s%s" % ("utime", self.frameInfo.utime), file=self.rqlog)
             print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
             print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
@@ -531,7 +537,9 @@ class FrameAttendantThread(threading.Thread):
                 # Delay keeps the cuebot from spamming failing booking requests
                 time.sleep(10)
         finally:
-            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'))
+            self.rqCore.releaseCores(self.runFrame.num_cores, runFrame.attributes.get('CPU_LIST'),
+                runFrame.attributes.get('GPU_LIST')
+                if 'GPU_LIST' in self.runFrame.attributes else None)
 
             self.rqCore.deleteFrame(self.runFrame.frame_id)
 
@@ -733,7 +741,7 @@ class RqCore(object):
                     pass
             time.sleep(1)
 
-    def releaseCores(self, reqRelease, releaseHT=None):
+    def releaseCores(self, reqRelease, releaseHT=None, releaseGpus=None):
         """The requested number of cores are released
         @type  reqRelease: int
         @param reqRelease: Number of cores to release, 100 = 1 physical core"""
@@ -752,6 +760,9 @@ class RqCore(object):
 
             if releaseHT:
                 self.machine.releaseHT(releaseHT)
+
+            if releaseGpus:
+                self.machine.releaseGpus(releaseGpus)
 
         finally:
             self.__threadLock.release()
@@ -850,6 +861,11 @@ class RqCore(object):
                 reserveHT = self.machine.reserveHT(runFrame.num_cores)
                 if reserveHT:
                     runFrame.attributes['CPU_LIST'] = reserveHT
+
+            if runFrame.num_gpus:
+                reserveGpus = self.machine.reserveGpus(runFrame.num_gpus)
+                if reserveGpus:
+                    runFrame.attributes['GPU_LIST'] = reserveGpus
 
             # They must be available at this point, reserve them
             # pylint: disable=no-member
