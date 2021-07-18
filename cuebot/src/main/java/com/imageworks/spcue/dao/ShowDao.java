@@ -82,6 +82,21 @@ public interface ShowDao {
     void updateShowDefaultMaxCores(ShowInterface s, int val);
 
     /**
+     *
+     * @param s
+     * @param val
+     */
+    void updateShowDefaultMinGpus(ShowInterface s, int val);
+
+    /**
+     *
+     * @param s
+     * @param val
+     */
+    void updateShowDefaultMaxGpus(ShowInterface s, int val);
+
+
+    /**
      * Disabling this would stop new proc assignement. The show would get no new
      * procs, but any procs already assigned to a job would continue to
      * dispatch.

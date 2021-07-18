@@ -41,7 +41,6 @@ import rqd.compiled_proto.report_pb2
 
 from .rqmachine_tests import (
     CPUINFO,
-    CUDAINFO,
     LOADAVG_LOW_USAGE,
     MEMINFO_MODERATE_USAGE,
     PROC_STAT,
@@ -78,7 +77,7 @@ class MockConfig(object):
         return decorator
 
 
-@mock.patch("subprocess.getoutput", new=mock.MagicMock(return_value=CUDAINFO))
+@mock.patch("subprocess.getoutput", new=mock.MagicMock(return_value=""))
 @mock.patch.object(
     rqd.rqutil.Memoize, "isCached", new=mock.MagicMock(return_value=False)
 )

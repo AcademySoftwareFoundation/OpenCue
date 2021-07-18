@@ -269,7 +269,7 @@ public class ManageFrame extends FrameInterfaceGrpc.FrameInterfaceImplBase {
         lha.setThreads(request.getThreads());
         lha.setMaxCoreUnits(request.getMaxCores() * 100);
         lha.setMaxMemory(request.getMaxMemory());
-        lha.setMaxGpu(request.getMaxGpu());
+        lha.setMaxGpuMemory(request.getMaxGpuMemory());
         lha.setType(RenderPartitionType.FRAME_PARTITION);
 
         if (localBookingSupport.bookLocal(frame, request.getHost(), request.getUsername(), lha)) {

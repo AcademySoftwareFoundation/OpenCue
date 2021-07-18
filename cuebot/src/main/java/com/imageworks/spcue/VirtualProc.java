@@ -36,7 +36,11 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public long memoryMax;
     public long virtualMemoryUsed;
     public long virtualMemoryMax;
-    public long gpuReserved;
+
+    public int gpusReserved;
+    public long gpuMemoryReserved;
+    public long gpuMemoryUsed;
+    public long gpuMemoryMax;
 
     public boolean unbooked;
     public boolean usageRecorded = false;
@@ -91,8 +95,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
 
         proc.coresReserved = frame.minCores;
         proc.memoryReserved = frame.minMemory;
-        // This reserves all the gpu memory on a host for one frame
-        proc.gpuReserved = (frame.minGpu > 0) ? host.idleGpu : 0;
+        proc.gpusReserved = frame.minGpus;
+        proc.gpuMemoryReserved = frame.minGpuMemory;
 
         /*
          * Frames that are announcing cores less than 100 are not multi-threaded
@@ -208,7 +212,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
 
         proc.coresReserved = lja.getThreads() * 100;
         proc.memoryReserved = frame.minMemory;
-        proc.gpuReserved = frame.minGpu;
+        proc.gpusReserved = frame.minGpus;
+        proc.gpuMemoryReserved = frame.minGpuMemory;
 
         int wholeCores = (int) (Math.floor(host.idleCores / 100.0));
         if (wholeCores == 0) {

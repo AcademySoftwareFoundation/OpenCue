@@ -60,6 +60,24 @@ public interface JobDao {
     public void updateMinCores(GroupInterface g, int cores);
 
     /**
+     * Updates all jobs in the speficed group to the
+     * max gpu value.
+     *
+     * @param g
+     * @param gpu
+     */
+    public void updateMaxGpus(GroupInterface g, int gpus);
+
+    /**
+     * Updates all jobs in the specifid group to the
+     * min gpu value.
+     *
+     * @param g
+     * @param gpu
+     */
+    public void updateMinGpus(GroupInterface g, int gpus);
+
+    /**
      * Updates all jobs in the specified group to the
      * set priority.
      *
@@ -255,6 +273,39 @@ public interface JobDao {
      */
     boolean isOverMaxCores(JobInterface job, int coreUnits);
 
+    /**
+     * reteurns true if job is over its minimum gpus
+     *
+     * @param job
+     * @return boolean
+     */
+    boolean isOverMinGpus(JobInterface job);
+
+    /**
+     * returns true if job is over max gpus
+     *
+     * @param job
+     * @return
+     */
+    boolean isOverMaxGpus(JobInterface job);
+
+    /**
+     * returns true if job is at its max gpus
+     *
+     * @param job
+     * @return
+     */
+    boolean isAtMaxGpus(JobInterface job);
+
+    /**
+     * Return true if adding given gpus to the job
+     * will set the job over its max gpus value.
+     *
+     * @param job
+     * @param gpus
+     * @return
+     */
+    boolean isOverMaxGpus(JobInterface job, int gpus);
 
     /**
      * sets the jobs new priority value
@@ -279,6 +330,22 @@ public interface JobDao {
      * @param v
      */
     void updateMaxCores(JobInterface j, int v);
+
+    /**
+     * sets the jobs new min gpu value
+     *
+     * @param j
+     * @param v
+     */
+    void updateMinGpus(JobInterface j, int v);
+
+    /**
+     * sets the jobs new max gpu value
+     *
+     * @param j
+     * @param v
+     */
+    void updateMaxGpus(JobInterface j, int v);
 
     /**
      * Update a job's paused state

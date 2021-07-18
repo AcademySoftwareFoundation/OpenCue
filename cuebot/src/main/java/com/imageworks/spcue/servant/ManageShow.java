@@ -93,6 +93,10 @@ import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxCoresRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxCoresResponse;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinCoresRequest;
 import com.imageworks.spcue.grpc.show.ShowSetDefaultMinCoresResponse;
+import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusRequest;
+import com.imageworks.spcue.grpc.show.ShowSetDefaultMaxGpusResponse;
+import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusRequest;
+import com.imageworks.spcue.grpc.show.ShowSetDefaultMinGpusResponse;
 import com.imageworks.spcue.grpc.subscription.Subscription;
 import com.imageworks.spcue.grpc.subscription.SubscriptionSeq;
 import com.imageworks.spcue.service.AdminManager;
@@ -258,6 +262,24 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
     }
 
     @Override
+    public void setDefaultMaxGpus(ShowSetDefaultMaxGpusRequest request,
+                                   StreamObserver<ShowSetDefaultMaxGpusResponse> responseObserver) {
+        ShowEntity show = getShowEntity(request.getShow());
+        showDao.updateShowDefaultMaxGpus(show, request.getMaxGpus());
+        responseObserver.onNext(ShowSetDefaultMaxGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void setDefaultMinGpus(ShowSetDefaultMinGpusRequest request,
+                                   StreamObserver<ShowSetDefaultMinGpusResponse> responseObserver) {
+        ShowEntity show = getShowEntity(request.getShow());
+        showDao.updateShowDefaultMinGpus(show, request.getMinGpus());
+        responseObserver.onNext(ShowSetDefaultMinGpusResponse.newBuilder().build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
     public void findFilter(ShowFindFilterRequest request,
                                    StreamObserver<ShowFindFilterResponse> responseObserver) {
         ShowEntity show = getShowEntity(request.getShow());
@@ -361,7 +383,9 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
         service.minCores = requestService.getMinCores();
         service.maxCores = requestService.getMaxCores();
         service.minMemory = requestService.getMinMemory();
-        service.minGpu = requestService.getMinGpu();
+        service.minGpus = requestService.getMinGpus();
+        service.maxGpus = requestService.getMaxGpus();
+        service.minGpuMemory = requestService.getMinGpuMemory();
         service.tags = Sets.newLinkedHashSet(requestService.getTagsList());
         service.threadable = requestService.getThreadable();
         serviceManager.createService(service);

@@ -153,17 +153,13 @@ PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1
                  '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
                  '140725890743420 140725890743420 140725890744298 0')
 
-CUDAINFO = ' TotalMem 1023 Mb  FreeMem 968 Mb'
 
-
-@mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
 @mock.patch('os.statvfs', new=mock.MagicMock())
 @mock.patch('rqd.rqutil.getHostname', new=mock.MagicMock(return_value='arbitrary-hostname'))
 class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
-    @mock.patch('subprocess.getoutput', new=mock.MagicMock(return_value=CUDAINFO))
     @mock.patch('os.statvfs', new=mock.MagicMock())
     @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
     def setUp(self):
@@ -318,29 +314,39 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertEqual(1569882758, self.machine.getBootTime())
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
-    def test_getGpuMemoryTotal(self):
+    def _resetGpuStat(self):
         if hasattr(self.machine, 'gpuNotSupported'):
             delattr(self.machine, 'gpuNotSupported')
         if hasattr(self.machine, 'gpuResults'):
             delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
 
-        self.assertEqual(1048576, self.machine.getGpuMemoryTotal())
+    @mock.patch.object(
+        rqd.rqconstants, 'ALLOW_GPU', new=mock.MagicMock(return_value=True))
+    @mock.patch('subprocess.getoutput',
+        new=mock.MagicMock(return_value='16130 MiB, 16119 MiB, 1'))
+    def test_getGpuStat(self):
+        self._resetGpuStat()
+        self.assertEqual(1, self.machine.getGpuCount())
+        self.assertEqual(16913531, self.machine.getGpuMemoryTotal())
+        self.assertEqual(16901997, self.machine.getGpuMemoryFree())
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
-    def test_getGpuMemory(self):
-        if hasattr(self.machine, 'gpuNotSupported'):
-            delattr(self.machine, 'gpuNotSupported')
-        if hasattr(self.machine, 'gpuResults'):
-            delattr(self.machine, 'gpuResults')
-        rqd.rqconstants.ALLOW_GPU = True
-
-        self.assertEqual(991232, self.machine.getGpuMemory())
+    @mock.patch.object(
+        rqd.rqconstants, 'ALLOW_GPU', new=mock.MagicMock(return_value=True))
+    @mock.patch('subprocess.getoutput',
+        new=mock.MagicMock(return_value="""\
+16130 MiB, 16103 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 4200 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8
+16130 MiB, 16119 MiB, 8"""))
+    def test_multipleGpus(self):
+        self._resetGpuStat()
+        self.assertEqual(8, self.machine.getGpuCount())
+        self.assertEqual(135308248, self.machine.getGpuMemoryTotal())
+        self.assertEqual(122701222, self.machine.getGpuMemoryFree())
 
     def test_getPathEnv(self):
         self.assertEqual(
@@ -365,16 +371,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         popenMock.assert_called_with(['/usr/bin/sudo', '/sbin/reboot', '-f'])
 
-    @mock.patch(
-        'subprocess.getoutput',
-        new=mock.MagicMock(return_value=' TotalMem 1023 Mb  FreeMem 968 Mb'))
     def test_getHostInfo(self):
         # pylint: disable=no-member
         hostInfo = self.machine.getHostInfo()
 
         self.assertEqual(4105212, hostInfo.free_swap)
         self.assertEqual(25699176, hostInfo.free_mem)
-        self.assertEqual('991232', hostInfo.attributes['freeGpu'])
         self.assertEqual('0', hostInfo.attributes['swapout'])
         self.assertEqual(25, hostInfo.load)
         self.assertEqual(False, hostInfo.nimby_enabled)

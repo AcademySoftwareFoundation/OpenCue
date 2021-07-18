@@ -233,6 +233,73 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     }
 
     @Override
+    public void updateDefaultJobMaxGpus(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The default max cores for a job must " +
+                    "be greater than a single core";
+            throw new IllegalArgumentException(msg);
+        }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_max_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateDefaultJobMinGpus(GroupInterface group, int value) {
+        if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The default min cores for a job must " +
+                    "be greater than a single core";
+            throw new IllegalArgumentException(msg);
+        }
+        getJdbcTemplate().update(
+                "UPDATE folder SET int_job_min_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMaxGpus(GroupInterface group, int value) {
+        if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
+        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
+            String msg = "The group max cores feature must " +
+                    "be a whole core or greater, pass in: " + value;
+            throw new IllegalArgumentException(msg);
+        }
+
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_max_gpu=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    @Override
+    public void updateMinGpus(GroupInterface group, int value) {
+        if (value < 0) { value = 0; }
+        getJdbcTemplate().update(
+                "UPDATE folder_resource SET int_min_gpus=? WHERE pk_folder=?",
+                value, group.getId());
+    }
+
+    private static final String IS_OVER_MIN_GPUS =
+        "SELECT " +
+            "COUNT(1) " +
+        "FROM " +
+            "job,"+
+            "folder_resource fr "+
+        "WHERE " +
+            "job.pk_folder = fr.pk_folder " +
+        "AND " +
+            "fr.int_gpus > fr.int_min_gpus " +
+        "AND "+
+            "job.pk_job = ?";
+
+    @Override
+    public boolean isOverMinGpus(JobInterface job) {
+        return getJdbcTemplate().queryForObject(IS_OVER_MIN_GPUS,
+                Integer.class, job.getJobId()) > 0;
+    }
+
+    @Override
     public void updateDefaultJobPriority(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
         getJdbcTemplate().update(
@@ -251,6 +318,8 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_folder, " +
             "folder.int_job_max_cores,"+
             "folder.int_job_min_cores,"+
+            "folder.int_job_max_gpus,"+
+            "folder.int_job_min_gpus,"+
             "folder.int_job_priority,"+
             "folder.str_name,"+
             "folder.pk_parent_folder,"+
@@ -258,7 +327,9 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_dept,"+
             "folder_level.int_level, " +
             "folder_resource.int_min_cores,"+
-            "folder_resource.int_max_cores " +
+            "folder_resource.int_max_cores," +
+            "folder_resource.int_min_gpus,"+
+            "folder_resource.int_max_gpus " +
         "FROM " +
             "folder, "+
             "folder_level, " +
@@ -273,6 +344,8 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_folder, " +
             "folder.int_job_max_cores,"+
             "folder.int_job_min_cores,"+
+            "folder.int_job_max_gpus,"+
+            "folder.int_job_min_gpus,"+
             "folder.int_job_priority,"+
             "folder.str_name,"+
             "folder.pk_parent_folder,"+
@@ -280,7 +353,9 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             "folder.pk_dept,"+
             "folder_level.int_level, " +
             "folder_resource.int_min_cores,"+
-            "folder_resource.int_max_cores " +
+            "folder_resource.int_max_cores," +
+            "folder_resource.int_min_gpus,"+
+            "folder_resource.int_max_gpus " +
         "FROM " +
             "folder, "+
             "folder_level, " +
@@ -393,6 +468,8 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 group.id = rs.getString("pk_folder");
                 group.jobMaxCores = rs.getInt("int_job_max_cores");
                 group.jobMinCores = rs.getInt("int_job_min_cores");
+                group.jobMaxGpus = rs.getInt("int_job_max_gpus");
+                group.jobMinGpus = rs.getInt("int_job_min_gpus");
                 group.jobPriority = rs.getInt("int_job_priority");
                 group.name = rs.getString("str_name");
                 group.parentId = rs.getString("pk_parent_folder");

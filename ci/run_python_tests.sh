@@ -26,26 +26,3 @@ python rqd/setup.py test
 if [[ "$python_version" =~ "Python 3" ]]; then
   PYTHONPATH=pycue xvfb-run -d python cuegui/setup.py test
 fi
-
-# Some environments don't have pylint available, for ones that do they should pass this flag.
-if [[ "$1" == "--lint" ]]; then
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main FileSequence && cd ..
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_main opencue --ignore=opencue/compiled_proto && cd ..
-  cd pycue && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline && cd ..
-  cd pyoutline && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cueadmin && cd ..
-  cd cueadmin && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal && cd ..
-  cd cuegui && PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit && cd ..
-  cd cuesubmit && PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-
-  cd rqd && python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto && cd ..
-  cd rqd && python -m pylint --rcfile=../ci/pylintrc_test tests && cd ..
-fi
-

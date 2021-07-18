@@ -66,7 +66,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "ts_updated = current_timestamp,  " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100)," +
+            "int_total_past_gpu_time = int_total_past_gpu_time + " + 
+                "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -93,7 +95,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_mem_max_used = ?, " +
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
-                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_cores / 100) " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_cores / 100), " +
+            "int_total_past_gpu_time = int_total_past_gpu_time + " +
+                "round(INTERVAL_TO_SECONDS(current_timestamp + interval '1' second - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
         "AND " +
@@ -149,7 +153,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host = ?, " +
             "int_cores = ?, " +
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpus = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, " +
@@ -200,7 +205,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
 
         int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
                 FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId(),
+                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
                 FrameState.WAITING.toString(), frame.getVersion());
 
         if (result == 0) {
@@ -226,7 +231,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "str_host=?, " +
             "int_cores=?, "+
             "int_mem_reserved = ?, " +
-            "int_gpu_reserved = ?, " +
+            "int_gpus = ?, " +
+            "int_gpu_mem_reserved = ?, " +
             "ts_updated = current_timestamp, " +
             "ts_started = current_timestamp, " +
             "ts_stopped = null, "+
@@ -240,7 +246,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     public boolean updateFrameFixed(VirtualProc proc, FrameInterface frame) {
         return getJdbcTemplate().update(UPDATE_FRAME_FIXED,
                 FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpuReserved, frame.getFrameId()) == 1;
+                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId()) == 1;
     }
 
     @Override
@@ -276,7 +282,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");
             frame.minMemory = rs.getLong("int_mem_min");
-            frame.minGpu = rs.getLong("int_gpu_min");
+            frame.minGpus = rs.getInt("int_gpus_min");
+            frame.maxGpus = rs.getInt("int_gpus_max");
+            frame.minGpuMemory = rs.getLong("int_gpu_mem_min");
             frame.version = rs.getInt("int_version");
             frame.services = rs.getString("str_services");
             return frame;
@@ -308,7 +316,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "layer.int_cores_max,"+
             "layer.b_threadable,"+
             "layer.int_mem_min, "+
-            "layer.int_gpu_min, "+
+            "layer.int_gpus_min,"+
+            "layer.int_gpus_max,"+
+            "layer.int_gpu_mem_min, "+
             "layer.str_range, "+
             "layer.int_chunk_size, " +
             "layer.str_services " +
@@ -402,7 +412,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.version = rs.getInt("int_version");
 
             if (rs.getString("str_host") != null) {
-                frame.lastResource = String.format("%s/%d",rs.getString("str_host"),rs.getInt("int_cores"));
+                frame.lastResource = String.format("%s/%d/%d",rs.getString("str_host"),rs.getInt("int_cores"),rs.getInt("int_gpus"));
             }
             else {
                 frame.lastResource = "";
@@ -931,7 +941,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 int rowNum) throws SQLException {
             return new ResourceUsage(
                     rs.getLong("int_clock_time"),
-                    rs.getInt("int_cores"));
+                    rs.getInt("int_cores"),
+                    rs.getInt("int_gpus"));
         }
 
     };
@@ -947,7 +958,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 "SELECT " +
                     "COALESCE(interval_to_seconds(current_timestamp - ts_started), 1) " +
                         "AS int_clock_time, " +
-                    "COALESCE(int_cores, 100) AS int_cores " +
+                    "COALESCE(int_cores, 100) AS int_cores," +
+                    "int_gpus " +
                 "FROM " +
                     "frame " +
                 "WHERE " +

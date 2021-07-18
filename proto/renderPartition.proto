@@ -40,8 +40,11 @@ message RenderPartition {
     int64 memory = 8;
     int32 max_cores = 9;
     int64 max_memory = 10;
-    int64 max_gpu = 11;
+    int64 max_gpu_memory = 11;
     int32 threads = 12;
+    int32 gpus = 13;
+    int32 max_gpus = 14;
+    int64 gpu_memory = 15;
 }
 
 message RenderPartitionSeq {
@@ -61,7 +64,8 @@ message RenderPartSetMaxResourcesRequest {
     RenderPartition render_partition = 1;
     int32 cores = 2;
     int64 memory = 3;
-    int64 gpu = 4;
+    int64 gpu_memory = 4;
+    int32 gpus = 5;
 }
 
 message RenderPartSetMaxResourcesResponse {} // Empty

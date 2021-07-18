@@ -293,6 +293,14 @@ public interface JobManager {
     boolean isOverMinCores(JobInterface job);
 
     /**
+     * Return true if the given job is booked greater than min gpus.
+     *
+     * @param job
+     * @return
+     */
+    boolean isOverMinGpus(JobInterface job);
+
+    /**
      * Increase the layer memory requirement to given KB value.
      *
      * @param layer
@@ -452,6 +460,22 @@ public interface JobManager {
      * @param coreUnits
      */
     void setLayerMinCores(LayerInterface layer, int coreUnits);
+
+    /**
+     * Update the max gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpuUnits
+     */
+    void setLayerMaxGpus(LayerInterface layer, int gpuUnits);
+
+    /**
+     * Update the min gpu value for the given layer.
+     *
+     * @param layer
+     * @param gpuUnits
+     */
+    void setLayerMinGpus(LayerInterface layer, int gpuUnits);
 
     /**
      * Add a limit to the given layer.

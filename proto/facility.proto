@@ -105,6 +105,11 @@ message AllocationStats {
     int32 hosts = 6;
     int32 locked_hosts = 7;
     int32 down_hosts = 8;
+    float gpus = 9;
+    float available_gpus = 10;
+    float idle_gpus = 11;
+    float running_gpus = 12;
+    float locked_gpus = 13;
 }
 
 

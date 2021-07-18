@@ -84,8 +84,8 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 .addTags("general")
                 .setState(HardwareState.UP)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
 
         DispatchHost dh = hostManager.createHost(host);

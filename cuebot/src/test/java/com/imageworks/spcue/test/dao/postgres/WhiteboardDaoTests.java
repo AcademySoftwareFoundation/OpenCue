@@ -278,8 +278,8 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
                 .setCoresPerProc(400)
                 .setState(HardwareState.DOWN)
                 .setFacility("spi")
-                .putAttributes("freeGpu", String.format("%d", CueUtil.MB512))
-                .putAttributes("totalGpu", String.format("%d", CueUtil.MB512))
+                .setFreeGpuMem((int) CueUtil.MB512)
+                .setTotalGpuMem((int) CueUtil.MB512)
                 .build();
         return host;
     }
@@ -1246,7 +1246,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         whiteboardDao.getRenderPartition(lba);
@@ -1263,7 +1263,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_dispatch_test.xml"));
         JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_shell_dispatch_test_v1");
 
-        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1);
+        LocalHostAssignment lba = new LocalHostAssignment(800, 8, CueUtil.GB8, 1, 1);
         bookingManager.createLocalHostAssignment(hd, job, lba);
 
         assertEquals(1, whiteboardDao.getRenderPartitions(hd).getRenderPartitionsCount());
