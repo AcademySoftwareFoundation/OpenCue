@@ -363,6 +363,7 @@ class RetryOnRpcErrorClientInterceptor(
                     return response
 
                 # If status code is not in retryable status codes
+                # pylint: disable=no-member
                 if self._retry_statuses \
                         and hasattr(response, 'code') \
                         and response.code() \
@@ -370,8 +371,6 @@ class RetryOnRpcErrorClientInterceptor(
                     return response
 
                 self._sleeping_policy.sleep(attempt)
-            except Exception:
-                raise
 
     def intercept_unary_unary(self, continuation, client_call_details,
                               request):

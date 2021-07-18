@@ -16,32 +16,38 @@ python -m grpc_tools.protoc -I=proto/ --python_out=rqd/rqd/compiled_proto --grpc
 2to3 -wn -f import pycue/opencue/compiled_proto/*_pb2*.py
 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
+echo "Running lint for pycue/..."
 cd pycue
 python -m pylint --rcfile=../ci/pylintrc_main FileSequence
 python -m pylint --rcfile=../ci/pylintrc_main opencue --ignore=opencue/compiled_proto
 python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
+echo "Running lint for pyoutline/..."
 cd pyoutline
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main outline
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
+echo "Running lint for cueadmin/..."
 cd cueadmin
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cueadmin
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
+echo "Running lint for cuegui/..."
 cd cuegui
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal
 PYTHONPATH=../pycue python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
+echo "Running lint for cuesubmit/..."
 cd cuesubmit
 PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_main cuesubmit
 PYTHONPATH=../pycue:../pyoutline python -m pylint --rcfile=../ci/pylintrc_test tests
 cd ..
 
+echo "Running lint for rqd/..."
 cd rqd
 python -m pylint --rcfile=../ci/pylintrc_main rqd --ignore=rqd/compiled_proto
 python -m pylint --rcfile=../ci/pylintrc_test tests
