@@ -382,4 +382,3 @@ class RetryOnRpcErrorClientInterceptor(
     ):
         return self._intercept_call(continuation, client_call_details,
                                     request_iterator)
-
