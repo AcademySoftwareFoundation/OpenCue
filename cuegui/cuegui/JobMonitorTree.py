@@ -226,7 +226,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
         self.__loadMine = (value is True or value == QtCore.Qt.Checked)
 
-    def addJob(self, job, timestamp=None, loading_from_config=False):
+    def addJob(self, job, timestamp=None):
         """Adds a job to the list. With locking"
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None"""
@@ -255,7 +255,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for jobProxy in self._items.keys():
             try:
                 jobIdsTimeLoaded.append((jobProxy, self.__jobTimeLoaded[jobProxy]))
-            except KeyError as e:
+            except KeyError:
                 # set timestamp to epoch time if timestamp not found
                 jobIdsTimeLoaded.append((jobProxy, 0))
 
