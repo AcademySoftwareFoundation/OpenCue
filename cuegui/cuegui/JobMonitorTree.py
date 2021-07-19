@@ -252,7 +252,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """
         jobIdsTimeLoaded = []
 
-        for jobProxy in self._items.keys():
+        for jobProxy, _ in self._items.items():
             try:
                 jobIdsTimeLoaded.append((jobProxy, self.__jobTimeLoaded[jobProxy]))
             except KeyError:

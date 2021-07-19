@@ -112,15 +112,17 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         Only load jobs that have a timestamp less than or equal to the time a job lives on the farm
         (jobs are moved to historical database)
 
-        :param jobIds: monitored jobs ids and their timestamp from previous working state (loaded from config.ini file)
-        :ptype: list of tuples (ex: [("Job.f156be87-987a-48b9-b9da-774cd58674a3", 1612482716.170947),...
+        :param jobIds: monitored jobs ids and their timestamp from previous working state
+                       (loaded from config.ini file)
+        :ptype: list of tuples ex:
+                [("Job.f156be87-987a-48b9-b9da-774cd58674a3", 1612482716.170947),...
         """
         today = datetime.datetime.now()
         limit = JOB_LOAD_LIMIT if len(jobIds) > JOB_LOAD_LIMIT else len(jobIds)
         msg = """
               Unable to load previously loaded job since
               it was moved to the historical
-              database: {0}
+              database:
               """
 
         try:
@@ -129,15 +131,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 if (today - loggedTime).days <= TIME_DELTA:
                     try:
                         self.jobMonitor.addJob(jobId, timestamp)
-                    except opencue.EntityNotFoundException as e:
-                        logger.info(msg.format(jobId))
-        except ValueError as e:
+                    except opencue.EntityNotFoundException:
+                        logger.info(msg, jobId)
+        except ValueError:
             # load older format
             for jobId in jobIds[:limit]:
                 try:
                     self.jobMonitor.addJob(jobId)
-                except opencue.EntityNotFoundException as e:
-                    logger.info(msg.format(jobId))
+                except opencue.EntityNotFoundException:
+                    logger.info(msg, jobId)
 
     def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
