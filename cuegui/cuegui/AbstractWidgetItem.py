@@ -90,7 +90,7 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
 
     def __lt__(self, other):
         """Custom sorting for columns that have a function defined for sorting
-           (uses the sort lambda function defined in the subclasses' addColumn definition)"""
+           (uses the sort lambda function defined in the subclasses' addColumn definition)."""
         sortLambda = self.column_info[self.treeWidget().sortColumn()][SORT_LAMBDA]
         column = self.treeWidget().sortColumn()
 
