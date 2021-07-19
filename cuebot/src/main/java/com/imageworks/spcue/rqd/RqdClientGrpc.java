@@ -53,21 +53,27 @@ public final class RqdClientGrpc implements RqdClient {
 
     private final int rqdCacheSize;
     private final int rqdCacheExpiration;
+    private final int rqdCacheConcurrency;
     private final int rqdServerPort;
+    private final int rqdTaskDeadlineSeconds;
     private LoadingCache<String, ManagedChannel> channelCache;
 
     private boolean testMode = false;
 
 
-    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration) {
+    public RqdClientGrpc(int rqdServerPort, int rqdCacheSize, int rqdCacheExpiration,
+                         int rqdCacheConcurrency, int rqdTaskDeadline) {
         this.rqdServerPort = rqdServerPort;
         this.rqdCacheSize = rqdCacheSize;
         this.rqdCacheExpiration = rqdCacheExpiration;
+        this.rqdCacheConcurrency = rqdCacheConcurrency;
+        this.rqdTaskDeadlineSeconds = rqdTaskDeadline;
     }
 
     private void buildChannelCache() {
         this.channelCache = CacheBuilder.newBuilder()
                 .maximumSize(rqdCacheSize)
+                .concurrencyLevel(rqdCacheConcurrency)
                 .expireAfterAccess(rqdCacheExpiration, TimeUnit.MINUTES)
                 .removalListener(new RemovalListener<String, ManagedChannel>() {
                     @Override
@@ -80,8 +86,9 @@ public final class RqdClientGrpc implements RqdClient {
                         new CacheLoader<String, ManagedChannel>() {
                             @Override
                             public ManagedChannel load(String host) throws Exception {
-                                ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder.forAddress(
-                                        host, rqdServerPort).usePlaintext();
+                                ManagedChannelBuilder<?> channelBuilder = ManagedChannelBuilder
+                                        .forAddress(host, rqdServerPort)
+                                        .usePlaintext();
                                 return channelBuilder.build();
                             }
                         });
@@ -92,7 +99,9 @@ public final class RqdClientGrpc implements RqdClient {
             buildChannelCache();
         }
         ManagedChannel channel = channelCache.get(host);
-        return RqdInterfaceGrpc.newBlockingStub(channel);
+        return RqdInterfaceGrpc
+                .newBlockingStub(channel)
+                .withDeadlineAfter(rqdTaskDeadlineSeconds, TimeUnit.SECONDS);
     }
 
     private RunningFrameGrpc.RunningFrameBlockingStub getRunningFrameStub(String host) throws ExecutionException {
@@ -100,7 +109,9 @@ public final class RqdClientGrpc implements RqdClient {
             buildChannelCache();
         }
         ManagedChannel channel = channelCache.get(host);
-        return RunningFrameGrpc.newBlockingStub(channel);
+        return RunningFrameGrpc
+                .newBlockingStub(channel)
+                .withDeadlineAfter(rqdTaskDeadlineSeconds, TimeUnit.SECONDS);
     }
 
     public void setHostLock(HostInterface host, LockState lock) {
