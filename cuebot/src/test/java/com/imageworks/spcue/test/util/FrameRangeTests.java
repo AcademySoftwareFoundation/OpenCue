@@ -103,14 +103,14 @@ public class FrameRangeTests {
     public void testInterleave() {
         FrameRange result = new FrameRange("1-10:5");
 
-        assertThat(result.getAll()).containsExactly(1, 6, 2, 4, 8, 10, 3, 5, 7, 9);
+        assertThat(result.getAll()).containsExactly(1, 6, 3, 5, 7, 9, 2, 4, 8, 10);
     }
 
     @Test
     public void testNegativeInterleave() {
         FrameRange result = new FrameRange("10-1:-5");
 
-        assertThat(result.getAll()).containsExactly(10, 5, 9, 7, 3, 1, 8, 6, 4, 2);
+        assertThat(result.getAll()).containsExactly(10, 5, 8, 6, 4, 2, 9, 7, 3, 1);
     }
 
     @Test
