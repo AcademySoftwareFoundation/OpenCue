@@ -26,10 +26,10 @@ import atexit
 import logging
 import os
 import platform
-import yaml
 
 import grpc
 
+import opencue.config
 from opencue.compiled_proto import comment_pb2
 from opencue.compiled_proto import comment_pb2_grpc
 from opencue.compiled_proto import criterion_pb2
@@ -67,15 +67,6 @@ __all__ = ["Cuebot"]
 
 logger = logging.getLogger("opencue")
 
-default_config = os.path.join(os.path.dirname(__file__), 'default.yaml')
-with open(default_config) as file_object:
-    config = yaml.load(file_object, Loader=yaml.SafeLoader)
-
-# check for facility specific configurations.
-fcnf = os.environ.get('OPENCUE_CONF', '')
-if os.path.exists(fcnf):
-    with open(fcnf) as file_object:
-        config.update(yaml.load(file_object, Loader=yaml.SafeLoader))
 
 DEFAULT_MAX_MESSAGE_BYTES = 1024 ** 2 * 10
 DEFAULT_GRPC_PORT = 8443
@@ -96,7 +87,8 @@ class Cuebot(object):
     RpcChannel = None
     Hosts = []
     Stubs = {}
-    Timeout = config.get('cuebot.timeout', 10000)
+    Config = opencue.config.load_config_from_file()
+    Timeout = Config.get('cuebot.timeout', 10000)
 
     PROTO_MAP = {
         'action': filter_pb2,
@@ -150,13 +142,20 @@ class Cuebot(object):
     }
 
     @staticmethod
-    def init():
+    def init(config=None):
         """Main init method for setting up the Cuebot object.
-        Sets the communication channel and hosts."""
+        Sets the communication channel and hosts.
+
+        :type config: dict
+        :param config: config dictionary, this will override the config read from disk
+        """
+        if config:
+            Cuebot.Config = config
+            Cuebot.Timeout = config.get('cuebot.timeout', Cuebot.Timeout)
         if os.getenv("CUEBOT_HOSTS"):
             Cuebot.setHosts(os.getenv("CUEBOT_HOSTS").split(","))
         else:
-            facility_default = config.get("cuebot.facility_default")
+            facility_default = Cuebot.Config.get("cuebot.facility_default")
             Cuebot.setFacility(facility_default)
         if Cuebot.Hosts is None:
             raise CueException('Cuebot host not set. Please ensure CUEBOT_HOSTS is set ' +
@@ -169,7 +168,7 @@ class Cuebot(object):
         # gRPC must specify a single host. Randomize host list to balance load across cuebots.
         hosts = list(Cuebot.Hosts)
         shuffle(hosts)
-        maxMessageBytes = config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
+        maxMessageBytes = Cuebot.Config.get('cuebot.max_message_bytes', DEFAULT_MAX_MESSAGE_BYTES)
 
         # create interceptors
         interceptors = (
@@ -186,7 +185,8 @@ class Cuebot(object):
             if ':' in host:
                 connectStr = host
             else:
-                connectStr = '%s:%s' % (host, config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
+                connectStr = '%s:%s' % (
+                    host, Cuebot.Config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
             logger.debug('connecting to gRPC at %s', connectStr)
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
@@ -228,12 +228,12 @@ class Cuebot(object):
 
         :type  facility: str
         :param facility: a facility named in the config file"""
-        if facility not in list(config.get("cuebot.facility").keys()):
-            default = config.get("cuebot.facility_default")
+        if facility not in list(Cuebot.Config.get("cuebot.facility").keys()):
+            default = Cuebot.Config.get("cuebot.facility_default")
             logger.warning("The facility '%s' does not exist, defaulting to %s", facility, default)
             facility = default
         logger.debug("setting facility to: %s", facility)
-        hosts = config.get("cuebot.facility")[facility]
+        hosts = Cuebot.Config.get("cuebot.facility")[facility]
         Cuebot.setHosts(hosts)
 
     @staticmethod
@@ -290,7 +290,7 @@ class Cuebot(object):
     @staticmethod
     def getConfig():
         """Gets the Cuebot config object, originally read in from the config file on disk."""
-        return config
+        return Cuebot.Config
 
 
 # Python 2/3 compatible implementation of ABC
