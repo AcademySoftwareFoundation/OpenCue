@@ -122,7 +122,7 @@ public final class RqdClientGrpc implements RqdClient {
             logger.debug("Locking RQD host");
             lockHost(host);
         } else {
-            logger.debug("Unkown LockState passed to setHostLock.");
+            logger.debug("Unknown LockState passed to setHostLock.");
         }
     }
 

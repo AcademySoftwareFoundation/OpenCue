@@ -37,6 +37,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -137,10 +138,11 @@ public class FrameCompleteHandler {
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
             final FrameState newFrameState = determineFrameState(job, layer, frame, report);
-
+            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
+                               "_" + report.getFrame().getFrameId();
             if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
                     report.getFrame().getMaxRss())) {
-                dispatchQueue.execute(new Runnable() {
+                dispatchQueue.execute(new KeyRunnable(key) {
                     @Override
                     public void run() {
                         try {
@@ -161,7 +163,7 @@ public class FrameCompleteHandler {
                  * properties.
                  */
                 if (redirectManager.hasRedirect(proc)) {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
@@ -174,7 +176,7 @@ public class FrameCompleteHandler {
                     });
                 }
                 else {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
