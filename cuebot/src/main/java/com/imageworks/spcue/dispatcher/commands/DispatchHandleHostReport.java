@@ -28,7 +28,7 @@ import com.imageworks.spcue.grpc.report.HostReport;
  *
  * @category command
  */
-public class DispatchHandleHostReport implements Runnable {
+public class DispatchHandleHostReport extends KeyRunnable {
 
     private HostReport hostReport;
     private boolean isBootReport;
@@ -36,12 +36,16 @@ public class DispatchHandleHostReport implements Runnable {
     public volatile int reportTime = (int) (System.currentTimeMillis() / 1000);
 
     public DispatchHandleHostReport(HostReport report, HostReportHandler rqdReportManager) {
+        super("disp_handle_host_report_" + report.hashCode() +
+                "_" + rqdReportManager.hashCode());
         this.hostReport = report;
         this.isBootReport = false;
         this.hostReportHandler = rqdReportManager;
     }
 
     public DispatchHandleHostReport(BootReport report, HostReportHandler rqdReportManager) {
+        super("disp_handle_host_report_" + report.hashCode() +
+                "_" + rqdReportManager.hashCode());
         HostReport hostReport = HostReport.newBuilder()
                 .setHost(report.getHost())
                 .setCoreInfo(report.getCoreInfo())

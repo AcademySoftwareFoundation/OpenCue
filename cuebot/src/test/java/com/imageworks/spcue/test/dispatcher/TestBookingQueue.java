@@ -86,11 +86,18 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
     @Rollback(true)
     public void testBookingQueue() {
 
+        int healthThreshold = 10;
+        int minUnhealthyPeriodMin = 3;
+        int queueCapacity = 2000;
+        int corePoolSize = 10;
+        int maxPoolSize = 14;
+
         DispatchHost host1 = hostDao.findDispatchHost(HOSTNAME);
         host1.idleCores = 500;
         DispatchHost host2 = hostDao.findDispatchHost(HOSTNAME);
         DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
-        BookingQueue queue = new BookingQueue(1000);
+        BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
+                corePoolSize, maxPoolSize);
 
         queue.execute(new DispatchBookHost(host2,dispatcher));
         queue.execute(new DispatchBookHost(host3,dispatcher));

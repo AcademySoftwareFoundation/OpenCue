@@ -19,109 +19,87 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import org.apache.log4j.Logger;
 
-public class BookingQueue extends ThreadPoolExecutor {
+public class BookingQueue {
 
-    private static final Logger logger = Logger.getLogger(BookingQueue.class);
+    private final int healthThreshold;
+    private final int minUnhealthyPeriodMin;
+    private final int queueCapacity;
+    private final int corePoolSize;
+    private final int maxPoolSize;
+    private static final int BASE_SLEEP_TIME_MILLIS = 300;
 
-    private static final int INITIAL_QUEUE_SIZE = 1000;
+    private static final Logger logger = Logger.getLogger("HEALTH");
+    private HealthyThreadPool healthyThreadPool;
 
-    private static final int THREADS_MINIMUM = 6;
-    private static final int THREADS_MAXIMUM = 6;
-    private static final int THREADS_KEEP_ALIVE_SECONDS = 10;
-
-    private int baseSleepTimeMillis = 400;
-    private AtomicBoolean isShutdown = new AtomicBoolean(false);
-
-    private QueueRejectCounter rejectCounter = new QueueRejectCounter();
-
-    private Cache<String, DispatchBookHost> bookingCache = CacheBuilder.newBuilder()
-            .expireAfterWrite(3, TimeUnit.MINUTES)
-            // Invalidate entries that got executed by the threadpool and lost their reference
-            .weakValues()
-            .build();
-
-    public BookingQueue(int sleepTimeMs) {
-        super(THREADS_MINIMUM, THREADS_MAXIMUM, THREADS_KEEP_ALIVE_SECONDS,
-                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(INITIAL_QUEUE_SIZE));
-        this.baseSleepTimeMillis = sleepTimeMs;
-        this.setRejectedExecutionHandler(rejectCounter);
+    public BookingQueue(int healthThreshold, int minUnhealthyPeriodMin, int queueCapacity,
+                        int corePoolSize, int maxPoolSize) {
+        this.healthThreshold = healthThreshold;
+        this.minUnhealthyPeriodMin = minUnhealthyPeriodMin;
+        this.queueCapacity = queueCapacity;
+        this.corePoolSize = corePoolSize;
+        this.maxPoolSize = maxPoolSize;
+        initThreadPool();
     }
 
-    public void execute(DispatchBookHost r) {
-        if (isShutdown.get()) {
-            return;
+    public void initThreadPool() {
+        healthyThreadPool = new HealthyThreadPool(
+                "BookingQueue",
+                healthThreshold,
+                minUnhealthyPeriodMin,
+                queueCapacity,
+                corePoolSize,
+                maxPoolSize,
+                BASE_SLEEP_TIME_MILLIS);
+    }
+
+    public boolean isHealthy() {
+        try {
+            if (!healthyThreadPool.isHealthyOrShutdown()) {
+                logger.warn("BookingQueue: Unhealthy queue terminated, starting a new one");
+                initThreadPool();
+            }
+        } catch (InterruptedException e) {
+            // TODO: evaluate crashing the whole springbook context here
+            //  to force a container restart cycle
+            logger.error("Failed to restart BookingThreadPool", e);
+            return false;
         }
-        if (bookingCache.getIfPresent(r.getKey()) == null){
-            bookingCache.put(r.getKey(), r);
-            super.execute(r);
-        }
+
+        return true;
+    }
+
+    public void execute(KeyRunnable r) {
+        healthyThreadPool.execute(r);
     }
 
     public long getRejectedTaskCount() {
-        return rejectCounter.getRejectCount();
+        return healthyThreadPool.getRejectedTaskCount();
     }
 
     public void shutdown() {
-        if (!isShutdown.getAndSet(true)) {
-            logger.info("clearing out booking queue: " + this.getQueue().size());
-            this.getQueue().clear();
-        }
-
+        healthyThreadPool.shutdown();
     }
 
-    /**
-     * Lowers the sleep time as the queue grows.
-     *
-     * @return
-     */
-    public int sleepTime() {
-        if (!isShutdown.get()) {
-            int sleep = (int) (baseSleepTimeMillis - (((this.getQueue().size () /
-                    (float) INITIAL_QUEUE_SIZE) * baseSleepTimeMillis)) * 2);
-            if (sleep < 0) {
-                sleep = 0;
-            }
-            return sleep;
-        } else {
-            return 0;
-        }
+    public int getSize() {
+        return healthyThreadPool.getQueue().size();
     }
 
-    protected void beforeExecute(Thread t, Runnable r) {
-        super.beforeExecute(t, r);
-        if (isShutdown()) {
-            this.remove(r);
-        } else {
-            try {
-                Thread.sleep(sleepTime());
-            } catch (InterruptedException e) {
-                logger.info("booking queue was interrupted.");
-                Thread.currentThread().interrupt();
-            }
-        }
+    public int getRemainingCapacity() {
+        return healthyThreadPool.getQueue().remainingCapacity();
     }
 
-    protected void afterExecute(Runnable r, Throwable t) {
-        super.afterExecute(r, t);
-
-        // Invalidate cache to avoid having to wait for GC to mark processed entries collectible
-        DispatchBookHost h = (DispatchBookHost)r;
-        bookingCache.invalidate(h.getKey());
-
-        if (sleepTime() < 100) {
-            logger.info("BookingQueue cleanup executed.");
-            getQueue().clear();
-        }
+    public int getActiveCount() {
+        return healthyThreadPool.getActiveCount();
     }
+
+    public long getCompletedTaskCount() {
+        return healthyThreadPool.getCompletedTaskCount();
+    }
+
 }
 

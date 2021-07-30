@@ -19,18 +19,19 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import java.util.Collection;
-
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.service.JobManagerSupport;
+import java.util.Collection;
 
-public class DispatchKillProcs implements Runnable {
+public class DispatchKillProcs extends KeyRunnable {
     private Collection<VirtualProc> procs;
     private JobManagerSupport jobManagerSupport;
     private Source source;
 
     public DispatchKillProcs(Collection<VirtualProc> procs, Source source, JobManagerSupport jobManagerSupport) {
+        super("disp_kill_procs_" + procs.hashCode() + "_" + source.toString() +
+                "_" + jobManagerSupport.hashCode());
         this.procs = procs;
         this.source = source;
         this.jobManagerSupport = jobManagerSupport;

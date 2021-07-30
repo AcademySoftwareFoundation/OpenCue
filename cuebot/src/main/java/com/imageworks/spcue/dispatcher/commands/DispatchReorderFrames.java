@@ -25,7 +25,7 @@ import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.FrameSet;
 
-public class DispatchReorderFrames implements Runnable {
+public class DispatchReorderFrames extends KeyRunnable {
 
     private JobInterface job = null;
     private LayerInterface layer = null;
@@ -33,14 +33,20 @@ public class DispatchReorderFrames implements Runnable {
     private Order order;
     private JobManagerSupport jobManagerSupport;
 
-    public DispatchReorderFrames(JobInterface job, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
+    public DispatchReorderFrames(JobInterface job, FrameSet frameSet, Order order,
+                                 JobManagerSupport jobManagerSupport) {
+        super("disp_reorder_frames_job_" + job.getJobId() +
+                "_" + jobManagerSupport.toString());
         this.job = job;
         this.frameSet = frameSet;
         this.order = order;
         this.jobManagerSupport = jobManagerSupport;
     }
 
-    public DispatchReorderFrames(LayerInterface layer, FrameSet frameSet, Order order, JobManagerSupport jobManagerSupport) {
+    public DispatchReorderFrames(LayerInterface layer, FrameSet frameSet, Order order,
+                                 JobManagerSupport jobManagerSupport) {
+        super("disp_reorder_frames_layer_" + layer.getLayerId() +
+                "_" + jobManagerSupport.toString());
         this.layer = layer;
         this.frameSet = frameSet;
         this.order = order;
