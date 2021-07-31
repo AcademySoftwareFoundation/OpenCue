@@ -72,6 +72,7 @@ def startup(app_name, app_version, argv):
     """Starts an application window."""
 
     app = CueGuiApplication(argv)
+    QtGui.qApp = app
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
