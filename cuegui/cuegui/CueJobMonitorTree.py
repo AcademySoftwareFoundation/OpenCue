@@ -222,9 +222,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # pylint: disable=no-member
         QtGui.qApp.facility_changed.connect(self.removeAllShows)
-        # pylint: enable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        # pylint: enable=no-member
 
         # Skip updates if the user is scrolling
         self._limitUpdatesDuringScrollSetup()

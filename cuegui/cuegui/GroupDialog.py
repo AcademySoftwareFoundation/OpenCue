@@ -140,15 +140,19 @@ class GroupDialog(QtWidgets.QDialog):
         self.layout().addWidget(check, row, 0)
         self.layout().addWidget(label, row, 1)
         self.layout().addWidget(inputWidget, row, 2)
+        # pylint: disable=no-member
         check.stateChanged.connect(inputWidget.setEnabled)
         check.stateChanged.connect(label.setEnabled)
+        # pylint: enable=no-member
         return (check, inputWidget)
 
     def __createButtons(self, buttons, row, width):
         self.__buttons = QtWidgets.QDialogButtonBox(buttons, QtCore.Qt.Horizontal, self)
         self.layout().addWidget(self.__buttons, row, 1, 1, width)
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
     def accept(self):
         __name = str(self._nameValue.text())

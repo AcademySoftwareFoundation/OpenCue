@@ -99,7 +99,7 @@ class ServiceForm(QtWidgets.QWidget):
 
         layout.addWidget(self.__buttons, 9, 1)
 
-        self.__buttons.accepted.connect(self.save)
+        self.__buttons.accepted.connect(self.save)  # pylint: disable=no-member
 
     def _cfg(self):
         """
@@ -207,10 +207,12 @@ class ServiceManager(QtWidgets.QWidget):
         self.__btn_layout.addStretch()
         layout.addLayout(self.__btn_layout)
 
+        # pylint: disable=no-member
         self.__btn_new.clicked.connect(self.newService)
         self.__btn_del.clicked.connect(self.delService)
         self.__form.saved.connect(self.saved)
         self.__service_list.currentItemChanged.connect(self.selected)
+        # pylint: enable=no-member
 
         self.refresh()
         self.__service_list.setCurrentRow(0, QtCore.QItemSelectionModel.Select)

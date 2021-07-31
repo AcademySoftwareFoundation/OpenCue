@@ -521,7 +521,7 @@ class PageSelectOnJob(AbstractWizardPage):
         self._addLabel("Depend on Job:", 0, 0)
 
         self.__jobFilterLineEdit = self._addLineEdit(2, 0, "")
-        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)
+        self.__jobFilterLineEdit.textChanged.connect(self.filterJobs)  # pylint: disable=no-member
 
         self.__jobList = self._addListWidget(3, 0)
 

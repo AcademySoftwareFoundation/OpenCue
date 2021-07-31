@@ -65,8 +65,10 @@ class CreateShowDialog(QtWidgets.QDialog):
         self.layout().addWidget(self.__create_btn, 5, 1)
         self.layout().addWidget(self.__cancel_btn, 5, 2)
 
+        # pylint: disable=no-member
         self.__create_btn.clicked.connect(self.__createShow)
         self.__cancel_btn.clicked.connect(self.__cancelDialog)
+        # pylint: enable=no-member
         self.adjustSize()
 
     def __createSubscriptionWidget(self):

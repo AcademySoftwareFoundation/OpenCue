@@ -41,7 +41,7 @@ class GarbageCollector(QtCore.QObject):
         self.debug = debug
 
         self.timer = QtCore.QTimer(self)
-        self.timer.timeout.connect(self.check)
+        self.timer.timeout.connect(self.check)  # pylint: disable=no-member
 
         self.threshold = gc.get_threshold()
         gc.disable()

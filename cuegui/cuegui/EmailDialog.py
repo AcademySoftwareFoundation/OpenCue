@@ -130,8 +130,10 @@ class LogViewWidget(QtWidgets.QWidget):
         ly.addWidget(self.__txt_find)
         ly.addWidget(self.__txt_log)
 
+        # pylint: disable=no-member
         self.__sel_frames.activated.connect(self.switchLogEvent)
         self.__txt_find.returnPressed.connect(self.findEvent)
+        # pylint: enable=no-member
 
     # pylint: disable=inconsistent-return-statements
     def __getFrame(self, name):
@@ -247,8 +249,10 @@ class EmailWidget(QtWidgets.QWidget):
         hlayout.addWidget(self.__btnCancel)
         vlayout.addLayout(hlayout)
 
+        # pylint: disable=no-member
         self.__btnSend.clicked.connect(self.sendEmail)
         self.__btnCancel.clicked.connect(self.cancel.emit)
+        # pylint: enable=no-member
 
     def giveFocus(self):
         """Initializes widget state when the widget gains focus."""

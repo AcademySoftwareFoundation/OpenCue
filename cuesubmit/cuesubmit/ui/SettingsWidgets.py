@@ -92,7 +92,7 @@ class BaseMayaSettings(BaseSettingsWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
-        self.mayaFileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.mayaFileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
 
     def setCommandData(self, commandData):
         self.mayaFileInput.setText(commandData.get('mayaFile', ''))
@@ -149,7 +149,7 @@ class BaseNukeSettings(BaseSettingsWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
-        self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
+        self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)  # pylint: disable=no-member
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))
@@ -214,8 +214,10 @@ class BaseBlenderSettings(BaseSettingsWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.fileInput.lineEdit.textChanged.connect(self.dataChanged.emit)
         self.outputPath.lineEdit.textChanged.connect(self.dataChanged.emit)
+        # pylint: enable=no-member
 
     def setCommandData(self, commandData):
         self.fileInput.setText(commandData.get('nukeFile', ''))

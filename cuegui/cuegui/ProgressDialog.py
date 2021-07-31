@@ -83,7 +83,7 @@ class ProgressDialog(QtWidgets.QDialog):
         self.setFixedSize(300, 100)
         self.setWindowTitle(title)
 
-        self.__btn_cancel.clicked.connect(self.cancel)
+        self.__btn_cancel.clicked.connect(self.cancel)  # pylint: disable=no-member
 
         self.show()
 

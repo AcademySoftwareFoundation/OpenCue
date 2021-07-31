@@ -58,8 +58,10 @@ class CueSubmitButtons(QtWidgets.QWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.submitButton.pressed.connect(self.submitPressed)
         self.cancelButton.pressed.connect(self.cancelPressed)
+        # pylint: enable=no-member
 
     def submitPressed(self):
         """Handler for when submit button has been pressed."""
@@ -222,6 +224,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.submitButtons.cancelled.connect(self.cancel)
         self.submitButtons.submitted.connect(self.submit)
         self.jobTreeWidget.selectionChanged.connect(self.jobLayerSelectionChanged)
@@ -235,6 +238,7 @@ class CueSubmitWidget(QtWidgets.QWidget):
         self.coresInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.chunkInput.lineEdit.textChanged.connect(self.jobDataChanged)
         self.dependSelector.optionsMenu.triggered.connect(self.dependencyChanged)
+        # pylint: enable=no-member
 
     def setupUi(self):
         """Creates the widget layout."""

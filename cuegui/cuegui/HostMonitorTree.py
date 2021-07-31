@@ -163,8 +163,10 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
 
+        # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        # pylint: enable=no-member
 
         # Don't use the standard space bar to refresh
         # pylint: disable=no-member

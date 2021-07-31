@@ -108,7 +108,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__filterByHostNameLastInput = None
 
-        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)
+        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)  # pylint: disable=no-member
 
         btn = QtWidgets.QPushButton("Clr")
         btn.setMaximumHeight(FILTER_HEIGHT)
@@ -294,7 +294,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.btn_refresh.setMaximumHeight(FILTER_HEIGHT)
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        self.btn_refresh.clicked.connect(self.hostMonitorTree.updateRequest)
+        self.btn_refresh.clicked.connect(self.hostMonitorTree.updateRequest)  # pylint: disable=no-member
         self.hostMonitorTree.updated.connect(self.__refreshButtonDisableHandle)
 
     def __refreshButtonEnableHandle(self):
@@ -318,7 +318,7 @@ class HostMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        btn.clicked.connect(self.__clearButtonHandle)
+        btn.clicked.connect(self.__clearButtonHandle)  # pylint: disable=no-member
 
     def __clearButtonHandle(self):
         """Called when the clear button is clicked"""

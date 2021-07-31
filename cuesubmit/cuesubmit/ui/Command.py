@@ -39,7 +39,7 @@ class CueCommandWidget(Widgets.CueHelpWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
-        self.commandTextBox.commandBox.textChanged.connect(self.textChanged.emit)
+        self.commandTextBox.commandBox.textChanged.connect(self.textChanged.emit)  # pylint: disable=no-member
 
     def setText(self, text):
         """Set the given text to the command box

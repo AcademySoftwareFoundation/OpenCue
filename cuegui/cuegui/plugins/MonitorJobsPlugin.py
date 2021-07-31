@@ -144,11 +144,11 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         btn = QtWidgets.QPushButton("Load:")
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(btn)
-        btn.clicked.connect(self._regexLoadJobsHandle)
+        btn.clicked.connect(self._regexLoadJobsHandle)  # pylint: disable=no-member
 
         self.__regexLoadJobsEditBox = JobRegexLoadEditBox(self)
         layout.addWidget(self.__regexLoadJobsEditBox)
-        self.__regexLoadJobsEditBox.returnPressed.connect(self._regexLoadJobsHandle)
+        self.__regexLoadJobsEditBox.returnPressed.connect(self._regexLoadJobsHandle)  # pylint: disable=no-member
 
     def _loadFinishedJobsSetup(self, layout):
         """Ensures that when querying jobs that finished jobs are included.
@@ -157,7 +157,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         @type  layout: QLayout"""
         self.__loadFinishedJobsCheckBox = JobLoadFinishedCheckBox(self)
         layout.addWidget(self.__loadFinishedJobsCheckBox)
-        self.__loadFinishedJobsCheckBox.stateChanged.connect(self._regexLoadJobsHandle)
+        self.__loadFinishedJobsCheckBox.stateChanged.connect(self._regexLoadJobsHandle)  # pylint: disable=no-member
 
     def _regexLoadJobsHandle(self):
         """This will select all jobs that have a name that contain the substring
@@ -184,7 +184,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         clearButton.setFocusPolicy(QtCore.Qt.NoFocus)
         clearButton.setFixedWidth(24)
         layout.addWidget(clearButton)
-        clearButton.clicked.connect(self.__regexLoadJobsEditBox.actionClear)
+        clearButton.clicked.connect(self.__regexLoadJobsEditBox.actionClear)  # pylint: disable=no-member
 
         spacer = QtWidgets.QWidget()
         spacer.setFixedWidth(20)
@@ -194,7 +194,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         mineCheckbox.setFocusPolicy(QtCore.Qt.NoFocus)
         mineCheckbox.setChecked(True)
         layout.addWidget(mineCheckbox)
-        mineCheckbox.stateChanged.connect(self.jobMonitor.setLoadMine)
+        mineCheckbox.stateChanged.connect(self.jobMonitor.setLoadMine)  # pylint: disable=no-member
 
         self._loadFinishedJobsSetup(self.__toolbar)
 
@@ -203,56 +203,56 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         finishedButton.setFocusPolicy(QtCore.Qt.NoFocus)
         finishedButton.setFlat(True)
         layout.addWidget(finishedButton)
-        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)
+        finishedButton.clicked.connect(self.jobMonitor.removeFinishedItems)  # pylint: disable=no-member
 
         allButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "All")
         allButton.setToolTip("Unmonitor all jobs")
         allButton.setFocusPolicy(QtCore.Qt.NoFocus)
         allButton.setFlat(True)
         layout.addWidget(allButton)
-        allButton.clicked.connect(self.jobMonitor.removeAllItems)
+        allButton.clicked.connect(self.jobMonitor.removeAllItems)  # pylint: disable=no-member
 
         removeSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "")
         removeSelectedButton.setToolTip("Unmonitor selected jobs")
         removeSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
         removeSelectedButton.setFlat(True)
         layout.addWidget(removeSelectedButton)
-        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)
+        removeSelectedButton.clicked.connect(self.jobMonitor.actionRemoveSelectedItems)  # pylint: disable=no-member
 
         eatSelectedButton = QtWidgets.QPushButton(QtGui.QIcon(":eat.png"), "")
         eatSelectedButton.setToolTip("Eats all dead frames for selected jobs")
         eatSelectedButton.setFocusPolicy(QtCore.Qt.NoFocus)
         eatSelectedButton.setFlat(True)
         layout.addWidget(eatSelectedButton)
-        eatSelectedButton.clicked.connect(self.jobMonitor.actionEatSelectedItems)
+        eatSelectedButton.clicked.connect(self.jobMonitor.actionEatSelectedItems)  # pylint: disable=no-member
 
         retryButton = QtWidgets.QPushButton(QtGui.QIcon(":retry.png"), "")
         retryButton.setToolTip("Retries all dead frames for selected jobs")
         retryButton.setFocusPolicy(QtCore.Qt.NoFocus)
         retryButton.setFlat(True)
         layout.addWidget(retryButton)
-        retryButton.clicked.connect(self.jobMonitor.actionRetrySelectedItems)
+        retryButton.clicked.connect(self.jobMonitor.actionRetrySelectedItems)  # pylint: disable=no-member
 
         killButton = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "")
         killButton.setToolTip("Kill selected jobs")
         killButton.setFocusPolicy(QtCore.Qt.NoFocus)
         killButton.setFlat(True)
         layout.addWidget(killButton)
-        killButton.clicked.connect(self.jobMonitor.actionKillSelectedItems)
+        killButton.clicked.connect(self.jobMonitor.actionKillSelectedItems)  # pylint: disable=no-member
 
         pauseButton = QtWidgets.QPushButton(QtGui.QIcon(":pause.png"), "")
         pauseButton.setToolTip("Pause selected jobs")
         pauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
         pauseButton.setFlat(True)
         layout.addWidget(pauseButton)
-        pauseButton.clicked.connect(self.jobMonitor.actionPauseSelectedItems)
+        pauseButton.clicked.connect(self.jobMonitor.actionPauseSelectedItems)  # pylint: disable=no-member
 
         unpauseButton = QtWidgets.QPushButton(QtGui.QIcon(":unpause.png"), "")
         unpauseButton.setToolTip("Unpause selected jobs")
         unpauseButton.setFocusPolicy(QtCore.Qt.NoFocus)
         unpauseButton.setFlat(True)
         layout.addWidget(unpauseButton)
-        unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)
+        unpauseButton.clicked.connect(self.jobMonitor.actionResumeSelectedItems)  # pylint: disable=no-member
 
 
 class JobLoadFinishedCheckBox(QtWidgets.QCheckBox):
@@ -314,7 +314,7 @@ class JobRegexLoadEditBox(QtWidgets.QLineEdit):
         self.setText("")
 
     def _actionLoad(self):
-        self.returnPressed.emit()
+        self.returnPressed.emit()  # pylint: disable=no-member
 
     def toggleReadOnly(self):
         """Toggles the textbox readonly setting."""

@@ -61,7 +61,7 @@ class TagsWidget(QtWidgets.QWidget):
         self.__enable_custom = QtWidgets.QCheckBox('Custom Tags', self)
         self.__custom = QtWidgets.QLineEdit(self)
         self.__custom.setDisabled(True)
-        self.__enable_custom.toggled.connect(self.toggleCustom)
+        self.__enable_custom.toggled.connect(self.toggleCustom)  # pylint: disable=no-member
         layout.addWidget(self.__enable_custom)
         layout.addWidget(self.__custom)
         layout.setContentsMargins(0, 0, 0, 0)

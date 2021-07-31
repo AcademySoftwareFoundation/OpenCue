@@ -110,6 +110,7 @@ class FilterDialog(QtWidgets.QDialog):
         glayout.addWidget(self.__btnAddAction, 7, 7, 1, 1)
         glayout.addWidget(self.__btnDone, 8, 7, 1, 1)
 
+        # pylint: disable=no-member
         self.__filters.itemClicked.connect(self.__itemSingleClicked)
         self.__btnRefresh.clicked.connect(self.__refresh)
         self.__btnAddFilter.clicked.connect(self.__createFilter)
@@ -120,6 +121,7 @@ class FilterDialog(QtWidgets.QDialog):
         self.__btnDeleteAllActions.clicked.connect(self.__actions.deleteAllActions)
         self.__btnAddAction.clicked.connect(self.__actions.createAction)
         self.__btnDone.clicked.connect(self.accept)
+        # pylint: enable=no-member
 
     def __createFilter(self):
         """Prompts the user to create a new filter"""
@@ -584,13 +586,13 @@ class FilterWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             combo = QtWidgets.QCheckBox(self.parent())
             combo.setFocusPolicy(QtCore.Qt.NoFocus)
             self.treeWidget().setItemWidget(self, 1, combo)
-            combo.stateChanged.connect(self.setEnabled)
+            combo.stateChanged.connect(self.setEnabled)  # pylint: disable=no-member
             self.__widgets["enabled"] = combo
 
             combo = NoWheelComboBox(self.parent())
             combo.addItems(FILTERTYPE)
             self.treeWidget().setItemWidget(self, 3, combo)
-            combo.currentIndexChanged.connect(self.setType)
+            combo.currentIndexChanged.connect(self.setType)  # pylint: disable=no-member
             self.__widgets["type"] = combo
 
         self.__widgets["type"].setCurrentIndex(self.rpcObject.type())
@@ -653,23 +655,23 @@ class MatcherWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             combo = NoWheelComboBox(parent)
             combo.addItems(MATCHSUBJECT)
             treeWidget.setItemWidget(self, 0, combo)
-            combo.currentIndexChanged.connect(self.setSubject)
+            combo.currentIndexChanged.connect(self.setSubject)  # pylint: disable=no-member
             self.__widgets["subject"] = combo
 
             combo = NoWheelComboBox(parent)
             combo.addItems(MATCHTYPE)
             treeWidget.setItemWidget(self, 1, combo)
-            combo.currentIndexChanged.connect(self.setType)
+            combo.currentIndexChanged.connect(self.setType)  # pylint: disable=no-member
             self.__widgets["type"] = combo
 
             edit = QtWidgets.QLineEdit("", parent)
             treeWidget.setItemWidget(self, 2, edit)
-            edit.editingFinished.connect(self.setInput)
+            edit.editingFinished.connect(self.setInput)  # pylint: disable=no-member
             self.__widgets["input"] = edit
 
             btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "", parent)
             treeWidget.setItemWidget(self, 3, btn)
-            btn.clicked.connect(self.delete)
+            btn.clicked.connect(self.delete)  # pylint: disable=no-member
             self.__widgets["delete"]  = btn
 
         self.__widgets["subject"].setCurrentIndex(self.rpcObject.subject())
@@ -755,12 +757,12 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             if self.rpcObject.type() in (opencue.api.filter_pb2.PAUSE_JOB,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(PAUSETYPE)
-                widget.currentIndexChanged.connect(self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_PRIORITY,):
                 widget = NoWheelSpinBox(self.parent())
                 widget.setMaximum(99999)
-                widget.editingFinished.connect(self.__setValue)
+                widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
                                            opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
@@ -768,7 +770,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
                 widget.setMaximum(MAX_RENDER_MEM)
-                widget.editingFinished.connect(self.__setValue)
+                widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                            opencue.api.filter_pb2.SET_JOB_MIN_CORES):
@@ -776,21 +778,21 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget.setDecimals(0)
                 widget.setSingleStep(1)
                 widget.setMaximum(1000)
-                widget.editingFinished.connect(self.__setValue)
+                widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
                 widget = QtWidgets.QLineEdit("", self.parent())
-                widget.editingFinished.connect(self.__setValue)
+                widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.MOVE_JOB_TO_GROUP,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(list(self.treeWidget().groupNames.keys()))
-                widget.currentIndexChanged.connect(self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_MEMORY_OPTIMIZER,):
                 widget = NoWheelComboBox(self.parent())
                 widget.addItems(MEMOPTTYPE)
-                widget.currentIndexChanged.connect(self.__setValue)
+                widget.currentIndexChanged.connect(self.__setValue)  # pylint: disable=no-member
 
             if widget:
                 self.treeWidget().setItemWidget(self, 1, widget)
@@ -798,7 +800,7 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
             btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "", self.parent())
             self.treeWidget().setItemWidget(self, 2, btn)
-            btn.clicked.connect(self.delete)
+            btn.clicked.connect(self.delete)  # pylint: disable=no-member
             self.__widgets["delete"] = btn
 
         # Update the widget with the current value

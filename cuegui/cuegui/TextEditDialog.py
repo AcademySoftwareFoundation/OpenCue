@@ -57,8 +57,10 @@ class TextEditDialog(QtWidgets.QDialog):
         self.setMaximumSize(400,300)
         self.setWindowTitle(title)
 
+        # pylint: disable=no-member
         __btn_accept.clicked.connect(self.accept)
         __btn_cancel.clicked.connect(self.reject)
+        # pylint: enable=no-member
 
         self.__textEdit.setText(default)
         self.__textEdit.setFocus(QtCore.Qt.OtherFocusReason)
