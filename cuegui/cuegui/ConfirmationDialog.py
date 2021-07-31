@@ -74,5 +74,7 @@ class ConfirmationDialog(QtWidgets.QDialog):
         self.setMaximumSize(400,300)
         self.setWindowTitle(title)
 
+        # pylint: disable=no-member
         __btn_accept.clicked.connect(self.accept)
         __btn_cancel.clicked.connect(self.reject)
+        # pylint: enable=no-member

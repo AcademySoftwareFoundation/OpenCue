@@ -56,8 +56,10 @@ class ShowDialog(QtWidgets.QDialog):
         self.layout().addWidget(self.__btnSave, 5, 1)
         self.layout().addWidget(self.__btnClose, 5, 2)
 
+        # pylint: disable=no-member
         self.__btnSave.clicked.connect(self.__saveChanges)
         self.__btnClose.clicked.connect(self.__closeDialog)
+        # pylint: enable=no-member
 
     def __createSettingsPage(self):
         """Settings Page"""
@@ -72,7 +74,7 @@ class ShowDialog(QtWidgets.QDialog):
         ctrl.setValue(self.__show.data.default_max_cores)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
-        ctrl.valueChanged.connect(self.__valueChanged)
+        ctrl.valueChanged.connect(self.__valueChanged)  # pylint: disable=no-member
         self.__defaultMaxCores = ctrl
 
         label = QtWidgets.QLabel("Default minimum cores", self)
@@ -82,7 +84,7 @@ class ShowDialog(QtWidgets.QDialog):
         ctrl.setValue(self.__show.data.default_min_cores)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
-        ctrl.valueChanged.connect(self.__valueChanged)
+        ctrl.valueChanged.connect(self.__valueChanged)  # pylint: disable=no-member
         self.__defaultMinCores = ctrl
 
         label = QtWidgets.QLabel("Comment Notification Email", self)
@@ -90,7 +92,7 @@ class ShowDialog(QtWidgets.QDialog):
         text.setText(self.__show.data.comment_email)
         page.layout().addWidget(text, 2, 0)
         page.layout().addWidget(label, 2, 1, 1, 4)
-        text.textChanged.connect(self.__valueChanged)
+        text.textChanged.connect(self.__valueChanged)  # pylint: disable=no-member
         self.__show_email = text
         return page
 
@@ -105,7 +107,7 @@ class ShowDialog(QtWidgets.QDialog):
         ctrl.setChecked(self.__show.data.booking_enabled)
         page.layout().addWidget(ctrl, 0, 0)
         page.layout().addWidget(label, 0, 1, 1, 4)
-        ctrl.stateChanged.connect(self.__valueChanged)
+        ctrl.stateChanged.connect(self.__valueChanged)  # pylint: disable=no-member
         self.__bookingEnabled = ctrl
 
         label = QtWidgets.QLabel("Enable dispatch", self)
@@ -113,7 +115,7 @@ class ShowDialog(QtWidgets.QDialog):
         ctrl.setChecked(self.__show.data.dispatch_enabled)
         page.layout().addWidget(ctrl, 1, 0)
         page.layout().addWidget(label, 1, 1, 1, 4)
-        ctrl.stateChanged.connect(self.__valueChanged)
+        ctrl.stateChanged.connect(self.__valueChanged)  # pylint: disable=no-member
         self.__dispatchEnabled = ctrl
 
         return page

@@ -62,8 +62,8 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        self.itemClicked.connect(self.__itemSingleClickedToDouble)
         # pylint: disable=no-member
+        self.itemClicked.connect(self.__itemSingleClickedToDouble)
         QtGui.qApp.facility_changed.connect(self.__facilityChanged)
         # pylint: enable=no-member
 

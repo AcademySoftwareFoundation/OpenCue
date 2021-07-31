@@ -100,10 +100,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self.__setupColumnMenu()
 
+        # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        # pylint: disable=no-member
         QtGui.qApp.request_update.connect(self.updateRequest)
         # pylint: enable=no-member
 
@@ -215,7 +215,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self.ticksLock = QtCore.QMutex()
         self.__ticksTimer = QtCore.QTimer(self)
-        self.__ticksTimer.timeout.connect(self.__tick)
+        self.__ticksTimer.timeout.connect(self.__tick)  # pylint: disable=no-member
         self.__ticksTimer.start(1000)
         self.ticksWithoutUpdate = 999
 
@@ -509,7 +509,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.__dropdown.setFixedHeight(self.header().height() - 10)
         self.__dropdown.setToolTip("Click to select columns to display")
         self.__dropdown.setIcon(QtGui.QIcon(":column_popdown.png"))
-        self.__dropdown.clicked.connect(self.__displayColumnMenu)
+        self.__dropdown.clicked.connect(self.__displayColumnMenu)  # pylint: disable=no-member
 
         layout = QtWidgets.QHBoxLayout(self.header())
         layout.setContentsMargins(0, 0, 0, 0)
@@ -521,7 +521,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
                                                           self.__dropdown.height()))
 
         menu = QtWidgets.QMenu(self)
-        menu.triggered.connect(self.__handleColumnMenu)
+        menu.triggered.connect(self.__handleColumnMenu)  # pylint: disable=no-member
         for col in range(self.columnCount()):
             if self.columnWidth(col) or self.isColumnHidden(col):
                 name = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_NAME]

@@ -205,14 +205,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Menu Bar: File -> Close Window
         close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
         close.setStatusTip('Close Window')
-        close.triggered.connect(self.__windowCloseWindow)
+        close.triggered.connect(self.__windowCloseWindow)  # pylint: disable=no-member
         self.fileMenu.addAction(close)
 
         # Menu Bar: File -> Exit Application
         exitAction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
         exitAction.setShortcut('Ctrl+Q')
         exitAction.setStatusTip('Exit application')
-        exitAction.triggered.connect(self.__windowCloseApplication)
+        exitAction.triggered.connect(self.__windowCloseApplication)  # pylint: disable=no-member
         self.fileMenu.addAction(exitAction)
 
         self.__windowMenuSetup(self.windowMenu)
@@ -223,17 +223,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu Bar: Help -> Online User Guide.
         action = QtWidgets.QAction('Online User Guide', self)
-        action.triggered.connect(self.openUserGuide)
+        action.triggered.connect(self.openUserGuide)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Make a Suggestion
         action = QtWidgets.QAction('Make a Suggestion', self)
-        action.triggered.connect(self.openSuggestionPage)
+        action.triggered.connect(self.openSuggestionPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Report a Bug
         action = QtWidgets.QAction('Report a Bug', self)
-        action.triggered.connect(self.openBugPage)
+        action.triggered.connect(self.openBugPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         self.helpMenu.addSeparator()
@@ -242,7 +242,7 @@ class MainWindow(QtWidgets.QMainWindow):
         about = QtWidgets.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
         about.setShortcut('F1')
         about.setStatusTip('About')
-        about.triggered.connect(self.displayAbout)
+        about.triggered.connect(self.displayAbout)  # pylint: disable=no-member
         self.helpMenu.addAction(about)
 
     ################################################################################
@@ -255,17 +255,17 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Menu Bar: Window -> Change Window Title
         changeTitle = QtWidgets.QAction("Change Window Title", self)
-        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)
+        changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings
         saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
-        saveWindowSettings.triggered.connect(self.__saveSettings)
+        saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
         menu.addAction(saveWindowSettings)
 
         # Menu Bar: Window -> Revert To Default Window Layout
         revertWindowSettings = QtWidgets.QAction("Revert To Default Window Layout", self)
-        revertWindowSettings.triggered.connect(self.__revertLayout)
+        revertWindowSettings.triggered.connect(self.__revertLayout)  # pylint: disable=no-member
         menu.addAction(revertWindowSettings)
 
         menu.addSeparator()
@@ -405,7 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
             QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
         fullscreen.setShortcut('Ctrl+F')
         fullscreen.setStatusTip('Toggle Full-Screen')
-        fullscreen.triggered.connect(self.__toggleFullscreen)
+        fullscreen.triggered.connect(self.__toggleFullscreen)  # pylint: disable=no-member
         menu.addAction(fullscreen)
 
     def __toggleFullscreen(self):

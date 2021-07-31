@@ -70,7 +70,7 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
         QtGui.qApp.facility_changed.connect(self.__setJob)
         # pylint: enable=no-member
         self.__monitorLayers.handle_filter_layers_byLayer.connect(self.handleLayerFilter)
-        self.__splitter.splitterMoved.connect(self.__splitterMoved)
+        self.__splitter.splitterMoved.connect(self.__splitterMoved)  # pylint: disable=no-member
 
         self.pluginRegisterSettings([("splitterSize",
                                       self.__splitter.sizes,

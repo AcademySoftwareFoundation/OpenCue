@@ -159,7 +159,7 @@ class AbstractActions(object):
             if isinstance(callback, six.string_types):
                 callback = getattr(self, callback)
 
-            action.triggered.connect(callback)
+            action.triggered.connect(callback)  # pylint: disable=no-member
             self.__actionCache[key] = action
 
         menu.addAction(self.__actionCache[key])

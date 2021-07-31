@@ -103,4 +103,4 @@ class Refresh(QtWidgets.QAction):
         self.setText("Refresh")
         self.setIcon(QtGui.QIcon(":/images/stock-refresh.png"))
         if callback:
-            self.triggered.connect(callback)
+            self.triggered.connect(callback)  # pylint: disable=no-member

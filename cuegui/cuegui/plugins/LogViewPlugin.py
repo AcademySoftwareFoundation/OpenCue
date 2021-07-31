@@ -99,20 +99,22 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.document().setDefaultFont(self.font)
 
         self._line_num_area = LineNumberArea(self)
+        # pylint: disable=no-member
         self.blockCountChanged.connect(self.update_line_number_area_width)
         self.updateRequest.connect(self.update_line_number_area)
         self.cursorPositionChanged.connect(self.highlight_current_line)
+        # pylint: enable=no-member
 
         self.update_line_number_area_width()
         self.setReadOnly(True)
         self.setMaximumBlockCount(20000)
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.customContextMenuRequested.connect(self.context_menu)
+        self.customContextMenuRequested.connect(self.context_menu)  # pylint: disable=no-member
 
         self.copy_action = QtWidgets.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
-        self.copy_action.triggered[bool].connect(lambda triggered:
+        self.copy_action.triggered[bool].connect(lambda triggered:  # pylint: disable=unsubscriptable-object
             self.copy_selection(QtGui.QClipboard.Clipboard))
         self.addAction(self.copy_action)
 
@@ -231,9 +233,11 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
 
         crnt_selection = QtWidgets.QTextEdit.ExtraSelection()
         line_color = QtGui.QColor(QtCore.Qt.red).lighter(12)
+        # pylint: disable=no-member
         crnt_selection.format.setBackground(line_color)
         crnt_selection.format.setProperty(QtGui.QTextFormat.FullWidthSelection,
                                           True)
+        # pylint: enable=no-member
         crnt_selection.cursor = self.textCursor()
         crnt_selection.cursor.clearSelection()
         self.setExtraSelections([crnt_selection])
@@ -314,23 +318,23 @@ class LogViewWidget(QtWidgets.QWidget):
         path_layout = QtWidgets.QHBoxLayout(path_widget)
         path_layout.setContentsMargins(0, 0, 0, 0)
         self._first_log_button = QtWidgets.QPushButton('<<', self)
-        self._first_log_button.clicked.connect(
+        self._first_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(float('inf')))
         self._first_log_button.setEnabled(False)
         self._first_log_button.setToolTip('Load First Log')
         path_layout.addWidget(self._first_log_button)
         self._prev_log_button = QtWidgets.QPushButton('<', self)
-        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))
+        self._prev_log_button.clicked.connect(lambda: self._load_other_log(1))  # pylint: disable=no-member
         self._prev_log_button.setEnabled(False)
         self._prev_log_button.setToolTip('Load Previous Log')
         path_layout.addWidget(self._prev_log_button)
         self._next_log_button = QtWidgets.QPushButton('>', self)
-        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))
+        self._next_log_button.clicked.connect(lambda: self._load_other_log(-1))  # pylint: disable=no-member
         self._next_log_button.setEnabled(False)
         self._next_log_button.setToolTip('Load Next Log')
         path_layout.addWidget(self._next_log_button)
         self._last_log_button = QtWidgets.QPushButton('>>', self)
-        self._last_log_button.clicked.connect(
+        self._last_log_button.clicked.connect(  # pylint: disable=no-member
                                 lambda: self._load_other_log(-float('inf')))
         self._last_log_button.setEnabled(False)
         self._last_log_button.setToolTip('Load Current Log')
@@ -353,7 +357,7 @@ class LogViewWidget(QtWidgets.QWidget):
         self._word_wrap_checkbox.setFont(font)
         path_layout.addWidget(self._word_wrap_checkbox)
         self._word_wrap_checkbox.setCheckState(QtCore.Qt.Checked)
-        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)
+        self._word_wrap_checkbox.stateChanged.connect(self._set_word_wrap)  # pylint: disable=no-member
 
         # Content
         content_widget = QtWidgets.QWidget(self)
@@ -377,30 +381,30 @@ class LogViewWidget(QtWidgets.QWidget):
         search_layout = QtWidgets.QHBoxLayout(search_widget)
         self._case_stv_checkbox = QtWidgets.QCheckBox('Aa')
         search_layout.addWidget(self._case_stv_checkbox)
-        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)
+        self._case_stv_checkbox.stateChanged.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         self._search_box = QtWidgets.QLineEdit('', self)
         self._search_box.setClearButtonEnabled(True)
         self._search_box.setPlaceholderText('Search log...')
         search_layout.addWidget(self._search_box)
         self._search_box.show()
-        self._search_box.editingFinished.connect(self._find_text)
+        self._search_box.editingFinished.connect(self._find_text)  # pylint: disable=no-member
         self._search_button = QtWidgets.QPushButton('Find', self)
         search_layout.addWidget(self._search_button)
         self._prev_button = QtWidgets.QPushButton('Prev')
-        self._prev_button.clicked.connect(self._move_to_prev_match)
+        self._prev_button.clicked.connect(self._move_to_prev_match)  # pylint: disable=no-member
         self._next_button = QtWidgets.QPushButton('Next')
-        self._next_button.clicked.connect(self._move_to_next_match)
+        self._next_button.clicked.connect(self._move_to_next_match)  # pylint: disable=no-member
         search_layout.addWidget(self._next_button)
         search_layout.addWidget(self._prev_button)
         search_refresh_button = QtWidgets.QPushButton('Refresh', self)
         search_layout.addWidget(search_refresh_button)
-        search_refresh_button.clicked.connect(self._move_to_search_box)
+        search_refresh_button.clicked.connect(self._move_to_search_box)  # pylint: disable=no-member
 
         clear_search_button = QtWidgets.QPushButton('Clr', self)
         search_layout.addWidget(clear_search_button)
-        clear_search_button.clicked.connect(self._clear_search_text)
-        self._search_button.clicked.connect(self._find_text)
+        clear_search_button.clicked.connect(self._clear_search_text)  # pylint: disable=no-member
+        self._search_button.clicked.connect(self._find_text)  # pylint: disable=no-member
 
         matches_widget = QtWidgets.QWidget(self)
         matches_layout = QtWidgets.QHBoxLayout(matches_widget)

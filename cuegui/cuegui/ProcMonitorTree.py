@@ -85,7 +85,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        self.itemClicked.connect(self.__itemSingleClickedCopy)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)  # pylint: disable=no-member
         self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
 
         # Don't use the standard space bar to refresh
