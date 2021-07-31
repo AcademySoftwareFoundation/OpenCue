@@ -15,10 +15,15 @@ RUN yum -y install \
   gcc \
   libXi \
   libXrender \
+  libxkbcommon-x11.x86_64 \
   mesa-libGL \
   python-devel \
   which \
-  Xvfb
+  Xvfb \
+  xcb-util-image.x86_64 \
+  xcb-util-keysyms.x86_64 \
+  xcb-util-renderutil.x86_64 \
+  xcb-util-wm.x86_64
 
 RUN yum -y install \
   python-pip \
