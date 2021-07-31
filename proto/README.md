@@ -21,6 +21,8 @@ For Windows (Powershell):
 
 ```powershell
 python -m grpc_tools.protoc --proto_path=. --python_out=../rqd/rqd/compiled_proto --grpc_python_out=../rqd/rqd/compiled_proto (ls *.proto).Name
+cd ..\rqd\rqd\compiled_proto\
+2to3 -wn -f import (ls *_pb2*.py).Name
 ```
 
 
@@ -37,6 +39,8 @@ For Windows (Powershell):
 
 ```powershell
 python -m grpc_tools.protoc --proto_path=. --python_out=../pycue/opencue/compiled_proto --grpc_python_out=../pycue/opencue/compiled_proto (ls *.proto).Name
+cd ..\pycue\opencue\compiled_proto\
+2to3 -wn -f import (ls *_pb2*.py).Name
 ```
 
 
