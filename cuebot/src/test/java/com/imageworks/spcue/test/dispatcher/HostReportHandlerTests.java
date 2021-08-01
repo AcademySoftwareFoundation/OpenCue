@@ -19,6 +19,9 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
+import java.io.File;
+import java.sql.Timestamp;
+import java.util.List;
 import javax.annotation.Resource;
 
 import org.junit.Before;
@@ -32,15 +35,20 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
+import com.imageworks.spcue.service.JobLauncher;
+import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
+import com.imageworks.spcue.VirtualProc;
 
 import static org.junit.Assert.assertEquals;
 
@@ -58,6 +66,12 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Resource
     Dispatcher dispatcher;
+
+    @Resource
+    JobLauncher jobLauncher;
+
+    @Resource
+    JobManager jobManager;
 
     private static final String HOSTNAME = "beta";
     private static final String NEW_HOSTNAME = "gamma";
@@ -91,12 +105,12 @@ public class HostReportHandlerTests extends TransactionalTest {
                 .setName(HOSTNAME)
                 .setBootTime(1192369572)
                 .setFreeMcp(76020)
-                .setFreeMem(53500)
+                .setFreeMem((int) CueUtil.GB8)
                 .setFreeSwap(20760)
                 .setLoad(0)
                 .setTotalMcp(195430)
-                .setTotalMem(8173264)
-                .setTotalSwap(20960)
+                .setTotalMem(CueUtil.GB8)
+                .setTotalSwap(CueUtil.GB2)
                 .setNimbyEnabled(false)
                 .setNumProcs(2)
                 .setCoresPerProc(100)
@@ -212,6 +226,42 @@ public class HostReportHandlerTests extends TransactionalTest {
         hostReportHandler.handleHostReport(report, isBoot);
         DispatchHost host = hostManager.findDispatchHost(NEW_HOSTNAME);
         assertEquals(host.getAllocationId(), alloc.id);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testMemoryAndLlu() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+        long now = System.currentTimeMillis();
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .setLluTime(now / 1000)
+                .setMaxRss(420000)
+                .build();
+        HostReport report = HostReport.newBuilder()
+                .setHost(getRenderHost())
+                .setCoreInfo(cores)
+                .addFrames(info)
+                .build();
+
+        hostReportHandler.handleHostReport(report, false);
+
+        FrameDetail frame = jobManager.getFrameDetail(proc.getFrameId());
+        assertEquals(frame.dateLLU, new Timestamp(now / 1000 * 1000));
+        assertEquals(420000, frame.maxRss);
     }
 }
 
