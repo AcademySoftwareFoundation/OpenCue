@@ -966,35 +966,22 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                     "pk_frame = ?", RESOURCE_USAGE_MAPPER, f.getFrameId());
     }
 
-    private static final String UPDATE_FRAME_IO_USAGE =
-        "UPDATE " +
-            "frame " +
-        "SET " +
-            "ts_updated = current_timestamp," +
-            "ts_llu = ? " +
-        "WHERE " +
-            "pk_frame = ? ";
-
-    @Override
-    public void updateFrameUsage(FrameInterface f, long lluTime) {
-        getJdbcTemplate().update(UPDATE_FRAME_IO_USAGE,
-                                new Timestamp(lluTime * 1000l), f.getFrameId());
-    }
-
-    private static final String UPDATE_FRAME_MEMORY_USAGE =
+    private static final String UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME =
         "UPDATE " +
             "frame " +
         "SET " +
             "ts_updated = current_timestamp," +
             "int_mem_max_used = ?," +
-            "int_mem_used = ? " +
+            "int_mem_used = ?," +
+            "ts_llu = ? " +
         "WHERE " +
             "pk_frame = ? ";
 
     @Override
-    public void updateFrameMemoryUsage(FrameInterface f, long maxRss, long rss) {
-        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE,
-                maxRss, rss, f.getFrameId());
+    public void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss,
+            long lluTime) {
+        getJdbcTemplate().update(UPDATE_FRAME_MEMORY_USAGE_AND_LLU_TIME,
+                maxRss, rss, new Timestamp(lluTime * 1000l), f.getFrameId());
     }
 
     /**

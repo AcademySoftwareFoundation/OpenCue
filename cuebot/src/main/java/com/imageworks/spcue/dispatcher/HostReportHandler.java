@@ -188,15 +188,9 @@ public class HostReportHandler {
 
             /*
              * Updates memory usage for the proc, frames,
-             * jobs, and layers.
+             * jobs, and layers. And LLU time for the frames.
              */
-            updateMemoryUsage(report.getFramesList());
-
-            /*
-             * Updates usage for the proc, frames,
-             * jobs, and layers.
-             */
-            updateFrameUsage(report.getFramesList());
+            updateMemoryUsageAndLluTime(report.getFramesList());
 
             /*
              * kill frames that have over run.
@@ -545,31 +539,18 @@ public class HostReportHandler {
     }
 
     /**
-     *  Update IO usage for the given list of frames.
+     *  Update memory usage and LLU time for the given list of frames.
      *
      * @param rFrames
      */
-    private void updateFrameUsage(List<RunningFrameInfo> rFrames) {
-
-        for (RunningFrameInfo rf: rFrames) {
-            FrameInterface frame = jobManager.getFrame(rf.getFrameId());
-            dispatchSupport.updateFrameUsage(frame, rf.getLluTime());
-        }
-    }
-
-    /**
-     *  Update memory usage for the given list of frames.
-     *
-     * @param rFrames
-     */
-    private void updateMemoryUsage(List<RunningFrameInfo> rFrames) {
+    private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
 
         for (RunningFrameInfo rf: rFrames) {
 
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
 
-            dispatchSupport.updateFrameMemoryUsage(frame,
-                    rf.getRss(), rf.getMaxRss());
+            dispatchSupport.updateFrameMemoryUsageAndLluTime(frame,
+                    rf.getRss(), rf.getMaxRss(), rf.getLluTime());
 
             dispatchSupport.updateProcMemoryUsage(frame,
                     rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize());

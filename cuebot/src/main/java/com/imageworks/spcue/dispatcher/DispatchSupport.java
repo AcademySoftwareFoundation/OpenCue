@@ -416,21 +416,15 @@ public interface DispatchSupport {
     void clearFrame(DispatchFrame frame);
 
     /**
-     * Update usage data for the given frame.
-     *
-     * @param frame
-     * @param lluTime
-     */
-    void updateFrameUsage(FrameInterface frame, long lluTime);
-
-    /**
-     * Update memory usage data for the given frame.
+     * Update Memory usage data and LLU time for the given frame.
      *
      * @param frame
      * @param rss
      * @param maxRss
+     * @param lluTime
      */
-    void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
+                                          long lluTime);
 
     /**
      * Update memory usage data for a given frame's proc record.  The
