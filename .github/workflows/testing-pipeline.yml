@@ -73,7 +73,7 @@ jobs:
   lint_python:
     name: Lint Python Code
     runs-on: ubuntu-latest
-    container: aswf/ci-opencue:2020
+    container: aswf/ci-opencue:2021
     steps:
       - uses: actions/checkout@v2
       - name: Lint Python Code
