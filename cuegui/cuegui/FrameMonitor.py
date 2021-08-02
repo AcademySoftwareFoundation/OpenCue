@@ -25,6 +25,7 @@ from copy import deepcopy
 import math
 
 from PySide2 import QtCore
+from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import FileSequence
@@ -440,7 +441,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 if item[0] != "Clear":
                     a.setCheckable(True)
                 if item[1]:
-                    a.setShortcut(item[1])
+                    a.setShortcut(QtGui.QKeySequence(item[1]))
                 menu.addAction(a)
             else:
                 menu.addSeparator()
