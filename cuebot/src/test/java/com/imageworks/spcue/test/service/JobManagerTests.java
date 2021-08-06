@@ -344,7 +344,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         };
 
         for (String f: order) {
-            DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
+            DispatchFrame frame =  dispatcherDao.scheduleNextDispatchFrame(job, host);
             frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
         }
@@ -375,7 +375,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         };
 
         for (String f: order) {
-            DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job, host);
+            DispatchFrame frame = dispatcherDao.scheduleNextDispatchFrame(job, host);
             frameDao.updateFrameState(frame, FrameState.SUCCEEDED);
             assertEquals(f, frame.getName());
         }

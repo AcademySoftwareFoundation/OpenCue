@@ -94,64 +94,66 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         List<VirtualProc> procs = new ArrayList<VirtualProc>(MAX_DISPATCHED_FRAMES);
 
         /*
-         * Grab a list of frames to dispatch.
+         * Schedule frames to dispatch.
          */
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(job,
-                host, MAX_QUERY_FRAMES);
+        try (ScheduledDispatchFrames frames = dispatchSupport.scheduleNextDispatchFrames(job,
+                host, MAX_QUERY_FRAMES)) {
 
-        logger.info("Frames found: " + frames.size() + " for host " +
-                host.getName() + " " + host.idleCores + "/" + host.idleMemory +
-                " on job " + job.getName());
+            logger.info("Frames found: " + frames.size() + " for host " +
+                    host.getName() + " " + host.idleCores + "/" + host.idleMemory +
+                    " on job " + job.getName());
 
-        for (DispatchFrame frame: frames) {
-
-            /*
-             * Check if we have enough memory/cores for this frame, if
-             * not move on.
-             */
-            if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
-                    frame.minGpus,
-                    frame.minGpuMemory)) {
-                continue;
-            }
-
-            /*
-             * Build our virtual proc.
-             */
-            VirtualProc proc =  VirtualProc.build(host, frame, lha);
-
-            /*
-             * Double check the job has pending frames.
-             */
-            if (!dispatchSupport.hasPendingFrames(job)) {
-                break;
-            }
-
-            /*
-             * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
-             * else if returns false.  If the dispatch fails in a way
-             * that we should stop dispatching immediately (the host is down),
-             * a DispatcherException is thrown.
-             */
-            if (dispatchHost(frame, proc)) {
-
-                procs.add(proc);
+            for (DispatchFrame frame: frames) {
 
                 /*
-                 * This should stay here and not go into VirtualProc
-                 * or else the count will be off if you fail to book.
+                 * Check if we have enough memory/cores for this frame, if
+                 * not move on.
                  */
-                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
                 if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        frame.minMemory,
+                        frame.minGpus,
+                        frame.minGpuMemory)) {
+                    continue;
+                }
+
+                /*
+                 * Build our virtual proc.
+                 */
+                VirtualProc proc =  VirtualProc.build(host, frame, lha);
+
+                /*
+                 * Double check the job has pending frames.
+                 */
+                if (!dispatchSupport.hasPendingFrames(job)) {
                     break;
                 }
 
-                if (procs.size() >= MAX_DISPATCHED_FRAMES) {
-                    break;
+                /*
+                 * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
+                 * else if returns false.  If the dispatch fails in a way
+                 * that we should stop dispatching immediately (the host is down),
+                 * a DispatcherException is thrown.
+                 */
+                if (dispatchHost(frame, proc)) {
+
+                    frames.markFrameAsDispatched(frame);
+                    procs.add(proc);
+
+                    /*
+                     * This should stay here and not go into VirtualProc
+                     * or else the count will be off if you fail to book.
+                     */
+                    lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
+                    if (!lha.hasAdditionalResources(lha.getThreads() * 100,
+                            Dispatcher.MEM_RESERVED_MIN,
+                            Dispatcher.GPU_UNITS_RESERVED_MIN,
+                            Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        break;
+                    }
+
+                    if (procs.size() >= MAX_DISPATCHED_FRAMES) {
+                        break;
+                    }
                 }
             }
         }
@@ -181,64 +183,66 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>(MAX_DISPATCHED_FRAMES);
         /*
-         * Grab a list of frames to dispatch.
+         * Schedule a list of frames to dispatch.
          */
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(
-                layer, host, MAX_QUERY_FRAMES);
+        try (ScheduledDispatchFrames frames = dispatchSupport.scheduleNextDispatchFrames(
+                layer, host, MAX_QUERY_FRAMES)) {
 
-        logger.info("Frames found: " + frames.size() + " for host " +
-                host.getName() + " " + host.idleCores + "/" + host.idleMemory +
-                " on layer " + layer);
+            logger.info("Frames found: " + frames.size() + " for host " +
+                    host.getName() + " " + host.idleCores + "/" + host.idleMemory +
+                    " on layer " + layer);
 
-        for (DispatchFrame frame: frames) {
-
-            /*
-             * Check if we have enough memory/cores for this frame, if
-             * not move on.
-             */
-            if (!lha.hasAdditionalResources(lha.getThreads() * 100,
-                    frame.minMemory,
-                    frame.minGpus,
-                    frame.minGpuMemory)) {
-                continue;
-            }
-
-            /*
-             * Create our virtual proc.
-             */
-            VirtualProc proc =  VirtualProc.build(host, frame, lha);
-
-            /*
-             * Double check if the layer we're booking has pending frames.
-             */
-            if (!dispatchSupport.hasPendingFrames(layer)) {
-                break;
-            }
-
-            /*
-             * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
-             * else if returns false.  If the dispatch fails in a way
-             * that we should stop dispatching immediately (the host is down),
-             * a DispatcherException is thrown.
-             */
-            if (dispatchHost(frame, proc)) {
-
-                procs.add(proc);
+            for (DispatchFrame frame: frames) {
 
                 /*
-                 * This should stay here and not go into VirtualProc
-                 * or else the count will be off if you fail to book.
+                 * Check if we have enough memory/cores for this frame, if
+                 * not move on.
                  */
-                lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
-                if (!lha.hasAdditionalResources(100,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                if (!lha.hasAdditionalResources(lha.getThreads() * 100,
+                        frame.minMemory,
+                        frame.minGpus,
+                        frame.minGpuMemory)) {
+                    continue;
+                }
+
+                /*
+                 * Create our virtual proc.
+                 */
+                VirtualProc proc =  VirtualProc.build(host, frame, lha);
+
+                /*
+                 * Double check if the layer we're booking has pending frames.
+                 */
+                if (!dispatchSupport.hasPendingFrames(layer)) {
                     break;
                 }
 
-                if (procs.size() >= MAX_DISPATCHED_FRAMES) {
-                    break;
+                /*
+                 * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
+                 * else if returns false.  If the dispatch fails in a way
+                 * that we should stop dispatching immediately (the host is down),
+                 * a DispatcherException is thrown.
+                 */
+                if (dispatchHost(frame, proc)) {
+
+                    frames.markFrameAsDispatched(frame);
+                    procs.add(proc);
+
+                    /*
+                     * This should stay here and not go into VirtualProc
+                     * or else the count will be off if you fail to book.
+                     */
+                    lha.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
+                    if (!lha.hasAdditionalResources(100,
+                            Dispatcher.MEM_RESERVED_MIN,
+                            Dispatcher.GPU_UNITS_RESERVED_MIN,
+                            Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        break;
+                    }
+
+                    if (procs.size() >= MAX_DISPATCHED_FRAMES) {
+                        break;
+                    }
                 }
             }
         }
@@ -271,26 +275,34 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         List<VirtualProc> procs = new ArrayList<VirtualProc>(1);
 
         /*
-         * Grab a dispatch frame record for the frame we want to dispatch.
+         * Schedule a dispatch frame record for the frame we want to dispatch.
          */
-        DispatchFrame dframe = jobManager.getDispatchFrame(frame.getId());
-        if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(),
-                dframe.minMemory,
-                lha.getMaxGpuUnits(),
-                dframe.minGpuMemory)) {
-            return procs;
-        }
+        try (ScheduledDispatchFrames frames =
+                dispatchSupport.scheduleDispatchFrame(frame.getId())) {
+            if (frames.size() < 1) {
+                return procs;
+            }
 
-        VirtualProc proc =  VirtualProc.build(host, dframe, lha);
+            DispatchFrame dframe = frames.iterator().next();
+            if (!lha.hasAdditionalResources(lha.getMaxCoreUnits(),
+                    dframe.minMemory,
+                    lha.getMaxGpuUnits(),
+                    dframe.minGpuMemory)) {
+                return procs;
+            }
 
-        /*
-         * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
-         * else if returns false.  If the dispatch fails in a way
-         * that we should stop dispatching immediately (the host is down),
-         * a DispatcherException is thrown.
-         */
-        if (dispatchHost(dframe, proc)) {
-            procs.add(proc);
+            VirtualProc proc =  VirtualProc.build(host, dframe, lha);
+
+            /*
+             * Dispatch the frame.  If a frame is booked, dispatchHost returns true,
+             * else if returns false.  If the dispatch fails in a way
+             * that we should stop dispatching immediately (the host is down),
+             * a DispatcherException is thrown.
+             */
+            if (dispatchHost(dframe, proc)) {
+                frames.markFrameAsDispatched(dframe);
+                procs.add(proc);
+            }
         }
 
         if (procs.size() == 0) {
@@ -313,6 +325,26 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
         return dispatchHost(host, frame, lha);
     }
 
+    private ScheduledDispatchFrames scheduleDispatchFrames(VirtualProc proc, JobInterface job,
+            LocalHostAssignment lha) {
+        switch (lha.getType()) {
+            case JOB_PARTITION:
+                return dispatchSupport.scheduleNextDispatchFrames(job, proc, MAX_QUERY_FRAMES);
+
+            case LAYER_PARTITION:
+                return dispatchSupport.scheduleNextDispatchFrames(
+                        jobManager.getLayer(proc.getLayerId()),
+                        proc, MAX_QUERY_FRAMES);
+
+            case FRAME_PARTITION:
+                return dispatchSupport.scheduleDispatchFrame(lha.getFrameId());
+
+            default:
+                throw new DispatcherException(
+                   "Invalid local host assignment: " + lha.getType());
+        }
+    }
+
     @Override
     public void dispatchProcToJob(VirtualProc proc, JobInterface job) {
 
@@ -328,49 +360,36 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
             return;
         }
 
-        List<DispatchFrame> frames = null;
-        switch(lha.getType()) {
-            case JOB_PARTITION:
-                frames = dispatchSupport.findNextDispatchFrames(job,
-                        proc, MAX_QUERY_FRAMES);
-                if (frames.size() == 0) {
-                     dispatchSupport.unbookProc(proc);
-                     dispatchHost(hostManager.getDispatchHost(proc.getHostId()), job);
-                     return;
+        try (ScheduledDispatchFrames frames = scheduleDispatchFrames(proc, job, lha)) {
+            switch (lha.getType()) {
+                case JOB_PARTITION:
+                    if (frames.size() == 0) {
+                         dispatchSupport.unbookProc(proc);
+                         dispatchHost(hostManager.getDispatchHost(proc.getHostId()), job);
+                         return;
+                    }
+                    break;
+
+                case LAYER_PARTITION:
+                    break;
+
+                case FRAME_PARTITION:
+                    break;
+
+                default:
+                    throw new DispatcherException(
+                       "Invalid local host assignment: " + lha.getType());
+            }
+
+            logger.info("Frames found: " + frames.size() + " for host " +
+                    proc + " " + proc.coresReserved + "/" + proc.memoryReserved +
+                    " on job " + job.getName());
+
+            for (DispatchFrame frame: frames) {
+                if (dispatchProc(frame, proc)) {
+                    frames.markFrameAsDispatched(frame);
+                    return;
                 }
-
-                break;
-
-            case LAYER_PARTITION:
-                frames = dispatchSupport.findNextDispatchFrames(
-                        jobManager.getLayer(proc.getLayerId()),
-                        proc, MAX_QUERY_FRAMES);
-                break;
-
-            case FRAME_PARTITION:
-
-                DispatchFrame dispatchFrame =
-                    jobManager.getDispatchFrame(lha.getFrameId());
-                frames = new ArrayList<DispatchFrame>(1);
-
-                if (dispatchFrame.state.equals(FrameState.WAITING)) {
-                    frames.add(dispatchFrame);
-                }
-                break;
-
-       default:
-           throw new DispatcherException(
-                   "Invalid local host assignment: " + lha.getType());
-
-        }
-
-        logger.info("Frames found: " + frames.size() + " for host " +
-                proc + " " + proc.coresReserved + "/" + proc.memoryReserved +
-                " on job " + job.getName());
-
-        for (DispatchFrame frame: frames) {
-            if (dispatchProc(frame, proc)) {
-                return;
             }
         }
 

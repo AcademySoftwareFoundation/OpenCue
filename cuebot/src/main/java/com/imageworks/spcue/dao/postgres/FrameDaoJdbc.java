@@ -150,6 +150,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "frame " +
         "SET " +
             "str_state = ?, " +
+            "b_scheduled = false, " +
             "str_host = ?, " +
             "int_cores = ?, " +
             "int_mem_reserved = ?, " +

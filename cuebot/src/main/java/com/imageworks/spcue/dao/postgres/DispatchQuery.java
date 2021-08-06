@@ -409,45 +409,12 @@ public class DispatchQuery {
             "LIMIT 1";
 
     /**
-     * Finds the next frame in a job for a proc.
+     * Schedule the next frame in a job for a proc.
      */
-    public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
-        "FROM ( " +
+    private static final String SCHEDULE_TIMEOUT = "interval '60' second";
+    public static final String SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_PROC =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") AS LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -496,6 +463,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "job.pk_job=? " +
             "AND layer.pk_layer IN ( " +
                 "SELECT /*+ index (h i_str_host_tag) */ " +
@@ -521,48 +491,57 @@ public class DispatchQuery {
                     "sum_running.int_sum_running < limit_record.int_max_value " +
                     "OR sum_running.int_sum_running IS NULL " +
             ") " +
-        ") AS t1 WHERE LINENUM <= ?";
-
-    /**
-     * Find the next frame in a job for a host.
-     */
-    public static final String FIND_DISPATCH_FRAME_BY_JOB_AND_HOST =
-        "SELECT " +
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
             "show_name, " +
             "job_name, " +
-            "pk_job, " +
+            "frame.pk_job, " +
             "pk_show, " +
             "pk_facility, " +
-            "str_name, " +
             "str_shot, " +
             "str_user, " +
             "int_uid, " +
             "str_log_dir, " +
             "frame_name, " +
             "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
             "layer_name, " +
             "layer_type, " +
+            "b_threadable, " +
             "int_cores_min, " +
             "int_cores_max, " +
+            "int_mem_min, " +
             "int_gpus_min, " +
             "int_gpus_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
             "int_gpu_mem_min, " +
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
-            "str_services " +
-        "FROM ( " +
+            "str_services ";
+
+    /**
+     * Schedule the next frame in a job for a host.
+     */
+    public static final String SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_HOST =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") AS LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -612,6 +591,9 @@ public class DispatchQuery {
                 "layer.int_gpu_mem_min BETWEEN ? AND ? " +
             "AND " +
                 "frame.str_state='WAITING' " +
+            "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
             "AND " +
                 "job.pk_job=? " +
             "AND " +
@@ -639,27 +621,37 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE LINENUM <= ?";
-
-
-    public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC =
-        "SELECT " +
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
             "show_name, " +
             "job_name, " +
-            "pk_job, " +
+            "frame.pk_job, " +
             "pk_show, " +
             "pk_facility, " +
-            "str_name, " +
             "str_shot, " +
             "str_user, " +
             "int_uid, " +
             "str_log_dir, " +
             "frame_name, " +
             "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
             "layer_name, " +
             "layer_type, " +
             "b_threadable, " +
@@ -672,13 +664,12 @@ public class DispatchQuery {
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
-            "str_services " +
-        "FROM ( " +
+            "str_services ";
+
+
+    public static final String SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") AS LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -723,6 +714,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "job.pk_job=? " +
             "AND " +
                 "layer.pk_layer IN (" +
@@ -746,48 +740,57 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE LINENUM <= ?";
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
+            "show_name, " +
+            "job_name, " +
+            "frame.pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
+            "layer_name, " +
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
+            "str_services ";
 
     /**
-     * Find the next frame in a job for a host.
+     * Schedule the next frame in a job for a host.
      */
-    public static final String FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "b_threadable, " +
-            "int_mem_min, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
-        "FROM (" +
+    public static final String SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -832,6 +835,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "job.pk_job=? " +
             "AND " +
                 "layer.pk_layer IN (" +
@@ -855,51 +861,60 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE LINENUM <= ?";
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
+            "show_name, " +
+            "job_name, " +
+            "frame.pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
+            "layer_name, " +
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
+            "str_services ";
 
 
     /**** LAYER DISPATCHING **/
 
     /**
-     * Finds the next frame in a job for a proc.
+     * Schedule the next frame in a job for a proc.
      */
-    public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-        "SELECT " +
-            "show_name, " +
-            "job_name, " +
-            "pk_job, " +
-            "pk_show, " +
-            "pk_facility, " +
-            "str_name, " +
-            "str_shot, " +
-            "str_user, " +
-            "int_uid, " +
-            "str_log_dir, " +
-            "frame_name, " +
-            "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
-            "layer_name, " +
-            "layer_type, " +
-            "b_threadable, " +
-            "int_cores_min, " +
-            "int_cores_max, " +
-            "int_mem_min, " +
-            "int_gpus_min, " +
-            "int_gpus_max, " +
-            "int_gpu_mem_min, " +
-            "str_cmd, " +
-            "str_range, " +
-            "int_chunk_size, " +
-            "str_services " +
-        "FROM (" +
+    public static final String SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_PROC =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -948,6 +963,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "job.pk_layer=? " +
             "AND layer.pk_layer IN ( " +
                 "SELECT /*+ index (h i_str_host_tag) */ " +
@@ -973,34 +991,42 @@ public class DispatchQuery {
                     "sum_running.int_sum_running < limit_record.int_max_value " +
                     "OR sum_running.int_sum_running IS NULL " +
             ")" +
-        ") WHERE LINENUM <= ?";
-
-    /**
-     * Find the next frame in a job for a host.
-     */
-    public static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-        "SELECT " +
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
             "show_name, " +
             "job_name, " +
-            "pk_job, " +
+            "frame.pk_job, " +
             "pk_show, " +
             "pk_facility, " +
-            "str_name, " +
             "str_shot, " +
             "str_user, " +
             "int_uid, " +
             "str_log_dir, " +
             "frame_name, " +
             "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
             "layer_name, " +
             "layer_type, " +
+            "b_threadable, " +
             "int_cores_min, " +
             "int_cores_max, " +
-            "b_threadable, " +
             "int_mem_min, " +
             "int_gpus_min, " +
             "int_gpus_max, " +
@@ -1008,13 +1034,14 @@ public class DispatchQuery {
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
-            "str_services " +
-        "FROM (" +
+            "str_services ";
+
+    /**
+     * Schedule the next frame in a job for a host.
+     */
+    public static final String SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_HOST =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") AS LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -1065,6 +1092,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "layer.pk_layer=? " +
             "AND " +
                 "layer.pk_layer IN ( " +
@@ -1091,27 +1121,37 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") WHERE LINENUM <= ?";
-
-
-    public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
-        "SELECT " +
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
             "show_name, " +
             "job_name, " +
-            "pk_job, " +
+            "frame.pk_job, " +
             "pk_show, " +
             "pk_facility, " +
-            "str_name, " +
             "str_shot, " +
             "str_user, " +
             "int_uid, " +
             "str_log_dir, " +
             "frame_name, " +
             "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
             "layer_name, " +
             "layer_type, " +
             "b_threadable, " +
@@ -1124,13 +1164,12 @@ public class DispatchQuery {
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
-            "str_services " +
-        "FROM (" +
+            "str_services ";
+
+
+    public static final String SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =
+        "WITH rows AS ( " +
             "SELECT " +
-                "ROW_NUMBER() OVER ( ORDER BY " +
-                    "frame.int_dispatch_order ASC, " +
-                    "frame.int_layer_order ASC " +
-                ") AS LINENUM, " +
                 "job.str_show AS show_name, " +
                 "job.str_name AS job_name, " +
                 "job.pk_job, " +
@@ -1175,6 +1214,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "layer.pk_layer = ? " +
             "AND " +
                 "layer.pk_layer IN (" +
@@ -1198,34 +1240,42 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE LINENUM <= ?";
-
-    /**
-     * Find the next frame in a job for a host.
-     */
-    public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST =
-        "SELECT " +
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
             "show_name, " +
             "job_name, " +
-            "pk_job, " +
+            "frame.pk_job, " +
             "pk_show, " +
             "pk_facility, " +
-            "str_name, " +
             "str_shot, " +
             "str_user, " +
             "int_uid, " +
             "str_log_dir, " +
             "frame_name, " +
             "frame_state, " +
-            "pk_frame, " +
-            "pk_layer, " +
-            "int_retries, " +
-            "int_version, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
             "layer_name, " +
             "layer_type, " +
+            "b_threadable, " +
             "int_cores_min, " +
             "int_cores_max, " +
-            "b_threadable, " +
             "int_mem_min, " +
             "int_gpus_min, " +
             "int_gpus_max, " +
@@ -1233,8 +1283,13 @@ public class DispatchQuery {
             "str_cmd, " +
             "str_range, " +
             "int_chunk_size, " +
-            "str_services " +
-        "FROM (" +
+            "str_services ";
+
+    /**
+     * Schedule the next frame in a job for a host.
+     */
+    public static final String SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST =
+        "WITH rows AS ( " +
             "SELECT " +
                 "ROW_NUMBER() OVER (ORDER BY " +
                     "frame.int_dispatch_order ASC, " +
@@ -1284,6 +1339,9 @@ public class DispatchQuery {
             "AND " +
                 "frame.str_state='WAITING' " +
             "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+            "AND " +
                 "layer.pk_layer= ? " +
             "AND " +
                 "layer.pk_layer IN (" +
@@ -1307,7 +1365,148 @@ public class DispatchQuery {
                         "sum_running.int_sum_running < limit_record.int_max_value " +
                         "OR sum_running.int_sum_running IS NULL " +
                 ") " +
-        ") AS t1 WHERE LINENUM <= ?";
+            "ORDER BY " +
+                "frame.int_dispatch_order ASC, " +
+                "frame.int_layer_order ASC " +
+            "LIMIT " +
+                "? " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
+            "show_name, " +
+            "job_name, " +
+            "frame.pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
+            "layer_name, " +
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
+            "str_services ";
+
+    public static final String SCHEDULE_DISPATCH_FRAME =
+        "WITH rows AS ( " +
+            "SELECT " +
+                "show.str_name AS show_name, "+
+                "job.str_name AS job_name, " +
+                "job.pk_job,"+
+                "job.pk_show,"+
+                "job.pk_facility,"+
+                "job.str_name,"+
+                "job.str_shot,"+
+                "job.str_user,"+
+                "job.int_uid,"+
+                "job.str_log_dir,"+
+                "frame.str_name AS frame_name, "+
+                "frame.str_state AS frame_state, "+
+                "frame.pk_frame, "+
+                "frame.pk_layer, "+
+                "frame.int_retries, "+
+                "frame.int_version, " +
+                "layer.str_name AS layer_name, " +
+                "layer.str_type AS layer_type, "+
+                "layer.str_cmd, "+
+                "layer.int_cores_min,"+
+                "layer.int_cores_max,"+
+                "layer.b_threadable,"+
+                "layer.int_mem_min, "+
+                "layer.int_gpus_min,"+
+                "layer.int_gpus_max,"+
+                "layer.int_gpu_mem_min, "+
+                "layer.str_range, "+
+                "layer.int_chunk_size, " +
+                "layer.str_services " +
+            "FROM " +
+                "layer, " +
+                "job, "+
+                "show, " +
+                "frame LEFT JOIN proc ON (proc.pk_frame = frame.pk_frame) " +
+            "WHERE " +
+                "job.pk_show = show.pk_show "+
+            "AND " +
+                "frame.pk_job = job.pk_job " +
+            "AND " +
+                "frame.pk_layer = layer.pk_layer " +
+            "AND " +
+                "frame.pk_frame = ?" +
+            "AND " +
+                "frame.str_state='WAITING' " +
+            "AND " +
+                "(frame.b_scheduled=false OR " +
+                    "current_timestamp - frame.ts_scheduled > " + SCHEDULE_TIMEOUT + ") " +
+        ") " +
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = true, " +
+            "ts_scheduled = current_timestamp " +
+        "FROM " +
+            "rows " +
+        "WHERE " +
+            "frame.pk_frame = rows.pk_frame " +
+        "RETURNING " +
+            "show_name, " +
+            "job_name, " +
+            "frame.pk_job, " +
+            "pk_show, " +
+            "pk_facility, " +
+            "str_shot, " +
+            "str_user, " +
+            "int_uid, " +
+            "str_log_dir, " +
+            "frame_name, " +
+            "frame_state, " +
+            "frame.pk_frame, " +
+            "frame.pk_layer, " +
+            "frame.int_retries, " +
+            "frame.int_version, " +
+            "layer_name, " +
+            "layer_type, " +
+            "b_threadable, " +
+            "int_cores_min, " +
+            "int_cores_max, " +
+            "int_mem_min, " +
+            "int_gpus_min, " +
+            "int_gpus_max, " +
+            "int_gpu_mem_min, " +
+            "str_cmd, " +
+            "str_range, " +
+            "int_chunk_size, " +
+            "str_services ";
+
+    public static final String UNSCHEDULE_DISPATCH_FRAMES =
+        "UPDATE " +
+            "frame " +
+        "SET " +
+            "b_scheduled = false " +
+        "WHERE " +
+            "pk_frame IN (%s) ";
 
     /**
      * Looks for shows that are under their burst for a particular

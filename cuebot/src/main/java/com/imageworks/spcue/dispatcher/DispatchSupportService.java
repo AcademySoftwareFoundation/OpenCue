@@ -147,27 +147,47 @@ public class DispatchSupportService implements DispatchSupport {
 
 
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit) {
-        return dispatcherDao.findNextDispatchFrames(job, proc, limit);
+    public ScheduledDispatchFrames scheduleNextDispatchFrames(JobInterface job, VirtualProc proc,
+            int limit) {
+        return new ScheduledDispatchFrames(this,
+                dispatcherDao.scheduleNextDispatchFrames(job, proc, limit));
     }
 
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit) {
-        return dispatcherDao.findNextDispatchFrames(job, host, limit);
+    public ScheduledDispatchFrames scheduleNextDispatchFrames(JobInterface job, DispatchHost host,
+            int limit) {
+        return new ScheduledDispatchFrames(this,
+                dispatcherDao.scheduleNextDispatchFrames(job, host, limit));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
+    public ScheduledDispatchFrames scheduleNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
-        return dispatcherDao.findNextDispatchFrames(layer, host, limit);
+        return new ScheduledDispatchFrames(this,
+                dispatcherDao.scheduleNextDispatchFrames(layer, host, limit));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
+    public ScheduledDispatchFrames scheduleNextDispatchFrames(LayerInterface layer,
             VirtualProc proc, int limit) {
-        return dispatcherDao.findNextDispatchFrames(layer, proc, limit);
+        return new ScheduledDispatchFrames(this,
+                dispatcherDao.scheduleNextDispatchFrames(layer, proc, limit));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ScheduledDispatchFrames scheduleDispatchFrame(String frameId) {
+        return new ScheduledDispatchFrames(this,
+                dispatcherDao.scheduleDispatchFrame(frameId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public void unscheduleDispatchFrames(List<DispatchFrame> dispatchFrames,
+            Set<DispatchFrame> excluded) {
+        dispatcherDao.unscheduleDispatchFrames(dispatchFrames, excluded);
     }
 
     @Transactional(readOnly = true)

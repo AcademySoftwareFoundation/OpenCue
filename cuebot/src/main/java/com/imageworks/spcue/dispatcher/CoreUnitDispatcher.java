@@ -251,95 +251,99 @@ public class CoreUnitDispatcher implements Dispatcher {
             return procs;
         }
 
-        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(job,
-                host, getIntProperty("dispatcher.frame_query_max"));
+        try (ScheduledDispatchFrames frames = dispatchSupport.scheduleNextDispatchFrames(job, host,
+                getIntProperty("dispatcher.frame_query_max"))) {
 
-        logger.info("Frames found: " + frames.size() + " for host " +
-                host.getName() + " " + host.idleCores + "/" + host.idleMemory +
-                " on job " + job.getName());
+            logger.info("Frames found: " + frames.size() + " for host " +
+                    host.getName() + " " + host.idleCores + "/" + host.idleMemory +
+                    " on job " + job.getName());
 
-        for (DispatchFrame frame: frames) {
+            for (DispatchFrame frame: frames) {
 
-            VirtualProc proc =  VirtualProc.build(host, frame);
+                VirtualProc proc =  VirtualProc.build(host, frame);
 
-            if (host.idleCores < frame.minCores ||
-                    host.idleMemory < frame.minMemory ||
-                    host.idleGpus < frame.minGpus ||
-                    host.idleGpuMemory < frame.minGpuMemory) {
-                break;
-            }
-
-            if (!dispatchSupport.isJobBookable(job, proc.coresReserved, proc.gpusReserved)) {
-                break;
-            }
-
-
-            if (host.strandedCores == 0 &&
-                    dispatchSupport.isShowAtOrOverBurst(job, host)) {
-                return procs;
-            }
-
-            boolean success = new DispatchFrameTemplate(proc, job, frame, false) {
-                public void wrapDispatchFrame() {
-                    dispatch(frame, proc);
-                    dispatchSummary(proc, frame, "Booking");
-                    return;
-                }
-            }.execute();
-
-            if (success) {
-                procs.add(proc);
-
-                DispatchSupport.bookedProcs.getAndIncrement();
-                DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
-                DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
-
-                if (host.strandedCores > 0) {
-                    dispatchSupport.pickupStrandedCores(host);
+                if (host.idleCores < frame.minCores ||
+                        host.idleMemory < frame.minMemory ||
+                        host.idleGpus < frame.minGpus ||
+                        host.idleGpuMemory < frame.minGpuMemory) {
                     break;
                 }
 
-                host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
-                if (!host.hasAdditionalResources(
-                        Dispatcher.CORE_POINTS_RESERVED_MIN,
-                        Dispatcher.MEM_RESERVED_MIN,
-                        Dispatcher.GPU_UNITS_RESERVED_MIN,
-                        Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                if (!dispatchSupport.isJobBookable(job, proc.coresReserved, proc.gpusReserved)) {
                     break;
                 }
-                else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
-                    break;
+
+
+                if (host.strandedCores == 0 &&
+                        dispatchSupport.isShowAtOrOverBurst(job, host)) {
+                    return procs;
                 }
-                else if (procs.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
-                    break;
+
+                boolean success = new DispatchFrameTemplate(proc, job, frame, false) {
+                    public void wrapDispatchFrame() {
+                        dispatch(frame, proc);
+                        dispatchSummary(proc, frame, "Booking");
+                        return;
+                    }
+                }.execute();
+
+                if (success) {
+                    frames.markFrameAsDispatched(frame);
+                    procs.add(proc);
+
+                    DispatchSupport.bookedProcs.getAndIncrement();
+                    DispatchSupport.bookedCores.addAndGet(proc.coresReserved);
+                    DispatchSupport.bookedGpus.addAndGet(proc.gpusReserved);
+
+                    if (host.strandedCores > 0) {
+                        dispatchSupport.pickupStrandedCores(host);
+                        break;
+                    }
+
+                    host.useResources(proc.coresReserved, proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved);
+                    if (!host.hasAdditionalResources(
+                            Dispatcher.CORE_POINTS_RESERVED_MIN,
+                            Dispatcher.MEM_RESERVED_MIN,
+                            Dispatcher.GPU_UNITS_RESERVED_MIN,
+                            Dispatcher.MEM_GPU_RESERVED_MIN)) {
+                        break;
+                    }
+                    else if (procs.size() >= getIntProperty("dispatcher.job_frame_dispatch_max")) {
+                        break;
+                    }
+                    else if (procs.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+                        break;
+                    }
                 }
             }
         }
 
         return procs;
-
     }
 
     public void dispatchProcToJob(VirtualProc proc, JobInterface job)
     {
 
         // Do not throttle this method
-        for (DispatchFrame frame:
-            dispatchSupport.findNextDispatchFrames(job, proc,
-                    getIntProperty("dispatcher.frame_query_max"))) {
-            try {
-                boolean success = new DispatchFrameTemplate(proc, job, frame, true) {
-                    public void wrapDispatchFrame() {
-                        dispatch(frame, proc);
-                        dispatchSummary(proc, frame, "Dispatch");
+        try (ScheduledDispatchFrames frames = dispatchSupport.scheduleNextDispatchFrames(job, proc,
+                getIntProperty("dispatcher.frame_query_max"))) {
+            for (DispatchFrame frame : frames) {
+                try {
+                    boolean success = new DispatchFrameTemplate(proc, job, frame, true) {
+                        public void wrapDispatchFrame() {
+                            dispatch(frame, proc);
+                            dispatchSummary(proc, frame, "Dispatch");
+                            return;
+                        }
+                    }.execute();
+                    if (success) {
+                        frames.markFrameAsDispatched(frame);
                         return;
                     }
-                }.execute();
-                if (success)
+                }
+                catch (DispatcherException e) {
                     return;
-            }
-            catch (DispatcherException e) {
-                return;
+                }
             }
         }
 
