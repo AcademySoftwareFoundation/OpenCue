@@ -26,6 +26,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
@@ -51,6 +52,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.GET_SCHEDULED_DISPATCH_FRAMES;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_HOST;
@@ -240,50 +242,62 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job,
             VirtualProc proc,  int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved,
                     proc.gpuMemoryReserved,
                     job.getJobId(),
-                    limit);
+                    limit, scheduler);
         }
         else {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved,
                     proc.memoryReserved,
                     proc.gpusReserved,
                     (proc.gpuMemoryReserved > 0) ? 1 : 0, proc.gpuMemoryReserved,
                     job.getJobId(), proc.hostName,
-                    job.getJobId(), limit);
+                    job.getJobId(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
     @Override
     public List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job,
             DispatchHost host, int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     host.idleMemory, host.idleGpuMemory, job.getJobId(),
-                    limit);
+                    limit, scheduler);
 
         } else {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                 SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
                 job.getJobId(), host.getName(),
-                job.getJobId(), limit);
+                job.getJobId(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
 
@@ -291,45 +305,57 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer,
             VirtualProc proc,  int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(),
-                    limit);
+                    limit, scheduler);
         }
         else {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     proc.coresReserved, proc.memoryReserved,
                     proc.gpusReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(), layer.getLayerId(),
-                    proc.hostName, limit);
+                    proc.hostName, limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
     @Override
     public List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                     SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                     host.idleMemory, host.idleGpuMemory, layer.getLayerId(),
-                    limit);
+                    limit, scheduler);
 
         } else {
-            return getJdbcTemplate().query(
+            getJdbcTemplate().update(
                 SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus, host.idleGpuMemory, layer.getLayerId(), layer.getLayerId(),
-                host.getName(), limit);
+                host.getName(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
 
@@ -345,10 +371,18 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
     @Override
     public List<DispatchFrame> scheduleDispatchFrame(String frameId) {
-        return getJdbcTemplate().query(
+        String scheduler = UUID.randomUUID().toString();
+
+        getJdbcTemplate().update(
             SCHEDULE_DISPATCH_FRAME,
-            FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
-            frameId);
+            frameId,
+            scheduler);
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                1);
     }
 
     @Override

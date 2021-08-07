@@ -150,7 +150,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "frame " +
         "SET " +
             "str_state = ?, " +
-            "b_scheduled = false, " +
+            "str_scheduled_by = NULL, " +
             "str_host = ?, " +
             "int_cores = ?, " +
             "int_mem_reserved = ?, " +
@@ -278,7 +278,6 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             frame.owner = rs.getString("str_user");
             int uid = rs.getInt("int_uid");
             frame.uid = rs.wasNull() ? Optional.empty() : Optional.of(uid);
-            frame.state = FrameState.valueOf(rs.getString("frame_state"));
             frame.minCores = rs.getInt("int_cores_min");
             frame.maxCores = rs.getInt("int_cores_max");
             frame.threadable = rs.getBoolean("b_threadable");

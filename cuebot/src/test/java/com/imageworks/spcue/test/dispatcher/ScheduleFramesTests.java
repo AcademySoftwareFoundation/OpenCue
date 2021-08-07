@@ -437,7 +437,8 @@ public class ScheduleFramesTests extends AbstractTransactionalJUnit4SpringContex
             "SET " +
                 "ts_scheduled = ?" +
             "WHERE " +
-                "b_scheduled = true", new Timestamp(System.currentTimeMillis() - 61 * 1000));
+                "str_scheduled_by IS NOT NULL",
+            new Timestamp(System.currentTimeMillis() - 61 * 1000));
 
         // scheduleNextDispatchFrames will return the exact same frames in the exact same order
         // again because of the fail-safe logic.
