@@ -304,6 +304,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
+    @mock.patch.object(
+        rqd.rqmachine.Machine, '_Machine__getHyperthreadingMultiplier',
+        new=mock.MagicMock(return_value=2))
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
