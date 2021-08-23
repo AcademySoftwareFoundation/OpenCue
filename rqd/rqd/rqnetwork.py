@@ -62,7 +62,6 @@ class RunningFrame(object):
         self.vsize = 0
         self.maxVsize = 0
 
-        self.numGpus = 0
         self.usedGpuMemory = 0
         self.maxUsedGpuMemory = 0
 
@@ -89,7 +88,7 @@ class RunningFrame(object):
             vsize=self.vsize,
             attributes=self.runFrame.attributes,
             llu_time=self.lluTime,
-            num_gpus=self.numGpus,
+            num_gpus=self.runFrame.num_gpus,
             max_used_gpu_memory=self.maxUsedGpuMemory,
             used_gpu_memory=self.usedGpuMemory
         )
