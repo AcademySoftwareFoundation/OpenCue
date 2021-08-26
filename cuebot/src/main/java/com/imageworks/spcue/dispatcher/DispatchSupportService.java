@@ -42,7 +42,6 @@ import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
-import com.imageworks.spcue.StrandedGpus;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -83,9 +82,6 @@ public class DispatchSupportService implements DispatchSupport {
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
         new ConcurrentHashMap<String, StrandedCores>();
 
-    private ConcurrentHashMap<String, StrandedGpus> strandedGpus =
-        new ConcurrentHashMap<String, StrandedGpus>();
-
     @Override
     public void pickupStrandedCores(DispatchHost host) {
         logger.info(host + "picked up stranded cores");
@@ -116,35 +112,6 @@ public class DispatchSupportService implements DispatchSupport {
         strandedCores.putIfAbsent(host.getHostId(), new StrandedCores(cores));
         strandedCoresCount.getAndIncrement();
     }
-
-    @Override
-    public void pickupStrandedGpus(DispatchHost host) {
-        logger.info(host + "picked up stranded gpu");
-        pickedUpGpusCount.getAndIncrement();
-        strandedGpus.remove(host.getHostId());
-    }
-
-    @Override
-    public boolean hasStrandedGpus(HostInterface host) {
-        StrandedGpus stranded = strandedGpus.get(host.getHostId());
-        if (stranded == null) {
-            return false;
-        }
-        if (stranded.isExpired()) {
-            return false;
-        }
-
-        return true;
-    }
-
-    @Override
-    public void strandGpus(DispatchHost host, int gpus) {
-        logger.info(host + " found " + gpus + ", stranded gpu");
-        host.strandedGpus  = gpus;
-        strandedGpus.putIfAbsent(host.getHostId(), new StrandedGpus(gpus));
-        strandedGpusCount.getAndIncrement();
-    }
-
 
     @Transactional(readOnly = true)
     public List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit) {
@@ -612,14 +579,6 @@ public class DispatchSupportService implements DispatchSupport {
         int idleCores = maxLoad - load;
         if (idleCores < host.idleCores) {
             host.idleCores = idleCores;
-        }
-    }
-
-    @Override
-    public void determineIdleGpus(DispatchHost host, int load) {
-        int idleGpu = host.gpus - load;
-        if (idleGpu < host.idleGpus) {
-            host.idleGpus = idleGpu;
         }
     }
 
