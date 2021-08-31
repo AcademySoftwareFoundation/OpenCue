@@ -45,9 +45,7 @@ import traceback
 # pylint: disable=import-error,wrong-import-position
 if platform.system() in ('Linux', 'Darwin'):
     import resource
-elif platform.system() == "win32":
-    import win32api
-
+elif platform.system() == "Windows":
     winpsIsAvailable = False
     try:
         import winps
@@ -211,16 +209,19 @@ class Machine(object):
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
         if platform.system() == 'Windows' and winpsIsAvailable:
-            pids = [frame.pid for frame in list(filter(lambda frame: frame.pid > 0, frames))]
+            values = list(frames.values())
+            pids = [frame.pid for frame in list(
+                filter(lambda frame: frame.pid > 0, values)
+            )]
             # pylint: disable=E1101
             stats = winps.update(pids)
             # pylint: enable=E1101
-            for frame in frames:
+            for frame in values:
                 self.__updateGpuAndLlu(frame)
                 if frame.pid > 0 and frame.pid in stats:
                     stat = stats[frame.pid]
-                    frame.rss = stat["rss"]
-                    frame.maxRss = max(stat["rss"], frame.maxRss)
+                    frame.rss = stat["rss"] // 1024
+                    frame.maxRss = max(frame.rss, frame.maxRss)
                     frame.runFrame.attributes["pcpu"] = str(stat["pcpu"])
             return
 
@@ -447,8 +448,6 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getTempPath(self):
         """Returns the correct mcp path for the given machine"""
-        if platform.system() == "win32":
-            return win32api.GetTempPath()
         if os.path.isdir("/mcp/"):
             return "/mcp/"
         return '%s/' % tempfile.gettempdir()
