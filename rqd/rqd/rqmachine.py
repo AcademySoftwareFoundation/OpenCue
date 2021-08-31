@@ -47,6 +47,13 @@ if platform.system() in ('Linux', 'Darwin'):
     import resource
 elif platform.system() == "win32":
     import win32api
+
+    winpsIsAvailable = False
+    try:
+        import winps
+        winpsIsAvailable = True
+    except ImportError:
+        pass
 # pylint: enable=import-error,wrong-import-position
 
 import psutil
@@ -190,6 +197,32 @@ class Machine(object):
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
+        if platform.system() == 'Windows' and winpsIsAvailable:
+            pids = [frame.pid for frame in list(filter(lambda frame: frame.pid > 0, frames))]
+            # pylint: disable=E1101
+            stats = winps.update(pids)
+            # pylint: enable=E1101
+            for frame in frames:
+                if frame.pid > 0 and frame.pid in stats:
+                    stat = stats[frame.pid]
+                    frame.rss = stat["rss"]
+                    frame.maxRss = max(stat["rss"], frame.maxRss)
+
+                    if 'GPU_LIST' in frame.runFrame.attributes:
+                        usedGpuMemory = 0
+                        for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
+                            usedGpuMemory += self.getGpuMemoryUsed(unitId)
+
+                        frame.usedGpuMemory = usedGpuMemory
+                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
+
+                    if os.path.exists(frame.runFrame.log_dir_file):
+                        stat = os.stat(frame.runFrame.log_dir_file).st_mtime
+                        frame.lluTime = int(stat)
+
+                    frame.runFrame.attributes["pcpu"] = str(stat["pcpu"])
+            return
+
         if platform.system() != 'Linux':
             return
 
