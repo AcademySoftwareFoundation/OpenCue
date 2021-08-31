@@ -195,6 +195,19 @@ class Machine(object):
                     return True
         return False
 
+    def __updateGpuAndLlu(self, frame):
+        if 'GPU_LIST' in frame.runFrame.attributes:
+            usedGpuMemory = 0
+            for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
+                usedGpuMemory += self.getGpuMemoryUsed(unitId)
+
+            frame.usedGpuMemory = usedGpuMemory
+            frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
+
+        if os.path.exists(frame.runFrame.log_dir_file):
+            stat = os.stat(frame.runFrame.log_dir_file).st_mtime
+            frame.lluTime = int(stat)
+
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
         if platform.system() == 'Windows' and winpsIsAvailable:
@@ -203,23 +216,11 @@ class Machine(object):
             stats = winps.update(pids)
             # pylint: enable=E1101
             for frame in frames:
+                self.__updateGpuAndLlu(frame)
                 if frame.pid > 0 and frame.pid in stats:
                     stat = stats[frame.pid]
                     frame.rss = stat["rss"]
                     frame.maxRss = max(stat["rss"], frame.maxRss)
-
-                    if 'GPU_LIST' in frame.runFrame.attributes:
-                        usedGpuMemory = 0
-                        for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
-                            usedGpuMemory += self.getGpuMemoryUsed(unitId)
-
-                        frame.usedGpuMemory = usedGpuMemory
-                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
-
-                    if os.path.exists(frame.runFrame.log_dir_file):
-                        stat = os.stat(frame.runFrame.log_dir_file).st_mtime
-                        frame.lluTime = int(stat)
-
                     frame.runFrame.attributes["pcpu"] = str(stat["pcpu"])
             return
 
@@ -311,22 +312,12 @@ class Machine(object):
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
 
-                    if 'GPU_LIST' in frame.runFrame.attributes:
-                        usedGpuMemory = 0
-                        for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
-                            usedGpuMemory += self.getGpuMemoryUsed(unitId)
-
-                        frame.usedGpuMemory = usedGpuMemory
-                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
-
-                    if os.path.exists(frame.runFrame.log_dir_file):
-                        stat = os.stat(frame.runFrame.log_dir_file).st_mtime
-                        frame.lluTime = int(stat)
-
                     frame.vsize = vsize
                     frame.maxVsize = max(vsize, frame.maxVsize)
 
                     frame.runFrame.attributes["pcpu"] = str(pcpu)
+
+                    self.__updateGpuAndLlu(frame)
 
             # Store the current data for the next check
             self.__pidHistory = pidData
