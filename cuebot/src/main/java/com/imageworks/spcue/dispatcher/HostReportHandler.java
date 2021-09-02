@@ -196,7 +196,7 @@ public class HostReportHandler {
                 dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
 
             } catch (DataAccessException dae) {
-                logger.warn("Unable to find host " + rhost.getName() + ","
+                logger.info("Unable to find host " + rhost.getName() + ","
                         + dae + " , creating host.");
                 // TODO: Skip adding it if the host name is over 30 characters
 

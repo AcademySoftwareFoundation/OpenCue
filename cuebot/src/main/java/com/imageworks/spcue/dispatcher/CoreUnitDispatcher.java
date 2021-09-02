@@ -475,7 +475,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 DispatchSupport.bookingRetries.incrementAndGet();
                 String msg = "frame reservation error, " +
                     "dispatchProcToJob failed to book next frame, " + fre;
-                logger.warn(msg);
+                logger.info(msg);
                 return false;
             }
             catch (ResourceDuplicationFailureException rrfe) {
@@ -492,7 +492,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                     "to assign proc to job " + job + ", " + proc +
                     " already assigned to another frame." + rrfe;
 
-                logger.warn(msg);
+                logger.info(msg);
                 return false;
             }
             catch (ResourceReservationFailureException rrfe) {
@@ -505,7 +505,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 String msg = "proc update error, " +
                     "dispatchProcToJob failed to assign proc to job " +
                     job + ", " + rrfe;
-                logger.warn(msg);
+                logger.info(msg);
                 if (procIndb) {
                     dispatchSupport.unbookProc(proc);
                 }
@@ -524,7 +524,7 @@ public class CoreUnitDispatcher implements Dispatcher {
                 DispatchSupport.bookingErrors.incrementAndGet();
                 String msg = "dispatchProcToJob failed booking proc " +
                     proc + " on job " + job;
-                logger.warn(msg, e);
+                logger.info(msg, e);
                 dispatchSupport.unbookProc(proc);
                 dispatchSupport.clearFrame(frame);
 

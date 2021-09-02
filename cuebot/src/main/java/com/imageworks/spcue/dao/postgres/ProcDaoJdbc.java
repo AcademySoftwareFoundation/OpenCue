@@ -692,7 +692,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                  + targetProc.getName() + ", obtained " + memBorrowedTotal);
 
           if (memBorrowedTotal < targetMem) {
-              logger.warn("mem borrowed " + memBorrowedTotal +
+              logger.info("mem borrowed " + memBorrowedTotal +
                       " was less than the target memory of " + targetMem);
               return false;
           }
