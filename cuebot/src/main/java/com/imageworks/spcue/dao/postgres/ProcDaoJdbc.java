@@ -90,7 +90,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
 
     public boolean deleteVirtualProc(VirtualProc proc) {
         if(getJdbcTemplate().update(DELETE_VIRTUAL_PROC, proc.getProcId()) == 0) {
-            logger.warn("failed to delete " + proc + " , proc does not exist.");
+            logger.info("failed to delete " + proc + " , proc does not exist.");
             return false;
         }
         // update all of the resource counts.

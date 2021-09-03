@@ -162,7 +162,7 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
         } catch (DispatcherException e) {
-            logger.warn("dispatcher exception," + e);
+            logger.info(host.name + " dispatcher exception," + e);
         }
 
         host.restoreGpu();
