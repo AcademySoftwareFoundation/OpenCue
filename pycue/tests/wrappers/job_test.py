@@ -101,7 +101,7 @@ class JobTests(unittest.TestCase):
                        username=username,
                        pid=str(pid),
                        host_kill=host_kill,
-                       reason=reason,)
+                       reason=reason)
 
         stubMock.KillFrames.assert_called_with(
             job_pb2.JobKillFramesRequest(job=job.data,

@@ -15,6 +15,7 @@
 """Module for classes related to jobs."""
 
 import enum
+import getpass
 import os
 import time
 
@@ -64,15 +65,23 @@ class Job(object):
         """Resumes the job."""
         self.stub.Resume(job_pb2.JobResumeRequest(job=self.data), timeout=Cuebot.Timeout)
 
-    def killFrames(self, **request):
+    def killFrames(self, username=None, pid=None, host_kill=None, reason=None, **request):
         """Kills all frames that match the FrameSearch.
 
         :type  request: Dict
         :param request: FrameSearch parameters
         """
+        username = username if username else getpass.getuser()
+        pid = pid if pid else os.getpid()
+        host_kill = host_kill if host_kill else os.uname()[1]
         criteria = opencue.search.FrameSearch.criteriaFromOptions(**request)
-        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data, req=criteria),
-                             timeout=Cuebot.Timeout)
+        self.stub.KillFrames(job_pb2.JobKillFramesRequest(job=self.data,
+                                                          req=criteria,
+                                                          username=username,
+                                                          pid=str(pid),
+                                                          host_kill=host_kill,
+                                                          reason=reason),
+                            timeout=Cuebot.Timeout)
 
     def eatFrames(self, **request):
         """Eats all frames that match the FrameSearch.
