@@ -198,7 +198,7 @@ class Machine(object):
             if pid.isdigit():
                 try:
                     with open("/proc/%s/stat" % pid, "r") as statFile:
-                        statFields = statFile.read().split()
+                        statFields = [None, None] + statFile.read().rsplit(")", 1)[-1].split()
 
                     # See "man proc"
                     pids[pid] = {
