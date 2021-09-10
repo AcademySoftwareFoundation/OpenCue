@@ -430,7 +430,7 @@ public class HostReportHandler {
                                 + proc.getName() + " was OOM");
                         try {
                             killQueue.execute(new DispatchRqdKillFrame(proc, "The frame required " +
-                                    CueUtil.KbToMb(f.getRss()) + "MB but the machine only has " +
+                                    CueUtil.KbToMb(f.getRss()) + " but the machine only has " +
                                     CueUtil.KbToMb(host.memory), rqdClient));
                         } catch (TaskRejectedException e) {
                             logger.warn("Unable to queue RQD kill, task rejected, " + e);

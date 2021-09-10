@@ -180,7 +180,8 @@ class FrameAttendantThread(threading.Thread):
         self.endTime = time.time()
         self.frameInfo.runTime = int(self.endTime - self.startTime)
         try:
-            print("\n", "="*59, file=self.rqlog)
+            print("", file=self.rqlog)
+            print("="*59, file=self.rqlog)
             print("RenderQ Job Complete\n", file=self.rqlog)
             print("%-20s%s" % ("exitStatus", self.frameInfo.exitStatus), file=self.rqlog)
             print("%-20s%s" % ("exitSignal", self.frameInfo.exitSignal), file=self.rqlog)
