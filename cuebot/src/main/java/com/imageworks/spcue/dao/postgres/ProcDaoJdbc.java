@@ -234,13 +234,15 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_mem_max_used = ?," +
             "int_virt_used = ?, " +
             "int_virt_max_used = ?, " +
+            "int_gpu_mem_used = ?, " +
+            "int_gpu_mem_max_used = ?, " +
             "ts_ping = current_timestamp " +
         "WHERE " +
             "pk_frame = ?";
 
     @Override
     public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
-            long vss, long maxVss) {
+            long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory) {
         /*
          * This method is going to repeat for a proc every 1 minute, so
          * if the proc is being touched by another thread, then return
@@ -256,7 +258,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                     String.class, f.getFrameId()).equals(f.getFrameId())) {
 
                 getJdbcTemplate().update(UPDATE_PROC_MEMORY_USAGE,
-                        rss, maxRss, vss, maxVss, f.getFrameId());
+                        rss, maxRss, vss, maxVss,
+                        usedGpuMemory, maxUsedGpuMemory, f.getFrameId());
             }
         } catch (DataAccessException dae) {
            logger.info("The proc for frame " + f +
