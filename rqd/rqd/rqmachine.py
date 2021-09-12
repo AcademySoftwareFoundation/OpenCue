@@ -644,6 +644,9 @@ class Machine(object):
             self.__renderHost.free_mcp = TEMP_DEFAULT
             self.__renderHost.free_swap = int(stats.ullAvailPageFile / 1024)
             self.__renderHost.free_mem = int(stats.ullAvailPhys / 1024)
+            self.__renderHost.num_gpus = self.getGpuCount()
+            self.__renderHost.total_gpu_mem = self.getGpuMemoryTotal()
+            self.__renderHost.free_gpu_mem = self.getGpuMemoryFree()
 
         # Updates dynamic information
         self.__renderHost.load = self.getLoadAvg()
