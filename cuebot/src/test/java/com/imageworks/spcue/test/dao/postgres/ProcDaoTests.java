@@ -326,7 +326,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
 
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000);
+        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0);
 
     }
 
@@ -593,7 +593,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
             // Increase the memory usage as frames are added
             procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i, 1000*i, 1000*i);
+                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0);
             i++;
         }
 
@@ -666,7 +666,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc1.frameId = frame1.id;
         procDao.insertVirtualProc(proc1);
 
-        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000);
+        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0);
         layerDao.updateLayerMaxRSS(frame1, 250000, true);
 
         FrameDetail frameDetail2 = frameDao.findFrameDetail(job, "0002-pass_1");
@@ -676,7 +676,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -686,7 +686,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0);
         layerDao.updateLayerMaxRSS(frame3,300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);

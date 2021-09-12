@@ -442,9 +442,11 @@ public interface DispatchSupport {
      * @param maxRss
      * @param vsize
      * @param maxVsize
+     * @param usedGpuMemory
+     * @param maxUsedGpuMemory
      */
     void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-                               long maxVsize);
+                               long maxVsize, long usedGpuMemory, long maxUsedGpuMemory);
 
     /**
      * Return true if adding the given core units would put the show

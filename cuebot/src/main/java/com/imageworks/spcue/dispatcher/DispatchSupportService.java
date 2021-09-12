@@ -535,8 +535,10 @@ public class DispatchSupportService implements DispatchSupport {
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss,
-                                      long vsize, long maxVsize) {
-        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize);
+                                      long vsize, long maxVsize,
+                                      long usedGpuMemory, long maxUsedGpuMemory) {
+        procDao.updateProcMemoryUsage(frame, rss, maxRss, vsize, maxVsize,
+                                      usedGpuMemory, maxUsedGpuMemory);
     }
 
     @Override
