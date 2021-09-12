@@ -167,6 +167,46 @@ class Allocation(object):
         """
         return self.data.stats.locked_cores
 
+    def totalGpus(self):
+        """Returns the total number of gpus in the allocation.
+
+        :rtype:  float
+        :return: total number of gpus in the allocation
+        """
+        return self.data.stats.gpus
+
+    def totalAvailableGpus(self):
+        """Returns the total number of gpus available for booking in the allocation.
+
+        :rtype:  float
+        :return: total number of gpus in the allocation
+        """
+        return self.data.stats.available_gpus
+
+    def totalIdleGpus(self):
+        """Returns the total number of idle gpus in the allocation.
+
+        :rtype:  float
+        :return: total number of idle gpus in the allocation
+        """
+        return self.data.stats.idle_gpus
+
+    def totalRunningGpus(self):
+        """Returns the total number of running gpus in the allocation.
+
+        :rtype:  float
+        :return: total number of running gpus in the allocation
+        """
+        return self.data.stats.running_gpus
+
+    def totalLockedGpus(self):
+        """Returns the total number of locked gpus in the allocation.
+
+        :rtype:  float
+        :return: total number of locked gpus in the allocation
+        """
+        return self.data.stats.locked_gpus
+
     def totalHosts(self):
         """Returns the total number of hosts in the allocation.
 
