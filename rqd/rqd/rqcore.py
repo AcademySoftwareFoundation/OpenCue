@@ -44,6 +44,9 @@ import rqd.rqnimby
 import rqd.rqutil
 
 
+INT32_MAX = 2147483647
+INT32_MIN = -2147483648
+
 class FrameAttendantThread(threading.Thread):
     """Once a frame has been received and checked by RQD, this class handles
        the launching, waiting on, and cleanup work related to running the
@@ -361,6 +364,10 @@ class FrameAttendantThread(threading.Thread):
 
         # Find exitStatus and exitSignal
         returncode = frameInfo.forkedCommand.returncode
+        if returncode < INT32_MIN:
+            returncode = 303
+        if returncode > INT32_MAX:
+            returncode = 304
         frameInfo.exitStatus = returncode
         frameInfo.exitSignal = returncode
 
