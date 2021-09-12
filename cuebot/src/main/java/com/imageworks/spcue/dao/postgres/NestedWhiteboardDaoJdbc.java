@@ -23,10 +23,10 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -157,10 +157,56 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         "AND " +
             "folder.pk_dept = dept.pk_dept ";
 
-    class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
+    private class ChildrenEntry {
+        String key;
+        int level;
+        List<String> children;
+        String name;
 
-        public Map<String, NestedGroup> groups = new HashMap<String,NestedGroup>(50);
-        public Map<String, List<String>> childrenMap = new HashMap<String, List<String>>();
+        public ChildrenEntry(String key, int level, String name) {
+            this.key = key;
+            this.level = level;
+            this.children = new ArrayList<>();
+            this.name = name;
+        }
+
+        public List<String> getChildren() {
+            return children;
+        }
+
+        public void addChild(String child) {
+            children.add(child);
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public int compareTo(ChildrenEntry o) {
+            // Invert order
+            return Integer.compare(o.level, this.level);
+        }
+
+        @Override
+        public String toString() {
+            StringBuilder out = new StringBuilder();
+            String spacing = " ".repeat(Math.max(0, this.level + 1));
+            out.append(spacing);
+            out.append(key + "(c " + name + ")");
+            for (String id : children) {
+                out.append("\n " + spacing + id.substring(0, 4));
+            }
+            return out.toString();
+        }
+    }
+
+    class NestedJobWhiteboardMapper implements RowMapper<NestedGroup> {
+        public Map<String, NestedGroup> groups = new HashMap<String, NestedGroup>(50);
+        public Map<String, ChildrenEntry> childrenMap = new HashMap<String, ChildrenEntry>();
         public String rootGroupID;
 
         @Override
@@ -186,12 +232,16 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
                 String parentGroupId = rs.getString("pk_parent_folder");
                 if (parentGroupId != null) {
-                    List<String> children = childrenMap.get(parentGroupId);
-                    if (children == null) {
-                        children = new ArrayList<>();
-                        childrenMap.put(parentGroupId, children);
+                    ChildrenEntry childrenEntry = childrenMap.get(parentGroupId);
+                    if (childrenEntry == null) {
+                        childrenEntry = new ChildrenEntry(
+                                parentGroupId, group.getLevel() - 1, rs.getString("group_name"));
+                        childrenEntry.addChild(groupId);
+                        childrenMap.put(parentGroupId, childrenEntry);
                     }
-                    children.add(groupId);
+                    else {
+                        childrenEntry.addChild(groupId);
+                    }
                 }
                 else {
                     rootGroupID = rs.getString("pk_folder");
@@ -223,19 +273,22 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     }
 
     private NestedJobWhiteboardMapper updateConnections(NestedJobWhiteboardMapper mapper) {
-        for (Map.Entry<String, List<String>> entry : mapper.childrenMap.entrySet()) {
-            NestedGroup group = mapper.groups.get(entry.getKey());
-            NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
-            for (String childId : entry.getValue()) {
-                NestedGroup child = mapper.groups.get(childId);
-                child = child.toBuilder().setParent(group).build();
-                childrenBuilder.addNestedGroups(child);
-                mapper.groups.put(childId, child);
-            }
-            group = group.toBuilder()
-                    .setGroups(childrenBuilder.build())
-                    .build();
-            mapper.groups.put(entry.getKey(), group);
+        ArrayList<ChildrenEntry> orderedChildren = new ArrayList<>(mapper.childrenMap.values());
+        orderedChildren.sort(ChildrenEntry::compareTo);
+
+        for (ChildrenEntry entry : orderedChildren) {
+           NestedGroup group = mapper.groups.get(entry.getKey());
+           NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
+           for (String childId : entry.getChildren()) {
+               NestedGroup child = mapper.groups.get(childId);
+               child = child.toBuilder().setParent(group).build();
+               childrenBuilder.addNestedGroups(child);
+               mapper.groups.put(childId, child);
+           }
+           group = group.toBuilder()
+                   .setGroups(childrenBuilder.build())
+                   .build();
+           mapper.groups.put(entry.getKey(), group);
         }
         return mapper;
     }
