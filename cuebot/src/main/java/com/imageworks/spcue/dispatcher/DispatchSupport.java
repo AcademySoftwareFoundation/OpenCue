@@ -527,40 +527,6 @@ public interface DispatchSupport {
     void determineIdleCores(DispatchHost host, int load);
 
     /**
-     * Pickup any gpus that were stranded on the given host.
-     *
-     * @param host
-     */
-    void pickupStrandedGpus(DispatchHost host);
-
-    /**
-     * Return true if the host has stranded gpus.
-     *
-     * @param host
-     * @return
-     */
-    boolean hasStrandedGpus(HostInterface host);
-
-    /**
-     * Add stranded gpus for the given host. Stranded
-     * gpus will automatically be added to the next frame dispatched
-     * from the host to make up for gpus stranded with no memory.
-     *
-     * @param host
-     * @param gpus
-     */
-    void strandGpus(DispatchHost host, int gpus);
-
-    /**
-     * Lowers the perceived idle gpus on a machine if
-     * the load is over certain threshold.
-     *
-     * @param host
-     * @param load
-     */
-    void determineIdleGpus(DispatchHost host, int load);
-
-    /**
      * Return a set of job IDs that can take the given host.
      *
      * @param host
