@@ -832,6 +832,21 @@ class LimitTests(unittest.TestCase):
         self.assertEqual(len(limits), 1)
         self.assertEqual(limits[0].name(), TEST_LIMIT_NAME)
 
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testFindLimit(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.Find.return_value = limit_pb2.LimitFindResponse(
+            limit=limit_pb2.Limit(name=TEST_LIMIT_NAME, max_value=42))
+        getStubMock.return_value = stubMock
+
+        limit = opencue.api.findLimit(TEST_LIMIT_NAME)
+        self.assertEqual(TEST_LIMIT_NAME, limit.name())
+        self.assertEqual(42, limit.maxValue())
+
+        stubMock.Find.assert_called_with(
+            limit_pb2.LimitFindRequest(name=TEST_LIMIT_NAME),
+            timeout=mock.ANY)
+
 
 if __name__ == '__main__':
     unittest.main()
