@@ -71,10 +71,8 @@ class ProcMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()
 
-        # pylint: disable=no-member
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1))):
+        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1))):  # pylint: disable=no-member
             self.updateRequest()
-        # pylint: enable=no-member
 
     def updateRequest(self):
         """Requests an update to the widget's contents."""
@@ -112,11 +110,11 @@ class ProcMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setFixedWidth(24)
         layout.addWidget(btn)
-        btn.clicked.connect(self.__filterByHostNameClear)
+        btn.clicked.connect(self.__filterByHostNameClear)  # pylint: disable=no-member
         self.__filterByHostNameClearBtn = btn
 
         self.__filterByHostNameLastInput = None
-        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)
+        self.__filterByHostName.editingFinished.connect(self.__filterByHostNameHandle)  # pylint: disable=no-member
 
     def __filterByHostNameHandle(self):
         hosts = str(self.__filterByHostName.text()).split()
@@ -138,7 +136,7 @@ class ProcMonitor(QtWidgets.QWidget):
         layout.addWidget(checkBox)
         if self.procMonitorTree.enableRefresh:
             checkBox.setCheckState(QtCore.Qt.Checked)
-        checkBox.stateChanged.connect(self.__refreshToggleCheckBoxHandle)
+        checkBox.stateChanged.connect(self.__refreshToggleCheckBoxHandle)  # pylint: disable=no-member
         __refreshToggleCheckBoxCheckBox = checkBox
 
     def __refreshToggleCheckBoxHandle(self, state):
@@ -158,7 +156,7 @@ class ProcMonitor(QtWidgets.QWidget):
         self.btn_refresh.setMaximumHeight(FILTER_HEIGHT)
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        self.btn_refresh.clicked.connect(self.procMonitorTree.updateRequest)
+        self.btn_refresh.clicked.connect(self.procMonitorTree.updateRequest)  # pylint: disable=no-member
         self.procMonitorTree.updated.connect(self.__refreshButtonDisableHandle)
 
     def __refreshButtonEnableHandle(self):
@@ -182,7 +180,7 @@ class ProcMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        btn.clicked.connect(self.__clearButtonHandle)
+        btn.clicked.connect(self.__clearButtonHandle)  # pylint: disable=no-member
 
     def __clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -194,9 +192,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Monitors and handles the view_procs signal
 # ==============================================================================
     def __viewProcsSetup(self):
-        # pylint: disable=no-member
-        QtGui.qApp.view_procs.connect(self.__viewProcsHandle)
-        # pylint: enable=no-member
+        QtGui.qApp.view_procs.connect(self.__viewProcsHandle)  # pylint: disable=no-member
 
     def __viewProcsHandle(self, hosts):
         self.procMonitorTree.procSearch.options['host'] = hosts
@@ -206,9 +202,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Views procs when a host is double clicked
 # ==============================================================================
     def __hostDoubleClickedSetup(self):
-        # pylint: disable=no-member
-        QtGui.qApp.view_object.connect(self.__hostDoubleClickedHandle)
-        # pylint: enable=no-member
+        QtGui.qApp.view_object.connect(self.__hostDoubleClickedHandle)  # pylint: disable=no-member
 
     def __hostDoubleClickedHandle(self, rpcObject):
         if cuegui.Utils.isHost(rpcObject):
@@ -219,9 +213,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Monitors and handles the view_hosts signal
 # ==============================================================================
     def __viewHostsSetup(self):
-        # pylint: disable=no-member
-        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
-        # pylint: enable=no-member
+        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)  # pylint: disable=no-member
 
     def __viewHostsHandle(self, hosts):
         if hosts:

@@ -94,6 +94,7 @@ class CommentListDialog(QtWidgets.QDialog):
         btnLayout.addWidget(self.__btnClose)
         layout.addLayout(btnLayout)
 
+        # pylint: disable=no-member
         self.__treeSubjects.itemSelectionChanged.connect(self.__itemChanged)
         self.__comboMacro.currentTextChanged.connect(self.__macroHandle)
         self.__btnSave.pressed.connect(self.__saveComment)
@@ -102,6 +103,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__btnClose.pressed.connect(self.__close)
         self.__textSubject.textEdited.connect(self.__textEdited)
         self.__textMessage.textChanged.connect(self.__textEdited)
+        # pylint: enable=no-member
 
         self.refreshComments()
         self.__macroLoad()
@@ -333,8 +335,10 @@ class CommentMacroDialog(QtWidgets.QDialog):
         layout.addWidget(self.__textMessage)
         layout.addLayout(btnLayout)
 
+        # pylint: disable=no-member
         self.__btnSave.pressed.connect(self.__save)
         self.__btnCancel.pressed.connect(self.reject)
+        # pylint: enable=no-member
 
     def __save(self):
         """Validates and then exits from the dialog in success"""

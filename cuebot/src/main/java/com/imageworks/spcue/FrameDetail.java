@@ -30,7 +30,7 @@ public class FrameDetail extends FrameEntity implements FrameInterface {
     public int dependCount;
     public int retryCount;
     public int exitStatus;
-    public int maxRss;
+    public long maxRss;
     public int dispatchOrder;
     public String lastResource;
 

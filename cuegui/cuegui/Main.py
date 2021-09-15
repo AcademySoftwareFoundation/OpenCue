@@ -72,6 +72,7 @@ def startup(app_name, app_version, argv):
     """Starts an application window."""
 
     app = CueGuiApplication(argv)
+    QtGui.qApp = app
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
@@ -84,10 +85,12 @@ def startup(app_name, app_version, argv):
     app.setWindowIcon(QtGui.QIcon('%s/windowIcon.png' % cuegui.Constants.RESOURCE_PATH))
 
     app.setApplicationName(app_name)
-    app.lastWindowClosed.connect(app.quit)
+    app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
+    # pylint: disable=attribute-defined-outside-init
     QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
     QtGui.qApp.threads = []
+    # pylint: enable=attribute-defined-outside-init
 
     config_path = "/.%s/config" % app_name.lower()
     settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
@@ -96,7 +99,7 @@ def startup(app_name, app_version, argv):
     if settings.value('RevertLayout'):
         os.remove(local)
 
-    QtGui.qApp.settings = settings
+    QtGui.qApp.settings = settings  # pylint: disable=attribute-defined-outside-init
 
     cuegui.Style.init()
 
@@ -130,18 +133,14 @@ def startup(app_name, app_version, argv):
 
     # TODO(#609) Refactor the CueGUI classes to make this garbage collector
     #   replacement unnecessary.
-    # pylint: disable=unused-variable
-    gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)
-    # pylint: enable=unused-variable
-    app.aboutToQuit.connect(closingTime)
+    gc = cuegui.GarbageCollector.GarbageCollector(parent=app, debug=False)  # pylint: disable=unused-variable
+    app.aboutToQuit.connect(closingTime)  # pylint: disable=no-member
     app.exec_()
 
 
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    # pylint: disable=no-member
-    threads = QtGui.qApp.threads
-    # pylint: enable=no-member
+    threads = QtGui.qApp.threads  # pylint: disable=no-member
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)

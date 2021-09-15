@@ -62,7 +62,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0
 
-        self.__timer.timeout.connect(self.updateColors)
+        self.__timer.timeout.connect(self.updateColors)  # pylint: disable=no-member
         self.__sourceTree.verticalScrollBar().valueChanged.connect(self.update)
         self.__sourceTree.verticalScrollBar().rangeChanged.connect(self.__updateColors)
 

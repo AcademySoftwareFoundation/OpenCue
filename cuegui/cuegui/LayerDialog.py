@@ -51,7 +51,7 @@ class EnableableItem(QtWidgets.QWidget):
         if enable:
             self.__widget.setDisabled(True)
             layout.addWidget(self.__checkbox)
-            self.__checkbox.toggled.connect(self.enable)
+            self.__checkbox.toggled.connect(self.enable)  # pylint: disable=no-member
         layout.addWidget(self.__widget)
 
     def getWidget(self):
@@ -210,12 +210,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                                                     self)
 
         # Setup signals
+        # pylint: disable=no-member
         self.__mem.slider.valueChanged.connect(self.__translateToMemSpinbox)
         self.__mem.spinner.valueChanged.connect(self.__translateToMemSlider)
         self.__gpu_mem.slider.valueChanged.connect(self.__translateToGpuMemSpinbox)
         self.__gpu_mem.spinner.valueChanged.connect(self.__translateToGpuMemSlider)
         self.__buttons.accepted.connect(self.verify)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
         # Set actual values once signals are setup
         self.__mem.slider.setValue(self.getMaxMemory())
@@ -520,8 +522,10 @@ class LayerTagsDialog(QtWidgets.QDialog):
             QtCore.Qt.Horizontal,
             self)
 
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
     def accept(self):
         self._tags_widget.apply()

@@ -97,8 +97,10 @@ class SubscriptionCreatorDialog(QtWidgets.QDialog):
         layout.addWidget(self.__buttons)
 
         self.resize(400, 0)
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.create)
         self.__buttons.rejected.connect(self.close)
+        # pylint: enable=no-member
 
     def create(self):
         self.__creator.create()

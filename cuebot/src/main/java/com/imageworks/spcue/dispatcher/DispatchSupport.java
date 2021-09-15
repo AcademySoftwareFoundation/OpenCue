@@ -416,21 +416,15 @@ public interface DispatchSupport {
     void clearFrame(DispatchFrame frame);
 
     /**
-     * Update usage data for the given frame.
-     *
-     * @param frame
-     * @param lluTime
-     */
-    void updateFrameUsage(FrameInterface frame, long lluTime);
-
-    /**
-     * Update memory usage data for the given frame.
+     * Update Memory usage data and LLU time for the given frame.
      *
      * @param frame
      * @param rss
      * @param maxRss
+     * @param lluTime
      */
-    void updateFrameMemoryUsage(FrameInterface frame, long rss, long maxRss);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface frame, long rss, long maxRss,
+                                          long lluTime);
 
     /**
      * Update memory usage data for a given frame's proc record.  The
@@ -442,9 +436,11 @@ public interface DispatchSupport {
      * @param maxRss
      * @param vsize
      * @param maxVsize
+     * @param usedGpuMemory
+     * @param maxUsedGpuMemory
      */
     void updateProcMemoryUsage(FrameInterface frame, long rss, long maxRss, long vsize,
-                               long maxVsize);
+                               long maxVsize, long usedGpuMemory, long maxUsedGpuMemory);
 
     /**
      * Return true if adding the given core units would put the show
@@ -525,40 +521,6 @@ public interface DispatchSupport {
      * @param load
      */
     void determineIdleCores(DispatchHost host, int load);
-
-    /**
-     * Pickup any gpus that were stranded on the given host.
-     *
-     * @param host
-     */
-    void pickupStrandedGpus(DispatchHost host);
-
-    /**
-     * Return true if the host has stranded gpus.
-     *
-     * @param host
-     * @return
-     */
-    boolean hasStrandedGpus(HostInterface host);
-
-    /**
-     * Add stranded gpus for the given host. Stranded
-     * gpus will automatically be added to the next frame dispatched
-     * from the host to make up for gpus stranded with no memory.
-     *
-     * @param host
-     * @param gpus
-     */
-    void strandGpus(DispatchHost host, int gpus);
-
-    /**
-     * Lowers the perceived idle gpus on a machine if
-     * the load is over certain threshold.
-     *
-     * @param host
-     * @param load
-     */
-    void determineIdleGpus(DispatchHost host, int load);
 
     /**
      * Return a set of job IDs that can take the given host.

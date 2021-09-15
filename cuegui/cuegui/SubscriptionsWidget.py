@@ -64,10 +64,10 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         layout.addWidget(self.__btnAddSubscription, 0, 3)
         layout.addWidget(self.__monitorSubscriptions, 2, 0, 3, 4)
 
+        # pylint: disable=no-member
         self.__btnShowProperties.clicked.connect(self.__showProperties)
         self.__btnAddSubscription.clicked.connect(self.__addSubscription)
         self.__comboShows.currentIndexChanged.connect(self.setShow)
-        # pylint: disable=no-member
         QtGui.qApp.view_object.connect(self.setShow)
         QtGui.qApp.facility_changed.connect(self.changeFacility)
         # pylint: enable=no-member

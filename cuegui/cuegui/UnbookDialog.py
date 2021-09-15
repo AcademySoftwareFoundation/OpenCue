@@ -133,6 +133,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         __layout.addWidget(__maxLabel, 0, 4)
 
         # Setting the minimum should disable the right hand side of the range
+        # pylint: disable=no-member
         __lessThan.toggled.connect(__min.setDisabled)
         __lessThan.toggled.connect(__toLabel.setDisabled)
         __lessThan.toggled.connect(__minLabel.setDisabled)
@@ -141,6 +142,7 @@ class UnbookDialog(cuegui.AbstractDialog.AbstractDialog):
         __moreThan.toggled.connect(__max.setDisabled)
         __moreThan.toggled.connect(__toLabel.setDisabled)
         __moreThan.toggled.connect(__maxLabel.setDisabled)
+        # pylint: enable=no-member
 
         layout.addWidget(__group)
 
@@ -345,7 +347,7 @@ class SelectItemsWithSearchWidget(QtWidgets.QWidget):
         self.__filter = QtWidgets.QLineEdit("", self)
         self.layout().addWidget(self.__filter, 2, 0)
 
-        self.__filter.textChanged.connect(self.filterJobs)
+        self.__filter.textChanged.connect(self.filterJobs)  # pylint: disable=no-member
 
         self.__list = QtWidgets.QListWidget(self)
         self.__list.setSelectionMode(selectionMode)
@@ -431,8 +433,10 @@ class KillConfirmationDialog(QtWidgets.QDialog):
         layout.addWidget(self.__jobList)
         layout.addWidget(self.__buttons)
 
+        # pylint: disable=no-member
         self.__buttons.accepted.connect(self.accept)
         self.__buttons.rejected.connect(self.reject)
+        # pylint: enable=no-member
 
     def accept(self):
         """Kills the procs."""

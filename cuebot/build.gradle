@@ -44,7 +44,7 @@ dependencies {
     compile group: 'com.google.guava', name: 'guava', version: '26.0-android'
     compile group: 'com.sun.mail', name: 'mailapi', version: '1.5.4'
     compile group: 'commons-lang', name: 'commons-lang', version: '2.6'
-    compile group: 'io.grpc', name: 'grpc-all', version: '1.14.0'
+    compile group: 'io.grpc', name: 'grpc-all', version: '1.36.2'
     compile group: 'org.apache.activemq', name: 'activemq-pool', version: activemqVersion
     compile group: 'org.apache.velocity', name: 'velocity', version: '1.7'
     compile group: 'org.jdom', name: 'jdom', version: '1.1.3'

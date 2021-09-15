@@ -73,10 +73,12 @@ class CueJobWidget(QtWidgets.QWidget):
     def setupConnections(self):
         """Sets up widget signals."""
         self.table.selectionModel().selectionChanged.connect(self.updateSelection)
+        # pylint: disable=no-member
         self.addLayerButton.clicked.connect(self.newLayer)
         self.deleteLayerButton.clicked.connect(self.removeRow)
         self.upButton.clicked.connect(self.moveUp)
         self.downButton.clicked.connect(self.moveDown)
+        # pylint: enable=no-member
 
     def setupButtons(self):
         """Creates buttons working with job layers."""

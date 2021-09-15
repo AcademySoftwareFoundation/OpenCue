@@ -12,7 +12,7 @@ public class FrameSetTests {
         FrameSet result = new FrameSet("57,1-3,4-2,12-15x2,76-70x-3,5-12y3,1-7:5");
 
         assertThat(result.getAll()).containsExactly(
-            57, 1, 2, 3, 4, 3, 2, 12, 14, 76, 73, 70, 6, 7, 9, 10, 12, 1, 6, 2, 4, 3, 5, 7);
+            57, 1, 2, 3, 4, 3, 2, 12, 14, 76, 73, 70, 6, 7, 9, 10, 12, 1, 6, 3, 5, 7, 2, 4);
     }
 
     @Test

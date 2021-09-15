@@ -76,7 +76,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
             self.__msg_widget = QtWidgets.QLabel(msg, self)
             self.layout().addWidget(self.__msg_widget)
             self.layout().addWidget(self.__deed_button)
-            self.__deed_button.pressed.connect(self.deedLocalhost)
+            self.__deed_button.pressed.connect(self.deedLocalhost)  # pylint: disable=no-member
             self.__lba_group.setDisabled(True)
 
         self.__text_target = QtWidgets.QLabel(self.__target.data.name, self)
@@ -124,9 +124,8 @@ class LocalBookingWidget(QtWidgets.QWidget):
 
         self.__btn_clear = QtWidgets.QPushButton("Clear", self)
 
-        #
         # Setup the signals.
-        #
+        # pylint: disable=no-member
         self.__btn_clear.pressed.connect(self.clearCurrentHost)
         self.__select_host.activated.connect(self.__host_changed)
         self.__num_mem.valueChanged.connect(self.__text_num_mem.setValue)
@@ -135,6 +134,7 @@ class LocalBookingWidget(QtWidgets.QWidget):
         self.__num_frames.valueChanged.connect(self.__calculateCores)
         self.__run_mem.valueChanged.connect(self.__text_run_mem.setValue)
         self.__text_run_mem.valueChanged.connect(self.__run_mem.setValue)
+        # pylint: enable=no-member
 
         self.layout().addWidget(QtWidgets.QLabel("Target Host:"))
         self.layout().addWidget(self.__select_host)
@@ -367,9 +367,11 @@ class LocalBookingDialog(QtWidgets.QDialog):
         self.layout().addWidget(self.__booking)
         self.layout().addLayout(btn_layout)
 
+        # pylint: disable=no-member
         self.__booking.hosts_changed.connect(self.__updateOkButtion)
         self.__btn_ok.pressed.connect(self.doLocalBooking)
         self.__btn_cancel.pressed.connect(self.close)
+        # pylint: enable=no-member
 
     def __updateOkButtion(self):
         self.__btn_ok.setDisabled(not self.__booking.hostAvailable())

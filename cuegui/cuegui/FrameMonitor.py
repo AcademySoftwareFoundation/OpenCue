@@ -25,6 +25,7 @@ from copy import deepcopy
 import math
 
 from PySide2 import QtCore
+from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import FileSequence
@@ -168,7 +169,7 @@ class FrameMonitor(QtWidgets.QWidget):
         self.btn_refresh = QtWidgets.QPushButton("Refresh")
         self.btn_refresh.setFocusPolicy(QtCore.Qt.NoFocus)
         layout.addWidget(self.btn_refresh)
-        self.btn_refresh.clicked.connect(self.frameMonitorTree.updateRequest)
+        self.btn_refresh.clicked.connect(self.frameMonitorTree.updateRequest)  # pylint: disable=no-member
         self.frameMonitorTree.updated.connect(self._refreshButtonDisableHandle)
 
     def _refreshButtonEnableHandle(self):
@@ -191,7 +192,7 @@ class FrameMonitor(QtWidgets.QWidget):
         btn.setFocusPolicy(QtCore.Qt.NoFocus)
         btn.setContentsMargins(0,0,0,0)
         layout.addWidget(btn)
-        btn.clicked.connect(self._clearButtonHandle)
+        btn.clicked.connect(self._clearButtonHandle)  # pylint: disable=no-member
 
     def _clearButtonHandle(self):
         """Called when the clear button is clicked"""
@@ -213,14 +214,14 @@ class FrameMonitor(QtWidgets.QWidget):
         self.prev_page_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.prev_page_btn.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.prev_page_btn)
-        self.prev_page_btn.clicked.connect(lambda: self._pageButtonsHandle(-1))
+        self.prev_page_btn.clicked.connect(lambda: self._pageButtonsHandle(-1))  # pylint: disable=no-member
 
         # Next page button
         self.next_page_btn = QtWidgets.QPushButton(">")
         self.next_page_btn.setFocusPolicy(QtCore.Qt.NoFocus)
         self.next_page_btn.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.next_page_btn)
-        self.next_page_btn.clicked.connect(lambda: self._pageButtonsHandle(1))
+        self.next_page_btn.clicked.connect(lambda: self._pageButtonsHandle(1))  # pylint: disable=no-member
         self.frameMonitorTree.job_changed.connect(self._updatePageButtonState)
 
         # Page number label
@@ -299,7 +300,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
-        menu.triggered.connect(self._selectStatusHandle)
+        menu.triggered.connect(self._selectStatusHandle)  # pylint: disable=no-member
 
         for item in ["Clear", None, "Succeeded", "Running", "Waiting", "Depend", "Dead", "Eaten"]:
             if item:
@@ -347,7 +348,7 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             menu = QtWidgets.QMenu(self)
             btn.setMenu(menu)
-            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)
+            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
 
         if self.frameMonitorTree.getJob():
             layers = [x.data.name for x in self.frameMonitorTree.getJob().getLayers()]
@@ -425,7 +426,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         menu = QtWidgets.QMenu(self)
         btn.setMenu(menu)
-        menu.triggered.connect(self._filterStatusHandle)
+        menu.triggered.connect(self._filterStatusHandle)  # pylint: disable=no-member
 
         for item in [("Clear", QtCore.Qt.ALT + QtCore.Qt.Key_QuoteLeft),
                      None,
@@ -440,7 +441,7 @@ class FrameMonitor(QtWidgets.QWidget):
                 if item[0] != "Clear":
                     a.setCheckable(True)
                 if item[1]:
-                    a.setShortcut(item[1])
+                    a.setShortcut(QtGui.QKeySequence(item[1]))
                 menu.addAction(a)
             else:
                 menu.addSeparator()

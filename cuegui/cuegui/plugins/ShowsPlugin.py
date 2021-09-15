@@ -43,7 +43,7 @@ class ShowsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__showsWidget = cuegui.ShowsWidget.ShowsWidget(self)
         self.__createShowButton = QtWidgets.QPushButton("Create Show")
         self.__createShowButton.setFixedWidth(150)
-        self.__createShowButton.clicked.connect(self.onCreateShowClicked)
+        self.__createShowButton.clicked.connect(self.onCreateShowClicked)  # pylint: disable=no-member
 
         self.layout().addWidget(self.__createShowButton)
         self.layout().addWidget(self.__showsWidget)

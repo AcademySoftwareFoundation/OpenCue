@@ -69,8 +69,10 @@ class CueLabelLineEdit(QtWidgets.QWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.lineEdit.textChanged.connect(self.validateText)
         self.lineEdit.focusChange.connect(self.textFocusChange)
+        # pylint: enable=no-member
 
     def setText(self, text):
         """Set the text to the given value.
@@ -198,7 +200,7 @@ class CueSelectPulldown(QtWidgets.QWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
-        self.optionsMenu.triggered.connect(self.updateLabel)
+        self.optionsMenu.triggered.connect(self.updateLabel)  # pylint: disable=no-member
 
     def setOptions(self, options):
         """Add options to the menu options.
@@ -303,12 +305,14 @@ class CueLabelToggle(QtWidgets.QWidget):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.toggle.valueChanged.connect(self.valueChanged.emit)
         self.toggle.sliderPressed.connect(self.sliderPressed.emit)
         self.toggle.sliderMoved.connect(self.sliderMoved.emit)
         self.toggle.sliderReleased.connect(self.sliderReleased.emit)
         self.toggle.actionTriggered.connect(self.actionTriggered.emit)
         self.toggle.rangeChanged.connect(self.rangeChanged.emit)
+        # pylint: enable=no-member
 
 
 class CueToggle(QtWidgets.QSlider):
@@ -326,8 +330,10 @@ class CueToggle(QtWidgets.QSlider):
 
     def setupConnections(self):
         """Sets up widget signals."""
+        # pylint: disable=no-member
         self.valueChanged.connect(self.change)
         self.sliderPressed.connect(self.toggle)
+        # pylint: enable=no-member
 
     def change(self):
         """Action when the toggle is dragged."""
@@ -377,7 +383,7 @@ class CueHelpWidget(QtWidgets.QWidget):
 
     def setupHelpConnections(self):
         """Sets up widget signal for the help button."""
-        self.helpButton.clicked.connect(self.toggleHelp)
+        self.helpButton.clicked.connect(self.toggleHelp)  # pylint: disable=no-member
 
     def setHelpText(self):
         """Set the help text to the widget."""

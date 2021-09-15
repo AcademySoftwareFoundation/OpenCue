@@ -80,7 +80,7 @@ class AllocFilter(QtWidgets.QPushButton):
 
         # This is used to provide the number of allocations selected
         # on the button title.
-        self.__menu.triggered.connect(self.__afterClicked)
+        self.__menu.triggered.connect(self.__afterClicked)  # pylint: disable=no-member
 
     def refresh(self):
         """Refreshes the full list of allocations."""
@@ -165,7 +165,7 @@ class GroupFilter(QtWidgets.QPushButton):
 
         self.setMenu(self.__menu)
 
-        self.__menu.aboutToShow.connect(self.__populate_menu)
+        self.__menu.aboutToShow.connect(self.__populate_menu)  # pylint: disable=no-member
 
     # pylint: disable=inconsistent-return-statements
     def __loadShow(self, show):
@@ -281,8 +281,10 @@ class RedirectControls(QtWidgets.QWidget):
         layout.addWidget(self.__group)
         layout.addLayout(layout1)
 
+        # pylint: disable=no-member
         self.__job_box.textChanged.connect(self.detect)
         self.__show_combo.currentIndexChanged.connect(self.showChanged)
+        # pylint: enable=no-member
 
     def _cfg(self):
         '''
@@ -411,10 +413,12 @@ class RedirectWidget(QtWidgets.QWidget):
         layout.addWidget(self.__controls)
         layout.addWidget(self.__tree)
 
+        # pylint: disable=no-member
         self.__controls.getUpdateButton().pressed.connect(self.update)
         self.__controls.getRedirectButton().pressed.connect(self.redirect)
         self.__controls.getSelectAllButton().pressed.connect(self.selectAll)
         self.__controls.getClearButton().pressed.connect(self.clearTarget)
+        # pylint: enable=no-member
 
     def __get_selected_procs_by_alloc(self, selected_items):
         """

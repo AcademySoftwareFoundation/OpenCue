@@ -224,7 +224,7 @@ class AbstractAttributes(QtWidgets.QTreeWidget):
         self.addTopLevelItem(root)
         self.expandAll()
 
-        self.itemSelectionChanged.connect(self.itemSingleClickedCopy)
+        self.itemSelectionChanged.connect(self.itemSingleClickedCopy)  # pylint: disable=no-member
 
     def itemSingleClickedCopy(self):
         """Event handler that copies the text of the selected line to the clipboard on click."""

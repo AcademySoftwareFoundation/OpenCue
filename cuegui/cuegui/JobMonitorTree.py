@@ -161,8 +161,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
+        # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
+        # pylint: enable=no-member
 
         self.__load = {}
         self.startTicksUpdate(20, False, 60)
@@ -411,7 +413,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self._itemsLock.lockForWrite()
 
-        # include rpcObjects from self._items that are not in jobObjects
+        # include rpcObjects from self._items that are not in rpcObjects
         for proxy, item in list(self._items.items()):
             if not proxy in rpcObjects:
                 rpcObjects[proxy] = item.rpcObject
@@ -435,7 +437,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 if proxy in self.__userColors:
                     self._items[proxy].setUserColor(self.__userColors[proxy])
 
-            self.verticalScrollBar().setValue(scrolled)
+            self.verticalScrollBar().setRange(scrolled, len(rpcObjects.keys()) - scrolled)
             list(map(lambda key: self._items[key].setSelected(True),
                      [key for key in selectedKeys if key in self._items]))
 

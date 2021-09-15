@@ -15,6 +15,8 @@
 
 # -*- coding: utf-8 -*-
 
+# pylint: disable=missing-function-docstring,missing-module-docstring
+
 # Resource object code
 #
 # Created by: The Resource Compiler for PyQt (Qt v4.6.2)

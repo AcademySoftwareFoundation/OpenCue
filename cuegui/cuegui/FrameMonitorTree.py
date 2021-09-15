@@ -216,8 +216,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.ticksWithoutUpdate = 999
         self.__lastUpdateTime = None
 
-        self.itemClicked.connect(self.__itemSingleClickedCopy)
-        self.itemClicked.connect(self.__itemSingleClickedViewLog)
+        self.itemClicked.connect(self.__itemSingleClickedCopy)  # pylint: disable=no-member
+        self.itemClicked.connect(self.__itemSingleClickedViewLog)  # pylint: disable=no-member
         self.itemDoubleClicked.connect(self.__itemDoubleClickedViewLog)
         self.header().sortIndicatorChanged.connect(self.__sortByColumnSave)
 

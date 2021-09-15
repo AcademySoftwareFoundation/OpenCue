@@ -307,20 +307,7 @@ public interface FrameDao {
     ResourceUsage getResourceUsage(FrameInterface f);
 
     /**
-     * Update Frame usage values for the given frame. The
-     * frame must be in the Running state.  If the frame
-     * is locked by another thread, the process is aborted because
-     * we'll most likely get a new update one minute later.
-     *
-     * @param f
-     * @param lluTime
-     * @throws FrameReservationException if the frame is locked
-     *         by another thread.
-     */
-    void updateFrameUsage(FrameInterface f, long lluTime);
-
-    /**
-     * Update memory usage values for the given frame.  The
+     * Update memory usage values and LLU time for the given frame.  The
      * frame must be in the Running state.  If the frame
      * is locked by another thread, the process is aborted because
      * we'll most likely get a new update one minute later.
@@ -328,10 +315,11 @@ public interface FrameDao {
      * @param f
      * @param maxRss
      * @param rss
+     * @param lluTime
      * @throws FrameReservationException if the frame is locked
      *         by another thread.
      */
-    void updateFrameMemoryUsage(FrameInterface f, long maxRss, long rss);
+    void updateFrameMemoryUsageAndLluTime(FrameInterface f, long maxRss, long rss, long lluTime);
 
     /**
      * Attempt to put a exclusive row lock on the given
