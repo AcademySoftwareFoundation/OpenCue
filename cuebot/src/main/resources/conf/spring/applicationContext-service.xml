@@ -145,7 +145,6 @@
   <bean id="departmentManager" class="com.imageworks.spcue.service.DepartmentManagerService">
     <property name="taskDao" ref="taskDao" />
     <property name="showDao" ref="showDao" />
-    <property name="trackitDao" ref="trackitDao" />
     <property name="pointDao" ref="pointDao" />
     <property name="jobDao" ref="jobDao" />
   </bean>
@@ -212,7 +211,7 @@
   </bean>
 
   <bean id="mailSender" class="org.springframework.mail.javamail.JavaMailSenderImpl">
-    <property name="host" value="smtp.spimageworks.com"/>
+    <property name="host" value="smtp"/>
   </bean>
 
   <bean id="emailSupport" class="com.imageworks.spcue.service.EmailSupport">
@@ -368,15 +367,6 @@
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
     <property name="killQueue" ref="killQueue"/>
-  </bean>
-
-  <bean id="cueStaticServant" class="com.imageworks.spcue.servant.CueStatic" >
-    <property name="whiteboard" ref="whiteboard"/>
-    <property name="manageQueue" ref="manageQueue" />
-    <property name="dispatchQueue" ref="dispatchQueue" />
-    <property name="reportQueue" ref="reportQueue" />
-    <property name="bookingQueue" ref="bookingQueue"/>
-    <property name="dispatchSupport" ref="dispatchSupport"  />
   </bean>
 
   <!-- ##################################################################################### -->
