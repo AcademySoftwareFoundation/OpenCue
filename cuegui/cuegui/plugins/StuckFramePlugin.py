@@ -13,6 +13,9 @@
 #  limitations under the License.
 
 
+"""Plugin for managing stuck frames."""
+
+
 from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
@@ -21,32 +24,24 @@ from builtins import str
 from builtins import map
 import datetime
 import re
-import weakref
 import os
-import sys
-import yaml
-from datetime import datetime, date, time
-import subprocess
-from subprocess import Popen
-from subprocess import PIPE
+from datetime import datetime
 import time
 import socket
 import signal
-
+import yaml
 
 from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
 import opencue
-
 import cuegui.AbstractDockWidget
 import cuegui.Action
 import cuegui.Constants
 import cuegui.JobMonitorTree
 import cuegui.Logger
 import cuegui.Utils
-
 
 logger = cuegui.Logger.getLogger(__file__)
 
@@ -55,6 +50,7 @@ PLUGIN_CATEGORY = "Cuecommander"
 PLUGIN_DESCRIPTION = "Work with stuck frames."
 PLUGIN_REQUIRES = "CueCommander"
 PLUGIN_PROVIDES = "StuckWidget"
+CUE_SLEEP = 30
 
 NAME_COLUMN = 0
 COMMENT_COLUMN = 1
@@ -63,85 +59,101 @@ LLU_COLUMN = 3
 RUNTIME_COLUMN = 4
 LASTLINE_COLUMN = 7
 
+
 class StuckWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """This builds what is displayed on the dock widget"""
+
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
         self.__stuckWidget = StuckFrameWidget(self)
         self.layout().addWidget(self.__stuckWidget)
 
     def pluginSaveState(self):
+        """Saves current state of the plugin and returns it as dict"""
         filters = self.__stuckWidget.getControls().getFilters()
         save = {}
-        for filter in filters:
-            save[filter.getServiceBoxText()] = [filter.getRegexText(), filter.getTime(), filter.getMinLLu(), filter.getAvgCompTime(), filter.getRunTime(), filter.getEnabled().isChecked()]
+        for frame_filter in filters:
+            save[frame_filter.getServiceBoxText()] = [frame_filter.getRegexText(),
+                                                        frame_filter.getTime(),
+                                                        frame_filter.getMinLLu(),
+                                                        frame_filter.getAvgCompTime(),
+                                                        frame_filter.getRunTime(),
+                                                        frame_filter.getEnabled().isChecked()]
         return save
 
-
-    def pluginRestoreState(self, settings):
-        if settings:
-
-            if len(settings)>1:
-                current_settings =  settings["All Other Types"]
-                self.__stuckWidget.getControls().getFilters()[0].getServiceBox().setText("All Other Types")
-                self.__stuckWidget.getControls().getFilters()[0].getRegex().setText(current_settings[0])
-                self.__stuckWidget.getControls().getFilters()[0].getEnabled().setChecked(current_settings[5])
-                self.__stuckWidget.getControls().getFilters()[0].getLLUFilter().setValue(current_settings[2])
-                self.__stuckWidget.getControls().getFilters()[0].getPercentFilter().setValue(current_settings[1])
-                self.__stuckWidget.getControls().getFilters()[0].getCompletionFilter().setValue(current_settings[3])
-                self.__stuckWidget.getControls().getFilters()[0].getRunFilter().setValue(current_settings[4])
-                topFilter =  self.__stuckWidget.getControls().getFilters()[0]
+    def pluginRestoreState(self, saved_settings):
+        """Restores state based on the saved settings."""
+        if saved_settings:
+            if len(saved_settings) > 1:
+                current_settings = saved_settings["All Other Types"]
+                frame_filter = self.__stuckWidget.getControls().getFilters()[0]
+                frame_filter.getServiceBox().setText("All Other Types")
+                frame_filter.getRegex().setText(current_settings[0])
+                frame_filter.getEnabled().setChecked(current_settings[5])
+                frame_filter.getLLUFilter().setValue(current_settings[2])
+                frame_filter.getPercentFilter().setValue(current_settings[1])
+                frame_filter.getCompletionFilter().setValue(current_settings[3])
+                frame_filter.getRunFilter().setValue(current_settings[4])
+                top_filter = self.__stuckWidget.getControls().getFilters()[0]
             else:
-                current_settings =  settings["All (Click + to Add Specific Filter)"]
-                self.__stuckWidget.getControls().getFilters()[0].getServiceBox().setText("All (Click + to Add Specific Filter)")
-                self.__stuckWidget.getControls().getFilters()[0].getRegex().setText(current_settings[0])
-                self.__stuckWidget.getControls().getFilters()[0].getEnabled().setChecked(current_settings[5])
-                self.__stuckWidget.getControls().getFilters()[0].getLLUFilter().setValue(current_settings[2])
-                self.__stuckWidget.getControls().getFilters()[0].getPercentFilter().setValue(current_settings[1])
-                self.__stuckWidget.getControls().getFilters()[0].getCompletionFilter().setValue(current_settings[3])
-                self.__stuckWidget.getControls().getFilters()[0].getRunFilter().setValue(current_settings[4])
+                settings_text = "All (Click + to Add Specific Filter)"
+                current_settings = saved_settings[settings_text]
+                frame_filter = self.__stuckWidget.getControls().getFilters()[0]
+                frame_filter.getServiceBox().setText(settings_text)
+                frame_filter.getRegex().setText(current_settings[0])
+                frame_filter.getEnabled().setChecked(current_settings[5])
+                frame_filter.getLLUFilter().setValue(current_settings[2])
+                frame_filter.getPercentFilter().setValue(current_settings[1])
+                frame_filter.getCompletionFilter().setValue(current_settings[3])
+                frame_filter.getRunFilter().setValue(current_settings[4])
                 return
 
-
-            for filter in settings.keys():
-                if not filter == "All Other Types" and not filter == "All (Click + to Add Specific Filter)":
-                    current_settings =  settings[filter]
-                    newFilter = topFilter.addFilter()
-                    newFilter.getServiceBox().setText(filter)
-                    newFilter.getRegex().setText(current_settings[0])
-                    newFilter.getEnabled().setChecked(current_settings[5])
-                    newFilter.getLLUFilter().setValue(current_settings[2])
-                    newFilter.getPercentFilter().setValue(current_settings[1])
-                    newFilter.getCompletionFilter().setValue(current_settings[3])
-                    newFilter.getRunFilter().setValue(current_settings[4])
+            for frame_filter in saved_settings.keys():
+                if (not frame_filter == "All Other Types" and
+                        not frame_filter == "All (Click + to Add Specific Filter)"):
+                    current_settings = saved_settings[frame_filter]
+                    new_filter = top_filter.addFilter()
+                    new_filter.getServiceBox().setText(frame_filter)
+                    new_filter.getRegex().setText(current_settings[0])
+                    new_filter.getEnabled().setChecked(current_settings[5])
+                    new_filter.getLLUFilter().setValue(current_settings[2])
+                    new_filter.getPercentFilter().setValue(current_settings[1])
+                    new_filter.getCompletionFilter().setValue(current_settings[3])
+                    new_filter.getRunFilter().setValue(current_settings[4])
         return
 
 
 class ShowCombo(QtWidgets.QComboBox):
+    """Combobox with show names"""
+
     def __init__(self, selected="pipe", parent=None):
         QtWidgets.QComboBox.__init__(self, parent)
         self.refresh()
         self.setCurrentIndex(self.findText(selected))
 
     def refresh(self):
+        """Refreshes the show list."""
         self.clear()
         shows = opencue.api.getActiveShows()
-        shows.sort(lambda x,y: cmp(x.data.name, y.data.name))
+        shows.sort()
 
         for show in shows:
             self.addItem(show.data.name, show)
 
     def getShow(self):
+        """Returns show name."""
         return str(self.setCurrentText())
+
 
 class StuckFrameControls(QtWidgets.QWidget):
     """
     A widget that contains all search options for stuck frames
     """
+
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
 
-        self.__current_show = opencue.api.findShow(os.getenv("SHOW","pipe"))
+        self.__current_show = opencue.api.findShow(os.getenv("SHOW", "pipe"))
         self.__show_combo = ShowCombo(self.__current_show.data.name, self)
         self.__show_label = QtWidgets.QLabel("Show:", self)
         self.__show_label.setToolTip("The show you want to find stuck frames for.")
@@ -157,13 +169,14 @@ class StuckFrameControls(QtWidgets.QWidget):
         self.__search_btn.setFocusPolicy(QtCore.Qt.NoFocus)
 
         self.__auto_refresh_btn = QtWidgets.QCheckBox("Auto-refresh", self)
-        self.__auto_refresh_btn.setToolTip("Automatically get a new set of \n frames approximately every 30 minutes.")
+        self.__auto_refresh_btn.setToolTip("""Automatically get a new set of
+                                            frames approximately every 30 minutes.""")
         self.__notification_btn = QtWidgets.QCheckBox("Notification", self)
         self.__notification_btn.setEnabled(False)
         self.__notification_btn.setToolTip("Get a notification when an auto-refresh has completed.")
 
         self.__progress = QtWidgets.QProgressBar(self)
-        self.__progress.setRange(0,1000)
+        self.__progress.setRange(0, 1000)
         self.__progress.setMaximumWidth(150)
         self.__progress.setMinimumWidth(150)
         self.__progress.setMinimumHeight(20)
@@ -188,25 +201,30 @@ class StuckFrameControls(QtWidgets.QWidget):
         controls.addWidget(self.__progress)
         controls.addSpacing(10)
 
-
         self.__service_label = QtWidgets.QLabel("Layer Service", self)
         self.__service_label.setToolTip("Apply filters to only this service.")
 
         self.__percent_label = QtWidgets.QLabel("% of Run Since LLU", self)
-        self.__percent_label.setToolTip("Percentage of the frame's running time spent with the same last log update.")
+        self.__percent_label.setToolTip("Percentage of the frame's running time spent" +
+                                        " with the same last log update.")
 
         self.__llu_label = QtWidgets.QLabel("Min LLU", self)
-        self.__llu_label.setToolTip("Only show frames whose last log update is more than this many minutes ago.")
+        self.__llu_label.setToolTip("Only show frames whose last log update is more " +
+                                    "than this many minutes ago.")
 
         self.__completion_label = QtWidgets.QLabel("% of Average Completion Time ", self)
-        self.__completion_label.setToolTip("Only show frames who are running at this percentage of \nthe average completion time for the same layer.  If there is no \naverage yet, all frames will qualify.")
+        self.__completion_label.setToolTip("""
+                Only show frames who are running at this percentage of
+                the average completion time for the same layer. If there is no
+                average yet, all frames will qualify.
+        """)
 
         self.__run_label = QtWidgets.QLabel("Total Runtime", self)
         self.__run_label.setToolTip("Only show frames running for this long")
 
-
         self.__exclude_label = QtWidgets.QLabel("Exclude Keywords", self)
-        self.__exclude_label.setToolTip("Keywords to exclude certain layers or jobs.  Separate by commas.")
+        self.__exclude_label.setToolTip("Keywords to exclude certain layers or jobs. " +
+                                        "Separate by commas.")
 
         self.__enable_label = QtWidgets.QLabel("Enable", self)
         self.__enable_label.setToolTip("Uncheck to disable a filter")
@@ -233,7 +251,7 @@ class StuckFrameControls(QtWidgets.QWidget):
 
         filters = StuckFrameBar(True, self)
         self.__all_filters = [filters]
-        self.showing  = True
+        self.showing = True
 
         filters3 = QtWidgets.QVBoxLayout()
         self.filters4 = QtWidgets.QVBoxLayout()
@@ -249,80 +267,94 @@ class StuckFrameControls(QtWidgets.QWidget):
         layout.addLayout(controls)
 
         self.connect(self.__show_combo,
-                        QtCore.SIGNAL("currentIndexChanged(QString)"),
-                        self.showChanged)
+                     QtCore.SIGNAL("currentIndexChanged(QString)"),
+                     self.showChanged)
 
         self.connect(self.__remove_btn,
-                        QtCore.SIGNAL("clicked()"),
-                        self.hideButtonRequest)
-
-
+                     QtCore.SIGNAL("clicked()"),
+                     self.hideButtonRequest)
 
     def addFilter(self):
+        """Adds new filter."""
         newFilter = StuckFrameBar(self)
         self.__all_filters.append(newFilter)
         self.filters4.addWidget(newFilter)
 
     def showChanged(self, show):
+        """Sets current show the one provided."""
         self.__current_show = opencue.api.findShow(str(show))
 
     def getFilterBar(self):
+        """Returns filter bar."""
         return self.filters4
 
     def getAllFilters(self):
+        """Returns all filters."""
         return self.__all_filters
 
     def hideButtonRequest(self):
-        if self.showing == True:
+        """If filters are showed, hides all filters except the first and sets the remove
+        button icon as downward facing arrow. Otherwise, shows all filters."""
+        if self.showing:
             self.showing = False
-            for filter in self.__all_filters:
-                if filter.isFirst() != True:
-                    filter.hide()
+            for frame_filter in self.__all_filters:
+                if not frame_filter.isFirst():
+                    frame_filter.hide()
             self.__remove_btn.setIcon(QtGui.QIcon(":down.png"))
         else:
             self.openAll()
 
     def openAll(self):
+        """Shows all filters and sets the remove button icon as upward facing arrow."""
         self.showing = True
-        for filter in self.__all_filters:
-            filter.show()
+        for frame_filter in self.__all_filters:
+            frame_filter.show()
         self.__remove_btn.setIcon(QtGui.QIcon(":up.png"))
 
     def getRegexString(self):
+        """Returns regex string."""
         return str(self.__exclude_regex.text()).strip()
 
     def getSearchButton(self):
+        """Returns search button."""
         return self.__search_btn
 
     def getProgress(self):
+        """Returns progress bar."""
         return self.__progress
 
     def getClearButton(self):
+        """Returns clear button."""
         return self.__clear_btn
 
     def getAutoRefresh(self):
+        """Returns auto refresh button."""
         return self.__auto_refresh_btn
 
     def getNotification(self):
+        """Returns notification button."""
         return self.__notification_btn
 
     def getShow(self):
+        """Returns current show."""
         return self.__current_show
 
     def getFilters(self):
+        """Returns all filters"""
         return self.__all_filters
 
     def add(self):
+        """Adds new filter"""
+        # TODO: check if this is the correct implementation
         return self.__all_filters
 
 
 class StuckFrameBar(QtWidgets.QWidget):
-    def __init__(self,first, parent=None):
+    """Bar with filters"""
 
-        self.defaults = {}
-        self.defaults['preprocess'] = [1,1,115,10]
-        self.defaults['nuke'] = [50,5,115,10]
-        self.defaults['arnold'] = [50,60,115,120]
+    def __init__(self, first, parent=None):
+        self.defaults = {'preprocess': [1, 1, 115, 10], 'nuke': [50, 5, 115, 10],
+                         'arnold': [50, 60, 115, 120]}
 
         QtWidgets.QWidget.__init__(self, parent)
 
@@ -354,14 +386,14 @@ class StuckFrameBar(QtWidgets.QWidget):
         self.__completion_spin.setSuffix("%")
         self.__completion_spin.setAlignment(QtCore.Qt.AlignRight)
 
-        self.__exclude_regex =  QtWidgets.QLineEdit(self)
+        self.__exclude_regex = QtWidgets.QLineEdit(self)
         self.__exclude_regex.setMaximumWidth(150)
         self.__exclude_regex.setMinimumWidth(150)
 
-        self.__service_type =  ServiceBox(self)
+        self.__service_type = ServiceBox(self)
         self.__service_type.setMaximumWidth(200)
         self.__service_type.setMinimumWidth(200)
-        self.__service_type.setTextMargins(5,0,0,0)
+        self.__service_type.setTextMargins(5, 0, 0, 0)
 
         self.__enable = QtWidgets.QCheckBox(self)
         self.__enable.setChecked(True)
@@ -378,56 +410,66 @@ class StuckFrameBar(QtWidgets.QWidget):
         self.__filters.addSpacing(25)
         self.__filters.addWidget(self.__enable)
 
-        if first == False:
+        if not first:
             self.__remove_btn = QtWidgets.QPushButton(QtGui.QIcon(":kill.png"), "")
             self.__remove_btn.setToolTip("Remove Filter")
             self.__remove_btn.setFocusPolicy(QtCore.Qt.NoFocus)
             self.__remove_btn.setFlat(True)
 
             self.connect(self.__remove_btn,
-                                   QtCore.SIGNAL("clicked()"),
-                                   self.removeFilter)
+                         QtCore.SIGNAL("clicked()"),
+                         self.removeFilter)
             self.__filters.addWidget(self.__remove_btn)
             self.__isFirst = False
         else:
             self.__service_type.setText("All (Click + to Add Specific Filter)")
             self.__service_type.setReadOnly(True)
-            self.__add_btn = QtWidgets.QPushButton(QtGui.QIcon('%s/add.png' % cuegui.Constants.RESOURCE_PATH), "")
+            # pylint: disable=consider-using-f-string
+            self.__add_btn = QtWidgets.QPushButton(QtGui.QIcon('%s/add.png' %
+                                                               cuegui.Constants.RESOURCE_PATH), "")
             self.__add_btn.setToolTip("Add Filter")
             self.__add_btn.setFocusPolicy(QtCore.Qt.NoFocus)
             self.__add_btn.setFlat(True)
 
             self.connect(self.__add_btn,
-                            QtCore.SIGNAL("clicked()"),
-                            self.addFilter)
+                         QtCore.SIGNAL("clicked()"),
+                         self.addFilter)
             self.__filters.addWidget(self.__add_btn)
             self.__isFirst = True
 
         self.__filters.addStretch()
 
     def getServiceBox(self):
+        """Returns service box."""
         return self.__service_type
 
     def getRegex(self):
+        """Returns regex."""
         return self.__exclude_regex
 
     def getServiceBoxText(self):
+        """Returns service box text."""
         return str(self.__service_type.text()).strip()
 
     def getRegexText(self):
+        """Returns regex text."""
         return str(self.__exclude_regex.text()).strip()
 
     def getEnabled(self):
+        """Returns enable checkbox."""
         return self.__enable
 
     def removeFilter(self):
+        """Removes filter."""
         self.parent().parent().getFilterBar().removeWidget(self)
         self.parent().parent().getAllFilters().remove(self)
         if len(self.parent().parent().getAllFilters()) == 1:
-            self.parent().parent().getAllFilters()[0].getServiceBox().setText("All (Click + to Add Specific Filter)")
+            self.parent().parent().getAllFilters()[0]\
+                .getServiceBox().setText("All (Click + to Add Specific Filter)")
         self.hide()
 
     def addFilter(self):
+        """Adds new filter."""
         newFilter = StuckFrameBar(False, self.parent())
         self.parent().parent().getFilterBar().addWidget(newFilter)
         self.parent().parent().getAllFilters().append(newFilter)
@@ -437,42 +479,55 @@ class StuckFrameBar(QtWidgets.QWidget):
         return newFilter
 
     def isFirst(self):
+        """Returns true if first."""
         return self.__isFirst
 
     def getFilters(self):
+        """Returns filters."""
         return self.__filters
 
     def getTime(self):
+        """Returns time value as int"""
         return int(self.__percent_spin.value())
 
     def getMinLLu(self):
+        """Returns min LLU."""
         return int(self.__llu_spin.value())
 
     def getAvgCompTime(self):
+        """Returns average completion time as int."""
         return int(self.__completion_spin.value())
 
     def getMVTime(self):
+        """Returns MV time as int."""
         return int(self.__mkvid_spin.value())
 
     def getPrepTime(self):
+        """Returns preparation time as int."""
         return int(self.__prep_spin.value())
 
     def getLLUFilter(self):
+        """Returns LLU filter."""
         return self.__llu_spin
 
     def getPercentFilter(self):
+        """Returns percent filter."""
         return self.__percent_spin
 
     def getCompletionFilter(self):
+        """Return completion filter."""
         return self.__completion_spin
 
     def getRunFilter(self):
+        """Returns run filter."""
         return self.__run_sping
 
     def getRunTime(self):
+        """Returns run time as int."""
         return int(self.__run_sping.value())
 
     def enable(self):
+        """Enables filters."""
         self.__percent_spin.setEnabled(not self.__percent_spin.isEnabled())
         self.__run_sping.setEnabled(not self.__run_sping.isEnabled())
         self.__llu_spin.setEnabled(not self.__llu_spin.isEnabled())
@@ -481,8 +536,9 @@ class StuckFrameBar(QtWidgets.QWidget):
         self.__service_type.setEnabled(not self.__service_type.isEnabled())
 
     def checkForDefaults(self):
+        """If service is in defaults, the filter values will be set to the service."""
         service = str(self.__service_type.text()).strip()
-        if service in self.defaults.keys():
+        if service in self.defaults:
             self.__percent_spin.setValue(self.defaults[service][0])
             self.__llu_spin.setValue(self.defaults[service][1])
             self.__completion_spin.setValue(self.defaults[service][2])
@@ -493,12 +549,14 @@ class ServiceBox(QtWidgets.QLineEdit):
     """
     A text box that auto-completes job names.
     """
-    def __init__(self,  parent=None):
+
+    def __init__(self, parent=None):
         QtWidgets.QLineEdit.__init__(self, parent)
         self.__c = None
         self.refresh()
 
     def refresh(self):
+        """Refreshes the show list."""
         slist = opencue.api.getDefaultServices()
         slist.sort()
         self.__c = QtWidgets.QCompleter(slist, self)
@@ -510,6 +568,7 @@ class StuckFrameWidget(QtWidgets.QWidget):
     """
     Displays controls for finding stuck frames and a tree of the findings.
     """
+
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
 
@@ -524,69 +583,65 @@ class StuckFrameWidget(QtWidgets.QWidget):
             self.controls.getAutoRefresh().setCheckState(QtCore.Qt.Checked)
 
         self.connect(self.controls.getAutoRefresh(),
-                        QtCore.SIGNAL('stateChanged(int)'),
-                        self.__refreshToggleCheckBoxHandle )
+                     QtCore.SIGNAL('stateChanged(int)'),
+                     self.__refreshToggleCheckBoxHandle)
 
         self.connect(self.controls.getNotification(),
-                        QtCore.SIGNAL('stateChanged(int)'),
-                        self.__refreshNotificationCheckBoxHandle )
+                     QtCore.SIGNAL('stateChanged(int)'),
+                     self.__refreshNotificationCheckBoxHandle)
 
         self.connect(self.tree,
-                        QtCore.SIGNAL("updated()"),
-                        self._refreshButtonDisableHandle)
+                     QtCore.SIGNAL("updated()"),
+                     self._refreshButtonDisableHandle)
 
         self.connect(self.controls.getSearchButton(),
-                        QtCore.SIGNAL("clicked()"),
-                        self.updateRequest)
+                     QtCore.SIGNAL("clicked()"),
+                     self.updateRequest)
         filters = self.controls.getFilters()
-        for filter in filters:
-            self.addConnections(filter)
-
+        for frame_filter in filters:
+            self.addConnections(frame_filter)
 
         self.connect(self.controls.getClearButton(),
-                        QtCore.SIGNAL("clicked()"),
-                        self.clearButtonRequest)
+                     QtCore.SIGNAL("clicked()"),
+                     self.clearButtonRequest)
 
-    def addConnections(self,filter):
-        self.connect(filter.getLLUFilter(),
-                        QtCore.SIGNAL("valueChanged(int)"),
-                        self.updateFilters)
+    def addConnections(self, frame_filter):
+        """Connects to the widget based on the filter provided"""
+        self.connect(frame_filter.getLLUFilter(),
+                     QtCore.SIGNAL("valueChanged(int)"),
+                     self.updateFilters)
 
-        self.connect(filter.getPercentFilter(),
-                        QtCore.SIGNAL("valueChanged(int)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getPercentFilter(),
+                     QtCore.SIGNAL("valueChanged(int)"),
+                     self.updateFilters)
 
-        self.connect(filter.getCompletionFilter(),
-                        QtCore.SIGNAL("valueChanged(int)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getCompletionFilter(),
+                     QtCore.SIGNAL("valueChanged(int)"),
+                     self.updateFilters)
 
-        self.connect(filter.getRunFilter(),
-                        QtCore.SIGNAL("valueChanged(int)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getRunFilter(),
+                     QtCore.SIGNAL("valueChanged(int)"),
+                     self.updateFilters)
 
-        self.connect(filter.getRegex(),
-                        QtCore.SIGNAL("textChanged(QString)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getRegex(),
+                     QtCore.SIGNAL("textChanged(QString)"),
+                     self.updateFilters)
 
-        self.connect(filter.getServiceBox(),
-                        QtCore.SIGNAL("textChanged(QString)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getServiceBox(),
+                     QtCore.SIGNAL("textChanged(QString)"),
+                     self.updateFilters)
 
-        self.connect(filter.getEnabled(),
-                        QtCore.SIGNAL("stateChanged(int)"),
-                        self.updateFilters)
+        self.connect(frame_filter.getEnabled(),
+                     QtCore.SIGNAL("stateChanged(int)"),
+                     self.updateFilters)
 
-        self.connect(filter.getEnabled(),
-                        QtCore.SIGNAL("stateChanged(int)"),
-                        filter.enable)
+        self.connect(frame_filter.getEnabled(),
+                     QtCore.SIGNAL("stateChanged(int)"),
+                     frame_filter.enable)
 
-        self.connect(filter.getServiceBox(),
-                        QtCore.SIGNAL("textChanged(QString)"),
-                        filter.checkForDefaults)
-
-
-    def CheckClicked(self, filter):
-        filter.getRunFilter().setEnabled(False)
+        self.connect(frame_filter.getServiceBox(),
+                     QtCore.SIGNAL("textChanged(QString)"),
+                     frame_filter.checkForDefaults)
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.tree.enableRefresh = bool(state)
@@ -603,42 +658,49 @@ class StuckFrameWidget(QtWidgets.QWidget):
         QtCore.QTimer.singleShot(5000, self._refreshButtonEnableHandle)
 
     def updateRequest(self):
+        """Updates filter list with only enabled filters and then updates the tree widget."""
         allFilters = {}
         filters = self.controls.getFilters()
-        for filter in filters:
-            if filter.getEnabled().isChecked():
-                allFilters[filter.getServiceBoxText()] = [filter.getRegexText(), filter.getTime(), filter.getMinLLu(), filter.getAvgCompTime(), filter.getRunTime()]
-
+        for frame_filter in filters:
+            if frame_filter.getEnabled().isChecked():
+                allFilters[frame_filter.getServiceBoxText()] = [frame_filter.getRegexText(),
+                                                                frame_filter.getTime(),
+                                                                frame_filter.getMinLLu(),
+                                                                frame_filter.getAvgCompTime(),
+                                                                frame_filter.getRunTime()]
 
         self.tree.updateFilters(allFilters, self.controls.getShow())
         self.tree.setCompleteRefresh(True)
         self.tree.updateRequest()
 
     def updateFilters(self):
+        """Updates filter list with only enabled filters."""
         allFilters = {}
         filters = self.controls.getFilters()
-        for filter in filters:
-            if filter.getEnabled().isChecked():
-                allFilters[filter.getServiceBoxText()] = [
-                                                        filter.getRegexText(), 
-                                                        filter.getTime(), 
-                                                        filter.getMinLLu(), 
-                                                        filter.getAvgCompTime(), 
-                                                        filter.getRunTime()
-                                                        ]
-
+        for frame_filter in filters:
+            if frame_filter.getEnabled().isChecked():
+                allFilters[frame_filter.getServiceBoxText()] = [
+                    frame_filter.getRegexText(),
+                    frame_filter.getTime(),
+                    frame_filter.getMinLLu(),
+                    frame_filter.getAvgCompTime(),
+                    frame_filter.getRunTime()
+                ]
         self.tree.updateFilters(allFilters, self.controls.getShow())
 
-
     def clearButtonRequest(self):
+        """Clears tree widget."""
         self.tree.clearItems()
         self.tree.enableRefresh = False
         self.controls.getAutoRefresh().setCheckState(QtCore.Qt.Unchecked)
 
     def getControls(self):
+        """Returns controls."""
         return self.controls
 
+
 class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
+    """Tree widget with stuck frames"""
 
     _updateProgress = QtCore.Signal(int)
     _updateProgressMax = QtCore.Signal(int)
@@ -648,36 +710,36 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.parent = parent
         self.startColumnsForType(cuegui.Constants.TYPE_FRAME)
         self.addColumn("Name", 300, id=1,
-                       data=lambda item:(item.data.name or ""),
+                       data=lambda item: (item.data.name or ""),
                        tip="The job name.")
         self.addColumn("_Comment", 20, id=2,
                        tip="A comment icon will appear if a job has a comment. You\n"
                            "may click on it to view the comments.")
         self.addColumn("Frame", 40, id=3,
-                       data=lambda item:(item.number or ""),
+                       data=lambda item: (item.number or ""),
                        tip="Frame number")
         self.addColumn("Host", 120, id=4,
-                       data=lambda item:(item.lastResource or ""),
+                       data=lambda item: (item.lastResource or ""),
                        tip="Host the frame is currently running on")
         self.addColumn("LLU", 60, id=5,
-                       data=lambda item:(self.numFormat(item.lastLogUpdate, "t") or ""),
+                       data=lambda item: (self.numFormat(item.lastLogUpdate, "t") or ""),
                        tip="Last Log Update")
         self.addColumn("Runtime", 60, id=6,
-                       data=lambda item:(self.numFormat(item.timeRunning, "t") or ""),
+                       data=lambda item: (self.numFormat(item.timeRunning, "t") or ""),
                        tip="Length the Frame has been running")
         self.addColumn("% Stuck", 50, id=7,
-                       data=lambda item:(self.numFormat(item.stuckness, "f") or ""),
+                       data=lambda item: (self.numFormat(item.stuckness, "f") or ""),
                        tip="Percent of frame's total runtime that the log has not been updated")
         self.addColumn("Average", 60, id=8,
-                       data=lambda item:(self.numFormat(item.averageFrameTime, "t") or ""),
+                       data=lambda item: (self.numFormat(item.averageFrameTime, "t") or ""),
                        tip="Average time for a frame of this type to complete")
         self.addColumn("Last Line", 250, id=9,
-                       data=lambda item:(cuegui.Utils.getLastLine(item.log_path) or ""),
+                       data=lambda item: (cuegui.Utils.getLastLine(item.log_path) or ""),
                        tip="The last line of a running frame's log file.")
 
         self.startColumnsForType(cuegui.Constants.TYPE_GROUP)
         self.addColumn("", 0, id=1,
-                       data=lambda group:(group.data.name), sort=lambda group:(group.data.name))
+                       data=lambda group: (group.data.name), sort=lambda group: (group.data.name))
         self.addColumn("", 0, id=2)
         self.addColumn("", 0, id=3)
         self.addColumn("", 0, id=4)
@@ -687,12 +749,12 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.addColumn("", 0, id=8)
         self.addColumn("", 0, id=9)
 
-
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
         self.procSearch = opencue.search.ProcSearch()
 
         # Used to build right click context menus
-        self.__menuActions = cuegui.MenuActions.MenuActions(self, self.updateSoon, self.selectedObjects, self.getJob)
+        self.__menuActions = cuegui.MenuActions.MenuActions(self, self.updateSoon,
+                                                            self.selectedObjects, self.getJob)
 
         self.setDropIndicatorShown(True)
         self.setDragEnabled(True)
@@ -712,8 +774,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Don't use the standard space bar to refres
         self.disconnect(QtGui.qApp,
-                            QtCore.SIGNAL('request_update()'),
-                            self.updateRequest)
+                        QtCore.SIGNAL('request_update()'),
+                        self.updateRequest)
 
         self.run_log = LogFinal()
         self.frames = {}
@@ -727,48 +789,54 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.enableNotification = False
 
     def logIt(self):
+        """Logs cache to a file."""
         if hasattr(QtGui.qApp, "threadpool"):
             print("Stuck Frame Log cache is being written to file.")
-            QtGui.qApp.threadpool.queue(self.run_log.finalize, self.logResult, 
-                                    "Writing out log", self.frames, self.show)
+            QtGui.qApp.threadpool.queue(self.run_log.finalize, self.logResult,
+                                        "Writing out log", self.frames, self.show)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
 
+    # pylint: disable=missing-function-docstring,unused-argument
     def logResult(self, work, rpcObjects):
         self.frames = {}
-        return
 
+    # pylint: disable=redefined-builtin,inconsistent-return-statements,no-self-use
     def numFormat(self, num, type):
-        if num == "" or num < .001 or num == None:
+        """Returns string formatting based on the number"""
+        if num == "" or num < .001 or num is None:
             return ""
         if type == "t":
             return cuegui.Utils.secondsToHHMMSS(int(num))
         if type == "f":
+            # pylint: disable=consider-using-f-string
             return "%.2f" % float(num)
 
     def setCompleteRefresh(self, value):
+        """Sets complete refresh based on given value."""
         self.completeRefresh = value
 
     def tick(self):
+        """Handles update on single tick."""
         if self.ticksSinceLogFlush >= 400 and len(self.frames) > 0:
             self.ticksSinceLogFlush = 0
             self.logIt()
 
-        if self.completeRefresh == True:
+        if self.completeRefresh:
             self.ticksWithoutUpdate = 0
             self.completeRefresh = False
             self._update()
             return
 
-        if self.ticksWithoutUpdate % 40 == 0 \
-                        and self.ticksWithoutUpdate != self.updateInterval \
-                        and not self.window().isMinimized():
+        if (self.ticksWithoutUpdate % 40 == 0 and
+                self.ticksWithoutUpdate != self.updateInterval and not self.window().isMinimized()):
             self.ticksWithoutUpdate += 1
             if len(self.currentHosts) > 0:
                 self.confirm(1)
             return
 
-        if self.ticksWithoutUpdate >= self.updateInterval  and self.enableRefresh and not self.window().isMinimized():
+        if (self.ticksWithoutUpdate >= self.updateInterval and
+                self.enableRefresh and not self.window().isMinimized()):
             self.ticksWithoutUpdate = 0
             self._update()
             if self.enableNotification:
@@ -776,7 +844,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 message.setText("Stuck Frames have refreshed!.")
                 message.exec_()
             return
-
 
         self.ticksSinceLogFlush += 1
         if not self.window().isMinimized():
@@ -790,7 +857,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  col: int
         @param col: The column clicked on"""
         commentItem = item.rpcObject
-        if col == COMMENT_COLUMN and cuegui.Utils.isJob(commentItem) and commentItem.data.hasComment:
+        if (col == COMMENT_COLUMN and
+                cuegui.Utils.isJob(commentItem) and commentItem.data.hasComment):
             self.__menuActions.jobs().viewComments([commentItem])
         self.update()
 
@@ -806,7 +874,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Returns immediately. Causes an update to happen
         Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
         QtCore.QTimer.singleShot(cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
-                                  self.updateRequest)
+                                 self.updateRequest)
 
     def getJob(self):
         """Returns the current job
@@ -815,6 +883,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return cuegui.Utils.findJob(self.selectedObjects()[0].data.name)
 
     def clearItems(self):
+        """Clears all items"""
         self.clearSelection()
         self.removeAllItems()
         self.currentHosts = []
@@ -825,7 +894,9 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.ticksWithoutUpdate = 999
         self.completeRefresh = True
 
+    # pylint: disable=no-self-use
     def get_frame_run_time(self, item):
+        """Returns frame run time."""
         if cuegui.Utils.isProc(item):
             start_time = item.data.dispatch_time
         elif cuegui.Utils.isFrame(item):
@@ -836,18 +907,19 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         run_time = current_time - start_time
         return run_time
 
+    # pylint: disable=no-self-use
     def get_llu_time(self, item):
-
+        """Returns LLU time."""
         if cuegui.Utils.isProc(item):
             log_file = item.data.log_path
-        elif  cuegui.Utils.isFrame(item):
+        elif cuegui.Utils.isFrame(item):
             log_file = item.log_path
         else:
             return ""
-
+        # pylint: disable=broad-except
         try:
             stat_info = os.path.getmtime(log_file)
-        except:
+        except Exception:
             return "None"
         current_time = time.time()
         llu_time = current_time - stat_info
@@ -855,21 +927,26 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return llu_time
 
     def find_layer(self, proc):
+        """Return layer based on proc."""
         jobName = proc.data.job_name
         layerName = proc.data.frame_name.split("-")[1]
+        # pylint: disable=consider-using-f-string
         key = "%s/%s" % (jobName, layerName)
 
         if not self.layer_cache.get(key, None):
+            # pylint: disable=broad-except
             try:
                 self.layer_cache[key] = proc.getLayer()
-            except:
+            except Exception:
                 return "None"
 
         return self.layer_cache[key]
 
     def confirm(self, update):
+        """Confirm frame filter."""
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
                 frame = self.currentHosts[index]
@@ -880,10 +957,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.min_llu_filter = self.filters[frame.service][2]
                     self.time_filter = self.filters[frame.service][1]
                     self.avg_comp_filter = self.filters[frame.service][3]
-                    self.excludes = [x.strip() for x in self.filters[frame.service][0].split(',') if x != ""]
+                    self.excludes = [x.strip() for x in self.filters[frame.service][0].split(',')
+                                     if x != ""]
                 else:
                     if "All (Click + to Add Specific Filter)" in self.filters.keys():
-                        key =  "All (Click + to Add Specific Filter)"
+                        key = "All (Click + to Add Specific Filter)"
                     elif "All Other Types" in self.filters.keys():
                         key = "All Other Types"
                     else:
@@ -894,32 +972,34 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.avg_comp_filter = self.filters[key][3]
                     self.excludes = [x.strip() for x in self.filters[key][0].split(',') if x != ""]
 
-                layerName = frame.data.layer_name
+                # layerName = frame.data.layer_name
                 frameRunTime = self.get_frame_run_time(frame)
-                jobName = frame.data.name
+                # jobName = frame.data.name
                 lluTime = self.get_llu_time(frame)
                 avgFrameTime = frame.averageFrameTime
-                percentStuck = lluTime/frameRunTime
+                percentStuck = lluTime / frameRunTime
 
                 frame.stuckness = percentStuck
                 frame.lastLogUpdate = lluTime
                 frame.timeRunning = frameRunTime
 
-                if (lluTime > ( self.min_llu_filter * 60)) and ( percentStuck*100 > self.time_filter) and \
-                        (frameRunTime >  (avgFrameTime * self.avg_comp_filter/100) and percentStuck < 1.1 and frameRunTime > 500):
+                if ((lluTime > (self.min_llu_filter * 60)) and
+                        (percentStuck * 100 > self.time_filter) and
+                        (frameRunTime > (avgFrameTime * self.avg_comp_filter / 100) and
+                         percentStuck < 1.1 and frameRunTime > 500)):
                     currentHostsNew.append(self.currentHosts[index - 2])
                     currentHostsNew.append(self.currentHosts[index - 1])
                     currentHostsNew.append(frame)
 
         self.currentHosts[:] = []
-        self.currentHosts =  currentHostsNew
+        self.currentHosts = currentHostsNew
 
         if update == 1:
             self._processUpdate(None, self.currentHosts)
 
-
     def _getUpdate(self):
         """Returns the proper data from the cuebot"""
+        # pylint: disable=broad-except,too-many-nested-blocks
         try:
             treeItems = []
             procs = []
@@ -937,10 +1017,12 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.min_llu_filter = self.filters[proc.data.services[0]][2]
                     self.time_filter = self.filters[proc.data.services[0]][1]
                     self.avg_comp_filter = self.filters[proc.data.services[0]][3]
-                    self.excludes = [x.strip() for x in self.filters[proc.data.services[0]][0].split(',') if x != ""]
+                    self.excludes = [x.strip()
+                                     for x in self.filters[proc.data.services[0]][0].split(',')
+                                     if x != ""]
                 else:
                     if "All (Click + to Add Specific Filter)" in self.filters.keys():
-                        key =  "All (Click + to Add Specific Filter)"
+                        key = "All (Click + to Add Specific Filter)"
                     elif "All Other Types" in self.filters.keys():
                         key = "All Other Types"
                     else:
@@ -951,45 +1033,49 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     self.avg_comp_filter = self.filters[key][3]
                     self.excludes = [x.strip() for x in self.filters[key][0].split(',') if x != ""]
 
-
                 jobName = proc.data.job_name
                 (frameNumber, layerName) = proc.data.frame_name.split("-")
 
                 frameRunTime = self.get_frame_run_time(proc)
-                frameResource = proc.data.name
+                # frameResource = proc.data.name
 
                 if frameRunTime >= self.runtime_filter * 60:
                     # Get average completion time of the layer
                     layer = self.find_layer(proc)
                     # Skip processing if the layer obj doesn't exist. i.e frame finished
-                    if layer == "None":  continue
+                    if layer == "None":
+                        continue
                     avgFrameTime = layer.avgFrameTimeSeconds()
 
-                    if frameRunTime >  (avgFrameTime * self.avg_comp_filter/100):
-                        log_path = proc.data.log_path  # Get the log file path for last line
+                    if frameRunTime > (avgFrameTime * self.avg_comp_filter / 100):
+                        # log_path = proc.data.log_path  # Get the log file path for last line
                         lluTime = self.get_llu_time(proc)
-                        if lluTime == "None": continue    # Skip processing if there was any error with reading the log file(path did not exist,permissions)
-
-                        if lluTime >  self.min_llu_filter * 60:
+                        if lluTime == "None":
+                            # Skip processing if there was any error with reading
+                            # the log file(path did not exist,permissions)
+                            continue
+                        if lluTime > self.min_llu_filter * 60:
                             percentStuck = 0
                             if frameRunTime > 0:
                                 percentStuck = lluTime / frameRunTime
 
-                            if percentStuck*100 > self.time_filter and percentStuck < 1.1:
+                            if percentStuck * 100 > self.time_filter and percentStuck < 1.1:
                                 please_exclude = False
                                 for exclude in self.excludes:
-                                    if layerName.__contains__(exclude) or jobName.__contains__(exclude):
+                                    if (layerName.__contains__(exclude) or
+                                            jobName.__contains__(exclude)):
                                         please_exclude = True
                                         continue
 
-                                if please_exclude == True:
+                                if please_exclude:
                                     continue
 
                                 # Job may have finished/killed put in a try
                                 # Injecting into rpcObjects extra data not available via client API
                                 # to support cue3 iceObject backwards capability
                                 try:
-                                    frame = opencue.api.findFrame(jobName, layerName, int(frameNumber))
+                                    frame = opencue.api.findFrame(jobName,
+                                                                  layerName, int(frameNumber))
                                     frame.data.layer_name = layerName
                                     frame.__dict__['job_name'] = jobName
                                     frame.__dict__['log_path'] = proc.data.log_path
@@ -1017,7 +1103,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                         treeItems.append(group)
                                         treeItems.append(job)
                                         treeItems.append(frame)
-                                except Exception as e:
+                                except Exception:
                                     # Can safely ignore if a Job has already completed
                                     pass
 
@@ -1025,18 +1111,18 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self._updateProgress.emit(current_prog)
 
             self._updateProgress.emit(len(procs))
-            self.currentHosts[:]=[]
+            self.currentHosts[:] = []
             self.currentHosts = treeItems
 
             self.confirm(0)
 
             return self.currentHosts
-        except Exception, e:
+        except Exception as e:
             print(cuegui.Utils.exceptionOutput(e))
             map(logger.warning, cuegui.Utils.exceptionOutput(e))
             return []
 
-    def _createItem(self, object, parent = None):
+    def _createItem(self, object, parent=None):
         """Creates and returns the proper item
         @type  object: Host
         @param object: The object for this item
@@ -1047,19 +1133,19 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if cuegui.Utils.isGroup(object):
             groupWidget = GroupWidgetItem(object, self)
-            self.groups_created[object.data.name] = groupWidget # Store parents created
+            self.groups_created[object.data.name] = groupWidget  # Store parents created
             groupWidget.setExpanded(True)
             return groupWidget
-        elif cuegui.Utils.isJob(object):
-            jobWidget = HostWidgetItem(object,  self.groups_created[object.data.group])
-            self.jobs_created[object.data.name] = jobWidget # Store parents created
+        if cuegui.Utils.isJob(object):
+            jobWidget = HostWidgetItem(object, self.groups_created[object.data.group])
+            self.jobs_created[object.data.name] = jobWidget  # Store parents created
             jobWidget.setExpanded(True)
             return jobWidget
-        elif cuegui.Utils.isFrame(object):
-            frameWidget = HostWidgetItem(object, self.jobs_created[object.job_name]) # Find the Job to serve as its parent
+        if cuegui.Utils.isFrame(object):
+            frameWidget = HostWidgetItem(object,
+                                         # Find the Job to serve as its parent
+                                         self.jobs_created[object.job_name])
             return frameWidget
-
-
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
@@ -1071,14 +1157,14 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         isFrame = False
         sameJob = True
         jobName = None
-        isGroup = True
+        # isGroup = True
         for item in self.selectedObjects():
             if cuegui.Utils.isJob(item):
                 isJob = True
             elif cuegui.Utils.isFrame(item):
                 isFrame = True
-            elif cuegui.Utils.isGroup(item):
-                isGroup = True
+            # elif cuegui.Utils.isGroup(item):
+            #     isGroup = True
             if not jobName:
                 jobName = item.data.name
             else:
@@ -1088,13 +1174,20 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if isJob and not isFrame and sameJob:
             self.__menuActions.jobs().addAction(menu, "viewComments")
             self.__menuActions.jobs().addAction(menu, "emailArtist")
-            menu.addAction(cuegui.Action.create(self, "Email and Comment", "Email and Comment", self.emailComment, "mail"))
+            menu.addAction(
+                cuegui.Action.create(self, "Email and Comment", "Email and Comment",
+                                     self.emailComment, "mail"))
             menu.addSeparator()
-            menu.addAction(cuegui.Action.create(self, "Job Not Stuck", "Job Not Stuck", self.RemoveJob, "warning" ))
-            menu.addAction(cuegui.Action.create(self, "Add Job to Excludes", "Add Job to Excludes", self.AddJobToExcludes, "eject" ))
-            menu.addAction(cuegui.Action.create(self, "Exclude and Remove Job", "Exclude and Remove Job", self.AddJobToExcludesandRemove, "unbookkill" ))
+            menu.addAction(cuegui.Action.create(self, "Job Not Stuck", "Job Not Stuck",
+                                                self.RemoveJob, "warning"))
+            menu.addAction(
+                cuegui.Action.create(self, "Add Job to Excludes", "Add Job to Excludes",
+                                     self.AddJobToExcludes, "eject"))
+            menu.addAction(cuegui.Action.create(self, "Exclude and Remove Job",
+                                                "Exclude and Remove Job",
+                                                self.AddJobToExcludesandRemove, "unbookkill"))
             menu.addSeparator()
-            menu.addAction(cuegui.Action.create(self, "Core Up", "Core Up", self.coreup, "up" ))
+            menu.addAction(cuegui.Action.create(self, "Core Up", "Core Up", self.coreup, "up"))
             menu.exec_(e.globalPos())
 
         if isFrame and not isJob and sameJob:
@@ -1114,38 +1207,47 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             if count == 1:
                 menu.addSeparator()
-                menu.addAction(cuegui.Action.create(self, "Top Machine", "Top Machine", self.topMachine, "up" ))
+                menu.addAction(cuegui.Action.create(self, "Top Machine", "Top Machine",
+                                                    self.topMachine, "up"))
                 if QtGui.qApp.applicationName() == "CueCommander3":
                     self.__menuActions.frames().addAction(menu, "viewHost")
 
             menu.addSeparator()
-            menu.addAction(cuegui.Action.create(self, "Retry", "Retry", self.retryFrame, "retry" ))
-            menu.addAction(cuegui.Action.create(self, "Eat", "Eat", self.eatFrame, "eat" ))
-            menu.addAction(cuegui.Action.create(self, "Kill", "Kill", self.killFrame, "kill" ))
+            menu.addAction(cuegui.Action.create(self, "Retry", "Retry", self.retryFrame, "retry"))
+            menu.addAction(cuegui.Action.create(self, "Eat", "Eat", self.eatFrame, "eat"))
+            menu.addAction(cuegui.Action.create(self, "Kill", "Kill", self.killFrame, "kill"))
             menu.addSeparator()
             if count == 1:
-                menu.addAction(cuegui.Action.create(self, "Log Stuck Frame", "Log Stuck Frame", self.log, "loglast" ))
+                menu.addAction(cuegui.Action.create(self, "Log Stuck Frame", "Log Stuck Frame",
+                                                    self.log, "loglast"))
             elif count > 1:
-                menu.addAction(cuegui.Action.create(self, "Log Stuck Frames", "Log Stuck Frames", self.log, "loglast" ))
-            menu.addAction(cuegui.Action.create(self, "Log and Retry", "Log and Retry", self.logRetry, "retry" ))
-            menu.addAction(cuegui.Action.create(self, "Log and Eat", "Log and Eat", self.logEat, "eat" ))
-            menu.addAction(cuegui.Action.create(self, "Log and Kill", "Log and Kill", self.logKill, "kill" ))
+                menu.addAction(cuegui.Action.create(self, "Log Stuck Frames", "Log Stuck Frames",
+                                                    self.log, "loglast"))
+            menu.addAction(cuegui.Action.create(self, "Log and Retry", "Log and Retry",
+                                                self.logRetry, "retry"))
+            menu.addAction(cuegui.Action.create(self, "Log and Eat", "Log and Eat",
+                                                self.logEat, "eat"))
+            menu.addAction(cuegui.Action.create(self, "Log and Kill", "Log and Kill",
+                                                self.logKill, "kill"))
             menu.addSeparator()
-            menu.addAction(cuegui.Action.create(self, "Frame Not Stuck", "Frame Not Stuck", self.remove, "warning" ))
-            menu.addAction(cuegui.Action.create(self, "Add Job to Excludes", "Add Job to Excludes",self.AddJobToExcludes, "eject") )
-            menu.addAction(cuegui.Action.create(self, "Exclude and Remove Job", "Exclude and Remove Job", self.AddJobToExcludesandRemove, "unbookkill" ))
+            menu.addAction(cuegui.Action.create(self, "Frame Not Stuck", "Frame Not Stuck",
+                                                self.remove, "warning"))
+            menu.addAction(
+                cuegui.Action.create(self, "Add Job to Excludes", "Add Job to Excludes",
+                                     self.AddJobToExcludes, "eject"))
+            menu.addAction(cuegui.Action.create(self, "Exclude and Remove Job",
+                                                "Exclude and Remove Job",
+                                                self.AddJobToExcludesandRemove, "unbookkill"))
             menu.addSeparator()
-            menu.addAction(cuegui.Action.create(self, "Core Up", "Core Up", self.coreup, "up" ))
+            menu.addAction(cuegui.Action.create(self, "Core Up", "Core Up", self.coreup, "up"))
 
             menu.exec_(e.globalPos())
-
 
     def coreup(self):
         """PST Menu Plugin entry point."""
         job = self.getJob()
-        win = CoreUpWindow(self, {job : job.getLayers()})
+        win = CoreUpWindow(self, {job: job.getLayers()})
         win.show()
-
 
     def _processUpdate(self, work, rpcObjects):
         """A generic function that Will:
@@ -1160,9 +1262,9 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             updated = []
             for rpcObject in rpcObjects:
-                updated.append(cuegui.Utils.getObjectKey(rpcObject)) #rpcObject)
+                updated.append(cuegui.Utils.getObjectKey(rpcObject))  # rpcObject)
                 # If id already exists, update it
-                if self._items.has_key(cuegui.Utils.getObjectKey(rpcObject)):
+                if cuegui.Utils.getObjectKey(rpcObject) in self._items:
                     self._items[cuegui.Utils.getObjectKey(rpcObject)].update(rpcObject)
                 # If id does not exist, create it
                 else:
@@ -1174,22 +1276,22 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         finally:
             self._itemsLock.unlock()
 
-
-
     def topMachine(self):
         signal.signal(signal.SIGALRM, self.handler)
         signal.alarm(int(30))
 
         job = self.selectedObjects()[0]
 
-        command = ' xhost ' + job.lastResource.split('/')[0] + '; rsh ' + job.lastResource.split('/')[0] + ' \"setenv DISPLAY '+str(socket.gethostname()).split('.')[0]+':0; xterm -e top\" &'
+        command = (' xhost ' + job.lastResource.split('/')[0] + '; rsh ' +
+                   job.lastResource.split('/')[0] + ' \"setenv DISPLAY ' +
+                   str(socket.gethostname()).split('.', maxsplit=1)[0] + ':0; xterm -e top\" &')
         os.system(command)
         signal.alarm(0)
-
 
     def remove(self):
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1199,12 +1301,11 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     currentHostsNew.append(self.currentHosts[index - 2])
                     currentHostsNew.append(self.currentHosts[index - 1])
                     currentHostsNew.append(self.currentHosts[index])
-        self.currentHosts[:]=[]
-        self.currentHosts =  currentHostsNew
-        #self.currentHosts = [x for x in self.currentHosts if x not in self.selectedObjects()  ] -
+        self.currentHosts[:] = []
+        self.currentHosts = currentHostsNew
+        # self.currentHosts = [x for x in self.currentHosts if x not in self.selectedObjects()  ] -
 
         self._processUpdate(None, self.currentHosts)
-
 
     def emailComment(self):
         job = self.getJob()
@@ -1264,7 +1365,8 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def handler(self):
         message = QtWidgets.QMessageBox(self)
-        message.setText("Unable to connect to host after 30 sec.\nIt may need to be put into repair state. ")
+        message.setText("""Unable to connect to host after 30 sec.
+                        It may need to be put into repair state. """)
         message.exec_()
 
     def log(self):
@@ -1279,7 +1381,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             frameData['runtime'] = self.get_frame_run_time(frame)
             frameData['average'] = frame.averageFrameTime
             frameData['log'] = cuegui.Utils.getLastLine(frame.log_path)
-            framesForJob[str(frame.data.number)+'-'+str(time.time())] = frameData
+            framesForJob[str(frame.data.number) + '-' + str(time.time())] = frameData
 
         self.frames[currentJob] = framesForJob
 
@@ -1309,20 +1411,21 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 break
 
         if len(filterChange.getRegexText()) > 0:
-            filterChange.getRegex().setText(filterChange.getRegexText()+", "+ currentJobName)
+            filterChange.getRegex().setText(filterChange.getRegexText() + ", " + currentJobName)
         else:
             filterChange.getRegex().setText(currentJobName)
 
         return currentJobName
 
     def AddJobToExcludesandRemove(self):
-        jobName = self.AddJobToExcludes()
+        self.AddJobToExcludes()
         self.RemoveJob()
 
     def RemoveJob(self):
         jobName = self.selectedObjects()[0].data.name
         currentHostsNew = []
         nextIndex = 2
+        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1332,11 +1435,10 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     currentHostsNew.append(self.currentHosts[index - 2])
                     currentHostsNew.append(self.currentHosts[index - 1])
                     currentHostsNew.append(self.currentHosts[index])
-        self.currentHosts[:]=[]
-        self.currentHosts =  currentHostsNew
+        self.currentHosts[:] = []
+        self.currentHosts = currentHostsNew
 
         self._processUpdate(None, self.currentHosts)
-
 
     def startDrag(self, dropActions):
         cuegui.Utils.startDrag(self, dropActions, self.selectedObjects())
@@ -1377,6 +1479,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         objectClass = item.rpcObject.__class__.__name__
         objectId = item.rpcObject.id()
         try:
+            # pylint: disable=consider-using-f-string
             del self._items['{}.{}'.format(objectClass, objectId)]
         except KeyError:
             # Dependent jobs are not stored in as keys the main self._items
@@ -1387,7 +1490,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def finalize(self, frames):
 
         dict = frames
-        yaml_path = "/shots/"+self.show+"/home/etc/stuck_frames_db.yaml"
+        yaml_path = "/shots/" + self.show + "/home/etc/stuck_frames_db.yaml"
 
         if not os.path.exists(yaml_path):
             yaml_ob = open(yaml_path, 'w')
@@ -1401,17 +1504,17 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             yaml_ob = open(yaml_path, 'w')
 
-            for key in dict: #updates old dict
+            for key in dict:  # updates old dict
                 old_dict[key] = dict[key]
 
             yaml.dump(old_dict, yaml_ob)
             yaml_ob.close()
 
 
-
-class CommentWidget (QtWidgets.QWidget):
+class CommentWidget(QtWidgets.QWidget):
+    """Represents a comment."""
     def __init__(self, subject, message, parent=None):
-        QtWidgets.QWidget.__init__(self,parent)
+        QtWidgets.QWidget.__init__(self, parent)
         self.__textSubject = subject
         self.__textMessage = message
 
@@ -1421,9 +1524,11 @@ class CommentWidget (QtWidgets.QWidget):
         def getMessage(self):
             return str(self.__textMessage.toPlainText())
 
+
 class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
     __initialized = False
+
     def __init__(self, rpcObject, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
@@ -1446,7 +1551,7 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         if role == QtCore.Qt.DisplayRole:
             return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
 
-        elif role == QtCore.Qt.ForegroundRole:
+        if role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
 
         elif role == QtCore.Qt.BackgroundRole:
@@ -1462,35 +1567,32 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
 
 class LogFinal():
-
+    """Utility class for logging to yaml."""
     def finalize(self, frames, show):
+        """Saves logs to yaml. If file not created, will create one."""
         dict = frames
 
-        yaml_path = "/shots/"+show+"/home/etc/stuck_frames_db.yaml"
+        yaml_path = "/shots/" + show + "/home/etc/stuck_frames_db.yaml"
         if not os.path.exists(yaml_path):
             yaml_ob = open(yaml_path, 'w')
             yaml.dump(dict, yaml_ob)
             yaml_ob.close()
-
-
         else:
-
             yaml_ob = open(yaml_path, 'r')
             old_dict = yaml.load(yaml_ob)
             yaml_ob.close()
 
             yaml_ob = open(yaml_path, 'w')
 
-            for key in dict: #updates old dict
+            for key in dict:  # updates old dict
                 old_dict[key] = dict[key]
 
             yaml.dump(old_dict, yaml_ob)
             yaml_ob.close()
 
 
-
-
 class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+    """Represents a host widget."""
     __initialized = False
     def __init__(self, object, parent):
         if not self.__initialized:
@@ -1499,16 +1601,19 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
-        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_FRAME, object, parent)
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_FRAME,
+                                                              object, parent)
 
     def data(self, col, role):
         if role == QtCore.Qt.DisplayRole:
-            if not self._cache.has_key(col):
-                self._cache[col] = self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+            if col not in self._cache:
+                self._cache[col] = self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](
+                    self.rpcObject)
             return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
         elif role == QtCore.Qt.DecorationRole:
-            #todo: get rpcOject comment!!
-            if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.rpcObject) : # and self.rpcObject.hasComment:
+            # todo: get rpcOject comment!!
+            if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.rpcObject):
+                # and self.rpcObject.hasComment:
                 return self.__commentIcon
         elif role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
@@ -1517,6 +1622,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
 class CoreUpWindow(QtWidgets.QDialog):
     """A dialog box for adding more cores to a job."""
+
     def __init__(self, parent, jobs, selected=False):
         QtWidgets.QWidget.__init__(self, parent)
         self.setWindowTitle('Core Up')
@@ -1526,7 +1632,7 @@ class CoreUpWindow(QtWidgets.QDialog):
 
     def setupUI(self, selected=False):
         """Setup the initial dialog box layout."""
-        #Create initial layout
+        # Create initial layout
         build_times = {}
         for job, layers in self.jobs.iteritems():
             build_times[job] = self.dj.getBuildTimes(job, layers)
@@ -1539,11 +1645,11 @@ class CoreUpWindow(QtWidgets.QDialog):
             for layer in layers:
                 self._layers[layer.name()] = (job, layer)
                 layer_label = layer.name()
-                #if build_times.has_key(layer.name()):
+                # if build_times.has_key(layer.name()):
                 #    layer_label += ' - %s' % build_times[layer.name()]
                 listItem = QtWidgets.QListWidgetItem(layer_label)
                 self.listWidget.addItem(listItem)
-        self.listWidget.setSelectionMode(3) #Multi Selection Mode
+        self.listWidget.setSelectionMode(3)  # Multi Selection Mode
         layout.addWidget(self.listWidget)
 
         buttonLayout = QtWidgets.QHBoxLayout()
@@ -1582,7 +1688,8 @@ class CoreUpWindow(QtWidgets.QDialog):
         controlLayout.addWidget(self.retryThresholdSpinner)
         layout.addLayout(controlLayout)
 
-        self.connect(self.retryFramesCB, QtCore.SIGNAL('stateChanged(int)'), self.retryFrameCB_callback)
+        self.connect(self.retryFramesCB, QtCore.SIGNAL('stateChanged(int)'),
+                     self.retryFrameCB_callback)
 
         if selected:
             self.listWidget.selectAll()
@@ -1595,6 +1702,7 @@ class CoreUpWindow(QtWidgets.QDialog):
     def coreup(self, cores):
         """Set Min Cores to cores for all selected layers of job."""
         for job, layer in self.selectedLayers():
+            # pylint: disable=consider-using-f-string
             print("Setting max cores to %d for %s" % (cores, layer.name()))
             layer.setMinCores(cores * 1.0)
             time.sleep(CUE_SLEEP)
@@ -1606,6 +1714,7 @@ class CoreUpWindow(QtWidgets.QDialog):
                     precentage = self.dj.getCompletionAmount(job, frame)
                     if precentage >= 0:
                         if precentage < self.retryThresholdSpinner.value():
+                            # pylint: disable=consider-using-f-string
                             print('Retrying frame %s %s' % (job.name(), frame.frame()))
                             frame.kill()
                             time.sleep(CUE_SLEEP)
@@ -1629,13 +1738,19 @@ class CoreUpWindow(QtWidgets.QDialog):
         self.coreup(cores)
 
     def retryFrameCB_callback(self, value):
+        """Retries frame if value is given."""
         if value:
             self.retryThresholdSpinner.setEnabled(True)
         else:
             self.retryThresholdSpinner.setEnabled(False)
 
+
 class DJArnold(object):
-    completion_pattern = re.compile(r'[INFO BatchMain]:  [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [0-9]{1,8}mb         |    (?P<total>[0-9]{1,3})% done - [0-9]{1,5} rays/pixel')
+    """Represents arnold engine."""
+    completion_pattern = re.compile(
+        # pylint: disable-next=line-too-long
+        r'[INFO BatchMain]:  [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [0-9]{1,8}mb         |    (?P<total>[0-9]{1,3})% done - [0-9]{1,5} rays/pixel')
+
     def __init__(self, show=None):
         if not show:
             show = os.environ.get('SHOW')
@@ -1644,6 +1759,7 @@ class DJArnold(object):
     def getLog(self, job, frame):
         """Return the contents of a log given a job and a frame."""
         log_dir = job.logDir()
+        # pylint: disable=consider-using-f-string
         log_name = '%s.%s.rqlog' % (job.name(), frame.data.name)
         log_file = os.path.join(log_dir, log_name)
         if not os.path.exists(log_file):
@@ -1658,12 +1774,10 @@ class DJArnold(object):
          values.
          """
         results = {}
-        shot = job.shot()
-        log_dir = job.logDir()
         if not layers:
             layers = job.getLayers()
         for layer in layers:
-            if isinstance(layer, basestring):
+            if isinstance(layer, str):
                 layer = job.getLayer(layer)
             if 'preprocess' in layer.name():
                 continue
@@ -1696,9 +1810,9 @@ class DJArnold(object):
                         build_times.append(seconds)
                 if build_times:
                     avg = sum(build_times) / len(build_times)
-                    seconds = int(avg%60)
-                    minutes = int((avg/60)%60)
-                    hours   = int(avg/3600)
+                    seconds = int(avg % 60)
+                    minutes = int((avg / 60) % 60)
+                    hours = int(avg / 3600)
                     results[layer.name()] = (layer, datetime.time(hours, minutes, seconds))
         return results
 
@@ -1714,5 +1828,3 @@ class DJArnold(object):
                     complete = int(matches.group('total'))
                     break
         return complete
-
-
