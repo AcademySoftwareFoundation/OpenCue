@@ -213,9 +213,9 @@ class Machine(object):
             pids = [frame.pid for frame in list(
                 filter(lambda frame: frame.pid > 0, values)
             )]
-            # pylint: disable=E1101
+            # pylint: disable=no-member
             stats = winps.update(pids)
-            # pylint: enable=E1101
+            # pylint: enable=no-member
             for frame in values:
                 self.__updateGpuAndLlu(frame)
                 if frame.pid > 0 and frame.pid in stats:
