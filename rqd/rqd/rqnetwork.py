@@ -238,8 +238,8 @@ class Network(object):
             shuffle(cuebots)
             if len(cuebots) > 0:
                 self.channel = grpc.insecure_channel('%s:%s' % (cuebots[0],
-                                                                rqd.rqconstants.CUEBOT_GRPC_PORT),
-                                                     *interceptors)
+                                                                rqd.rqconstants.CUEBOT_GRPC_PORT))
+                self.channel = grpc.intercept_channel(self.channel, *interceptors)
             atexit.register(self.closeChannel)
 
     def __getReportStub(self):
