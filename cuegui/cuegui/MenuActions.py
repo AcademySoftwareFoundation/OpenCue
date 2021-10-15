@@ -269,36 +269,36 @@ class JobActions(AbstractActions):
                     job.setMaxCores(float(value))
                 self._update()
 
-    setMinGpu_info = ["Set Minimum Gpu...", "Set Job(s) Minimum Gpu", "configure"]
-    def setMinGpu(self, rpcObjects=None):
+    setMinGpus_info = ["Set Minimum Gpus...", "Set Job(s) Minimum Gpus", "configure"]
+    def setMinGpus(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            current = max([job.data.min_cores for job in jobs])
-            title = "Set Minimum Gpu"
-            body = "Please enter the new minimum gpu value:"
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
+            current = max([job.data.min_gpus for job in jobs])
+            title = "Set Minimum Gpus"
+            body = "Please enter the new minimum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                                title, body,
                                                                current,
-                                                               0, 50000, 0)
+                                                               0, 500, 0)
             if choice:
                 for job in jobs:
-                    job.setMinGpu(float(value))
+                    job.setMinGpus(int(value))
                 self._update()
 
-    setMaxGpu_info = ["Set Maximum Gpu...", "Set Job(s) Maximum Gpu", "configure"]
-    def setMaxGpu(self, rpcObjects=None):
+    setMaxGpus_info = ["Set Maximum Gpus...", "Set Job(s) Maximum Gpus", "configure"]
+    def setMaxGpus(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            current = max([job.data.max_cores for job in jobs])
-            title = "Set Maximum Gpu"
-            body = "Please enter the new maximum gpu value:"
-            (value, choice) = QtWidgets.QInputDialog.getDouble(self._caller,
+            current = max([job.data.max_gpus for job in jobs])
+            title = "Set Maximum Gpus"
+            body = "Please enter the new maximum gpus value:"
+            (value, choice) = QtWidgets.QInputDialog.getInt(self._caller,
                                                                title, body,
                                                                current,
-                                                               0, 50000, 0)
+                                                               0, 500, 0)
             if choice:
                 for job in jobs:
-                    job.setMaxGpu(float(value))
+                    job.setMaxGpus(int(value))
                 self._update()
 
     setPriority_info = ["Set Priority...", None, "configure"]
@@ -643,6 +643,24 @@ class LayerActions(AbstractActions):
             if choice:
                 for layer in layers:
                     layer.setMinMemory(int(value * 1048576))
+                self._update()
+
+    setMinGpuMemoryKb_info = [
+        "Set Minimum Gpu Memory",
+        "Set the amount of Gpu memory required for this layer", "configure"]
+
+    def setMinGpuMemoryKb(self, rpcObjects=None):
+        layers = self._getOnlyLayerObjects(rpcObjects)
+        if layers:
+            current = max([layer.data.min_gpu_memory / 1048576 for layer in layers])
+            title = "Set minimum amount of Gpu memory required"
+            body = ('Please enter the new minimum amount of Gpu memory in GB that frames '
+                    'in the selected layer(s) should require:')
+            (value, choice) = QtWidgets.QInputDialog.getDouble(
+                self._caller, title, body, current, 0.01, 64.0, 1)
+            if choice:
+                for layer in layers:
+                    layer.setMinGpuMemory(int(value * 1048576))
                 self._update()
 
     useLocalCores_info = [

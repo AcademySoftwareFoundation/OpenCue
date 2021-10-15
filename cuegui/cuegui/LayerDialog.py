@@ -326,6 +326,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
                 layer.setMaxCores(self.__max_cores.value() * 100.0)
             if self.__thread.isEnabled():
                 layer.setThreadable(self.__thread.isChecked())
+            if self.__min_gpus.isEnabled():
+                layer.setMinGpus(self.__min_gpus.value())
+            if self.__max_gpus.isEnabled():
+                layer.setMaxGpus(self.__max_cores.value())
             if self.__gpu_mem.isEnabled():
                 layer.setMinGpuMemory(self.__gpu_mem.slider.value() * self.gpu_mem_tick_kb)
             if self.__timeout.isEnabled():
