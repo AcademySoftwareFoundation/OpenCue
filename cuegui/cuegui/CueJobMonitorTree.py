@@ -157,8 +157,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        sort=lambda job: job.data.job_stats.max_rss,
                        tip="The most memory used at one time by any single frame.")
         self.addColumn("MaxGpuMem", 60, id=19,
-                       data=lambda job: cuegui.Utils.memoryToString(job.data.job_stats.max_gpu_mem),
-                       sort=lambda job: job.data.job_stats.max_gpu_mem,
+                       data=lambda job: cuegui.Utils.memoryToString(
+                           job.data.job_stats.max_gpu_memory),
+                       sort=lambda job: job.data.job_stats.max_gpu_memory,
                        tip="The most gpu memory used at one time by any single frame.")
         self.addColumn("_Blank", 20, id=20,
                        tip="Spacer")
