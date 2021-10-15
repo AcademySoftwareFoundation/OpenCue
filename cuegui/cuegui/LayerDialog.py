@@ -229,7 +229,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout.setValue(self.getTimeout())
         self.__timeout_llu.setValue(self.getTimeoutLLU())
 
+        topLayout = QtWidgets.QVBoxLayout()
+        topWidget = QtWidgets.QWidget()
+        topWidget.setLayout(topLayout)
+        scrollArea = QtWidgets.QScrollArea(widgetResizable=True)
+        scrollArea.setWidget(topWidget)
+
         QtWidgets.QVBoxLayout(self)
+        self.layout().addWidget(scrollArea)
 
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
@@ -275,10 +282,10 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         layout.addStretch()
         self.__group.setLayout(layout)
 
-        self.layout().addWidget(EnableableItem(self.__tags, multiSelect))
-        self.layout().addWidget(EnableableItem(self.__limits, multiSelect))
-        self.layout().addWidget(self.__group)
-        self.layout().addWidget(self.__buttons)
+        topLayout.addWidget(EnableableItem(self.__tags, multiSelect))
+        topLayout.addWidget(EnableableItem(self.__limits, multiSelect))
+        topLayout.addWidget(self.__group)
+        topLayout.addWidget(self.__buttons)
 
     def _cfg(self):
         """
