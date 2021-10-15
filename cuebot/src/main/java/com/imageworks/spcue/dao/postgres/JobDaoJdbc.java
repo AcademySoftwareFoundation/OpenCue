@@ -662,22 +662,6 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 Integer.class, job.getJobId()) > 0;
     }
 
-    private static final String IS_JOB_OVER_MIN_GPUS =
-        "SELECT " +
-            "COUNT(1) " +
-        "FROM " +
-            "job_resource " +
-        "WHERE " +
-            "job_resource.pk_job = ? " +
-        "AND " +
-            "job_resource.int_gpus > job_resource.int_min_gpus";
-
-    @Override
-    public boolean isOverMinGpus(JobInterface job) {
-        return getJdbcTemplate().queryForObject(IS_JOB_OVER_MIN_GPUS,
-                Integer.class, job.getJobId()) > 0;
-    }
-
     private static final String IS_JOB_OVER_MAX_GPUS =
         "SELECT " +
             "COUNT(1) " +

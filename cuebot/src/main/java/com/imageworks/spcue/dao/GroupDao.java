@@ -221,14 +221,6 @@ public interface GroupDao {
     boolean isOverMinCores(JobInterface job);
 
     /**
-     * Returns true if the group of the specified job is at or over its min gpus
-     *
-     * @param job
-     * @return
-     */
-    boolean isOverMinGpus(JobInterface job);
-
-    /**
      * Returns true if the group is managed.
      *
      * @param group
