@@ -254,7 +254,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             throw new IllegalArgumentException(msg);
         }
         getJdbcTemplate().update(
-                "UPDATE folder SET int_job_min_gpu=? WHERE pk_folder=?",
+                "UPDATE folder SET int_job_min_gpus=? WHERE pk_folder=?",
                 value, group.getId());
     }
 
@@ -268,7 +268,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
         }
 
         getJdbcTemplate().update(
-                "UPDATE folder_resource SET int_max_gpu=? WHERE pk_folder=?",
+                "UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
                 value, group.getId());
     }
 
