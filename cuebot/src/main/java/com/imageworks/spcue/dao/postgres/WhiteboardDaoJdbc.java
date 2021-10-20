@@ -577,8 +577,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public UpdatedFrameCheckResult getUpdatedFrames(JobInterface job,
             List<LayerInterface> layers, int epochSeconds) {
 
-        if ((System.currentTimeMillis() / 1000) - epochSeconds > 60) {
-            long timeDiff = System.currentTimeMillis() - epochSeconds;
+        long timeDiff = (System.currentTimeMillis() / 1000) - epochSeconds;
+        if (timeDiff > 60) {
             throw new IllegalArgumentException("the last update timestamp cannot be over " +
                     "a minute off the current time, difference was: " + timeDiff);
         }
