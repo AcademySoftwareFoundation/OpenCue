@@ -168,7 +168,7 @@ class ServiceForm(QtWidgets.QWidget):
         service.setMinCores(self.min_cores.value())
         service.setMaxCores(self.max_cores.value())
         service.setMinMemory(self.min_memory.value() * 1024)
-        service.setMinGpu(self.min_gpu_memory.value() * 1024)
+        service.setMinGpuMemory(self.min_gpu_memory.value() * 1024)
         service.setTimeout(self.timeout.value())
         service.setTimeoutLLU(self.timeout_llu.value())
         service.setTags(self._tags_w.get_tags())

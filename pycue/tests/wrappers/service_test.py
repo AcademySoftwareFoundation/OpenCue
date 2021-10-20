@@ -28,6 +28,9 @@ import opencue.wrappers.service
 
 
 TEST_SERVICE_NAME = 'testService'
+TEST_MIN_GPUS = 2
+TEST_MAX_GPUS = 7
+TEST_MIN_GPU_MEMORY = 8 * 1024 * 1024 * 1024
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -99,6 +102,27 @@ class ServiceTests(unittest.TestCase):
         stubMock.Update.assert_called_with(
             service_pb2.ServiceUpdateRequest(service=wrapper.data), timeout=mock.ANY)
 
+    def testGpus(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetService.return_value = service_pb2.ServiceGetServiceResponse(
+            service=service_pb2.Service(name=TEST_SERVICE_NAME))
+        getStubMock.return_value = stubMock
+
+        wrapper = opencue.wrappers.service.Service()
+        service = wrapper.getService(name=TEST_SERVICE_NAME)
+        self.assertEqual(service.minGpus(), 0)
+        self.assertEqual(service.maxGpus(), 0)
+        self.assertEqual(service.minGpuMemory(), 0)
+        service.setMinGpus(TEST_MIN_GPUS)
+        service.setMaxGpus(TEST_MAX_GPUS)
+        service.setMinGpuMemory(TEST_MIN_GPU_MEMORY)
+        self.assertEqual(service.minGpus(), TEST_MIN_GPUS)
+        self.assertEqual(service.maxGpus(), TEST_MAX_GPUS)
+        self.assertEqual(service.minGpuMemory(), TEST_MIN_GPU_MEMORY)
+
+        stubMock.GetService.assert_called_with(
+            service_pb2.ServiceGetServiceRequest(name=TEST_SERVICE_NAME), timeout=mock.ANY)
+        self.assertEqual(service.name(), TEST_SERVICE_NAME)
 
 if __name__ == '__main__':
     unittest.main()

@@ -44,6 +44,8 @@ TEST_SUBSCRIPTION_SIZE = 1000
 TEST_SUBSCRIPTION_BURST = 1200
 TEST_MIN_CORES = 42
 TEST_MAX_CORES = 47
+TEST_MIN_GPUS = 2
+TEST_MAX_GPUS = 7
 TEST_ENABLE_VALUE = False
 TEST_GROUP_NAME = 'group'
 TEST_GROUP_DEPT = 'lighting'
@@ -195,6 +197,30 @@ class ShowTests(unittest.TestCase):
 
         stubMock.SetDefaultMinCores.assert_called_with(
             show_pb2.ShowSetDefaultMinCoresRequest(show=show.data, min_cores=TEST_MIN_CORES),
+            timeout=mock.ANY)
+
+    def testSetDefaultMaxGpus(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetDefaultMaxGpus.return_value = show_pb2.ShowSetDefaultMaxGpusResponse()
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        show.setDefaultMaxGpus(TEST_MAX_GPUS)
+
+        stubMock.SetDefaultMaxGpus.assert_called_with(
+            show_pb2.ShowSetDefaultMaxGpusRequest(show=show.data, max_gpus=TEST_MAX_GPUS),
+            timeout=mock.ANY)
+
+    def testSetDefaultMinGpus(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.SetDefaultMinGpus.return_value = show_pb2.ShowSetDefaultMinGpusResponse()
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        show.setDefaultMinGpus(TEST_MIN_GPUS)
+
+        stubMock.SetDefaultMinGpus.assert_called_with(
+            show_pb2.ShowSetDefaultMinGpusRequest(show=show.data, min_gpus=TEST_MIN_GPUS),
             timeout=mock.ANY)
 
     def testFindFilter(self, getStubMock):
