@@ -135,12 +135,6 @@ public class JobManagerService implements JobManager {
         return jobDao.isOverMinCores(job);
     }
 
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
-    public boolean isOverMinGpus(JobInterface job) {
-        return jobDao.isOverMinGpus(job);
-    }
-
     @Transactional(propagation = Propagation.REQUIRED, readOnly=true)
     public DispatchJob getDispatchJob(String id) {
         return jobDao.getDispatchJob(id);
