@@ -105,9 +105,9 @@ class RunningFrame(object):
         if self.frameAttendantThread is None:
             log.warning(
                 "Kill requested before frameAttendantThread is created for: %s", self.frameId)
-        elif self.frameAttendantThread.isAlive() and self.pid is None:
+        elif self.frameAttendantThread.is_alive() and self.pid is None:
             log.warning("Kill requested before pid is available for: %s", self.frameId)
-        elif self.frameAttendantThread.isAlive():
+        elif self.frameAttendantThread.is_alive():
             # pylint: disable=broad-except
             try:
                 if not self.killMessage and message:

@@ -303,7 +303,7 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                            self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
@@ -356,7 +356,7 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
@@ -404,7 +404,7 @@ class FrameAttendantThread(threading.Thread):
 
         frameInfo.pid = frameInfo.forkedCommand.pid
 
-        if not self.rqCore.updateRssThread.isAlive():
+        if not self.rqCore.updateRssThread.is_alive():
             self.rqCore.updateRssThread = threading.Timer(rqd.rqconstants.RSS_UPDATE_INTERVAL,
                                                           self.rqCore.updateRss)
             self.rqCore.updateRssThread.start()
