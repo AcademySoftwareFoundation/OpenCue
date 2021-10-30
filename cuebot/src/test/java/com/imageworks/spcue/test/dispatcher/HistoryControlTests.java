@@ -77,6 +77,9 @@ public class HistoryControlTests extends TransactionalTest {
     Dispatcher dispatcher;
 
     private static final String HOSTNAME = "beta";
+    private static final String DELETE_HISTORY =
+        "DELETE FROM frame_history; " +
+        "DELETE FROM job_history; ";
     private static final String DISABLE_HISTORY =
         "INSERT INTO " +
             "config (pk_config,str_key) " +
@@ -158,6 +161,7 @@ public class HistoryControlTests extends TransactionalTest {
     @Transactional
     @Rollback(true)
     public void testEnabled() {
+        jdbcTemplate.update(DELETE_HISTORY);
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM job_history", Integer.class));
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
@@ -175,6 +179,7 @@ public class HistoryControlTests extends TransactionalTest {
     @Transactional
     @Rollback(true)
     public void testDisabled() {
+        jdbcTemplate.update(DELETE_HISTORY);
         jdbcTemplate.update(DISABLE_HISTORY);
 
         assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
