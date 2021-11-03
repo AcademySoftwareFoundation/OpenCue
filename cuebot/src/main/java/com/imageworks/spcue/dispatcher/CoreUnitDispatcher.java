@@ -21,7 +21,6 @@ package com.imageworks.spcue.dispatcher;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
@@ -126,7 +125,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
 
-    private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
+    private List<VirtualProc> dispatchJobs(DispatchHost host, List<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
 
         try {
@@ -170,8 +169,8 @@ public class CoreUnitDispatcher implements Dispatcher {
         return procs;
     }
 
-    private Set<String> getGpuJobs(DispatchHost host, ShowInterface show) {
-        Set<String> jobs = null;
+    private List<String> getGpuJobs(DispatchHost host, ShowInterface show) {
+        List<String> jobs = null;
 
         // TODO: GPU: make index with the 4 components instead of just 3, replace the just 3
 
@@ -200,7 +199,7 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     @Override
     public List<VirtualProc> dispatchHostToAllShows(DispatchHost host) {
-        Set<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
+        List<String> jobs = dispatchSupport.findDispatchJobsForAllShows(
                 host,
                 getIntProperty("dispatcher.job_query_max"));
 
@@ -210,7 +209,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host) {
 
-        Set<String> jobs = getGpuJobs(host, null);
+        List<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, getIntProperty("dispatcher.job_query_max"));
@@ -221,7 +220,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, ShowInterface show) {
 
-        Set<String> jobs = getGpuJobs(host, show);
+        List<String> jobs = getGpuJobs(host, show);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, show,
@@ -233,7 +232,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public List<VirtualProc> dispatchHost(DispatchHost host, GroupInterface group) {
 
-        Set<String> jobs = getGpuJobs(host, null);
+        List<String> jobs = getGpuJobs(host, null);
 
         if (jobs == null)
             jobs = dispatchSupport.findDispatchJobs(host, group);
