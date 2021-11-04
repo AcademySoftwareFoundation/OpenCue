@@ -720,6 +720,16 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests  
                 "SELECT int_frame_fail_count FROM job_usage WHERE pk_job=?",
                 Integer.class, job.getId()));
     }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testOverrideMaxCoresAndGpus() {
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/override_max_cores_gpus.xml"));
+        JobDetail job = jobManager.findJobDetail("pipe-dev.cue-testuser_test");
+        assertEquals(job.maxCoreUnits, 42000);
+        assertEquals(job.maxGpuUnits, 42);
+    }
 }
 
 

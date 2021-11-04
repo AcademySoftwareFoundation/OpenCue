@@ -126,6 +126,10 @@ def load_json(json_str):
         ol.set_name(data["name"])
     if "facility" in data:
         ol.set_facility(data["facility"])
+    if "maxcores" in data:
+        ol.set_maxcores(data["maxcores"])
+    if "maxgpus" in data:
+        ol.set_maxgpus(data["maxgpus"])
     if "range" in data:
         ol.set_frame_range(data["range"])
 
@@ -219,7 +223,8 @@ class Outline(object):
 
     def __init__(self, name=None, frame_range=None, path=None,
                  serialize=True, name_unique=False, current=False,
-                 shot=None, show=None, user=None, facility=None):
+                 shot=None, show=None, user=None, facility=None,
+                 maxcores=None, maxgpus=None):
         """
         :type  name: string
         :param name: A name for the outline instance.  This will become
@@ -254,6 +259,11 @@ class Outline(object):
         :param facility: The launch facility to be used. If not specified
                      the RENDER_TO and FACILITY environment variables
                      will be checked.
+        :type  maxcores: int
+        :param maxcores: The maximum number of CPU cores for the job.
+
+        :type  maxgpus: int
+        :param maxgpus: The maximum number of GPU units for the job.
         """
         object.__init__(self)
 
@@ -320,6 +330,16 @@ class Outline(object):
         # The launch facility to use, or None.
         #
         self.__facility = facility
+
+        #
+        # The maximum number of CPU cores to use, or None.
+        #
+        self.__maxcores = maxcores
+
+        #
+        # The maximum number of CPU cores to use, or None.
+        #
+        self.__maxgpus = maxgpus
 
         #
         # The outline session.  The session is setup during the setup
@@ -629,6 +649,30 @@ class Outline(object):
         :param facility: The name of the facility to set.
         """
         self.__facility = facility
+
+    def get_maxcores(self):
+        """Return the maximum number of CPU cores fot this outline."""
+        return self.__maxcores
+
+    def set_maxcores(self, maxcores):
+        """Set the maximum number of CPU cores for this outline instance.
+
+        :type maxcores: int
+        :param maxcores: The maximum number of CPU cores to set.
+        """
+        self.__maxcores = maxcores
+
+    def get_maxgpus(self):
+        """Return the maximum number of GPU units fot this outline."""
+        return self.__maxgpus
+
+    def set_maxgpus(self, maxgpus):
+        """Set the maximum number of GPU units for this outline instance.
+
+        :type maxcores: int
+        :param maxcores: The maximum number of GPU units to set.
+        """
+        self.__maxgpus = maxgpus
 
     def get_mode(self):
         """Return the current mode of this outline object.

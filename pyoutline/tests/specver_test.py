@@ -84,3 +84,22 @@ class SpecVersiondTest(unittest.TestCase):
         root = self._makeGpuSpec()
         self.assertEqual(root.find("job/layers/layer/gpus").text, "4")
         self.assertEqual(root.find("job/layers/layer/gpu_memory").text, "8388608")
+
+    def _makeMaxCoresGpusSpec(self):
+        ol = outline.Outline(name="override_max_cores_and_gpus", maxcores=8, maxgpus=7)
+        layer = outline.modules.shell.Shell("test_layer", command=["/bin/ls"])
+        ol.add_layer(layer)
+        l = outline.cuerun.OutlineLauncher(ol)
+        return Et.fromstring(l.serialize())
+
+    def test_max_cores_gpus_1_12(self):
+        outline.config.set("outline", "spec_version", "1.12")
+        root = self._makeMaxCoresGpusSpec()
+        self.assertIsNone(root.find("job/maxcores"))
+        self.assertIsNone(root.find("job/maxgpus"))
+
+    def test_max_cores_gpus_1_13(self):
+        outline.config.set("outline", "spec_version", "1.13")
+        root = self._makeMaxCoresGpusSpec()
+        self.assertEqual(root.find("job/maxcores").text, "8")
+        self.assertEqual(root.find("job/maxgpus").text, "7")
