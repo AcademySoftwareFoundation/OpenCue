@@ -18,7 +18,8 @@
 
 
 package com.imageworks.spcue.dispatcher;
-
+import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -98,6 +99,11 @@ public interface Dispatcher {
 
     // Upgrade the memory on the layer by 1g and retry.
     public static final int EXIT_STATUS_MEMORY_FAILURE = 33;
+
+    // Exemption list of return values
+    public static final List<Integer> EXIT_STATUS_EXEMPTIONS = new ArrayList<Integer>(
+            Arrays.asList(EXIT_STATUS_FOR_FAILED_LAUNCH, EXIT_STATUS_FRAME_CLEARED,
+                    EXIT_STATUS_FRAME_ORPHAN, EXIT_STATUS_FAILED_KILL, EXIT_STATUS_DOWN_HOST));
 
     // max retry time
     public static final int FRAME_TIME_NO_RETRY = 3600 * 8;
