@@ -567,6 +567,10 @@ public class FrameCompleteHandler {
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
                 report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
+            // exemption codes
+            } else if (Dispatcher.EXIT_STATUS_EXEMPTIONS.contains(report.getExitStatus())) {
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(report.getExitStatus()).build();
+                newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;
             // ETC Time out and LLU timeout
