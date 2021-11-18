@@ -57,8 +57,6 @@ The frames within the job are then sent to the RQD via the `DispatchSupportServi
 - The ranked list of jobs is then returned to the `CoreUnitDispatcher`
 - `DisatchBookHost`, which uses `dispatcher.dispatchHostToAllShows()` or `dispatcher.dispatchHost()` to communicate with the RQD client and book the job
 
-![plot](cuebot/src/main/java/com/imageworks/spcue/dispatcher/HandleHostReportSequenceDiagram.png)
-
 
 ### Issues with this Approach
 This approach runs into issues with scalability and wasted computational resources. 
