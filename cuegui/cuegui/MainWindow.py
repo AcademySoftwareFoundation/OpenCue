@@ -68,6 +68,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.name = window_name
         else:
             self.name = self.windows_names[0]
+        self.__isEnabled = bool(int(QtGui.qApp.settings.value("EnableJobInteraction", 0)))
 
         # Provides a location for widgets to the right of the menu
         menuLayout = QtWidgets.QHBoxLayout()
@@ -194,6 +195,20 @@ class MainWindow(QtWidgets.QMainWindow):
         self.PluginMenu = self.menuBar().addMenu("&Views/Plugins")
         self.windowMenu = self.menuBar().addMenu("&Window")
         self.helpMenu = self.menuBar().addMenu("&Help")
+
+        if self.__isEnabled is False:
+            # Menu Bar: File -> Enable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Enable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Enable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
+        # allow user to disable the job interaction
+        else:
+            # Menu Bar: File -> Disable Job Interaction
+            enableJobInteraction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Disable Job Interaction', self)
+            enableJobInteraction.setStatusTip('Disable Job Interaction')
+            enableJobInteraction.triggered.connect(self.__enableJobInteraction)
+            self.fileMenu.addAction(enableJobInteraction)
 
         # Menu Bar: File -> Close Window
         close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
@@ -454,9 +469,26 @@ class MainWindow(QtWidgets.QMainWindow):
         result = QtWidgets.QMessageBox.question(
                     self,
                     "Restart required ",
-                    "You must restart for this action to take effect, close window?: ",
+                    cuegui.Constants.USER_CONFIRM_RESTART,
                     QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
 
         if result == QtWidgets.QMessageBox.Yes:
             self.settings.setValue("RevertLayout", True)
             self.__windowCloseApplication()
+
+    def __enableJobInteraction(self):
+        """ Enable/Disable user job interaction """
+        result = QtWidgets.QMessageBox.question(
+                    self,
+                    "Job Interaction Settings ",
+                    cuegui.Constants.USER_CONFIRM_RESTART,
+                    QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No)
+
+        if result == QtWidgets.QMessageBox.Yes:
+            # currently not enabled, user wants to enable
+            if self.__isEnabled is False:
+                self.settings.setValue("EnableJobInteraction", 1)
+                self.__windowCloseApplication()
+            else:
+                self.settings.setValue("EnableJobInteraction", 0)
+                self.__windowCloseApplication()

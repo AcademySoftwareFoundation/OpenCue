@@ -137,6 +137,8 @@ EMAIL_SUBJECT_PREFIX = __config.get('email.subject_prefix')
 EMAIL_BODY_PREFIX = __config.get('email.body_prefix')
 EMAIL_BODY_SUFFIX = __config.get('email.body_suffix')
 EMAIL_DOMAIN = __config.get('email.domain')
+USER_CONFIRM_RESTART = "You must restart for this action to take effect, close window?: "
+USER_INTERACTION_PERMISSIONS = "You do not have permissions to {0} {1} owned by {2}"
 
 GITHUB_CREATE_ISSUE_URL = __config.get('links.issue.create')
 URL_USERGUIDE = __config.get('links.user_guide')

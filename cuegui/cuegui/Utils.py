@@ -35,6 +35,7 @@ import webbrowser
 from qtpy import QtCore
 from qtpy import QtGui
 from qtpy import QtWidgets
+import getpass
 import six
 
 import opencue
@@ -671,3 +672,25 @@ def byteConversion(amount, btype):
     for _ in range(n):
         _bytes *= 1024
     return _bytes
+
+
+def isPermissible(jobObject):
+    """
+    Validate if the current user has the correct permissions to perform
+    the action
+
+    :param userName: jobObject
+    :ptype userName: Opencue Job Object
+    :return:
+    """
+    hasPermissions = False
+    # Case 1. Check if current user is the job owner
+    currentUser = getpass.getuser()
+    if currentUser.lower() == jobObject.username().lower():
+        hasPermissions = True
+
+    # Case 2. Check if "Enable not owned Job Interactions" is Enabled
+    if bool(int(QtGui.qApp.settings.value("EnableJobInteraction", 0))):
+        hasPermissions = True
+
+    return hasPermissions
