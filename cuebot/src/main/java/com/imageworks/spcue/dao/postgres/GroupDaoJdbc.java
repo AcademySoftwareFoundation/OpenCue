@@ -235,11 +235,6 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     @Override
     public void updateDefaultJobMaxGpus(GroupInterface group, int value) {
         if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
-        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
-            String msg = "The default max cores for a job must " +
-                    "be greater than a single core";
-            throw new IllegalArgumentException(msg);
-        }
         getJdbcTemplate().update(
                 "UPDATE folder SET int_job_max_gpus=? WHERE pk_folder=?",
                 value, group.getId());
@@ -248,11 +243,6 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     @Override
     public void updateDefaultJobMinGpus(GroupInterface group, int value) {
         if (value <= 0) { value = CueUtil.FEATURE_DISABLED; }
-        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
-            String msg = "The default min cores for a job must " +
-                    "be greater than a single core";
-            throw new IllegalArgumentException(msg);
-        }
         getJdbcTemplate().update(
                 "UPDATE folder SET int_job_min_gpus=? WHERE pk_folder=?",
                 value, group.getId());
@@ -261,11 +251,6 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
     @Override
     public void updateMaxGpus(GroupInterface group, int value) {
         if (value < 0) { value = CueUtil.FEATURE_DISABLED; }
-        if (value < CueUtil.ONE_CORE && value != CueUtil.FEATURE_DISABLED) {
-            String msg = "The group max cores feature must " +
-                    "be a whole core or greater, pass in: " + value;
-            throw new IllegalArgumentException(msg);
-        }
 
         getJdbcTemplate().update(
                 "UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
