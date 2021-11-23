@@ -437,6 +437,10 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
                 group.jobMaxGpus = rs.getInt("int_job_max_gpus");
                 group.jobMinGpus = rs.getInt("int_job_min_gpus");
                 group.jobPriority = rs.getInt("int_job_priority");
+                group.minCores = rs.getInt("int_min_cores");
+                group.maxCores = rs.getInt("int_max_cores");
+                group.minGpus = rs.getInt("int_min_gpus");
+                group.maxGpus = rs.getInt("int_max_gpus");
                 group.name = rs.getString("str_name");
                 group.parentId = rs.getString("pk_parent_folder");
                 group.showId = rs.getString("pk_show");
