@@ -963,7 +963,7 @@ class RqCore(object):
             return
         if not self.nimby.active:
             try:
-                self.nimby.run()
+                self.nimby.start()
                 log.info("Nimby has been activated")
             except:
                 self.nimby.locked = False
