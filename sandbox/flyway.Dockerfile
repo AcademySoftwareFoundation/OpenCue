@@ -1,11 +1,11 @@
 FROM centos
 
 # Get flyway
-RUN ["curl", "-O", "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/6.0.0/flyway-commandline-6.0.0-linux-x64.tar.gz"]
+RUN ["curl", "-O", "https://repo1.maven.org/maven2/org/flywaydb/flyway-commandline/7.0.2/flyway-commandline-7.0.2-linux-x64.tar.gz"]
 RUN ["yum", "install", "-y", "tar", "java-1.8.0-openjdk", "postgresql-jdbc", "nc", "postgresql"]
-RUN ["tar", "-xzf", "flyway-commandline-6.0.0-linux-x64.tar.gz"]
+RUN ["tar", "-xzf", "flyway-commandline-7.0.2-linux-x64.tar.gz"]
 
-WORKDIR flyway-6.0.0
+WORKDIR flyway-7.0.2
 
 # Copy the postgres driver to its required location
 RUN ["cp", "/usr/share/java/postgresql-jdbc.jar", "jars/"]
