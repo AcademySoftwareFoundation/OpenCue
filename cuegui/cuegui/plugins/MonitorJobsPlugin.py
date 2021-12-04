@@ -48,7 +48,7 @@ PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 REGEX_EMPTY_STRING = re.compile("^$")
 TIME_DELTA = 3
-JOB_LOAD_LIMIT = 200
+JOB_RESTORE_THRESHOLD_DAYS = 200
 
 class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """Plugin for listing active jobs and managing them."""
@@ -114,16 +114,14 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         :param jobIds: monitored jobs ids and their timestamp from previous working state
                        (loaded from config.ini file)
-        :ptype: list of tuples ex:
-                [("Job.f156be87-987a-48b9-b9da-774cd58674a3", 1612482716.170947),...
+                       ex: [("Job.f156be87-987a-48b9-b9da-774cd58674a3", 1612482716.170947),...
+        :type jobIds: list[tuples]
         """
         today = datetime.datetime.now()
-        limit = JOB_LOAD_LIMIT if len(jobIds) > JOB_LOAD_LIMIT else len(jobIds)
-        msg = """
-              Unable to load previously loaded job since
-              it was moved to the historical
-              database:
-              """
+        limit = JOB_RESTORE_THRESHOLD_DAYS if len(jobIds) > \
+                                                JOB_RESTORE_THRESHOLD_DAYS else len(jobIds)
+        msg = ('Unable to load previously loaded job since it was moved '
+                   'to the historical database: {0}')
 
         try:
             for jobId, timestamp in jobIds[:limit]:
