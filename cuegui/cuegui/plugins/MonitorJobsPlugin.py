@@ -47,8 +47,8 @@ PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
 REGEX_EMPTY_STRING = re.compile("^$")
-TIME_DELTA = 3
-JOB_RESTORE_THRESHOLD_DAYS = 200
+JOB_RESTORE_THRESHOLD_DAYS = 3
+JOB_RESTORE_THRESHOLD_LIMIT = 200
 
 class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     """Plugin for listing active jobs and managing them."""
@@ -118,15 +118,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         :type jobIds: list[tuples]
         """
         today = datetime.datetime.now()
-        limit = JOB_RESTORE_THRESHOLD_DAYS if len(jobIds) > \
-                                                JOB_RESTORE_THRESHOLD_DAYS else len(jobIds)
+        limit = JOB_RESTORE_THRESHOLD_LIMIT if len(jobIds) > \
+                                                JOB_RESTORE_THRESHOLD_LIMIT else len(jobIds)
         msg = ('Unable to load previously loaded job since it was moved '
                    'to the historical database: {0}')
 
         try:
             for jobId, timestamp in jobIds[:limit]:
                 loggedTime = datetime.datetime.fromtimestamp(timestamp)
-                if (today - loggedTime).days <= TIME_DELTA:
+                if (today - loggedTime).days <= JOB_RESTORE_THRESHOLD_DAYS:
                     try:
                         self.jobMonitor.addJob(jobId, timestamp)
                     except opencue.EntityNotFoundException:

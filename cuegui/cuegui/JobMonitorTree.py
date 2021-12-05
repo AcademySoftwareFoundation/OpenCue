@@ -229,7 +229,10 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def addJob(self, job, timestamp=None):
         """Adds a job to the list. With locking"
         @param job: Job can be None, a job object, or a job name.
-        @type  job: job, string, None"""
+        @type  job: job, string, None
+        @param timestamp: UTC time of the specific date the job was
+                          added to be monitored
+        @type timestamp: float"""
         newJobObj = cuegui.Utils.findJob(job)
         self.ticksLock.lock()
         try:
