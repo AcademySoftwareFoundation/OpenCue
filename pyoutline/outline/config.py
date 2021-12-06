@@ -37,7 +37,10 @@ import tempfile
 import six
 
 from six.moves import configparser
-
+if six.PY2:
+    ConfigParser = configparser.SafeConfigParser
+else:
+    ConfigParser = configparser.ConfigParser
 
 __all__ = ['config', 'read_config_from_disk']
 __file_path__ = pathlib.Path(__file__)
@@ -90,12 +93,7 @@ def read_config_from_disk():
     default_user_dir = pathlib.Path(
         tempfile.gettempdir()) / 'opencue' / 'outline' / getpass.getuser()
 
-    if six.PY2:
-        ConfigParser = configparser.SafeConfigParser
-    else:
-        ConfigParser = configparser.ConfigParser
     _config = ConfigParser()
-
     config_file = None
 
     for config_file_env_var in __CONFIG_FILE_ENV_VARS:
@@ -123,7 +121,7 @@ def read_config_from_disk():
     if not config_file:
         raise FileNotFoundError('outline config file was not found')
 
-    _config.read(config_file)
+    _config.read(str(config_file))
 
     # Add defaults to the config,if they were not specified.
     if not _config.get('outline', 'home'):
