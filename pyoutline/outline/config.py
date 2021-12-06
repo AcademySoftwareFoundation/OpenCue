@@ -37,10 +37,6 @@ import tempfile
 import six
 
 from six.moves import configparser
-if six.PY2:
-    ConfigParser = configparser.SafeConfigParser
-else:
-    ConfigParser = configparser.ConfigParser
 
 
 __all__ = ['config', 'read_config_from_disk']
@@ -94,6 +90,10 @@ def read_config_from_disk():
     default_user_dir = pathlib.Path(
         tempfile.gettempdir()) / 'opencue' / 'outline' / getpass.getuser()
 
+    if six.PY2:
+        ConfigParser = configparser.SafeConfigParser
+    else:
+        ConfigParser = configparser.ConfigParser
     _config = ConfigParser()
 
     config_file = None
