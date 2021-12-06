@@ -50,8 +50,10 @@ class ConfigTest(pyfakefs.fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
         self.fs.add_real_file(
             os.path.join(os.path.dirname(opencue.__file__), 'default.yaml'), read_only=True)
-        os.unsetenv('OL_CONFIG')
-        os.unsetenv('OUTLINE_CONFIG_FILE')
+        if 'OL_CONFIG' in os.environ:
+            del os.environ['OL_CONFIG']
+        if 'OUTLINE_CONFIG_FILE' in os.environ:
+            del os.environ['OUTLINE_CONFIG_FILE']
 
     @mock.patch('tempfile.gettempdir', new=mock.Mock(return_value='/path/to/tmp/dir'))
     def test__should_load_default_values(self):
