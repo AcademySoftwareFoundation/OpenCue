@@ -31,6 +31,7 @@ from PySide2 import QtWidgets
 import opencue
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.group
+from opencue.wrappers.job import Job
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -476,16 +477,21 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 for nestedGroup in group.data.groups.nested_groups]
             self.__processUpdateHandleNested(groupItem, nestedGroups)
 
-            for jobId in group.data.jobs:
-                job = opencue.api.getJob(jobId)
-                try:
-                    if job.id() in self._items:
-                        self._items[job.id()].update(job, groupItem)
-                    else:
-                        self._items[job.id()] = JobWidgetItem(job, groupItem)
-                except RuntimeError:
-                    logger.warning(
-                        "Failed to create tree item. RootView might be closed", exc_info=True)
+            # empty list will return all jobs on the farm
+            # only search if list has jobs
+            if group.data.jobs:
+                jobSeq = opencue.search.JobSearch.byOptions(id=list(group.data.jobs)).jobs
+                jobsObject = [Job(j) for j in jobSeq.jobs]
+
+                for job in jobsObject:
+                    try:
+                        if job.id() in self._items:
+                            self._items[job.id()].update(job, groupItem)
+                        else:
+                            self._items[job.id()] = JobWidgetItem(job, groupItem)
+                    except RuntimeError:
+                        logger.warning(
+                            "Failed to create tree item. RootView might be closed", exc_info=True)
 
     def mouseDoubleClickEvent(self, event):
         del event
