@@ -368,7 +368,7 @@ public class DispatchQuery {
                 "AND " +
                     "l.int_gpu_mem_min = ? " +
                 "AND " +
-                    "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                    "h.str_tags ~* ('(?x)' || l.str_tags || '\\y') " +
                 "AND " +
                     "h.str_name = ? " +
                 "AND " +
@@ -471,7 +471,7 @@ public class DispatchQuery {
                     "AND " +
                         "l.int_gpu_mem_min = ? " +
                     "AND " +
-                        "h.str_tags ~* ('(?x)' || l.str_tags) " +
+                        "h.str_tags ~* ('(?x)' || l.str_tags || '\\y') " +
                     "AND " +
                         "h.str_name = ? " +
                     "AND " +
@@ -593,7 +593,7 @@ public class DispatchQuery {
                     "l.pk_layer " +
                 "FROM " +
                     "layer l " +
-                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                 "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                 "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                 "LEFT JOIN (" +
@@ -711,7 +711,7 @@ public class DispatchQuery {
                         "l.pk_layer " +
                     "FROM " +
                         "layer l " +
-                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                     "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                     "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                     "LEFT JOIN (" +
@@ -1045,7 +1045,7 @@ public class DispatchQuery {
                     "l.pk_layer " +
                 "FROM " +
                     "layer l " +
-                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags || '\\y') AND h.str_name = ?) " +
                 "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                 "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                 "LEFT JOIN (" +
@@ -1163,7 +1163,7 @@ public class DispatchQuery {
                         "l.pk_layer " +
                     "FROM " +
                         "layer l " +
-                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags) AND h.str_name = ?) " +
+                    "JOIN host h ON (h.str_tags ~* ('(?x)' || l.str_tags  || '\\y') AND h.str_name = ?) " +
                     "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
                     "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
                     "LEFT JOIN (" +
