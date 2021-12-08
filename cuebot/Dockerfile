@@ -49,7 +49,7 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 # RUN
 # -----------------
-FROM openjdk:11-jre-slim
+FROM openjdk:11-jre-slim-buster
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot runtime stage"
