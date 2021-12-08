@@ -148,10 +148,13 @@ procs_blocked 0
 softirq 10802040 0 3958368 410 1972314 394501 0 1 3631586 0 844860
 '''
 
-PROC_PID_STAT = ('105 (time) S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
-                 '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
-                 '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
-                 '140725890743420 140725890743420 140725890744298 0')
+PROC_STAT_SUFFIX = (' S 7 105 105 0 -1 4210688 317 0 1 0 31 13 0 0 20 0 1 0 17385159 '
+                   '4460544 154 18446744073709551615 4194304 4204692 140725890735264 0 0 0 0 '
+                   '16781318 0 0 0 0 17 4 0 0 0 0 0 6303248 6304296 23932928 140725890743234 '
+                   '140725890743420 140725890743420 140725890744298 0')
+PROC_PID_STAT = '105 (time)' + PROC_STAT_SUFFIX
+PROC_PID_STAT_WITH_SPACES = '105 (test space)' + PROC_STAT_SUFFIX
+PROC_PID_STAT_WITH_BRACKETS = '105 (test) (brackets)' + PROC_STAT_SUFFIX
 
 
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
@@ -274,12 +277,11 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
         self.assertFalse(self.machine.isUserLoggedIn())
 
-    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
-    def test_rssUpdate(self):
+    def _test_rssUpdate(self, proc_stat):
         rqd.rqconstants.SYS_HERTZ = 100
         pid = 105
         frameId = 'unused-frame-id'
-        self.fs.create_file('/proc/%d/stat' % pid, contents=PROC_PID_STAT)
+        self.fs.create_file('/proc/%d/stat' % pid, contents=proc_stat)
         runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore,
                                                   rqd.compiled_proto.rqd_pb2.RunFrame())
         runningFrame.pid = pid
@@ -295,6 +297,18 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(4356, updatedFrameInfo.vsize)
         self.assertAlmostEqual(0.034444696691, float(updatedFrameInfo.attributes['pcpu']))
 
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdate(self):
+        self._test_rssUpdate(PROC_PID_STAT)
+
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdateWithSpaces(self):
+        self._test_rssUpdate(PROC_PID_STAT_WITH_SPACES)
+
+    @mock.patch('time.time', new=mock.MagicMock(return_value=1570057887.61))
+    def test_rssUpdateWithBrackets(self):
+        self._test_rssUpdate(PROC_PID_STAT_WITH_BRACKETS)
+
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=False))
     def test_getLoadAvg(self):
@@ -304,6 +318,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
 
     @mock.patch.object(
         rqd.rqmachine.Machine, '_Machine__enabledHT', new=mock.MagicMock(return_value=True))
+    @mock.patch.object(
+        rqd.rqmachine.Machine, '_Machine__getHyperthreadingMultiplier',
+        new=mock.MagicMock(return_value=2))
     def test_getLoadAvgHT(self):
         self.loadavg.set_contents(LOADAVG_HIGH_USAGE)
 
