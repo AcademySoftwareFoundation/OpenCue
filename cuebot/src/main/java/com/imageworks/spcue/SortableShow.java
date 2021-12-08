@@ -77,7 +77,9 @@ public class SortableShow implements Comparable<SortableShow> {
     }
 
     public void skip(String tags, long cores, long memory) {
-        failed.put(tags, new long[] { cores, memory});
+        if (tags != null) {
+            failed.put(tags, new long[] { cores, memory});
+        }
     }
 
     /**

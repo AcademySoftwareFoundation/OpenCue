@@ -403,7 +403,7 @@ public class FrameCompleteHandler {
                 // Then check for higher priority jobs
                 // If not, rebook this job
                 if (job.autoUnbook && proc.coresReserved >= 100) {
-                    if (jobManager.isOverMinCores(job) && jobManager.isOverMinGpus(job)) {
+                    if (jobManager.isOverMinCores(job)) {
                         try {
 
                             boolean unbook =

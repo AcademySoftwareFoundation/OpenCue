@@ -274,14 +274,6 @@ public interface JobDao {
     boolean isOverMaxCores(JobInterface job, int coreUnits);
 
     /**
-     * reteurns true if job is over its minimum gpus
-     *
-     * @param job
-     * @return boolean
-     */
-    boolean isOverMinGpus(JobInterface job);
-
-    /**
      * returns true if job is over max gpus
      *
      * @param job

@@ -794,3 +794,14 @@ def getLimits():
     :return: a list of Limit objects"""
     return [Limit(limit) for limit in Cuebot.getStub('limit').GetAll(
         limit_pb2.LimitGetAllRequest(), timeout=Cuebot.Timeout).limits]
+
+@util.grpcExceptionParser
+def findLimit(name):
+    """Returns the Limit object that matches the name.
+
+    :type  name: str
+    :param name: a string that represents a limit to return
+    :rtype:  Limit
+    :return: the matching Limit object"""
+    return Limit(Cuebot.getStub('limit').Find(
+        limit_pb2.LimitFindRequest(name=name), timeout=Cuebot.Timeout).limit)

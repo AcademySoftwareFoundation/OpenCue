@@ -161,21 +161,53 @@ class Service(object):
         """
         self.data.min_memory = minMemory
 
-    def minGpu(self):
-        """Returns the minimum gpu of the service.
+    def minGpus(self):
+        """Returns the minimum gpus of the service.
 
         :rtype:  int
-        :return: min gpu
+        :return: min gpus
         """
-        return self.data.min_gpu
+        return self.data.min_gpus
 
-    def setMinGpu(self, minGpu):
-        """Sets the minimum gpu of the service.
+    def setMinGpus(self, minGpus):
+        """Sets the minimum gpus of the service.
 
         :type: int
-        :param: new min gpu
+        :param: new min gpus
         """
-        self.data.min_gpu = minGpu
+        self.data.min_gpus = minGpus
+
+    def maxGpus(self):
+        """Returns the maximum gpus of the service.
+
+        :rtype:  int
+        :return: max gpus
+        """
+        return self.data.max_gpus
+
+    def setMaxGpus(self, maxGpus):
+        """Sets the maximum gpus of the service.
+
+        :type: int
+        :param: new max gpus
+        """
+        self.data.max_gpus = maxGpus
+
+    def minGpuMemory(self):
+        """Returns the minimum gpu memory of the service.
+
+        :rtype:  int
+        :return: min gpu memory
+        """
+        return self.data.min_gpu_memory
+
+    def setMinGpuMemory(self, minGpuMemory):
+        """Sets the minimum gpu memory of the service.
+
+        :type: int
+        :param: new min gpu memory
+        """
+        self.data.min_gpu_memory = minGpuMemory
 
     def tags(self):
         """Returns the list of tags for the service.

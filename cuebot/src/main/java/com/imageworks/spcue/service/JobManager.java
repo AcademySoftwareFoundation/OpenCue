@@ -293,14 +293,6 @@ public interface JobManager {
     boolean isOverMinCores(JobInterface job);
 
     /**
-     * Return true if the given job is booked greater than min gpus.
-     *
-     * @param job
-     * @return
-     */
-    boolean isOverMinGpus(JobInterface job);
-
-    /**
      * Increase the layer memory requirement to given KB value.
      *
      * @param layer

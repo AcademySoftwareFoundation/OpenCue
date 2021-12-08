@@ -206,7 +206,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_killAllFrame(self):
         frameAttendantThread = mock.MagicMock()
-        frameAttendantThread.isAlive.return_value = False
+        frameAttendantThread.is_alive.return_value = False
         frame1Id = 'frame1'
         frame2Id = 'frame2'
         frame3Id = 'frame3'
@@ -230,7 +230,7 @@ class RqCoreTests(unittest.TestCase):
 
     def test_killAllFrameIgnoreNimby(self):
         frameAttendantThread = mock.MagicMock()
-        frameAttendantThread.isAlive.return_value = False
+        frameAttendantThread.is_alive.return_value = False
         frame1Id = 'frame1'
         frame2Id = 'frame2'
         frame1 = rqd.rqnetwork.RunningFrame(

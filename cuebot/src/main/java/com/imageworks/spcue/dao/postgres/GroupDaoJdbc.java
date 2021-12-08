@@ -254,7 +254,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
             throw new IllegalArgumentException(msg);
         }
         getJdbcTemplate().update(
-                "UPDATE folder SET int_job_min_gpu=? WHERE pk_folder=?",
+                "UPDATE folder SET int_job_min_gpus=? WHERE pk_folder=?",
                 value, group.getId());
     }
 
@@ -268,7 +268,7 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
         }
 
         getJdbcTemplate().update(
-                "UPDATE folder_resource SET int_max_gpu=? WHERE pk_folder=?",
+                "UPDATE folder_resource SET int_max_gpus=? WHERE pk_folder=?",
                 value, group.getId());
     }
 
@@ -278,25 +278,6 @@ public class GroupDaoJdbc extends JdbcDaoSupport implements GroupDao {
         getJdbcTemplate().update(
                 "UPDATE folder_resource SET int_min_gpus=? WHERE pk_folder=?",
                 value, group.getId());
-    }
-
-    private static final String IS_OVER_MIN_GPUS =
-        "SELECT " +
-            "COUNT(1) " +
-        "FROM " +
-            "job,"+
-            "folder_resource fr "+
-        "WHERE " +
-            "job.pk_folder = fr.pk_folder " +
-        "AND " +
-            "fr.int_gpus > fr.int_min_gpus " +
-        "AND "+
-            "job.pk_job = ?";
-
-    @Override
-    public boolean isOverMinGpus(JobInterface job) {
-        return getJdbcTemplate().queryForObject(IS_OVER_MIN_GPUS,
-                Integer.class, job.getJobId()) > 0;
     }
 
     @Override

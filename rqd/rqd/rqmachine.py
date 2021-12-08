@@ -198,7 +198,7 @@ class Machine(object):
             if pid.isdigit():
                 try:
                     with open("/proc/%s/stat" % pid, "r") as statFile:
-                        statFields = statFile.read().split()
+                        statFields = [None, None] + statFile.read().rsplit(")", 1)[-1].split()
 
                     # See "man proc"
                     pids[pid] = {
@@ -309,7 +309,7 @@ class Machine(object):
             loadAvgFile = open(rqd.rqconstants.PATH_LOADAVG, "r")
             loadAvg = int(float(loadAvgFile.read().split()[0]) * 100)
             if self.__enabledHT():
-                loadAvg = loadAvg // 2
+                loadAvg = loadAvg // self.__getHyperthreadingMultiplier()
             loadAvg = loadAvg + rqd.rqconstants.LOAD_MODIFIER
             loadAvg = max(loadAvg, 0)
             return loadAvg
@@ -549,7 +549,7 @@ class Machine(object):
         self.__renderHost.num_procs = __numProcs
         self.__renderHost.cores_per_proc = __totalCores // __numProcs
 
-        if hyperthreadingMultiplier > 1:
+        if hyperthreadingMultiplier >= 1:
             self.__renderHost.attributes['hyperthreadingMultiplier'] = str(hyperthreadingMultiplier)
 
     def getWindowsMemory(self):
@@ -684,6 +684,9 @@ class Machine(object):
     def __enabledHT(self):
         return 'hyperthreadingMultiplier' in self.__renderHost.attributes
 
+    def __getHyperthreadingMultiplier(self):
+        return int(self.__renderHost.attributes['hyperthreadingMultiplier'])
+
     def setupHT(self):
         """ Setup rqd for hyper-threading """
 
@@ -719,11 +722,13 @@ class Machine(object):
             log.critical(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
+        hyperthreadingMultiplier = self.__getHyperthreadingMultiplier()
         tasksets = []
         for _ in range(reservedCores // 100):
             core = self.__tasksets.pop()
             tasksets.append(str(core))
-            tasksets.append(str(core + self.__coreInfo.total_cores // 100))
+            if hyperthreadingMultiplier > 1:
+                tasksets.append(str(core + self.__coreInfo.total_cores // 100))
 
         log.debug('Taskset: Reserving cores - %s', ','.join(tasksets))
 

@@ -176,7 +176,7 @@ class Show(object):
         :return: response is empty
         """
         response = self.stub.SetDefaultMaxGpus(show_pb2.ShowSetDefaultMaxGpusRequest(
-            show=self.data, max_gpu=maxgpus),
+            show=self.data, max_gpus=maxgpus),
             timeout=Cuebot.Timeout)
         return response
 
@@ -189,7 +189,7 @@ class Show(object):
         :return: response is empty
         """
         response = self.stub.SetDefaultMinGpus(show_pb2.ShowSetDefaultMinGpusRequest(
-            show=self.data, min_gpu=mingpus),
+            show=self.data, min_gpus=mingpus),
             timeout=Cuebot.Timeout)
         return response
 

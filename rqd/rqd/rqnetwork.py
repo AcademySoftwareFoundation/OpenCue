@@ -105,9 +105,9 @@ class RunningFrame(object):
         if self.frameAttendantThread is None:
             log.warning(
                 "Kill requested before frameAttendantThread is created for: %s", self.frameId)
-        elif self.frameAttendantThread.isAlive() and self.pid is None:
+        elif self.frameAttendantThread.is_alive() and self.pid is None:
             log.warning("Kill requested before pid is available for: %s", self.frameId)
-        elif self.frameAttendantThread.isAlive():
+        elif self.frameAttendantThread.is_alive():
             # pylint: disable=broad-except
             try:
                 if not self.killMessage and message:
@@ -238,8 +238,8 @@ class Network(object):
             shuffle(cuebots)
             if len(cuebots) > 0:
                 self.channel = grpc.insecure_channel('%s:%s' % (cuebots[0],
-                                                                rqd.rqconstants.CUEBOT_GRPC_PORT),
-                                                     *interceptors)
+                                                                rqd.rqconstants.CUEBOT_GRPC_PORT))
+                self.channel = grpc.intercept_channel(self.channel, *interceptors)
             atexit.register(self.closeChannel)
 
     def __getReportStub(self):
