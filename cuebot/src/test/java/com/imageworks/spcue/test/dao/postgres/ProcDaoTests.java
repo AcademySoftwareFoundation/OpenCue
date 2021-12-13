@@ -582,7 +582,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         jobManager.setJobPaused(job, false);
 
         int i = 1;
-        List<DispatchFrame> frames  = dispatcherDao.findNextDispatchFrames(job, host, 6);
+        List<DispatchFrame> frames  = dispatcherDao.scheduleNextDispatchFrames(job, host, 6);
         assertEquals(6, frames.size());
 
         for (DispatchFrame frame: frames) {

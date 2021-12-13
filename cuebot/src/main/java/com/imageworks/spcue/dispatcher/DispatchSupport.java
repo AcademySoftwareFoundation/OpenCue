@@ -219,7 +219,7 @@ public interface DispatchSupport {
     void unbookProc(VirtualProc proc, String reason);
 
     /**
-     * Returns the next N frames to be dispatched from the
+     * Schedules the next N frames to be dispatched from the
      * specified job.
      *
      * @param job
@@ -227,12 +227,12 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job,
+    ScheduledDispatchFrames scheduleNextDispatchFrames(JobInterface job,
             VirtualProc proc, int limit);
 
     /**
      *
-     * Returns the next N frames to be dispatched from the
+     * Schedules the next N frames to be dispatched from the
      * specified job.
      *
      * @param job
@@ -240,30 +240,49 @@ public interface DispatchSupport {
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host,
+    ScheduledDispatchFrames scheduleNextDispatchFrames(JobInterface job, DispatchHost host,
                                                int limit);
 
     /**
-     * Return the next N frames to be dispatched from the specified layer.
+     * Schedules the next N frames to be dispatched from the specified layer.
      *
      * @param layer
      * @param host
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
+    ScheduledDispatchFrames scheduleNextDispatchFrames(LayerInterface layer, DispatchHost host,
                                                int limit);
 
     /**
-     * Return the next N frames to be dispatched from the specified layer.
+     * Schedule the next N frames to be dispatched from the specified layer.
      *
      * @param layer
      * @param proc
      * @param limit
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
+    ScheduledDispatchFrames scheduleNextDispatchFrames(LayerInterface layer, VirtualProc proc,
                                                int limit);
+
+    /**
+     * Schedules a frame with the frame's uinique ID to dispatch.
+     *
+     * @param frameId
+     * @return DispatchFrame
+     */
+    ScheduledDispatchFrames scheduleDispatchFrame(String frameId);
+
+    /**
+     * Unschedules the specified frames (Resets the scheduled state of the frames.)
+     *
+     * @param dispatchFrames
+     * @param excluded
+     * @return
+     */
+    void unscheduleDispatchFrames(List<DispatchFrame> dispatchFrames,
+                                  Set<DispatchFrame> excluded);
+
     /**
      *
      * @param excludeJob

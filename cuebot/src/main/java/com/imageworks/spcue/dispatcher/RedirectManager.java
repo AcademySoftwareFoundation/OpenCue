@@ -225,9 +225,11 @@ public class RedirectManager {
     public boolean addRedirect(VirtualProc proc, JobInterface job,
             boolean kill, Source source) {
 
-        if (dispatchSupport.findNextDispatchFrames(
-                job, proc, 1).size() < 1) {
-            return false;
+        try (ScheduledDispatchFrames dispatchFrames =
+                dispatchSupport.scheduleNextDispatchFrames(job, proc, 1)) {
+            if (dispatchFrames.size() < 1) {
+                return false;
+            }
         }
 
         Redirect r = new Redirect(job);

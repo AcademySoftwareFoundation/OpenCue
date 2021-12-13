@@ -20,6 +20,8 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import javax.annotation.Resource;
@@ -51,6 +53,7 @@ import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.ScheduledDispatchFrames;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -169,7 +172,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFrameByHost() {
+    public void testScheduleNextDispatchFrameByHost() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
 
@@ -181,7 +184,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
                 "SELECT str_tags FROM host WHERE pk_host=?",String.class,
                 host.id).contains("general"));
 
-        DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
+        DispatchFrame frame =  dispatcherDao.scheduleNextDispatchFrame(job, host);
         assertNotNull(frame);
         assertEquals(frame.name, "0001-pass_1");
     }
@@ -190,7 +193,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFrameByProc() {
+    public void testScheduleNextDispatchFrameByProc() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
 
@@ -198,7 +201,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         //  probably just need to make sure you can't update a proc's frame
         //  assignment unless the frame id is null.
 
-        DispatchFrame frame =  dispatcherDao.findNextDispatchFrame(job, host);
+        DispatchFrame frame =  dispatcherDao.scheduleNextDispatchFrame(job, host);
         assertNotNull(frame);
         assertEquals("0001-pass_1", frame.name);
 
@@ -206,12 +209,12 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
-        frame =  dispatcherDao.findNextDispatchFrame(job, proc);
+        frame =  dispatcherDao.scheduleNextDispatchFrame(job, proc);
         assertNotNull(frame);
         assertEquals("0001-pass_2", frame.name);
         dispatcher.dispatch(frame, proc);
 
-        frame =  dispatcherDao.findNextDispatchFrame(job, proc);
+        frame =  dispatcherDao.scheduleNextDispatchFrame(job, proc);
         assertNotNull(frame);
         assertEquals("0002-pass_1", frame.name);
         dispatcher.dispatch(frame, proc);
@@ -220,7 +223,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByProc() {
+    public void testScheduleNextDispatchFramesByProc() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
 
@@ -229,7 +232,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         //  assignment unless the frame id is null.
 
         List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(job, host,10);
+            dispatcherDao.scheduleNextDispatchFrames(job, host,10);
         assertEquals(10, frames.size());
 
         DispatchFrame frame = frames.get(0);
@@ -238,12 +241,15 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.coresReserved = 100;
         dispatcher.dispatch(frame, proc);
 
-        frame =  dispatcherDao.findNextDispatchFrame(job, proc);
+        HashSet<DispatchFrame> excluded = new HashSet<>(Arrays.asList(frame));
+        dispatcherDao.unscheduleDispatchFrames(frames, excluded);
+
+        frame =  dispatcherDao.scheduleNextDispatchFrame(job, proc);
         assertNotNull(frame);
         assertEquals(frame.name,"0001-pass_2");
         dispatcher.dispatch(frame, proc);
 
-        frame =  dispatcherDao.findNextDispatchFrame(job, proc);
+        frame =  dispatcherDao.scheduleNextDispatchFrame(job, proc);
         assertNotNull(frame);
         assertEquals(frame.name,"0002-pass_1");
         dispatcher.dispatch(frame, proc);
@@ -252,38 +258,38 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByHostAndJobLocal() {
+    public void testScheduleNextDispatchFramesByHostAndJobLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
         host.isLocalDispatch = true;
         List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(job, host, 10);
+            dispatcherDao.scheduleNextDispatchFrames(job, host, 10);
         assertEquals(10, frames.size());
     }
 
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByHostAndLayerLocal() {
+    public void testScheduleNextDispatchFramesByHostAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
         LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(layer, host, 10);
+            dispatcherDao.scheduleNextDispatchFrames(layer, host, 10);
         assertEquals(10, frames.size());
     }
 
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByProcAndJobLocal() {
+    public void testScheduleNextDispatchFramesByProcAndJobLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
         host.isLocalDispatch = true;
         List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(job, host, 10);
+            dispatcherDao.scheduleNextDispatchFrames(job, host, 10);
         assertEquals(10, frames.size());
 
         DispatchFrame frame = frames.get(0);
@@ -291,21 +297,23 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.coresReserved = 100;
         proc.isLocalDispatch = true;
 
-        frames = dispatcherDao.findNextDispatchFrames(job, proc, 10);
+        dispatcherDao.unscheduleDispatchFrames(frames, null);
+
+        frames = dispatcherDao.scheduleNextDispatchFrames(job, proc, 10);
         assertEquals(10, frames.size());
     }
 
     @Test
     @Transactional
     @Rollback(true)
-    public void testFindNextDispatchFramesByProcAndLayerLocal() {
+    public void testScheduleNextDispatchFramesByProcAndLayerLocal() {
         DispatchHost host = getHost();
         JobDetail job = getJob1();
         LayerInterface layer = jobManager.getLayers(job).get(0);
         host.isLocalDispatch = true;
 
         List<DispatchFrame> frames =
-            dispatcherDao.findNextDispatchFrames(layer, host, 10);
+            dispatcherDao.scheduleNextDispatchFrames(layer, host, 10);
         assertEquals(10, frames.size());
 
         DispatchFrame frame = frames.get(0);
@@ -313,7 +321,9 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         proc.coresReserved = 100;
         proc.isLocalDispatch = true;
 
-        frames = dispatcherDao.findNextDispatchFrames(layer, proc, 10);
+        dispatcherDao.unscheduleDispatchFrames(frames, null);
+
+        frames = dispatcherDao.scheduleNextDispatchFrames(layer, proc, 10);
         assertEquals(10, frames.size());
     }
 
@@ -392,7 +402,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobDao.updateMinCores(job1, 0);
         jobDao.updateMinCores(job2, 1000);
 
-        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        DispatchFrame frame = dispatcherDao.scheduleNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
         assertEquals(JobState.PENDING.toString(),
@@ -428,7 +438,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobDao.updatePriority(job1, 100);
         jobDao.updatePriority(job2, 200);
 
-        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        DispatchFrame frame = dispatcherDao.scheduleNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
         assertEquals(JobState.PENDING.toString(),
@@ -462,7 +472,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobDao.updatePriority(job1, 20000);
         jobDao.updatePriority(job2, 100);
 
-        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        DispatchFrame frame = dispatcherDao.scheduleNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
         assertEquals(JobState.PENDING.toString(),
@@ -497,7 +507,7 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         jobDao.updatePriority(job1, 100);
         jobDao.updatePriority(job2, 200);
 
-        DispatchFrame frame = dispatcherDao.findNextDispatchFrame(job1, host);
+        DispatchFrame frame = dispatcherDao.scheduleNextDispatchFrame(job1, host);
         assertNotNull(frame);
 
         assertEquals(JobState.PENDING.toString(),

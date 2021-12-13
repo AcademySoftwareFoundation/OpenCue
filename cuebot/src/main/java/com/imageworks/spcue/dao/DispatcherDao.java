@@ -37,42 +37,42 @@ import com.imageworks.spcue.VirtualProc;
 public interface DispatcherDao {
 
     /**
-     * Finds the next frame on the specified job that can utilize
+     * Schedules the next frame on the specified job that can utilize
      * the free resources on the host.
      *
      * @param host
      * @param job
      * @return
      */
-    DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host);
+    DispatchFrame scheduleNextDispatchFrame(JobInterface job, DispatchHost host);
 
     /**
-     * Returns the next frame based on the supplied job
+     * Schedules the next frame based on the supplied job
      *
      * @param job
      * @param proc
      * @return DispatchFrame
      */
-    DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc);
+    DispatchFrame scheduleNextDispatchFrame(JobInterface job, VirtualProc proc);
 
     /**
-     * Finds the next frame on the specified job that can utilize
+     * Schedules the next frame on the specified job that can utilize
      * the free resources on the host.
      *
      * @param host
      * @param job
      * @return
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
+    List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job, DispatchHost host, int limit);
 
     /**
-     * Returns the next frame based on the supplied job
+     * Schedules the next frame based on the supplied job
      *
      * @param job
      * @param proc
      * @return DispatchFrame
      */
-    List<DispatchFrame> findNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
+    List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job, VirtualProc proc, int limit);
 
     /**
      * Return a list of jobs which could use resources of the specified
@@ -142,26 +142,44 @@ public interface DispatcherDao {
    Set<String> findLocalDispatchJobs(DispatchHost host);
 
    /**
-    * Return a list of frames from the given layer.
+    * Schedules a list of frames from the given layer.
     *
     * @param layer
     * @param proc
     * @param limit
     * @return
     */
-   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, VirtualProc proc,
+   List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer, VirtualProc proc,
                                               int limit);
 
    /**
-    * Return a list of frames from the given layer.
+    * Schedules a list of frames from the given layer.
     *
     * @param layer
     * @param host
     * @param limit
     * @return
     */
-   List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
+   List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer, DispatchHost host,
                                               int limit);
+
+   /**
+    * Schedules a frame with the frame's uinique ID to dispatch.
+    *
+    * @param frameId
+    * @return DispatchFrame
+    */
+   List<DispatchFrame> scheduleDispatchFrame(String frameId);
+
+   /**
+    * Unschedules the specified frames (Resets the scheduled state of the frames.)
+    *
+    * @param dispatchFrames
+    * @param excluded
+    * @return
+    */
+   void unscheduleDispatchFrames(List<DispatchFrame> dispatchFrames,
+                                 Set<DispatchFrame> excluded);
 }
 
 

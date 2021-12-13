@@ -20,11 +20,13 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
@@ -45,20 +47,23 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.GET_SCHEDULED_DISPATCH_FRAMES;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_HOST;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_PROC;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_HOST;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_PROC;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.UNSCHEDULE_DISPATCH_FRAMES;
 
 
 /**
@@ -234,110 +239,167 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
+    public List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job,
             VirtualProc proc,  int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     proc.memoryReserved,
                     proc.gpuMemoryReserved,
                     job.getJobId(),
-                    limit);
+                    limit, scheduler);
         }
         else {
-            return getJdbcTemplate().query(
-                    FIND_DISPATCH_FRAME_BY_JOB_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_PROC,
                     proc.coresReserved,
                     proc.memoryReserved,
                     proc.gpusReserved,
                     (proc.gpuMemoryReserved > 0) ? 1 : 0, proc.gpuMemoryReserved,
                     job.getJobId(), proc.hostName,
-                    job.getJobId(), limit);
+                    job.getJobId(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(JobInterface job,
+    public List<DispatchFrame> scheduleNextDispatchFrames(JobInterface job,
             DispatchHost host, int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST,
                     host.idleMemory, host.idleGpuMemory, job.getJobId(),
-                    limit);
+                    limit, scheduler);
 
         } else {
-            return getJdbcTemplate().query(
-                FIND_DISPATCH_FRAME_BY_JOB_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                SCHEDULE_DISPATCH_FRAME_BY_JOB_AND_HOST,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
                 job.getJobId(), host.getName(),
-                job.getJobId(), limit);
+                job.getJobId(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
+    public List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer,
             VirtualProc proc,  int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (proc.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     proc.memoryReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(),
-                    limit);
+                    limit, scheduler);
         }
         else {
-            return getJdbcTemplate().query(
-                    FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_PROC,
                     proc.coresReserved, proc.memoryReserved,
                     proc.gpusReserved, proc.gpuMemoryReserved,
                     layer.getLayerId(), layer.getLayerId(),
-                    proc.hostName, limit);
+                    proc.hostName, limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer,
+    public List<DispatchFrame> scheduleNextDispatchFrames(LayerInterface layer,
             DispatchHost host, int limit) {
 
+        String scheduler = UUID.randomUUID().toString();
+
         if (host.isLocalDispatch) {
-            return getJdbcTemplate().query(
-                    FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                    FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                    SCHEDULE_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                     host.idleMemory, host.idleGpuMemory, layer.getLayerId(),
-                    limit);
+                    limit, scheduler);
 
         } else {
-            return getJdbcTemplate().query(
-                FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST,
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+            getJdbcTemplate().update(
+                SCHEDULE_DISPATCH_FRAME_BY_LAYER_AND_HOST,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus, host.idleGpuMemory, layer.getLayerId(), layer.getLayerId(),
-                host.getName(), limit);
+                host.getName(), limit, scheduler);
         }
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                limit);
     }
 
 
     @Override
-    public DispatchFrame findNextDispatchFrame(JobInterface job, VirtualProc proc) {
-        return findNextDispatchFrames(job, proc, 1).get(0);
+    public DispatchFrame scheduleNextDispatchFrame(JobInterface job, VirtualProc proc) {
+        return scheduleNextDispatchFrames(job, proc, 1).get(0);
     }
 
     @Override
-    public DispatchFrame findNextDispatchFrame(JobInterface job, DispatchHost host) {
-        return findNextDispatchFrames(job, host, 1).get(0);
+    public DispatchFrame scheduleNextDispatchFrame(JobInterface job, DispatchHost host) {
+        return scheduleNextDispatchFrames(job, host, 1).get(0);
+    }
+
+    @Override
+    public List<DispatchFrame> scheduleDispatchFrame(String frameId) {
+        String scheduler = UUID.randomUUID().toString();
+
+        getJdbcTemplate().update(
+            SCHEDULE_DISPATCH_FRAME,
+            frameId,
+            scheduler);
+
+        return getJdbcTemplate().query(
+                GET_SCHEDULED_DISPATCH_FRAMES,
+                FrameDaoJdbc.DISPATCH_FRAME_MAPPER,
+                scheduler,
+                1);
+    }
+
+    @Override
+    public void unscheduleDispatchFrames(List<DispatchFrame> dispatchFrames,
+            Set<DispatchFrame> excluded) {
+        ArrayList<String> ids = new ArrayList<>(
+            dispatchFrames.size() - (excluded == null ? 0 : excluded.size()));
+        for (DispatchFrame dispatchFrame : dispatchFrames) {
+            if (excluded == null || !excluded.contains(dispatchFrame)) {
+                ids.add(dispatchFrame.getFrameId());
+            }
+        }
+        if (ids.size() > 0) {
+            String placeholders = String.join(",", Collections.nCopies(ids.size(), "?"));
+            getJdbcTemplate().update(String.format(UNSCHEDULE_DISPATCH_FRAMES, placeholders),
+                ids.toArray());
+        }
     }
 
     @Override
