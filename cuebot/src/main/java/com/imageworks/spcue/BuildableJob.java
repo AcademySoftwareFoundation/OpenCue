@@ -38,6 +38,12 @@ public class BuildableJob {
     public JobDetail detail;
 
     /**
+     * Maximum CPU cores and GPU units overrides.
+     */
+    public Integer maxCoresOverride = null;
+    public Integer maxGpusOverride = null;
+
+    /**
      * List of layers
      */
     private List<BuildableLayer> layers = new ArrayList<BuildableLayer>();

@@ -114,4 +114,18 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(layer.getMinimumGpuMemory(), 1048576);
     }
 
+    @Test
+    public void testParseMaxCoresAndMaxGpus() {
+        String xml = readJobSpec("jobspec_1_13.xml");
+        JobSpec spec = jobLauncher.parse(xml);
+        assertEquals(spec.getDoc().getDocType().getPublicID(),
+                "SPI Cue Specification Language");
+        assertEquals(spec.getDoc().getDocType().getSystemID(),
+                "http://localhost:8080/spcue/dtd/cjsl-1.13.dtd");
+        assertEquals(spec.getJobs().size(), 1);
+        BuildableJob job = spec.getJobs().get(0);
+        assertEquals(job.maxCoresOverride, Integer.valueOf(420));
+        assertEquals(job.maxGpusOverride, Integer.valueOf(42));
+    }
+
 }
