@@ -46,6 +46,7 @@ import javax.mail.internet.MimeMultipart;
 import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.log4j.Logger;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
@@ -351,5 +352,17 @@ public final class CueUtil {
         return Collections.unmodifiableList(
                 new ArrayList<Integer>(result));
     }
-}
 
+    /**
+     * Get "{prefix}.{key}" property int value
+     *
+     * @param env
+     * @param prefix  Example "dispatcher.report_queue"
+     * @param key     Example "core_pool_size"
+     */
+    public static int getIntProperty(Environment env, String prefix, String key)
+            throws IllegalStateException {
+        Integer value = env.getRequiredProperty(prefix + "." + key, Integer.class);
+        return value.intValue();
+    }
+}
