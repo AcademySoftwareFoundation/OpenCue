@@ -615,8 +615,7 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN
-                || corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 
