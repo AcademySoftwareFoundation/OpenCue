@@ -22,7 +22,8 @@ package com.imageworks.spcue.service;
 import java.util.Collection;
 import java.util.List;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 
@@ -55,7 +56,7 @@ import com.imageworks.spcue.util.FrameSet;
  * A non-transaction support class for managing jobs.
  */
 public class JobManagerSupport {
-    private static final Logger logger = Logger.getLogger(JobManagerSupport.class);
+    private static final Logger logger = LogManager.getLogger(JobManagerSupport.class);
 
     private JobManager jobManager;
     private DependManager dependManager;

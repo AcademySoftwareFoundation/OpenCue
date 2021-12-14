@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.dispatcher;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.VirtualProc;
@@ -33,7 +34,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public abstract class AbstractDispatcher {
 
-    private static final Logger logger = Logger.getLogger(AbstractDispatcher.class);
+    private static final Logger logger = LogManager.getLogger(AbstractDispatcher.class);
 
     public DispatchSupport dispatchSupport;
     public RqdClient rqdClient;

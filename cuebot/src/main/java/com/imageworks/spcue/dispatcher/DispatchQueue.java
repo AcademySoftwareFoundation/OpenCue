@@ -22,7 +22,8 @@ package com.imageworks.spcue.dispatcher;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -36,7 +37,7 @@ public class DispatchQueue {
     private final AtomicLong tasksRun = new AtomicLong(0);
     private final AtomicLong tasksRejected = new AtomicLong(0);
 
-    private static final Logger logger = Logger.getLogger(DispatchQueue.class);
+    private static final Logger logger = LogManager.getLogger(DispatchQueue.class);
 
     public DispatchQueue() {}
 

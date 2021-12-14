@@ -27,7 +27,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -68,7 +69,7 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JO
  */
 public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
-    private static final Logger logger = Logger.getLogger(DispatcherDaoJdbc.class);
+    private static final Logger logger = LogManager.getLogger(DispatcherDaoJdbc.class);
 
     public static final RowMapper<String> PKJOB_MAPPER =
         new RowMapper<String>() {

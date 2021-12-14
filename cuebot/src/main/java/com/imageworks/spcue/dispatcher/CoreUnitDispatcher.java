@@ -26,7 +26,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 
@@ -86,7 +87,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public class CoreUnitDispatcher implements Dispatcher {
     private static final Logger logger =
-        Logger.getLogger(CoreUnitDispatcher.class);
+        LogManager.getLogger(CoreUnitDispatcher.class);
 
     private DispatchSupport dispatchSupport;
 

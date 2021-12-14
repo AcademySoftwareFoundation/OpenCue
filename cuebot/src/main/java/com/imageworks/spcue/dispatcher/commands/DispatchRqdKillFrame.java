@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.rqd.RqdClient;
@@ -27,7 +28,7 @@ import com.imageworks.spcue.rqd.RqdClientException;
 
 public class DispatchRqdKillFrame implements Runnable {
 
-    private static final Logger logger = Logger.getLogger(DispatchRqdKillFrame.class);
+    private static final Logger logger = LogManager.getLogger(DispatchRqdKillFrame.class);
 
     private VirtualProc proc = null;
     private String message;

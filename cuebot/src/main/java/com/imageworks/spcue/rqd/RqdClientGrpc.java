@@ -23,7 +23,8 @@ import java.util.concurrent.TimeUnit;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -49,7 +50,7 @@ import com.imageworks.spcue.grpc.rqd.RunningFrameStatusRequest;
 import com.imageworks.spcue.grpc.rqd.RunningFrameStatusResponse;
 
 public final class RqdClientGrpc implements RqdClient {
-    private static final Logger logger = Logger.getLogger(RqdClientGrpc.class);
+    private static final Logger logger = LogManager.getLogger(RqdClientGrpc.class);
 
     private final int rqdCacheSize;
     private final int rqdCacheExpiration;

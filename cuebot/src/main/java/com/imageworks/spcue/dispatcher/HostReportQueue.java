@@ -24,13 +24,14 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 
 public class HostReportQueue extends ThreadPoolExecutor {
 
-    private static final Logger logger = Logger.getLogger(HostReportQueue.class);
+    private static final Logger logger = LogManager.getLogger(HostReportQueue.class);
 
     private static final int THREAD_POOL_SIZE_INITIAL = 6;
     private static final int THREAD_POOL_SIZE_MAX = 8;

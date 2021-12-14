@@ -19,7 +19,8 @@
 
 package com.imageworks.spcue.service;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,7 +47,7 @@ import com.imageworks.spcue.service.JobSpec;
 public class AdminManagerService implements AdminManager {
 
     @SuppressWarnings("unused")
-    private static final Logger logger = Logger.getLogger(AdminManagerService.class);
+    private static final Logger logger = LogManager.getLogger(AdminManagerService.class);
 
     private ShowDao showDao;
 

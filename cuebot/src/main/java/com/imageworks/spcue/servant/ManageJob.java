@@ -24,7 +24,8 @@ import java.util.List;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -154,7 +155,7 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.FrameSet;
 
 public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
-    private static final Logger logger = Logger.getLogger(ManageJob.class);
+    private static final Logger logger = LogManager.getLogger(ManageJob.class);
     private Whiteboard whiteboard;
     private JobManager jobManager;
     private GroupManager groupManager;

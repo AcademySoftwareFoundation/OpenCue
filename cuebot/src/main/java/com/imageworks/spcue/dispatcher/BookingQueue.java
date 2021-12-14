@@ -27,11 +27,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 
 public class BookingQueue extends ThreadPoolExecutor {
 
-    private static final Logger logger = Logger.getLogger(BookingQueue.class);
+    private static final Logger logger = LogManager.getLogger(BookingQueue.class);
 
     private static final int INITIAL_QUEUE_SIZE = 1000;
 

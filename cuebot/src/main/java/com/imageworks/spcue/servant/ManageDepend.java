@@ -21,7 +21,8 @@ package com.imageworks.spcue.servant;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LightweightDependency;
@@ -38,7 +39,7 @@ import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
 
-    private static final Logger logger = Logger.getLogger(ManageDepend.class);
+    private static final Logger logger = LogManager.getLogger(ManageDepend.class);
 
     private DependManager dependManager;
     private DispatchQueue manageQueue;

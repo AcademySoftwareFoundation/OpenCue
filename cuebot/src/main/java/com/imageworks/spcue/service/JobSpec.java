@@ -33,7 +33,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
@@ -57,7 +58,7 @@ import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
 
 public class JobSpec {
-    private static final Logger logger = Logger.getLogger(JobSpec.class);
+    private static final Logger logger = LogManager.getLogger(JobSpec.class);
 
     private String facility;
 

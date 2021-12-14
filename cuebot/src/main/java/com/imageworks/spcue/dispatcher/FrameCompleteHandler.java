@@ -24,7 +24,8 @@ import java.util.EnumSet;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -56,7 +57,7 @@ import com.imageworks.spcue.util.CueUtil;
  */
 public class FrameCompleteHandler {
 
-    private static final Logger logger = Logger.getLogger(FrameCompleteHandler.class);
+    private static final Logger logger = LogManager.getLogger(FrameCompleteHandler.class);
 
     private static final Random randomNumber = new Random();
 
