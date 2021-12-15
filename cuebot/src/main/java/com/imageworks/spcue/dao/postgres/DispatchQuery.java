@@ -112,6 +112,109 @@ public class DispatchQuery {
                 "AND job.pk_folder                  = ? ");
 
 
+    public static final String FIND_JOBS_BY_SHOW_OPTIMIZED =
+        "/* FIND_JOBS_BY_SHOW_OPTIMIZED */ " +
+        "WITH sorted_job AS ( " +
+            "SELECT " +
+                "ROW_NUMBER() OVER (ORDER BY job_resource.int_priority DESC) AS rank, " +
+                "job.pk_job                , " +
+                "job.pk_folder             , " +
+                "job_resource.int_priority , " +
+                "job_resource.int_cores    , " +
+                "job_resource.int_max_cores, " +
+                "job_resource.int_gpus     , " +
+                "job_resource.int_max_gpus   " +
+            "FROM " +
+                "job         , " +
+                "job_resource  " +
+            "WHERE " +
+                "job.pk_job          = job_resource.pk_job " +
+                "AND job.str_state   = 'PENDING' " +
+                "AND job.b_paused    = false " +
+                "AND job.pk_show     = ? " +
+                "AND job.pk_facility = ? " +
+                "AND " +
+                    "(" +
+                        "job.str_os IS NULL OR job.str_os = '' " +
+                    "OR " +
+                        "job.str_os = ? " +
+                    ") " +
+        ") " +
+        "SELECT " +
+            "sorted_job.pk_job      , " +
+            "sorted_job.int_priority, " +
+            "sorted_job.rank          " +
+        "FROM " +
+            "sorted_job     , " +
+            "folder         , " +
+            "folder_resource, " +
+            "point          , " +
+            "layer          , " +
+            "layer_stat     , " +
+            "host             " +
+        "WHERE " +
+            "sorted_job.pk_folder  = folder.pk_folder " +
+            "AND folder.pk_folder  = folder_resource.pk_folder " +
+            "AND folder.pk_dept    = point.pk_dept " +
+            "AND folder.pk_show    = point.pk_show " +
+            "AND sorted_job.pk_job = layer.pk_job " +
+            "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN layer_stat.pk_layer ELSE NULL END) = layer.pk_layer " +
+            "AND " +
+                "(" +
+                    "folder_resource.int_max_cores = -1 " +
+                "OR " +
+                    "folder_resource.int_cores < folder_resource.int_max_cores " +
+                ") " +
+            "AND " +
+                "(" +
+                    "folder_resource.int_max_gpus = -1 " +
+                    "OR " +
+                    "folder_resource.int_gpus < folder_resource.int_max_gpus " +
+                ") " +
+            "AND (CASE WHEN layer_stat.int_waiting_count > 0 THEN 1 ELSE NULL END) = 1 " +
+            "AND layer.int_cores_min <= ? " +
+            "AND layer.int_mem_min   <= ? " +
+            "AND (CASE WHEN layer.b_threadable = true THEN 1 ELSE 0 END) >= ? " +
+            "AND layer.int_gpus_min  <= ? " +
+            "AND layer.int_gpu_mem_min BETWEEN ? AND ? " +
+            "AND sorted_job.int_cores + layer.int_cores_min < sorted_job.int_max_cores " +
+            "AND sorted_job.int_gpus + layer.int_gpus_min < sorted_job.int_max_gpus " +
+            "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
+            "AND host.str_name       = ? " +
+            "AND layer.pk_layer IN ( " +
+                "SELECT " +
+                    "l.pk_layer " +
+                "FROM " +
+                    "layer l " +
+                "LEFT JOIN layer_limit ON layer_limit.pk_layer = l.pk_layer " +
+                "LEFT JOIN limit_record ON limit_record.pk_limit_record = layer_limit.pk_limit_record " +
+                "LEFT JOIN (" +
+                    "SELECT " +
+                        "limit_record.pk_limit_record, " +
+                        "SUM(layer_stat.int_running_count) AS int_sum_running " +
+                    "FROM " +
+                        "layer_limit " +
+                    "LEFT JOIN limit_record ON layer_limit.pk_limit_record = limit_record.pk_limit_record " +
+                    "LEFT JOIN layer_stat ON layer_stat.pk_layer = layer_limit.pk_layer " +
+                    "GROUP BY limit_record.pk_limit_record) AS sum_running " +
+                "ON limit_record.pk_limit_record = sum_running.pk_limit_record " +
+                "WHERE " +
+                    "sum_running.int_sum_running < limit_record.int_max_value " +
+                    "OR sum_running.int_sum_running IS NULL " +
+            ") " +
+        "LIMIT ?";
+
+
+    public static final String FIND_JOBS_BY_GROUP_OPTIMIZED =
+        FIND_JOBS_BY_SHOW_OPTIMIZED
+            .replace(
+                "FIND_JOBS_BY_SHOW_OPTIMIZED",
+                "FIND_JOBS_BY_GROUP_OPTIMIZED")
+            .replace(
+                "AND job.pk_show     = ? ",
+                "AND job.pk_folder   = ? ");
+
+
     private static final String replaceQueryForFifo(String query) {
         return query
             .replace(
@@ -120,6 +223,7 @@ public class DispatchQuery {
             .replace(
                 "ORDER BY job_resource.int_priority DESC",
                 "ORDER BY job_resource.int_priority DESC, job.ts_started ASC")
+            // FIND_JOBS_BY_SHOW_OPTIMIZED is not affected by this replace.
             .replace(
                 "WHERE rank < ?",
                 "WHERE rank < ? ORDER BY rank");
@@ -127,6 +231,11 @@ public class DispatchQuery {
 
     public static final String FIND_JOBS_FIFO_BY_SHOW = replaceQueryForFifo(FIND_JOBS_BY_SHOW);
     public static final String FIND_JOBS_FIFO_BY_GROUP = replaceQueryForFifo(FIND_JOBS_BY_GROUP);
+    public static final String FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED =
+        replaceQueryForFifo(FIND_JOBS_BY_SHOW_OPTIMIZED);
+    public static final String FIND_JOBS_FIFO_BY_GROUP_OPTIMIZED =
+        replaceQueryForFifo(FIND_JOBS_BY_GROUP_OPTIMIZED);
+
 
     /**
      * Dispatch a host in local booking mode.
