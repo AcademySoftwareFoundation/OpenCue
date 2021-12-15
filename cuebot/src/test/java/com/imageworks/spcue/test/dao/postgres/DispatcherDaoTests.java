@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Resource;
 
+import org.apache.commons.lang.StringUtils;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -61,6 +62,15 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
+
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP_OPTIMIZED;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW_OPTIMIZED;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP_OPTIMIZED;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -519,9 +529,67 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     }
 
     @Test
-    @Transactional
-    @Rollback(true)
     public void testFifoSchedulingEnabled() {
         assertFalse(dispatcherDao.getFifoSchedulingEnabled());
+    }
+
+    @Test
+    public void testFindJobsOptimizationEnabled() {
+        assertFalse(dispatcherDao.getFindJobsOptimizationEnabled());
+    }
+
+    @Test
+    public void testFindJobsQueryStrings() {
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW, FIND_JOBS_BY_GROUP).startsWith("GROUP"));
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW, FIND_JOBS_BY_GROUP.replace("GROUP", "SHOW"))
+                .startsWith("folder"));
+
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW, FIND_JOBS_FIFO_BY_SHOW).startsWith("FIFO_BY_SHOW"));
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW, FIND_JOBS_FIFO_BY_SHOW.replace("FIFO_", ""))
+                .startsWith(", job.ts_started ASC"));
+
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW_OPTIMIZED, FIND_JOBS_BY_GROUP_OPTIMIZED).startsWith("GROUP"));
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW_OPTIMIZED, FIND_JOBS_BY_GROUP_OPTIMIZED.replace("GROUP", "SHOW"))
+                .startsWith("folder"));
+
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW_OPTIMIZED, FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED)
+                .startsWith("FIFO_BY_SHOW"));
+        assertTrue(StringUtils.difference(
+            FIND_JOBS_BY_SHOW_OPTIMIZED, FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED.replace("FIFO_", ""))
+                .startsWith(", job.ts_started ASC"));
+    }
+
+    @Test
+    public void testFindJobsQueries() {
+        assertEquals(dispatcherDao.getFindJobsByShowQuery(), FIND_JOBS_BY_SHOW);
+        assertEquals(dispatcherDao.getFindJobsByGroupQuery(), FIND_JOBS_BY_GROUP);
+
+        boolean fifoSchedulingEnabled = dispatcherDao.getFifoSchedulingEnabled();
+        boolean findJobsOptimizationEnabled = dispatcherDao.getFindJobsOptimizationEnabled();
+
+        dispatcherDao.setFifoSchedulingEnabled(true);
+        dispatcherDao.setFindJobsOptimizationEnabled(false);
+        assertEquals(dispatcherDao.getFindJobsByShowQuery(), FIND_JOBS_FIFO_BY_SHOW);
+        assertEquals(dispatcherDao.getFindJobsByGroupQuery(), FIND_JOBS_FIFO_BY_GROUP);
+
+        dispatcherDao.setFifoSchedulingEnabled(false);
+        dispatcherDao.setFindJobsOptimizationEnabled(true);
+        assertEquals(dispatcherDao.getFindJobsByShowQuery(), FIND_JOBS_BY_SHOW_OPTIMIZED);
+        assertEquals(dispatcherDao.getFindJobsByGroupQuery(), FIND_JOBS_BY_GROUP_OPTIMIZED);
+
+        dispatcherDao.setFifoSchedulingEnabled(true);
+        dispatcherDao.setFindJobsOptimizationEnabled(true);
+        assertEquals(dispatcherDao.getFindJobsByShowQuery(), FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED);
+        assertEquals(dispatcherDao.getFindJobsByGroupQuery(), FIND_JOBS_FIFO_BY_GROUP_OPTIMIZED);
+
+        dispatcherDao.setFifoSchedulingEnabled(fifoSchedulingEnabled);
+        dispatcherDao.setFindJobsOptimizationEnabled(findJobsOptimizationEnabled);
     }
 }
