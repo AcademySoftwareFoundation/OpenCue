@@ -53,10 +53,14 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAM
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP_OPTIMIZED;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW_OPTIMIZED;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP_OPTIMIZED;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
@@ -134,10 +138,21 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
      */
     private boolean fifoSchedulingEnabled;
 
+    /**
+      * Whether FIND_JOBS optimization is enabled or not.
+      */
+    private boolean findJobsOptimizationEnabled;
+
+    private String findJobsByShowQuery;
+    private String findJobsByGroupQuery;
+
     @Autowired
     public DispatcherDaoJdbc(Environment env) {
         fifoSchedulingEnabled = env.getProperty(
             "dispatcher.fifo_scheduling_enabled", Boolean.class, false);
+        findJobsOptimizationEnabled = env.getProperty(
+            "dispatcher.find_jobs_optimization_enabled", Boolean.class, false);
+        updateFindJobsQueries();
     }
 
     @Override
@@ -148,6 +163,48 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     @Override
     public void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled) {
         this.fifoSchedulingEnabled = fifoSchedulingEnabled;
+        updateFindJobsQueries();
+    }
+
+    @Override
+    public boolean getFindJobsOptimizationEnabled() {
+        return findJobsOptimizationEnabled;
+    }
+
+    @Override
+    public void setFindJobsOptimizationEnabled(boolean findJobsOptimizationEnabled) {
+        this.findJobsOptimizationEnabled = findJobsOptimizationEnabled;
+        updateFindJobsQueries();
+    }
+
+    @Override
+    public String getFindJobsByShowQuery() {
+        return findJobsByShowQuery;
+    }
+
+    @Override
+    public String getFindJobsByGroupQuery() {
+        return findJobsByGroupQuery;
+    }
+
+    private void updateFindJobsQueries() {
+        if (findJobsOptimizationEnabled) {
+            if (fifoSchedulingEnabled) {
+                findJobsByShowQuery = FIND_JOBS_FIFO_BY_SHOW_OPTIMIZED;
+                findJobsByGroupQuery = FIND_JOBS_FIFO_BY_GROUP_OPTIMIZED;
+            } else {
+                findJobsByShowQuery = FIND_JOBS_BY_SHOW_OPTIMIZED;
+                findJobsByGroupQuery = FIND_JOBS_BY_GROUP_OPTIMIZED;
+            }
+        } else {
+            if (fifoSchedulingEnabled) {
+                findJobsByShowQuery = FIND_JOBS_FIFO_BY_SHOW;
+                findJobsByGroupQuery = FIND_JOBS_FIFO_BY_GROUP;
+            } else {
+                findJobsByShowQuery = FIND_JOBS_BY_SHOW;
+                findJobsByGroupQuery = FIND_JOBS_BY_GROUP;
+            }
+        }
     }
 
     /**
@@ -211,7 +268,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             }
 
             result.addAll(getJdbcTemplate().query(
-                    fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
+                    findJobsByShowQuery,
                     PKJOB_MAPPER,
                     s.getShowId(), host.getFacilityId(), host.os,
                     host.idleCores, host.idleMemory,
@@ -246,7 +303,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     @Override
     public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         List<String> result = getJdbcTemplate().query(
-                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_GROUP : FIND_JOBS_BY_GROUP,
+                findJobsByGroupQuery,
                 PKJOB_MAPPER,
                 g.getGroupId(),host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
@@ -406,7 +463,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
         List<String> result = getJdbcTemplate().query(
-                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
+                findJobsByShowQuery,
                 PKJOB_MAPPER,
                 show.getShowId(), host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,

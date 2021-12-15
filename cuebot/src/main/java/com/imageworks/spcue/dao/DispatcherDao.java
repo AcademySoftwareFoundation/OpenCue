@@ -176,6 +176,34 @@ public interface DispatcherDao {
     * @param fifoSchedulingEnabled
     */
    void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled);
+
+   /**
+    * Return whether FIND_JOBS optimization is enabled or not.
+    *
+    * @return
+    */
+   boolean getFindJobsOptimizationEnabled();
+
+   /**
+     * Set whether FIND_JOBS optimization is enabled or not.
+     *
+     * @param findJobsOptimizationEnabled
+     */
+   void setFindJobsOptimizationEnabled(boolean findJobsOptimizationEnabled);
+
+   /**
+     * Get FIND_JOBS_BY_SHOW query
+     *
+     * @return
+     */
+   String getFindJobsByShowQuery();
+
+   /**
+     * Get FIND_JOBS_BY_GROUP query
+     *
+     * @return
+     */
+   String getFindJobsByGroupQuery();
 }
 
 
