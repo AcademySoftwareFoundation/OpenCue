@@ -26,25 +26,37 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
+import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = LogManager.getLogger(HostReportQueue.class);
 
-    private static final int THREAD_POOL_SIZE_INITIAL = 6;
-    private static final int THREAD_POOL_SIZE_MAX = 8;
-    private static final int QUEUE_SIZE_INITIAL = 1000;
-
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
+    private int queueCapacity;
 
-    public HostReportQueue() {
-        super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE_INITIAL));
+    private HostReportQueue(String name, int corePoolSize, int maxPoolSize, int queueCapacity) {
+        super(corePoolSize, maxPoolSize, 10 , TimeUnit.SECONDS,
+              new LinkedBlockingQueue<Runnable>(queueCapacity));
+        this.queueCapacity = queueCapacity;
         this.setRejectedExecutionHandler(rejectCounter);
+        logger.info(name +
+                    " core:" + getCorePoolSize() +
+                    " max:" + getMaximumPoolSize() +
+                    " capacity:" + queueCapacity);
+    }
 
+    @Autowired
+    public HostReportQueue(Environment env, String name, String propertyKeyPrefix) {
+        this(name,
+             CueUtil.getIntProperty(env, propertyKeyPrefix, "core_pool_size"),
+             CueUtil.getIntProperty(env, propertyKeyPrefix, "max_pool_size"),
+             CueUtil.getIntProperty(env, propertyKeyPrefix, "queue_capacity"));
     }
 
     public void execute(DispatchHandleHostReport r) {
@@ -59,6 +71,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public long getRejectedTaskCount() {
         return rejectCounter.getRejectCount();
+    }
+
+    public int getQueueCapacity() {
+        return queueCapacity;
     }
 
     public void shutdown() {

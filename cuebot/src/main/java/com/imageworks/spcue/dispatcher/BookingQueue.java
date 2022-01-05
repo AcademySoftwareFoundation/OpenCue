@@ -27,19 +27,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.util.CueUtil;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+
 
 public class BookingQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = LogManager.getLogger(BookingQueue.class);
 
-    private static final int INITIAL_QUEUE_SIZE = 1000;
-
-    private static final int THREADS_MINIMUM = 6;
-    private static final int THREADS_MAXIMUM = 6;
     private static final int THREADS_KEEP_ALIVE_SECONDS = 10;
 
+    private int queueCapacity;
     private int baseSleepTimeMillis = 400;
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
 
@@ -51,11 +52,25 @@ public class BookingQueue extends ThreadPoolExecutor {
             .weakValues()
             .build();
 
-    public BookingQueue(int sleepTimeMs) {
-        super(THREADS_MINIMUM, THREADS_MAXIMUM, THREADS_KEEP_ALIVE_SECONDS,
-                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(INITIAL_QUEUE_SIZE));
+    private BookingQueue(int corePoolSize, int maxPoolSize, int queueCapacity, int sleepTimeMs) {
+        super(corePoolSize, maxPoolSize, THREADS_KEEP_ALIVE_SECONDS,
+                TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(queueCapacity));
+        this.queueCapacity = queueCapacity;
         this.baseSleepTimeMillis = sleepTimeMs;
         this.setRejectedExecutionHandler(rejectCounter);
+        logger.info("BookingQueue" +
+                    " core:" + getCorePoolSize() +
+                    " max:" + getMaximumPoolSize() +
+                    " capacity:" + queueCapacity +
+                    " sleepTimeMs:" + sleepTimeMs);
+    }
+
+    @Autowired
+    public BookingQueue(Environment env, String propertyKeyPrefix, int sleepTimeMs) {
+        this(CueUtil.getIntProperty(env, propertyKeyPrefix, "core_pool_size"),
+             CueUtil.getIntProperty(env, propertyKeyPrefix, "max_pool_size"),
+             CueUtil.getIntProperty(env, propertyKeyPrefix, "queue_capacity"),
+             sleepTimeMs);
     }
 
     public void execute(DispatchBookHost r) {
@@ -70,6 +85,10 @@ public class BookingQueue extends ThreadPoolExecutor {
 
     public long getRejectedTaskCount() {
         return rejectCounter.getRejectCount();
+    }
+
+    public int getQueueCapacity() {
+        return queueCapacity;
     }
 
     public void shutdown() {
@@ -88,7 +107,7 @@ public class BookingQueue extends ThreadPoolExecutor {
     public int sleepTime() {
         if (!isShutdown.get()) {
             int sleep = (int) (baseSleepTimeMillis - (((this.getQueue().size () /
-                    (float) INITIAL_QUEUE_SIZE) * baseSleepTimeMillis)) * 2);
+                    (float) queueCapacity) * baseSleepTimeMillis)) * 2);
             if (sleep < 0) {
                 sleep = 0;
             }

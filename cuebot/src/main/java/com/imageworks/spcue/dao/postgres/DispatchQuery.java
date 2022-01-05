@@ -112,6 +112,22 @@ public class DispatchQuery {
                 "AND job.pk_folder                  = ? ");
 
 
+    private static final String replaceQueryForFifo(String query) {
+        return query
+            .replace(
+                "JOBS_BY",
+                "JOBS_FIFO_BY")
+            .replace(
+                "ORDER BY job_resource.int_priority DESC",
+                "ORDER BY job_resource.int_priority DESC, job.ts_started ASC")
+            .replace(
+                "WHERE rank < ?",
+                "WHERE rank < ? ORDER BY rank");
+    }
+
+    public static final String FIND_JOBS_FIFO_BY_SHOW = replaceQueryForFifo(FIND_JOBS_BY_SHOW);
+    public static final String FIND_JOBS_FIFO_BY_GROUP = replaceQueryForFifo(FIND_JOBS_BY_GROUP);
+
     /**
      * Dispatch a host in local booking mode.
      */

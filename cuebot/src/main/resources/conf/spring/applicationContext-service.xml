@@ -54,28 +54,34 @@
     </constructor-arg>
   </bean>
 
-  <bean id="launchQueue" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
-    <property name="corePoolSize" value="1" />
-    <property name="maxPoolSize" value="1" />
-    <property name="queueCapacity" value="100" />
+  <bean id="launchQueue" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>LaunchQueue</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="java.lang.String">
+      <value>dispatcher.launch_queue</value>
+    </constructor-arg>
   </bean>
 
-  <bean id="dispatchPool" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
-    <property name="corePoolSize" value="4" />
-    <property name="maxPoolSize" value="4" />
-    <property name="queueCapacity" value="500" />
+  <bean id="dispatchPool" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>DispatchPool</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="java.lang.String">
+      <value>dispatcher.dispatch_pool</value>
+    </constructor-arg>
   </bean>
 
-  <bean id="killPool" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
-    <property name="corePoolSize" value="4" />
-    <property name="maxPoolSize" value="4" />
-    <property name="queueCapacity" value="500" />
-  </bean>
-
-  <bean id="managePool" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
-    <property name="corePoolSize" value="8" />
-    <property name="maxPoolSize" value="8" />
-    <property name="queueCapacity" value="250" />
+  <bean id="managePool" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>ManagePool</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="java.lang.String">
+      <value>dispatcher.manage_pool</value>
+    </constructor-arg>
   </bean>
 
   <bean id="dispatchQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue" destroy-method="shutdown">
@@ -92,11 +98,31 @@
     <property name="dispatchPool" ref="managePool" />
   </bean>
 
-  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown"/>
-  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown"/>
+  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>ReportQueue</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="java.lang.String">
+      <value>dispatcher.report_queue</value>
+    </constructor-arg>
+  </bean>
+  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>KillQueue</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="java.lang.String">
+      <value>dispatcher.kill_queue</value>
+    </constructor-arg>
+  </bean>
 
   <bean id="bookingQueue" class="com.imageworks.spcue.dispatcher.BookingQueue" destroy-method="shutdown">
-    <constructor-arg index="0" type="int">
+    <!-- arg0: env -->
+    <constructor-arg index="1" type="java.lang.String">
+      <value>dispatcher.booking_queue</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
       <value>300</value>
     </constructor-arg>
   </bean>

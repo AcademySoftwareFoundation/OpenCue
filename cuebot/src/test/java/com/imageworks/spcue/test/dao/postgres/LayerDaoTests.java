@@ -20,6 +20,8 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -715,10 +717,21 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         LayerInterface layerResult = layerDao.getLayer(layer.getLayerId());
         List<LimitEntity> limits = layerDao.getLimits(layerResult);
         assertEquals(limits.size(), 4);
-        assertEquals(limits.get(0).id, getTestLimitId(LIMIT_NAME));
-        assertEquals(limits.get(1).id, getTestLimitId(LIMIT_TEST_A));
-        assertEquals(limits.get(2).id, getTestLimitId(LIMIT_TEST_B));
-        assertEquals(limits.get(3).id, getTestLimitId(LIMIT_TEST_C));
+        List<String> sourceIds = Arrays.asList(
+            getTestLimitId(LIMIT_NAME),
+            getTestLimitId(LIMIT_TEST_A),
+            getTestLimitId(LIMIT_TEST_B),
+            getTestLimitId(LIMIT_TEST_C)
+        );
+        List<String> resultIds = Arrays.asList(
+            limits.get(0).id,
+            limits.get(1).id,
+            limits.get(2).id,
+            limits.get(3).id
+        );
+        Collections.sort(sourceIds);
+        Collections.sort(resultIds);
+        assertEquals(sourceIds, resultIds);
     }
 
     @Test

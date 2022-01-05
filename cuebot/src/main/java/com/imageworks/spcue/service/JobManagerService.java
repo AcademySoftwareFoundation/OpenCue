@@ -66,6 +66,7 @@ import com.imageworks.spcue.grpc.limit.Limit;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.util.FrameSet;
 import com.imageworks.spcue.util.JobLogUtil;
+import com.imageworks.spcue.util.Convert;
 
 @Transactional
 public class JobManagerService implements JobManager {
@@ -174,6 +175,13 @@ public class JobManagerService implements JobManager {
         for (BuildableJob job: spec.getJobs()) {
 
             JobDetail d = createJob(job);
+            if (job.maxCoresOverride != null) {
+                jobDao.updateMaxCores(d,
+                    Convert.coresToWholeCoreUnits(job.maxCoresOverride.intValue()));
+            }
+            if (job.maxGpusOverride != null) {
+                jobDao.updateMaxGpus(d, job.maxGpusOverride.intValue());
+            }
             if (job.getPostJob() != null) {
                 BuildableJob postJob = job.getPostJob();
                 postJob.env.put("CUE_PARENT_JOB_ID", d.id);
