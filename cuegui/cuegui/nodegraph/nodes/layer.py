@@ -1,8 +1,26 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Implementation of a Cue Layer node that works with NodeGraphQt"""
+
+
 from __future__ import division
 import os
 from PySide2 import QtGui
 import NodeGraphQt.qgraphics.node_base
-from cuegui.CueNodeGraphQt.nodes.base import CueBaseNode
+from cuegui.nodegraph.nodes.base import CueBaseNode
 from cuegui.Constants import RGB_FRAME_STATE
 import cuegui.images
 import opencue
@@ -20,14 +38,15 @@ class CueLayerNode(CueBaseNode):
         self.set_name(layerRpcObject.name())
 
         NodeGraphQt.qgraphics.node_base.NODE_ICON_SIZE = 30
-        if layerRpcObject.data.services:
-            app = layerRpcObject.data.services[0]
-            images_path = cuegui.images.__path__[0]
-            icon_path = os.path.join(images_path, 'apps', app + '.png')
-            if os.path.exists(icon_path):
-                self.set_icon(icon_path)
+        services = layerRpcObject.services()
+        if services:
+            app = services[0].name()
+            imagesPath = cuegui.images.__path__[0]
+            iconPath = os.path.join(imagesPath, 'apps', app + '.png')
+            if os.path.exists(iconPath):
+                self.set_icon(iconPath)
 
-        self.add_progress_bar(
+        self.addProgressBar(
             'succeededFrames',
             '',
             layerRpcObject.succeededFrames(),
@@ -35,12 +54,12 @@ class CueLayerNode(CueBaseNode):
             format='%v / %m'
         )
 
-        self.update_node_color(layerRpcObject)
+        self.updateNodeColour(layerRpcObject)
         font = self.view.text_item.font()
         font.setPointSize(16)
         self.view.text_item.setFont(font)
 
-    def update_node_color(self, layerRpcObject):
+    def updateNodeColour(self, layerRpcObject):
         # default colour
         r, g, b = self.color()
         color = QtGui.QColor(r, g, b)
@@ -63,7 +82,7 @@ class CueLayerNode(CueBaseNode):
             color.blue() // 2
         )
 
-    def set_rpcObject(self, rpcObject):
-        super(CueLayerNode, self).set_rpcObject(rpcObject)
+    def setRpcObject(self, rpcObject):
+        super(CueLayerNode, self).setRpcObject(rpcObject)
         self.set_property('succeededFrames', rpcObject.succeededFrames())
-        self.update_node_color(rpcObject)
+        self.updateNodeColour(rpcObject)

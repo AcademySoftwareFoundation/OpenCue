@@ -55,13 +55,13 @@ class MonitorGraphDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         if cuegui.Utils.isJob(job) and self.__job and opencue.id(job) == opencue.id(self.__job):
             return
 
-        new_job = cuegui.Utils.findJob(job)
-        if new_job:
-            self.__job = new_job
-            self.setWindowTitle("%s" % new_job.data.name)
+        newJob = cuegui.Utils.findJob(job)
+        if newJob:
+            self.__job = newJob
+            self.setWindowTitle("%s" % newJob.name())
             self.raise_()
 
-            self.__monitorGraph.set_job(new_job)
+            self.__monitorGraph.setJob(newJob)
         elif not job and self.__job:
             self.__unmonitor(self.__job)
 
@@ -73,4 +73,4 @@ class MonitorGraphDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             self.__job = None
             self.setWindowTitle("Monitor Job Graph")
 
-            self.__monitorGraph.set_job(None)
+            self.__monitorGraph.setJob(None)

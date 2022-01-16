@@ -1,3 +1,26 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Module defining custom widgets that appear on nodes in the nodegraph.
+
+The classes defined here inherit from NodeGraphQt base classes, therefore any
+snake_case methods defined here are overriding the base class and must remain
+snake_case to work properly.
+"""
+
+
 from Qt import QtWidgets, QtCore
 import NodeGraphQt
 from NodeGraphQt.widgets.node_widgets import NodeBaseWidget
@@ -27,23 +50,17 @@ QProgressBar::chunk {
 }
         '''
         self._progressbar.setStyleSheet(progress_style)
-        self.setWidget(self._progressbar)
+        self.set_custom_widget(self._progressbar)
         self.text = str(value)
 
     @property
     def type_(self):
         return 'ProgressBarNodeWidget'
 
-    @property
-    def widget(self):
-        return self._progressbar
-
-    @property
-    def value(self):
+    def get_value(self):
         return self._progressbar.value()
 
-    @value.setter
-    def value(self, value=0):
+    def set_value(self, value=0):
         if int(float(value)) != self.value:
             self._progressbar.setValue(int(float(value)))
             self._value_changed()

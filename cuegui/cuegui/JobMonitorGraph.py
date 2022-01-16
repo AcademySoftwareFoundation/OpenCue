@@ -1,9 +1,27 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""TODO"""
+
+
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import cuegui.Utils
 import cuegui.MenuActions
-from cuegui.CueNodeGraphQt import CueLayerNode
+from cuegui.nodegraph import CueLayerNode
 from cuegui.AbstractGraphWidget import AbstractGraphWidget
 
 
@@ -11,12 +29,12 @@ class JobMonitorGraph(AbstractGraphWidget):
 
     def __init__(self, parent=None):
         super(JobMonitorGraph, self).__init__(parent=parent)
-        self.setup_context_menu()
+        self.setupContextMenu()
 
         # wire signals
-        QtGui.qApp.select_layers.connect(self.handle_select_objects)
+        QtGui.qApp.select_layers.connect(self.handleSelectObjects)
 
-    def on_node_selection_changed(self):
+    def onNodeSelectionChanged(self):
         '''Notify other widgets of Layer selection.
 
         Emit signal to notify other widgets of Layer selection, this keeps
@@ -25,13 +43,13 @@ class JobMonitorGraph(AbstractGraphWidget):
         Also force updates the nodes, as the timed updates are infrequent.
         '''
         self.update()
-        layers = self.selected_objects()
+        layers = self.selectedObjects()
         layer_names = [layer.data.name for layer in layers]
         QtGui.qApp.select_layers.emit(layers)
 
-    def setup_context_menu(self):
+    def setupContextMenu(self):
         self.__menuActions = cuegui.MenuActions.MenuActions(
-            self, self.update, self.selected_objects, self.get_job
+            self, self.update, self.selectedObjects, self.getJob
         )
 
         menu = self.graph.context_menu().qmenu
@@ -49,22 +67,17 @@ class JobMonitorGraph(AbstractGraphWidget):
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "setProperties")
         menu.addSeparator()
-        # self.__menuActions.layers().addAction(menu, "previewRVset")
-        # self.__menuActions.layers().addAction(menu, "previewRVmerge")
-        # menu.addSeparator()
-        # self.__menuActions.layers().addAction(menu, "copyOutputPath")
-        menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "kill")
         self.__menuActions.layers().addAction(menu, "eat")
         self.__menuActions.layers().addAction(menu, "retry")
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "retryDead")
 
-    def set_job(self, job):
+    def setJob(self, job):
         '''Set Job to be displayed
         '''
         self.timer.stop()
-        self.clear_graph()
+        self.clearGraph()
 
         if job is None:
             self.job = None
@@ -72,20 +85,20 @@ class JobMonitorGraph(AbstractGraphWidget):
 
         job = cuegui.Utils.findJob(job)
         self.job = job
-        self.create_graph()
-        self.layout_graph(horizontal=True)
+        self.createGraph()
+        self.layoutGraph(horizontal=True)
         self.timer.start()
     
-    def get_job(self):
+    def getJob(self):
         return self.job
 
-    def selected_objects(self):
+    def selectedObjects(self):
         '''Return the selected Layer rpcObjects in the graph.
         '''
-        layers = [n.rpcObject() for n in self.graph.selected_nodes() if isinstance(n, CueLayerNode)]
+        layers = [n.rpcObject for n in self.graph.selected_nodes() if isinstance(n, CueLayerNode)]
         return layers
 
-    def create_graph(self):
+    def createGraph(self):
         '''Create the graph to visualise the grid job submission
         '''
         if not self.job:
@@ -100,16 +113,21 @@ class JobMonitorGraph(AbstractGraphWidget):
             node.set_name(layer.name())
 
         # setup connections
-        self.setup_node_connections()
+        self.setupNodeConnections()
 
-    def setup_node_connections(self):
+    def setupNodeConnections(self):
         for node in self.graph.all_nodes():
-            rpcObject = node.rpcObject()
-            for depend in rpcObject.getWhatDependsOnThis():
+            for depend in node.rpcObject.getWhatDependsOnThis():
                 child_node = self.graph.get_node_by_name(depend.dependErLayer())
                 if child_node:
                     # todo check if connection exists
                     child_node.set_input(0, node.output(0))
+
+        for node in self.graph.all_nodes():
+            for port in node.output_ports():
+                port.lock()
+            for port in node.input_ports():
+                port.lock()
 
     def update(self):
         '''Update nodes with latest Layer data
@@ -119,4 +137,4 @@ class JobMonitorGraph(AbstractGraphWidget):
         layers = self.job.getLayers()
         for layer in layers:
             node = self.graph.get_node_by_name(layer.name())
-            node.set_rpcObject(layer)
+            node.setRpcObject(layer)

@@ -1,9 +1,26 @@
+#  Copyright Contributors to the OpenCue Project
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
+
+"""Base class for CueGUI graph widgets."""
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 from NodeGraphQt import NodeGraph
-from cuegui.CueNodeGraphQt import CueLayerNode
+from cuegui.nodegraph import CueLayerNode
 
 
 class AbstractGraphWidget(QtWidgets.QWidget):
@@ -16,7 +33,7 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.timer.timeout.connect(self.update)
         self.timer.setInterval(1000 * 20)
 
-        self.graph.node_selection_changed.connect(self.on_node_selection_changed)
+        self.graph.node_selection_changed.connect(self.onNodeSelectionChanged)
         QtGui.qApp.quit.connect(self.timer.stop)
 
     def setupUI(self):
@@ -24,7 +41,6 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.graph = NodeGraph()
         try:
             self.graph.register_node(CueLayerNode)
-            self.graph.register_node(BackdropNode)
         except Exception:
             pass
         self.graph.viewer().installEventFilter(self)
@@ -43,7 +59,7 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.graph.viewer())
 
-    def on_node_selection_changed(self):
+    def onNodeSelectionChanged(self):
         '''Slot run when a node is selected.
 
         Updates the nodes to ensure they're visualising current data.
@@ -51,11 +67,11 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         '''
         self.update()
 
-    def handle_select_objects(self, rpcObjects):
+    def handleSelectObjects(self, rpcObjects):
         '''Select incoming objects in graph.
         '''
-        received = [o.data.name for o in rpcObjects]
-        current = [rpcObject.data.name for rpcObject in self.selected_objects()]
+        received = [o.name() for o in rpcObjects]
+        current = [rpcObject.name() for rpcObject in self.selectedObjects()]
         if received == current:
             #  prevent recursing
             return
@@ -63,13 +79,13 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         for node in self.graph.all_nodes():
             node.set_selected(False)
         for rpcObject in rpcObjects:
-            node = self.graph.get_node_by_name(rpcObject.data.name)
+            node = self.graph.get_node_by_name(rpcObject.name())
             node.set_selected(True)
 
-    def selected_objects(self):
+    def selectedObjects(self):
         '''Return the selected Layer rpcObjects in the graph.
         '''
-        rpcObjects = [n.rpcObject() for n in self.graph.selected_nodes()]
+        rpcObjects = [n.rpcObject for n in self.graph.selected_nodes()]
         return rpcObjects
 
     def eventFilter(self, target, event):
@@ -84,31 +100,36 @@ class AbstractGraphWidget(QtWidgets.QWidget):
                     if event.key() == QtCore.Qt.Key_F:
                         viewer.center_selection()
                     if event.key() == QtCore.Qt.Key_L:
-                        self.layout_graph()
+                        self.layoutGraph()
 
         return super(AbstractGraphWidget, self).eventFilter(target, event)
 
-    def clear_graph(self):
+    def clearGraph(self):
         '''Clear all nodes from the graph
         '''
+        for node in self.graph.all_nodes():
+            for port in node.output_ports():
+                port.unlock()
+            for port in node.input_ports():
+                port.unlock()
         self.graph.clear_session()
 
-    def create_graph(self):
+    def createGraph(self):
         '''Create the graph to visualise OpenCue objects
         '''
         raise NotImplementedError()
 
-    def get_root_nodes(self):
-        root_nodes = []
+    def getRootNodes(self):
+        rootNodes = []
         nodes = self.graph.all_nodes()
         for node in nodes:
             if any([p for p in node.inputs().values() if p.connected_ports()]):
                 continue
             else:
-                root_nodes.append(node)
-        return root_nodes
+                rootNodes.append(node)
+        return rootNodes
 
-    def get_leaf_nodes(self):
+    def getLeafNodes(self):
         leaf_nodes = []
         nodes = self.graph.all_nodes()
         for node in nodes:
@@ -120,63 +141,63 @@ class AbstractGraphWidget(QtWidgets.QWidget):
                 leaf_nodes.append(node)
         return leaf_nodes
 
-    def layout_graph(self, horizontal=True):
+    def layoutGraph(self, horizontal=True):
         '''Layout the graph
         '''
-        root_nodes = self.get_root_nodes()
-        num_roots = len(root_nodes)
-        for i, node in enumerate(root_nodes):
+        rootNodes = self.getRootNodes()
+        numRoots = len(rootNodes)
+        for i, node in enumerate(rootNodes):
             if horizontal:
-                height = self.node_height()
+                height = self.nodeHeight()
             else:
-                height = self.node_width()
+                height = self.nodeWidth()
             x = 0
-            y = (i - num_roots) * (height + 50)
+            y = (i - numRoots) * (height + 50)
             if horizontal:
                 node.set_pos(x, y)
             else:
                 node.set_pos(y, x)
-            self.layout_node_children(node, x, y, horizontal=horizontal)
+            self.layoutNodeChildren(node, x, y, horizontal=horizontal)
 
         self.graph.center_on()
 
-    def layout_node_children(self, node, x, y, horizontal=True):
+    def layoutNodeChildren(self, node, x, y, horizontal=True):
         '''Recursively layout a nodes children relative to itself.
         '''
         ports = []
-        for port in node.outputs().values():
+        for port in node.output_ports():
             ports += port.connected_ports()
 
-        num_ports = len(ports)
+        numPorts = len(ports)
         for j, port in enumerate(ports):
-            child_node = port.node()
+            childNode = port.node()
 
             if horizontal:
-                height = self.node_height()
-                width = self.node_width()
-                child_width = self.node_width()
+                height = self.nodeHeight()
+                width = self.nodeWidth()
+                childWidth = self.nodeWidth()
             else:
-                height = self.node_width()
-                width = self.node_height()
-                child_width = self.node_height()
+                height = self.nodeWidth()
+                width = self.nodeHeight()
+                childWidth = self.nodeHeight()
 
-            y_delta = j - (0.5 * (num_ports - 1))
-            y_pos = y + (y_delta * (height + 100))
+            yDelta = j - (0.5 * (numPorts - 1))
+            yPos = y + (yDelta * (height + 100))
 
-            x_delta = (width + child_width + 100) * 0.5
-            x_pos = x + x_delta
+            xDelta = (width + childWidth + 100) * 0.5
+            xPos = x + xDelta
 
             if horizontal:
-                child_node.set_pos(x_pos, y_pos)
+                childNode.set_pos(xPos, yPos)
             else:
-                child_node.set_pos(y_pos, x_pos)
+                childNode.set_pos(yPos, xPos)
 
-            self.layout_node_children(child_node, x_pos, y_pos, horizontal=horizontal)
+            self.layoutNodeChildren(childNode, xPos, yPos, horizontal=horizontal)
 
-    def node_width(self):
+    def nodeWidth(self):
         return max([node.view.width for node in self.graph.all_nodes()])
 
-    def node_height(self):
+    def nodeHeight(self):
         return max([node.view.height for node in self.graph.all_nodes()])
 
     def update(self):
