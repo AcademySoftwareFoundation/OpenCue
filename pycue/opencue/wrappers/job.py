@@ -773,6 +773,11 @@ class Job(object):
         :return: most memory used by any frame in kB"""
         return self.data.job_stats.max_rss
 
+    def shutdownIfCompleted(self):
+        """Shutdown the job if it is completed."""
+        self.stub.ShutdownIfCompleted(job_pb2.JobShutdownIfCompletedRequest(job=self.data),
+                                      timeout=Cuebot.Timeout)
+
 
 class NestedJob(Job):
     """This class contains information and actions related to a nested job."""

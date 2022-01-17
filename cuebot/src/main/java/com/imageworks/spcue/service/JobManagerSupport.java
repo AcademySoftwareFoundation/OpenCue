@@ -212,6 +212,10 @@ public class JobManagerSupport {
         }
     }
 
+    public boolean isJobComplete(JobInterface job) {
+        return jobManager.isJobComplete(job);
+    }
+
     /*
      * Destructive functions require a extra Source argument which contains
      * information about the user making the call. This information is
