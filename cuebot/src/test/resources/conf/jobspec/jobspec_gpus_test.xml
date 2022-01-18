@@ -73,4 +73,39 @@
             </layer>
         </layers>
     </job>
+
+    <job name="test_depend">
+        <paused>True</paused>
+        <layers>
+            <layer name="layer_first" type="Render">
+                <cmd>true</cmd>
+                <range>0</range>
+                <chunk>1</chunk>
+                <gpus>1</gpus>
+                <gpu_memory>1</gpu_memory>
+                <services>
+                    <service>shell</service>
+                </services>
+            </layer>
+            <layer name="layer_second" type="Render">
+                <cmd>true</cmd>
+                <range>0</range>
+                <chunk>1</chunk>
+                <gpus>1</gpus>
+                <gpu_memory>1</gpu_memory>
+                <services>
+                    <service>shell</service>
+                </services>
+            </layer>
+        </layers>
+    </job>
+
+    <depends>
+        <depend type="LAYER_ON_LAYER" anyframe="False">
+            <depjob>test_depend</depjob>
+            <deplayer>layer_second</deplayer>
+            <onjob>test_depend</onjob>
+            <onlayer>layer_first</onlayer>
+        </depend>
+    </depends>
 </spec>
