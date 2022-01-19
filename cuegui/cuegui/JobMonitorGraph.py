@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""TODO"""
+"""Node graph to display Layers of a Job"""
 
 
 from PySide2 import QtGui
@@ -35,16 +35,15 @@ class JobMonitorGraph(AbstractGraphWidget):
         QtGui.qApp.select_layers.connect(self.handleSelectObjects)
 
     def onNodeSelectionChanged(self):
-        '''Notify other widgets of Layer selection.
+        """Notify other widgets of Layer selection.
 
         Emit signal to notify other widgets of Layer selection, this keeps
         all widgets with selectable Layers in sync with each other.
 
         Also force updates the nodes, as the timed updates are infrequent.
-        '''
+        """
         self.update()
         layers = self.selectedObjects()
-        layer_names = [layer.data.name for layer in layers]
         QtGui.qApp.select_layers.emit(layers)
 
     def setupContextMenu(self):
@@ -54,12 +53,12 @@ class JobMonitorGraph(AbstractGraphWidget):
 
         menu = self.graph.context_menu().qmenu
 
-        depend_menu = QtWidgets.QMenu("&Dependencies", self)
-        self.__menuActions.layers().addAction(depend_menu, "viewDepends")
-        self.__menuActions.layers().addAction(depend_menu, "dependWizard")
-        depend_menu.addSeparator()
-        self.__menuActions.layers().addAction(depend_menu, "markdone")
-        menu.addMenu(depend_menu)
+        dependMenu = QtWidgets.QMenu("&Dependencies", self)
+        self.__menuActions.layers().addAction(dependMenu, "viewDepends")
+        self.__menuActions.layers().addAction(dependMenu, "dependWizard")
+        dependMenu.addSeparator()
+        self.__menuActions.layers().addAction(dependMenu, "markdone")
+        menu.addMenu(dependMenu)
         menu.addSeparator()
         self.__menuActions.layers().addAction(menu, "useLocalCores")
         self.__menuActions.layers().addAction(menu, "reorder")
@@ -74,8 +73,8 @@ class JobMonitorGraph(AbstractGraphWidget):
         self.__menuActions.layers().addAction(menu, "retryDead")
 
     def setJob(self, job):
-        '''Set Job to be displayed
-        '''
+        """Set Job to be displayed
+        """
         self.timer.stop()
         self.clearGraph()
 
@@ -93,14 +92,14 @@ class JobMonitorGraph(AbstractGraphWidget):
         return self.job
 
     def selectedObjects(self):
-        '''Return the selected Layer rpcObjects in the graph.
-        '''
+        """Return the selected Layer rpcObjects in the graph.
+        """
         layers = [n.rpcObject for n in self.graph.selected_nodes() if isinstance(n, CueLayerNode)]
         return layers
 
     def createGraph(self):
-        '''Create the graph to visualise the grid job submission
-        '''
+        """Create the graph to visualise the grid job submission
+        """
         if not self.job:
             return
 
@@ -130,10 +129,10 @@ class JobMonitorGraph(AbstractGraphWidget):
                 port.lock()
 
     def update(self):
-        '''Update nodes with latest Layer data
+        """Update nodes with latest Layer data
 
         This is run every 20 seconds by the timer.
-        '''
+        """
         layers = self.job.getLayers()
         for layer in layers:
             node = self.graph.get_node_by_name(layer.name())

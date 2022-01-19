@@ -28,9 +28,9 @@ import opencue
 
 class CueLayerNode(CueBaseNode):
 
-    __identifier__ = 'aswf.opencue'
+    __identifier__ = "aswf.opencue"
 
-    NODE_NAME = 'Layer'
+    NODE_NAME = "Layer"
 
     def __init__(self, layerRpcObject=None):
         super(CueLayerNode, self).__init__(rpcObject=layerRpcObject)
@@ -42,16 +42,16 @@ class CueLayerNode(CueBaseNode):
         if services:
             app = services[0].name()
             imagesPath = cuegui.images.__path__[0]
-            iconPath = os.path.join(imagesPath, 'apps', app + '.png')
+            iconPath = os.path.join(imagesPath, "apps", app + ".png")
             if os.path.exists(iconPath):
                 self.set_icon(iconPath)
 
         self.addProgressBar(
-            'succeededFrames',
-            '',
+            "succeededFrames",
+            "",
             layerRpcObject.succeededFrames(),
             max=layerRpcObject.totalFrames(),
-            format='%v / %m'
+            format="%v / %m"
         )
 
         self.updateNodeColour(layerRpcObject)
@@ -84,5 +84,5 @@ class CueLayerNode(CueBaseNode):
 
     def setRpcObject(self, rpcObject):
         super(CueLayerNode, self).setRpcObject(rpcObject)
-        self.set_property('succeededFrames', rpcObject.succeededFrames())
+        self.set_property("succeededFrames", rpcObject.succeededFrames())
         self.updateNodeColour(rpcObject)

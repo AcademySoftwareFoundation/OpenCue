@@ -13,7 +13,7 @@
 #  limitations under the License.
 
 
-"""Base class representing a cue node"""
+"""Base class for any cue nodes to work with NodeGraphQt"""
 
 
 from builtins import str
@@ -24,21 +24,21 @@ from cuegui.nodegraph.widgets.nodeWidgets import NodeProgressBar
 
 class CueBaseNode(BaseNode):
 
-    __identifier__ = 'aswf.opencue'
+    __identifier__ = "aswf.opencue"
 
-    NODE_NAME = 'Base'
+    NODE_NAME = "Base"
 
     def __init__(self, rpcObject=None):
         super(CueBaseNode, self).__init__()
-        self.add_input(name='parent', multi_input=True, display_name=False)
-        self.add_output(name='children', multi_output=True, display_name=False)
+        self.add_input(name="parent", multi_input=True, display_name=False)
+        self.add_output(name="children", multi_output=True, display_name=False)
 
         self.rpcObject = rpcObject
 
     def setRpcObject(self, rpcObject):
         self.rpcObject = rpcObject
 
-    def addProgressBar(self, name='', label='', value=0, max=100, format='%p%', tab=None):
+    def addProgressBar(self, name="", label="", value=0, max=100, format="%p%", tab=None):
         self.create_property(
             name, str(value), tab=tab
         )

@@ -37,7 +37,7 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         QtGui.qApp.quit.connect(self.timer.stop)
 
     def setupUI(self):
-        '''Setup the UI.'''
+        """Setup the UI."""
         self.graph = NodeGraph()
         try:
             self.graph.register_node(CueLayerNode)
@@ -60,16 +60,16 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         layout.addWidget(self.graph.viewer())
 
     def onNodeSelectionChanged(self):
-        '''Slot run when a node is selected.
+        """Slot run when a node is selected.
 
         Updates the nodes to ensure they're visualising current data.
         Can be used to notify other widgets of object selection.
-        '''
+        """
         self.update()
 
     def handleSelectObjects(self, rpcObjects):
-        '''Select incoming objects in graph.
-        '''
+        """Select incoming objects in graph.
+        """
         received = [o.name() for o in rpcObjects]
         current = [rpcObject.name() for rpcObject in self.selectedObjects()]
         if received == current:
@@ -83,17 +83,17 @@ class AbstractGraphWidget(QtWidgets.QWidget):
             node.set_selected(True)
 
     def selectedObjects(self):
-        '''Return the selected Layer rpcObjects in the graph.
-        '''
+        """Return the selected Layer rpcObjects in the graph.
+        """
         rpcObjects = [n.rpcObject for n in self.graph.selected_nodes()]
         return rpcObjects
 
     def eventFilter(self, target, event):
-        '''Override eventFilter
+        """Override eventFilter
 
         Centre nodes in graph viewer on 'F' key press.
-        '''
-        if hasattr(self, 'graph'):
+        """
+        if hasattr(self, "graph"):
             viewer = self.graph.viewer()
             if target == viewer:
                 if event.type() == QtCore.QEvent.KeyPress:
@@ -105,8 +105,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         return super(AbstractGraphWidget, self).eventFilter(target, event)
 
     def clearGraph(self):
-        '''Clear all nodes from the graph
-        '''
+        """Clear all nodes from the graph
+        """
         for node in self.graph.all_nodes():
             for port in node.output_ports():
                 port.unlock()
@@ -115,8 +115,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.graph.clear_session()
 
     def createGraph(self):
-        '''Create the graph to visualise OpenCue objects
-        '''
+        """Create the graph to visualise OpenCue objects
+        """
         raise NotImplementedError()
 
     def getRootNodes(self):
@@ -142,8 +142,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         return leaf_nodes
 
     def layoutGraph(self, horizontal=True):
-        '''Layout the graph
-        '''
+        """Layout the graph
+        """
         rootNodes = self.getRootNodes()
         numRoots = len(rootNodes)
         for i, node in enumerate(rootNodes):
@@ -162,8 +162,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.graph.center_on()
 
     def layoutNodeChildren(self, node, x, y, horizontal=True):
-        '''Recursively layout a nodes children relative to itself.
-        '''
+        """Recursively layout a nodes children relative to itself.
+        """
         ports = []
         for port in node.output_ports():
             ports += port.connected_ports()
@@ -201,8 +201,8 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         return max([node.view.height for node in self.graph.all_nodes()])
 
     def update(self):
-        '''Update nodes with latest data
+        """Update nodes with latest data
 
         This is run every 20 seconds by the timer.
-        '''
+        """
         raise NotImplementedError()
