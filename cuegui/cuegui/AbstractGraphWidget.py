@@ -98,9 +98,9 @@ class AbstractGraphWidget(QtWidgets.QWidget):
             if target == viewer:
                 if event.type() == QtCore.QEvent.KeyPress:
                     if event.key() == QtCore.Qt.Key_F:
-                        viewer.center_selection()
+                        self.graph.center_on()
                     if event.key() == QtCore.Qt.Key_L:
-                        self.layoutGraph()
+                        self.graph.auto_layout_nodes()
 
         return super(AbstractGraphWidget, self).eventFilter(target, event)
 
@@ -118,87 +118,6 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         """Create the graph to visualise OpenCue objects
         """
         raise NotImplementedError()
-
-    def getRootNodes(self):
-        rootNodes = []
-        nodes = self.graph.all_nodes()
-        for node in nodes:
-            if any([p for p in node.inputs().values() if p.connected_ports()]):
-                continue
-            else:
-                rootNodes.append(node)
-        return rootNodes
-
-    def getLeafNodes(self):
-        leaf_nodes = []
-        nodes = self.graph.all_nodes()
-        for node in nodes:
-            if any(
-                [p for p in node.outputs().values() if p.connected_ports()]
-            ):
-                continue
-            else:
-                leaf_nodes.append(node)
-        return leaf_nodes
-
-    def layoutGraph(self, horizontal=True):
-        """Layout the graph
-        """
-        rootNodes = self.getRootNodes()
-        numRoots = len(rootNodes)
-        for i, node in enumerate(rootNodes):
-            if horizontal:
-                height = self.nodeHeight()
-            else:
-                height = self.nodeWidth()
-            x = 0
-            y = (i - numRoots) * (height + 50)
-            if horizontal:
-                node.set_pos(x, y)
-            else:
-                node.set_pos(y, x)
-            self.layoutNodeChildren(node, x, y, horizontal=horizontal)
-
-        self.graph.center_on()
-
-    def layoutNodeChildren(self, node, x, y, horizontal=True):
-        """Recursively layout a nodes children relative to itself.
-        """
-        ports = []
-        for port in node.output_ports():
-            ports += port.connected_ports()
-
-        numPorts = len(ports)
-        for j, port in enumerate(ports):
-            childNode = port.node()
-
-            if horizontal:
-                height = self.nodeHeight()
-                width = self.nodeWidth()
-                childWidth = self.nodeWidth()
-            else:
-                height = self.nodeWidth()
-                width = self.nodeHeight()
-                childWidth = self.nodeHeight()
-
-            yDelta = j - (0.5 * (numPorts - 1))
-            yPos = y + (yDelta * (height + 100))
-
-            xDelta = (width + childWidth + 100) * 0.5
-            xPos = x + xDelta
-
-            if horizontal:
-                childNode.set_pos(xPos, yPos)
-            else:
-                childNode.set_pos(yPos, xPos)
-
-            self.layoutNodeChildren(childNode, xPos, yPos, horizontal=horizontal)
-
-    def nodeWidth(self):
-        return max([node.view.width for node in self.graph.all_nodes()])
-
-    def nodeHeight(self):
-        return max([node.view.height for node in self.graph.all_nodes()])
 
     def update(self):
         """Update nodes with latest data

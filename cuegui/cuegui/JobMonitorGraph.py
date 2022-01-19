@@ -85,7 +85,6 @@ class JobMonitorGraph(AbstractGraphWidget):
         job = cuegui.Utils.findJob(job)
         self.job = job
         self.createGraph()
-        self.layoutGraph(horizontal=True)
         self.timer.start()
     
     def getJob(self):
@@ -113,6 +112,9 @@ class JobMonitorGraph(AbstractGraphWidget):
 
         # setup connections
         self.setupNodeConnections()
+
+        self.graph.auto_layout_nodes()
+        self.graph.center_on()
 
     def setupNodeConnections(self):
         for node in self.graph.all_nodes():
