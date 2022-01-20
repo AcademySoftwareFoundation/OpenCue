@@ -584,6 +584,6 @@ class Layer(object):
         """Returns list of services applied to this layer
 
         :rtype: opencue.wrappers.service.Service
-        return: the layer's services
+        :return: the layer's services
         """
         return [opencue.api.getService(service) for service in self.data.services]
