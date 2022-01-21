@@ -20,10 +20,10 @@ from __future__ import division
 import os
 from PySide2 import QtGui
 import NodeGraphQt.qgraphics.node_base
-from cuegui.nodegraph.nodes.base import CueBaseNode
-from cuegui.Constants import RGB_FRAME_STATE
-import cuegui.images
 import opencue
+import cuegui.images
+from cuegui.Constants import RGB_FRAME_STATE
+from cuegui.nodegraph.nodes.base import CueBaseNode
 
 
 class CueLayerNode(CueBaseNode):
@@ -48,11 +48,11 @@ class CueLayerNode(CueBaseNode):
                 self.set_icon(iconPath)
 
         self.addProgressBar(
-            "succeededFrames",
-            "",
-            layerRpcObject.succeededFrames(),
-            max=layerRpcObject.totalFrames(),
-            format="%v / %m"
+            name="succeededFrames",
+            label="",
+            value=layerRpcObject.succeededFrames(),
+            max_value=layerRpcObject.totalFrames(),
+            display_format="%v / %m"
         )
 
         font = self.view.text_item.font()

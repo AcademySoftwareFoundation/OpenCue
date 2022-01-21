@@ -91,7 +91,7 @@ class JobMonitorGraph(AbstractGraphWidget):
         self.job = job
         self.createGraph()
         self.timer.start()
-    
+
     def getJob(self):
         """Return the currently set job
         :rtype: opencue.wrappers.job.Job

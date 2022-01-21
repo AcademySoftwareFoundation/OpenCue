@@ -21,8 +21,8 @@ snake_case to work properly.
 """
 
 
-from Qt import QtWidgets, QtCore
-import NodeGraphQt
+from PySide2 import QtWidgets
+from PySide2 import QtCore
 from NodeGraphQt.widgets.node_widgets import NodeBaseWidget
 
 
@@ -31,12 +31,20 @@ class NodeProgressBar(NodeBaseWidget):
     ProgressBar Node Widget.
     """
 
-    def __init__(self, parent=None, name="", label="", value=0, max=100, format="%p%"):
+    def __init__(
+        self,
+        parent=None,
+        name="",
+        label="",
+        value=0,
+        max_value=100,
+        display_format="%p%"
+    ):
         super(NodeProgressBar, self).__init__(parent, name, label)
         self._progressbar = QtWidgets.QProgressBar()
         self._progressbar.setAlignment(QtCore.Qt.AlignCenter)
-        self._progressbar.setFormat(format)
-        self._progressbar.setMaximum(max)
+        self._progressbar.setFormat(display_format)
+        self._progressbar.setMaximum(max_value)
         self._progressbar.setValue(value)
         progress_style = """
 QProgressBar {
@@ -68,13 +76,13 @@ QProgressBar::chunk {
         """
         return self._progressbar.value()
 
-    def set_value(self, value=0):
+    def set_value(self, text=0):
         """Set value on progress bar
-        @param value: Value to set on progress bar
-        @type  value: int
+        @param text: Text value to set on progress bar
+        @type  text: int
         """
-        if int(float(value)) != self.get_value():
-            self._progressbar.setValue(int(float(value)))
+        if int(float(text)) != self.get_value():
+            self._progressbar.setValue(int(float(text)))
             self.on_value_changed()
 
     @property

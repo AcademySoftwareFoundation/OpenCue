@@ -20,6 +20,7 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 from NodeGraphQt import NodeGraph
+from NodeGraphQt.errors import NodeRegistrationError
 from cuegui.nodegraph import CueLayerNode
 
 
@@ -42,20 +43,9 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         self.graph = NodeGraph()
         try:
             self.graph.register_node(CueLayerNode)
-        except Exception:
+        except NodeRegistrationError:
             pass
         self.graph.viewer().installEventFilter(self)
-
-        # disable editing node connections/dropping new nodes
-        self.graph.viewer().search_triggered.disconnect(
-            self.graph._on_search_triggered
-        )
-        self.graph.viewer().connection_sliced.disconnect(
-            self.graph._on_connection_sliced
-        )
-        self.graph.viewer().connection_changed.disconnect(
-            self.graph._on_connection_changed
-        )
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.graph.viewer())

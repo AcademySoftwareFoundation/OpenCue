@@ -43,7 +43,15 @@ class CueBaseNode(BaseNode):
         """
         self.rpcObject = rpcObject
 
-    def addProgressBar(self, name="", label="", value=0, max=100, format="%p%", tab=None):
+    def addProgressBar(
+        self,
+        name="",
+        label="",
+        value=0,
+        max_value=100,
+        display_format="%p%",
+        tab=None
+    ):
         """Add progress bar property to node
         @param name: name of the custom property
         @type name: str
@@ -51,16 +59,22 @@ class CueBaseNode(BaseNode):
         @type label: str
         @param value: value to set progress bar to
         @type value: int
-        @param max: max value progress bar can go up to
-        @type max: int
-        @param format: string format to display value on progress bar with
-        @type format: str
+        @param max_value: max_value value progress bar can go up to
+        @type max_value: int
+        @param display_format: string format to display value on progress bar with
+        @type display_format: str
         @param tab:name of the widget tab to display in.
         @type tab: str
         """
         self.create_property(
             name, str(value), tab=tab
         )
-        widget = NodeProgressBar(self.view, name, label, value, max=max, format=format)
-        widget.value_changed.connect(lambda k, v: self.set_property(k, v))
+        widget = NodeProgressBar(
+            self.view,name,
+            label,
+            value,
+            max_value=max_value,
+            display_format=display_format
+        )
+        widget.value_changed.connect(self.set_property)
         self.view.add_widget(widget)
