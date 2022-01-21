@@ -27,6 +27,7 @@ import opencue
 
 
 class CueLayerNode(CueBaseNode):
+    """Implementation of a Cue Layer node that works with NodeGraphQt"""
 
     __identifier__ = "aswf.opencue"
 
@@ -54,26 +55,28 @@ class CueLayerNode(CueBaseNode):
             format="%v / %m"
         )
 
-        self.updateNodeColour(layerRpcObject)
         font = self.view.text_item.font()
         font.setPointSize(16)
         self.view.text_item.setFont(font)
 
-    def updateNodeColour(self, layerRpcObject):
+        self.setRpcObject(layerRpcObject)
+
+    def updateNodeColour(self):
+        """Update the colour of the node to reflect the status of the layer"""
         # default colour
         r, g, b = self.color()
         color = QtGui.QColor(r, g, b)
 
         # state specific colours
-        if layerRpcObject.totalFrames() == layerRpcObject.succeededFrames():
+        if self.rpcObject.totalFrames() == self.rpcObject.succeededFrames():
             color = RGB_FRAME_STATE[opencue.api.job_pb2.SUCCEEDED]
-        if layerRpcObject.waitingFrames() > 0:
+        if self.rpcObject.waitingFrames() > 0:
             color = RGB_FRAME_STATE[opencue.api.job_pb2.WAITING]
-        if layerRpcObject.dependFrames() > 0:
+        if self.rpcObject.dependFrames() > 0:
             color = RGB_FRAME_STATE[opencue.api.job_pb2.DEPEND]
-        if layerRpcObject.runningFrames() > 0:
+        if self.rpcObject.runningFrames() > 0:
             color = RGB_FRAME_STATE[opencue.api.job_pb2.RUNNING]
-        if layerRpcObject.deadFrames() > 0:
+        if self.rpcObject.deadFrames() > 0:
             color = RGB_FRAME_STATE[opencue.api.job_pb2.DEAD]
 
         self.set_color(
@@ -83,6 +86,10 @@ class CueLayerNode(CueBaseNode):
         )
 
     def setRpcObject(self, rpcObject):
+        """Set the nodes layer rpc object
+        @param rpc object to set on node
+        @type opencue.wrappers.layer.Layer
+        """
         super(CueLayerNode, self).setRpcObject(rpcObject)
         self.set_property("succeededFrames", rpcObject.succeededFrames())
-        self.updateNodeColour(rpcObject)
+        self.updateNodeColour()

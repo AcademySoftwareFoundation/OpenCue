@@ -55,12 +55,50 @@ QProgressBar::chunk {
 
     @property
     def type_(self):
+        """
+        @return: Name of widget type
+        @rtype:  str
+        """
         return "ProgressBarNodeWidget"
 
     def get_value(self):
+        """Get value from progress bar on node
+        @return: progress bar value
+        @rtype:  int
+        """
         return self._progressbar.value()
 
     def set_value(self, value=0):
+        """Set value on progress bar
+        @param value: Value to set on progress bar
+        @type  value: int
+        """
+        if int(float(value)) != self.get_value():
+            self._progressbar.setValue(int(float(value)))
+            self.on_value_changed()
+
+    @property
+    def value(self):
+        """Get value from progress bar on node
+        XXX: This property shouldn't be required as it's been superseded by get_value,
+             however the progress bar doesn't update without it. Believe it may be
+             a bug in NodeGraphQt's `NodeObject.set_property`. We should remove this
+             once it's been resolved.
+        @return: progress bar value
+        @rtype:  int
+        """
+        return self._progressbar.value()
+
+    @value.setter
+    def value(self, value=0):
+        """Set value on progress bar
+        XXX: This property shouldn't be required as it's been superseded by set_value,
+             however the progress bar doesn't update without it. Believe it may be
+             a bug in NodeGraphQt's `NodeObject.set_property`. We should remove this
+             once it's been resolved.
+        @param value: Value to set on progress bar
+        @type  value: int
+        """
         if int(float(value)) != self.value:
             self._progressbar.setValue(int(float(value)))
-            self._value_changed()
+            self.on_value_changed()
