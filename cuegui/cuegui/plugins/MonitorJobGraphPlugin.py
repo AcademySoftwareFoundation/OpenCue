@@ -43,6 +43,7 @@ PLUGIN_PROVIDES = "MonitorGraphDockWidget"
 
 
 class MonitorGraphDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
+    """Plugin for displaying node graph representation of layer in the selected job."""
 
     def __init__(self, parent):
         """Creates the dock widget and docks it to the parent.
@@ -73,6 +74,10 @@ class MonitorGraphDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             self.__setJob(jobName)
 
     def __setJob(self, job = None):
+        """Set the job to be displayed
+        @param job: Selected job
+        @type  job: opencue.wrappers.job.Job
+        """
         if cuegui.Utils.isJob(job) and self.__job and opencue.id(job) == opencue.id(self.__job):
             return
 

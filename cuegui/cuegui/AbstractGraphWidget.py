@@ -24,6 +24,7 @@ from cuegui.nodegraph import CueLayerNode
 
 
 class AbstractGraphWidget(QtWidgets.QWidget):
+    """Base class for CueGUI graph widgets"""
 
     def __init__(self, parent=None):
         super(AbstractGraphWidget, self).__init__(parent=parent)
@@ -83,7 +84,9 @@ class AbstractGraphWidget(QtWidgets.QWidget):
             node.set_selected(True)
 
     def selectedObjects(self):
-        """Return the selected Layer rpcObjects in the graph.
+        """Return the selected nodes rpcObjects in the graph.
+        :rtype: [opencue.wrappers.layer.Layer]
+        :return: List of selected layers
         """
         rpcObjects = [n.rpcObject for n in self.graph.selected_nodes()]
         return rpcObjects
@@ -92,6 +95,11 @@ class AbstractGraphWidget(QtWidgets.QWidget):
         """Override eventFilter
 
         Centre nodes in graph viewer on 'F' key press.
+
+        @param target: widget event occurred on
+        @type  target: QtWidgets.QWidget
+        @param event: Qt event
+        @type  event: QtCore.QEvent
         """
         if hasattr(self, "graph"):
             viewer = self.graph.viewer()

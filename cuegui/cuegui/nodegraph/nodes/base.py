@@ -23,6 +23,7 @@ from cuegui.nodegraph.widgets.nodeWidgets import NodeProgressBar
 
 
 class CueBaseNode(BaseNode):
+    """Base class for any cue nodes to work with NodeGraphQt"""
 
     __identifier__ = "aswf.opencue"
 
@@ -36,9 +37,27 @@ class CueBaseNode(BaseNode):
         self.rpcObject = rpcObject
 
     def setRpcObject(self, rpcObject):
+        """Set the nodes rpc object
+        @param rpc object to set on node
+        @type opencue.wrappers.layer.Layer
+        """
         self.rpcObject = rpcObject
 
     def addProgressBar(self, name="", label="", value=0, max=100, format="%p%", tab=None):
+        """Add progress bar property to node
+        @param name: name of the custom property
+        @type name: str
+        @param label: label to be displayed
+        @type label: str
+        @param value: value to set progress bar to
+        @type value: int
+        @param max: max value progress bar can go up to
+        @type max: int
+        @param format: string format to display value on progress bar with
+        @type format: str
+        @param tab:name of the widget tab to display in.
+        @type tab: str
+        """
         self.create_property(
             name, str(value), tab=tab
         )

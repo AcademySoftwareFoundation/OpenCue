@@ -26,9 +26,11 @@ from cuegui.AbstractGraphWidget import AbstractGraphWidget
 
 
 class JobMonitorGraph(AbstractGraphWidget):
+    """Graph widget to display connections of layers in a job"""
 
     def __init__(self, parent=None):
         super(JobMonitorGraph, self).__init__(parent=parent)
+        self.job = None
         self.setupContextMenu()
 
         # wire signals
@@ -47,6 +49,7 @@ class JobMonitorGraph(AbstractGraphWidget):
         QtGui.qApp.select_layers.emit(layers)
 
     def setupContextMenu(self):
+        """Setup context menu for nodes in node graph"""
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.update, self.selectedObjects, self.getJob
         )
@@ -74,6 +77,8 @@ class JobMonitorGraph(AbstractGraphWidget):
 
     def setJob(self, job):
         """Set Job to be displayed
+        @param job: Job to display as node graph
+        @type  job: opencue.wrappers.job.Job
         """
         self.timer.stop()
         self.clearGraph()
@@ -88,10 +93,16 @@ class JobMonitorGraph(AbstractGraphWidget):
         self.timer.start()
     
     def getJob(self):
+        """Return the currently set job
+        :rtype: opencue.wrappers.job.Job
+        :return: Currently set job
+        """
         return self.job
 
     def selectedObjects(self):
         """Return the selected Layer rpcObjects in the graph.
+        :rtype: [opencue.wrappers.layer.Layer]
+        :return: List of selected layers
         """
         layers = [n.rpcObject for n in self.graph.selected_nodes() if isinstance(n, CueLayerNode)]
         return layers
@@ -117,6 +128,7 @@ class JobMonitorGraph(AbstractGraphWidget):
         self.graph.center_on()
 
     def setupNodeConnections(self):
+        """Setup connections between nodes based on their dependencies"""
         for node in self.graph.all_nodes():
             for depend in node.rpcObject.getWhatDependsOnThis():
                 child_node = self.graph.get_node_by_name(depend.dependErLayer())
