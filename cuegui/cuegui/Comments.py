@@ -45,17 +45,14 @@ class CommentListDialog(QtWidgets.QDialog):
     def __init__(self, source, parent=None):
         """Initialize the dialog.
 
-        @type  source: Job or Host
+        @type  source: List of Jobs or Hosts
         @param source: The source to get the comments from
         @type  parent: QWidget
         @param parent: The dialog's parent"""
         QtWidgets.QDialog.__init__(self, parent)
         self.__source = source
 
-        self.__labelTitle = QtWidgets.QLabel(self.__source.data.name, self)
-
         self.__splitter = QtWidgets.QSplitter(self)
-        self.__splitter.setOrientation(QtCore.Qt.Vertical)
 
         self.__treeSubjects = QtWidgets.QTreeWidget(self)
         self.__textSubject = QtWidgets.QLineEdit(self)
@@ -73,11 +70,11 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__treeSubjects.setHeaderLabels(["Subject", "User", "Date"])
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(self.__labelTitle)
 
         self.__splitter.addWidget(self.__treeSubjects)
 
         self.__group = QtWidgets.QGroupBox(self.__splitter)
+        self.__group.setTitle("Edit Comment")
         glayout = QtWidgets.QVBoxLayout()
         glayout.addWidget(self.__textSubject)
         glayout.addWidget(self.__textMessage)
@@ -161,20 +158,22 @@ class CommentListDialog(QtWidgets.QDialog):
         item"""
         if self.__treeSubjects.selectedItems():
             item = self.__treeSubjects.selectedItems()[0]
-
-            if item.getInstance().user != cuegui.Utils.getUsername():
-                self.__textSubject.setReadOnly(True)
-                self.__textMessage.setReadOnly(True)
+            if type(item) is CommentSource:
+                self.__treeSubjects.setCurrentItem(item)
             else:
-                self.__textSubject.setReadOnly(False)
-                self.__textMessage.setReadOnly(False)
+                if item.getInstance().user != cuegui.Utils.getUsername():
+                    self.__textSubject.setReadOnly(True)
+                    self.__textMessage.setReadOnly(True)
+                else:
+                    self.__textSubject.setReadOnly(False)
+                    self.__textMessage.setReadOnly(False)
 
-            self.__textSubject.setText(item.getInstance().subject())
-            self.__textMessage.setText(item.getInstance().message())
-            self.__treeSubjects.setCurrentItem(item)
-            self.__btnSave.setText(SAVE_EDIT)
-            self.__btnSave.setEnabled(False)
-            self.__btnDel.setEnabled(True)
+                self.__textSubject.setText(item.getInstance().subject())
+                self.__textMessage.setText(item.getInstance().message())
+                self.__treeSubjects.setCurrentItem(item)
+                self.__btnSave.setText(SAVE_EDIT)
+                self.__btnSave.setEnabled(False)
+                self.__btnDel.setEnabled(True)
         else:
             self.__createNewComment()
 
@@ -186,20 +185,29 @@ class CommentListDialog(QtWidgets.QDialog):
                                   "Confirm Delete",
                                   "Delete the selected comment?"):
             for item in self.__treeSubjects.selectedItems():
+                parent = item.parent()
+                parent.removeChild(item)
                 item.getInstance().delete()
-                self.__treeSubjects.takeTopLevelItem(self.__treeSubjects.indexOfTopLevelItem(item))
 
     def refreshComments(self):
         """Clears and populates the comment list from the cuebot"""
-        comments = self.__source.getComments()
+        comments = {}
+        for source in self.__source:
+            comments[source.data.name] = source.getComments()
         self.__treeSubjects.clear()
-        for comment in comments:
-            item = Comment(comment)
-            item.setSizeHint(0, QtCore.QSize(300, 1))
-            self.__treeSubjects.addTopLevelItem(item)
+        comments_length = 0
+        for source in comments:
+            heading = CommentSource(source)
+            heading.setSizeHint(0, QtCore.QSize(500, 1))
+            self.__treeSubjects.addTopLevelItem(heading)
+            for comment in comments[source]:
+                item = Comment(comment)
+                heading.addChild(item)
+                item.setSizeHint(0, QtCore.QSize(300, 1))
+                comments_length += 1
         self.__treeSubjects.resizeColumnToContents(0)
         last_item = self.__treeSubjects.topLevelItem(len(comments) - 1)
-        if last_item:
+        if last_item and type(last_item) is Comment:
             self.__btnSave.setText(SAVE_EDIT)
             self.__btnSave.setEnabled(False)
             last_item.setSelected(True)
@@ -294,7 +302,8 @@ class CommentListDialog(QtWidgets.QDialog):
         return (str(result[0]), result[1])
 
     def __addComment(self, subject, message):
-        self.__source.addComment(str(subject), str(message) or " ")
+        for source in self.__source:
+            source.addComment(str(subject), str(message) or " ")
 
 
 class CommentMacroDialog(QtWidgets.QDialog):
@@ -372,3 +381,16 @@ class Comment(QtWidgets.QTreeWidgetItem):
     def getInstance(self):
         """returns the actual comment instance this widget is displaying"""
         return self.__comment
+
+
+class CommentSource(QtWidgets.QTreeWidgetItem):
+    """A widget to represent the heading job/host name of the list of comments"""
+    def __init__(self, source):
+        QtWidgets.QTreeWidgetItem.__init__(
+            self,
+            [source])
+        self.__source = source
+
+    def getInstace(self):
+        """returns the actual comment instance this widget is displaying"""
+        return self.__source
