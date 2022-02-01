@@ -222,7 +222,9 @@ class Machine(object):
                     stat = stats[frame.pid]
                     frame.rss = stat["rss"] // 1024
                     frame.maxRss = max(frame.rss, frame.maxRss)
-                    frame.runFrame.attributes["pcpu"] = str(stat["pcpu"])
+                    frame.runFrame.attributes["pcpu"] = str(
+                        stat["pcpu"] * self.__coreInfo.total_cores
+                    )
             return
 
         if platform.system() != 'Linux':
