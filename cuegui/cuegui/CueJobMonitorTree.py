@@ -863,8 +863,12 @@ class MoveDialog(QtWidgets.QDialog):
         _hlayout.addWidget(_btn_cancel)
         _vlayout.addLayout(_hlayout)
 
-        _btn_accept.clicked.connect(self._move_items)
-        _btn_cancel.clicked.connect(self.reject)
+        self.connect(_btn_accept,
+                     QtCore.SIGNAL("clicked()"),
+                     self._move_items)
+        self.connect(_btn_cancel,
+                     QtCore.SIGNAL("clicked()"),
+                     self.reject)
 
     def _move_items(self):
         if not self.send_to_groups:
