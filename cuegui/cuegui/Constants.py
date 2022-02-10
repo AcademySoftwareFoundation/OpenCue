@@ -67,7 +67,7 @@ LOGGER_FORMAT = "%(levelname)-9s %(module)-10s %(message)s"
 LOGGER_LEVEL = "WARNING"
 
 EMAIL_SUBJECT_PREFIX = "cuemail: please check "
-EMAIL_BODY_PREFIX = "Your PSTs request that you check "
+EMAIL_BODY_PREFIX = "Your PSTs request that you check:\n"
 EMAIL_BODY_SUFFIX = "\n\n"
 EMAIL_DOMAIN = ""
 

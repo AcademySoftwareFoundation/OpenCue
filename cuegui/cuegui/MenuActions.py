@@ -234,7 +234,7 @@ class JobActions(AbstractActions):
     def emailArtist(self, rpcObjects=None):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
-            cuegui.EmailDialog.EmailDialog(jobs[0], self._caller).show()
+            cuegui.EmailDialog.EmailDialog(jobs, self._caller).show()
 
     setMinCores_info = ["Set Minimum Cores...", "Set Job(s) Minimum Cores", "configure"]
 
