@@ -65,7 +65,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__btnClose = QtWidgets.QPushButton("Close", self)
 
         self.setWindowTitle("Comments")
-        self.resize(600, 300)
+        self.resize(800, 400)
         self.__btnNew.setDefault(True)
         self.__treeSubjects.setHeaderLabels(["Subject", "User", "Date"])
 
@@ -122,6 +122,9 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __saveComment(self):
         """Saves the new or selected comment"""
+        if not self.__textSubject.text() or not self.__textMessage.toPlainText():
+            cuegui.Utils.showErrorMessageBox("Comment subject or body cannot be empty")
+            return
         if self.__btnSave.text() == SAVE_NEW:
             # If saving a new comment
             self.__addComment(self.__textSubject.text(),

@@ -104,8 +104,13 @@ class EmailWidget(QtWidgets.QWidget):
         __default_to = ','.join(to_emails)
         __default_cc = "%s-pst@%s" % (jobs[0].show(), cuegui.Constants.EMAIL_DOMAIN)
         __default_bcc = ""
+
         job_names = list(map(lambda job: job.data.name, jobs))
-        __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names))
+        if (len(job_names) > 2):
+            __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names[:2]) + '...')
+        else:
+            __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names))
+
         __default_body = "%s%s%s" % (cuegui.Constants.EMAIL_BODY_PREFIX,
                                      ',\n'.join(job_names),
                                      cuegui.Constants.EMAIL_BODY_SUFFIX)
