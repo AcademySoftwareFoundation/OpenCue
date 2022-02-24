@@ -35,12 +35,6 @@ import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
 public class HostReportQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = Logger.getLogger(HostReportQueue.class);
-
-    private static final int THREAD_POOL_SIZE_INITIAL = 6;
-    private static final int THREAD_POOL_SIZE_MAX = 8;
-    // The queue size should be higher then the expected amount of hosts
-    private static final int QUEUE_SIZE = 1000;
-
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
 
@@ -74,9 +68,9 @@ public class HostReportQueue extends ThreadPoolExecutor {
         }
     }
 
-    public HostReportQueue() {
-        super(THREAD_POOL_SIZE_INITIAL, THREAD_POOL_SIZE_MAX, 10 , TimeUnit.SECONDS,
-                new LinkedBlockingQueue<Runnable>(QUEUE_SIZE));
+    public HostReportQueue(int threadPoolSizeInitial, int threadPoolSizeMax, int queueSize) {
+        super(threadPoolSizeInitial, threadPoolSizeMax, 10 , TimeUnit.SECONDS,
+                new LinkedBlockingQueue<Runnable>(queueSize));
         this.setRejectedExecutionHandler(rejectCounter);
     }
 

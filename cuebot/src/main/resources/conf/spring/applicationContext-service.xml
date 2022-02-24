@@ -127,8 +127,28 @@
   </bean>
 
 
-  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown"/>
-  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown"/>
+  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+    <constructor-arg index="0" type="int">
+      <value>${report_queue.threadPoolSizeInitial}</value>
+    </constructor-arg>
+    <constructor-arg index="1" type="int">
+      <value>${report_queue.threadPoolSizeMax}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${report_queue.queueSize}</value>
+    </constructor-arg>
+  </bean>
+  <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+    <constructor-arg index="0" type="int">
+      <value>${kill_queue.threadPoolSizeInitial}</value>
+    </constructor-arg>
+    <constructor-arg index="1" type="int">
+      <value>${kill_queue.threadPoolSizeMax}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${kill_queue.queueSize}</value>
+    </constructor-arg>
+  </bean>
 
 
   <!-- ##################################################################################### -->
