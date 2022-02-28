@@ -28,6 +28,7 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
+import cuegui.Config
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.MainWindow
@@ -92,32 +93,10 @@ def startup(app_name, app_version, argv):
     QtGui.qApp.threads = []
     # pylint: enable=attribute-defined-outside-init
 
-    config_path = "/.%s/config" % app_name.lower()
-    settings = QtCore.QSettings(QtCore.QSettings.IniFormat, QtCore.QSettings.UserScope, config_path)
-    local = settings.fileName()
-    # If the user has chose to revert the layout. delete the file and copy the default back.
-    if settings.value('RevertLayout'):
-        os.remove(local)
-
+    settings = cuegui.Config.startup(app_name)
     QtGui.qApp.settings = settings  # pylint: disable=attribute-defined-outside-init
 
     cuegui.Style.init()
-
-    # If the config file does not exist, copy over the default
-    # pylint: disable=broad-except
-    if not os.path.exists(local):
-        default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
-        logger.warning('Not found: %s\nCopying:   %s', local, default)
-        try:
-            os.mkdir(os.path.dirname(local))
-        except Exception as e:
-            logger.debug(e)
-        try:
-            shutil.copy2(default, local)
-        except Exception as e:
-            logger.debug(e)
-        settings.sync()
-    # pylint: enable=broad-except
 
     mainWindow = cuegui.MainWindow.MainWindow(app_name, app_version,  None)
     mainWindow.displayStartupNotice()

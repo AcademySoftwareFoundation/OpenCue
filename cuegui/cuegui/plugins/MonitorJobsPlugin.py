@@ -117,7 +117,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                        ex: [("Job.f156be87-987a-48b9-b9da-774cd58674a3", 1612482716.170947),...
         :type jobIds: list[tuples]
         """
-        today = datetime.datetime.now()
+        today = datetime.now()
         limit = JOB_RESTORE_THRESHOLD_LIMIT if len(jobIds) > \
                                                 JOB_RESTORE_THRESHOLD_LIMIT else len(jobIds)
         msg = ('Unable to load previously loaded job since it was moved '
@@ -125,7 +125,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         try:
             for jobId, timestamp in jobIds[:limit]:
-                loggedTime = datetime.datetime.fromtimestamp(timestamp)
+                loggedTime = datetime.fromtimestamp(timestamp)
                 if (today - loggedTime).days <= JOB_RESTORE_THRESHOLD_DAYS:
                     try:
                         self.jobMonitor.addJob(jobId, timestamp)
