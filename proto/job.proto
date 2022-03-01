@@ -139,6 +139,10 @@ service JobInterface {
     // run frames on the specified job.
     rpc AddRenderPartition(JobAddRenderPartRequest) returns (JobAddRenderPartResponse);
 
+    // Adds a subscriber to a job. When the job is finished, subscriber
+    // receives email with notification
+    rpc AddSubscriber(JobAddSubscriberRequest) returns (JobAddSubscriberResponse);
+
     // Setup and retunrn a JobOnFrame dependency
     rpc CreateDependencyOnFrame(JobCreateDependencyOnFrameRequest) returns (JobCreateDependencyOnFrameResponse);
 
@@ -1110,6 +1114,14 @@ message JobAddRenderPartRequest {
 message JobAddRenderPartResponse {
     renderPartition.RenderPartition render_partition = 1;
 }
+
+// AddSubscriber
+message JobAddSubscriberRequest {
+    Job job = 1;
+    string subscriber = 2;
+}
+
+message JobAddSubscriberResponse {}
 
 // CreateDependencyOnFrame
 message JobCreateDependencyOnFrameRequest {
