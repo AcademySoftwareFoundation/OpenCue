@@ -108,5 +108,13 @@ public class BookingQueue {
         return healthyThreadPool.getCompletedTaskCount();
     }
 
+    public long getCorePoolSize() {
+        return corePoolSize;
+    }
+
+    public long getMaximumPoolSize() {
+        return maxPoolSize;
+    }
+
 }
 

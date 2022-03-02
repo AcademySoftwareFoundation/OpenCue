@@ -34,7 +34,7 @@ public class DispatchShutdownJobIfCompleted extends KeyRunnable {
 
     private JobManagerSupport jobManagerSupport;
     public DispatchShutdownJobIfCompleted(JobInterface job, JobManagerSupport jobManagerSupport) {
-        super("dispatch_shutdown_job_if_completed_" + job.getJobId());
+        super("disp_st_job_comp_" + job.getJobId());
         this.job = job;
         this.jobManagerSupport = jobManagerSupport;
     }
