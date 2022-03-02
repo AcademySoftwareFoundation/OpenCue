@@ -27,17 +27,23 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.DispatchJob;
+import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -71,10 +77,16 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     JobManager jobManager;
 
     @Resource
+    FrameDao frameDao;
+
+    @Resource
     LayerDao layerDao;
 
     @Resource
     Dispatcher dispatcher;
+
+    @Resource
+    DispatchSupport dispatchSupport;
 
     private static final String HOSTNAME = "beta";
 
@@ -231,6 +243,89 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         assertEquals(1,
                 (jobManager.isJobComplete(job1) ? 1 : 0) + 
                 (jobManager.isJobComplete(job2) ? 1 : 0));
+    }
+
+    private void executeDepend(
+            FrameState frameState, int exitStatus, int dependCount, FrameState dependState) {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        LayerDetail layerFirst = layerDao.findLayerDetail(job, "layer_first");
+        LayerDetail layerSecond = layerDao.findLayerDetail(job, "layer_second");
+        FrameDetail frameFirst = frameDao.findFrameDetail(job, "0000-layer_first");
+        FrameDetail frameSecond = frameDao.findFrameDetail(job, "0000-layer_second");
+
+        assertEquals(1, frameSecond.dependCount);
+        assertEquals(FrameState.DEPEND, frameSecond.state);
+
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost();
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        assertEquals(job.getId(), proc.getJobId());
+        assertEquals(layerFirst.getId(), proc.getLayerId());
+        assertEquals(frameFirst.getId(), proc.getFrameId());
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder()
+                .setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId())
+                .setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId())
+                .build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder()
+                .setFrame(info)
+                .setExitStatus(exitStatus)
+                .build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, frameState, report.getExitStatus(),
+            report.getFrame().getMaxRss());
+        frameCompleteHandler.handlePostFrameCompleteOperations(proc,
+            report, dispatchJob, dispatchFrame, frameState);
+
+        assertTrue(jobManager.isLayerComplete(layerFirst));
+        assertFalse(jobManager.isLayerComplete(layerSecond));
+
+        frameSecond = frameDao.findFrameDetail(job, "0000-layer_second");
+        assertEquals(dependCount, frameSecond.dependCount);
+        assertEquals(dependState, frameSecond.state);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependOnSuccess() {
+        assertTrue(frameCompleteHandler.getSatisfyDependOnlyOnFrameSuccess());
+        executeDepend(FrameState.SUCCEEDED, 0, 0, FrameState.WAITING);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependOnFailure() {
+        assertTrue(frameCompleteHandler.getSatisfyDependOnlyOnFrameSuccess());
+        executeDepend(FrameState.EATEN, -1, 1, FrameState.DEPEND);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependOnSuccessSatifyOnAny() {
+        frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(false);
+        assertFalse(frameCompleteHandler.getSatisfyDependOnlyOnFrameSuccess());
+        executeDepend(FrameState.SUCCEEDED, 0, 0, FrameState.WAITING);
+        frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(true);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testDependOnFailureSatisfyOnAny() {
+        frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(false);
+        assertFalse(frameCompleteHandler.getSatisfyDependOnlyOnFrameSuccess());
+        executeDepend(FrameState.EATEN, -1, 0, FrameState.WAITING);
+        frameCompleteHandler.setSatisfyDependOnlyOnFrameSuccess(true);
     }
 }
 

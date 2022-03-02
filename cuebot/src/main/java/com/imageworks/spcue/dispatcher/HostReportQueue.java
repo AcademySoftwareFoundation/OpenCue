@@ -31,12 +31,14 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
+import com.imageworks.spcue.util.CueUtil;
 
 public class HostReportQueue extends ThreadPoolExecutor {
 
     private static final Logger logger = Logger.getLogger(HostReportQueue.class);
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
+    private int queueCapacity;
 
     private Cache<String, HostReportWrapper> hostMap = CacheBuilder.newBuilder()
             .expireAfterWrite(1, TimeUnit.HOURS)
@@ -108,6 +110,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public long getRejectedTaskCount() {
         return rejectCounter.getRejectCount();
+    }
+
+    public int getQueueCapacity() {
+        return queueCapacity;
     }
 
     public void shutdown() {

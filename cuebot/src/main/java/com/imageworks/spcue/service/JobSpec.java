@@ -328,6 +328,15 @@ public class JobSpec {
             }
         }
 
+        if (jobTag.getChildTextTrim("maxcores") != null) {
+            buildableJob.maxCoresOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxcores"));
+        }
+        if (jobTag.getChildTextTrim("maxgpus") != null) {
+            buildableJob.maxGpusOverride = Integer.valueOf(jobTag
+                    .getChildTextTrim("maxgpus"));
+        }
+
         if (jobTag.getChildTextTrim("priority") != null) {
             job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
         }
@@ -606,8 +615,7 @@ public class JobSpec {
             corePoints = Integer.valueOf(cores);
         }
 
-        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN
-                || corePoints > Dispatcher.CORE_POINTS_RESERVED_MAX) {
+        if (corePoints < Dispatcher.CORE_POINTS_RESERVED_MIN) {
             corePoints = Dispatcher.CORE_POINTS_RESERVED_DEFAULT;
         }
 

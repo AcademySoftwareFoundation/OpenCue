@@ -27,6 +27,8 @@ from __future__ import absolute_import
 import os
 import yaml
 
+import opencue.config
+
 
 CONFIG_FILE_ENV_VAR = 'CUESUBMIT_CONFIG_FILE'
 
@@ -35,7 +37,9 @@ def getConfigValues():
     """Reads the config file from disk and returns the values it defines."""
     configData = {}
     configFile = os.environ.get(CONFIG_FILE_ENV_VAR)
-    if configFile and os.path.exists(configFile):
+    if not configFile:
+        configFile = os.path.join(opencue.config.config_base_directory(), 'cuesubmit.yaml')
+    if os.path.exists(configFile):
         with open(configFile, 'r') as data:
             try:
                 configData = yaml.load(data, Loader=yaml.SafeLoader)

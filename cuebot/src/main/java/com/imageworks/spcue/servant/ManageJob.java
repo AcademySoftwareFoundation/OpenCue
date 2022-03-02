@@ -49,6 +49,7 @@ import com.imageworks.spcue.dispatcher.commands.DispatchKillFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchReorderFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchRetryFrames;
 import com.imageworks.spcue.dispatcher.commands.DispatchSatisfyDepends;
+import com.imageworks.spcue.dispatcher.commands.DispatchShutdownJobIfCompleted;
 import com.imageworks.spcue.dispatcher.commands.DispatchStaggerFrames;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.job.FrameSeq;
@@ -134,6 +135,8 @@ import com.imageworks.spcue.grpc.job.JobSetMinGpusRequest;
 import com.imageworks.spcue.grpc.job.JobSetMinGpusResponse;
 import com.imageworks.spcue.grpc.job.JobSetPriorityRequest;
 import com.imageworks.spcue.grpc.job.JobSetPriorityResponse;
+import com.imageworks.spcue.grpc.job.JobShutdownIfCompletedRequest;
+import com.imageworks.spcue.grpc.job.JobShutdownIfCompletedResponse;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesRequest;
 import com.imageworks.spcue.grpc.job.JobStaggerFramesResponse;
 import com.imageworks.spcue.grpc.job.LayerSeq;
@@ -771,6 +774,22 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
             manageQueue.execute(new DispatchReorderFrames(job,
                     new FrameSet(request.getRange()), request.getOrder(), jobManagerSupport));
             responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void shutdownIfCompleted(JobShutdownIfCompletedRequest request,
+                                    StreamObserver<JobShutdownIfCompletedResponse> responseObserver) {
+        try {
+            setupJobData(request.getJob());
+            manageQueue.execute(new DispatchShutdownJobIfCompleted(job, jobManagerSupport));
+            responseObserver.onNext(JobShutdownIfCompletedResponse.newBuilder().build());
             responseObserver.onCompleted();
         }
         catch (EmptyResultDataAccessException e) {

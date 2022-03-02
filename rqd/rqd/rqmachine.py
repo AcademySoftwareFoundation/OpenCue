@@ -45,8 +45,13 @@ import traceback
 # pylint: disable=import-error,wrong-import-position
 if platform.system() in ('Linux', 'Darwin'):
     import resource
-elif platform.system() == "win32":
-    import win32api
+elif platform.system() == "Windows":
+    winpsIsAvailable = False
+    try:
+        import winps
+        winpsIsAvailable = True
+    except ImportError:
+        pass
 # pylint: enable=import-error,wrong-import-position
 
 import psutil
@@ -188,8 +193,40 @@ class Machine(object):
                     return True
         return False
 
+    def __updateGpuAndLlu(self, frame):
+        if 'GPU_LIST' in frame.runFrame.attributes:
+            usedGpuMemory = 0
+            for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
+                usedGpuMemory += self.getGpuMemoryUsed(unitId)
+
+            frame.usedGpuMemory = usedGpuMemory
+            frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
+
+        if os.path.exists(frame.runFrame.log_dir_file):
+            stat = os.stat(frame.runFrame.log_dir_file).st_mtime
+            frame.lluTime = int(stat)
+
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
+        if platform.system() == 'Windows' and winpsIsAvailable:
+            values = list(frames.values())
+            pids = [frame.pid for frame in list(
+                filter(lambda frame: frame.pid > 0, values)
+            )]
+            # pylint: disable=no-member
+            stats = winps.update(pids)
+            # pylint: enable=no-member
+            for frame in values:
+                self.__updateGpuAndLlu(frame)
+                if frame.pid > 0 and frame.pid in stats:
+                    stat = stats[frame.pid]
+                    frame.rss = stat["rss"] // 1024
+                    frame.maxRss = max(frame.rss, frame.maxRss)
+                    frame.runFrame.attributes["pcpu"] = str(
+                        stat["pcpu"] * self.__coreInfo.total_cores
+                    )
+            return
+
         if platform.system() != 'Linux':
             return
 
@@ -278,22 +315,12 @@ class Machine(object):
                     frame.rss = rss
                     frame.maxRss = max(rss, frame.maxRss)
 
-                    if 'GPU_LIST' in frame.runFrame.attributes:
-                        usedGpuMemory = 0
-                        for unitId in frame.runFrame.attributes.get('GPU_LIST').split(','):
-                            usedGpuMemory += self.getGpuMemoryUsed(unitId)
-
-                        frame.usedGpuMemory = usedGpuMemory
-                        frame.maxUsedGpuMemory = max(usedGpuMemory, frame.maxUsedGpuMemory)
-
-                    if os.path.exists(frame.runFrame.log_dir_file):
-                        stat = os.stat(frame.runFrame.log_dir_file).st_mtime
-                        frame.lluTime = int(stat)
-
                     frame.vsize = vsize
                     frame.maxVsize = max(vsize, frame.maxVsize)
 
                     frame.runFrame.attributes["pcpu"] = str(pcpu)
+
+                    self.__updateGpuAndLlu(frame)
 
             # Store the current data for the next check
             self.__pidHistory = pidData
@@ -423,8 +450,6 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getTempPath(self):
         """Returns the correct mcp path for the given machine"""
-        if platform.system() == "win32":
-            return win32api.GetTempPath()
         if os.path.isdir("/mcp/"):
             return "/mcp/"
         return '%s/' % tempfile.gettempdir()

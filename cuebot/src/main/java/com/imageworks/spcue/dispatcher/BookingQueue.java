@@ -22,7 +22,10 @@ package com.imageworks.spcue.dispatcher;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
+
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 
 public class BookingQueue {
 
@@ -79,6 +82,10 @@ public class BookingQueue {
 
     public long getRejectedTaskCount() {
         return healthyThreadPool.getRejectedTaskCount();
+    }
+
+    public int getQueueCapacity() {
+        return queueCapacity;
     }
 
     public void shutdown() {

@@ -20,6 +20,7 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -28,6 +29,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -52,6 +55,8 @@ import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAM
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
 import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
@@ -125,6 +130,27 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         new ConcurrentHashMap<String, ShowCache>();
 
     /**
+     * Whether or not to enable FIFO scheduling in the same priority.
+     */
+    private boolean fifoSchedulingEnabled;
+
+    @Autowired
+    public DispatcherDaoJdbc(Environment env) {
+        fifoSchedulingEnabled = env.getProperty(
+            "dispatcher.fifo_scheduling_enabled", Boolean.class, false);
+    }
+
+    @Override
+    public boolean getFifoSchedulingEnabled() {
+        return fifoSchedulingEnabled;
+    }
+
+    @Override
+    public void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled) {
+        this.fifoSchedulingEnabled = fifoSchedulingEnabled;
+    }
+
+    /**
      * Returns a sorted list of shows that have pending jobs
      * which could benefit from the specified allocation.
      *
@@ -149,8 +175,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return bookableShows.get(key).shows;
     }
 
-    private Set<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>();
+    private List<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
+        ArrayList<String> result = new ArrayList<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
         // shows were sorted. If we want it in random sequence, we need to shuffle it.
         if (shuffleShows) {
@@ -185,7 +211,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             }
 
             result.addAll(getJdbcTemplate().query(
-                    FIND_JOBS_BY_SHOW,
+                    fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
                     PKJOB_MAPPER,
                     s.getShowId(), host.getFacilityId(), host.os,
                     host.idleCores, host.idleMemory,
@@ -208,27 +234,26 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public Set<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, true);
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host, int numJobs) {
+    public List<String> findDispatchJobs(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, false);
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>(5);
-        result.addAll(getJdbcTemplate().query(
-                FIND_JOBS_BY_GROUP,
+    public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
+        List<String> result = getJdbcTemplate().query(
+                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_GROUP : FIND_JOBS_BY_GROUP,
                 PKJOB_MAPPER,
                 g.getGroupId(),host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), 50));
+                host.getName(), 50);
 
         return result;
     }
@@ -378,19 +403,17 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public Set<String> findDispatchJobs(DispatchHost host,
+    public List<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
-        LinkedHashSet<String> result = new LinkedHashSet<String>(numJobs);
-
-        result.addAll(getJdbcTemplate().query(
-                FIND_JOBS_BY_SHOW,
+        List<String> result = getJdbcTemplate().query(
+                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
                 PKJOB_MAPPER,
                 show.getShowId(), host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
                 threadMode(host.threadMode),
                 host.idleGpus,
                 (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                host.getName(), numJobs * 10));
+                host.getName(), numJobs * 10);
 
         return result;
     }

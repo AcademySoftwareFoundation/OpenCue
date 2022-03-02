@@ -54,6 +54,9 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
     @Resource
     HostManager hostManager;
 
+    @Resource
+    BookingQueue bookingQueue;
+
     private static final String HOSTNAME = "beta";
 
     @Before
@@ -98,10 +101,9 @@ public class TestBookingQueue extends AbstractTransactionalJUnit4SpringContextTe
         DispatchHost host3 = hostDao.findDispatchHost(HOSTNAME);
         BookingQueue queue = new BookingQueue(healthThreshold, minUnhealthyPeriodMin, queueCapacity,
                 corePoolSize, maxPoolSize);
-
-        queue.execute(new DispatchBookHost(host2,dispatcher));
-        queue.execute(new DispatchBookHost(host3,dispatcher));
-        queue.execute(new DispatchBookHost(host1,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host2,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host3,dispatcher));
+        bookingQueue.execute(new DispatchBookHost(host1,dispatcher));
         try {
             Thread.sleep(10000);
         } catch (InterruptedException e) {

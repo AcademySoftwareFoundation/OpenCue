@@ -25,6 +25,8 @@ import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -92,6 +94,25 @@ public class FrameCompleteHandler {
      * Boolean to toggle if this class is accepting data or not.
      */
     private boolean shutdown = false;
+
+    /**
+     * Whether or not to satisfy dependents (*_ON_FRAME and *_ON_LAYER) only on Frame success
+     */
+    private boolean satisfyDependOnlyOnFrameSuccess;
+
+    public boolean getSatisfyDependOnlyOnFrameSuccess() {
+        return satisfyDependOnlyOnFrameSuccess;
+    }
+
+    public void setSatisfyDependOnlyOnFrameSuccess(boolean satisfyDependOnlyOnFrameSuccess) {
+        this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
+    }
+
+    @Autowired
+    public FrameCompleteHandler(Environment env) {
+        satisfyDependOnlyOnFrameSuccess = env.getProperty(
+            "depend.satisfy_only_on_frame_success", Boolean.class, true);
+    }
 
     /**
      * Handle the given FrameCompleteReport from RQD.
@@ -237,19 +258,26 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            if (newFrameState.equals(FrameState.SUCCEEDED)) {
+            boolean isLayerComplete = false;
+
+            if (newFrameState.equals(FrameState.SUCCEEDED)
+                    || (!satisfyDependOnlyOnFrameSuccess
+                        && newFrameState.equals(FrameState.EATEN))) {
                 jobManagerSupport.satisfyWhatDependsOn(frame);
-                if (jobManager.isLayerComplete(frame)) {
+                isLayerComplete = jobManager.isLayerComplete(frame);
+                if (isLayerComplete) {
                     jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
-                } else {
-                    /*
-                     * If the layer meets some specific criteria then try to
-                     * update the minimum memory and tags so it can run on a
-                     * wider variety of cores, namely older hardware.
-                     */
-                    jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                            report.getFrame().getMaxRss(), report.getRunTime());
                 }
+            }
+
+            if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+                /*
+                 * If the layer meets some specific criteria then try to
+                 * update the minimum memory and tags so it can run on a
+                 * wider variety of cores, namely older hardware.
+                 */
+                jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                        report.getFrame().getMaxRss(), report.getRunTime());
             }
 
             /*

@@ -125,8 +125,6 @@
       <value>${dispatch.threadpool.max_pool_size}</value>
     </constructor-arg>
   </bean>
-
-
   <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
     <constructor-arg index="0" type="int">
       <value>${report_queue.threadPoolSizeInitial}</value>

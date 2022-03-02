@@ -226,23 +226,44 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
         self.__loadMine = (value is True or value == QtCore.Qt.Checked)
 
-    def addJob(self, job):
+    def addJob(self, job, timestamp=None):
         """Adds a job to the list. With locking"
         @param job: Job can be None, a job object, or a job name.
-        @type  job: job, string, None"""
+        @type  job: job, string, None
+        @param timestamp: UTC time of the specific date the job was
+                          added to be monitored
+        @type timestamp: float"""
         newJobObj = cuegui.Utils.findJob(job)
         self.ticksLock.lock()
         try:
             if newJobObj:
-                objectKey = cuegui.Utils.getObjectKey(newJobObj)
-                self.__load[objectKey] = newJobObj
-                self.__jobTimeLoaded[objectKey] = time.time()
+                jobKey = cuegui.Utils.getObjectKey(newJobObj)
+                if not self.__groupDependent:
+                    self.__load[jobKey] = newJobObj
+                    self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
         finally:
             self.ticksLock.unlock()
 
     def getJobProxies(self):
-        """Gets a list of IDs of monitored jobs."""
-        return list(self._items.keys())
+        """Get a list of the JobProxies that are being monitored in the session
+         which will be saved to the config file
+
+         Returning a sorted list based on the most recent timestamp - restoring jobs is capped
+         by LOAD_LIMIT, so restore the most recent jobs the user added to their session
+
+        :return: list of tuples of the JobId and timestamp
+        """
+        jobIdsTimeLoaded = []
+
+        for jobProxy, _ in self._items.items():
+            try:
+                jobIdsTimeLoaded.append((jobProxy, self.__jobTimeLoaded[jobProxy]))
+            except KeyError:
+                # set timestamp to epoch time if timestamp not found
+                jobIdsTimeLoaded.append((jobProxy, 0))
+
+        # sort list on recent timestamps, only restoring the first n jobs (defined by LOAD_LIMIT)
+        return list(sorted(jobIdsTimeLoaded, key=lambda x: x[1], reverse=True))
 
     def _removeItem(self, item):
         """Removes an item from the TreeWidget without locking
