@@ -204,7 +204,7 @@ public class HealthyThreadPool extends ThreadPoolExecutor {
         super.afterExecute(r, t);
 
         // Invalidate cache to avoid having to wait for GC to mark processed entries collectible
-        DispatchBookHost h = (DispatchBookHost)r;
+        KeyRunnable h = (KeyRunnable)r;
         taskCache.invalidate(h.getKey());
     }
 
