@@ -1444,7 +1444,7 @@ class HostActions(AbstractActions):
     def viewComments(self, rpcObjects=None):
         hosts = self._getOnlyHostObjects(rpcObjects)
         if hosts:
-            cuegui.Comments.CommentListDialog(hosts[0], self._caller).show()
+            cuegui.Comments.CommentListDialog(hosts, self._caller).show()
 
     viewProc_info = ["View Procs", None, "log"]
 
