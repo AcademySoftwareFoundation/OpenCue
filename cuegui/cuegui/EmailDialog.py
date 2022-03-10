@@ -94,7 +94,11 @@ class EmailWidget(QtWidgets.QWidget):
             for job in jobs:
                 user_names.add(job.username())
 
-        user_names = ','.join(user_names)
+        user_names = list(user_names)
+        if len(user_names) > 1:
+            user_names = ', '.join(user_names[:-1]) + (' and %s' % user_names[-1])
+        else:
+            user_names = user_names[0]
 
         to_emails = set()
         for job in jobs:
@@ -106,7 +110,7 @@ class EmailWidget(QtWidgets.QWidget):
         __default_bcc = ""
 
         job_names = list(map(lambda job: job.data.name, jobs))
-        if (len(job_names) > 2):
+        if len(job_names) > 2:
             __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names[:2]) + '...')
         else:
             __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names))
