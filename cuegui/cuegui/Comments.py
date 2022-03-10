@@ -53,6 +53,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__source = source
 
         self.__splitter = QtWidgets.QSplitter(self)
+        self.__splitter.setOrientation(QtCore.Qt.Vertical)
 
         self.__treeSubjects = QtWidgets.QTreeWidget(self)
         self.__textSubject = QtWidgets.QLineEdit(self)
