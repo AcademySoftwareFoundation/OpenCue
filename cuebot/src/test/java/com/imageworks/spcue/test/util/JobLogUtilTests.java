@@ -36,32 +36,33 @@ public class JobLogUtilTests extends AbstractTransactionalJUnit4SpringContextTes
     @Resource
     private JobLogUtil jobLogUtil;
 
-    private String logRoot;
+    private String logRootDefault;
 
     @Before
     public void setUp() {
-        // This value should match what's defined in test/resources/opencue.properties.
-        logRoot = "/arbitraryLogDirectory";
+        // The values should match what's defined in test/resources/opencue.properties.
+        logRootDefault = "/arbitraryLogDirectory";
     }
 
     @Test
-    public void testGetJobLogRootDir() {
-        assertEquals(logRoot, jobLogUtil.getJobLogRootDir());
+    public void testGetJobLogRootDirDefault() {
+        assertEquals(logRootDefault, jobLogUtil.getJobLogRootDir("someUndefinedOs"));
     }
 
     @Test
-    public void testGetJobLogDir() {
-        assertEquals(logRoot + "/show/shot/logs", jobLogUtil.getJobLogDir("show", "shot"));
+    public void testGetJobLogDirDefault() {
+        assertEquals(logRootDefault + "/show/shot/logs", jobLogUtil.getJobLogDir("show", "shot", "someUndefinedOs"));
     }
 
     @Test
-    public void testGetJobLogPath() {
+    public void testGetJobLogPathDefault() {
         JobDetail jobDetail = new JobDetail();
         jobDetail.id = "id";
         jobDetail.name = "name";
         jobDetail.showName = "show";
         jobDetail.shot = "shot";
-        assertEquals(logRoot + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
+        jobDetail.os = "someUndefinedOs";
+        assertEquals(logRootDefault + "/show/shot/logs/name--id", jobLogUtil.getJobLogPath(jobDetail));
     }
 }
 
