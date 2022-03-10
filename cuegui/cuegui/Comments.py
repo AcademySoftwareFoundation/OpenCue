@@ -123,8 +123,8 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __saveComment(self):
         """Saves the new or selected comment"""
-        if not self.__textSubject.text() or not self.__textMessage.toPlainText():
-            cuegui.Utils.showErrorMessageBox("Comment subject or body cannot be empty")
+        if not self.__textSubject.text():
+            cuegui.Utils.showErrorMessageBox("Comment subject cannot be empty")
             return
         if self.__btnSave.text() == SAVE_NEW:
             # If saving a new comment
