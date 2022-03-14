@@ -56,6 +56,7 @@ class CommentListDialog(QtWidgets.QDialog):
         self.__splitter.setOrientation(QtCore.Qt.Vertical)
 
         self.__treeSubjects = QtWidgets.QTreeWidget(self)
+        self.__treeSubjects.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
         self.__textSubject = QtWidgets.QLineEdit(self)
         self.__textMessage = QtWidgets.QTextEdit(self)
 
@@ -133,11 +134,12 @@ class CommentListDialog(QtWidgets.QDialog):
             self.refreshComments()
         else:
             # If saving a modified comment
-            if self.__treeSubjects.currentItem():
-                comment = self.__treeSubjects.currentItem().getInstance()
-                comment.setSubject(str(self.__textSubject.text()))
-                comment.setMessage(str(self.__textMessage.toPlainText()))
-                self.__treeSubjects.currentItem().getInstance().save()
+            if self.__treeSubjects.selectedItems():
+                for item in self.__treeSubjects.selectedItems():
+                    comment = item.getInstance()
+                    comment.setSubject(str(self.__textSubject.text()))
+                    comment.setMessage(str(self.__textMessage.toPlainText()))
+                    comment.save()
                 self.refreshComments()
 
     def __createNewComment(self):
@@ -160,24 +162,33 @@ class CommentListDialog(QtWidgets.QDialog):
     def __itemChanged(self):
         """when the current item changes this sets the bottom view and current
         item"""
+        types = map(lambda item: type(item), self.__treeSubjects.selectedItems())
         if self.__treeSubjects.selectedItems():
-            item = self.__treeSubjects.selectedItems()[0]
-            if type(item) is CommentSource:
-                self.__treeSubjects.setCurrentItem(item)
+            if CommentSource in types:
+                self.__createNewComment()
             else:
-                if item.getInstance().user != cuegui.Utils.getUsername():
-                    self.__textSubject.setReadOnly(True)
-                    self.__textMessage.setReadOnly(True)
+                first_item = self.__treeSubjects.selectedItems()[0]
+                identical = all(item.getInstance().message() == first_item.getInstance().message() and
+                                item.getInstance().subject() == first_item.getInstance().subject()
+                                for item in self.__treeSubjects.selectedItems())
+                read_only = any(item.getInstance().user() != cuegui.Utils.getUsername()
+                                for item in self.__treeSubjects.selectedItems())
+                if identical:
+                    for item in self.__treeSubjects.selectedItems():
+                        item.setSelected(True)
+                    if read_only:
+                        self.__textSubject.setReadOnly(True)
+                        self.__textMessage.setReadOnly(True)
+                    else:
+                        self.__textSubject.setReadOnly(False)
+                        self.__textMessage.setReadOnly(False)
+                    self.__textSubject.setText(first_item.getInstance().subject())
+                    self.__textMessage.setText(first_item.getInstance().message())
+                    self.__btnSave.setText(SAVE_EDIT)
+                    self.__btnSave.setEnabled(False)
+                    self.__btnDel.setEnabled(True)
                 else:
-                    self.__textSubject.setReadOnly(False)
-                    self.__textMessage.setReadOnly(False)
-
-                self.__textSubject.setText(item.getInstance().subject())
-                self.__textMessage.setText(item.getInstance().message())
-                self.__treeSubjects.setCurrentItem(item)
-                self.__btnSave.setText(SAVE_EDIT)
-                self.__btnSave.setEnabled(False)
-                self.__btnDel.setEnabled(True)
+                    self.__createNewComment()
         else:
             self.__createNewComment()
 
@@ -210,11 +221,29 @@ class CommentListDialog(QtWidgets.QDialog):
                 item.setSizeHint(0, QtCore.QSize(300, 1))
                 comments_length += 1
         self.__treeSubjects.resizeColumnToContents(0)
-        last_item = self.__treeSubjects.topLevelItem(len(comments) - 1)
-        if last_item and type(last_item) is Comment:
+        self.__treeSubjects.expandAll()
+
+        last_items = []
+        for i in range(self.__treeSubjects.topLevelItemCount()):
+            comment_source = self.__treeSubjects.topLevelItem(i)
+            last_items.append(comment_source.child(comment_source.childCount()-1))
+        identical = all(item.getInstance().message() == last_items[0].getInstance().message() and
+                        item.getInstance().subject() == last_items[0].getInstance().subject()
+                        for item in last_items)
+        read_only = any(elem.getInstance().user() != cuegui.Utils.getUsername()
+                        for elem in last_items)
+
+        if identical:
             self.__btnSave.setText(SAVE_EDIT)
             self.__btnSave.setEnabled(False)
-            last_item.setSelected(True)
+            for last_item in last_items:
+                last_item.setSelected(True)
+            if read_only:
+                self.__textSubject.setReadOnly(True)
+                self.__textMessage.setReadOnly(True)
+            else:
+                self.__textSubject.setReadOnly(False)
+                self.__textMessage.setReadOnly(False)
         else:
             self.__createNewComment()
 
