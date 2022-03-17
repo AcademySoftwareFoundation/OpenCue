@@ -642,6 +642,13 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     }
 
     @Override
+    public void updateMaxCores(JobInterface job, int cores, LayerType type) {
+        getJdbcTemplate().update(
+                "UPDATE layer SET int_cores_max=? WHERE pk_job=? AND str_type=?",
+                cores, job.getJobId(), type.toString());
+    }
+
+    @Override
     public void updateMinGpus(JobInterface job, int gpus, LayerType type) {
         getJdbcTemplate().update(
                 "UPDATE layer SET int_gpus_min=? WHERE pk_job=? AND str_type=?",

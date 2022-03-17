@@ -480,11 +480,22 @@ class ActionMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                         2)
                     value = int(value * 1048576)
 
-                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,):
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,):
                     (value, choice) = QtWidgets.QInputDialog.getDouble(
                         self,
                         "Create Action",
-                        "How many cores should every render layer require?",
+                        "How many min cores should every render layer require?",
+                        1,
+                        0.1,
+                        100,
+                        2)
+                    value = float(value)
+
+                elif actionType in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,):
+                    (value, choice) = QtWidgets.QInputDialog.getDouble(
+                        self,
+                        "Create Action",
+                        "How many max cores should every render layer require?",
                         1,
                         0.1,
                         100,
@@ -728,7 +739,8 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MIN_CORES,
-                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
             value = float(widget.value())
 
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
@@ -765,7 +777,8 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 widget.editingFinished.connect(self.__setValue)  # pylint: disable=no-member
 
             elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MEMORY,
-                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES):
+                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                                           opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES):
                 widget = NoWheelDoubleSpinBox(self.parent())
                 widget.setDecimals(2)
                 widget.setSingleStep(.10)
@@ -817,7 +830,8 @@ class ActionWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_TAGS,):
             self.__widgets["ActionValue"].setText(self.rpcObject.value())
 
-        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_CORES,
+        elif self.rpcObject.type() in (opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MIN_CORES,
+                                       opencue.api.filter_pb2.SET_ALL_RENDER_LAYER_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MAX_CORES,
                                        opencue.api.filter_pb2.SET_JOB_MIN_CORES):
             self.__widgets["ActionValue"].setValue(float(str(self.rpcObject.value())))
