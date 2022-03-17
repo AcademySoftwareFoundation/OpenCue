@@ -396,8 +396,12 @@ public class FilterManagerService implements FilterManager {
                 layerDao.updateMinMemory(job, (int) action.intValue, LayerType.RENDER);
                 break;
 
-            case SET_ALL_RENDER_LAYER_CORES:
+            case SET_ALL_RENDER_LAYER_MIN_CORES:
                 layerDao.updateMinCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.RENDER);
+                break;
+
+            case SET_ALL_RENDER_LAYER_MAX_CORES:
+                layerDao.updateMaxCores(job, Convert.coresToCoreUnits(action.floatValue), LayerType.RENDER);
                 break;
 
             case SET_MEMORY_OPTIMIZER:
