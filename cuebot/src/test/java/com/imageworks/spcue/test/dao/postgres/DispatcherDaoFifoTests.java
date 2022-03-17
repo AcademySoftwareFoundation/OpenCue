@@ -131,7 +131,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
 
     @Before
     public void launchJob() {
-        dispatcherDao.setFifoSchedulingEnabled(true);
+        dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.FIFO);
 
         dispatcher.setTestMode(true);
         jobLauncher.testMode = true;
@@ -139,7 +139,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
 
     @After
     public void resetFifoScheduling() {
-        dispatcherDao.setFifoSchedulingEnabled(false);
+        dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.PRIORITY_ONLY);
     }
 
     @Before
@@ -171,11 +171,11 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void testFifoSchedulingEnabled() {
-        assertTrue(dispatcherDao.getFifoSchedulingEnabled());
-        dispatcherDao.setFifoSchedulingEnabled(false);
-        assertFalse(dispatcherDao.getFifoSchedulingEnabled());
-        dispatcherDao.setFifoSchedulingEnabled(true);
-        assertTrue(dispatcherDao.getFifoSchedulingEnabled());
+        assertEquals(dispatcherDao.getSchedulingMode(), DispatcherDao.SchedulingMode.FIFO);
+        dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.PRIORITY_ONLY);
+        assertEquals(dispatcherDao.getSchedulingMode(), DispatcherDao.SchedulingMode.PRIORITY_ONLY);
+        dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.FIFO);
+        assertEquals(dispatcherDao.getSchedulingMode(), DispatcherDao.SchedulingMode.FIFO);
     }
 
     @Test
@@ -213,8 +213,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
     @Transactional
     @Rollback(true)
     public void testFifoSchedulingDisabled() throws Exception {
-        dispatcherDao.setFifoSchedulingEnabled(false);
-        assertFalse(dispatcherDao.getFifoSchedulingEnabled());
+        dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.PRIORITY_ONLY);
 
         int count = 10;
         launchJobs(count);

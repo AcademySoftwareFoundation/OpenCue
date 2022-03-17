@@ -164,18 +164,31 @@ public interface DispatcherDao {
                                               int limit);
 
    /**
-    * Return whether FIFO scheduling is enabled or not in the same priority for unittest.
+    * Return Scheduling Mode selected
     *
     * @return
     */
-   boolean getFifoSchedulingEnabled();
+   SchedulingMode getSchedulingMode();
 
    /**
-    * Set whether FIFO scheduling is enabled or not in the same priority for unittest.
+    * Set Scheduling Mode.
     *
-    * @param fifoSchedulingEnabled
+    * @param schedulingMode
     */
-   void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled);
+   void setSchedulingMode(SchedulingMode schedulingMode);
+
+    /**
+     *  - PRIORITY_ONLY: Sort by priority only
+     *  - FIFO: Whether or not to enable FIFO scheduling in the same priority.
+     *  - BALANCED: Use a rank formula that takes into account time waiting, and number
+     *      of cores required: rank = priority + (100 * (1 - (job.cores/job.int_min_cores))) + age in days
+     */
+    enum SchedulingMode {
+        PRIORITY_ONLY,
+        FIFO,
+        BALANCED
+    }
 }
+
 
 
