@@ -25,7 +25,7 @@ from concurrent import futures
 from random import shuffle
 import abc
 import atexit
-import logging as log
+import logging
 import os
 import platform
 import subprocess
@@ -39,6 +39,9 @@ import rqd.compiled_proto.rqd_pb2_grpc
 import rqd.rqconstants
 import rqd.rqdservicers
 import rqd.rqutil
+
+
+log = logging.getLogger(__name__)
 
 
 class RunningFrame(object):
@@ -101,7 +104,7 @@ class RunningFrame(object):
 
     def kill(self, message=""):
         """Kills the frame"""
-        log.info("Request recieved: kill")
+        log.info("Request received: kill")
         if self.frameAttendantThread is None:
             log.warning(
                 "Kill requested before frameAttendantThread is created for: %s", self.frameId)
