@@ -847,8 +847,6 @@ class RqCore(object):
             err = "Not launching, rqd is lockNimby and User is Active"
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
-        else:
-            log.info("rqd.rqconstants.OVERRIDE_NIMBY and self.nimby.isUserActive() is FALSE")
 
         if runFrame.frame_id in self.__cache:
             err = "Not launching, frame is already running on this proc %s" % runFrame.frame_id

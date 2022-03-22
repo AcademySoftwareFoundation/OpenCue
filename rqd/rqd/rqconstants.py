@@ -190,4 +190,4 @@ except Exception as e:
         "Failed to read values from config file %s due to %s at %s",
         CONFIG_FILE, e, traceback.extract_tb(sys.exc_info()[2]))
 
-logging.warning("CUEBOT_HOSTNAME: " + CUEBOT_HOSTNAME)
+logging.warning("CUEBOT_HOSTNAME: %s", CUEBOT_HOSTNAME)
