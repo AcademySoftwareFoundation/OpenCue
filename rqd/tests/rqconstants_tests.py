@@ -123,11 +123,40 @@ class RqConstantTests(pyfakefs.fake_filesystem_unittest.TestCase):
 DEFAULT_FACILITY =  test_facility
 """,
     )
-    def test_facility(self):
+    def test_default_facility(self):
         self.assertEqual(rqd.rqconstants.DEFAULT_FACILITY, "test_facility")
 
         machine = self.makeRqMachine()
         self.assertEqual(machine.renderHost.facility, "test_facility")
+
+    @MockConfig(
+        tempdir,
+        """
+[Override]
+OVERRIDE_FACILITY_MODULE =  tests.facility_config
+OVERRIDE_FACILITY_FUNC = getValue
+DEFAULT_FACILITY =  test_facility
+""",
+    )
+    def test_facility(self):
+        self.assertEqual(rqd.rqconstants.FACILITY, "test_facility_name_dynamic")
+
+        machine = self.makeRqMachine()
+        self.assertEqual(machine.renderHost.facility, "test_facility")
+
+    @MockConfig(
+        tempdir,
+        """
+[Override]
+OVERRIDE_SP_OS_MODULE =  tests.sp_os_config
+OVERRIDE_SP_OS_FUNC = getValue
+""",
+    )
+    def test_sp_os(self):
+        self.assertEqual(rqd.rqconstants.SP_OS, "test_sp_os_dynamic")
+
+        machine = self.makeRqMachine()
+        self.assertEqual(machine.renderHost.attributes['SP_OS'], "test_sp_os_dynamic")
 
     @MockConfig(
         tempdir,

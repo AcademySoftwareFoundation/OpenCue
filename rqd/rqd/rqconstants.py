@@ -31,6 +31,7 @@ import platform
 import subprocess
 import sys
 import traceback
+import importlib
 
 if platform.system() == 'Linux':
     import pwd
@@ -126,6 +127,15 @@ else:
     SU_ARGUMENT = '-c'
 
 SP_OS = platform.system()
+FACILITY = ''
+
+
+def exec_dynamic_porting(module, func):
+    try:
+        module = importlib.import_module(module)
+        return getattr(module, func)()
+    except (ImportError, AttributeError) as e:
+        return None
 
 try:
     if os.path.isfile(CONFIG_FILE):
@@ -173,6 +183,18 @@ try:
             DEFAULT_FACILITY = config.get(__section, "DEFAULT_FACILITY")
         if config.has_option(__section, "LAUNCH_FRAME_USER_GID"):
             LAUNCH_FRAME_USER_GID = config.getint(__section, "LAUNCH_FRAME_USER_GID")
+        if (config.has_option(__section, "OVERRIDE_FACILITY_MODULE") and
+                config.has_option(__section, "OVERRIDE_FACILITY_FUNC")):
+            module = config.get(__section, "OVERRIDE_FACILITY_MODULE")
+            func = config.get(__section, "OVERRIDE_FACILITY_FUNC")
+            facility_dynamic_val = exec_dynamic_porting(module, func)
+            FACILITY = facility_dynamic_val if facility_dynamic_val else FACILITY
+        if (config.has_option(__section, "OVERRIDE_SP_OS_MODULE") and
+                config.has_option(__section, "OVERRIDE_SP_OS_FUNC")):
+            module = config.get(__section, "OVERRIDE_SP_OS_MODULE")
+            func = config.get(__section, "OVERRIDE_SP_OS_FUNC")
+            sp_os_dynamic_val = exec_dynamic_porting(module, func)
+            SP_OS = sp_os_dynamic_val if sp_os_dynamic_val else SP_OS
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(
