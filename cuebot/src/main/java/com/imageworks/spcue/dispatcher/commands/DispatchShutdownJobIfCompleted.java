@@ -29,11 +29,12 @@ import com.imageworks.spcue.service.JobManagerSupport;
  *
  * @category command
  */
-public class DispatchShutdownJobIfCompleted implements Runnable {
+public class DispatchShutdownJobIfCompleted extends KeyRunnable {
     private JobInterface job;
 
     private JobManagerSupport jobManagerSupport;
     public DispatchShutdownJobIfCompleted(JobInterface job, JobManagerSupport jobManagerSupport) {
+        super("disp_st_job_comp_" + job.getJobId());
         this.job = job;
         this.jobManagerSupport = jobManagerSupport;
     }
