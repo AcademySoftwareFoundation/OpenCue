@@ -627,6 +627,7 @@ def shutdownThread(thread):
     return thread.wait(1500)
 
 def getLLU(item):
+    """ LLU time from log_path """
     if isProc(item):
         logFile = item.data.log_path
     elif isFrame(item):
@@ -643,10 +644,31 @@ def getLLU(item):
 
     return lluTime
 
-def numFormat(num, type):
+def numFormat(num, _type):
+    """ format LLU time """
     if num == "" or num < .001 or num is None:
         return ""
-    if type == "t":
+    if _type == "t":
         return secondsToHHMMSS(int(num))
-    if type == "f":
+    if _type == "f":
         return "%.2f" % float(num)
+
+def byteConversion(amount, btype):
+    """ convert unit of memory size into bytes for comparing different
+        unit measures
+
+    :param amount: unit of memory size
+    :ptype amount: float
+    :param btype: unit type
+    :ptype btype: string
+    :return: unit in bytes
+    :rtype: float
+    """
+    n = 1
+    conversionMap = {"KB": 1, "TB": 4, "GB": 3, "MB": 2}
+    _bytes = amount
+    if btype.upper() in conversionMap:
+        n = conversionMap[btype.upper()]
+    for _ in range(n):
+        _bytes *= 1024
+    return _bytes

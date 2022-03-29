@@ -42,7 +42,7 @@ import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
 
-MEMORY_PATTERN = re.compile("\d+(?:TB|GB|MB|KB)")
+MEMORY_PATTERN = re.compile("[0-9]+(?:TB|GB|MB|KB)")
 MEMORY_BTYPE = "TB|GB|MB|KB"
 
 
@@ -440,11 +440,12 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__controls.getRedirectButton().pressed.connect(self.redirect)
         self.__controls.getSelectAllButton().pressed.connect(self.selectAll)
         self.__controls.getClearButton().pressed.connect(self.clearTarget)
-        # pylint: enable=no-member
 
         self.__tree.doubleClicked.connect(self.mouseDoubleClickEvent)
         self.__tree.clicked.connect(self.mousePressEvent)
+        # pylint: disable=no-member
 
+    @QtCore.Slot("QModelIndex")
     def mousePressEvent(self, item):
         """Called when an item is clicked on. Copies selected object names to
         the middle click selection clip board.
@@ -454,6 +455,7 @@ class RedirectWidget(QtWidgets.QWidget):
         except AttributeError as e:
             logger.info("Error item no longer available %s", e)
 
+    @QtCore.Slot("QModelIndex")
     def mouseDoubleClickEvent(self, index):
         """ emit proc to Job Monitor Tree """
         attr = getattr(index, 'data', None)
@@ -463,7 +465,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 if jobObject:
                     if cuegui.Utils.isJob(jobObject[0]):
                         QtGui.qApp.view_object.emit(jobObject[0])
-            except Exception as e:
+            except opencue.exception.CueException as e:
                 text = ('Not able to add job to Job Monitor Tree. '
                         'Error Message:\n %s' % e)
                 self.__warn(text)
@@ -565,7 +567,7 @@ class RedirectWidget(QtWidgets.QWidget):
             return True
 
         showObj = opencue.api.findShow(show)
-        stripShowRegex = '\.%s' % show
+        stripShowRegex = '\\.%s' % show
         showSubs = dict((re.sub(stripShowRegex, "", s.data.name), s)
                          for s in showObj.getSubscriptions()
                          if s.data.allocation_name in alloc)
@@ -597,7 +599,8 @@ class RedirectWidget(QtWidgets.QWidget):
                         % (alloc, show, show, alloc))
             return False
 
-    def __isAllowed(self, procs, targetJob):
+    @classmethod
+    def __isAllowed(cls, procs, targetJob):
         """Checks if the follow criteria are met to allow redirect to target job:
             - if source/target job have pending frames
             - if target job hasn't reached maximum cores
@@ -709,7 +712,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 if not allowed:
                     warning = errMsg
                     break
-        except Exception as e:
+        except opencue.exception.CueException as e:
             warning = str(e)
 
         if warning:
@@ -754,6 +757,7 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__controls.getJobBox().clear()
 
     def update(self):
+        """ Update the model """
         self.__model.clear()
         self.__model.setHorizontalHeaderLabels(RedirectWidget.HEADERS)
 
@@ -845,6 +849,7 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__hosts = hosts
 
     def __addHost(self, entry):
+        """ Add Host to ProxyModel """
         host = entry["host"]
         procs = entry["procs"]
         rtime = entry["time"]
@@ -863,7 +868,7 @@ class RedirectWidget(QtWidgets.QWidget):
                                 QtGui.QStandardItem(
                                     "%0.2fGB" % (proc.data.reserved_memory / 1048576.0)),
                                 QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(time.time() -
-                                                                                 proc.data.dispatch_time)),
+                                                                        proc.data.dispatch_time)),
                                 QtGui.QStandardItem(proc.data.group_name),
                                 QtGui.QStandardItem(",".join(proc.data.services)),
                                 QtGui.QStandardItem(str(entry["job_cores"])),
@@ -883,9 +888,6 @@ class RedirectWidget(QtWidgets.QWidget):
 
 class ProxyModel(QtCore.QSortFilterProxyModel):
     """Provides support for sorting data passed between the model and the tree view"""
-
-    def __init__(self, parent=None):
-        super(ProxyModel, self).__init__(parent)
 
     def lessThan(self, left, right):
 
