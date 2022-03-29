@@ -625,3 +625,28 @@ def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
     return thread.wait(1500)
+
+def getLLU(item):
+    if isProc(item):
+        logFile = item.data.log_path
+    elif isFrame(item):
+        logFile = item.log_path
+    else:
+        return ""
+    try:
+        statInfo = os.path.getmtime(logFile)
+    except Exception as e:
+        logger.info("not able to extract LLU: %s", e)
+        return None
+
+    lluTime = time.time() - statInfo
+
+    return lluTime
+
+def numFormat(num, type):
+    if num == "" or num < .001 or num is None:
+        return ""
+    if type == "t":
+        return secondsToHHMMSS(int(num))
+    if type == "f":
+        return "%.2f" % float(num)

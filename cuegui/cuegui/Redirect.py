@@ -37,7 +37,13 @@ from PySide2 import QtWidgets
 
 import opencue
 
+import cuegui.Logger
 import cuegui.Utils
+
+logger = cuegui.Logger.getLogger(__file__)
+
+MEMORY_PATTERN = re.compile("\d+(?:TB|GB|MB|KB)")
+MEMORY_BTYPE = "TB|GB|MB|KB"
 
 
 class ShowCombo(QtWidgets.QComboBox):
@@ -216,8 +222,12 @@ class RedirectControls(QtWidgets.QWidget):
         self.__cores_spin.setRange(1, self._cfg().get('max_cores', 32))
         self.__cores_spin.setValue(1)
 
+        self.__max_cores_spin = QtWidgets.QSpinBox(self)
+        self.__max_cores_spin.setRange(1, self._cfg().get('max_cores', 32))
+        self.__max_cores_spin.setValue(32)
+
         self.__mem_spin = QtWidgets.QDoubleSpinBox(self)
-        self.__mem_spin.setRange(1, self._cfg().get('max_memory', 200))
+        self.__mem_spin.setRange(1, self._cfg().get('max_memory', 250))
         self.__mem_spin.setDecimals(1)
         self.__mem_spin.setValue(4)
         self.__mem_spin.setSuffix("GB")
@@ -227,9 +237,10 @@ class RedirectControls(QtWidgets.QWidget):
         self.__limit_spin.setValue(10)
 
         self.__prh_spin = QtWidgets.QDoubleSpinBox(self)
-        self.__prh_spin.setRange(1, self._cfg().get('max_proc_hour_cutoff', 30))
+        # increase Proc Hour upper bound limit
+        self.__prh_spin.setRange(1, 500)
         self.__prh_spin.setDecimals(1)
-        self.__prh_spin.setValue(10)
+        self.__prh_spin.setValue(20)
         self.__prh_spin.setSuffix("PrcHrs")
 
         # Job Filters
@@ -243,7 +254,7 @@ class RedirectControls(QtWidgets.QWidget):
         self.__clear_btn = QtWidgets.QPushButton("Clr", self)
 
         self.__group = QtWidgets.QGroupBox("Resource Filters")
-        self.__group_filter = QtWidgets.QGroupBox("Job Filters")
+        self.__groupFilter = QtWidgets.QGroupBox("Job Filters")
 
         layout1 = QtWidgets.QHBoxLayout()
         layout1.addWidget(self.__update_btn)
@@ -257,6 +268,8 @@ class RedirectControls(QtWidgets.QWidget):
         layout2.addWidget(self.__alloc_filter)
         layout2.addWidget(QtWidgets.QLabel("Minimum Cores:", self))
         layout2.addWidget(self.__cores_spin)
+        layout2.addWidget(QtWidgets.QLabel("Max Cores:", self))
+        layout2.addWidget(self.__max_cores_spin)
         layout2.addWidget(QtWidgets.QLabel("Minimum Memory:", self))
         layout2.addWidget(self.__mem_spin)
         layout2.addWidget(QtWidgets.QLabel("Result Limit:", self))
@@ -274,10 +287,10 @@ class RedirectControls(QtWidgets.QWidget):
         layout3.addWidget(self.__exclude_regex)
 
         self.__group.setLayout(layout2)
-        self.__group_filter.setLayout(layout3)
+        self.__groupFilter.setLayout(layout3)
 
         layout = QtWidgets.QVBoxLayout(self)
-        layout.addWidget(self.__group_filter)
+        layout.addWidget(self.__groupFilter)
         layout.addWidget(self.__group)
         layout.addLayout(layout1)
 
@@ -334,6 +347,10 @@ class RedirectControls(QtWidgets.QWidget):
     def getCores(self):
         """Gets the core count."""
         return int(self.__cores_spin.value())
+
+    def getMaxCores(self):
+        """Gets the max core count."""
+        return int(self.__max_cores_spin.value())
 
     def getMemory(self):
         """Gets the memory amount."""
@@ -393,7 +410,8 @@ class RedirectWidget(QtWidgets.QWidget):
     Displays a table of procs that can be selected for redirect.
     """
 
-    HEADERS = ["Name", "Cores", "Memory", "PrcTime", "Group", "Service"]
+    HEADERS = ["Name", "Cores", "Memory", "PrcTime", "Group", "Service",
+               "Job Cores", "Pending", "LLU", "Log"]
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
@@ -402,12 +420,16 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__controls = RedirectControls(self)
 
         self.__model = QtGui.QStandardItemModel(self)
-        self.__model.setColumnCount(5)
+        self.__model.setColumnCount(7)
         self.__model.setHorizontalHeaderLabels(RedirectWidget.HEADERS)
+
+        self.__proxyModel = ProxyModel(self)
+        self.__proxyModel.setSourceModel(self.__model)
 
         self.__tree = QtWidgets.QTreeView(self)
         self.__tree.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
-        self.__tree.setModel(self.__model)
+        self.__tree.setSortingEnabled(True)
+        self.__tree.setModel(self.__proxyModel)
 
         layout = QtWidgets.QVBoxLayout(self)
         layout.addWidget(self.__controls)
@@ -420,27 +442,53 @@ class RedirectWidget(QtWidgets.QWidget):
         self.__controls.getClearButton().pressed.connect(self.clearTarget)
         # pylint: enable=no-member
 
-    def __get_selected_procs_by_alloc(self, selected_items):
+        self.__tree.doubleClicked.connect(self.mouseDoubleClickEvent)
+        self.__tree.clicked.connect(self.mousePressEvent)
+
+    def mousePressEvent(self, item):
+        """Called when an item is clicked on. Copies selected object names to
+        the middle click selection clip board.
+        """
+        try:
+            QtWidgets.QApplication.clipboard().setText(item.data(), QtGui.QClipboard.Selection)
+        except AttributeError as e:
+            logger.info("Error item no longer available %s", e)
+
+    def mouseDoubleClickEvent(self, index):
+        """ emit proc to Job Monitor Tree """
+        attr = getattr(index, 'data', None)
+        if attr is not None:
+            try:
+                jobObject = opencue.api.getJobs(job=[index.data()])
+                if jobObject:
+                    if cuegui.Utils.isJob(jobObject[0]):
+                        QtGui.qApp.view_object.emit(jobObject[0])
+            except Exception as e:
+                text = ('Not able to add job to Job Monitor Tree. '
+                        'Error Message:\n %s' % e)
+                self.__warn(text)
+
+    def __getSelectedProcsByAlloc(self, selectedItems):
         """
         Gathers and returns the selected procs, grouped by allocation their
         allocation names
 
-        @param selected_items: The selected rows to analyze
-        @type selected_items: list<dict<str:varies>>
+        @param selectedItems: The selected rows to analyze
+        @type selectedItems: list<dict<str:varies>>
 
         @return: A dictionary with the allocation names are the keys and the
                  selected procs are the values.
         @rtype: dict<str:L{opencue.wrappers.proc.Proc}>
         """
 
-        procs_by_alloc = {}
-        for item in selected_items:
+        procByAlloc = {}
+        for item in selectedItems:
             entry = self.__hosts.get(str(item.text()))
             alloc = entry.get('alloc')
-            alloc_procs = procs_by_alloc.get(alloc, [])
-            alloc_procs.extend(list(entry["procs"]))
-            procs_by_alloc[alloc] = alloc_procs
-        return procs_by_alloc
+            allocProcs = procByAlloc.get(alloc, [])
+            allocProcs.extend(list(entry["procs"]))
+            procByAlloc[alloc] = allocProcs
+        return procByAlloc
 
     def __warn(self, msg):
         """
@@ -454,7 +502,7 @@ class RedirectWidget(QtWidgets.QWidget):
         message.setText(msg)
         message.exec_()
 
-    def __is_cross_show_safe(self, procs, target_show):
+    def __isCrossShowSafe(self, procs, targetShow):
         """
         Determines whether or not it's safe to redirect cores from a show
         to another, based on user response to the warning message
@@ -462,30 +510,31 @@ class RedirectWidget(QtWidgets.QWidget):
         @param procs: The procs to redirect
         @type procs: L{opencue.wrappers.proc.Proc}
 
-        @param target_show: The name of the target show
-        @type target_show: str
+        @param targetShow: The name of the target show
+        @type targetShow: str
 
         @return: Whether or not it's safe to redirect the given procs to the
                  target show
         @rtype: bool
         """
 
-        xshow_jobs = [proc.getJob() for proc in procs if not
-                      proc.getJob().show() == target_show]
-        if not xshow_jobs:
+        xshowJobs = [proc.getJob() for proc in procs if
+                     proc.getJob().show() != targetShow]
+
+        if not xshowJobs:
             return True  # No cross-show procs
 
         msg = ('Redirecting the selected procs to the target will result '
                'in killing frames on other show/s.\nDo you have approval '
                'from (%s) to redirect cores from the following jobs?'
-               % ', '.join([j.show().upper() for j in xshow_jobs]))
+               % ', '.join([j.show().upper() for j in xshowJobs]))
         return cuegui.Utils.questionBoxYesNo(parent=self,
                                       title="Cross-show Redirect!",
                                       text=msg,
                                       items=[j.name() for j
-                                      in xshow_jobs])
+                                      in xshowJobs])
 
-    def __is_burst_safe(self, alloc, procs, show):
+    def __isBurstSafe(self, alloc, procs, show):
         """
         Determines whether or not it's safe to redirect cores by checking the
         burst target show burst and the number of cores being redirected. If
@@ -511,33 +560,34 @@ class RedirectWidget(QtWidgets.QWidget):
         # pylint: disable=protected-access
         cfg = self.__controls._cfg()
         # pylint: enable=protected-access
-        wc_ok = cfg.get('wasted_cores_threshold', 100)
-        if wc_ok < 0:
+        wcThreshold = cfg.get('redirect_wasted_cores_threshold', 100)
+        if wcThreshold < 0:
             return True
 
-        show_obj = opencue.api.findShow(show)
-        show_subs = dict((s.data.name.rstrip('.%s' % show), s)
-                         for s in show_obj.getSubscriptions()
+        showObj = opencue.api.findShow(show)
+        stripShowRegex = '\.%s' % show
+        showSubs = dict((re.sub(stripShowRegex, "", s.data.name), s)
+                         for s in showObj.getSubscriptions()
                          if s.data.allocation_name in alloc)
         try:
-            procs_to_burst = (show_subs.get(alloc).data.burst -
-                              show_subs.get(alloc).data.reserved_cores)
-            procs_to_redirect = int(sum([p.data.reserved_cores
+            procsBurst = (showSubs.get(alloc).data.burst -
+                              showSubs.get(alloc).data.reserved_cores)
+            procsRedirect = int(sum([p.data.reserved_cores
                                          for p in procs]))
-            wasted_cores = int(procs_to_redirect - procs_to_burst)
-            if wasted_cores <= wc_ok:
+            wastedCores = int(procsRedirect - procsBurst)
+            if wastedCores <= wcThreshold:
                 return True  # wasted cores won't exceed threshold
 
-            status = ('at burst' if procs_to_burst == 0 else
+            status = ('at burst' if procsBurst == 0 else
                       '%d cores %s burst'
-                      % (procs_to_burst,
-                      'below' if procs_to_burst > 0 else  'above'))
+                      % (abs(procsBurst),
+                      'below' if procsBurst > 0 else  'above'))
             msg = ('Target show\'s %s subscription is %s. Redirecting '
                    'the selected procs will kill frames to free up %d '
                    'cores. You will be killing %d cores '
                    'that the target show will not be able to use. '
                    'Do you want to redirect anyway?'
-                   % (alloc, status, int(procs_to_redirect), wasted_cores))
+                   % (alloc, status, int(procsRedirect), wastedCores))
             return cuegui.Utils.questionBoxYesNo(parent=self,
                                           title=status.title(),
                                           text=msg)
@@ -546,6 +596,66 @@ class RedirectWidget(QtWidgets.QWidget):
                         'target show does not have a %s subscription!'
                         % (alloc, show, show, alloc))
             return False
+
+    def __isAllowed(self, procs, targetJob):
+        """Checks if the follow criteria are met to allow redirect to target job:
+            - if source/target job have pending frames
+            - if target job hasn't reached maximum cores
+            - check if adding frames will push target job over it's max cores
+
+        @param procs: The (source) procs to be redirected
+        @type procs: L{opencue.wrappers.proc.Proc}
+        @param targetJob: target job to move procs to
+        @return: true/false of whether criteria are met
+                 and error message if any
+        @rtype: tuple(boolean, string)
+        """
+        errMsg = ""
+        allowed = False
+
+        # Case 1: Check if target job hasn't reached it's max cores
+        if targetJob.coresReserved() < targetJob.maxCores():
+            allowed = True
+            errMsg = "Target job %s cores reserved %s \
+                      reached max cores %s " %(targetJob.name(),
+                                               targetJob.coresReserved(),
+                                               targetJob.maxCores())
+
+        # Case 2: 1. Check target job for pending frames
+        #         2. Check source procs for pending frames
+        if allowed and targetJob.waitingFrames() <= 0:
+            allowed = False
+            errMsg = "Target job %s has no pending (waiting) frames" % targetJob.name()
+
+        if allowed:
+            for proc in procs:
+                job = proc.getJob()
+                if job.waitingFrames() <= 0:
+                    allowed = False
+                    errMsg = "Source job %s has no pending (waiting) frames" % job.name()
+                    break
+
+        # Case 3: Check if each proc or summed up procs will
+        #         push targetJob over it's max cores
+        if allowed:
+            totalProcCores = 0
+            for proc in procs:
+                totalProcCores += proc.coresReserved()
+                msg = ('proc cores reserved of %s will push %s '
+                         'over it\'s max cores limit of %s')
+                if (proc.coresReserved() + targetJob.coresReserved()) > targetJob.maxCores() or \
+                        (totalProcCores + targetJob.coresReserved()) > targetJob.maxCores():
+                    errMsg = msg % (str(proc.coresReserved() + targetJob.coresReserved()),
+                                     targetJob.name(), str(targetJob.maxCores()))
+                    allowed = False
+                    break
+
+            if totalProcCores > targetJob.maxCores():
+                errMsg = msg % (totalProcCores, targetJob.name(),
+                                str(targetJob.maxCores()))
+                allowed = False
+
+        return allowed, errMsg
 
     def redirect(self):
         """
@@ -558,37 +668,58 @@ class RedirectWidget(QtWidgets.QWidget):
         # Get selected items
         items = [self.__model.item(row) for row
                  in range(0, self.__model.rowCount())]
-        selected_items = [item for item in items
+        selectedItems = [item for item in items
                          if item.checkState() == QtCore.Qt.Checked]
-        if not selected_items:  # Nothing selected, exit
+        if not selectedItems:  # Nothing selected, exit
             self.__warn('You have not selected anything to redirect.')
             return
 
         # Get the Target Job
-        job_name = self.__controls.getJob()
-        if not job_name:  # No target job, exit
+        jobName = self.__controls.getJob()
+        if not jobName:  # No target job, exit
             self.__warn('You must have a job name selected.')
             return
         job = None
         try:
-            job = opencue.api.findJob(job_name)
+            job = opencue.api.findJob(jobName)
         except opencue.EntityNotFoundException:  # Target job finished, exit
-            self.__warn_and_stop('The job you\'re trying to redirect to '
-                                 'appears to be no longer in the cue!')
+            text = ('The job you\'re trying to redirect to '
+                    'appears to be no longer in the cue!')
+            cuegui.Utils.showErrorMessageBox(text, title="ERROR!")
+
             return
 
         # Gather Selected Procs
-        procs_by_alloc = self.__get_selected_procs_by_alloc(selected_items)
-        show_name = job.show()
-        for alloc, procs in list(procs_by_alloc.items()):
-            if not self.__is_cross_show_safe(procs, show_name):  # Cross-show
-                return
-            if not self.__is_burst_safe(alloc, procs, show_name):  # At burst
-                return
+        procByAlloc = self.__getSelectedProcsByAlloc(selectedItems)
+        showName = job.show()
+        # Check if safe to redirect
+        #   1. don't redirect if target job's reserved cores reached job max
+        #   2. at burst
+        #   3. cross-show safe
+        warning = ""
+        try:
+            for alloc, procs in list(procByAlloc.items()):
+                if not self.__isCrossShowSafe(procs, showName):
+                    warning = "Is not cross show safe"
+                    break
+                if not self.__isBurstSafe(alloc, procs, showName):
+                    warning = "Is not burst safe"
+                    break
+                allowed, errMsg = self.__isAllowed(procs, targetJob=job)
+                if not allowed:
+                    warning = errMsg
+                    break
+        except Exception as e:
+            warning = str(e)
+
+        if warning:
+            warning = "Failed to Redirect:\n" + warning
+            self.__warn(warning)
+            return
 
         # Redirect
         errors = []
-        for item in selected_items:
+        for item in selectedItems:
             entry = self.__hosts.get(str(item.text()))
             procs = entry["procs"]
             # pylint: disable=broad-except
@@ -601,7 +732,12 @@ class RedirectWidget(QtWidgets.QWidget):
             item.setEnabled(False)
 
         if errors:  # Something went wrong!
-            self.__warn('Some procs failed to redirect.')
+            stackTrace = "\n".join(errors)
+            text = 'Some procs failed to redirect with errors:\n' + stackTrace
+            self.__warn(text)
+        else:
+            text = 'Redirect To Job Request sent for:\n' + job.name()
+            self.__warn(text)
 
     def selectAll(self):
         """
@@ -624,9 +760,9 @@ class RedirectWidget(QtWidgets.QWidget):
         hosts = { }
         ok = 0
 
-        service_filter = self.__controls.getRequiredService()
-        group_filter = self.__controls.getIncludedGroups()
-        job_regex = self.__controls.getJobNameExcludeRegex()
+        serviceFilter = self.__controls.getRequiredService()
+        groupFilter = self.__controls.getIncludedGroups()
+        jobRegexFilter = self.__controls.getJobNameExcludeRegex()
 
         show = self.__controls.getShow()
         alloc = self.__controls.getAllocFilter()
@@ -654,19 +790,23 @@ class RedirectWidget(QtWidgets.QWidget):
             if ok >= self.__controls.getLimit():
                 break
 
-            if job_regex:
-                if re.match(job_regex, proc.data.job_name):
+            if jobRegexFilter:
+                if re.match(jobRegexFilter, proc.data.job_name):
                     continue
 
-            if service_filter:
-                if service_filter not in proc.data.services:
+            if serviceFilter:
+                if serviceFilter not in proc.data.services:
                     continue
 
-            if group_filter:
-                if proc.data.group_name not in group_filter:
+            if groupFilter:
+                if proc.data.group_name not in groupFilter:
                     continue
 
             name = proc.data.name.split("/")[0]
+            lluTime = cuegui.Utils.getLLU(proc)
+            job = proc.getJob()
+            logLines = cuegui.Utils.getLastLine(proc.data.log_path) or ""
+
             if name not in hosts:
                 cue_host = opencue.api.findHost(name)
                 hosts[name] = {
@@ -684,10 +824,15 @@ class RedirectWidget(QtWidgets.QWidget):
 
             host["procs"].append(proc)
             host["mem"] = host["mem"] + proc.data.reserved_memory
-            host["cores"] = host["cores"] + proc.data.reserved_cores
+            host["cores"] = int(host["cores"]) + int(proc.data.reserved_cores)
             host["time"] = host["time"] + (int(time.time()) - proc.data.dispatch_time)
+            host["llu"] = cuegui.Utils.numFormat(lluTime, "t")
+            host["log"] = logLines
+            host['job_cores'] = job.data.job_stats.reserved_cores
+            host['waiting'] = job.pendingFrames() or 0
 
             if host["cores"] >= self.__controls.getCores() and \
+                    host["cores"] <= self.__controls.getMaxCores() and \
                     host["mem"] >= self.__controls.getMemory() and \
                     host["time"] < self.__controls.getCutoffTime():
                 self.__addHost(host)
@@ -707,10 +852,10 @@ class RedirectWidget(QtWidgets.QWidget):
         checkbox = QtGui.QStandardItem(host.data.name)
         checkbox.setCheckable(True)
 
-        self.__model.appendRow([checkbox,
-                               QtGui.QStandardItem(str(entry["cores"])),
-                               QtGui.QStandardItem("%0.2fGB" % (entry["mem"] / 1048576.0)),
-                               QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(rtime))])
+        self.__proxyModel.sourceModel().appendRow([checkbox,
+                                QtGui.QStandardItem(str(entry["cores"])),
+                                QtGui.QStandardItem("%0.2fGB" % (entry["mem"] / 1048576.0)),
+                                QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(rtime))])
 
         for proc in procs:
             checkbox.appendRow([QtGui.QStandardItem(proc.data.job_name),
@@ -718,9 +863,50 @@ class RedirectWidget(QtWidgets.QWidget):
                                 QtGui.QStandardItem(
                                     "%0.2fGB" % (proc.data.reserved_memory / 1048576.0)),
                                 QtGui.QStandardItem(cuegui.Utils.secondsToHHMMSS(time.time() -
-                                                                          proc.data.dispatch_time)),
+                                                                                 proc.data.dispatch_time)),
                                 QtGui.QStandardItem(proc.data.group_name),
-                                QtGui.QStandardItem(",".join(proc.data.services))])
+                                QtGui.QStandardItem(",".join(proc.data.services)),
+                                QtGui.QStandardItem(str(entry["job_cores"])),
+                                QtGui.QStandardItem(str(entry["waiting"])),
+                                QtGui.QStandardItem(str(entry["llu"])),
+                                QtGui.QStandardItem(str(entry["log"]))
+                                ])
 
-        self.__tree.setExpanded(self.__model.indexFromItem(checkbox), True)
-        self.__tree.resizeColumnToContents(0)
+        proxy = self.__tree.model()
+        model = proxy.sourceModel()
+        for row in range(model.rowCount()):
+            index = model.index(row, 0)
+            self.__tree.expand(proxy.mapFromSource(index))
+            self.__tree.resizeColumnToContents(0)
+        self.__tree.setWordWrap(True)
+
+
+class ProxyModel(QtCore.QSortFilterProxyModel):
+    """Provides support for sorting data passed between the model and the tree view"""
+
+    def __init__(self, parent=None):
+        super(ProxyModel, self).__init__(parent)
+
+    def lessThan(self, left, right):
+
+        leftData = self.sourceModel().data(left)
+        rightData = self.sourceModel().data(right)
+
+        try:
+            return int(leftData) < int(rightData)
+        except ValueError:
+            if re.search(MEMORY_PATTERN, leftData):
+                # strip memory type to compare
+                leftDataBtype = re.search(MEMORY_BTYPE, leftData).group()
+                leftDataMem = re.sub(MEMORY_BTYPE, "", leftData)
+                leftBtyes = cuegui.Utils.byteConversion(float(leftDataMem), leftDataBtype)
+
+                rightDataBtype = re.search(MEMORY_BTYPE, rightData).group()
+                rightDataMem = re.sub(MEMORY_BTYPE, "", rightData)
+                rightBytes = cuegui.Utils.byteConversion(float(rightDataMem), rightDataBtype)
+                return float(leftBtyes) < float(rightBytes)
+
+            return leftData < rightData
+
+        except TypeError:
+            return leftData < rightData
