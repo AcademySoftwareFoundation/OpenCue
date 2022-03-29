@@ -188,6 +188,20 @@ public interface DispatcherDao {
         FIFO,
         BALANCED
     }
+   void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled);
+    /**
+     * Return true if the dispatcher dao should not use cache
+     *
+     * @return
+     */
+    boolean isTestMode();
+
+    /**
+     * Return true if the dispatcher dao should not use cache
+     *
+     * @return
+     */
+    void setTestMode(boolean enabled);
 }
 
 
