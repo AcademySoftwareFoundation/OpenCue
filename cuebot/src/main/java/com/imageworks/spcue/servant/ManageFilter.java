@@ -31,6 +31,7 @@ import com.imageworks.spcue.MatcherEntity;
 import com.imageworks.spcue.dao.FilterDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.filter.Action;
 import com.imageworks.spcue.grpc.filter.ActionSeq;
 import com.imageworks.spcue.grpc.filter.Filter;
@@ -125,7 +126,8 @@ public class ManageFilter extends FilterInterfaceGrpc.FilterInterfaceImplBase {
     @Override
     public void delete(FilterDeleteRequest request, StreamObserver<FilterDeleteResponse> responseObserver) {
         FilterEntity filter = getFilterEntity(request.getFilter());
-        manageQueue.execute(new Runnable() {
+        String key = "manage_filter_del_req_" + filter.getId();
+        manageQueue.execute(new KeyRunnable(key) {
             public void run() {
                 filterManager.deleteFilter(filter);
             }

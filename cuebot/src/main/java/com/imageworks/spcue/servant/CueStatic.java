@@ -44,17 +44,17 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
     public void getSystemStats(CueGetSystemStatsRequest request,
                                StreamObserver<CueGetSystemStatsResponse> responseObserver) {
         SystemStats stats = SystemStats.newBuilder()
-                .setDispatchThreads(dispatchQueue.getActiveThreadCount())
-                .setDispatchWaiting(dispatchQueue.getWaitingCount())
+                .setDispatchThreads(dispatchQueue.getActiveCount())
+                .setDispatchWaiting(dispatchQueue.getSize())
                 .setDispatchRemainingCapacity(dispatchQueue.getRemainingCapacity())
-                .setDispatchExecuted(dispatchQueue.getTotalDispatched())
-                .setDispatchRejected(dispatchQueue.getTotalRejected())
+                .setDispatchExecuted(dispatchQueue.getCompletedTaskCount())
+                .setDispatchRejected(dispatchQueue.getRejectedTaskCount())
 
-                .setManageThreads(manageQueue.getActiveThreadCount())
-                .setManageWaiting(manageQueue.getWaitingCount())
+                .setManageThreads(manageQueue.getActiveCount())
+                .setManageWaiting(manageQueue.getSize())
                 .setManageRemainingCapacity(manageQueue.getRemainingCapacity())
-                .setManageExecuted(manageQueue.getTotalDispatched())
-                .setManageRejected(manageQueue.getTotalRejected())
+                .setManageExecuted(manageQueue.getCompletedTaskCount())
+                .setManageRejected(manageQueue.getRejectedTaskCount())
 
                 .setReportThreads(reportQueue.getActiveCount())
                 .setReportWaiting(reportQueue.getQueue().size())
@@ -62,12 +62,12 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setReportExecuted(reportQueue.getTaskCount())
                 .setReportRejected(reportQueue.getRejectedTaskCount())
 
-                .setBookingWaiting(bookingQueue.getQueue().size())
-                .setBookingRemainingCapacity(bookingQueue.getQueue().remainingCapacity())
+                .setBookingWaiting(bookingQueue.getSize())
+                .setBookingRemainingCapacity(bookingQueue.getRemainingCapacity())
                 .setBookingThreads(bookingQueue.getActiveCount())
                 .setBookingExecuted(bookingQueue.getCompletedTaskCount())
                 .setBookingRejected(bookingQueue.getRejectedTaskCount())
-                .setBookingSleepMillis(bookingQueue.sleepTime())
+                .setBookingSleepMillis(0)
 
                 .setHostBalanceSuccess(DispatchSupport.balanceSuccess.get())
                 .setHostBalanceFailed(DispatchSupport.balanceFailed.get())
@@ -76,7 +76,7 @@ public class CueStatic extends CueInterfaceGrpc.CueInterfaceImplBase {
                 .setClearedProcs(DispatchSupport.clearedProcs.get())
                 .setBookingRetries(DispatchSupport.bookingRetries.get())
                 .setBookingErrors(DispatchSupport.bookingErrors.get())
-                .setBookedProcs( DispatchSupport.bookedProcs.get())
+                .setBookedProcs(DispatchSupport.bookedProcs.get())
 
                 // TODO(gregdenton) Reimplement these with gRPC. (Issue #69)
                 //  .setReqForData(IceServer.dataRequests.get())

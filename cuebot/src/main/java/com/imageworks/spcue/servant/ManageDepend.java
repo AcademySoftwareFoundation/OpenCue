@@ -26,6 +26,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LightweightDependency;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.depend.DependGetDependRequest;
 import com.imageworks.spcue.grpc.depend.DependGetDependResponse;
 import com.imageworks.spcue.grpc.depend.DependInterfaceGrpc;
@@ -62,7 +63,8 @@ public class ManageDepend extends DependInterfaceGrpc.DependInterfaceImplBase {
     public void satisfy(DependSatisfyRequest request, StreamObserver<DependSatisfyResponse> responseObserver) {
 
         LightweightDependency depend = dependManager.getDepend(request.getDepend().getId());
-        manageQueue.execute(new Runnable() {
+        String key = "manage_dep_sat_req_" + request.getDepend().getId();
+        manageQueue.execute(new KeyRunnable(key) {
             public void run() {
                 try {
                     logger.info("dropping dependency: " + depend.id);
