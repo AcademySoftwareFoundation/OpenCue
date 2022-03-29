@@ -32,13 +32,16 @@ import platform
 import rqd.rqconstants
 import rqd.rqutil
 
+log = logging.getLogger(__name__)
+
 if platform.system() == 'Windows':
+    pynputIsAvailable = False
     try:
         import pynput
-    except ImportError:
-        pass
+        pynputIsAvailable = True
+    except ImportError as e:
+        log.error(e)
 
-log = logging.getLogger(__name__)
 
 # compatible with Python 2 and 3:
 ABC = ABCMeta('ABC', (object,), {'__slots__': ()})
@@ -49,7 +52,7 @@ class NimbyFactory(object):
     def getNimby(rqCore):
         """ assign platform dependent Nimby instance """
         nimbyInstance = None
-        if rqd.rqconstants.USE_NIMBY_PYNPUT:
+        if rqd.rqconstants.USE_NIMBY_PYNPUT and pynputIsAvailable:
             nimbyInstance = NimbyPynput(rqCore)
         else:
             nimbyInstance = NimbySelect(rqCore)
