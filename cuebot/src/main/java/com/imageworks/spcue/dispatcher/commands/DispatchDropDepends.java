@@ -19,6 +19,7 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
+
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
@@ -31,7 +32,7 @@ import com.imageworks.spcue.service.DependManager;
  *
  * @category command
  */
-public class DispatchDropDepends implements Runnable {
+public class DispatchDropDepends extends KeyRunnable {
 
     JobInterface job;
     LayerInterface layer;
@@ -41,18 +42,21 @@ public class DispatchDropDepends implements Runnable {
     DependManager dependManager;
 
     public DispatchDropDepends(JobInterface job, DependTarget target, DependManager dependManager) {
+        super("disp_drop_dep_job_" + job.getJobId() + "_" + target.toString());
         this.job = job;
         this.target = target;
         this.dependManager = dependManager;
     }
 
     public DispatchDropDepends(LayerInterface layer, DependTarget target, DependManager dependManager) {
+        super("disp_drop_dep_layer_" + layer.getLayerId() + "_" + target.toString());
         this.layer = layer;
         this.target = target;
         this.dependManager = dependManager;
     }
 
     public DispatchDropDepends(FrameInterface frame, DependTarget target, DependManager dependManager) {
+        super("disp_drop_dep_frame_" +  frame.getFrameId() + "_" + target.toString());
         this.frame = frame;
         this.target = target;
         this.dependManager = dependManager;

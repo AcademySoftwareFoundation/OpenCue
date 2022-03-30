@@ -28,7 +28,7 @@ import com.imageworks.spcue.service.JobManagerSupport;
  *
  * @category command
  */
-public class DispatchRetryFrames implements Runnable {
+public class DispatchRetryFrames extends KeyRunnable {
 
     private FrameSearchInterface search;
     private Source source;
@@ -36,6 +36,7 @@ public class DispatchRetryFrames implements Runnable {
 
 
     public DispatchRetryFrames(FrameSearchInterface search, Source source, JobManagerSupport jobManagerSupport) {
+        super("disp_retry_frames_" +  search.hashCode() + "_" + source.toString());
         this.search = search;
         this.source = source;
         this.jobManagerSupport = jobManagerSupport;

@@ -65,6 +65,5 @@ public class AppConfig {
         b.setServlet(new JobLaunchServlet());
         return b;
     }
-
 }
 

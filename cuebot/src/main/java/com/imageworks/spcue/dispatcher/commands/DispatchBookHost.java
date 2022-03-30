@@ -19,60 +19,62 @@
 
 package com.imageworks.spcue.dispatcher.commands;
 
+import java.util.List;
+import java.util.ArrayList;
+import org.apache.log4j.Logger;
+
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
+import com.imageworks.spcue.VirtualProc;
 
 /**
  * A command for booking a host.
  *
  * @category command
  */
-public class DispatchBookHost implements Runnable  {
+public class DispatchBookHost extends KeyRunnable {
+    private static final Logger logger =
+            Logger.getLogger(DispatchBookHost.class);
 
     private ShowInterface show = null;
     private GroupInterface group = null;
     private JobInterface job = null;
     private DispatchHost host;
     private Dispatcher dispatcher;
-    private String key;
 
     public DispatchHost getDispatchHost() {
-        this.key = host.getId();
+        this.setKey(host.getId());
         return host;
     }
 
     public DispatchBookHost(DispatchHost host, Dispatcher d) {
+        super(host.getId());
         this.host = host;
-        this.key = host.getId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, JobInterface job, Dispatcher d) {
+        super(host.getId() + "_job_" + job.getJobId());
         this.host = host;
         this.job = job;
-        this.key = host.getId() + "_job_" + job.getJobId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, GroupInterface group, Dispatcher d) {
+        super(host.getId() + "_group_" + group.getGroupId());
         this.host = host;
         this.group = group;
-        this.key = host.getId() + "_group_" + group.getGroupId();
         this.dispatcher = d;
     }
 
     public DispatchBookHost(DispatchHost host, ShowInterface show, Dispatcher d) {
+        super(host.getId() + "_name_" + show.getName());
         this.host = host;
         this.show = show;
-        this.key = host.getId() + "_name_" + show.getName();
         this.dispatcher = d;
-    }
-
-    public String getKey() {
-        return this.key;
     }
 
     public void run() {
