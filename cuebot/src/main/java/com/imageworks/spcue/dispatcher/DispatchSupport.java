@@ -550,18 +550,11 @@ public interface DispatchSupport {
     boolean hasPendingFrames(LayerInterface layer);
 
     /**
-     * Return true if the dispatcher should not use cache
+     * Clear bookableShows cache
      *
      * @return
      */
-    boolean isTestMode();
-
-    /**
-     * Return true if the dispatcher should not use cache
-     *
-     * @return
-     */
-    void setTestMode(boolean enabled);
+    void clearCache();
 
 }
 

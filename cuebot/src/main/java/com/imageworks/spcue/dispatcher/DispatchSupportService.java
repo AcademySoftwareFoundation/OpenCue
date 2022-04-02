@@ -83,8 +83,6 @@ public class DispatchSupportService implements DispatchSupport {
     private ConcurrentHashMap<String, StrandedCores> strandedCores =
         new ConcurrentHashMap<String, StrandedCores>();
 
-    public boolean testMode = false;
-
     @Override
     public void pickupStrandedCores(DispatchHost host) {
         logger.info(host + "picked up stranded cores");
@@ -693,14 +691,8 @@ public class DispatchSupportService implements DispatchSupport {
     }
 
     @Override
-    public boolean isTestMode() {
-        return testMode;
-    }
-
-    @Override
-    public void setTestMode(boolean enabled) {
-        testMode = enabled;
-        dispatcherDao.setTestMode(enabled);
+    public void clearCache() {
+        dispatcherDao.clearCache();
     }
 }
 

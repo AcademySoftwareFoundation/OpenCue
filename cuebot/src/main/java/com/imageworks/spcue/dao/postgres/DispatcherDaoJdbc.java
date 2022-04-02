@@ -436,16 +436,8 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     @Override
-    public boolean isTestMode() {
-        return testMode;
-    }
-
-    @Override
-    public void setTestMode(boolean enabled) {
-        testMode = enabled;
-        if (enabled) {
-            bookableShows.clear();
-        }
+    public void clearCache() {
+        bookableShows.clear();
     }
 }
 
