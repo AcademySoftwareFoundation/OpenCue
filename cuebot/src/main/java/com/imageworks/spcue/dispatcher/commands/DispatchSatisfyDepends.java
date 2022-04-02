@@ -30,7 +30,7 @@ import com.imageworks.spcue.service.JobManagerSupport;
  *
  * @category command
  */
-public class DispatchSatisfyDepends implements Runnable {
+public class DispatchSatisfyDepends extends KeyRunnable {
 
     private JobInterface job = null;
     private LayerInterface layer = null;
@@ -39,21 +39,25 @@ public class DispatchSatisfyDepends implements Runnable {
     private JobManagerSupport jobManagerSupport;
 
     public DispatchSatisfyDepends(JobInterface job, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" +  job.getJobId() + "_" + jobManagerSupport.toString());
         this.job = job;
         this.jobManagerSupport = jobManagerSupport;
     }
 
     public DispatchSatisfyDepends(LayerInterface layer, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + layer.getLayerId() + "_" + jobManagerSupport.toString());
         this.layer = layer;
         this.jobManagerSupport = jobManagerSupport;
     }
 
     public DispatchSatisfyDepends(FrameInterface frame, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + frame.getFrameId() + "_" + jobManagerSupport.toString());
         this.frame = frame;
         this.jobManagerSupport = jobManagerSupport;
     }
 
     public DispatchSatisfyDepends(FrameSearchInterface search, JobManagerSupport jobManagerSupport) {
+        super("disp_sat_deps_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
         this.search = search;
         this.jobManagerSupport = jobManagerSupport;
     }

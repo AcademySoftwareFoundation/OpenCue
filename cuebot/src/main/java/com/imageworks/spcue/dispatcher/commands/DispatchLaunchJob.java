@@ -25,12 +25,13 @@ import com.imageworks.spcue.service.JobSpec;
 /**
  * @category DispatchCommand
  */
-public class DispatchLaunchJob implements Runnable {
+public class DispatchLaunchJob extends KeyRunnable {
 
     private JobLauncher jobLauncher;
     private JobSpec spec;
 
     public DispatchLaunchJob(JobSpec spec, JobLauncher jobLauncher) {
+        super("disp_launch_job_" + spec.getShow() + "_" + spec.getShot() + "_" + spec.getUid());
         this.spec = spec;
         this.jobLauncher = jobLauncher;
     }

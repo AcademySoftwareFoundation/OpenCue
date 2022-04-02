@@ -23,18 +23,20 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.service.JobManagerSupport;
 
+
 /**
  * A command for eating an array of frames
  *
  * @category command
  */
-public class DispatchEatFrames implements Runnable {
+public class DispatchEatFrames extends KeyRunnable {
 
     private FrameSearchInterface search;
     private Source source;
     private JobManagerSupport jobManagerSupport;
 
     public DispatchEatFrames(FrameSearchInterface search, Source source, JobManagerSupport jobManagerSupport) {
+        super("disp_eat_frames_job_" + search.hashCode() + "_" + jobManagerSupport.hashCode());
         this.search = search;
         this.source = source;
         this.jobManagerSupport = jobManagerSupport;

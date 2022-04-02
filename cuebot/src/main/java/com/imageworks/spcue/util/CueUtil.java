@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
+import javax.annotation.PostConstruct;
 import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.Session;
@@ -47,17 +48,24 @@ import javax.mail.util.ByteArrayDataSource;
 
 import org.apache.log4j.Logger;
 import org.springframework.core.env.Environment;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.SpcueRuntimeException;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 
+
 /**
  * CueUtil is set of common methods used throughout the application.
  */
+@Component
 public final class CueUtil {
 
     private static final Logger logger = Logger.getLogger(CueUtil.class);
+    private static String smtpHost = "";
+    @Autowired
+    private Environment env;
 
     /**
      * Commonly used macros for gigabyte values in KB.
@@ -87,6 +95,11 @@ public final class CueUtil {
      * One hour of time in seconds.
      */
     public static final int ONE_HOUR = 3600;
+
+    @PostConstruct
+    public void init() {
+        CueUtil.smtpHost = this.env.getRequiredProperty("smtp_host", String.class);
+    }
 
     /**
      * Return true if the given name is formatted as a valid
@@ -157,7 +170,7 @@ public final class CueUtil {
     public static void sendmail(String to, String from, String subject, StringBuilder body, Map<String, byte[]> images) {
         try {
             Properties props = System.getProperties();
-            props.put("mail.smtp.host", "smtp");
+            props.put("mail.smtp.host", CueUtil.smtpHost);
             Session session = Session.getDefaultInstance(props, null);
             Message msg = new MimeMessage(session);
             msg.setFrom(new InternetAddress(from));
@@ -189,6 +202,8 @@ public final class CueUtil {
             msg.setContent(mimeMultipart);
             msg.setHeader("X-Mailer", "OpenCueMailer");
             msg.setSentDate(new Date());
+            Transport transport = session.getTransport("smtp");
+            transport.connect(CueUtil.smtpHost, null, null);
             Transport.send(msg);
         }
         catch (Exception e) {

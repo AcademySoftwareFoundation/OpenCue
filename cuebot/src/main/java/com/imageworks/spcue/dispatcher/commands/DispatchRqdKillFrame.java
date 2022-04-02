@@ -21,11 +21,12 @@ package com.imageworks.spcue.dispatcher.commands;
 
 import org.apache.log4j.Logger;
 
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdClientException;
 
-public class DispatchRqdKillFrame implements Runnable {
+public class DispatchRqdKillFrame extends KeyRunnable {
 
     private static final Logger logger = Logger.getLogger(DispatchRqdKillFrame.class);
 
@@ -38,6 +39,7 @@ public class DispatchRqdKillFrame implements Runnable {
     private final RqdClient rqdClient;
 
     public DispatchRqdKillFrame(String hostname, String frameId, String message, RqdClient rqdClient) {
+        super("disp_rqd_kill_frame_" +  hostname + "_" + frameId + "_" + rqdClient.toString());
         this.hostname = hostname;
         this.frameId = frameId;
         this.message = message;
@@ -45,6 +47,7 @@ public class DispatchRqdKillFrame implements Runnable {
     }
 
     public DispatchRqdKillFrame(VirtualProc proc, String message, RqdClient rqdClient) {
+        super("disp_rqd_kill_frame_" + proc.getProcId() + "_" + rqdClient.toString());
         this.proc = proc;
         this.hostname = proc.hostName;
         this.message = message;

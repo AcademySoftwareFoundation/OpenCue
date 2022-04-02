@@ -424,7 +424,6 @@ class StuckFrameBar(QtWidgets.QWidget):
         else:
             self.__service_type.setText("All (Click + to Add Specific Filter)")
             self.__service_type.setReadOnly(True)
-            # pylint: disable=consider-using-f-string
             self.__add_btn = QtWidgets.QPushButton(QtGui.QIcon('%s/add.png' %
                                                                cuegui.Constants.RESOURCE_PATH), "")
             self.__add_btn.setToolTip("Add Filter")
@@ -788,6 +787,15 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.completeRefresh = False
         self.enableNotification = False
 
+        self.runtime_filter = None
+        self.min_llu_filter = None
+        self.time_filter = None
+        self.avg_comp_filter = None
+        self.excludes = None
+        self.groups = None
+        self.showData = None
+        self.filters = None
+
     def logIt(self):
         """Logs cache to a file."""
         if hasattr(QtGui.qApp, "threadpool"):
@@ -809,7 +817,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if type == "t":
             return cuegui.Utils.secondsToHHMMSS(int(num))
         if type == "f":
-            # pylint: disable=consider-using-f-string
             return "%.2f" % float(num)
 
     def setCompleteRefresh(self, value):
@@ -930,7 +937,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Return layer based on proc."""
         jobName = proc.data.job_name
         layerName = proc.data.frame_name.split("-")[1]
-        # pylint: disable=consider-using-f-string
         key = "%s/%s" % (jobName, layerName)
 
         if not self.layer_cache.get(key, None):
@@ -946,7 +952,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Confirm frame filter."""
         currentHostsNew = []
         nextIndex = 2
-        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
                 frame = self.currentHosts[index]
@@ -1291,7 +1296,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def remove(self):
         currentHostsNew = []
         nextIndex = 2
-        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1399,13 +1403,13 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 break
         if key == "":
             for filter in filters:
-                if "All (Click + to Add Specific Filter)" == filter.getServiceBoxText():
+                if filter.getServiceBoxText() == "All (Click + to Add Specific Filter)":
                     key = "All (Click + to Add Specific Filter)"
                     filterChange = filter
                 break
         if key == "":
             for filter in filters:
-                if "All Other Types" == filter.getServiceBoxText():
+                if filter.getServiceBoxText() == "All Other Types":
                     key = "All Other Types"
                     filterChange = filter
                 break
@@ -1425,7 +1429,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         jobName = self.selectedObjects()[0].data.name
         currentHostsNew = []
         nextIndex = 2
-        # pylint: disable=consider-using-enumerate
         for index in range(len(self.currentHosts)):
             if index == nextIndex:
 
@@ -1479,7 +1482,6 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         objectClass = item.rpcObject.__class__.__name__
         objectId = item.rpcObject.id()
         try:
-            # pylint: disable=consider-using-f-string
             del self._items['{}.{}'.format(objectClass, objectId)]
         except KeyError:
             # Dependent jobs are not stored in as keys the main self._items
@@ -1518,11 +1520,11 @@ class CommentWidget(QtWidgets.QWidget):
         self.__textSubject = subject
         self.__textMessage = message
 
-        def getSubject(self):
-            return str(self.__textSubject.text())
-
-        def getMessage(self):
-            return str(self.__textMessage.toPlainText())
+        # def getSubject(self):
+        #     return str(self.__textSubject.text())
+        #
+        # def getMessage(self):
+        #     return str(self.__textMessage.toPlainText())
 
 
 class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
@@ -1530,6 +1532,7 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     __initialized = False
 
     def __init__(self, rpcObject, parent):
+        # pylint: disable=protected-access
         if not self.__initialized:
             self.__class__.__initialized = True
             self.__class__.__icon = QtGui.QIcon(":group.png")
@@ -1554,13 +1557,13 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         if role == QtCore.Qt.ForegroundRole:
             return self.__foregroundColor
 
-        elif role == QtCore.Qt.BackgroundRole:
+        if role == QtCore.Qt.BackgroundRole:
             return self.__backgroundColor
 
-        elif role == QtCore.Qt.DecorationRole and col == 0:
+        if role == QtCore.Qt.DecorationRole and col == 0:
             return self.__icon
 
-        elif role == QtCore.Qt.UserRole:
+        if role == QtCore.Qt.UserRole:
             return self.__type
 
         return cuegui.Constants.QVARIANT_NULL
@@ -1568,14 +1571,15 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 
 class LogFinal():
     """Utility class for logging to yaml."""
+    # pylint: disable=no-self-use
     def finalize(self, frames, show):
         """Saves logs to yaml. If file not created, will create one."""
-        dict = frames
+        frames_dict = frames
 
         yaml_path = "/shots/" + show + "/home/etc/stuck_frames_db.yaml"
         if not os.path.exists(yaml_path):
             yaml_ob = open(yaml_path, 'w')
-            yaml.dump(dict, yaml_ob)
+            yaml.dump(frames_dict, yaml_ob)
             yaml_ob.close()
         else:
             yaml_ob = open(yaml_path, 'r')
@@ -1584,8 +1588,8 @@ class LogFinal():
 
             yaml_ob = open(yaml_path, 'w')
 
-            for key in dict:  # updates old dict
-                old_dict[key] = dict[key]
+            for key in frames_dict:  # updates old dict
+                old_dict[key] = frames_dict[key]
 
             yaml.dump(old_dict, yaml_ob)
             yaml_ob.close()
@@ -1594,6 +1598,7 @@ class LogFinal():
 class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     """Represents a host widget."""
     __initialized = False
+    # pylint: disable=redefined-builtin,protected-access
     def __init__(self, object, parent):
         if not self.__initialized:
             self.__class__.__initialized = True
@@ -1610,7 +1615,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
                 self._cache[col] = self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](
                     self.rpcObject)
             return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
-        elif role == QtCore.Qt.DecorationRole:
+        if role == QtCore.Qt.DecorationRole:
             # todo: get rpcOject comment!!
             if col == COMMENT_COLUMN and cuegui.Utils.isJob(self.rpcObject):
                 # and self.rpcObject.hasComment:
@@ -1623,6 +1628,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
 class CoreUpWindow(QtWidgets.QDialog):
     """A dialog box for adding more cores to a job."""
 
+    # pylint: disable=non-parent-init-called,super-init-not-called
     def __init__(self, parent, jobs, selected=False):
         QtWidgets.QWidget.__init__(self, parent)
         self.setWindowTitle('Core Up')
@@ -1702,19 +1708,17 @@ class CoreUpWindow(QtWidgets.QDialog):
     def coreup(self, cores):
         """Set Min Cores to cores for all selected layers of job."""
         for job, layer in self.selectedLayers():
-            # pylint: disable=consider-using-f-string
             print("Setting max cores to %d for %s" % (cores, layer.name()))
             layer.setMinCores(cores * 1.0)
             time.sleep(CUE_SLEEP)
             if self.retryFramesCB.isChecked():
                 fs = opencue.search.FrameSearch()
-                fs.state = [opencue.search.FrameState(2)]
+                fs.state = [opencue.wrappers.frame.Frame().FrameState(2)]
                 frames = layer.getFrames(fs)
                 for frame in frames:
                     precentage = self.dj.getCompletionAmount(job, frame)
                     if precentage >= 0:
                         if precentage < self.retryThresholdSpinner.value():
-                            # pylint: disable=consider-using-f-string
                             print('Retrying frame %s %s' % (job.name(), frame.frame()))
                             frame.kill()
                             time.sleep(CUE_SLEEP)
@@ -1748,7 +1752,7 @@ class CoreUpWindow(QtWidgets.QDialog):
 class DJArnold(object):
     """Represents arnold engine."""
     completion_pattern = re.compile(
-        # pylint: disable-next=line-too-long
+        # pylint: disable=line-too-long
         r'[INFO BatchMain]:  [0-9][0-9]:[0-9][0-9]:[0-9][0-9] [0-9]{1,8}mb         |    (?P<total>[0-9]{1,3})% done - [0-9]{1,5} rays/pixel')
 
     def __init__(self, show=None):
@@ -1756,10 +1760,10 @@ class DJArnold(object):
             show = os.environ.get('SHOW')
         self.show = show
 
+    # pylint: disable=no-self-use
     def getLog(self, job, frame):
         """Return the contents of a log given a job and a frame."""
         log_dir = job.logDir()
-        # pylint: disable=consider-using-f-string
         log_name = '%s.%s.rqlog' % (job.name(), frame.data.name)
         log_file = os.path.join(log_dir, log_name)
         if not os.path.exists(log_file):
@@ -1785,10 +1789,10 @@ class DJArnold(object):
             cores = 0
             cores_list = []
             fs = opencue.search.FrameSearch()
-            fs.states = [opencue.search.FrameState(3)]
+            fs.states = [opencue.wrappers.frame.Frame().FrameState(3)]
             frames = layer.getFrames(fs)
             if not frames:
-                fs.states = [opencue.search.FrameState(2)]
+                fs.states = [opencue.wrappers.frame.Frame().FrameState(2)]
                 frames = layer.getFrames(fs)
             for frame in frames:
                 frame_cores = float(frame.lastResource.split('/')[1])
