@@ -526,7 +526,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for proxy, item in list(self._items.items()):
             if not proxy in rpcObjects:
                 rpcObjects[proxy] = item.rpcObject
-
+        # pylint: disable=too-many-nested-blocks
         try:
             selectedKeys = [
                 cuegui.Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
@@ -565,7 +565,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.verticalScrollBar().setRange(scrolled, len(rpcObjects.keys()) - scrolled)
             list(map(lambda key: self._items[key].setSelected(True),
                      [key for key in selectedKeys if key in self._items]))
-            [self._items[key].setExpanded(True) for key in expanded if key in self._items]
+            list(self._items[key].setExpanded(True) for key in expanded if key in self._items)
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         finally:

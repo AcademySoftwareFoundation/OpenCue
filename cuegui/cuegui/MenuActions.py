@@ -383,15 +383,16 @@ class JobActions(AbstractActions):
             for depJob in dependents:
                 try:
                     depJob.kill()
-                except Exception as e:
-                    logger.warning("Failed to kill depending job: %s - %s" % (depJob.name(), e))
+                except opencue.exception.CueException as e:
+                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
+                    logger.warning(errMsg)
         else:
             # Drop only direct dependents.
             for job in dependents:
                 try:
                     self.dropJobsDependingOnThis(job)
-                except Exception as e:
-                    logger.warning("Failed to drop dependencies: %s" % e)
+                except opencue.exception.CueException as e:
+                    logger.warning("Failed to drop dependencies: %s", e)
 
     def getRecursiveDependentJobs(self, jobs, seen=None, active_only=True):
         seen = set() if seen is None else seen
@@ -408,6 +409,7 @@ class JobActions(AbstractActions):
                                                            active_only)
 
     def getExternalDependentNames(self, job, active_only=True):
+        # pylint: disable=consider-using-set-comprehension
         job_names = set([dep.dependErJob()
                          for dep in job.getWhatDependsOnThis()
                          if (not dep.isInternal())
@@ -424,8 +426,10 @@ class JobActions(AbstractActions):
     def dropJobsDependingOnThis(self, job):
         for dep in job.getWhatDependsOnThis():
             if not dep.isInternal():
+                # pylint: disable=no-member
                 job = self.getJobByName(self, dep.dependOnJob())
                 job.dropDepends(opencue.wrappers.depend.DependTarget.EXTERNAL)
+                # pylint: enable=no-member
 
     eatDead_info = ["Eat dead frames", None, "eat"]
 

@@ -210,15 +210,19 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                     self.jobMonitor.addJob(job)
 
     def getGrpDependent(self):
+        """Is group dependent checked"""
         return bool(self.grpDependentCb.isChecked())
 
     def setGrpDependent(self, state):
+        """Set group dependent"""
         self.grpDependentCb.setChecked(bool(state))
 
     def getAutoLoadMine(self):
+        """Is autoload mine checked"""
         return bool(self.autoLoadMineCb.isChecked())
 
     def setAutoLoadMine(self, state):
+        """Set autoload mine"""
         self.autoLoadMineCb.setChecked(bool(state))
 
     def _buttonSetup(self, layout):
@@ -244,7 +248,9 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.grpDependentCb.setFocusPolicy(QtCore.Qt.NoFocus)
         self.grpDependentCb.setChecked(True)
         layout.addWidget(self.grpDependentCb)
+        # pylint: disable=no-member
         self.grpDependentCb.stateChanged.connect(self.jobMonitor.setGroupDependent)
+        # pylint: enable=no-member
 
         finishedButton = QtWidgets.QPushButton(QtGui.QIcon(":eject.png"), "Finished")
         finishedButton.setToolTip("Unmonitor finished jobs")
