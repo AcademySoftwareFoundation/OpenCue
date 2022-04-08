@@ -31,7 +31,7 @@ from builtins import object
 
 import ctypes
 import errno
-import logging as log
+import logging
 import math
 import os
 import platform
@@ -64,6 +64,7 @@ import rqd.rqswap
 import rqd.rqutil
 
 
+log = logging.getLogger(__name__)
 KILOBYTE = 1024
 
 
