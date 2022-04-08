@@ -865,12 +865,12 @@ class MoveDialog(QtWidgets.QDialog):
 
         self.connect(_btn_accept,
                      QtCore.SIGNAL("clicked()"),
-                     self._move_items)
+                     self.move_items)
         self.connect(_btn_cancel,
                      QtCore.SIGNAL("clicked()"),
                      self.reject)
 
-    def _move_items(self):
+    def move_items(self):
         if not self.send_to_groups:
             if self.items.job_ids:
                 jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
