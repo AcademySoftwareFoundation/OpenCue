@@ -871,7 +871,10 @@ class MoveDialog(QtWidgets.QDialog):
                      self.reject)
 
     def move_items(self):
+<<<<<<< HEAD
         """Reparent jobs to new group"""
+=======
+>>>>>>> 898db171 (Fix unittests for sendToGroups)
         if not self.send_to_groups:
             if self.items.job_ids:
                 jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
