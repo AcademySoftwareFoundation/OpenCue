@@ -22,7 +22,7 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
-import logging as log
+import logging
 import os
 import platform
 import random
@@ -46,6 +46,8 @@ import rqd.rqutil
 
 INT32_MAX = 2147483647
 INT32_MIN = -2147483648
+log = logging.getLogger(__name__)
+
 
 class FrameAttendantThread(threading.Thread):
     """Once a frame has been received and checked by RQD, this class handles
@@ -582,7 +584,7 @@ class RqCore(object):
             booked_cores=0,
         )
 
-        self.nimby = rqd.rqnimby.Nimby(self)
+        self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
 
@@ -614,6 +616,7 @@ class RqCore(object):
                     log.warning('OVERRIDE_NIMBY is False, Nimby startup has been disabled')
             else:
                 self.nimbyOn()
+                self.onNimbyLock()
         elif rqd.rqconstants.OVERRIDE_NIMBY:
             log.warning('Nimby startup has been triggered by OVERRIDE_NIMBY')
             self.nimbyOn()
@@ -836,7 +839,12 @@ class RqCore(object):
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
         if self.nimby.locked and not runFrame.ignore_nimby:
-            err = "Not launching, rqd is lockNimby"
+            err = "Not launching, rqd is lockNimby and not Ignore Nimby"
+            log.info(err)
+            raise rqd.rqexceptions.CoreReservationFailureException(err)
+
+        if rqd.rqconstants.OVERRIDE_NIMBY and self.nimby.isNimbyActive():
+            err = "Not launching, rqd is lockNimby and User is Active"
             log.info(err)
             raise rqd.rqexceptions.CoreReservationFailureException(err)
 
@@ -913,6 +921,7 @@ class RqCore(object):
 
     def shutdownRqdIdle(self):
         """When machine is idle, shutdown RQD"""
+        log.info("shutdownRqdIdle")
         self.lockAll()
         self.__whenIdle = True
         self.sendStatusReport()
@@ -921,11 +930,13 @@ class RqCore(object):
 
     def restartRqdNow(self):
         """Kill all running frames and restart RQD"""
+        log.info("RestartRqdNow")
         self.__respawn = True
         self.shutdownRqdNow()
 
     def restartRqdIdle(self):
         """When machine is idle, restart RQD"""
+        log.info("RestartRqdIdle")
         self.lockAll()
         self.__whenIdle = True
         self.__respawn = True

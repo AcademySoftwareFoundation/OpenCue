@@ -61,15 +61,13 @@ import rqd.rqutil
 
 def setupLogging():
     """Sets up the logging for RQD.
+       Logs to /var/log/messages"""
 
-    Logs to /var/log/messages"""
-    # TODO(bcipriano) These should be config based. (Issue #72)
-    consoleFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    consoleLevel = logging.DEBUG
-    fileFormat = '%(asctime)s %(levelname)-9s rqd3-%(module)-10s %(message)s'
-    fileLevel = logging.WARNING  # Equal to or greater than the consoleLevel
+    consolehandler = logging.StreamHandler()
+    consolehandler.setLevel(rqd.rqconstants.CONSOLE_LOG_LEVEL)
+    consolehandler.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
+    logging.getLogger('').addHandler(consolehandler)
 
-    logging.basicConfig(level=consoleLevel, format=consoleFormat)
     if platform.system() in ('Linux', 'Darwin'):
         if platform.system() == 'Linux':
             syslogAddress = '/dev/log'
@@ -83,9 +81,10 @@ def setupLogging():
         logfile = logging.FileHandler(os.path.expandvars('%TEMP%/openrqd.log'))
     else:
         logfile = logging.handlers.SysLogHandler()
-    logfile.setLevel(fileLevel)
-    logfile.setFormatter(logging.Formatter(fileFormat))
+    logfile.setLevel(rqd.rqconstants.FILE_LOG_LEVEL)
+    logfile.setFormatter(logging.Formatter(rqd.rqconstants.LOG_FORMAT))
     logging.getLogger('').addHandler(logfile)
+    logging.getLogger('').setLevel(logging.DEBUG)
 
 
 def usage():
