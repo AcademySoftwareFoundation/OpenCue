@@ -809,7 +809,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def logResult(self, work, rpcObjects):
         self.frames = {}
 
-    # pylint: disable=redefined-builtin,inconsistent-return-statements,no-self-use
+    # pylint: disable=redefined-builtin,no-self-use
     def numFormat(self, num, type):
         """Returns string formatting based on the number"""
         if num == "" or num < .001 or num is None:
