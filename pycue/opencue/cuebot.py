@@ -187,7 +187,9 @@ class Cuebot(object):
             else:
                 connectStr = '%s:%s' % (
                     host, Cuebot.Config.get('cuebot.grpc_port', DEFAULT_GRPC_PORT))
-            logger.debug('connecting to gRPC at %s', connectStr)
+            # pylint: disable=logging-not-lazy
+            logger.debug('connecting to gRPC at %s' % connectStr)
+            # pylint: enable=logging-not-lazy
             # TODO(bcipriano) Configure gRPC TLS. (Issue #150)
             try:
                 Cuebot.RpcChannel = grpc.intercept_channel(
