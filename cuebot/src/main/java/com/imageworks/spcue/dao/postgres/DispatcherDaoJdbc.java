@@ -48,22 +48,7 @@ import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.util.CueUtil;
 
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_DISPATCH_FRAME_BY_LAYER_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_GROUP;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_LOCAL;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_BY_SHOW;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_GROUP;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_JOBS_FIFO_BY_SHOW;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_JOB_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_HOST;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_SHOWS;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.FIND_UNDER_PROCED_JOB_BY_FACILITY;
-import static com.imageworks.spcue.dao.postgres.DispatchQuery.HIGHER_PRIORITY_JOB_BY_FACILITY_EXISTS;
+import static com.imageworks.spcue.dao.postgres.DispatchQuery.*;
 
 
 /**
@@ -130,24 +115,24 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         new ConcurrentHashMap<String, ShowCache>();
 
     /**
-     * Whether or not to enable FIFO scheduling in the same priority.
+     * Choose between different scheduling strategies
      */
-    private boolean fifoSchedulingEnabled;
+    private SchedulingMode schedulingMode;
 
     @Autowired
     public DispatcherDaoJdbc(Environment env) {
-        fifoSchedulingEnabled = env.getProperty(
-            "dispatcher.fifo_scheduling_enabled", Boolean.class, false);
+        this.schedulingMode = SchedulingMode.valueOf(env.getProperty(
+            "dispatcher.scheduling_mode", String.class, "PRIORITY_ONLY"));
     }
 
     @Override
-    public boolean getFifoSchedulingEnabled() {
-        return fifoSchedulingEnabled;
+    public SchedulingMode getSchedulingMode() {
+        return schedulingMode;
     }
 
     @Override
-    public void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled) {
-        this.fifoSchedulingEnabled = fifoSchedulingEnabled;
+    public void setSchedulingMode(SchedulingMode schedulingMode) {
+        this.schedulingMode = schedulingMode;
     }
 
     /**
@@ -211,7 +196,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             }
 
             result.addAll(getJdbcTemplate().query(
-                    fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
+                    findByShowQuery(),
                     PKJOB_MAPPER,
                     s.getShowId(), host.getFacilityId(), host.os,
                     host.idleCores, host.idleMemory,
@@ -233,6 +218,24 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
 
     }
 
+    private String findByShowQuery() {
+        switch (schedulingMode) {
+            case PRIORITY_ONLY: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
+            case FIFO: return FIND_JOBS_BY_SHOW_FIFO_MODE;
+            case BALANCED: return FIND_JOBS_BY_SHOW_BALANCED_MODE;
+            default: return FIND_JOBS_BY_SHOW_PRIORITY_MODE;
+        }
+    }
+
+    private String findByGroupQuery() {
+        switch (schedulingMode) {
+            case PRIORITY_ONLY: return FIND_JOBS_BY_GROUP_PRIORITY_MODE;
+            case FIFO: return FIND_JOBS_BY_GROUP_FIFO_MODE;
+            case BALANCED: return FIND_JOBS_BY_GROUP_BALANCED_MODE;
+            default: return FIND_JOBS_BY_GROUP_PRIORITY_MODE;
+        }
+    }
+
     @Override
     public List<String> findDispatchJobsForAllShows(DispatchHost host, int numJobs) {
         return findDispatchJobs(host, numJobs, true);
@@ -246,7 +249,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     @Override
     public List<String> findDispatchJobs(DispatchHost host, GroupInterface g) {
         List<String> result = getJdbcTemplate().query(
-                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_GROUP : FIND_JOBS_BY_GROUP,
+                findByGroupQuery(),
                 PKJOB_MAPPER,
                 g.getGroupId(),host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
@@ -406,7 +409,7 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     public List<String> findDispatchJobs(DispatchHost host,
             ShowInterface show, int numJobs) {
         List<String> result = getJdbcTemplate().query(
-                fifoSchedulingEnabled ? FIND_JOBS_FIFO_BY_SHOW : FIND_JOBS_BY_SHOW,
+                findByShowQuery(),
                 PKJOB_MAPPER,
                 show.getShowId(), host.getFacilityId(), host.os,
                 host.idleCores, host.idleMemory,
