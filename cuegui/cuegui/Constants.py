@@ -63,6 +63,9 @@ DEFAULT_INI_PATH = os.getenv('CUEGUI_DEFAULT_INI_PATH', os.path.dirname(__file__
 
 DEFAULT_PLUGIN_PATHS = [os.path.dirname(__file__) + "/plugins"]
 
+DEFAULT_CUEGUI_CONFIG_PATH = os.getenv('CUEGUI_DEFAULT_CONFIG_PATH',
+                                       os.path.dirname(__file__) + '/config')
+
 LOGGER_FORMAT = "%(levelname)-9s %(module)-10s %(message)s"
 LOGGER_LEVEL = "WARNING"
 
