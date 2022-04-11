@@ -1,0 +1,3 @@
+# Internal specs/variables that could also be overriden using environment variables
+
+sentry_dsn_path: ''
