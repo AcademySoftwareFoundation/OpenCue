@@ -395,7 +395,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 allIds.extend(group.jobs)
                 nestedGroups.append(opencue.wrappers.group.NestedGroup(group))
                 # pylint: disable=no-value-for-parameter
-                allIds.extend(self.__getNestedIds(group, []))
+                allIds.extend(self.__getNestedIds(group, updated=[]))
                 # pylint: enable=no-value-for-parameter
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
