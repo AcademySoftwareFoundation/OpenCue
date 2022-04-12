@@ -31,7 +31,6 @@ from PySide2 import QtWidgets
 import opencue
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.group
-from opencue.wrappers.job import Job
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
