@@ -31,7 +31,6 @@ from PySide2 import QtWidgets
 import opencue
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.group
-from opencue.wrappers.job import Job
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -394,7 +393,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 allIds.append(group.id)
                 allIds.extend(group.jobs)
                 nestedGroups.append(opencue.wrappers.group.NestedGroup(group))
-                allIds.extend(self.__getNestedIds(group))
+                # pylint: disable=no-value-for-parameter
+                allIds.extend(self.__getNestedIds(group, []))
+                # pylint: enable=no-value-for-parameter
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
@@ -436,7 +437,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         finally:
             self._itemsLock.unlock()
 
-    def __getNestedIds(self, group, updated=[]):
+    def __getNestedIds(self, group, updated):
         """Returns all the ids founds in the nested list including
            group and job ids.
         @type  group: job_pb2.Group
