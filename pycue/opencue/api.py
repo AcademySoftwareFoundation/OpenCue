@@ -457,7 +457,7 @@ def getFrame(uniq):
 
 @util.grpcExceptionParser
 def getFrames(job, **options):
-    """Finds frames in a job that match the search critieria.
+    """Finds frames in a job that match the search criteria.
 
     :type job: str
     :param job: the job name

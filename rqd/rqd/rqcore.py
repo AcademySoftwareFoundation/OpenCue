@@ -22,6 +22,7 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
+import datetime
 import logging
 import os
 import platform
@@ -202,6 +203,16 @@ class FrameAttendantThread(threading.Thread):
             print("%-20s%s" % ("utime", self.frameInfo.utime), file=self.rqlog)
             print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
             print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
+
+            print("%-20s%s" % ("maxrss (KB)", self.frameInfo.maxRss), file=self.rqlog)
+            for child in sorted(self.frameInfo.childrenProcs.items(),
+                                key=lambda item: item[1]['start_time']):
+                print("\t%-20s%s" % (child[1]['name'], child[1]['rss']), file=self.rqlog)
+                print("\t%-20s%s" % ("start_time",
+                                      datetime.timedelta(seconds=child[1]["start_time"])),
+                                      file=self.rqlog)
+                print("\t%-20s%s" % ("cmdline", " ".join(child[1]["cmd_line"])), file=self.rqlog)
+
             print("="*59, file=self.rqlog)
 
         # pylint: disable=broad-except
