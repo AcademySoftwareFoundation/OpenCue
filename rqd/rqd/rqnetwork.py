@@ -126,7 +126,7 @@ class RunningFrame(object):
 
             procStatmFile.size = values["statm_size"]
             procStatmFile.rss = values["statm_rss"]
-
+            # pylint: disable=no-member
             procStats.stat.CopyFrom(procStatFile)
             procStats.statm.CopyFrom(procStatmFile)
             procStats.cmdline = " ".join(values["cmd_line"])
@@ -134,6 +134,7 @@ class RunningFrame(object):
             startTime = datetime.datetime.now() - datetime.timedelta(seconds=values["start_time"])
             procStats.start_time = startTime.strftime("%Y-%m-%d %H:%M%S")
             childrenProc.children.extend([procStats])
+            # pylint: enable=no-member
         return childrenProc
 
     def status(self):

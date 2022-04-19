@@ -213,8 +213,8 @@ class Machine(object):
         try:
             with open(pidFilePath, "r") as statFile:
                 statFields = [None, None] + statFile.read().rsplit(")", 1)[-1].split()
-        except Exception as e:
-            log.warning("Not able to read pidFilePath: ", pidFilePath)
+        except rqd.rqexceptions.RqdException:
+            log.warning("Not able to read pidFilePath: %s", pidFilePath)
 
         return statFields
 
@@ -276,17 +276,17 @@ class Machine(object):
                         child_statm_fields = self._getStatFields(
                             rqd.rqconstants.PATH_PROC_PID_STATM.format(pid))
                         pids[pid]['statm_size'] = \
-                            int(re.search("\d+", child_statm_fields[0]).group()) \
-                            if re.search("\d+", child_statm_fields[0]) else -1
+                            int(re.search("[0-9]+", child_statm_fields[0]).group()) \
+                            if re.search("[0-9]+", child_statm_fields[0]) else -1
                         pids[pid]['statm_rss'] = \
-                            int(re.search("\d+", child_statm_fields[1]).group()) \
-                            if re.search("\d+", child_statm_fields[1]) else -1
+                            int(re.search("[0-9]+", child_statm_fields[1]).group()) \
+                            if re.search("[0-9]+", child_statm_fields[1]) else -1
                     except rqd.rqexceptions.RqdException as e:
                         log.warning("Failed to read statm file: %s", e)
 
                 # pylint: disable=broad-except
-                except rqd.rqexceptions.RqdException as e:
-                    log.exception(Failed to read stat file for pid %s', pid)
+                except rqd.rqexceptions.RqdException:
+                    log.exception('Failed to read stat file for pid %s', pid)
 
         # pylint: disable=too-many-nested-blocks
         try:
@@ -316,6 +316,26 @@ class Machine(object):
                                             int(data["stime"]) + \
                                             int(data["cutime"]) + \
                                             int(data["cstime"])
+
+                                # Seconds of process life, boot time is already in seconds
+                                seconds = now - bootTime - \
+                                          float(data["start_time"]) / rqd.rqconstants.SYS_HERTZ
+                                if seconds:
+                                    if pid in self.__pidHistory:
+                                        # Percent cpu using decaying average, 50% from 10 seconds
+                                        # ago, 50% from last 10 seconds:
+                                        oldTotalTime, oldSeconds, oldPidPcpu = \
+                                            self.__pidHistory[pid]
+                                        # checking if already updated data
+                                        if seconds != oldSeconds:
+                                            pidPcpu = ((totalTime - oldTotalTime) /
+                                                       float(seconds - oldSeconds))
+                                            pcpu += (oldPidPcpu + pidPcpu) / 2  # %cpu
+                                            pidData[pid] = totalTime, seconds, pidPcpu
+                                    else:
+                                        pidPcpu = totalTime / seconds
+                                        pcpu += pidPcpu
+                                        pidData[pid] = totalTime, seconds, pidPcpu
                                 # only keep the highest recorded rss value
                                 if pid in frame.childrenProcs:
                                     childRss = (int(data["rss"]) * resource.getpagesize()) // 1024

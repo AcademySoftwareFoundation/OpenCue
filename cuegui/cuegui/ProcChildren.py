@@ -26,9 +26,7 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import str
-from builtins import range
 
-from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
@@ -155,12 +153,15 @@ class ProcChildrenDialog(QtWidgets.QDialog):
         _vlayout.addLayout(_hlayout)
 
         self._childProcStats.update()
-
+        # pylint: disable=no-member
         _btnClose.clicked.connect(self.accept)
         _btnUpdate.clicked.connect(self.refresh)
+        # pylint: enable=no-member
 
     def refresh(self):
+        """Update host report statistics"""
         self._childProcStats.update()
 
     def accept(self):
+        """Exit"""
         self.close()

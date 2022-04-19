@@ -285,7 +285,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                         }
                 );
             }
-        } catch (DataAccessException dae) {
+        catch (DataAccessException dae) {
            logger.info("The proc for frame " + f +
                    " could not be updated with new memory stats: " + dae);
         }

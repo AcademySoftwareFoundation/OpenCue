@@ -679,7 +679,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             uid=frameUid,
             user_name=frameUsername,
             log_dir=logDir,
-            children=children
+            children=children,
             environment={'CUE_IFRAME': '2000'})
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
