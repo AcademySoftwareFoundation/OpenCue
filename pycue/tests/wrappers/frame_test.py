@@ -206,9 +206,9 @@ class FrameEnumTests(unittest.TestCase):
         self.assertEqual(opencue.api.Frame.CheckpointState.DISABLED, 0)
 
     def testFrameExitStatus(self):
-        self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH,
-                         opencue.compiled_proto.job_pb2.FAILED_LAUNCH)
-        self.assertEqual(opencue.api.Frame.FrameExitStatus.FAILED_LAUNCH, 256)
+        self.assertEqual(opencue.api.Frame.FrameExitStatus.NO_RETRY,
+                         opencue.compiled_proto.job_pb2.NO_RETRY)
+        self.assertEqual(opencue.api.Frame.FrameExitStatus.NO_RETRY, 256)
 
     def testFrameState(self):
         self.assertEqual(opencue.api.Frame.FrameState.RUNNING,

@@ -36,7 +36,7 @@ class Frame(object):
     class FrameExitStatus(enum.IntEnum):
         """Possible frame exit statuses."""
         SUCCESS = job_pb2.SUCCESS
-        FAILED_LAUNCH = job_pb2.FAILED_LAUNCH
+        NO_RETRY = job_pb2.NO_RETRY
         SKIP_RETRY = job_pb2.SKIP_RETRY
 
     class FrameState(enum.IntEnum):
