@@ -207,16 +207,16 @@ class Machine(object):
             stat = os.stat(frame.runFrame.log_dir_file).st_mtime
             frame.lluTime = int(stat)
 
-    def _getStatFields(self, pidFilePath):
-        statFields = []
+    def _getFields(self, filePath):
+        fields = []
 
         try:
-            with open(pidFilePath, "r") as statFile:
-                statFields = [None, None] + statFile.read().rsplit(")", 1)[-1].split()
-        except rqd.rqexceptions.RqdException:
-            log.warning("Not able to read pidFilePath: %s", pidFilePath)
+            with open(filePath, "r") as statFile:
+                fields = statFile.read().split()
+        except Exception as e:
+            log.warning("Not able to read file path: ", filePath)
 
-        return statFields
+        return fields
 
     def rssUpdate(self, frames):
         """Updates the rss and maxrss for all running frames"""
@@ -246,8 +246,10 @@ class Machine(object):
         for pid in os.listdir("/proc"):
             if pid.isdigit():
                 try:
-                    statFields = self._getStatFields(rqd.rqconstants.PATH_PROC_PID_STAT
-                                        .format(pid))
+                    with open(rqd.rqconstants.PATH_PROC_PID_STAT
+                                      .format(pid), "r") as statFile:
+                        statFields = [None, None] + statFile.read().rsplit(")", 1)[-1].split()
+
                     pids[pid] = {
                         "name": statFields[1],
                         "state": statFields[2],
@@ -273,14 +275,14 @@ class Machine(object):
                         # 2. Collect Statm file: /proc/[pid]/statm (same as status vsize in kb)
                         #    - size: "total program size"
                         #    - rss: inaccurate, similar to VmRss in /proc/[pid]/status
-                        child_statm_fields = self._getStatFields(
+                        child_statm_fields = self._getFields(
                             rqd.rqconstants.PATH_PROC_PID_STATM.format(pid))
                         pids[pid]['statm_size'] = \
-                            int(re.search("[0-9]+", child_statm_fields[0]).group()) \
-                            if re.search("[0-9]+", child_statm_fields[0]) else -1
+                            int(re.search("\\d+", child_statm_fields[0]).group()) \
+                                if re.search("\\d+", child_statm_fields[0]) else -1
                         pids[pid]['statm_rss'] = \
-                            int(re.search("[0-9]+", child_statm_fields[1]).group()) \
-                            if re.search("[0-9]+", child_statm_fields[1]) else -1
+                            int(re.search("\\d+", child_statm_fields[1]).group()) \
+                                if re.search("\\d+", child_statm_fields[1]) else -1
                     except rqd.rqexceptions.RqdException as e:
                         log.warning("Failed to read statm file: %s", e)
 

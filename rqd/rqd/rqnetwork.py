@@ -119,7 +119,7 @@ class RunningFrame(object):
             procStatmFile = rqd.compiled_proto.report_pb2.Statm()
 
             procStatFile.pid = proc
-            procStatFile.name = values["name"]
+            procStatFile.name = values["name"] if values["name"] else ""
             procStatFile.state = values["state"]
             procStatFile.vsize = values["vsize"]
             procStatFile.rss = values["rss"]

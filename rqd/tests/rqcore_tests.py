@@ -732,6 +732,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
         rqCore.machine.isDesktop.return_value = True
         rqCore.machine.getHostInfo.return_value = renderHost
         rqCore.nimby.locked = False
+        children = rqd.compiled_proto.report_pb2.ChildrenProcStats()
 
         runFrame = rqd.compiled_proto.rqd_pb2.RunFrame(
             frame_id=frameId,
@@ -739,7 +740,8 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             frame_name=frameName,
             uid=frameUid,
             user_name=frameUsername,
-            log_dir=logDir)
+            log_dir=logDir,
+            children=children)
         frameInfo = rqd.rqnetwork.RunningFrame(rqCore, runFrame)
 
         # when
@@ -771,7 +773,7 @@ class FrameAttendantThreadTests(pyfakefs.fake_filesystem_unittest.TestCase):
             rqd.compiled_proto.report_pb2.FrameCompleteReport(
                 host=renderHost,
                 frame=rqd.compiled_proto.report_pb2.RunningFrameInfo(
-                    job_name=jobName, frame_id=frameId, frame_name=frameName),
+                    job_name=jobName, frame_id=frameId, frame_name=frameName, children=children),
                 exit_status=returnCode))
 
 
