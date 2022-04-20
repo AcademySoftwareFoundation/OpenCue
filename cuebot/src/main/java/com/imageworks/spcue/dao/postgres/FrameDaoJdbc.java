@@ -146,11 +146,6 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
     }
 
     @Override
-    public boolean updateFrameHostDown(FrameInterface frame) {
-        return updateFrame(frame, Dispatcher.EXIT_STATUS_DOWN_HOST) > 0;
-    }
-
-    @Override
     public boolean updateFrameCleared(FrameInterface frame) {
         return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
     }
