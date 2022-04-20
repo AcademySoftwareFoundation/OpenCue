@@ -23,11 +23,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.apache.log4j.Logger;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
-import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.HostInterface;
@@ -39,11 +43,6 @@ import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.StrandedCores;
 import com.imageworks.spcue.VirtualProc;
-import org.apache.log4j.Logger;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
-
 import com.imageworks.spcue.dao.BookingDao;
 import com.imageworks.spcue.dao.DispatcherDao;
 import com.imageworks.spcue.dao.FrameDao;
@@ -523,29 +522,13 @@ public class DispatchSupportService implements DispatchSupport {
             frameDao.updateFrameCheckpointState(f, CheckpointState.DISABLED);
             /*
              * If the proc has a frame, stop the frame.  Frames
-             * can only be stopped that are running.
+             * can only be stopped that are running, so if the frame
+             * is not running it will remain untouched.
              */
             if (frameDao.updateFrameStopped(f,
                     FrameState.WAITING, exitStatus)) {
                 updateUsageCounters(proc, exitStatus);
             }
-            /*
-             * If the frame is not running, check if frame is in dead state,
-             * frames that died due to host going down should be put back
-             * into WAITING status.
-             */
-            else {
-                FrameDetail frameDetail = frameDao.getFrameDetail(f);
-                if ((frameDetail.state == FrameState.DEAD) &&
-                        (Dispatcher.EXIT_STATUS_DOWN_HOST == exitStatus)) {
-                        if (frameDao.updateFrameHostDown(f)) {
-                            logger.info("update frame " + f.getFrameId() +
-                                    "to WAITING status for down host");
-                        }
-                    }
-                }
-        } else {
-            logger.info("Frame ID is NULL, not updating Frame state");
         }
     }
 
