@@ -46,7 +46,6 @@ PLUGIN_NAME = "Monitor Jobs"
 PLUGIN_CATEGORY = "Cuetopia"
 PLUGIN_DESCRIPTION = "Monitors a list of jobs"
 PLUGIN_PROVIDES = "MonitorJobsDockWidget"
-REGEX_EMPTY_STRING = re.compile("^$")
 JOB_RESTORE_THRESHOLD_DAYS = 3
 JOB_RESTORE_THRESHOLD_LIMIT = 200
 
@@ -199,7 +198,7 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                 self.jobMonitor.addJob(job)
         else:
             # Otherwise, just load current matching jobs (except for the empty string)
-            if not re.search(REGEX_EMPTY_STRING, substring):
+            if substring:
                 for job in opencue.api.getJobs(regex=[substring]):
                     self.jobMonitor.addJob(job)
 
