@@ -400,8 +400,8 @@ enum CheckpointState {
 enum FrameExitStatus {
     // The frame was a success
     SUCCESS = 0;
-    // The frame should not be retried
-    NO_RETRY = 256;
+    // The frame should be automatically retried
+    FAILED_LAUNCH = 256;
     // Retries should not be incremented
     SKIP_RETRY = 286;
 }

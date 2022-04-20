@@ -195,6 +195,14 @@ public interface FrameDao {
     boolean updateFrameCleared(FrameInterface frame);
 
     /**
+     * Sets a frame to an unreserved waiting state.
+     *
+     * @param frame
+     * @return
+     */
+    boolean updateFrameHostDown(FrameInterface frame);
+
+    /**
      * Returns a DispatchFrame object from the frame's uinique ID.
      *
      * @param uuid
