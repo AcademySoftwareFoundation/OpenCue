@@ -158,9 +158,6 @@ public class FrameCompleteHandler {
             final DispatchJob job = jobManager.getDispatchJob(proc.getJobId());
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
-            logger.info("!!!!!!!!!!!!! calling determineFrameState");
-            logger.info("job: "+ job.getName() + " layer: "+ layer.getName() + " frame:"
-                    + frame.getName() + " report"+ report.getExitStatus());
             final FrameState newFrameState = determineFrameState(job, layer, frame, report);
             final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
                                "_" + report.getFrame().getFrameId();
