@@ -31,7 +31,6 @@ from PySide2 import QtWidgets
 import opencue
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.group
-from opencue.wrappers.job import Job
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -370,7 +369,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return list(self.__shows.keys())
 
     def __getCollapsed(self):
-        return [item.rpcObject for item in list(self._items.values()) if not item.isExpanded()]
+        return [item.rpcObject.id() for item in list(self._items.values()) if not item.isExpanded()]
 
     def __setCollapsed(self, collapsed):
         self.expandAll()
@@ -384,13 +383,19 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
         self.currtime = time.time()
+        allIds = []
         try:
             groups = [show.getJobWhiteboard() for show in self.getShows()]
             nestedGroups = []
             allIds = []
             for group in groups:
+                # add jobs and parent group to match self._items
+                allIds.append(group.id)
+                allIds.extend(group.jobs)
                 nestedGroups.append(opencue.wrappers.group.NestedGroup(group))
-                allIds.extend(self.__getNestedIds(group))
+                # pylint: disable=no-value-for-parameter
+                allIds.extend(self.__getNestedIds(group, updated=[]))
+                # pylint: enable=no-value-for-parameter
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return None
@@ -411,8 +416,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             current = set(self._items.keys())
             if current == set(rpcObjects[1]):
-                # Only updates
-                self.__processUpdateHandleNested(self.invisibleRootItem(), rpcObjects[0])
+                # Only updates if return rpcObjects doesn't equal current _items
+                collapsed = self.__getCollapsed()
+                self.__setCollapsed(collapsed)
                 self.redraw()
             else:
                 # (Something removed) or (Something added)
@@ -431,25 +437,20 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         finally:
             self._itemsLock.unlock()
 
-    def __getNestedIds(self, group):
-        """Returns all the ids founds in the nested list
+    def __getNestedIds(self, group, updated):
+        """Returns all the ids founds in the nested list including
+           group and job ids.
         @type  group: job_pb2.Group
-        @param group: A group that can contain groups and/or jobs
+        @param group: A group that can contain groups and their associated jobs
         @rtype:  list
         @return: The list of all child ids"""
-        updated = []
-        for innerGroup in group.groups.nested_groups:
-            updated.append(innerGroup.id)
-
-            # If group has groups, recursively call this function
-            for g in innerGroup.groups.nested_groups:
-                updated_g = self.__getNestedIds(g)
-                if updated_g:
-                    updated.extend(updated_g)
-
-            # If group has jobs, update them
-            for jobId in innerGroup.jobs:
-                updated.append(jobId)
+        updated = updated if updated else []
+        if group.groups.nested_groups:
+            for g in group.groups.nested_groups:
+                updated.append(g.id)
+                if g.jobs:
+                    updated.extend(g.jobs)
+                self.__getNestedIds(g, updated)
 
         return updated
 
@@ -477,11 +478,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 for nestedGroup in group.data.groups.nested_groups]
             self.__processUpdateHandleNested(groupItem, nestedGroups)
 
-            # empty list will return all jobs on the farm
-            # only search if list has jobs
             if group.data.jobs:
-                jobSeq = opencue.search.JobSearch.byOptions(id=list(group.data.jobs)).jobs
-                jobsObject = [Job(j) for j in jobSeq.jobs]
+                jobsObject = opencue.api.getJobs(id=list(group.data.jobs))
 
                 for job in jobsObject:
                     try:
