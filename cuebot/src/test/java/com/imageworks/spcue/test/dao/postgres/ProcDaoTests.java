@@ -325,83 +325,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
-
         byte[] children = new byte[100];
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, children);
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testUpdateProcMemoryUsage() {
 
-        DispatchHost host = createHost();
-        JobDetail job = launchJob();
-        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
-
-        VirtualProc proc = new VirtualProc();
-        proc.allocationId = PK_ALLOC;
-        proc.coresReserved = 100;
-        proc.hostId = host.id;
-        proc.hostName = host.name;
-        proc.jobId = job.id;
-        proc.frameId = frame.id;
-        proc.layerId = frame.layerId;
-        proc.showId = frame.showId;
-
-        procDao.insertVirtualProc(proc);
-        procDao.verifyRunningProc(proc.getId(), frame.getId());
-        byte[] children = new byte[100];
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, children);
-
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testGetVirtualProc() {
-        DispatchHost host = createHost();
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
-
-        JobDetail job = launchJob();
-        FrameDetail fd = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
-
-        DispatchFrame frame = frameDao.getDispatchFrame(fd.getId());
-        VirtualProc proc = VirtualProc.build(host, frame);
-        dispatcher.dispatch(frame, proc);
-
-        assertTrue(procDao.verifyRunningProc(proc.getId(), frame.getId()));
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM proc WHERE pk_proc=?",
-                Integer.class, proc.id));
-
-
-        VirtualProc verifyProc = procDao.getVirtualProc(proc.getId());
-        assertEquals(host.allocationId, verifyProc.allocationId);
-        assertEquals(proc.coresReserved, verifyProc.coresReserved);
-        assertEquals(proc.frameId, verifyProc.frameId);
-        assertEquals(proc.hostId, verifyProc.hostId);
-        assertEquals(proc.id, verifyProc.id);
-        assertEquals(proc.jobId, verifyProc.jobId);
-        assertEquals(proc.layerId, verifyProc.layerId);
-        assertEquals(proc.showId, verifyProc.showId);
-    }
-
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testFindVirtualProc() {
-
-        DispatchHost host = createHost();
-
-        assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM host WHERE pk_host=?",
-                Integer.class, host.id));
-
-        JobDetail job = launchJob();
-        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1");
+        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0, children);
 
     }
 
@@ -669,7 +595,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
             // Increase the memory usage as frames are added
             procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i, 1000*i, 1000*i, children);
+                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0, children);
             i++;
         }
 
@@ -743,7 +669,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         procDao.insertVirtualProc(proc1);
 
         byte[] children = new byte[100];
-        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, children);
+        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame1, 250000, true);
 
         FrameDetail frameDetail2 = frameDao.findFrameDetail(job, "0002-pass_1");
@@ -753,7 +679,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, children);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -763,7 +689,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, children);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame3,300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
