@@ -213,8 +213,8 @@ class Machine(object):
         try:
             with open(filePath, "r") as statFile:
                 fields = statFile.read().split()
-        except Exception as e:
-            log.warning("Not able to read file path: ", filePath)
+        except rqd.rqexceptions.RqdException as e:
+            log.warning("Failed to read file: %s", e)
 
         return fields
 
