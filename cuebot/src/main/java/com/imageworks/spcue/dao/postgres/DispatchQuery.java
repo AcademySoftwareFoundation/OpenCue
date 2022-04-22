@@ -76,7 +76,7 @@ public class DispatchQuery {
                 "AND layer.int_gpu_mem_min          BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min < job_resource.int_max_cores " +
                 "AND job_resource.int_gpus + layer.int_gpus_min < job_resource.int_max_gpus " +
-                "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
+                "AND host.str_tags ~* ('(?x)' || layer.str_tags || '\\y') " +
                 "AND host.str_name = ? " +
                 "AND layer.pk_layer IN (" +
                     "SELECT " +
@@ -164,7 +164,7 @@ public class DispatchQuery {
                 "AND layer.int_gpus_min             <= ? " +
                 "AND layer.int_gpu_mem_min          BETWEEN ? AND ? " +
                 "AND job_resource.int_cores + layer.int_cores_min <= job_resource.int_max_cores " +
-                "AND host.str_tags ~* ('(?x)' || layer.str_tags) " +
+                "AND host.str_tags ~* ('(?x)' || layer.str_tags || '\\y') " +
                 "AND host.str_name = ? " +
         ") AS t1 ) AS t2 WHERE rank < ?";
 
