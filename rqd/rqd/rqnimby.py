@@ -244,7 +244,7 @@ class NimbySelect(Nimby):
 
     def openEvents(self):
         """Opens the /dev/input/event* files so nimby can monitor them"""
-        log.warning("openEvents")
+        log.info("openEvents")
         self.closeEvents()
 
         rqd.rqutil.permissionsHigh()
@@ -263,7 +263,7 @@ class NimbySelect(Nimby):
 
     def closeEvents(self):
         """Closes the /dev/input/event* files"""
-        log.warning("closeEvents")
+        log.info("closeEvents")
         if self.fileObjList:
             for fileObj in self.fileObjList:
                 try:
