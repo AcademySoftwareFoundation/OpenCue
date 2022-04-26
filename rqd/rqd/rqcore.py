@@ -806,15 +806,17 @@ class RqCore(object):
             log.warning("Rebooting machine by request")
             self.machine.reboot()
         else:
-            log.warning("Shutting down RQD by request")
+            log.warning("Shutting down RQD by request. pid(%s)" % os.getpid())
+        self.network.stopGrpc()
+        # Using sys.exit would raise SystemExit, giving exception handlers a chance
+        # to block this
+        os._exit(0)
 
     def handleExit(self, signalnum, flag):
         """Shutdown threads and exit RQD."""
         del signalnum
         del flag
         self.shutdown()
-        self.network.stopGrpc()
-        sys.exit()
 
     def launchFrame(self, runFrame):
         """This will setup for the launch the frame specified in the arguments.
@@ -914,8 +916,11 @@ class RqCore(object):
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
         self.machine.state = rqd.compiled_proto.host_pb2.DOWN
-        self.lockAll()
-        self.killAllFrame("shutdownRqdNow Command")
+        try:
+            self.lockAll()
+            self.killAllFrame("shutdownRqdNow Command")
+        except Exception:
+            log.exception("Failed to kill frames, stopping service anyways")
         if not self.__cache:
             self.shutdown()
 

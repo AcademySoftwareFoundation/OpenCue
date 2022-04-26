@@ -187,8 +187,8 @@ class GrpcServer(object):
 
     def shutdown(self):
         """Stops the gRPC server."""
-        log.info('Stopping grpc server.')
-        self.server.stop(0)
+        log.warning('Stopping grpc server.')
+        self.server.stop(10)
 
     def stayAlive(self):
         """Runs forever until killed."""
@@ -216,6 +216,7 @@ class Network(object):
         """Stops the gRPC server."""
         self.grpcServer.shutdown()
         del self.grpcServer
+        log.warning("Stopped grpc server")
 
     def closeChannel(self):
         """Closes the gRPC channel."""
