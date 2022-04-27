@@ -20,43 +20,50 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
+import abc
 import os
 import select
-import time
+import sys
 import signal
 import threading
+import time
 import logging
-import platform
 
 import rqd.rqconstants
 import rqd.rqutil
 
+
 log = logging.getLogger(__name__)
 
-if platform.system() == 'Windows':
-    pynputIsAvailable = False
-    try:
-        import pynput
-        pynputIsAvailable = True
-    except ImportError as e:
-        log.error(e)
-
-
 # compatible with Python 2 and 3:
-ABC = ABCMeta('ABC', (object,), {'__slots__': ()})
+ABC = abc.ABCMeta('ABC', (object,), {'__slots__': ()})
+
 
 class NimbyFactory(object):
-    """ Factory to handle Linux/Windows platforms """
     @staticmethod
     def getNimby(rqCore):
-        """ assign platform dependent Nimby instance """
-        nimbyInstance = None
-        if rqd.rqconstants.USE_NIMBY_PYNPUT and pynputIsAvailable:
-            nimbyInstance = NimbyPynput(rqCore)
+        if rqd.rqconstants.USE_NIMBY_PYNPUT:
+            try:
+                # DISPLAY is required to import pynput internals
+                # and it's not automatically set depending on the
+                # environment rqd is running in
+                if "DISPLAY" not in os.environ:
+                    os.environ['DISPLAY'] = ":0"
+
+                import pynput
+            # pylint: disable=broad-except
+            except Exception:
+                # Ideally ImportError could be used here, but pynput
+                # can throw other kinds of exception while trying to
+                # access runpy components
+                log.exception("Failed to import pynput, falling back to Select module")
+                # Still enabling the application start as hosts can be manually locked
+                # using the API/GUI
+                return NimbyNop(rqCore)
+            return NimbyPynput(rqCore)
         else:
-            nimbyInstance = NimbySelect(rqCore)
-        return nimbyInstance
+            return NimbySelect(rqCore)
 
 
 class Nimby(threading.Thread, ABC):
@@ -75,8 +82,6 @@ class Nimby(threading.Thread, ABC):
         self.rqCore = rqCore
         self.locked = False
         self.active = False
-        log.warning("Locked state :%s", self.locked)
-        log.warning("Active state :%s", self.active)
 
         self.fileObjList = []
         self.results = [[]]
@@ -97,7 +102,7 @@ class Nimby(threading.Thread, ABC):
         """Activates the nimby lock, calls lockNimby() in rqcore"""
         if self.active and not self.locked:
             self.locked = True
-            log.info("Locked nimby")
+            log.warn("Locked nimby")
             self.rqCore.onNimbyLock()
 
     def unlockNimby(self, asOf=None):
@@ -105,32 +110,18 @@ class Nimby(threading.Thread, ABC):
         @param asOf: Time when idle state began, if known."""
         if self.locked:
             self.locked = False
-            log.info("Unlocked nimby")
+            log.warn("Unlocked nimby")
             self.rqCore.onNimbyUnlock(asOf=asOf)
 
     def run(self):
         """Starts the Nimby thread"""
-        log.warning("Nimby Run")
         self.active = True
-        self.locked = True
         self.startListener()
         self.unlockedIdle()
 
-        rqd.rqutil.permissionsHigh()
-        try:
-            for device in os.listdir("/dev/input/"):
-                if device.startswith("event") or device.startswith("mice"):
-                    try:
-                        self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
-                    except IOError as e:
-                        # Bad device found
-                        log.warning("IOError: Failed to open %s, %s", "/dev/input/%s" % device, e)
-        finally:
-            rqd.rqutil.permissionsLow()
-
     def stop(self):
         """Stops the Nimby thread"""
-        log.warning("Stop Nimby")
+        log.warn("Stop Nimby")
         if self.thread:
             self.thread.cancel()
         self.active = False
@@ -170,22 +161,21 @@ class Nimby(threading.Thread, ABC):
 class NimbySelect(Nimby):
     """ Nimby Linux """
     def startListener(self):
-        """ start listening """
+        pass
 
     def stopListener(self):
-        """ stop listening """
         self.closeEvents()
 
     def lockedInUse(self):
         """Nimby State: Machine is in use, host is locked,
                         waiting for sufficient idle time"""
-        log.warning("lockedInUse")
+        log.warn("lockedInUse")
         self.openEvents()
         try:
             self.results = select.select(self.fileObjList, [], [], 5)
         # pylint: disable=broad-except
         except Exception as e:
-            log.warning(e)
+            log.warn(e)
         if self.active and self.results[0] == []:
             self.lockedIdle()
         elif self.active:
@@ -197,7 +187,7 @@ class NimbySelect(Nimby):
     def unlockedIdle(self):
         """Nimby State: Machine is idle, host is unlocked,
                         waiting for user activity"""
-        log.warning("UnlockedIdle Nimby")
+        log.warn("UnlockedIdle Nimby")
         while self.active and \
                 self.results[0] == [] and \
                 self.rqCore.machine.isNimbySafeToRunJobs():
@@ -206,13 +196,14 @@ class NimbySelect(Nimby):
                 self.results = select.select(self.fileObjList, [], [], 5)
             # pylint: disable=broad-except
             except Exception:
+                log.exception("failed to execute nimby check event")
                 pass
             if not self.rqCore.machine.isNimbySafeToRunJobs():
                 log.warning("memory threshold has been exceeded, locking nimby")
                 self.active = True
 
         if self.active:
-            log.warning("Is active, locking Nimby")
+            log.warn("Is active, locking Nimby")
             self.closeEvents()
             self.lockNimby()
             self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
@@ -222,7 +213,7 @@ class NimbySelect(Nimby):
     def lockedIdle(self):
         """Nimby State: Machine is idle,
                         waiting for sufficient idle time to unlock"""
-        log.warning("lockedIdle")
+        log.warn("lockedIdle")
         self.openEvents()
         waitStartTime = time.time()
         try:
@@ -230,7 +221,7 @@ class NimbySelect(Nimby):
                                          rqd.rqconstants.MINIMUM_IDLE)
         # pylint: disable=broad-except
         except Exception as e:
-            log.warning(e)
+            log.warn(e)
         if self.active and self.results[0] == [] and \
                 self.rqCore.machine.isNimbySafeToUnlock():
             self.closeEvents()
@@ -244,7 +235,6 @@ class NimbySelect(Nimby):
 
     def openEvents(self):
         """Opens the /dev/input/event* files so nimby can monitor them"""
-        log.warning("openEvents")
         self.closeEvents()
 
         rqd.rqutil.permissionsHigh()
@@ -255,15 +245,13 @@ class NimbySelect(Nimby):
                         self.fileObjList.append(open("/dev/input/%s" % device, "rb"))
                     except IOError as e:
                         # Bad device found
-                        msg = ('IOError: Failed to open %s, %s'
-                                 % ("/dev/input/%s" % device, e))
-                        log.warning(msg)
+                        log.exception("IOError: Failed to open /dev/input/%s" % device)
         finally:
             rqd.rqutil.permissionsLow()
 
     def closeEvents(self):
         """Closes the /dev/input/event* files"""
-        log.warning("closeEvents")
+        log.info("closeEvents")
         if self.fileObjList:
             for fileObj in self.fileObjList:
                 try:
@@ -279,34 +267,30 @@ class NimbySelect(Nimby):
         """
         return self.active and self.results[0] == []
 
+
 class NimbyPynput(Nimby):
-    """ Nimby Windows """
     def __init__(self, rqCore):
         Nimby.__init__(self, rqCore)
 
+        import pynput
         self.mouse_listener = pynput.mouse.Listener(
             on_move=self.on_interaction,
             on_click=self.on_interaction,
             on_scroll=self.on_interaction)
         self.keyboard_listener = pynput.keyboard.Listener(on_press=self.on_interaction)
 
-    def on_interaction(self):
-        """ interaction detected """
+    def on_interaction(self, *args):
         self.interaction_detected = True
 
     def startListener(self):
-        """ start listening """
         self.mouse_listener.start()
         self.keyboard_listener.start()
 
     def stopListener(self):
-        """ stop listening """
         self.mouse_listener.stop()
         self.keyboard_listener.stop()
 
     def lockedInUse(self):
-        """Nimby State: Machine is in use, host is locked,
-                        waiting for sufficient idle time"""
         self.interaction_detected = False
 
         time.sleep(5)
@@ -319,11 +303,8 @@ class NimbyPynput(Nimby):
             self.thread.start()
 
     def unlockedIdle(self):
-        """Nimby State: Machine is idle, host is unlocked,
-                        waiting for user activity"""
-        log.warning("unlockedIdle")
         while self.active and \
-                not self.interaction_detected and \
+                self.interaction_detected == False and \
                 self.rqCore.machine.isNimbySafeToRunJobs():
 
             time.sleep(5)
@@ -337,21 +318,17 @@ class NimbyPynput(Nimby):
             self.lockNimby()
             self.thread = threading.Timer(rqd.rqconstants.CHECK_INTERVAL_LOCKED,
                                           self.lockedInUse)
-            log.warning("starting Thread")
             self.thread.start()
 
     def lockedIdle(self):
-        """Nimby State: Machine is idle,
-                        waiting for sufficient idle time to unlock"""
-        log.warning("lockedIdle")
-        waitStartTime = time.time()
+        wait_start_time = time.time()
 
         time.sleep(rqd.rqconstants.MINIMUM_IDLE)
 
-        if self.active and not self.interaction_detected and \
+        if self.active and self.interaction_detected == False and \
                 self.rqCore.machine.isNimbySafeToUnlock():
-            log.warning("Start wait time: %s", waitStartTime)
-            self.unlockNimby(asOf=waitStartTime)
+            log.warn("Start wait time: %s", wait_start_time)
+            self.unlockNimby(asOf=wait_start_time)
             self.unlockedIdle()
         elif self.active:
 
@@ -360,7 +337,31 @@ class NimbyPynput(Nimby):
             self.thread.start()
 
     def isNimbyActive(self):
-        """ Check if user is active
-        :return: boolean if events are logged and Nimby is active
-        """
         return not self.active and self.interaction_detected
+
+
+class NimbyNop(Nimby):
+    def __init__(self, rqCore):
+        Nimby.__init__(self, rqCore)
+        self.warn_msg()
+
+    def warn_msg(self):
+        log.warn("Using Nimby nop! Something went wrong on nimby's initialization.")
+
+    def startListener(self):
+        self.warn_msg()
+
+    def stopListener(self):
+        self.warn_msg()
+
+    def lockedInUse(self):
+        self.warn_msg()
+
+    def unlockedIdle(self):
+        self.warn_msg()
+
+    def lockedIdle(self):
+        self.warn_msg()
+
+    def isNimbyActive(self):
+        return False

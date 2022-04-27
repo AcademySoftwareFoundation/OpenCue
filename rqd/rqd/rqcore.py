@@ -919,6 +919,7 @@ class RqCore(object):
         try:
             self.lockAll()
             self.killAllFrame("shutdownRqdNow Command")
+        # pylint: disable=broad-except
         except Exception:
             log.exception("Failed to kill frames, stopping service anyways")
         if not self.__cache:
@@ -974,14 +975,12 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if platform.system() != "Windows" and os.getuid() != 0:
-            log.warning("Not starting nimby, not running as root")
-            return
-        if not self.nimby.active:
+        if self.nimby and not self.nimby.active:
             try:
                 self.nimby.run()
-                log.info("Nimby has been activated")
-            except:
+                log.warning("Nimby has been activated")
+            # pylint: disable=broad-except
+            except Exception:
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
                 log.exception(err)
@@ -1001,7 +1000,7 @@ class RqCore(object):
         self.sendStatusReport()
 
     def onNimbyUnlock(self, asOf=None):
-        """This is called by nimby when it unlocks the machine due to sufficent
+        """This is called by nimby when it unlocks the machine due to sufficient
            idle. A new report is sent to the cuebot.
         @param asOf: Time when idle state began, if known."""
         del asOf

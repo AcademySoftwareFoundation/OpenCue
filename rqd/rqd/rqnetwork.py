@@ -126,6 +126,7 @@ class RunningFrame(object):
             except OSError as e:
                 log.warning(
                     "kill() tried to kill a non-existant pid for: %s Error: %s", self.frameId, e)
+            # pylint: disable=broad-except
             except Exception as e:
                 log.warning("kill() encountered an unknown error: %s", e)
         else:
