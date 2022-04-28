@@ -156,6 +156,10 @@ PROC_PID_STAT = '105 (time)' + PROC_STAT_SUFFIX
 PROC_PID_STAT_WITH_SPACES = '105 (test space)' + PROC_STAT_SUFFIX
 PROC_PID_STAT_WITH_BRACKETS = '105 (test) (brackets)' + PROC_STAT_SUFFIX
 
+PROC_PID_STATM = '152510 14585 7032 9343 0 65453 0'
+
+PROC_PID_CMDLINE = ' sleep 20'
+
 
 @mock.patch.object(rqd.rqutil.Memoize, 'isCached', new=mock.MagicMock(return_value=False))
 @mock.patch('platform.system', new=mock.MagicMock(return_value='Linux'))
@@ -282,6 +286,8 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         pid = 105
         frameId = 'unused-frame-id'
         self.fs.create_file('/proc/%d/stat' % pid, contents=proc_stat)
+        self.fs.create_file('/proc/%s/cmdline'  % pid, contents=PROC_PID_CMDLINE)
+        self.fs.create_file('/proc/%s/statm'  % pid, contents=PROC_PID_STATM)
         runningFrame = rqd.rqnetwork.RunningFrame(self.rqCore,
                                                   rqd.compiled_proto.rqd_pb2.RunFrame())
         runningFrame.pid = pid

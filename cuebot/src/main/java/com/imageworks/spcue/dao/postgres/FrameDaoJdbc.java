@@ -67,7 +67,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
                 "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100)," +
-            "int_total_past_gpu_time = int_total_past_gpu_time + " + 
+            "int_total_past_gpu_time = int_total_past_gpu_time + " +
                 "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
