@@ -136,3 +136,10 @@ LOG_HIGHLIGHT_ERROR = [
     'no licenses could be found', 'killMessage']
 LOG_HIGHLIGHT_WARN = ['warning', 'not found']
 LOG_HIGHLIGHT_INFO = ['info:', 'rqd cmd:']
+
+
+LOG_ROOT_OS = {
+    "rhel7": "/shots",
+    "linux": "/shots",
+    "windows": "S:"
+}
