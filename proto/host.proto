@@ -384,7 +384,7 @@ message ProcSearchCriteria {
     // An array of job names to match.
     repeated string jobs = 2;
 
-    // An arra of layer names to match.
+    // An array of layer names to match.
     repeated string layers = 3;
 
     // An array of show names to match.

@@ -853,6 +853,28 @@ class FrameActions(AbstractActions):
             else:
                 cuegui.Utils.popupView(path)
 
+    viewProcesses_info = ["View Processes", None, "viewProcesses"]
+
+    def viewProcesses(self, rpcObjects=None):
+        """ Display a Proc's child processes Host statistics."""
+        frames = self._getOnlyFrameObjects(rpcObjects)
+        hosts = list({frame.data.last_resource.split("/")[0]
+                      for frame in frames if frame.data.last_resource})
+        if hosts:
+            layers = self._getSource().getLayers()
+            layer = [l for l in layers if l.data.name == frames[0].data.layer_name]
+
+            if len(layer):
+                job = self._getSource()
+                text = "Displaying host stats for each child process for job:\n%s" % job.name()
+                title = "View Running Child Proc Host Stats"
+                procDialog = cuegui.ProcChildren.ProcChildrenDialog(job=job,
+                                                                    layer=layer[0],
+                                                                    hosts=hosts,
+                                                                    text=text,
+                                                                    title=title)
+                procDialog.exec_()
+
     useLocalCores_info = ["Use local cores...",
                           "Set a single frame to use the local desktop cores.",
                           "configure"]
