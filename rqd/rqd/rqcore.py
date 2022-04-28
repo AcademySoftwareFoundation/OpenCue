@@ -806,10 +806,11 @@ class RqCore(object):
             log.warning("Rebooting machine by request")
             self.machine.reboot()
         else:
-            log.warning("Shutting down RQD by request. pid(%s)" % os.getpid())
+            log.warning("Shutting down RQD by request. pid(%s)", os.getpid())
         self.network.stopGrpc()
         # Using sys.exit would raise SystemExit, giving exception handlers a chance
         # to block this
+        # pylint: disable=protected-access
         os._exit(0)
 
     def handleExit(self, signalnum, flag):

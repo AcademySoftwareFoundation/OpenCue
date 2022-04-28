@@ -51,7 +51,7 @@ class NimbyFactory(object):
                 # environment rqd is running in
                 if "DISPLAY" not in os.environ:
                     os.environ['DISPLAY'] = ":0"
-                # pylint: disable=unused-import, import-error, unused-variable
+                # pylint: disable=unused-import, import-error, unused-variable, import-outside-toplevel
                 import pynput
             # pylint: disable=broad-except
             except Exception:
@@ -272,7 +272,7 @@ class NimbyPynput(Nimby):
     def __init__(self, rqCore):
         Nimby.__init__(self, rqCore)
 
-        # pylint: disable=unused-import, import-error
+        # pylint: disable=unused-import, import-error, import-outside-toplevel
         import pynput
         self.mouse_listener = pynput.mouse.Listener(
             on_move=self.on_interaction,
