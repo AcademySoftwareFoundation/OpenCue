@@ -47,6 +47,8 @@ import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
 
+SUBJ_LINE_TOO_LONG = 2
+
 
 class EmailDialog(QtWidgets.QDialog):
     """Dialog for emailing a job owner."""
@@ -110,7 +112,7 @@ class EmailWidget(QtWidgets.QWidget):
         __default_bcc = ""
 
         job_names = list(map(lambda job: job.data.name, jobs))
-        if len(job_names) > 2:
+        if len(job_names) > SUBJ_LINE_TOO_LONG:
             __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names[:2]) + '...')
         else:
             __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, ','.join(job_names))

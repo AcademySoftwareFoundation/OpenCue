@@ -161,7 +161,9 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __itemChanged(self):
         """when the current item changes this sets the bottom view and current
-        item"""
+        item. if the last items from the sources are identical, then they will be selected.
+        otherwise no item will be selected. If the user viewing items is not the same
+        as comment author, then items will be be read only."""
         types = map(lambda item: type(item), self.__treeSubjects.selectedItems())
         if self.__treeSubjects.selectedItems():
             if CommentSource in types:
