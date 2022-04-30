@@ -238,9 +238,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             if newJobObj:
                 jobKey = cuegui.Utils.getObjectKey(newJobObj)
-                if not self.__groupDependent:
-                    self.__load[jobKey] = newJobObj
-                    self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
+                self.__load[jobKey] = newJobObj
+                self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
         finally:
             self.ticksLock.unlock()
 
