@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 from builtins import str
 from builtins import map
-from datetime import datetime
+import datetime
 import re
 import weakref
 
