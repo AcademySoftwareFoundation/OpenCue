@@ -89,9 +89,12 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("columnWidths",
                                       self.jobMonitor.getColumnWidths,
                                       self.jobMonitor.setColumnWidths),
-                                      ("columnOrder",
+                                     ("columnOrder",
                                       self.jobMonitor.getColumnOrder,
-                                      self.jobMonitor.setColumnOrder)])
+                                      self.jobMonitor.setColumnOrder),
+                                     ("loadFinished",
+                                      self.__loadFinishedJobsCheckBox.isChecked,
+                                      self.__loadFinishedJobsCheckBox.setChecked)])
 
     def addJob(self, rpcObject):
         """Adds a job to be monitored."""
