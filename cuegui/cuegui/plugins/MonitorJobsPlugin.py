@@ -188,6 +188,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
         load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
 
+        self.jobMonitor.removeAllItems()
+
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
