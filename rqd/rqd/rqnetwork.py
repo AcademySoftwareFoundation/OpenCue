@@ -389,9 +389,6 @@ class RetryOnRpcErrorClientInterceptor(
                     return response
 
                 self._sleeping_policy.sleep(attempt)
-            # pylint: disable=broad-except
-            except Exception:
-                raise
 
     def intercept_unary_unary(self, continuation, client_call_details,
                               request):

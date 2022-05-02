@@ -212,9 +212,9 @@ class Machine(object):
 
         try:
             with open(pidFilePath, "r") as statFile:
-                statFields = statFile.read().split()
+                fields = statFile.read().split()
         # pylint: disable=broad-except
-        except Exception as e:
+        except Exception:
             log.warning("Not able to read pidFilePath: %s", pidFilePath)
 
         return fields
