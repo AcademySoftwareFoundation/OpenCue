@@ -347,7 +347,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                    reverse=True)
         except ValueError:
             old_log_files = []
-            pass
+
         # pylint: disable=no-member
         QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
         # pylint: enable=no-member

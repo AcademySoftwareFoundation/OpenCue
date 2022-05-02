@@ -34,8 +34,6 @@ import opencue
 
 import cuegui.Utils
 
-"""Widget for displaying Host statistics for a Proc's child processes."""
-
 class ProcChildren(QtWidgets.QWidget):
     """Widget for displaying Host statistics for a Proc's child processes."""
 

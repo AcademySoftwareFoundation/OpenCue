@@ -883,7 +883,7 @@ class FrameActions(AbstractActions):
             layers = self._getSource().getLayers()
             layer = [l for l in layers if l.data.name == frames[0].data.layer_name]
 
-            if len(layer):
+            if len(layer) > 0:
                 job = self._getSource()
                 text = "Displaying host stats for each child process for job:\n%s" % job.name()
                 title = "View Running Child Proc Host Stats"
