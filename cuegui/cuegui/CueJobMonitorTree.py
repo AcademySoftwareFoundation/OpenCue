@@ -559,8 +559,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             menu.addSeparator()
             self.__menuActions.jobs().addAction(menu, "setMinCores")
             self.__menuActions.jobs().addAction(menu, "setMaxCores")
-            self.__menuActions.jobs().addAction(menu, "setMinGpu")
-            self.__menuActions.jobs().addAction(menu, "setMaxGpu")
+            self.__menuActions.jobs().addAction(menu, "setMinGpus")
+            self.__menuActions.jobs().addAction(menu, "setMaxGpus")
             self.__menuActions.jobs().addAction(menu, "setPriority")
             self.__menuActions.jobs().addAction(menu, "setMaxRetries")
             if counts["job"] == 1:
