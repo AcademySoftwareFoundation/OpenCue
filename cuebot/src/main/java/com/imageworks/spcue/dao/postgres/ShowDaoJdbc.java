@@ -21,8 +21,13 @@ package com.imageworks.spcue.dao.postgres;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang.StringUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.RowMapper;
@@ -35,6 +40,8 @@ import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
+    @Autowired
+    private Environment env;
 
     private static final RowMapper<ShowEntity> SHOW_MAPPER =
         new RowMapper<ShowEntity>() {
@@ -226,6 +233,36 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
         getJdbcTemplate().update(
                 "UPDATE show SET str_comment_email = ? WHERE pk_show=?",
                 StringUtils.join(email, ","), s.getShowId());
+    }
+
+    @Override
+    public void updateShowsStatus() {
+        Stream<String> protectedShowsRaw = Arrays.stream(env.getProperty("protected_shows", String.class).split(","));
+        String protectedShows = protectedShowsRaw.map(show -> "'" + show + "'")
+                                                 .collect(Collectors.joining(","));
+        getJdbcTemplate().update("UPDATE " +
+                                    "show " +
+                                "SET " +
+                                    "b_active=false " +
+                                "WHERE " +
+                                    "pk_show NOT IN (" +
+                                        "SELECT " +
+                                            "pk_show " +
+                                        "FROM (" +
+                                            "SELECT " +
+                                                "pk_show, count(pk_job) " +
+                                            "FROM " +
+                                                "job_history " +
+                                            "WHERE " +
+                                                "(DATE_PART('days', NOW()) - DATE_PART('days', dt_last_modified)) < 30 " +
+                                            "GROUP BY " +
+                                                "pk_show " +
+                                            "HAVING COUNT(pk_job)>0 " +
+                                        ") pk_show" +
+                                    ") " +
+                                    "AND " +
+                                    "str_name NOT IN (?)",
+                protectedShows);
     }
 
     @Override
