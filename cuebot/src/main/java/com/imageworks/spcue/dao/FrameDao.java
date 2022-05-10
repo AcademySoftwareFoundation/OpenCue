@@ -72,6 +72,15 @@ public interface FrameDao {
     public FrameDetail findLongestFrame(JobInterface job);
 
     /**
+     * Checks to see how many retries a frame has.  If that number
+     * is greater than or equal to the jobs max retries, the frame
+     * is marked as dead.
+     *
+     * @param frame
+     */
+    void checkRetries(FrameInterface frame);
+
+    /**
      * Batch inserts a frameSet of frames.
      *
      * @param frame
@@ -193,6 +202,14 @@ public interface FrameDao {
      * @return
      */
     boolean updateFrameCleared(FrameInterface frame);
+
+    /**
+     * Sets a frame to an unreserved waiting state.
+     *
+     * @param frame
+     * @return
+     */
+    boolean updateFrameHostDown(FrameInterface frame);
 
     /**
      * Returns a DispatchFrame object from the frame's uinique ID.
