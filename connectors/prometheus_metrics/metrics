@@ -7,15 +7,22 @@ from prometheus_client import start_http_server
 from prometheus_client import Gauge
 
 
-CLUE_HOSTS_HARDWARE = Gauge(
-    'cue_hosts_hardware_total', 'hosts hardware status', ['status'])
+WEB_SERVICE_PORT = 8302
+REPORT_INTERVAL_SECONDS = 30
+
+
+CLUE_HOSTS_HARDWARE = Gauge('cue_hosts_hardware_total', 'hosts hardware status', ['status'])
 CLUE_HOSTS_LOCK = Gauge('cue_hosts_lock_total', 'hosts lock status', ['status'])
 CLUE_PROCS = Gauge('cue_procs_total', 'number of Procs')
 CLUE_PROCS_USABLE = Gauge('cue_procs_usable_total', 'number of usable Procs')
 CLUE_PROCS_USED = Gauge('cue_procs_used_total', 'number of Procs currently in use')
 
-CLUE_FRAMES = Gauge('cue_frames', 'number of frames ', ['status', 'show'])
-CLUE_REMAIN = Gauge('cue_remain', 'remaining core seconds (estimated) ', ['show'])
+CLUE_FRAMES_PER_SHOW = Gauge('cue_frames', 'number of frames ', ['status', 'show'])
+CLUE_FRAMES_LIMIT_PER_SHOW = Gauge('cue_frames_limit', 'number of limits', ['limit', 'status', 'show'])
+CLUE_REMAIN_FRAME_PER_SHOW = Gauge('cue_remain', 'remaining core seconds (estimated) ', ['show'])
+
+CLUE_LIMITS = Gauge('cue_limits', 'limit stats ', ['name', 'value'])
+CLUE_LIMITS_CAPACITY = Gauge('cue_limits_capacity', 'limits capacity ', ['name'])
 
 MANAGE_WAITING = Gauge('cue_manage_waiting_total', '')
 MANAGE_REMAINING_CAPACITY = Gauge('cue_manage_remaining_capacity_total', '')
@@ -55,19 +62,30 @@ STRANDED_CORES = Gauge('cue_stranded_cores_total', '')
 
 
 def main():
+    default_frame_stats = {
+        'pending': 0,
+        'dead': 0,
+        'eaten': 0,
+        'succeeded': 0,
+        'running': 0
+        }
+
     while True:
         jobs = opencue.api.getJobs()
         shows = {}
         shows_remaining = {}
+        limits = {}
 
         for job in jobs:
             show = job.show()
             if show not in shows:
-                shows[show] = {'pending': 0, 'dead': 0,
-                               'eaten': 0, 'succeeded': 0, 'running': 0}
+                shows[show] = default_frame_stats.copy()
 
             if show not in shows_remaining:
                 shows_remaining[show] = 0
+
+            if show not in limits:
+                limits[show] = {}
 
             shows[show]['pending'] += job.pendingFrames()
             shows[show]['dead'] += job.deadFrames()
@@ -77,12 +95,36 @@ def main():
 
             shows_remaining[show] += job.coreSecondsRemaining()
 
+            show_limits = limits[show]
+            for layer in job.getLayers():
+                for limit in layer.limits():
+                    if limit not in show_limits:
+                        show_limits[limit] = default_frame_stats.copy()
+
+                    show_limits[limit]['pending'] += layer.pendingFrames()
+                    show_limits[limit]['dead'] += layer.deadFrames()
+                    show_limits[limit]['eaten'] += layer.eatenFrames()
+                    show_limits[limit]['succeeded'] += layer.succeededFrames()
+                    show_limits[limit]['running'] += layer.runningFrames()
+
         for show in shows:
-            for k, v in shows[show].items():
-                CLUE_FRAMES.labels(status=k, show=show).set(v)
+            for frame_status, frame_count in shows[show].items():
+                CLUE_FRAMES_PER_SHOW.labels(status=frame_status, show=show).set(frame_count)
+
+            for limit, frame_stats in limits[show].items():
+                for status, frame_count in frame_stats.items():
+                    CLUE_FRAMES_LIMIT_PER_SHOW.labels(limit=limit, status=status, show=show).set(frame_count)
 
         for show in shows_remaining:
-            CLUE_REMAIN.labels(show=show).set(shows_remaining[show])
+            CLUE_REMAIN_FRAME_PER_SHOW.labels(show=show).set(shows_remaining[show])
+
+        for limit in opencue.api.getLimits():
+            limit_name = limit.name()
+            current_running = limit.currentRunning()
+            max_value = limit.maxValue()
+            CLUE_LIMITS.labels(name=limit_name, value='current_running').set(current_running)
+            CLUE_LIMITS.labels(name=limit_name, value='max').set(max_value)
+            CLUE_LIMITS_CAPACITY.labels(name=limit_name).set(current_running/(max_value or 1) * 100.)
 
         # Handle the Host information
         hosts = opencue.api.getHosts()
@@ -174,9 +216,9 @@ def main():
         PICKED_UP_CORES.set(system_stats.picked_up_cores)
         STRANDED_CORES.set(system_stats.stranded_cores)
 
-        time.sleep(30)
+        time.sleep(REPORT_INTERVAL_SECONDS)
 
 
 if __name__ == '__main__':
-    start_http_server(8302)
+    start_http_server(WEB_SERVICE_PORT)
     main()
