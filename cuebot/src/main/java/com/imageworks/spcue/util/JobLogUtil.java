@@ -38,9 +38,9 @@ public class JobLogUtil {
         return f.isDirectory();
     }
 
-    public String getJobLogDir(String show, String shot) {
+    public String getJobLogDir(String show, String shot, String os) {
         StringBuilder sb = new StringBuilder(512);
-        sb.append(getJobLogRootDir());
+        sb.append(getJobLogRootDir(os));
         sb.append("/");
         sb.append(show);
         sb.append("/");
@@ -51,7 +51,7 @@ public class JobLogUtil {
 
     public String getJobLogPath(JobDetail job) {
         StringBuilder sb = new StringBuilder(512);
-        sb.append(getJobLogDir(job.showName, job.shot));
+        sb.append(getJobLogDir(job.showName, job.shot, job.os));
         sb.append("/");
         sb.append(job.name);
         sb.append("--");
@@ -59,8 +59,11 @@ public class JobLogUtil {
         return sb.toString();
     }
 
-    public String getJobLogRootDir() {
-        return env.getRequiredProperty("log.frame-log-root", String.class);
+    public String getJobLogRootDir(String os) {
+        try {
+            return env.getRequiredProperty(String.format("log.frame-log-root.%s", os), String.class);
+        } catch (IllegalStateException e) {
+            return env.getRequiredProperty("log.frame-log-root.default_os", String.class);
+        }
     }
 }
-

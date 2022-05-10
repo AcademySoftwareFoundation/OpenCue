@@ -907,3 +907,4 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "eat")
         self.__menuActions.frames().addAction(self, "kill")
         self.__menuActions.frames().addAction(self, "eatandmarkdone")
+        self.__menuActions.frames().addAction(self, "viewRunning")

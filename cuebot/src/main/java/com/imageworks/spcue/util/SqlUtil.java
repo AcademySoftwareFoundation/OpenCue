@@ -19,6 +19,8 @@
 
 package com.imageworks.spcue.util;
 
+import com.google.protobuf.ByteString;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.UUID;
@@ -130,6 +132,15 @@ public class SqlUtil {
             return "";
         } else {
             return value;
+        }
+    }
+
+    public static ByteString getByteString(ResultSet rs, String field) throws SQLException {
+        byte[] data = rs.getBytes(field);
+        if (rs.wasNull()) {
+            return ByteString.copyFrom("".getBytes());
+        } else {
+            return ByteString.copyFrom(data);
         }
     }
 }

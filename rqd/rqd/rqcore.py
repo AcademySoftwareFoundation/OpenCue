@@ -22,6 +22,7 @@ from __future__ import division
 
 from builtins import str
 from builtins import object
+import datetime
 import logging
 import os
 import platform
@@ -202,6 +203,16 @@ class FrameAttendantThread(threading.Thread):
             print("%-20s%s" % ("utime", self.frameInfo.utime), file=self.rqlog)
             print("%-20s%s" % ("stime", self.frameInfo.stime), file=self.rqlog)
             print("%-20s%s" % ("renderhost", self.rqCore.machine.getHostname()), file=self.rqlog)
+
+            print("%-20s%s" % ("maxrss (KB)", self.frameInfo.maxRss), file=self.rqlog)
+            for child in sorted(self.frameInfo.childrenProcs.items(),
+                                key=lambda item: item[1]['start_time']):
+                print("\t%-20s%s" % (child[1]['name'], child[1]['rss']), file=self.rqlog)
+                print("\t%-20s%s" % ("start_time",
+                                      datetime.timedelta(seconds=child[1]["start_time"])),
+                                      file=self.rqlog)
+                print("\t%-20s%s" % ("cmdline", " ".join(child[1]["cmd_line"])), file=self.rqlog)
+
             print("="*59, file=self.rqlog)
 
         # pylint: disable=broad-except
@@ -806,15 +817,18 @@ class RqCore(object):
             log.warning("Rebooting machine by request")
             self.machine.reboot()
         else:
-            log.warning("Shutting down RQD by request")
+            log.warning("Shutting down RQD by request. pid(%s)", os.getpid())
+        self.network.stopGrpc()
+        # Using sys.exit would raise SystemExit, giving exception handlers a chance
+        # to block this
+        # pylint: disable=protected-access
+        os._exit(0)
 
     def handleExit(self, signalnum, flag):
         """Shutdown threads and exit RQD."""
         del signalnum
         del flag
         self.shutdown()
-        self.network.stopGrpc()
-        sys.exit()
 
     def launchFrame(self, runFrame):
         """This will setup for the launch the frame specified in the arguments.
@@ -914,8 +928,12 @@ class RqCore(object):
     def shutdownRqdNow(self):
         """Kill all running frames and shutdown RQD"""
         self.machine.state = rqd.compiled_proto.host_pb2.DOWN
-        self.lockAll()
-        self.killAllFrame("shutdownRqdNow Command")
+        try:
+            self.lockAll()
+            self.killAllFrame("shutdownRqdNow Command")
+        # pylint: disable=broad-except
+        except Exception:
+            log.exception("Failed to kill frames, stopping service anyways")
         if not self.__cache:
             self.shutdown()
 
@@ -969,14 +987,12 @@ class RqCore(object):
     def nimbyOn(self):
         """Activates nimby, does not kill any running frames until next nimby
            event. Also does not unlock until sufficient idle time is reached."""
-        if platform.system() != "Windows" and os.getuid() != 0:
-            log.warning("Not starting nimby, not running as root")
-            return
-        if not self.nimby.active:
+        if self.nimby and not self.nimby.active:
             try:
                 self.nimby.run()
-                log.info("Nimby has been activated")
-            except:
+                log.warning("Nimby has been activated")
+            # pylint: disable=broad-except
+            except Exception:
                 self.nimby.locked = False
                 err = "Nimby is in the process of shutting down"
                 log.exception(err)
@@ -996,7 +1012,7 @@ class RqCore(object):
         self.sendStatusReport()
 
     def onNimbyUnlock(self, asOf=None):
-        """This is called by nimby when it unlocks the machine due to sufficent
+        """This is called by nimby when it unlocks the machine due to sufficient
            idle. A new report is sent to the cuebot.
         @param asOf: Time when idle state began, if known."""
         del asOf

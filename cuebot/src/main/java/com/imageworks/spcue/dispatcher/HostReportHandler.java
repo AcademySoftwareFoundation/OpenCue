@@ -552,9 +552,9 @@ public class HostReportHandler {
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame,
                     rf.getRss(), rf.getMaxRss(), rf.getLluTime());
 
-            dispatchSupport.updateProcMemoryUsage(frame,
-                    rf.getRss(), rf.getMaxRss(), rf.getVsize(), rf.getMaxVsize(),
-                    rf.getUsedGpuMemory(), rf.getMaxUsedGpuMemory());
+            dispatchSupport.updateProcMemoryUsage(frame, rf.getRss(), rf.getMaxRss(),
+                    rf.getVsize(), rf.getMaxVsize(), rf.getUsedGpuMemory(),
+                    rf.getMaxUsedGpuMemory(), rf.getChildren().toByteArray());
         }
 
         updateJobMemoryUsage(rFrames);
