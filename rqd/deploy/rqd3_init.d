@@ -3,7 +3,7 @@
 # RQD3:    Start/stop rqd3 services
 #
 # chkconfig:    345 98 02
-# description:  RQD for opencue
+# description:  Opencue RQD agent
 #
 
 # Source function library.
@@ -18,7 +18,7 @@ RQD=${RQD_PATH}rqd.py
 start()
 {
     [ -f /usr/local/etc/sweatbox.csh ] && echo "Refusing to start RQD3 on a sweatbox" && exit 0
-    echo -n $"Starting rqd3 services:"
+    echo -n $"Starting openrqd services:"
     cd ${RQD_PATH}
     daemon "${RQD}" -d
     echo ""
@@ -26,20 +26,18 @@ start()
 
 idle_restart()
 {
-    echo -n "Requesting idle restart of rqd3 services:"
+    echo -n "Requesting idle restart of openrqd services:"
     cd ${RQD_PATH}
-    daemon "./cuerqd.py" -restart
+    daemon "rqd/cuerqd.py --restart &>/dev/null || :"
     echo ""
 }
 
 stop()
 {
-    echo -n "Stopping rqd3 services:"
+    echo -n "Stopping openrqd services:"
     cd ${RQD_PATH}
-    daemon "./cuerqd.py" -exit_now
-    sleep 2
-    killproc ${RQD}  >/dev/null 2>&1 || :
-    echo ""
+    daemon "rqd/cuerqd.py" --exit_now
+    echo "Stop Request completed"
 }
 
 case "$1" in
