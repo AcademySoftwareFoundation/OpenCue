@@ -188,7 +188,6 @@ public interface DispatcherDao {
         FIFO,
         BALANCED
     }
-   void setFifoSchedulingEnabled(boolean fifoSchedulingEnabled);
 
     /**
      * Clear bookableShows cache
