@@ -1567,18 +1567,20 @@ class HostActions(AbstractActions):
                 allocation = allocations[str(allocationName)]
                 error_hosts = []
                 for host in hosts:
+                    # pylint: disable=broad-except
                     try:
                         self.cuebotCall(host.setAllocation,
-                                        "Set Allocation on %s Failed" % host.data.name,
-                                        allocation)
+                            "Set Allocation on %s Failed" % host.data.name,
+                            allocation)
                     except Exception as e:
                         # Handle allocation modification errors separately
-                        if (hasattr(e, "details") and 
+                        # pylint: disable=no-member
+                        if (hasattr(e, "details") and
                             "EntityModificationError" in str(e.details())):
                             error_hosts.append(host.name())
                         else:
                             raise
-                if len(error_hosts):
+                if error_hosts:
                     error_msg = "{hosts} not moved.\nHosts with reserved cores " \
                                 "cannot be moved between allocations."
                     QtWidgets.QMessageBox.warning(self._caller,
