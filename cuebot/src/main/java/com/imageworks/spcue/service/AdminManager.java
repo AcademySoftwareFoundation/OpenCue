@@ -40,6 +40,7 @@ public interface AdminManager {
     ShowEntity getShowEntity(String id);
     void setShowActive(ShowInterface show, boolean value);
     void updateShowCommentEmail(ShowInterface s, String[] emails);
+    void updateShowsStatus();
 
     /*
      * Facilities
