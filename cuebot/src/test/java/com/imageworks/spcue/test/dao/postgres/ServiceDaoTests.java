@@ -73,6 +73,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.minMemoryIncrease = CueUtil.GB4;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.get("dillweed"));
@@ -91,6 +92,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.minMemoryIncrease = CueUtil.GB;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.get("dillweed"));
@@ -104,6 +106,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.threadable = true;
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
+        s.minMemoryIncrease = CueUtil.GB4 + CueUtil.GB2;
 
         serviceDao.update(s);
         ServiceEntity s1 =  serviceDao.get(s.getId());
@@ -113,6 +116,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s.minMemory, s1.minMemory);
         assertEquals(s.threadable, s1.threadable);
         assertEquals(s.tags.toArray()[0], s1.tags.toArray()[0]);
+        assertEquals(s.minMemoryIncrease, s1.minMemoryIncrease);
     }
 
     @Test
@@ -128,6 +132,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.minGpuMemory = CueUtil.GB;
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
+        s.minMemoryIncrease = CueUtil.GB2;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.get("dillweed"));
@@ -153,6 +158,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
+        s.minMemoryIncrease = CueUtil.GB2;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.getOverride("dillweed"));
@@ -172,6 +178,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
+        s.minMemoryIncrease = CueUtil.GB2;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.getOverride("dillweed"));
@@ -186,6 +193,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.threadable = true;
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
+        s.minMemoryIncrease = CueUtil.GB4;
 
         serviceDao.update(s);
         ServiceEntity s1 =  serviceDao.getOverride(s.getId());
@@ -198,6 +206,8 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s.minGpuMemory, s1.minGpuMemory);
         assertEquals(s.threadable, s1.threadable);
         assertEquals(s.tags.toArray()[0], s1.tags.toArray()[0]);
+        assertEquals(s.minMemoryIncrease, s1.minMemoryIncrease);
+        assertEquals(s1.minMemoryIncrease, CueUtil.GB4);
     }
 
     @Test
@@ -214,6 +224,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.threadable = false;
         s.tags.addAll(Sets.newHashSet(new String[] { "general"}));
         s.showId = "00000000-0000-0000-0000-000000000000";
+        s.minMemoryIncrease = CueUtil.GB2;
 
         serviceDao.insert(s);
         assertEquals(s, serviceDao.getOverride("dillweed"));

@@ -240,3 +240,11 @@ class Service(object):
     def setTimeoutLLU(self, timeout_llu):
         """Sets the default service LLU timeout."""
         self.data.timeout_llu = timeout_llu
+
+    def minMemoryIncrease(self):
+        """Gets the default service minimum memory increment"""
+        return self.data.min_memory_increase
+
+    def setMinMemoryIncrease(self, min_memory_increase):
+        """Sets the default service minimum memory increment"""
+        self.data.min_memory_increase = min_memory_increase

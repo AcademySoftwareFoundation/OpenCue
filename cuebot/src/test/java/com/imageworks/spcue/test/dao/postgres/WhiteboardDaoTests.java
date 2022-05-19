@@ -330,6 +330,7 @@ public class WhiteboardDaoTests extends AbstractTransactionalJUnit4SpringContext
         s.tags.add("general");
         s.threadable = false;
         s.showId = show.getId();
+        s.minMemoryIncrease = CueUtil.GB4;
 
         serviceManager.createService(s);
         whiteboardDao.getServiceOverride(getShow(), "test");
