@@ -232,6 +232,8 @@ class JobActionsTests(unittest.TestCase):
     def test_kill(self, yesNoMock):
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
         job.kill = mock.Mock()
+        job.getWhatDependsOnThis = mock.Mock()
+        job.getWhatDependsOnThis.return_value = []
 
         self.job_actions.kill(rpcObjects=[job])
 
@@ -443,34 +445,55 @@ class JobActionsTests(unittest.TestCase):
         unbookDialogMock.assert_called_with(jobs, self.widgetMock)
         unbookDialogMock.return_value.exec_.assert_called()
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('cuegui.CueJobMonitorTree.MoveDialog.move_items')
     @mock.patch('opencue.api.findShow')
-    def test_sendToGroup(self, findShowMock, getItemMock):
+    def test_sendToGroup(self, findShowMock, move_itemsMock):
+
+        move_dialogMock = mock.Mock()
+
+        move_dialogMock.open()
         group_name = 'arbitrary-group-name'
         job = opencue.wrappers.job.Job(
             opencue.compiled_proto.job_pb2.Job(
                 name='arbitrary-job-name', show='arbitrary-show-name'))
-        show = opencue.wrappers.show.Show()
+        body_content = cuegui.CueJobMonitorTree.Body(group_names=[],
+                                                     group_ids=[],
+                                                     job_names=[job.name()],
+                                                     job_ids=[job])
+
         group = opencue.wrappers.group.Group(opencue.compiled_proto.job_pb2.Group(name=group_name))
         group.reparentJobs = mock.Mock()
+
+        show = opencue.wrappers.show.Show()
         findShowMock.return_value = show
         show.getGroups = mock.Mock(return_value=[group])
-        getItemMock.return_value = (group_name, True)
 
-        self.job_actions.sendToGroup(rpcObjects=[job])
+        move_dialogMock.dst_groups = {str(group_name): group}
+        move_itemsMock.return_value = move_dialogMock.dst_groups[str(group_name)].reparentJobs(
+                body_content.job_ids)
+        move_dialogMock.accept()
 
-        group.reparentJobs.assert_called_with([job])
+        group.reparentJobs.assert_called_with(body_content.job_ids)
 
-    @mock.patch('PySide2.QtWidgets.QInputDialog.getItem')
+    @mock.patch('cuegui.CueJobMonitorTree.MoveDialog.move_items')
     @mock.patch('opencue.api.findShow')
-    def test_sendToGroupCanceled(self, findShowMock, getItemMock):
-        job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name='job-name'))
-        group = opencue.wrappers.group.Group()
-        group.reparentJobs = mock.Mock()
-        findShowMock.getGroups.return_value = []
-        getItemMock.return_value = (None, False)
+    def test_sendToGroupCanceled(self, findShowMock, move_itemsMock):
 
-        self.job_actions.sendToGroup(rpcObjects=[job])
+        move_dialogMock = mock.Mock()
+
+        move_dialogMock.open()
+        group_name = 'arbitrary-group-name'
+        job = opencue.wrappers.job.Job(
+            opencue.compiled_proto.job_pb2.Job(
+                name='arbitrary-job-name', show='arbitrary-show-name'))
+        group = opencue.wrappers.group.Group(opencue.compiled_proto.job_pb2.Group(name=group_name))
+        group.reparentJobs = mock.Mock()
+
+        show = opencue.wrappers.show.Show()
+        findShowMock.return_value = show
+        show.getGroups = mock.Mock(return_value=[group])
+        move_itemsMock.return_value = (None, False)
+        move_dialogMock.reject()
 
         group.reparentJobs.assert_not_called()
 

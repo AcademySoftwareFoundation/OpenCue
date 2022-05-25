@@ -100,7 +100,13 @@ class RqdHost(object):
     def shutdownRqdNow(self):
         """Shuts down the host now."""
         print(self.rqdHost, "Sending shutdownRqdNow command")
-        self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
+        try:
+            self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
+        # pylint: disable=broad-except
+        except Exception:
+            # Shutting down the service from inside means this request will receive
+            # a connection error response
+            pass
 
     def restartRqdIdle(self):
         """Restarts RQD on the host when idle."""

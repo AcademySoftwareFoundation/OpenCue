@@ -325,8 +325,9 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         procDao.insertVirtualProc(proc);
         procDao.verifyRunningProc(proc.getId(), frame.getId());
+        byte[] children = new byte[100];
 
-        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0);
+        procDao.updateProcMemoryUsage(frame, 100, 100, 1000, 1000, 0, 0, children);
 
     }
 
@@ -584,16 +585,17 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         int i = 1;
         List<DispatchFrame> frames  = dispatcherDao.findNextDispatchFrames(job, host, 6);
         assertEquals(6, frames.size());
-
+        byte[] children = new byte[100];
         for (DispatchFrame frame: frames) {
 
             VirtualProc proc = VirtualProc.build(host, frame);
+            proc.childProcesses = children;
             frame.minMemory = Dispatcher.MEM_RESERVED_DEFAULT;
             dispatcher.dispatch(frame, proc);
 
             // Increase the memory usage as frames are added
             procDao.updateProcMemoryUsage(frame,
-                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0);
+                    1000*i, 1000*i, 1000*i, 1000*i, 0, 0, children);
             i++;
         }
 
@@ -666,7 +668,8 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc1.frameId = frame1.id;
         procDao.insertVirtualProc(proc1);
 
-        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0);
+        byte[] children = new byte[100];
+        procDao.updateProcMemoryUsage(frame1, 250000, 250000, 250000, 250000, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame1, 250000, true);
 
         FrameDetail frameDetail2 = frameDao.findFrameDetail(job, "0002-pass_1");
@@ -676,7 +679,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc2.frameId = frame2.id;
         procDao.insertVirtualProc(proc2);
 
-        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0);
+        procDao.updateProcMemoryUsage(frame2, 255000, 255000,255000, 255000, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame2, 255000, true);
 
         FrameDetail frameDetail3 = frameDao.findFrameDetail(job, "0003-pass_1");
@@ -686,7 +689,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         proc3.frameId = frame3.id;
         procDao.insertVirtualProc(proc3);
 
-        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0);
+        procDao.updateProcMemoryUsage(frame3, 3145728, 3145728,3145728, 3145728, 0, 0, children);
         layerDao.updateLayerMaxRSS(frame3,300000, true);
 
         procDao.balanceUnderUtilizedProcs(proc3, 100000);
@@ -797,6 +800,7 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
             proc.frameId = f.id;
             proc.layerId = f.layerId;
             proc.showId = f.showId;
+            proc.childProcesses = "".getBytes();
             procDao.insertVirtualProc(proc);
         }
 

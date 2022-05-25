@@ -93,10 +93,61 @@ message RunningFrameInfo {
     int32 num_gpus = 15;
     int64 max_used_gpu_memory = 16; // kB
     int64 used_gpu_memory = 17; // kB
+    ChildrenProcStats children = 18; //additional data about the running frame's child processes
 };
 
+message ChildrenProcStats {
+    repeated ProcStats children = 2;
+}
+message ProcStats {
+    Stat stat = 1;
+    Statm statm = 2;
+    Status status = 3;
+    string cmdline = 4;
+    string start_time = 5;
+}
+
+message Stat {
+    int64 rss = 1;
+    int64 vsize = 2;
+    string state = 3;
+    string name = 4;
+    string pid = 5;
+}
+
+message Statm {
+    int64 rss = 1;
+    int64 size = 2;
+}
+
+message Status {
+    int64 vrss = 1;
+    int64 vsize = 2;
+}
 
 // -------- Requests & Responses --------]
+
+message ChildrenProcStatsRequest {
+    string frame_id = 1;
+    repeated ProcStats children = 2;
+}
+
+message ChildrenProcStatsResponse {
+    ChildrenProcStats children_procs_stats = 1;
+}
+
+message ProcStatsRequest {
+    string name = 1;
+    string stat = 2;
+    string statm = 3;
+    string cmdline = 4;
+    string state = 5;
+    string frame_id = 6;
+}
+
+message ProcStatsResponse {
+    ProcStats proc_stats = 1;
+}
 
 // ReportRqdStartup
 message RqdReportRqdStartupRequest {

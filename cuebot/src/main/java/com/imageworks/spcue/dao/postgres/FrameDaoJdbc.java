@@ -27,6 +27,7 @@ import java.util.List;
 import java.sql.Timestamp;
 import java.util.Optional;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 
@@ -67,7 +68,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
             "int_version = int_version + 1, " +
             "int_total_past_core_time = int_total_past_core_time + " +
                 "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_cores / 100)," +
-            "int_total_past_gpu_time = int_total_past_gpu_time + " + 
+            "int_total_past_gpu_time = int_total_past_gpu_time + " +
                 "round(INTERVAL_TO_SECONDS(current_timestamp - ts_started) * int_gpus) " +
         "WHERE " +
             "frame.pk_frame = ? " +
@@ -116,7 +117,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 frame.getVersion()) == 1;
     }
 
-    private static final String UPDATE_FRAME_CLEARED =
+    private static final String UPDATE_FRAME_REASON =
         "UPDATE "+
             "frame "+
         "SET " +
@@ -132,17 +133,26 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
                 "(SELECT proc.pk_frame FROM " +
                     "proc WHERE proc.pk_frame=?)";
 
-    @Override
-    public boolean updateFrameCleared(FrameInterface frame) {
+    private int updateFrame(FrameInterface frame, int exitStatus) {
 
         int result =  getJdbcTemplate().update(
-               UPDATE_FRAME_CLEARED,
-               FrameState.WAITING.toString(),
-               Dispatcher.EXIT_STATUS_FRAME_CLEARED,
-               frame.getFrameId(),
-               frame.getFrameId());
+                UPDATE_FRAME_REASON,
+                FrameState.WAITING.toString(),
+                exitStatus,
+                frame.getFrameId(),
+                frame.getFrameId());
 
-        return result > 0;
+        return result;
+    }
+
+    @Override
+    public boolean updateFrameHostDown(FrameInterface frame) {
+        return updateFrame(frame, Dispatcher.EXIT_STATUS_DOWN_HOST) > 0;
+    }
+
+    @Override
+    public boolean updateFrameCleared(FrameInterface frame) {
+        return updateFrame(frame, Dispatcher.EXIT_STATUS_FRAME_CLEARED) > 0;
     }
 
     private static final String UPDATE_FRAME_STARTED =
@@ -196,31 +206,45 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         "WHERE " +
             "pk_frame = ? " +
         "AND " +
-            "int_exit_status NOT IN (?,?,?) ";
+            "int_exit_status NOT IN (?,?,?,?,?,?,?) ";
 
     @Override
     public void updateFrameStarted(VirtualProc proc, FrameInterface frame) {
 
         lockFrameForUpdate(frame, FrameState.WAITING);
 
-        int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
-                FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
-                proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
-                FrameState.WAITING.toString(), frame.getVersion());
-
-        if (result == 0) {
-            String error_msg = "the frame " +
-                frame + " was updated by another thread.";
-            throw new FrameReservationException(error_msg);
+        try {
+            int result = getJdbcTemplate().update(UPDATE_FRAME_STARTED,
+                    FrameState.RUNNING.toString(), proc.hostName, proc.coresReserved,
+                    proc.memoryReserved, proc.gpusReserved, proc.gpuMemoryReserved, frame.getFrameId(),
+                    FrameState.WAITING.toString(), frame.getVersion());
+            if (result == 0) {
+                String error_msg = "the frame " +
+                        frame + " was updated by another thread.";
+                throw new FrameReservationException(error_msg);
+            }
+        } catch (DataAccessException e) {
+            /*
+             * This usually happens when the folder's max cores
+             * limit has exceeded
+             */
+            throw new FrameReservationException(e.getCause());
         }
 
         /*
          * Frames that were killed via nimby or hardware errors not attributed to
-         * the software do not increment the retry counter.
+         * the software do not increment the retry counter. Like failed launch,
+         * orphaned frame, failed kill or down host.
          */
-        getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
-                frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
-                Dispatcher.EXIT_STATUS_FRAME_CLEARED);
+        try {
+            getJdbcTemplate().update(UPDATE_FRAME_RETRIES,
+                    frame.getFrameId(), -1, FrameExitStatus.SKIP_RETRY_VALUE,
+                    FrameExitStatus.FAILED_LAUNCH_VALUE, Dispatcher.EXIT_STATUS_FRAME_CLEARED,
+                    Dispatcher.EXIT_STATUS_FRAME_ORPHAN, Dispatcher.EXIT_STATUS_FAILED_KILL,
+                    Dispatcher.EXIT_STATUS_DOWN_HOST);
+        } catch (DataAccessException e) {
+            throw new FrameReservationException(e.getCause());
+        }
     }
 
     private static final String UPDATE_FRAME_FIXED =
@@ -655,6 +679,21 @@ public class FrameDaoJdbc extends JdbcDaoSupport  implements FrameDao {
         return getJdbcTemplate().queryForObject(
                 GET_MINIMAL_FRAME + " AND frame.str_name=? AND frame.pk_job=?",
                 FRAME_MAPPER, name, job.getJobId());
+    }
+
+    @Override
+    public void checkRetries(FrameInterface frame) {
+        int max_retries = getJdbcTemplate().queryForObject(
+                "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class,
+                frame.getJobId());
+
+        if (getJdbcTemplate().queryForObject(
+                "SELECT int_retries FROM frame WHERE pk_frame=?", Integer.class,
+                frame.getFrameId()) >= max_retries) {
+            getJdbcTemplate().update(
+                    "UPDATE frame SET str_state=? WHERE pk_frame=?",
+                    FrameState.DEAD.toString(), frame.getFrameId());
+        }
     }
 
     private static final String UPDATE_FRAME_STATE =

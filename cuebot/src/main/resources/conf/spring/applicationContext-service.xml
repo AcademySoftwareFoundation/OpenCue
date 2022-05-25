@@ -543,6 +543,19 @@
     <property name="repeatInterval" value="43200000" />
   </bean>
 
+  <bean id="updateShowsStatus" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="adminManager" />
+    <property name="targetMethod" value="updateShowsStatus" />
+  </bean>
+
+  <bean id="updateShowsStatusTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="updateShowsStatus" />
+    <!-- delay 60 seconds -->
+    <property name="startDelay" value="60000" />
+    <!-- repeat once a week -->
+    <property name="repeatInterval" value="604800000" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -557,6 +570,7 @@
         <ref bean="dispatchQueueSchedule" />
         <ref bean="manageQueueSchedule" />
         <ref bean="killQueueSchedule" />
+        <ref bean="updateShowsStatusTrigger"/>
       </list>
     </property>
   </bean>
