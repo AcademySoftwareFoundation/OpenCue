@@ -387,6 +387,7 @@ public class CoreUnitDispatcher implements Dispatcher {
     @Override
     public void setTestMode(boolean enabled) {
         testMode = enabled;
+        dispatchSupport.clearCache();
     }
 
     /**
@@ -544,4 +545,3 @@ public class CoreUnitDispatcher implements Dispatcher {
         }
     }
 }
-

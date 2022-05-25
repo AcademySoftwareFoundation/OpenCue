@@ -689,5 +689,10 @@ public class DispatchSupportService implements DispatchSupport {
     public void setBookingDao(BookingDao bookingDao) {
         this.bookingDao = bookingDao;
     }
+
+    @Override
+    public void clearCache() {
+        dispatcherDao.clearCache();
+    }
 }
 

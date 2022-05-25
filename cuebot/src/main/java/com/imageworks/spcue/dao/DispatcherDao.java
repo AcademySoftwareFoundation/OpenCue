@@ -188,6 +188,13 @@ public interface DispatcherDao {
         FIFO,
         BALANCED
     }
+
+    /**
+     * Clear bookableShows cache
+     *
+     * @return
+     */
+    void clearCache();
 }
 
 

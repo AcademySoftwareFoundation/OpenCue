@@ -549,5 +549,12 @@ public interface DispatchSupport {
      */
     boolean hasPendingFrames(LayerInterface layer);
 
+    /**
+     * Clear bookableShows cache
+     *
+     * @return
+     */
+    void clearCache();
+
 }
 
