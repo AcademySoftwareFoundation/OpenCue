@@ -426,7 +426,7 @@ def getFrameLogFile(job, frame):
             my_os in cuegui.Constants.LOG_ROOT_OS and \
             job_os in cuegui.Constants.LOG_ROOT_OS:
         log_dir = log_dir.replace(cuegui.Constants.LOG_ROOT_OS[job_os],
-                                  cuegui.Constants.LOG_ROOT_OS[my_os])
+                                  cuegui.Constants.LOG_ROOT_OS[my_os], 1)
 
     return os.path.join(log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
 

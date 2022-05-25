@@ -141,5 +141,6 @@ LOG_HIGHLIGHT_INFO = ['info:', 'rqd cmd:']
 LOG_ROOT_OS = {
     "rhel7": "/shots",
     "linux": "/shots",
-    "windows": "S:"
+    "windows": "S:",
+    "mac": "/Users/shots"
 }
