@@ -280,7 +280,8 @@ class NimbyPynput(Nimby):
             on_scroll=self.on_interaction)
         self.keyboard_listener = pynput.keyboard.Listener(on_press=self.on_interaction)
 
-    def on_interaction(self):
+    # pylint: disable=unused-argument
+    def on_interaction(self, *args):
         """ interaction detected """
         self.interaction_detected = True
 
