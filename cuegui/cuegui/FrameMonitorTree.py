@@ -879,7 +879,6 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        self.__menuActions.frames().addAction(self, "useLocalCores")
         if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
