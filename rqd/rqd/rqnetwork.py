@@ -165,6 +165,7 @@ class RunningFrame(object):
             except OSError as e:
                 log.warning(
                     "kill() tried to kill a non-existant pid for: %s Error: %s", self.frameId, e)
+            # pylint: disable=broad-except
             except Exception as e:
                 log.warning("kill() encountered an unknown error: %s", e)
         else:
@@ -226,8 +227,8 @@ class GrpcServer(object):
 
     def shutdown(self):
         """Stops the gRPC server."""
-        log.info('Stopping grpc server.')
-        self.server.stop(0)
+        log.warning('Stopping grpc server.')
+        self.server.stop(10)
 
     def stayAlive(self):
         """Runs forever until killed."""

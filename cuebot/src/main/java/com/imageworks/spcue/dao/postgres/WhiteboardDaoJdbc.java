@@ -1424,6 +1424,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     else {
                         builder.setStopTime(0);
                     }
+                    java.sql.Timestamp ts_llu = rs.getTimestamp("ts_llu");
+                    if (ts_llu!= null) {
+                        builder.setLluTime((int) (ts_llu.getTime() / 1000));
+                    }
+                    else {
+                        builder.setLluTime(0);
+                    }
 
                     builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
                     builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));

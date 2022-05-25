@@ -207,14 +207,15 @@ class Machine(object):
             stat = os.stat(frame.runFrame.log_dir_file).st_mtime
             frame.lluTime = int(stat)
 
-    def _getFields(self, filePath):
+    def _getFields(self, pidFilePath):
         fields = []
 
         try:
-            with open(filePath, "r") as statFile:
+            with open(pidFilePath, "r") as statFile:
                 fields = statFile.read().split()
-        except rqd.rqexceptions.RqdException as e:
-            log.warning("Failed to read file: %s", e)
+        # pylint: disable=broad-except
+        except Exception:
+            log.warning("Not able to read pidFilePath: %s", pidFilePath)
 
         return fields
 

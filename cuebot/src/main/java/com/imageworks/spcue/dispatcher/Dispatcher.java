@@ -18,7 +18,6 @@
 
 
 package com.imageworks.spcue.dispatcher;
-
 import java.util.List;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -33,6 +32,9 @@ import com.imageworks.spcue.rqd.RqdClientException;
 import com.imageworks.spcue.util.CueUtil;
 
 public interface Dispatcher {
+
+    // Maximum number of core points that can be assigned to a frame
+    public static final int CORE_POINTS_RESERVED_MAX = 2400;
 
     // The default number of core points assigned to a frame, if no core
     // point value is specified

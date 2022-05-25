@@ -123,7 +123,7 @@ OVERRIDE_IS_DESKTOP = None # Force rqd to run in 'desktop' mode
 OVERRIDE_PROCS = None # number of physical cpus. ex: None or 2
 OVERRIDE_MEMORY = None # in Kb
 OVERRIDE_NIMBY = None # True to turn on, False to turn off
-USE_NIMBY_PYNPUT = platform.system() == 'Windows'
+USE_NIMBY_PYNPUT = True # True pynput, False select
 OVERRIDE_HOSTNAME = None # Force to use this hostname
 ALLOW_GPU = False
 LOAD_MODIFIER = 0 # amount to add/subtract from load
