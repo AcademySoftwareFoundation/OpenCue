@@ -20,17 +20,22 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import logging
+
 from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 from opencue.exception import EntityNotFoundException
+from opencue.api import job_pb2
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.MenuActions
 import cuegui.Utils
+
+logger = cuegui.Logger.getLogger(__file__)
 
 
 def displayRange(layer):
@@ -218,6 +223,10 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
+        allow_edit = True
+        if self.__job and self.__job.state() == job_pb2.FINISHED:
+            allow_edit = False
+
         __selectedObjects = self.selectedObjects()
 
         menu = QtWidgets.QMenu()
@@ -233,20 +242,20 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if len(__selectedObjects) == 1:
             menu.addSeparator()
             if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
-                self.__menuActions.layers().addAction(menu, "useLocalCores")
+                self.__menuActions.layers().addAction(menu, "useLocalCores").setEnabled(allow_edit)
             if len({layer.data.range for layer in __selectedObjects}) == 1:
-                self.__menuActions.layers().addAction(menu, "reorder")
-            self.__menuActions.layers().addAction(menu, "stagger")
+                self.__menuActions.layers().addAction(menu, "reorder").setEnabled(allow_edit)
+            self.__menuActions.layers().addAction(menu, "stagger").setEnabled(allow_edit)
 
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "setProperties")
+        self.__menuActions.layers().addAction(menu, "setProperties").setEnabled(allow_edit)
         menu.addSeparator()
-        self.__menuActions.layers().addAction(menu, "kill")
-        self.__menuActions.layers().addAction(menu, "eat")
-        self.__menuActions.layers().addAction(menu, "retry")
+        self.__menuActions.layers().addAction(menu, "kill").setEnabled(allow_edit)
+        self.__menuActions.layers().addAction(menu, "eat").setEnabled(allow_edit)
+        self.__menuActions.layers().addAction(menu, "retry").setEnabled(allow_edit)
         if [layer for layer in __selectedObjects if layer.data.layer_stats.dead_frames]:
             menu.addSeparator()
-            self.__menuActions.layers().addAction(menu, "retryDead")
+            self.__menuActions.layers().addAction(menu, "retryDead").setEnabled(allow_edit)
 
         menu.exec_(e.globalPos())
 

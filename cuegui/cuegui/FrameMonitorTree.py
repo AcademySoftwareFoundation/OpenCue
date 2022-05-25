@@ -383,7 +383,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  job: job, string, None"""
         self.frameSearch = opencue.search.FrameSearch()
         self.__job = job
-        self.__jobState = None
+        self.__jobState = job.state()
         self.removeAllItems()
         self.__sortByColumnLoad()
         self._lastUpdate = 0
@@ -576,7 +576,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
-        menu = FrameContextMenu(self, self._actionFilterSelectedLayers)
+        menu = FrameContextMenu(self, self._actionFilterSelectedLayers,
+                                allow_edit=self.__jobState != opencue.api.job_pb2.FINISHED)
         menu.exec_(e.globalPos())
 
     def _actionFilterSelectedLayers(self):
@@ -860,7 +861,7 @@ class FrameEtaDataBuffer(object):
 class FrameContextMenu(QtWidgets.QMenu):
     """Context menu for frames."""
 
-    def __init__(self, widget, filterSelectedLayersCallback):
+    def __init__(self, widget, filterSelectedLayersCallback, allow_edit=False):
         super(FrameContextMenu, self).__init__()
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -903,13 +904,13 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
-        self.__menuActions.frames().addAction(self, "reorder")
+        self.__menuActions.frames().addAction(self, "reorder").setEnabled(allow_edit)
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "retry")
-        self.__menuActions.frames().addAction(self, "eat")
-        self.__menuActions.frames().addAction(self, "kill")
-        self.__menuActions.frames().addAction(self, "eatandmarkdone")
+        self.__menuActions.frames().addAction(self, "retry").setEnabled(allow_edit)
+        self.__menuActions.frames().addAction(self, "eat").setEnabled(allow_edit)
+        self.__menuActions.frames().addAction(self, "kill").setEnabled(allow_edit)
+        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(allow_edit)
         self.__menuActions.frames().addAction(self, "viewProcesses")
