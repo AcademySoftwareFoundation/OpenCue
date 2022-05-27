@@ -383,7 +383,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "emailArtist")
         self.__menuActions.jobs().addAction(menu, "showProgBar")
         self.__menuActions.jobs().addAction(menu, "viewComments")
-        self.__menuActions.jobs().addAction(menu, "useLocalCores")
+
+        if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+            self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")

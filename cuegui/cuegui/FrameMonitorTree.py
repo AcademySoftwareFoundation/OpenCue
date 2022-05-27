@@ -212,6 +212,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # Used to build right click context menus
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
         self.ticksWithoutUpdate = 999
         self.__lastUpdateTime = None
@@ -876,7 +879,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        self.__menuActions.frames().addAction(self, "useLocalCores")
+        if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+            self.__menuActions.frames().addAction(self, "useLocalCores")
 
         # pylint: disable=no-member
         if QtGui.qApp.applicationName() == "CueCommander":
