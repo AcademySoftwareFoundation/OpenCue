@@ -34,26 +34,27 @@ import opencue
 
 import cuegui.Utils
 
-
-
 class ProcChildren(QtWidgets.QWidget):
     """Widget for displaying Host statistics for a Proc's child processes."""
 
     HEADERS = ["PID", "Name", "Start Time", "Rss (KB)", "VSize (KB)",
                "Statm Rss (KB)", "Statm Size (KB)", "Cmd line"]
 
-    def __init__(self, job, parent=None):
+    def __init__(self, job, layer, hosts, parent=None):
         """
         Initializes the list of procs for a given job to display
 
-        :param job: job Object for this item
-        :ptype job: opencue.wrappers.job.Job
+        :param job: job Object for this item (opencue.wrappers.job.Job)
+        :param layer: job Object for this item (opencue.wrappers.layer.Layer)
+        :param hosts: list of host Object for this item (List[opencue.wrappers.host.Host])
         :param parent: Optional parent for this item
         """
         QtWidgets.QWidget.__init__(self, parent)
         self._data = {}
 
         self._job = job
+        self._layer = layer
+        self._hosts = hosts
         self._model = QtGui.QStandardItemModel(self)
         self._model.setColumnCount(5)
         self._model.setHorizontalHeaderLabels(ProcChildren.HEADERS)
@@ -74,7 +75,8 @@ class ProcChildren(QtWidgets.QWidget):
 
         try:
             procs = opencue.api.getProcs(job=[self._job.name()],
-                                         layer=[x.name() for x in self._job.getLayers()])
+                                         layer=[self._layer.name()],
+                                         host=self._hosts)
             for proc in procs:
                 data['children_processes'] =\
                     childrenProc.FromString(proc.data.child_processes).children
@@ -117,11 +119,15 @@ class ProcChildrenDialog(QtWidgets.QDialog):
     """
     Dialog for displaying Host statistics for a Proc's child processes
     """
-    def __init__(self, job, text, title, parent=None):
+    def __init__(self, job, layer, hosts, text, title, parent=None):
         """
         Initializes the data to be displayed
         :ptype job: opencue.wrappers.job.Job
         :param job: job Object for this item
+        :ptype layer: opencue.wrappers.layer.Layer
+        :param layer: layer Object for this item
+        :ptype hosts: List[opencue.wrappers.host.Host]
+        :param hosts: list of hosts Object for this item
         :ptype text: str
         :param text: Description of what is being displayed
         :ptype title: str
@@ -136,7 +142,8 @@ class ProcChildrenDialog(QtWidgets.QDialog):
         self.text = text
         self.title = title
         self.setWindowTitle(self.title)
-        self._childProcStats = ProcChildren(job=job, parent=parent)
+        self._childProcStats = ProcChildren(job, layer, hosts, parent=parent)
+        self.resize(920, 420)
 
         _labelText = QtWidgets.QLabel(text, self)
         _labelText.setWordWrap(True)

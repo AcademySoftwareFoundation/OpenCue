@@ -349,7 +349,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                    key=lambda l: int(l.split('rqlog.')[-1]),
                                    reverse=True)
         except ValueError:
-            pass
+            old_log_files = []
+
         # pylint: disable=no-member
         QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
         # pylint: enable=no-member
@@ -911,4 +912,4 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "eat")
         self.__menuActions.frames().addAction(self, "kill")
         self.__menuActions.frames().addAction(self, "eatandmarkdone")
-        self.__menuActions.frames().addAction(self, "viewRunning")
+        self.__menuActions.frames().addAction(self, "viewProcesses")
