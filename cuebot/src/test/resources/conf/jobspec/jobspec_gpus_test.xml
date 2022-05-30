@@ -74,6 +74,22 @@
         </layers>
     </job>
 
+    <job name="pipe-home-testuser_min_mem_test">
+        <paused>true</paused>
+        <maxretries>3</maxretries>
+        <layers>
+            <layer name="test_layer" type="Render">
+                <cmd>/shots/pipe/usr_testuser/logs/help.py</cmd>
+                <range>0</range>
+                <chunk>1</chunk>
+                <threadable>false</threadable>
+                <services>
+                    <service>apitest</service>
+                </services>
+            </layer>
+        </layers>
+    </job>
+
     <job name="test_depend">
         <paused>True</paused>
         <layers>
@@ -108,4 +124,5 @@
             <onlayer>layer_first</onlayer>
         </depend>
     </depends>
+
 </spec>
