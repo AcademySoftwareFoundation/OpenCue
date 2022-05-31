@@ -74,7 +74,7 @@
         </layers>
     </job>
 
-    <job name="pipe-home-testuser_min_mem_test">
+    <job name="min_mem_test">
         <paused>true</paused>
         <maxretries>3</maxretries>
         <layers>

@@ -186,7 +186,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
              "int_timeout," +
              "int_timeout_llu, " +
              "int_min_memory_increase " +
-         ") VALUES (?,?,?,?,?,?,?,?,?,?,?)";
+         ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceEntity service) {
@@ -218,7 +218,7 @@ public class ServiceDaoJdbc extends JdbcDaoSupport implements ServiceDao {
             "int_timeout," +
             "int_timeout_llu, " +
             "int_min_memory_increase " +
-        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?)";
+        ") VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
 
     @Override
     public void insert(ServiceOverrideEntity service) {

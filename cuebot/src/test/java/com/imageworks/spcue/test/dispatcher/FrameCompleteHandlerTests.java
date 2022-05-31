@@ -95,6 +95,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     ServiceManager serviceManager;
 
     private static final String HOSTNAME = "beta";
+    private static final String HOSTNAME2 = "zeta";
 
     @Before
     public void setTestMode() {
@@ -134,10 +135,31 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         hostManager.createHost(host,
                 adminManager.findAllocationDetail("spi", "general"));
+
+        RenderHost host2 = RenderHost.newBuilder()
+                .setName(HOSTNAME2)
+                .setBootTime(1192369572)
+                .setFreeMcp(76020)
+                .setFreeMem((int) CueUtil.GB4)
+                .setFreeSwap((int) CueUtil.GB4)
+                .setLoad(0)
+                .setTotalMcp(195430)
+                .setTotalMem((int) CueUtil.GB8)
+                .setTotalSwap((int) CueUtil.GB8)
+                .setNimbyEnabled(false)
+                .setNumProcs(8)
+                .setCoresPerProc(100)
+                .setState(HardwareState.UP)
+                .setFacility("spi")
+                .putAttributes("SP_OS", "Linux")
+                .build();
+
+        hostManager.createHost(host2,
+                adminManager.findAllocationDetail("spi", "general"));
     }
 
-    public DispatchHost getHost() {
-        return hostManager.findDispatchHost(HOSTNAME);
+    public DispatchHost getHost(String hostname) {
+        return hostManager.findDispatchHost(hostname);
     }
 
     @Test
@@ -148,7 +170,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer = layerDao.findLayerDetail(job, "layer0");
         jobManager.setJobPaused(job, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -184,7 +206,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer1_0 = layerDao.findLayerDetail(job1, "layer0");
         jobManager.setJobPaused(job1, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(2, procs.size());
 
@@ -223,7 +245,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
         LayerDetail layer2_0 = layerDao.findLayerDetail(job2, "layer0");
         jobManager.setJobPaused(job2, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
 
@@ -265,7 +287,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         jobManager.setJobPaused(job, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
@@ -350,13 +372,13 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
             serviceManager.createService(soe);
         }
 
-        String jobName = "pipe-home-testuser_min_mem_test";
+        String jobName = "pipe-default-testuser_min_mem_test";
         JobDetail job = jobManager.findJobDetail(jobName);
         LayerDetail layer = layerDao.findLayerDetail(job, "test_layer");
         FrameDetail frame = frameDao.findFrameDetail(job, "0000-test_layer");
         jobManager.setJobPaused(job, false);
 
-        DispatchHost host = getHost();
+        DispatchHost host = getHost(HOSTNAME2);
         List<VirtualProc> procs = dispatcher.dispatchHost(host);
         assertEquals(1, procs.size());
         VirtualProc proc = procs.get(0);
