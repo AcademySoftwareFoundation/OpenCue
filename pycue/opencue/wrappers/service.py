@@ -247,4 +247,7 @@ class Service(object):
 
     def setMinMemoryIncrease(self, min_memory_increase):
         """Sets the default service minimum memory increment"""
-        self.data.min_memory_increase = min_memory_increase
+        if min_memory_increase > 0:
+            self.data.min_memory_increase = min_memory_increase
+        else:
+            raise ValueError("Memory increase must be > 0")

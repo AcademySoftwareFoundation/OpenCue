@@ -124,5 +124,17 @@ class ServiceTests(unittest.TestCase):
             service_pb2.ServiceGetServiceRequest(name=TEST_SERVICE_NAME), timeout=mock.ANY)
         self.assertEqual(service.name(), TEST_SERVICE_NAME)
 
+    def testSetMinMemIncrease(self, getStubMock):
+        service = opencue.wrappers.service.Service(
+            service_pb2.Service(name=TEST_SERVICE_NAME,
+                                min_memory_increase=2097152))
+
+        self.assertRaises(ValueError, service.setMinMemoryIncrease, -1)
+        self.assertRaises(ValueError, service.setMinMemoryIncrease, 0)
+
+        service.setMinMemoryIncrease(12345678)
+        self.assertEqual(service.minMemoryIncrease(), 12345678)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -318,11 +318,11 @@ public class FrameCompleteHandler {
 
                 // since there can be multiple services, just going for the
                 // first service (primary)
-                String serviceName = frame.services.split(",")[0];
+                String serviceName = "";
                 try {
-                    ShowEntity showEntity = showDao.findShowDetail(frame.show);
+                    serviceName = frame.services.split(",")[0];
                     ServiceOverride showService = whiteboardDao.getServiceOverride(
-                        showEntity, serviceName);
+                            showDao.findShowDetail(frame.show), serviceName);
                     // increase override is stored in Kb format so convert to Mb
                     // for easier reading. Note: Kb->Mb conversion uses 1024 blocks
                     increase = showService.getData().getMinMemoryIncrease();
@@ -330,12 +330,15 @@ public class FrameCompleteHandler {
                             "override for memory increase: " +
                             Math.floor(increase / 1024) + "Mb.");
                 }
-                catch (Exception e) {
+                catch (NullPointerException e) {
+                    logger.info("Frame has no associated services");
+                }
+                catch (EmptyResultDataAccessException e) {
                     logger.info(frame.show + " has no service override for " +
                             serviceName + ".");
                     Service service = whiteboardDao.findService(serviceName);
                     increase = service.getMinMemoryIncrease();
-                    logger.info("Using facility default for mem increase: " +
+                    logger.info("Using service default for mem increase: " +
                             Math.floor(increase / 1024) + "Mb.");
                 }
 
