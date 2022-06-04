@@ -359,7 +359,7 @@ public class FilterManagerTests extends AbstractTransactionalJUnit4SpringContext
         filterDao.insertFilter(f);
 
         ActionEntity a1 = new ActionEntity();
-        a1.type = ActionType.SET_ALL_RENDER_LAYER_CORES;
+        a1.type = ActionType.SET_ALL_RENDER_LAYER_MIN_CORES;
         a1.filterId = f.getFilterId();
         a1.valueType = ActionValueType.FLOAT_TYPE;
         a1.floatValue = 40f;
