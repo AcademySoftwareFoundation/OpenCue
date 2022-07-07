@@ -18,11 +18,14 @@
 package com.imageworks.spcue.servant;
 
 import java.util.HashSet;
+import java.util.Objects;
 
 import com.google.protobuf.Descriptors;
 import com.imageworks.spcue.JobDetail;
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.LayerDetail;
@@ -137,6 +140,8 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     private Whiteboard whiteboard;
     private LocalBookingSupport localBookingSupport;
     private FrameSearchFactory frameSearchFactory;
+    @Autowired
+    private Environment env;
 
     @Override
     public void findLayer(LayerFindLayerRequest request, StreamObserver<LayerFindLayerResponse> responseObserver) {
@@ -703,7 +708,12 @@ public class ManageLayer extends LayerInterfaceGrpc.LayerInterfaceImplBase {
     }
 
     private boolean isJobFinished() {
-        JobDetail jobDetail = this.jobManager.getJobDetail(this.layer.getJobId());
-        return jobDetail.state == JobState.FINISHED;
-    }}
+        if (env.getProperty("layer.finished_jobs_readonly", String.class) != null &&
+                Objects.equals(env.getProperty("layer.finished_jobs_readonly", String.class), "true")) {
+            JobDetail jobDetail = this.jobManager.getJobDetail(this.layer.getJobId());
+            return jobDetail.state == JobState.FINISHED;
+        }
+        return false;
+    }
+}
 

@@ -21,10 +21,13 @@ package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import io.grpc.Status;
 import io.grpc.stub.StreamObserver;
 import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.BuildableJob;
@@ -174,6 +177,8 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     private JobInterface job;
     private FrameSearchFactory frameSearchFactory;
     private JobSearchFactory jobSearchFactory;
+    @Autowired
+    private Environment env;
 
     @Override
     public void findJob(JobFindJobRequest request, StreamObserver<JobFindJobResponse> responseObserver) {
@@ -1098,8 +1103,12 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     }
 
     private boolean isJobFinished() {
-        JobDetail jobDetail = this.jobManager.getJobDetail(this.job.getJobId());
-        return jobDetail.state == JobState.FINISHED;
+        if (env.getProperty("frame.finished_jobs_readonly", String.class) != null &&
+                Objects.equals(env.getProperty("frame.finished_jobs_readonly", String.class), "true")) {
+            JobDetail jobDetail = this.jobManager.getJobDetail(this.job.getJobId());
+            return jobDetail.state == JobState.FINISHED;
+        }
+        return false;
     }
 }
 
