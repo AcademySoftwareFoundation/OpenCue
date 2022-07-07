@@ -69,6 +69,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     handle_filter_layers_byLayer = QtCore.Signal(list)
 
     def __init__(self, parent):
+        self._cfg()
         self.frameLogDataBuffer = FrameLogDataBuffer()
         self.frameEtaDataBuffer = FrameEtaDataBuffer()
 
@@ -576,8 +577,10 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
+        cfg_allow_edit = self._cfg().get("frame.finished_jobs_readonly", False)
         menu = FrameContextMenu(self, self._actionFilterSelectedLayers,
-                                allow_edit=self.__jobState != opencue.api.job_pb2.FINISHED)
+                                readonly=(cfg_allow_edit and
+                                          self.__jobState == opencue.api.job_pb2.FINISHED))
         menu.exec_(e.globalPos())
 
     def _actionFilterSelectedLayers(self):
@@ -586,6 +589,18 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for frame in self.selectedObjects():
             results[frame.layer()] = True
         self.handle_filter_layers_byLayer[str].emit(list(results.keys()))
+
+    def _cfg(self):
+        """
+        Loads (if necessary) and returns the config values.
+        Warns and returns an empty dict if there's a problem reading the config
+
+        @return: The keys & values stored in the config file
+        @rtype: dict<str:str>
+        """
+        if not hasattr(self, '__config'):
+            self.__config = cuegui.Utils.getResourceConfig()
+        return self.__config
 
 
 class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
@@ -861,7 +876,7 @@ class FrameEtaDataBuffer(object):
 class FrameContextMenu(QtWidgets.QMenu):
     """Context menu for frames."""
 
-    def __init__(self, widget, filterSelectedLayersCallback, allow_edit=False):
+    def __init__(self, widget, filterSelectedLayersCallback, readonly=False):
         super(FrameContextMenu, self).__init__()
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -904,13 +919,13 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
-        self.__menuActions.frames().addAction(self, "reorder").setEnabled(allow_edit)
+        self.__menuActions.frames().addAction(self, "reorder").setEnabled(readonly)
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "retry").setEnabled(allow_edit)
-        self.__menuActions.frames().addAction(self, "eat").setEnabled(allow_edit)
-        self.__menuActions.frames().addAction(self, "kill").setEnabled(allow_edit)
-        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(allow_edit)
+        self.__menuActions.frames().addAction(self, "retry").setEnabled(readonly)
+        self.__menuActions.frames().addAction(self, "eat").setEnabled(readonly)
+        self.__menuActions.frames().addAction(self, "kill").setEnabled(readonly)
+        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(readonly)
         self.__menuActions.frames().addAction(self, "viewProcesses")
