@@ -155,7 +155,7 @@ public class HostReportHandler {
                         rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
-                changeHardwareState(host, report.getHost().getState());
+                changeHardwareState(host, report.getHost().getState(), isBoot);
                 changeNimbyState(host, report.getHost());
 
                 /**
@@ -304,46 +304,45 @@ public class HostReportHandler {
      *
      * If a host pings in with a different hardware state than what
      * is currently in the DB, the state is updated.  If the hardware
-     * state is Rebooting RebootWhenIdle, then state can only be
+     * state is Rebooting or RebootWhenIdle, then state can only be
      * updated with a boot report.  If the state is Repair, then state is
      * never updated via RQD.
      *
      * @param host
      * @param reportState
+     * @param isBoot
      */
     private void changeHardwareState(DispatchHost host,
-            HardwareState reportState) {
+            HardwareState reportState, boolean isBoot) {
 
-        /*
-         * If the states are the same there is no reason
-         * to do this update.
-         */
+
+        // If the states are the same there is no reason to do this update.
         if (host.hardwareState.equals(reportState)) {
             return;
         }
 
-        /*
-         * Do not change the state of the host if its in a
-         * repair state.  Removing the repair state must
-         * be done manually.
-         */
-        if (host.hardwareState.equals(HardwareState.REPAIR)) {
-            return;
-        }
+        switch (host.hardwareState) {
+            case DOWN:
+                hostManager.setHostState(host, HardwareState.UP);
+                host.hardwareState = HardwareState.UP;
+                break;
+            case REBOOTING:
+            case REBOOT_WHEN_IDLE:
+                // Rebooting hosts only change to UP when processing a boot report
+                if (isBoot) {
+                    hostManager.setHostState(host, HardwareState.UP);
+                    host.hardwareState = HardwareState.UP;
+                }
+                break;
+            case REPAIR:
+                // Do not change the state of the host if its in a repair state.
+                break;
+            default:
+                hostManager.setHostState(host, reportState);
+                host.hardwareState = reportState;
+                break;
 
-        /*
-         * Hosts in these states always change to Up.
-         */
-        if (reportState.equals(HardwareState.UP) && EnumSet.of(HardwareState.DOWN,
-                HardwareState.REBOOTING,
-                HardwareState.REBOOT_WHEN_IDLE).contains(host.hardwareState)) {
-            hostManager.setHostState(host, HardwareState.UP);
         }
-        else {
-            hostManager.setHostState(host, reportState);
-        }
-
-        host.hardwareState = reportState;
     }
 
     /**
