@@ -73,7 +73,7 @@ class ServiceForm(QtWidgets.QWidget):
         self.timeout_llu.setRange(0, 4320)
         self.timeout_llu.setValue(0)
         self.min_memory_increase = QtWidgets.QSpinBox(self)
-        self.min_memory_increase.setRange(512, int(self._cfg().get('max_memory', 48)) * 1024)
+        self.min_memory_increase.setRange(0, int(self._cfg().get('max_memory', 48)) * 1024)
         self.min_memory_increase.setValue(0)
         layout = QtWidgets.QGridLayout(self)
         layout.addWidget(QtWidgets.QLabel("Name:", self), 0, 0)
@@ -166,6 +166,11 @@ class ServiceForm(QtWidgets.QWidget):
 
         if not str(self.name.text()).isalnum():
             QtWidgets.QMessageBox.critical(self, "Error", "The service name must alphanumeric.")
+            return
+
+        if self.min_memory_increase.value() <= 0:
+            QtWidgets.QMessageBox.critical(self, "Error",
+                                            "The minimum memory increase must be more than 0 MB")
             return
 
         service = opencue.wrappers.service.Service()
