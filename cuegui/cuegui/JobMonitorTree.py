@@ -300,7 +300,6 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     for j in self.__reverseDependents:
                         if j in self.__load:
                             del self.__load[j]
-
         finally:
             self.ticksLock.unlock()
 

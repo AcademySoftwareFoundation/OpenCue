@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 from builtins import str
 from builtins import map
-from datetime import datetime
+import datetime
 import re
 import weakref
 
@@ -89,9 +89,12 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
                                      ("columnWidths",
                                       self.jobMonitor.getColumnWidths,
                                       self.jobMonitor.setColumnWidths),
-                                      ("columnOrder",
+                                     ("columnOrder",
                                       self.jobMonitor.getColumnOrder,
                                       self.jobMonitor.setColumnOrder),
+                                     ("loadFinished",
+                                      self.__loadFinishedJobsCheckBox.isChecked,
+                                      self.__loadFinishedJobsCheckBox.setChecked),
                                       ("grpDependentCb",
                                       self.getGrpDependent,
                                       self.setGrpDependent),
@@ -194,13 +197,15 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         substring = str(self.__regexLoadJobsEditBox.text()).strip()
         load_finished_jobs = self.__loadFinishedJobsCheckBox.isChecked()
 
+        self.jobMonitor.removeAllItems()
+
         if cuegui.Utils.isStringId(substring):
             # If a uuid is provided, load it
             self.jobMonitor.addJob(substring)
         elif load_finished_jobs or re.search(
                 r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
             # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
-            for job in opencue.api.getJobs(substr=[substring], include_finished=True):
+            for job in opencue.api.getJobs(regex=[substring], include_finished=True):
                 self.jobMonitor.addJob(job)
         else:
             # Otherwise, just load current matching jobs (except for the empty string)
