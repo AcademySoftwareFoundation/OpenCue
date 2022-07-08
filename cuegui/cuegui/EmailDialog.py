@@ -20,7 +20,6 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from builtins import str
 from builtins import map
 try:
     from email.MIMEText import MIMEText
@@ -28,7 +27,6 @@ try:
 except ImportError:
     from email.mime.text import MIMEText
     from email.header import Header
-import os
 # pwd is not available on Windows.
 # TODO(bcipriano) Remove this, not needed once user info can come directly from Cuebot.
 #  (https://github.com/imageworks/OpenCue/issues/218)
@@ -42,8 +40,6 @@ from PySide2 import QtCore
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import opencue
-
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.Utils
@@ -51,127 +47,31 @@ import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
 
+SUBJ_LINE_TOO_LONG = 2
+
 
 class EmailDialog(QtWidgets.QDialog):
     """Dialog for emailing a job owner."""
 
-    def __init__(self, job, parent=None):
+    def __init__(self, jobs, parent=None):
         QtWidgets.QDialog.__init__(self, parent)
 
-        try:
-            self.__frames = job.getFrames(state=[opencue.api.job_pb2.DEAD])
-        except opencue.exception.CueException:
-            self.__frames = []
+        job_names = ','.join(map(lambda job: job.data.name, jobs))
 
-        self.setWindowTitle("Email For: %s" % job.data.name)
+        self.setWindowTitle("Email For: %s" % job_names)
         self.setAttribute(QtCore.Qt.WA_DeleteOnClose)
         self.setSizeGripEnabled(True)
-        self.setFixedSize(1000,600)
+        self.setFixedSize(1000, 600)
 
-        self.__email = EmailWidget(job, self)
-        self.__appendDeadFrameInfo(job)
-        self.__logView = LogViewWidget(job, self.__frames, self)
+        self.__email = EmailWidget(jobs, self)
 
         hlayout = QtWidgets.QHBoxLayout(self)
         hlayout.addWidget(self.__email)
-        hlayout.addWidget(self.__logView)
 
         self.__email.giveFocus()
 
         self.__email.send.connect(self.accept)
         self.__email.cancel.connect(self.reject)
-
-    def __appendDeadFrameInfo(self, job):
-        """Adds frame data to email body
-        @type  job: job
-        @param job: The job to email about"""
-        if job.data.job_stats.dead_frames:
-            self.__email.appendToBody("\nFrames:")
-            i_total_render_time = 0
-            i_total_retries = 0
-            for frame in self.__frames:
-                self.__email.appendToBody("%s\t%s\tRuntime: %s\tRetries: %d" % (
-                    frame.data.name,
-                    frame.state(),
-                    cuegui.Utils.secondsToHHMMSS(frame.runTime()), frame.retries()))
-                i_total_render_time += frame.retries() * frame.runTime()
-                i_total_retries += frame.retries()
-            self.__email.appendToBody(
-                "\nEstimated Proc Hours: %0.2f\n\n" % (i_total_render_time / 3600.0))
-
-
-class LogViewWidget(QtWidgets.QWidget):
-    """Widget for displaying a log within the email dialog."""
-
-    def __init__(self, job, frames, parent=None):
-        QtWidgets.QWidget.__init__(self, parent)
-        QtWidgets.QVBoxLayout(self)
-        ly = self.layout()
-
-        self.__job = job
-        self.__frames = frames
-
-        self.__sel_frames = QtWidgets.QComboBox(self)
-        for frame in frames:
-            self.__sel_frames.addItem(frame.data.name)
-
-        self.__txt_find = QtWidgets.QLineEdit(self)
-
-        self.__txt_log = QtWidgets.QPlainTextEdit(self)
-        self.__txt_log.setWordWrapMode(QtGui.QTextOption.NoWrap)
-        self.__txt_log.ensureCursorVisible()
-
-        if self.__frames:
-            self.switchLogEvent(self.__frames[0].data.name)
-
-        ly.addWidget(QtWidgets.QLabel("Select Frame:", self))
-        ly.addWidget(self.__sel_frames)
-        ly.addWidget(QtWidgets.QLabel("Find:", self))
-        ly.addWidget(self.__txt_find)
-        ly.addWidget(self.__txt_log)
-
-        # pylint: disable=no-member
-        self.__sel_frames.activated.connect(self.switchLogEvent)
-        self.__txt_find.returnPressed.connect(self.findEvent)
-        # pylint: enable=no-member
-
-    # pylint: disable=inconsistent-return-statements
-    def __getFrame(self, name):
-        for frame in self.__frames:
-            if frame.data.name == name:
-                return frame
-
-    def switchLogEvent(self, str_frame):
-        """Displays the log for the given frame."""
-        # pylint: disable=broad-except
-        try:
-            self.__txt_log.clear()
-            log_file_path = cuegui.Utils.getFrameLogFile(self.__job, self.__getFrame(str_frame))
-            fp = open(log_file_path, "r")
-            if os.path.getsize(log_file_path) > 1242880:
-                fp.seek(0, 2)
-                fp.seek(-1242880, 1)
-            # Bad characters in the log can cause the remainder of the log to be left out
-            # so ignore any invalid characters
-            self.__txt_log.appendPlainText(fp.read().decode('utf8', 'ignore'))
-            self.__txt_log.textCursor().movePosition(QtGui.QTextCursor.End)
-            self.__txt_log.appendPlainText("\n")
-            fp.close()
-
-        except Exception as e:
-            list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
-            logger.info("error loading frame: %s, %s", str_frame, e)
-
-    def findEvent(self):
-        """attempts to find the text from the find text box,
-        highlights and scrolls to it"""
-        document = self.__txt_log.document()
-        cursor = document.find(
-            str(self.__txt_find.text()).strip(),
-            self.__txt_log.textCursor().position(),
-            QtGui.QTextDocument.FindBackward)
-        if cursor.position() > 1:
-            self.__txt_log.setTextCursor(cursor)
 
 
 class EmailWidget(QtWidgets.QWidget):
@@ -180,27 +80,49 @@ class EmailWidget(QtWidgets.QWidget):
     send = QtCore.Signal()
     cancel = QtCore.Signal()
 
-    def __init__(self, job, parent=None):
+    def __init__(self, jobs, parent=None):
         QtWidgets.QWidget.__init__(self, parent=parent)
 
-        self.__job = job
+        self.__jobs = jobs
 
         # Temporary workaround when pwd library is not available (i.e. Windows).
         # TODO(bcipriano) Pull this info directly from Cuebot.
         #  (https://github.com/imageworks/OpenCue/issues/218)
+        user_names = set()
         if 'pwd' in globals():
-            user_name = pwd.getpwnam(job.username()).pw_gecos
+            for job in jobs:
+                user_names.add(pwd.getpwnam(job.username()).pw_gecos)
         else:
-            user_name = job.username()
+            for job in jobs:
+                user_names.add(job.username())
 
-        __default_from = "%s-pst@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN)
-        __default_to = "%s@%s" % (job.username(), cuegui.Constants.EMAIL_DOMAIN)
-        __default_cc = "%s-pst@%s" % (job.show(), cuegui.Constants.EMAIL_DOMAIN)
+        user_names = list(user_names)
+        if len(user_names) > 1:
+            user_names = ', '.join(user_names[:-1]) + (' and %s' % user_names[-1])
+        else:
+            user_names = user_names[0]
+
+        to_emails = set()
+        for job in jobs:
+            to_emails.add("%s@%s" % (job.username(), cuegui.Constants.EMAIL_DOMAIN))
+
+        __default_from = "%s-pst@%s" % (jobs[0].show(), cuegui.Constants.EMAIL_DOMAIN)
+        __default_to = ','.join(to_emails)
+        __default_cc = "%s-pst@%s" % (jobs[0].show(), cuegui.Constants.EMAIL_DOMAIN)
         __default_bcc = ""
-        __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX, job.data.name)
-        __default_body = "%s%s%s" % (cuegui.Constants.EMAIL_BODY_PREFIX, job.data.name,
+
+        job_names = list(map(lambda job: job.data.name, jobs))
+        if len(job_names) > SUBJ_LINE_TOO_LONG:
+            __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX,
+                                          ','.join(job_names[:2]) + '...')
+        else:
+            __default_subject = "%s%s" % (cuegui.Constants.EMAIL_SUBJECT_PREFIX,
+                                          ','.join(job_names))
+
+        __default_body = "%s%s%s" % (cuegui.Constants.EMAIL_BODY_PREFIX,
+                                     ',\n'.join(job_names),
                                      cuegui.Constants.EMAIL_BODY_SUFFIX)
-        __default_body += "Hi %s,\n\n" % user_name
+        __default_body += "Hi %s,\n\n" % user_names
 
         self.__btnSend = QtWidgets.QPushButton("Send", self)
         self.__btnCancel = QtWidgets.QPushButton("Cancel", self)

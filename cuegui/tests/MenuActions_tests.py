@@ -97,7 +97,7 @@ class JobActionsTests(unittest.TestCase):
 
         self.job_actions.emailArtist(rpcObjects=[job])
 
-        emailDialogMock.assert_called_with(job, self.widgetMock)
+        emailDialogMock.assert_called_with([job], self.widgetMock)
         emailDialogMock.return_value.show.assert_called()
 
     @mock.patch('PySide2.QtWidgets.QInputDialog.getDouble')
@@ -1185,7 +1185,7 @@ class HostActionsTests(unittest.TestCase):
 
         self.host_actions.viewComments(rpcObjects=[opencue.wrappers.layer.Layer, host])
 
-        commentListDialogMock.assert_called_with(host, mock.ANY)
+        commentListDialogMock.assert_called_with([host], mock.ANY)
         commentListDialogMock.return_value.show.assert_called()
 
     @mock.patch('PySide2.QtGui.qApp')
