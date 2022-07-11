@@ -29,6 +29,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import static java.lang.Math.toIntExact;
 
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.CallableStatementCreator;
@@ -351,7 +352,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         }
 
         String hid = SqlUtil.genKeyRandom();
-        int coreUnits = host.getNumProcs() * host.getCoresPerProc();
+        int coreUnits = toIntExact(host.getNumProcs() * host.getCoresPerProc());
         String os = host.getAttributesMap().get("SP_OS");
         if (os == null) {
             os = Dispatcher.OS_DEFAULT;
@@ -438,7 +439,7 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
     public void updateHostResources(HostInterface host, HostReport report) {
 
         long memory = convertMemoryUnits(report.getHost());
-        int cores = report.getHost().getNumProcs() * report.getHost().getCoresPerProc();
+        int cores = toIntExact(report.getHost().getNumProcs() * report.getHost().getCoresPerProc());
         long gpu_memory = report.getHost().getTotalGpuMem();
         int gpus = report.getHost().getNumGpus();
 
@@ -729,10 +730,10 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
 
         long memUnits;
         if (host.getTagsList().contains("64bit")) {
-            memUnits = CueUtil.convertKbToFakeKb64bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb64bit(toIntExact(host.getTotalMem()));
         }
         else {
-            memUnits = CueUtil.convertKbToFakeKb32bit(host.getTotalMem());
+            memUnits = CueUtil.convertKbToFakeKb32bit(toIntExact(host.getTotalMem()));
         }
 
         /*
