@@ -6,7 +6,7 @@ buildscript {
     }
     dependencies {
         classpath 'com.google.protobuf:protobuf-gradle-plugin:0.8.8'
-        classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.2.1.RELEASE'
+        classpath 'org.springframework.boot:spring-boot-gradle-plugin:2.5.13'
         classpath 'org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7.1'
     }
 }
@@ -50,6 +50,8 @@ dependencies {
     compile group: 'org.jdom', name: 'jdom', version: '1.1.3'
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-jdbc'
     compile group: 'org.springframework.boot', name: 'spring-boot-starter-web'
+    compile group: 'org.springframework.data', name: 'spring-data-redis'
+    compile group: 'redis.clients', name: 'jedis'
     compile group: 'org.springframework', name: 'spring-context-support'
     compile group: 'org.springframework', name: 'spring-jms'
     compile group: 'org.quartz-scheduler', name: 'quartz', version: '2.2.1', { exclude group: 'c3p0', module: 'c3p0' }
