@@ -279,7 +279,7 @@ class Host(object):
         :rtype: float
         :return: number of cores reserved
         """
-        return self.data.cores - self.data.idle_ores
+        return self.data.cores - self.data.idle_cores
 
     def coresIdle(self):
         """Returns the number of cores the host currently has idel.

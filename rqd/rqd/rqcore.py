@@ -732,6 +732,11 @@ class RqCore(object):
         try:
             if frameId in self.__cache:
                 del self.__cache[frameId]
+                if not self.__cache and self.cores.reserved_cores:
+                    log.error(
+                        'No running frames but reserved_cores is not empty: {0}'.format(
+                            self.cores.reserved_cores))
+                    self.cores.reserved_cores.clear()
         finally:
             self.__threadLock.release()
 
@@ -819,6 +824,10 @@ class RqCore(object):
         else:
             log.warning("Shutting down RQD by request. pid(%s)", os.getpid())
         self.network.stopGrpc()
+        self.sys_exit()
+
+    @staticmethod
+    def sys_exit():
         # Using sys.exit would raise SystemExit, giving exception handlers a chance
         # to block this
         # pylint: disable=protected-access
