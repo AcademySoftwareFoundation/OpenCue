@@ -29,6 +29,10 @@ class Service(object):
 
     def create(self):
         """Creates a service in the database using the current instance data."""
+        # min_memory_increase has to be greater than 0.
+        if self.data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+
         response = self.stub.CreateService(
             service_pb2.ServiceCreateServiceRequest(data=self.data),
             timeout=Cuebot.Timeout)
@@ -69,6 +73,10 @@ class Service(object):
 
     def update(self):
         """Updates the service database record with the current instance data."""
+        # min_memory_increase has to be greater than 0.
+        if self.data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+
         return self.stub.Update(
             service_pb2.ServiceUpdateRequest(service=self.data),
             timeout=Cuebot.Timeout)
@@ -250,4 +258,4 @@ class Service(object):
         if min_memory_increase > 0:
             self.data.min_memory_increase = min_memory_increase
         else:
-            raise ValueError("Memory increase must be > 0")
+            raise ValueError("Minimum memory increase must be > 0")
