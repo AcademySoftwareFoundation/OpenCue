@@ -330,13 +330,6 @@ class ShowTests(unittest.TestCase):
 
         self.assertRaises(ValueError, show.createServiceOverride, service)
 
-    def testCreateServiceOverrideMemError(self, getStubMock):
-        service = service_pb2.Service(name=TEST_SERVICE_NAME)
-        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
-
-        self.assertRaises(ValueError, show.createServiceOverride, service)
-
-
 
 if __name__ == '__main__':
     unittest.main()
