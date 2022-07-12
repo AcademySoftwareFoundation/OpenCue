@@ -47,7 +47,6 @@ class RqCoreTests(unittest.TestCase):
         self.machineMock = machineMock
         self.networkMock = networkMock
         self.nimbyMock = nimbyMock
-        rqd.rqconstants.USE_NIMBY_PYNPUT = False
         self.rqcore = rqd.rqcore.RqCore()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOn')
@@ -262,24 +261,24 @@ class RqCoreTests(unittest.TestCase):
         self.assertEqual(num_idle_cores+num_cores_to_release, self.rqcore.cores.idle_cores)
 
     @mock.patch.object(rqd.rqcore.RqCore, 'nimbyOff')
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_shutdown(self, nimbyOffMock, exitMock):
+    def test_shutdown(self, nimbyOffMock):
         self.rqcore.onIntervalThread = mock.MagicMock()
         self.rqcore.updateRssThread = mock.MagicMock()
 
         self.rqcore.shutdown()
-        exitMock.assert_called_with()
 
         nimbyOffMock.assert_called()
         self.rqcore.onIntervalThread.cancel.assert_called()
         self.rqcore.updateRssThread.cancel.assert_called()
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_handleExit(self, exitMock):
+    @mock.patch('rqd.rqnetwork.Network', autospec=True)
+    @mock.patch('sys.exit')
+    def test_handleExit(self, networkMock, exitMock):
         self.rqcore = rqd.rqcore.RqCore()
 
         self.rqcore.handleExit(None, None)
-        exitMock.assert_called_with()
+
+        exitMock.assert_called()
 
     @mock.patch('rqd.rqcore.FrameAttendantThread')
     def test_launchFrame(self, frameThreadMock):
@@ -300,13 +299,11 @@ class RqCoreTests(unittest.TestCase):
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_launchFrameOnHostWaitingForShutdown(self, exitMock):
+    def test_launchFrameOnHostWaitingForShutdown(self):
         self.machineMock.return_value.state = rqd.compiled_proto.host_pb2.UP
         self.nimbyMock.return_value.active = False
         frame = rqd.compiled_proto.rqd_pb2.RunFrame()
         self.rqcore.shutdownRqdIdle()
-        exitMock.assert_called_with()
 
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             self.rqcore.launchFrame(frame)
@@ -374,12 +371,10 @@ class RqCoreTests(unittest.TestCase):
         self.assertIsNone(self.rqcore.getRunningFrame('some-unknown-frame-id'))
 
     @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_restartRqdNowNoFrames(self, respawnMock, exitMock):
+    def test_restartRqdNowNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdNow()
-        exitMock.assert_called_with()
 
         respawnMock.assert_called_with()
 
@@ -394,53 +389,45 @@ class RqCoreTests(unittest.TestCase):
 
         killAllFrameMock.assert_called_with(self.rqcore, mock.ANY)
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
     @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    def test_restartRqdIdleNoFrames(self, exitMock, respawnMock):
+    def test_restartRqdIdleNoFrames(self, respawnMock):
         self.nimbyMock.return_value.active = False
 
         self.rqcore.restartRqdIdle()
+
         respawnMock.assert_called_with()
-        exitMock.assert_called_with()
 
     @mock.patch.object(rqd.rqcore.RqCore, 'respawn_rqd')
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_restartRqdIdleWithFrames(self, respawnMock, exitMock):
+    def test_restartRqdIdleWithFrames(self, respawnMock):
         frame1Id = 'frame1'
         frame1 = rqd.rqnetwork.RunningFrame(
             self.rqcore, rqd.compiled_proto.rqd_pb2.RunFrame(frame_id=frame1Id))
         self.rqcore.storeFrame(frame1Id, frame1)
+
         self.rqcore.restartRqdIdle()
 
         self.assertTrue(self.rqcore.isWaitingForIdle())
         respawnMock.assert_not_called()
-        exitMock.assert_not_called()
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_rebootNowNoUser(self, exitMock):
+    def test_rebootNowNoUser(self):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
         self.nimbyMock.return_value.active = False
 
         self.rqcore.rebootNow()
-        exitMock.assert_called_with()
 
         self.machineMock.return_value.reboot.assert_called_with()
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_rebootNowWithUser(self, exitMock):
+    def test_rebootNowWithUser(self):
         self.machineMock.return_value.isUserLoggedIn.return_value = True
 
         with self.assertRaises(rqd.rqexceptions.RqdException):
             self.rqcore.rebootNow()
-            exitMock.assert_called_with()
 
-    @mock.patch.object(rqd.rqcore.RqCore, 'sys_exit')
-    def test_rebootIdleNoFrames(self, exitMock):
+    def test_rebootIdleNoFrames(self):
         self.machineMock.return_value.isUserLoggedIn.return_value = False
         self.nimbyMock.return_value.active = False
 
         self.rqcore.rebootIdle()
-        exitMock.assert_called_with()
 
         self.machineMock.return_value.reboot.assert_called_with()
 

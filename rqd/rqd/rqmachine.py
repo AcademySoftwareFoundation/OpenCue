@@ -512,8 +512,6 @@ class Machine(object):
     @rqd.rqutil.Memoize
     def getTempPath(self):
         """Returns the correct mcp path for the given machine"""
-        if platform.system() == "win32":
-            return win32api.GetTempPath()
         if os.path.isdir("/mcp/"):
             return "/mcp/"
         return '%s/' % tempfile.gettempdir()
@@ -812,9 +810,9 @@ class Machine(object):
         """
 
         if frameCores % 100:
-            log.warn('Taskset: Can not reserveHT with fractional cores')
+            log.warning('Taskset: Can not reserveHT with fractional cores')
             return None
-        log.warn('Taskset: Requesting reserve of %d', (frameCores // 100))
+        log.warning('Taskset: Requesting reserve of %d', (frameCores // 100))
 
         # Look for the most idle physical cpu.
         # Prefer to assign cores from the same physical cpu.
@@ -825,7 +823,8 @@ class Machine(object):
 
         for physid, cores in self.__procs_by_physid_and_coreid.items():
             for coreid in cores.keys():
-                if int(physid) in reserved_cores and int(coreid) in reserved_cores[int(physid)].coreid:
+                if int(physid) in reserved_cores and \
+                        int(coreid) in reserved_cores[int(physid)].coreid:
                     continue
                 avail_cores.setdefault(physid, set()).add(coreid)
                 avail_cores_count += 1
@@ -861,7 +860,7 @@ class Machine(object):
             if remaining_cores == 0:
                 break
 
-        log.warn('Taskset: Reserving procs - %s', ','.join(tasksets))
+        log.warning('Taskset: Reserving procs - %s', ','.join(tasksets))
 
         return ','.join(tasksets)
 

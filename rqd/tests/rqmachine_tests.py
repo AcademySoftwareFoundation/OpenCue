@@ -473,6 +473,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 7
         #     - process_id 15
         tasksets1 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
         self.assertItemsEqual(['4', '5', '7', '12', '13', '15'], sorted(tasksets1.split(',')))
 
         # ------------------------step2-------------------------
@@ -490,9 +491,12 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 3
         #     - process_id 11
         tasksets0 = self.machine.reserveHT(400)
-        self.assertItemsEqual(['0', '1', '2', '3', '8', '9', '10', '11'], sorted(tasksets0.split(',')))
+        # pylint: disable=no-member
+        self.assertItemsEqual(['0', '1', '2', '3', '8', '9', '10', '11'],
+                              sorted(tasksets0.split(',')))
 
         # reserved cores got updated properly
+        # pylint: disable=no-member
         self.assertItemsEqual([0, 1, 2, 3], self.coreDetail.reserved_cores[0].coreid)
 
         # Make sure tastsets don't overlap
@@ -501,7 +505,9 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         # ------------------------step3-------------------------
         # Releasing a physcore shouldn't impact other physcores
         self.machine.releaseHT(tasksets0)
+        # pylint: disable=no-member
         self.assertTrue(1 in self.coreDetail.reserved_cores)
+        # pylint: disable=no-member
         self.assertItemsEqual([0, 1, 3], self.coreDetail.reserved_cores[1].coreid)
 
         # ------------------------step4-------------------------
@@ -513,6 +519,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 1
         #     - process_id 9
         tasksets3 = self.machine.reserveHT(200)
+        # pylint: disable=no-member
         self.assertItemsEqual(['0', '1', '8', '9'], sorted(tasksets3.split(',')))
 
         # ------------------------step5-------------------------
@@ -528,6 +535,7 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         #     - process_id 6
         #     - process_id 14
         tasksets4 = self.machine.reserveHT(300)
+        # pylint: disable=no-member
         self.assertItemsEqual(['2', '10', '3', '11', '6', '14'], sorted(tasksets4.split(',')))
 
         # ------------------------step6-------------------------

@@ -593,6 +593,7 @@ class RqCore(object):
             idle_cores=0,
             locked_cores=0,
             booked_cores=0,
+            reserved_cores=[],
         )
 
         self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
@@ -732,10 +733,13 @@ class RqCore(object):
         try:
             if frameId in self.__cache:
                 del self.__cache[frameId]
+                # pylint: disable=no-member
                 if not self.__cache and self.cores.reserved_cores:
+                    # pylint: disable=no-member
                     log.error(
-                        'No running frames but reserved_cores is not empty: {0}'.format(
-                            self.cores.reserved_cores))
+                        'No running frames but reserved_cores is not empty: %s',
+                        self.cores.reserved_cores)
+                    # pylint: disable=no-member
                     self.cores.reserved_cores.clear()
         finally:
             self.__threadLock.release()
@@ -824,10 +828,6 @@ class RqCore(object):
         else:
             log.warning("Shutting down RQD by request. pid(%s)", os.getpid())
         self.network.stopGrpc()
-        self.sys_exit()
-
-    @staticmethod
-    def sys_exit():
         # Using sys.exit would raise SystemExit, giving exception handlers a chance
         # to block this
         # pylint: disable=protected-access
