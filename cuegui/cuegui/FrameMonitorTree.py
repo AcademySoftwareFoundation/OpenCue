@@ -919,13 +919,13 @@ class FrameContextMenu(QtWidgets.QMenu):
 
         self.__menuActions.frames().createAction(self, "Filter Selected Layers", None,
                                                  filterSelectedLayersCallback, "stock-filters")
-        self.__menuActions.frames().addAction(self, "reorder").setEnabled(readonly)
+        self.__menuActions.frames().addAction(self, "reorder").setEnabled(not readonly)
         self.addSeparator()
         self.__menuActions.frames().addAction(self, "previewMain")
         self.__menuActions.frames().addAction(self, "previewAovs")
         self.addSeparator()
-        self.__menuActions.frames().addAction(self, "retry").setEnabled(readonly)
-        self.__menuActions.frames().addAction(self, "eat").setEnabled(readonly)
-        self.__menuActions.frames().addAction(self, "kill").setEnabled(readonly)
-        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(readonly)
+        self.__menuActions.frames().addAction(self, "retry").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "eat").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "kill").setEnabled(not readonly)
+        self.__menuActions.frames().addAction(self, "eatandmarkdone").setEnabled(not readonly)
         self.__menuActions.frames().addAction(self, "viewProcesses")
