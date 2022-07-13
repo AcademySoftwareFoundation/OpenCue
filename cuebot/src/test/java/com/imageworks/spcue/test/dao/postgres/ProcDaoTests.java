@@ -21,9 +21,11 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Resource;
 
+import com.google.common.collect.Ordering;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -584,9 +586,11 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         int i = 1;
         List<DispatchFrame> frames  = dispatcherDao.findNextDispatchFrames(job, host, 6);
+        //frames.sort(Ordering.usingToString());
         assertEquals(6, frames.size());
         byte[] children = new byte[100];
         for (DispatchFrame frame: frames) {
+            System.out.println(frame);
 
             VirtualProc proc = VirtualProc.build(host, frame);
             proc.childProcesses = children;
