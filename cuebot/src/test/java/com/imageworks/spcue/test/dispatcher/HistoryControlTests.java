@@ -169,7 +169,7 @@ public class HistoryControlTests extends TransactionalTest {
 
         launchAndDeleteJob();
 
-        assertEquals(Integer.valueOf(4), jdbcTemplate.queryForObject(
+        assertEquals(Integer.valueOf(5), jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM job_history", Integer.class));
         assertEquals(Integer.valueOf(1), jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM frame_history", Integer.class));

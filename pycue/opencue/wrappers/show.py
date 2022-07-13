@@ -70,6 +70,11 @@ class Show(object):
         :type  data: service_pb2.Service
         :param data: service data, typically from opencue.wrappers.service.Service.data
         """
+
+        # min_memory_increase has to be greater than 0.
+        if data.min_memory_increase <= 0:
+            raise ValueError("Minimum memory increase must be > 0")
+
         self.stub.CreateServiceOverride(
             show_pb2.ShowCreateServiceOverrideRequest(show=self.data, service=data),
             timeout=Cuebot.Timeout)

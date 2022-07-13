@@ -53,6 +53,7 @@ message Service {
     int32 timeout_llu = 10;
     int32 min_gpus = 11;
     int32 max_gpus = 12;
+    int32 min_memory_increase = 13;
 }
 
 message ServiceSeq {

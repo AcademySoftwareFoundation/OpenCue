@@ -70,5 +70,7 @@ public class ServiceEntity extends Entity {
 
     public int timeout_llu = 0;
 
+    public long minMemoryIncrease = Dispatcher.MINIMUM_MEMORY_INCREASE;
+
 }
 

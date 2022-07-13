@@ -369,6 +369,9 @@
     <property name="localDispatcher" ref="localDispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="jmsMover" ref="jmsMover"/>
+    <property name="whiteboardDao" ref="whiteboardDao" />
+    <property name="serviceDao" ref="serviceDao" />
+    <property name="showDao" ref="showDao" />
   </bean>
 
   <bean id="hostReportHandler" class="com.imageworks.spcue.dispatcher.HostReportHandler" destroy-method="shutdown">
