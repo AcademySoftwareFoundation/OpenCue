@@ -60,13 +60,13 @@ class RqdHost(object):
 
     def nimbyOff(self):
         """Disables Nimby on the host."""
-        print(self.rqdHost, "Turning off Nimby")
+        log.info(self.rqdHost, "Turning off Nimby")
         log.info("rqd nimbyoff by %s", os.environ.get("USER"))
         self.stub.NimbyOff(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOffRequest())
 
     def nimbyOn(self):
         """Enables Nimby on the host."""
-        print(self.rqdHost, "Turning on Nimby")
+        log.info(self.rqdHost, "Turning on Nimby")
         log.info("rqd nimbyon by %s", os.environ.get("USER"))
         self.stub.NimbyOn(rqd.compiled_proto.rqd_pb2.RqdStaticNimbyOnRequest())
 
@@ -100,7 +100,13 @@ class RqdHost(object):
     def shutdownRqdNow(self):
         """Shuts down the host now."""
         print(self.rqdHost, "Sending shutdownRqdNow command")
-        self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
+        try:
+            self.stub.ShutdownRqdNow(rqd.compiled_proto.rqd_pb2.RqdStaticShutdownNowRequest())
+        # pylint: disable=broad-except
+        except Exception:
+            # Shutting down the service from inside means this request will receive
+            # a connection error response
+            pass
 
     def restartRqdIdle(self):
         """Restarts RQD on the host when idle."""

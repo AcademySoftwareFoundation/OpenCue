@@ -136,6 +136,11 @@ public class AdminManagerService implements AdminManager {
         showDao.updateShowCommentEmail(s, emails);
     }
 
+    @Override
+    public void updateShowsStatus() {
+        showDao.updateShowsStatus();
+    }
+
     public SubscriptionInterface createSubscription(SubscriptionEntity sub) {
         subscriptionDao.insertSubscription(sub);
         return sub;

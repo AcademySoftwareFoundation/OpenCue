@@ -20,7 +20,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-
+from future.utils import iteritems
 from builtins import map
 import time
 
@@ -71,6 +71,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget to display a list of monitored jobs."""
 
     __loadMine = True
+    __groupDependent = True
     view_object = QtCore.Signal(object)
 
     def __init__(self, parent):
@@ -151,7 +152,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.__jobTimeLoaded = {}
         self.__userColors = {}
-
+        self.__dependentJobs = {}
+        self._dependent_items = {}
+        self.__reverseDependents = {}
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
@@ -180,7 +183,20 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._update()
             return
 
+        self.updateJobCount()
         self.ticksWithoutUpdate += 1
+
+    def updateJobCount(self):
+        """Called at every tick. The total number of monitored
+        jobs is added to the column header
+        """
+        count = 0
+        iterator = QtWidgets.QTreeWidgetItemIterator(self)
+        while iterator.value():
+            count += 1
+            iterator += 1
+
+        self.headerItem().setText(0, "Job [Total Count: {}]".format(count))
 
     def __itemSingleClickedCopy(self, item, col):
         """Called when an item is clicked on. Copies selected object names to
@@ -226,13 +242,21 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
         self.__loadMine = (value is True or value == QtCore.Qt.Checked)
 
-    def addJob(self, job, timestamp=None):
+    def setGroupDependent(self, value):
+        """Enables or disables the auto grouping of the dependent jobs
+        @param value: New groupDependent state
+        @type  value: boolean or QtCore.Qt.Checked or QtCore.Qt.Unchecked"""
+        self.__groupDependent = (value is True or value == QtCore.Qt.Checked)
+        self.updateRequest()
+
+    def addJob(self, job, timestamp=None, loading_from_config=False):
         """Adds a job to the list. With locking"
         @param job: Job can be None, a job object, or a job name.
         @type  job: job, string, None
-        @param timestamp: UTC time of the specific date the job was
-                          added to be monitored
-        @type timestamp: float"""
+        @param loading_from_config: Whether or not this method is being called
+               for loading jobs found in user config
+        @type loading_from_config: bool
+        """
         newJobObj = cuegui.Utils.findJob(job)
         self.ticksLock.lock()
         try:
@@ -241,6 +265,41 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 if not self.__groupDependent:
                     self.__load[jobKey] = newJobObj
                     self.__jobTimeLoaded[jobKey] = timestamp if timestamp else time.time()
+                else:
+                    # We'll only add the new job if it's not already listed
+                    # as a dependent on another job
+                    if jobKey not in self.__reverseDependents.keys():
+                        self.__load[jobKey] = newJobObj
+
+                        # when we are adding jobs manually, we want to calculate
+                        # all dependencies (active or not), so the user can see
+                        # all the dependent jobs, even after the main/parent job
+                        # has finished.
+                        # When we're loading jobs from user config, we want to
+                        # only include the active dependents. This is because
+                        # the dependencies have already been calculated and
+                        # listed in the config as a flat list, so attempting
+                        # to re-add them will result in duplicates that will
+                        # throw off the cleanup loop at the end of this method
+                        active_only = not loading_from_config
+                        dep = self.__menuActions.jobs(
+                        ).getRecursiveDependentJobs([newJobObj],
+                                                    active_only=active_only)
+                        self.__dependentJobs[jobKey] = dep
+                        # we'll also store a reversed dictionary for
+                        # dependencies with the dependent as key and the main
+                        # job as the value, this will be used in step 2
+                        # below to remove jobs that are added here
+                        # as dependents
+                        for j in dep:
+                            depKey = cuegui.Utils.getObjectKey(j)
+                            self.__reverseDependents[depKey] = newJobObj
+                            self.__jobTimeLoaded[depKey] = time.time()
+                        self.__jobTimeLoaded[jobKey] = time.time()
+
+                    for j in self.__reverseDependents:
+                        if j in self.__load:
+                            del self.__load[j]
         finally:
             self.ticksLock.unlock()
 
@@ -274,6 +333,20 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: enable=no-member
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
+        try:
+            jobKey = cuegui.Utils.getObjectKey(item)
+            # Remove the item from the main _items dictionary as well as the
+            # __dependentJobs and the reverseDependent dictionaries
+            cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
+            dependent_jobs = self.__dependentJobs.get(jobKey, [])
+            for djob in dependent_jobs:
+                del self.__reverseDependents[djob]
+            del self.__reverseDependents[jobKey]
+        except KeyError:
+            # Dependent jobs are not stored in as keys the main self._items
+            # dictionary, trying to remove dependent jobs from self._items
+            # raises a KeyError, which we can safely ignore
+            pass
 
     def removeAllItems(self):
         """Notifies the other widgets of each item being unmonitored, then calls
@@ -284,6 +357,8 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             # pylint: enable=no-member
             if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
+        self.__dependentJobs.clear()
+        self.__reverseDependents.clear()
         cuegui.AbstractTreeWidget.AbstractTreeWidget.removeAllItems(self)
 
     def removeFinishedItems(self):
@@ -296,6 +371,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param e: Right click QEvent
         @type  e: QEvent"""
         menu = QtWidgets.QMenu()
+        menu.setToolTipsVisible(True)
 
         __selectedObjects = self.selectedObjects()
         __count = len(__selectedObjects)
@@ -305,7 +381,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "view")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
         self.__menuActions.jobs().addAction(menu, "viewComments")
-        self.__menuActions.jobs().addAction(menu, "useLocalCores")
+
+        if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+            self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
         self.__menuActions.jobs().addAction(depend_menu, "viewDepends")
@@ -404,11 +482,21 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     # Gather list of all other jobs to update
                     monitored_proxies.append(objectKey)
 
+            # Refresh the dependent proxies for the next update
+            for job, dependents in iteritems(self.__dependentJobs):
+                ids = [d.id() for d in dependents]
+                # If the job has no dependents, then ids is an empty list,
+                # The getJobs call returns every job on the cue when called
+                # an empty list for the id argument!
+                if not ids:
+                    continue
+                tmp = opencue.api.getJobs(id=ids, all=True)
+                self.__dependentJobs[job] = tmp
+
             if self.__loadMine:
                 # This auto-loads all the users jobs
                 for job in opencue.api.getJobs(user=[cuegui.Utils.getUsername()]):
-                    objectKey = cuegui.Utils.getObjectKey(job)
-                    jobs[objectKey] = job
+                    self.addJob(job)
 
                 # Prune the users jobs from the remaining proxies to update
                 for proxy, job in list(jobs.items()):
@@ -438,30 +526,46 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         for proxy, item in list(self._items.items()):
             if not proxy in rpcObjects:
                 rpcObjects[proxy] = item.rpcObject
-
+        # pylint: disable=too-many-nested-blocks
         try:
             selectedKeys = [
                 cuegui.Utils.getObjectKey(item.rpcObject) for item in self.selectedItems()]
             scrolled = self.verticalScrollBar().value()
+            expanded = [cuegui.Utils.getObjectKey(item.rpcObject)
+                        for item in self._items.values() if item.isExpanded()]
 
             # Store the creation time for the current item
             for item in list(self._items.values()):
+                self.__jobTimeLoaded[cuegui.Utils.getObjectKey(item.rpcObject)] = item.created
+            # Store the creation time for the dependent jobs
+            for item in self._dependent_items.values():
                 self.__jobTimeLoaded[cuegui.Utils.getObjectKey(item.rpcObject)] = item.created
 
             self._items = {}
             self.clear()
 
-            for proxy, job in list(rpcObjects.items()):
+            for proxy, job in iteritems(rpcObjects):
                 self._items[proxy] = JobWidgetItem(job,
                                                    self.invisibleRootItem(),
                                                    self.__jobTimeLoaded.get(proxy, None))
                 if proxy in self.__userColors:
                     self._items[proxy].setUserColor(self.__userColors[proxy])
+                if self.__groupDependent:
+                    dependent_jobs = self.__dependentJobs.get(proxy, [])
+                    for djob in dependent_jobs:
+                        item = JobWidgetItem(djob,
+                                             self._items[proxy],
+                                             self.__jobTimeLoaded.get(proxy, None))
+                        dkey = cuegui.Utils.getObjectKey(djob)
+                        self._dependent_items[dkey] = item
+                        if dkey in self.__userColors:
+                            self._dependent_items[dkey].setUserColor(
+                                           self.__userColors[dkey])
 
             self.verticalScrollBar().setRange(scrolled, len(rpcObjects.keys()) - scrolled)
             list(map(lambda key: self._items[key].setSelected(True),
                      [key for key in selectedKeys if key in self._items]))
-
+            list(self._items[key].setExpanded(True) for key in expanded if key in self._items)
         except opencue.exception.CueException as e:
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
         finally:

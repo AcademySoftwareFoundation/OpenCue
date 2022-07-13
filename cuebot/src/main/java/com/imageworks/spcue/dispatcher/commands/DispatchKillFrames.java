@@ -28,13 +28,14 @@ import com.imageworks.spcue.service.JobManagerSupport;
  *
  * @category command
  */
-public class DispatchKillFrames implements Runnable {
+public class DispatchKillFrames extends KeyRunnable {
 
     private FrameSearchInterface search;
     private JobManagerSupport jobManagerSupport;
     private Source source;
 
     public DispatchKillFrames(FrameSearchInterface search, Source source, JobManagerSupport jobManagerSupport) {
+        super("disp_kill_frames_" + source.toString() + "_" + jobManagerSupport.hashCode());
         this.search = search;
         this.source = source;
         this.jobManagerSupport = jobManagerSupport;

@@ -124,7 +124,7 @@ public interface LayerDao {
     LayerInterface findLayer(JobInterface job, String name);
 
     /**
-     * update the number of cores the layer requires
+     * update the number of min cores the layer requires
      *
      * @param layer
      * @param val
@@ -269,6 +269,16 @@ public interface LayerDao {
      * @param type
      */
     void updateMinGpuMemory(JobInterface job, long mem, LayerType type);
+
+    /**
+     * Update all layers of the set type in the specified job
+     * with the new max cores requirement.
+     *
+     * @param job
+     * @param cores
+     * @param type
+     */
+    void updateMaxCores(JobInterface job, int cores, LayerType type);
 
     /**
      * Update all layers of the set type in the specified job

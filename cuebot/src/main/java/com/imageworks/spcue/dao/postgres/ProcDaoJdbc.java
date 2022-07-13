@@ -19,6 +19,9 @@
 
 package com.imageworks.spcue.dao.postgres;
 
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -29,6 +32,7 @@ import java.util.Map;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
+import org.springframework.jdbc.core.PreparedStatementCreator;
 
 import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.HostInterface;
@@ -236,13 +240,14 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "int_virt_max_used = ?, " +
             "int_gpu_mem_used = ?, " +
             "int_gpu_mem_max_used = ?, " +
+            "bytea_children = ?, " +
             "ts_ping = current_timestamp " +
         "WHERE " +
             "pk_frame = ?";
 
     @Override
     public void updateProcMemoryUsage(FrameInterface f, long rss, long maxRss,
-            long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory) {
+            long vss, long maxVss, long usedGpuMemory, long maxUsedGpuMemory, byte[] children) {
         /*
          * This method is going to repeat for a proc every 1 minute, so
          * if the proc is being touched by another thread, then return
@@ -261,7 +266,26 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                         rss, maxRss, vss, maxVss,
                         usedGpuMemory, maxUsedGpuMemory, f.getFrameId());
             }
-        } catch (DataAccessException dae) {
+                getJdbcTemplate().update(new PreparedStatementCreator() {
+                            @Override
+                            public PreparedStatement createPreparedStatement(Connection conn)
+                                    throws SQLException {
+                                PreparedStatement updateProc = conn.prepareStatement(
+                                        UPDATE_PROC_MEMORY_USAGE);
+                                updateProc.setLong(1, rss);
+                                updateProc.setLong(2, maxRss);
+                                updateProc.setLong(3, vss);
+                                updateProc.setLong(4, maxVss);
+                                updateProc.setLong(5, usedGpuMemory);
+                                updateProc.setLong(6, maxUsedGpuMemory);
+                                updateProc.setBytes(7, children);
+                                updateProc.setString(8, f.getFrameId());
+                                return updateProc;
+                            }
+                        }
+                );
+            }
+        catch (DataAccessException dae) {
            logger.info("The proc for frame " + f +
                    " could not be updated with new memory stats: " + dae);
         }
@@ -295,6 +319,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 proc.unbooked = rs.getBoolean("b_unbooked");
                 proc.isLocalDispatch = rs.getBoolean("b_local");
                 proc.os = rs.getString("str_os");
+                proc.childProcesses = rs.getBytes("bytea_children");
                 return proc;
             }
     };
@@ -319,6 +344,7 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             "proc.int_gpu_mem_reserved,"+
             "proc.int_gpu_mem_max_used,"+
             "proc.int_gpu_mem_used,"+
+            "proc.bytea_children,"+
             "proc.int_virt_max_used,"+
             "proc.int_virt_used,"+
             "host.str_name AS host_name, " +
@@ -571,7 +597,8 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
               "int_virt_max_used,"+
               "int_virt_used,"+
               "host_name, " +
-              "str_os " +
+              "str_os, " +
+              "bytea_children " +
           "FROM ("
               + GET_VIRTUAL_PROC + " " +
               "AND " +

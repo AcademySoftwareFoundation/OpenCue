@@ -26,6 +26,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.DispatchFrame;
@@ -38,6 +40,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
+import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameExitStatus;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -94,6 +97,25 @@ public class FrameCompleteHandler {
     private boolean shutdown = false;
 
     /**
+     * Whether or not to satisfy dependents (*_ON_FRAME and *_ON_LAYER) only on Frame success
+     */
+    private boolean satisfyDependOnlyOnFrameSuccess;
+
+    public boolean getSatisfyDependOnlyOnFrameSuccess() {
+        return satisfyDependOnlyOnFrameSuccess;
+    }
+
+    public void setSatisfyDependOnlyOnFrameSuccess(boolean satisfyDependOnlyOnFrameSuccess) {
+        this.satisfyDependOnlyOnFrameSuccess = satisfyDependOnlyOnFrameSuccess;
+    }
+
+    @Autowired
+    public FrameCompleteHandler(Environment env) {
+        satisfyDependOnlyOnFrameSuccess = env.getProperty(
+            "depend.satisfy_only_on_frame_success", Boolean.class, true);
+    }
+
+    /**
      * Handle the given FrameCompleteReport from RQD.
      *
      * @param report
@@ -138,10 +160,11 @@ public class FrameCompleteHandler {
             final LayerDetail layer = jobManager.getLayerDetail(report.getFrame().getLayerId());
             final DispatchFrame frame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
             final FrameState newFrameState = determineFrameState(job, layer, frame, report);
-
+            final String key = proc.getJobId() + "_" + report.getFrame().getLayerId() +
+                               "_" + report.getFrame().getFrameId();
             if (dispatchSupport.stopFrame(frame, newFrameState, report.getExitStatus(),
                     report.getFrame().getMaxRss())) {
-                dispatchQueue.execute(new Runnable() {
+                dispatchQueue.execute(new KeyRunnable(key) {
                     @Override
                     public void run() {
                         try {
@@ -162,7 +185,7 @@ public class FrameCompleteHandler {
                  * properties.
                  */
                 if (redirectManager.hasRedirect(proc)) {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
@@ -175,7 +198,7 @@ public class FrameCompleteHandler {
                     });
                 }
                 else {
-                    dispatchQueue.execute(new Runnable() {
+                    dispatchQueue.execute(new KeyRunnable(key) {
                         @Override
                         public void run() {
                             try {
@@ -236,19 +259,26 @@ public class FrameCompleteHandler {
 
             dispatchSupport.updateUsageCounters(frame, report.getExitStatus());
 
-            if (newFrameState.equals(FrameState.SUCCEEDED)) {
+            boolean isLayerComplete = false;
+
+            if (newFrameState.equals(FrameState.SUCCEEDED)
+                    || (!satisfyDependOnlyOnFrameSuccess
+                        && newFrameState.equals(FrameState.EATEN))) {
                 jobManagerSupport.satisfyWhatDependsOn(frame);
-                if (jobManager.isLayerComplete(frame)) {
+                isLayerComplete = jobManager.isLayerComplete(frame);
+                if (isLayerComplete) {
                     jobManagerSupport.satisfyWhatDependsOn((LayerInterface) frame);
-                } else {
-                    /*
-                     * If the layer meets some specific criteria then try to
-                     * update the minimum memory and tags so it can run on a
-                     * wider variety of cores, namely older hardware.
-                     */
-                    jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                            report.getFrame().getMaxRss(), report.getRunTime());
                 }
+            }
+
+            if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
+                /*
+                 * If the layer meets some specific criteria then try to
+                 * update the minimum memory and tags so it can run on a
+                 * wider variety of cores, namely older hardware.
+                 */
+                jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
+                        report.getFrame().getMaxRss(), report.getRunTime());
             }
 
             /*
@@ -292,17 +322,17 @@ public class FrameCompleteHandler {
             }
 
             /*
-             * An exit status of NO_RETRY (256) indicates that the frame could
+             * An exit status of FAILED_LAUNCH (256) indicates that the frame could
              * not be launched due to some unforeseen unrecoverable error that
              * is not checked when the launch command is given. The most common
              * cause of this is when the job log directory is removed before the
              * job is complete.
              *
-             * Frames that return a 256 are not automatically retried.
+             * Frames that return a 256 are put Frame back into WAITING status
              */
 
-            else if (report.getExitStatus() == FrameExitStatus.NO_RETRY_VALUE) {
-                logger.info("unbooking " + proc + " frame status was no-retry.");
+            else if (report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE) {
+                logger.info("unbooking " + proc + " frame status was failed frame launch.");
                 unbookProc = true;
             }
 
@@ -515,7 +545,8 @@ public class FrameCompleteHandler {
      * @param report
      * @return
      */
-    public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer, DispatchFrame frame, FrameCompleteReport report) {
+    public static final FrameState determineFrameState(DispatchJob job, LayerDetail layer,
+                                                       DispatchFrame frame, FrameCompleteReport report) {
 
         if (EnumSet.of(FrameState.WAITING, FrameState.EATEN).contains(
                 frame.state)) {
@@ -538,17 +569,25 @@ public class FrameCompleteHandler {
                     || (job.maxRetries != 0 && report.getExitSignal() == 119)) {
                 report = FrameCompleteReport.newBuilder(report).setExitStatus(FrameExitStatus.SKIP_RETRY_VALUE).build();
                 newState = FrameState.WAITING;
+            // exemption code 256
+            } else if ((report.getExitStatus() == FrameExitStatus.FAILED_LAUNCH_VALUE ||
+                    report.getExitSignal() == FrameExitStatus.FAILED_LAUNCH_VALUE) &&
+                    (frame.retries < job.maxRetries)) {
+                report = FrameCompleteReport.newBuilder(report).setExitStatus(report.getExitStatus()).build();
+                newState = FrameState.WAITING;
             } else if (job.autoEat) {
                 newState = FrameState.EATEN;
             // ETC Time out and LLU timeout
-            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0 && lastUpdate > (layer.timeout_llu -1)) {
+            } else if (layer.timeout_llu != 0 && report.getFrame().getLluTime() != 0
+                        && lastUpdate > (layer.timeout_llu -1)) {
                 newState = FrameState.DEAD;
             } else if (layer.timeout != 0 && report.getRunTime() > layer.timeout * 60) {
                 newState = FrameState.DEAD;
             } else if (report.getRunTime() > Dispatcher.FRAME_TIME_NO_RETRY) {
                 newState = FrameState.DEAD;
             } else if (frame.retries >= job.maxRetries) {
-                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
+                if (!(report.getExitStatus() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE
+                        || report.getExitSignal() == Dispatcher.EXIT_STATUS_MEMORY_FAILURE))
                     newState = FrameState.DEAD;
             }
 

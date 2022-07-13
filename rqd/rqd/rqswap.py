@@ -24,12 +24,13 @@ from __future__ import absolute_import
 from builtins import str
 from builtins import range
 from builtins import object
-import logging as log
+import logging
 import re
 import threading
 import time
 
 
+log = logging.getLogger(__name__)
 PGPGOUT_RE = re.compile(r"^pgpgout (\d+)")
 
 

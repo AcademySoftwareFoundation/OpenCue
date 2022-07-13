@@ -61,8 +61,10 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.setUpPyfakefs()
         self.fs.add_real_file(
             os.path.join(os.path.dirname(opencue.__file__), 'default.yaml'), read_only=True)
-        os.unsetenv('OPENCUE_CONFIG_FILE')
-        os.unsetenv('OPENCUE_CONF')
+        if 'OPENCUE_CONFIG_FILE' in os.environ:
+            del os.environ['OPENCUE_CONFIG_FILE']
+        if 'OPENCUE_CONF' in os.environ:
+            del os.environ['OPENCUE_CONF']
 
     @mock.patch('platform.system', new=mock.Mock(return_value='Linux'))
     @mock.patch('os.path.expanduser', new=mock.Mock(return_value='/home/username'))
@@ -106,7 +108,7 @@ class ConfigTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(3, config['cuebot.exception_retries'])
 
     def test__should_load_user_config_from_legacy_var(self):
-        config_file_path = '/path/to/config.yaml'
+        config_file_path = '/path/to/legacy/config.yaml'
         self.fs.create_file(config_file_path, contents=USER_CONFIG)
         os.environ['OPENCUE_CONF'] = config_file_path
 

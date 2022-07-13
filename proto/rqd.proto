@@ -111,6 +111,7 @@ message RunFrame {
     map<string, string> environment = 21;
     map<string, string> attributes = 22;
     int32 num_gpus = 23;
+    report.ChildrenProcStats children = 24;
 }
 
 message RunFrameSeq {

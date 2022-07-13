@@ -269,6 +269,10 @@ service JobInterface {
     // Sets the job priority
     rpc SetPriority(JobSetPriorityRequest) returns (JobSetPriorityResponse);
 
+    // Shutdown the job if it is completed. This is a workaround for when
+    // Cuebot failed to shutdown a job due to database access error.
+    rpc ShutdownIfCompleted(JobShutdownIfCompletedRequest) returns (JobShutdownIfCompletedResponse);
+
     // Staggers the specified frame range
     rpc StaggerFrames(JobStaggerFramesRequest) returns (JobStaggerFramesResponse);
 }
@@ -396,8 +400,8 @@ enum CheckpointState {
 enum FrameExitStatus {
     // The frame was a success
     SUCCESS = 0;
-    // The frame should not be retried
-    NO_RETRY = 256;
+    // The frame should be automatically retried
+    FAILED_LAUNCH = 256;
     // Retries should not be incremented
     SKIP_RETRY = 286;
 }
@@ -1426,6 +1430,13 @@ message JobSetPriorityRequest {
 }
 
 message JobSetPriorityResponse {} // Empty
+
+// ShutdownIfCompleted
+message JobShutdownIfCompletedRequest {
+    Job job = 1;
+}
+
+message JobShutdownIfCompletedResponse {} // Empty
 
 // StaggerFrames
 message JobStaggerFramesRequest {

@@ -54,33 +54,33 @@
     </constructor-arg>
   </bean>
 
-  <bean id="launchQueue" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>LaunchQueue</value>
-    </constructor-arg>
-    <constructor-arg index="2" type="java.lang.String">
-      <value>dispatcher.launch_queue</value>
-    </constructor-arg>
+  <bean id="launchQueue" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+    <property name="corePoolSize" value="1" />
+    <property name="maxPoolSize" value="1" />
+    <property name="queueCapacity" value="100" />
   </bean>
 
-  <bean id="dispatchPool" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>DispatchPool</value>
-    </constructor-arg>
-    <constructor-arg index="2" type="java.lang.String">
-      <value>dispatcher.dispatch_pool</value>
-    </constructor-arg>
+  <bean id="killPool" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+    <property name="corePoolSize" value="4" />
+    <property name="maxPoolSize" value="4" />
+    <property name="queueCapacity" value="500" />
   </bean>
 
-  <bean id="managePool" class="com.imageworks.spcue.dispatcher.ThreadPoolTaskExecutorWrapper">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>ManagePool</value>
+  <bean id="bookingQueue" class="com.imageworks.spcue.dispatcher.BookingQueue" lazy-init="true" destroy-method="shutdown">
+    <constructor-arg index="0" type="int">
+      <value>${booking_queue.threadpool.health_threshold}</value>
     </constructor-arg>
-    <constructor-arg index="2" type="java.lang.String">
-      <value>dispatcher.manage_pool</value>
+    <constructor-arg index="1" type="int">
+      <value>${healthy_threadpool.min_unhealthy_period_min}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${booking_queue.threadpool.queue_capacity}</value>
+    </constructor-arg>
+    <constructor-arg index="3" type="int">
+      <value>${booking_queue.threadpool.core_pool_size}</value>
+    </constructor-arg>
+    <constructor-arg index="4" type="int">
+      <value>${booking_queue.threadpool.max_pool_size}</value>
     </constructor-arg>
   </bean>
 
@@ -88,44 +88,66 @@
     <constructor-arg index="0" type="java.lang.String">
       <value>DispatchQueue</value>
     </constructor-arg>
-    <property name="dispatchPool" ref="dispatchPool" />
+    <constructor-arg index="1" type="int">
+      <value>${healthy_threadpool.health_threshold}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${healthy_threadpool.min_unhealthy_period_min}</value>
+    </constructor-arg>
+    <constructor-arg index="3" type="int">
+      <value>${dispatch.threadpool.queue_capacity}</value>
+    </constructor-arg>
+    <constructor-arg index="4" type="int">
+      <value>${dispatch.threadpool.core_pool_size}</value>
+    </constructor-arg>
+    <constructor-arg index="5" type="int">
+      <value>${dispatch.threadpool.max_pool_size}</value>
+    </constructor-arg>
   </bean>
 
-  <bean id="manageQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue" destroy-method="shutdown">
+  <bean id="manageQueue" class="com.imageworks.spcue.dispatcher.DispatchQueue"   destroy-method="shutdown">
     <constructor-arg index="0" type="java.lang.String">
       <value>ManageQueue</value>
     </constructor-arg>
-    <property name="dispatchPool" ref="managePool" />
-  </bean>
-
-  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>ReportQueue</value>
+    <constructor-arg index="1" type="int">
+      <value>${healthy_threadpool.health_threshold}</value>
     </constructor-arg>
-    <constructor-arg index="2" type="java.lang.String">
-      <value>dispatcher.report_queue</value>
+    <constructor-arg index="2" type="int">
+      <value>${healthy_threadpool.min_unhealthy_period_min}</value>
+    </constructor-arg>
+    <constructor-arg index="3" type="int">
+      <value>${dispatch.threadpool.queue_capacity}</value>
+    </constructor-arg>
+    <constructor-arg index="4" type="int">
+      <value>${dispatch.threadpool.core_pool_size}</value>
+    </constructor-arg>
+    <constructor-arg index="5" type="int">
+      <value>${dispatch.threadpool.max_pool_size}</value>
+    </constructor-arg>
+  </bean>
+  <bean id="reportQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
+    <constructor-arg index="0" type="int">
+      <value>${report_queue.threadPoolSizeInitial}</value>
+    </constructor-arg>
+    <constructor-arg index="1" type="int">
+      <value>${report_queue.threadPoolSizeMax}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${report_queue.queueSize}</value>
     </constructor-arg>
   </bean>
   <bean id="killQueue" class="com.imageworks.spcue.dispatcher.HostReportQueue" destroy-method="shutdown">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>KillQueue</value>
+    <constructor-arg index="0" type="int">
+      <value>${kill_queue.threadPoolSizeInitial}</value>
     </constructor-arg>
-    <constructor-arg index="2" type="java.lang.String">
-      <value>dispatcher.kill_queue</value>
+    <constructor-arg index="1" type="int">
+      <value>${kill_queue.threadPoolSizeMax}</value>
+    </constructor-arg>
+    <constructor-arg index="2" type="int">
+      <value>${kill_queue.queueSize}</value>
     </constructor-arg>
   </bean>
 
-  <bean id="bookingQueue" class="com.imageworks.spcue.dispatcher.BookingQueue" destroy-method="shutdown">
-    <!-- arg0: env -->
-    <constructor-arg index="1" type="java.lang.String">
-      <value>dispatcher.booking_queue</value>
-    </constructor-arg>
-    <constructor-arg index="2" type="int">
-      <value>300</value>
-    </constructor-arg>
-  </bean>
 
   <!-- ##################################################################################### -->
   <!-- Service Domain -->
@@ -341,8 +363,8 @@
     <property name="jobManagerSupport" ref="jobManagerSupport" />
     <property name="redirectManager" ref="redirectManager"/>
     <property name="bookingManager" ref="bookingManager"/>
-    <property name="dispatchQueue" ref="dispatchQueue" />
     <property name="bookingQueue" ref="bookingQueue" />
+    <property name="dispatchQueue" ref="dispatchQueue" />
     <property name="dispatcher" ref="dispatcher" />
     <property name="localDispatcher" ref="localDispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
@@ -411,6 +433,76 @@
     <property name="repeatInterval" value="30000" />
   </bean>
 
+  <bean id="killQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="killQueue"/>
+        <property name="targetMethod" value="isHealthy"/>
+        <property name="concurrent" value="false"/>
+      </bean>
+    </property>
+    <!-- repeat every 60 seconds -->
+    <property name="repeatInterval" value="60000"/>
+    <!-- delay 30 seconds-->
+    <property name="startDelay" value="30000" />
+  </bean>
+
+  <bean id="manageQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="manageQueue"/>
+        <property name="targetMethod" value="isHealthy"/>
+        <property name="concurrent" value="false"/>
+      </bean>
+    </property>
+    <!-- repeat every 60 seconds -->
+    <property name="repeatInterval" value="60000"/>
+    <!-- delay 30 seconds-->
+    <property name="startDelay" value="30000" />
+  </bean>
+
+  <bean id="dispatchQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="dispatchQueue"/>
+        <property name="targetMethod" value="isHealthy"/>
+        <property name="concurrent" value="false"/>
+      </bean>
+    </property>
+    <!-- repeat every 60 seconds -->
+    <property name="repeatInterval" value="60000"/>
+    <!-- delay 30 seconds-->
+    <property name="startDelay" value="30000" />
+  </bean>
+
+  <bean id="bookingQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="bookingQueue"/>
+        <property name="targetMethod" value="isHealthy"/>
+        <property name="concurrent" value="false"/>
+      </bean>
+    </property>
+    <!-- repeat every 60 seconds -->
+    <property name="repeatInterval" value="60000"/>
+    <!-- delay 30 seconds-->
+    <property name="startDelay" value="30000" />
+  </bean>
+
+  <bean id="reportQueueSchedule" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail">
+      <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+        <property name="targetObject" ref="reportQueue"/>
+        <property name="targetMethod" value="isHealthy"/>
+        <property name="concurrent" value="false"/>
+      </bean>
+    </property>
+    <!-- repeat every 60 seconds -->
+    <property name="repeatInterval" value="60000"/>
+    <!-- delay 30 seconds-->
+    <property name="startDelay" value="30000" />
+  </bean>
+
   <bean id="archiveFinishedJobsTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
     <property name="jobDetail" ref="archiveFinishedJobs" />
     <!--
@@ -451,6 +543,19 @@
     <property name="repeatInterval" value="43200000" />
   </bean>
 
+  <bean id="updateShowsStatus" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="adminManager" />
+    <property name="targetMethod" value="updateShowsStatus" />
+  </bean>
+
+  <bean id="updateShowsStatusTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="updateShowsStatus" />
+    <!-- delay 60 seconds -->
+    <property name="startDelay" value="60000" />
+    <!-- repeat once a week -->
+    <property name="repeatInterval" value="604800000" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -460,6 +565,12 @@
         <ref bean="taskUpdateTrigger" />
         <ref bean="staleCheckpointTrigger" />
         <ref bean="redirectExpireTrigger" />
+        <ref bean="bookingQueueSchedule" />
+        <ref bean="reportQueueSchedule" />
+        <ref bean="dispatchQueueSchedule" />
+        <ref bean="manageQueueSchedule" />
+        <ref bean="killQueueSchedule" />
+        <ref bean="updateShowsStatusTrigger"/>
       </list>
     </property>
   </bean>

@@ -375,6 +375,7 @@ message Proc {
     repeated string services = 17;
     int64 used_gpu_memory = 18;
     float reserved_gpus = 19;
+    bytes child_processes = 20;
 }
 
 message ProcSearchCriteria {
@@ -384,7 +385,7 @@ message ProcSearchCriteria {
     // An array of job names to match.
     repeated string jobs = 2;
 
-    // An arra of layer names to match.
+    // An array of layer names to match.
     repeated string layers = 3;
 
     // An array of show names to match.

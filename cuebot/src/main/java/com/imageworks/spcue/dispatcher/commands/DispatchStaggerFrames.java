@@ -23,7 +23,7 @@ import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.service.JobManagerSupport;
 
-public class DispatchStaggerFrames implements Runnable {
+public class DispatchStaggerFrames extends KeyRunnable {
 
     private JobInterface job = null;
     private LayerInterface layer = null;
@@ -32,6 +32,7 @@ public class DispatchStaggerFrames implements Runnable {
     private JobManagerSupport jobManagerSupport;
 
     public DispatchStaggerFrames(JobInterface job, String range, int stagger, JobManagerSupport jobManagerSupport) {
+        super("disp_stag_frames_" + job.getJobId() + "_" + range);
         this.job = job;
         this.range = range;
         this.stagger = stagger;
@@ -39,6 +40,7 @@ public class DispatchStaggerFrames implements Runnable {
     }
 
     public DispatchStaggerFrames(LayerInterface layer, String range, int stagger, JobManagerSupport jobManagerSupport) {
+        super("disp_stag_frames_" + layer.getLayerId() + "_" + range);
         this.layer = layer;
         this.range = range;
         this.stagger = stagger;

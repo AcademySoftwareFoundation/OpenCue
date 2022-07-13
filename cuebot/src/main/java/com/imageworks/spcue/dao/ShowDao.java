@@ -146,5 +146,11 @@ public interface ShowDao {
      * @param emails
      */
     void updateShowCommentEmail(ShowInterface s, String[] emails);
+
+    /**
+     * Scheduled task to update shows. Set show as inactive if it has at
+     * least 1 job in job_history service th
+     */
+    void updateShowsStatus();
 }
 

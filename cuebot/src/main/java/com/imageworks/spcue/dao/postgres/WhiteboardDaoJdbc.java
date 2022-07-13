@@ -28,6 +28,7 @@ import java.util.Locale;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.protobuf.ByteString;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
 import org.springframework.jdbc.core.RowMapper;
@@ -548,6 +549,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
         r.filterByHost(host);
         r.sortByHostName();
         r.sortByDispatchedTime();
+        logger.info("!!!! INSIDE getProcs Whiteboard!!! called getProcs !!! line 551");
         return ProcSeq.newBuilder().addAllProcs(getProcs(r).getProcsList()).build();
     }
 
@@ -555,6 +557,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public ProcSeq getProcs(ProcSearchInterface p) {
         p.sortByHostName();
         p.sortByDispatchedTime();
+        logger.info("!!!! Inside getPROCS!!!!! line 559");
         List<Proc> procs = getJdbcTemplate().query(p.getFilteredQuery(GET_PROC),
                 PROC_MAPPER, p.getValuesArray());
         return ProcSeq.newBuilder().addAllProcs(procs).build();
@@ -970,9 +973,11 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     SqlUtil.getString(rs,"str_log_dir"), SqlUtil.getString(rs,"job_name"),
                                     SqlUtil.getString(rs,"frame_name")))
                             .setRedirectTarget(SqlUtil.getString(rs, "str_redirect"))
+                            .setChildProcesses(SqlUtil.getByteString(rs, "bytea_children"))
                             .addAllServices(Arrays.asList(SqlUtil.getString(rs,"str_services").split(",")))
                             .build();
                 }
+//                logger.info("called ROW MAPPER!!! setChildProcesses!!!");
             };
 
     public static final RowMapper<Task> TASK_MAPPER =
@@ -1420,6 +1425,13 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     else {
                         builder.setStopTime(0);
                     }
+                    java.sql.Timestamp ts_llu = rs.getTimestamp("ts_llu");
+                    if (ts_llu!= null) {
+                        builder.setLluTime((int) (ts_llu.getTime() / 1000));
+                    }
+                    else {
+                        builder.setLluTime(0);
+                    }
 
                     builder.setTotalCoreTime(rs.getInt("int_total_past_core_time"));
                     builder.setTotalGpuTime(rs.getInt("int_total_past_gpu_time"));
@@ -1610,6 +1622,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
             "proc.ts_booked, " +
             "proc.ts_dispatched, " +
             "proc.b_unbooked, " +
+            "proc.bytea_children, " +
             "redirect.str_name AS str_redirect " +
         "FROM proc " +
         "JOIN host ON proc.pk_host = host.pk_host " +

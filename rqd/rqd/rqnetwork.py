@@ -25,7 +25,8 @@ from concurrent import futures
 from random import shuffle
 import abc
 import atexit
-import logging as log
+import datetime
+import logging
 import os
 import platform
 import subprocess
@@ -39,6 +40,9 @@ import rqd.compiled_proto.rqd_pb2_grpc
 import rqd.rqconstants
 import rqd.rqdservicers
 import rqd.rqutil
+
+
+log = logging.getLogger(__name__)
 
 
 class RunningFrame(object):
@@ -71,6 +75,7 @@ class RunningFrame(object):
         self.stime = 0
 
         self.lluTime = 0
+        self.childrenProcs = {}
 
     def runningFrameInfo(self):
         """Returns the RunningFrameInfo object"""
@@ -91,9 +96,46 @@ class RunningFrame(object):
             llu_time=self.lluTime,
             num_gpus=self.runFrame.num_gpus,
             max_used_gpu_memory=self.maxUsedGpuMemory,
-            used_gpu_memory=self.usedGpuMemory
+            used_gpu_memory=self.usedGpuMemory,
+            children=self._serializeChildrenProcs()
         )
         return runningFrameInfo
+
+    def _serializeChildrenProcs(self):
+        """ Collect and serialize children proc stats for protobuf
+            Convert to Kilobytes:
+            * RSS (Resident set size) measured in pages
+            * Statm size measured in pages
+            * Stat size measured in bytes
+
+        :param data: dictionary
+        :return: serialized children proc host stats
+        :rtype: rqd.compiled_proto.report_pb2.ChildrenProcStats
+        """
+        childrenProc = rqd.compiled_proto.report_pb2.ChildrenProcStats()
+        for proc, values in self.childrenProcs.items():
+            procStats = rqd.compiled_proto.report_pb2.ProcStats()
+            procStatFile = rqd.compiled_proto.report_pb2.Stat()
+            procStatmFile = rqd.compiled_proto.report_pb2.Statm()
+
+            procStatFile.pid = proc
+            procStatFile.name = values["name"] if values["name"] else ""
+            procStatFile.state = values["state"]
+            procStatFile.vsize = values["vsize"]
+            procStatFile.rss = values["rss"]
+
+            procStatmFile.size = values["statm_size"]
+            procStatmFile.rss = values["statm_rss"]
+            # pylint: disable=no-member
+            procStats.stat.CopyFrom(procStatFile)
+            procStats.statm.CopyFrom(procStatmFile)
+            procStats.cmdline = " ".join(values["cmd_line"])
+
+            startTime = datetime.datetime.now() - datetime.timedelta(seconds=values["start_time"])
+            procStats.start_time = startTime.strftime("%Y-%m-%d %H:%M%S")
+            childrenProc.children.extend([procStats])
+            # pylint: enable=no-member
+        return childrenProc
 
     def status(self):
         """Returns the status of the frame"""
@@ -101,7 +143,7 @@ class RunningFrame(object):
 
     def kill(self, message=""):
         """Kills the frame"""
-        log.info("Request recieved: kill")
+        log.info("Request received: kill")
         if self.frameAttendantThread is None:
             log.warning(
                 "Kill requested before frameAttendantThread is created for: %s", self.frameId)
@@ -123,6 +165,7 @@ class RunningFrame(object):
             except OSError as e:
                 log.warning(
                     "kill() tried to kill a non-existant pid for: %s Error: %s", self.frameId, e)
+            # pylint: disable=broad-except
             except Exception as e:
                 log.warning("kill() encountered an unknown error: %s", e)
         else:
@@ -184,8 +227,8 @@ class GrpcServer(object):
 
     def shutdown(self):
         """Stops the gRPC server."""
-        log.info('Stopping grpc server.')
-        self.server.stop(0)
+        log.warning('Stopping grpc server.')
+        self.server.stop(10)
 
     def stayAlive(self):
         """Runs forever until killed."""
@@ -211,8 +254,9 @@ class Network(object):
 
     def stopGrpc(self):
         """Stops the gRPC server."""
-        self.grpcServer.shutdown()
-        del self.grpcServer
+        if self.grpcServer:
+            self.grpcServer.shutdown()
+            del self.grpcServer
 
     def closeChannel(self):
         """Closes the gRPC channel."""

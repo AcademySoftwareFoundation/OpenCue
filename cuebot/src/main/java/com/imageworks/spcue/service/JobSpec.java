@@ -342,6 +342,12 @@ public class JobSpec {
             job.priority = Integer.valueOf(jobTag.getChildTextTrim("priority"));
         }
 
+
+        Element envTag = jobTag.getChild("env");
+        if (envTag != null) {
+            handleEnvironmentTag(envTag, buildableJob.env);
+        }
+
         handleLayerTags(buildableJob, jobTag);
 
         if (buildableJob.getBuildableLayers().size() > MAX_LAYERS) {
@@ -352,11 +358,6 @@ public class JobSpec {
         if (buildableJob.getBuildableLayers().size() < 1) {
             throw new SpecBuilderException("The job " + job.name
                     + " has no layers");
-        }
-
-        Element envTag = jobTag.getChild("env");
-        if (envTag != null) {
-            handleEnvironmentTag(envTag, buildableJob.env);
         }
 
         return buildableJob;
@@ -959,6 +960,11 @@ public class JobSpec {
         job.deptName = parent.detail.deptName;
 
         BuildableJob postJob = new BuildableJob(job);
+
+        for (String key : parent.env.keySet()) {
+            postJob.env.put(key, parent.env.get(key));
+        }
+
         return postJob;
     }
 

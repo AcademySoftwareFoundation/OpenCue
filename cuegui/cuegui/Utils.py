@@ -416,8 +416,19 @@ def getResourceConfig(path=None):
 ################################################################################
 
 def getFrameLogFile(job, frame):
-    """Get the log file associated with a frame."""
-    return os.path.join(job.data.log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
+    """Get the log file associated with a frame. Return path based on the
+    current OS path using Constants.LOG_ROOT_OS to translate paths."""
+    my_os = platform.system().lower()
+    job_os = job.data.os.lower()
+
+    log_dir = job.data.log_dir
+    if my_os != job_os and \
+            my_os in cuegui.Constants.LOG_ROOT_OS and \
+            job_os in cuegui.Constants.LOG_ROOT_OS:
+        log_dir = log_dir.replace(cuegui.Constants.LOG_ROOT_OS[job_os],
+                                  cuegui.Constants.LOG_ROOT_OS[my_os], 1)
+
+    return os.path.join(log_dir, "%s.%s.rqlog" % (job.data.name, frame.data.name))
 
 
 def getFrameLLU(job, frame):
@@ -625,3 +636,50 @@ def shutdownThread(thread):
     """Shuts down a WorkerThread."""
     thread.stop()
     return thread.wait(1500)
+
+def getLLU(item):
+    """ LLU time from log_path """
+    if isProc(item):
+        logFile = item.data.log_path
+    elif isFrame(item):
+        logFile = item.log_path
+    else:
+        return ""
+    try:
+        statInfo = os.path.getmtime(logFile)
+    except Exception as e:
+        logger.info("not able to extract LLU: %s", e)
+        return None
+
+    lluTime = time.time() - statInfo
+
+    return lluTime
+
+def numFormat(num, _type):
+    """ format LLU time """
+    if num == "" or num < .001 or num is None:
+        return ""
+    if _type == "t":
+        return secondsToHHMMSS(int(num))
+    if _type == "f":
+        return "%.2f" % float(num)
+
+def byteConversion(amount, btype):
+    """ convert unit of memory size into bytes for comparing different
+        unit measures
+
+    :param amount: unit of memory size
+    :ptype amount: float
+    :param btype: unit type
+    :ptype btype: string
+    :return: unit in bytes
+    :rtype: float
+    """
+    n = 1
+    conversionMap = {"KB": 1, "TB": 4, "GB": 3, "MB": 2}
+    _bytes = amount
+    if btype.upper() in conversionMap:
+        n = conversionMap[btype.upper()]
+    for _ in range(n):
+        _bytes *= 1024
+    return _bytes

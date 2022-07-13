@@ -179,6 +179,7 @@ class CueRqdTests(unittest.TestCase):
         runFrame.frame_id = "FD1S3I154O646UGSNN"
         runFrameRequest = rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=runFrame)
         rqdHost = rqd.cuerqd.RqdHost(RQD_HOSTNAME)
+        rqdHost.active = False
 
         rqdHost.launchFrame(runFrame)
 

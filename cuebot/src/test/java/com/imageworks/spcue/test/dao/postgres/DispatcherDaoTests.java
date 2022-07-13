@@ -522,6 +522,6 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
     @Transactional
     @Rollback(true)
     public void testFifoSchedulingEnabled() {
-        assertFalse(dispatcherDao.getFifoSchedulingEnabled());
+        assertEquals(dispatcherDao.getSchedulingMode(), DispatcherDao.SchedulingMode.PRIORITY_ONLY);
     }
 }

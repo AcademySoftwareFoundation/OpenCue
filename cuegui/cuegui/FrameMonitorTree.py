@@ -212,6 +212,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
+        # Used to build right click context menus
+        self.__menuActions = cuegui.MenuActions.MenuActions(
+            self, self.updateSoon, self.selectedObjects, self.getJob)
         self.__sortByColumnCache = {}
         self.ticksWithoutUpdate = 999
         self.__lastUpdateTime = None
@@ -346,7 +349,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                    key=lambda l: int(l.split('rqlog.')[-1]),
                                    reverse=True)
         except ValueError:
-            pass
+            old_log_files = []
+
         # pylint: disable=no-member
         QtGui.qApp.display_log_file_content.emit([current_log_file] + old_log_files)
         # pylint: enable=no-member
@@ -876,7 +880,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         elif count == 2:
             self.__menuActions.frames().addAction(self, "xdiff2")
 
-        self.__menuActions.frames().addAction(self, "useLocalCores")
+        if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+            self.__menuActions.frames().addAction(self, "useLocalCores")
 
         # pylint: disable=no-member
         if QtGui.qApp.applicationName() == "CueCommander":
@@ -907,3 +912,4 @@ class FrameContextMenu(QtWidgets.QMenu):
         self.__menuActions.frames().addAction(self, "eat")
         self.__menuActions.frames().addAction(self, "kill")
         self.__menuActions.frames().addAction(self, "eatandmarkdone")
+        self.__menuActions.frames().addAction(self, "viewProcesses")

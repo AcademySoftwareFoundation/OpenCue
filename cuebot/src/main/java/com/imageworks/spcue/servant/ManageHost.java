@@ -140,7 +140,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
                          StreamObserver<HostGetHostResponse> responseObserver) {
         try {
             responseObserver.onNext(HostGetHostResponse.newBuilder()
-                    .setHost(whiteboard.findHost(request.getId()))
+                    .setHost(whiteboard.getHost(request.getId()))
                     .build());
             responseObserver.onCompleted();
         } catch (EmptyResultDataAccessException e) {
