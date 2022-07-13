@@ -300,7 +300,6 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     for j in self.__reverseDependents:
                         if j in self.__load:
                             del self.__load[j]
-
         finally:
             self.ticksLock.unlock()
 
@@ -381,7 +380,6 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "unmonitor")
         self.__menuActions.jobs().addAction(menu, "view")
         self.__menuActions.jobs().addAction(menu, "emailArtist")
-        self.__menuActions.jobs().addAction(menu, "showProgBar")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
         if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
