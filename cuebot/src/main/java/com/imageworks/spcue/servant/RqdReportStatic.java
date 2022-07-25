@@ -22,6 +22,7 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
 
     @SuppressWarnings("unused")
 
+    // TODO: Remove as it won't be used when redis consumer is setup
     @Override
     public void reportRqdStartup(RqdReportRqdStartupRequest request,
                                  StreamObserver<RqdReportRqdStartupResponse> responseObserver) {
@@ -38,6 +39,7 @@ public class RqdReportStatic extends RqdReportInterfaceGrpc.RqdReportInterfaceIm
         responseObserver.onCompleted();
     }
 
+    // TODO: Remove as it won't be used when redis consumer is setup
     @Override
     public void reportStatus(RqdReportStatusRequest request, StreamObserver<RqdReportStatusResponse> responseObserver) {
         hostReportHandler.queueHostReport(request.getHostReport());

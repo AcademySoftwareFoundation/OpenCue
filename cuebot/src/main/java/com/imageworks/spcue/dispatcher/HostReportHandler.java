@@ -102,6 +102,7 @@ public class HostReportHandler {
         shutdown = true;
     }
 
+    // TODO: Remove as it won't be used when redis consumer is setup
     /**
      * Queues up the given boot report.
      *
@@ -116,6 +117,7 @@ public class HostReportHandler {
         reportQueue.execute(new DispatchHandleHostReport(report, this));
     }
 
+    // TODO: Remove as it won't be used when redis consumer is setup
     /**
      * Queues up the given host report.
      *

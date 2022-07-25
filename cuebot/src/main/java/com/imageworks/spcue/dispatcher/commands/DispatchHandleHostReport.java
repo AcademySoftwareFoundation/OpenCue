@@ -23,6 +23,7 @@ import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.grpc.report.BootReport;
 import com.imageworks.spcue.grpc.report.HostReport;
 
+// TODO: Remove as it won't be used when redis consumer is setup
 /**
  * A command for handling a host report.
  *
