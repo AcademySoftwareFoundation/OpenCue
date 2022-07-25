@@ -34,6 +34,10 @@ import tempfile
 import threading
 import time
 import traceback
+import json
+import google.protobuf.message
+import redis
+from google.protobuf.internal import decoder
 
 import rqd.compiled_proto.host_pb2
 import rqd.compiled_proto.report_pb2
@@ -1140,9 +1144,24 @@ class RqCore(object):
             self.sendStatusReport()
 
     def sendStatusReport(self):
-        """Sends the current host report to Cuebot."""
-        self.network.reportStatus(self.machine.getHostReport())
+        """Sends the current host report to redis server."""
+        host_report = self.machine.getHostReport()
+        self.sendToRedis(host_report)
 
     def isWaitingForIdle(self):
         """Returns whether the host is waiting until idle to take some action."""
         return self.__whenIdle
+
+    def sendToRedis(self, host_report):
+        from google.protobuf import json_format
+
+
+        host_report_msg = host_report
+
+
+        msg_json = json_format.MessageToDict(host_report_msg)
+
+        self.redis_client.xadd("my_stream", {"host": json.dumps(msg_json)})
+        import getpass
+        log.warning(getpass.getuser())
+        log.warning("Sent!!")
