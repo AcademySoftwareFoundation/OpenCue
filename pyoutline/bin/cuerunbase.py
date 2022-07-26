@@ -88,7 +88,7 @@ def handle_core_arguments():
         elif arg in ("-r", "--repos"):
             repos = sys.argv[pos+1]
 
-    setup_outline_environment(version, repos)
+    # setup_outline_environment(version, repos)
 
 
 def setup_outline_environment(version="latest", repos=None):
