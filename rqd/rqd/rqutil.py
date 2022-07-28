@@ -157,6 +157,7 @@ def getHostIp():
 
 def getHostname():
     """Returns the machine's fully qualified domain name"""
+    return "rhel7testbot-vm"
     try:
         if rqd.rqconstants.OVERRIDE_HOSTNAME:
             return rqd.rqconstants.OVERRIDE_HOSTNAME

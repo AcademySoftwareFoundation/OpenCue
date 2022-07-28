@@ -130,6 +130,8 @@ class RqdHost(object):
 
     def launchFrame(self, frame):
         """Launches a frame on the host."""
+        log.warning("launching a frame")
+        log.warning(os.environ["SHOW"])
         self.stub.LaunchFrame(
             rqd.compiled_proto.rqd_pb2.RqdStaticLaunchFrameRequest(run_frame=frame))
 

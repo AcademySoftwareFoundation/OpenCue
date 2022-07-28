@@ -62,6 +62,8 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import com.imageworks.spcue.util.CueExceptionUtil;
 import com.imageworks.spcue.util.CueUtil;
 
+import static java.lang.Math.toIntExact;
+
 public class HostReportHandler {
 
     private static final Logger logger = Logger.getLogger(HostReportHandler.class);
@@ -154,7 +156,7 @@ public class HostReportHandler {
                         rhost.getTotalSwap(), rhost.getFreeSwap(),
                         rhost.getTotalMcp(), rhost.getFreeMcp(),
                         rhost.getTotalGpuMem(), rhost.getFreeGpuMem(),
-                        rhost.getLoad(), new Timestamp(rhost.getBootTime() * 1000l),
+                        toIntExact(rhost.getLoad()), new Timestamp(rhost.getBootTime() * 1000l),
                         rhost.getAttributesMap().get("SP_OS"));
 
                 changeHardwareState(host, report.getHost().getState(), isBoot);
@@ -168,7 +170,7 @@ public class HostReportHandler {
                     hostManager.setHostResources(host, report);
                 }
 
-                dispatchSupport.determineIdleCores(host, report.getHost().getLoad());
+                dispatchSupport.determineIdleCores(host, toIntExact(report.getHost().getLoad()));
 
             } catch (DataAccessException dae) {
                 logger.warn("Unable to find host " + rhost.getName() + ","

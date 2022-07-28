@@ -141,6 +141,7 @@ class FrameAttendantThread(threading.Thread):
             rqexe = open(commandFile, "w")
             self._tempLocations.append(commandFile)
             rqexe.write(command)
+            log.info("_createCommandFile: " + command)
             rqexe.close()
             os.chmod(commandFile, 0o777)
             return commandFile
@@ -315,6 +316,8 @@ class FrameAttendantThread(threading.Thread):
                                                        stderr=self.rqlog,
                                                        close_fds=True,
                                                        preexec_fn=os.setsid)
+            log.info("tempCommand: " + tempCommand)
+            log.info("cwd: " + self.rqCore.machine.getTempPath())
         finally:
             rqd.rqutil.permissionsLow()
 
@@ -603,6 +606,8 @@ class RqCore(object):
         self.nimby = rqd.rqnimby.NimbyFactory.getNimby(self)
 
         self.machine = rqd.rqmachine.Machine(self, self.cores)
+
+        self.redis_client = redis.Redis(host='rhel7testbot-vm.spimageworks.com', port=6379, db=0)
 
         self.network = rqd.rqnetwork.Network(self)
         self.__threadLock = threading.Lock()
@@ -1162,6 +1167,3 @@ class RqCore(object):
         msg_json = json_format.MessageToDict(host_report_msg)
 
         self.redis_client.xadd("my_stream", {"host": json.dumps(msg_json)})
-        import getpass
-        log.warning(getpass.getuser())
-        log.warning("Sent!!")
