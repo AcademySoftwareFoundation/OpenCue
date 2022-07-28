@@ -199,19 +199,20 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.jobMonitor.removeAllItems()
 
-        if cuegui.Utils.isStringId(substring):
-            # If a uuid is provided, load it
-            self.jobMonitor.addJob(substring)
-        elif load_finished_jobs or re.search(
-                r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
-            # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
-            for job in opencue.api.getJobs(regex=[substring], include_finished=True):
-                self.jobMonitor.addJob(job)
-        else:
-            # Otherwise, just load current matching jobs (except for the empty string)
-            if substring:
-                for job in opencue.api.getJobs(regex=[substring]):
-                    self.jobMonitor.addJob(job)
+        if len(substring) > 0:
+            if cuegui.Utils.isStringId(substring):
+                # If a uuid is provided, load it
+                self.jobMonitor.addJob(substring)
+            elif load_finished_jobs or re.search(
+                    r"^([a-z0-9_]+)\-([a-z0-9\.]+)\-", substring, re.IGNORECASE):
+                # If show and shot is provided, or if "load finished" checkbox is checked, load all jobs
+                for job in opencue.api.getJobs(regex=[substring], include_finished=True):
+                        self.jobMonitor.addJob(job)
+            else:
+                # Otherwise, just load current matching jobs (except for the empty string)
+                if substring:
+                    for job in opencue.api.getJobs(regex=[substring]):
+                        self.jobMonitor.addJob(job)
 
     def getGrpDependent(self):
         """Is group dependent checked"""
