@@ -422,6 +422,36 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
     }
 
     @Override
+    public void setMaxGpus(JobSetMaxGpusRequest request, StreamObserver<JobSetMaxGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMaxGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMaxGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void setMinGpus(JobSetMinGpusRequest request, StreamObserver<JobSetMinGpusResponse> responseObserver) {
+        try{
+            setupJobData(request.getJob());
+            jobDao.updateMinGpus(job, request.getVal());
+            responseObserver.onNext(JobSetMinGpusResponse.newBuilder().build());
+            responseObserver.onCompleted();
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
     public void setPriority(JobSetPriorityRequest request, StreamObserver<JobSetPriorityResponse> responseObserver) {
         try{
             setupJobData(request.getJob());
@@ -811,6 +841,22 @@ public class ManageJob extends JobInterfaceGrpc.JobInterfaceImplBase {
                 responseObserver.onNext(JobReorderFramesResponse.newBuilder().build());
                 responseObserver.onCompleted();
             }
+        }
+        catch (EmptyResultDataAccessException e) {
+            responseObserver.onError(Status.INTERNAL
+                    .withDescription("Failed to find job data")
+                    .asRuntimeException());
+        }
+    }
+
+    @Override
+    public void shutdownIfCompleted(JobShutdownIfCompletedRequest request,
+                                    StreamObserver<JobShutdownIfCompletedResponse> responseObserver) {
+        try {
+            setupJobData(request.getJob());
+            manageQueue.execute(new DispatchShutdownJobIfCompleted(job, jobManagerSupport));
+            responseObserver.onNext(JobShutdownIfCompletedResponse.newBuilder().build());
+            responseObserver.onCompleted();
         }
         catch (EmptyResultDataAccessException e) {
             responseObserver.onError(Status.INTERNAL
