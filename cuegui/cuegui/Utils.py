@@ -459,17 +459,17 @@ def getLastLine(path):
     ansiEscape = r'(\x9B|\x1B\[)[0-?]*[ -\/]*[@-~]'
 
     try:
-        fp = open(path, 'r')
+        fp = open(path, 'rb')
         fp.seek(0, 2)
 
         backseek = min(4096, fp.tell())
         fp.seek(-backseek, 1)
         buf = fp.read(4096)
 
-        newline_pos = buf.rfind("\n",0,len(buf)-1)
+        newline_pos = buf.rfind(b'\n', 0, len(buf)-1)
         fp.close()
 
-        line = buf[newline_pos+1:].strip()
+        line = buf[newline_pos+1:].strip().decode("utf-8")
 
         return re.sub(ansiEscape, "", line)
     except IOError:
