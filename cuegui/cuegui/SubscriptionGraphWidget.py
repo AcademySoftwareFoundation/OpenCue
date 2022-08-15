@@ -20,8 +20,8 @@ from builtins import str
 
 import opencue
 
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtWidgets
 
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
@@ -124,10 +124,10 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
         self.__showMenuActions = {}
 
         # add all shows menu item
-        action = QtWidgets.QAction('All Shows', self.__showMenu)
+        action = QtGui.QAction('All Shows', self.__showMenu)
         self.__showMenu.addAction(action)
         self.__showMenuActions['All Shows'] = action
-        action = QtWidgets.QAction('Clear', self.__showMenu)
+        action = QtGui.QAction('Clear', self.__showMenu)
         self.__showMenu.addAction(action)
         self.__showMenuActions['Clear'] = action
         self.__showMenu.addSeparator()
@@ -138,7 +138,7 @@ class SubscriptionGraphWidget(QtWidgets.QWidget):
             shows = []
 
         for show in shows:
-            action = QtWidgets.QAction(show, self.__showMenu)
+            action = QtGui.QAction(show, self.__showMenu)
             action.setCheckable(True)
             if show in self.__shows:
                 action.setChecked(True)
@@ -227,7 +227,7 @@ class SubGraphTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.subscriptions().addAction(menu, "delete")
         menu.addSeparator()
         if self.__show:
-            new_action = QtWidgets.QAction('Add new subscription', self)
+            new_action = QtGui.QAction('Add new subscription', self)
             new_action.triggered.connect(self.createSubscription)  # pylint: disable=no-member
             menu.addAction(new_action)
         menu.exec_(QtCore.QPoint(e.globalX(),e.globalY()))

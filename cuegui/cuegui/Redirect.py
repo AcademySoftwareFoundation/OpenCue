@@ -31,9 +31,9 @@ import os
 import re
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import opencue
 
@@ -96,7 +96,7 @@ class AllocFilter(QtWidgets.QPushButton):
         self.__menu.clear()
         checked = 0
         for alloc in allocs:
-            a = QtWidgets.QAction(self.__menu)
+            a = QtGui.QAction(self.__menu)
             a.setText(alloc.data.name)
             a.setCheckable(True)
             if alloc.data.name in AllocFilter.default:
@@ -193,7 +193,7 @@ class GroupFilter(QtWidgets.QPushButton):
             if opencue.id(group) in self.__actions:
                 self.__menu.addAction(self.__actions[opencue.id(group)])
             else:
-                action = QtWidgets.QAction(self)
+                action = QtGui.QAction(self)
                 action.setText(group.data.name)
                 action.setCheckable(True)
                 self.__actions[opencue.id(group)] = action

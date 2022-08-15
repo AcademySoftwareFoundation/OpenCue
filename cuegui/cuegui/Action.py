@@ -20,8 +20,8 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import cuegui.Constants
 
@@ -36,7 +36,7 @@ def create(parent, text, tip, callback=None, icon=None):
     """create(QtGui.QWidget, string text, string tip, callable callback=None, string icon=None)
         creates a QtGui.QAction and optionally connects it to a slot
     """
-    a = QtWidgets.QAction(parent)
+    a = QtGui.QAction(parent)
     a.setText(text)
     if tip:
         a.setToolTip(tip)
@@ -54,7 +54,7 @@ def createAction(parent, action_id, text, tip, callback=None, icon=None):
     if action_id in Actions:
         raise Exception("Action %s has already been created" % (action_id))
 
-    a = QtWidgets.QAction(parent)
+    a = QtGui.QAction(parent)
     a.setText(text)
     if tip:
         a.setToolTip(tip)
@@ -73,7 +73,7 @@ def getAction(action_id):
 
 def createActionGroup(parent, action_id, actions):
     """Creates an action group."""
-    g = QtWidgets.QActionGroup(parent)
+    g = QtGui.QActionGroup(parent)
     for action in actions:
         g.addAction(action)
     Groups[action_id] = g
@@ -95,11 +95,11 @@ def connectActionSlot(action, actionCallable):
     action.triggered.connect(actionCallable)
 
 
-class Refresh(QtWidgets.QAction):
+class Refresh(QtGui.QAction):
     """Refreshes something."""
 
     def __init__(self,callback=None, parent=None):
-        QtWidgets.QAction.__init__(self,parent)
+        QtGui.QAction.__init__(self,parent)
         self.setText("Refresh")
         self.setIcon(QtGui.QIcon(":/images/stock-refresh.png"))
         if callback:

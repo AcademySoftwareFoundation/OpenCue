@@ -28,8 +28,8 @@ import glob
 import subprocess
 import time
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 import six
 
 import FileSequence
@@ -153,7 +153,7 @@ class AbstractActions(object):
                 else:
                     self.__iconCache[icon_key] = QtGui.QIcon(":%s.png" % info[ICON])
 
-            action = QtWidgets.QAction(self.__iconCache[icon_key], info[TITLE], self._caller)
+            action = QtGui.QAction(self.__iconCache[icon_key], info[TITLE], self._caller)
 
             if not callback:
                 callback = actionName

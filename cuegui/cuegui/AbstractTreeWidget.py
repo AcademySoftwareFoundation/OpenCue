@@ -26,9 +26,9 @@ from builtins import map
 from builtins import range
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -525,7 +525,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         for col in range(self.columnCount()):
             if self.columnWidth(col) or self.isColumnHidden(col):
                 name = self.__columnInfoByType[self.__columnPrimaryType][col][COLUMN_NAME]
-                a = QtWidgets.QAction(menu)
+                a = QtGui.QAction(menu)
                 a.setText("%s. %s" % (col, name))
                 a.setCheckable(True)
                 a.setChecked(not self.isColumnHidden(col))

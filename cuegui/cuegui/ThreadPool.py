@@ -49,8 +49,8 @@ from __future__ import division
 from builtins import range
 import os
 
-from PySide2 import QtCore
-from PySide2 import QtGui
+from PySide6 import QtCore
+from PySide6 import QtGui
 
 import cuegui.Logger
 

@@ -22,7 +22,7 @@ from __future__ import absolute_import
 import os
 import shutil
 
-from PySide2 import QtCore
+from PySide6 import QtCore
 
 import cuegui.Constants
 import cuegui.Logger

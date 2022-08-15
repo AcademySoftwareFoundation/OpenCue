@@ -22,9 +22,9 @@ from __future__ import division
 
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import opencue
 
@@ -157,7 +157,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         for item in ["Clear", None] + self.__filterAllocationList:
             if item:
-                a = QtWidgets.QAction(menu)
+                a = QtGui.QAction(menu)
                 a.setText(str(item))
                 if item != "Clear":
                     a.setCheckable(True)
@@ -220,7 +220,7 @@ class HostMonitor(QtWidgets.QWidget):
 
         for item in ["Clear", None] + self.__filterHardwareStateList:
             if item:
-                a = QtWidgets.QAction(menu)
+                a = QtGui.QAction(menu)
                 a.setText(str(item))
                 if item != "Clear":
                     a.setCheckable(True)

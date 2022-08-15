@@ -33,9 +33,9 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as Et
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import cuegui.Logger
 import cuegui.Utils
@@ -55,7 +55,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         :param frame: frame to display
         :type  aovs: bool
         :param aovs: whether to display AOVs or just the main image
-        :type  parent: PySide2.QtWidgets.QWidget
+        :type  parent: PySide6.QtWidgets.QWidget
         :param parent: the parent widget
         """
         QtWidgets.QDialog.__init__(self, parent)

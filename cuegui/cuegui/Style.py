@@ -22,7 +22,7 @@ from __future__ import absolute_import
 
 import importlib
 
-from PySide2 import QtGui
+from PySide6 import QtGui
 
 
 DEFAULT_COLOR = "DarkPalette"

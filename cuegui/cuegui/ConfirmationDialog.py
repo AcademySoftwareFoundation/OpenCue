@@ -20,9 +20,9 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 
 class ConfirmationDialog(QtWidgets.QDialog):

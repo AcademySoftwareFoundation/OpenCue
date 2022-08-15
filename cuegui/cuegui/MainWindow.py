@@ -28,9 +28,9 @@ from builtins import range
 import sys
 import time
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import opencue
 
@@ -156,7 +156,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.facility_dict = cue_config.get("cuebot.facility")
 
         for facility in self.facility_dict:
-            self.__actions_facility[facility] = QtWidgets.QAction(facility, menu)
+            self.__actions_facility[facility] = QtGui.QAction(facility, menu)
             self.__actions_facility[facility].setCheckable(True)
             menu.addAction(self.__actions_facility[facility])
 
@@ -203,13 +203,13 @@ class MainWindow(QtWidgets.QMainWindow):
         self.helpMenu = self.menuBar().addMenu("&Help")
 
         # Menu Bar: File -> Close Window
-        close = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
+        close = QtGui.QAction(QtGui.QIcon('icons/exit.png'), '&Close Window', self)
         close.setStatusTip('Close Window')
         close.triggered.connect(self.__windowCloseWindow)  # pylint: disable=no-member
         self.fileMenu.addAction(close)
 
         # Menu Bar: File -> Exit Application
-        exitAction = QtWidgets.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
+        exitAction = QtGui.QAction(QtGui.QIcon('icons/exit.png'), 'E&xit Application', self)
         exitAction.setShortcut('Ctrl+Q')
         exitAction.setStatusTip('Exit application')
         exitAction.triggered.connect(self.__windowCloseApplication)  # pylint: disable=no-member
@@ -222,24 +222,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__toggleFullscreenSetup(self.windowMenu)
 
         # Menu Bar: Help -> Online User Guide.
-        action = QtWidgets.QAction('Online User Guide', self)
+        action = QtGui.QAction('Online User Guide', self)
         action.triggered.connect(self.openUserGuide)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Make a Suggestion
-        action = QtWidgets.QAction('Make a Suggestion', self)
+        action = QtGui.QAction('Make a Suggestion', self)
         action.triggered.connect(self.openSuggestionPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         # Menu Bar: Help -> Report a Bug
-        action = QtWidgets.QAction('Report a Bug', self)
+        action = QtGui.QAction('Report a Bug', self)
         action.triggered.connect(self.openBugPage)  # pylint: disable=no-member
         self.helpMenu.addAction(action)
 
         self.helpMenu.addSeparator()
 
         # Menu Bar: Help -> About
-        about = QtWidgets.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
+        about = QtGui.QAction(QtGui.QIcon('icons/about.png'), 'About', self)
         about.setShortcut('F1')
         about.setStatusTip('About')
         about.triggered.connect(self.displayAbout)  # pylint: disable=no-member
@@ -254,17 +254,17 @@ class MainWindow(QtWidgets.QMainWindow):
         self.windowMenu = menu
 
         # Menu Bar: Window -> Change Window Title
-        changeTitle = QtWidgets.QAction("Change Window Title", self)
+        changeTitle = QtGui.QAction("Change Window Title", self)
         changeTitle.triggered.connect(self.__windowMenuHandleChangeTitle)  # pylint: disable=no-member
         menu.addAction(changeTitle)
 
         # Menu Bar: Window -> Save Window Settings
-        saveWindowSettings = QtWidgets.QAction("Save Window Settings", self)
+        saveWindowSettings = QtGui.QAction("Save Window Settings", self)
         saveWindowSettings.triggered.connect(self.__saveSettings)  # pylint: disable=no-member
         menu.addAction(saveWindowSettings)
 
         # Menu Bar: Window -> Revert To Default Window Layout
-        revertWindowSettings = QtWidgets.QAction("Revert To Default Window Layout", self)
+        revertWindowSettings = QtGui.QAction("Revert To Default Window Layout", self)
         revertWindowSettings.triggered.connect(self.__revertLayout)  # pylint: disable=no-member
         menu.addAction(revertWindowSettings)
 
@@ -278,7 +278,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Create menu items for Window -> Open/Raise/Add Window "?"
         for name in self.windows_names:
             if name not in self.windows_actions:
-                self.windows_actions[name] = QtWidgets.QAction("", self)
+                self.windows_actions[name] = QtGui.QAction("", self)
 
             menu.addAction(self.windows_actions[name])
 
@@ -401,7 +401,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __toggleFullscreenSetup(self, menu):
         # Menu Bar: Window -> Toggle Full-Screen
-        fullscreen = QtWidgets.QAction(
+        fullscreen = QtGui.QAction(
             QtGui.QIcon('icons/fullscreen.png'), 'Toggle Full-Screen', self)
         fullscreen.setShortcut('Ctrl+F')
         fullscreen.setStatusTip('Toggle Full-Screen')

@@ -23,9 +23,9 @@ from __future__ import division
 from builtins import map
 from builtins import str
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import opencue
 import opencue.compiled_proto.filter_pb2
@@ -63,7 +63,7 @@ class FilterDialog(QtWidgets.QDialog):
 
         :type show: opencue.wrappers.show.Show
         :param show: the show to manage filters for
-        :type parent: PySide2.QtWidgets.QWidget.QWidget
+        :type parent: PySide6.QtWidgets.QWidget.QWidget
         :param parent: the parent widget
         """
         QtWidgets.QDialog.__init__(self, parent)

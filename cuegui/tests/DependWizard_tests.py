@@ -19,10 +19,10 @@
 import unittest
 
 import mock
-import PySide2.QtCore
-import PySide2.QtGui
-import PySide2.QtWidgets
-import PySide2.QtTest
+import PySide6.QtCore
+import PySide6.QtGui
+import PySide6.QtWidgets
+import PySide6.QtTest
 
 import opencue.compiled_proto.job_pb2
 import opencue.wrappers.frame
@@ -41,10 +41,10 @@ class DependWizardTests(unittest.TestCase):
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
         test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        PySide6.QtGui.qApp.settings = PySide6.QtCore.QSettings()
         cuegui.Style.init()
 
-        self.parentWidget = PySide2.QtWidgets.QWidget()
+        self.parentWidget = PySide6.QtWidgets.QWidget()
 
     @mock.patch('cuegui.Cuedepend.createJobOnLayerDepend')
     @mock.patch('opencue.api.findJob')

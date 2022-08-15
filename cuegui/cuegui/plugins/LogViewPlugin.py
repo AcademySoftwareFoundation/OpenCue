@@ -27,9 +27,9 @@ import re
 import string
 import time
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from PySide6 import QtGui
+from PySide6 import QtCore
+from PySide6 import QtWidgets
 
 import cuegui.Constants
 import cuegui.AbstractDockWidget
@@ -111,7 +111,7 @@ class LogTextEdit(QtWidgets.QPlainTextEdit):
         self.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.customContextMenuRequested.connect(self.context_menu)  # pylint: disable=no-member
 
-        self.copy_action = QtWidgets.QAction('Copy', self)
+        self.copy_action = QtGui.QAction('Copy', self)
         self.copy_action.setStatusTip('Copy Selection')
         self.copy_action.setShortcut('Ctrl+C')
         self.copy_action.triggered[bool].connect(lambda triggered:  # pylint: disable=unsubscriptable-object

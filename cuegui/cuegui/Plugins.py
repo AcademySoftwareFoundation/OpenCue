@@ -57,9 +57,9 @@ import sys
 import traceback
 import pickle
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import cuegui.Constants
 import cuegui.Logger
@@ -336,7 +336,7 @@ class Plugins(object):
         # Create the QAction and add it to the correct menu (sorted)
         for category in menu_locations:
             for plugin in sorted(menu_locations[category]):
-                action = QtWidgets.QAction("{}".format(plugin), menu)
+                action = QtGui.QAction("{}".format(plugin), menu)
                 if category in submenus:
                     submenus[category].addAction(action)
                 else:

@@ -25,7 +25,7 @@ import shutil
 import tempfile
 import unittest
 
-from PySide2 import QtCore
+from PySide6 import QtCore
 
 import cuegui.Config
 

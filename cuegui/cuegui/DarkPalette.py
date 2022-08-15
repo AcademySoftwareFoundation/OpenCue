@@ -22,8 +22,8 @@ from __future__ import division
 
 import platform
 
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import cuegui.Constants
 

@@ -25,9 +25,9 @@ import os
 import re
 import weakref
 
-from PySide2 import QtGui
-from PySide2 import QtCore
-from PySide2 import QtWidgets
+from PySide6 import QtGui
+from PySide6 import QtCore
+from PySide6 import QtWidgets
 
 import opencue
 
@@ -208,11 +208,11 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__showMenu.clear()
         self.__showMenuActions = {}
 
-        action = QtWidgets.QAction('All Shows', self.__showMenu)
+        action = QtGui.QAction('All Shows', self.__showMenu)
         self.__showMenu.addAction(action)
         self.__showMenuActions['All Shows'] = action
 
-        action = QtWidgets.QAction('Clear', self.__showMenu)
+        action = QtGui.QAction('Clear', self.__showMenu)
         self.__showMenu.addAction(action)
         self.__showMenuActions['Clear'] = action
         self.__showMenu.addSeparator()
@@ -226,7 +226,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         monitored = [show.name() for show in self.__monitorCue.getShows()]
 
         for show in shows:
-            action = QtWidgets.QAction(show, self.__showMenu)
+            action = QtGui.QAction(show, self.__showMenu)
             action.setCheckable(True)
             if show in monitored:
                 action.setChecked(True)

@@ -24,9 +24,9 @@ from builtins import str
 from copy import deepcopy
 import math
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtCore
+from PySide6 import QtGui
+from PySide6 import QtWidgets
 
 import FileSequence
 from opencue.compiled_proto import job_pb2
@@ -348,7 +348,7 @@ class FrameMonitor(QtWidgets.QWidget):
         else:
             menu = QtWidgets.QMenu(self)
             btn.setMenu(menu)
-            menu.triggered[QtWidgets.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
+            menu.triggered[QtGui.QAction].connect(self._filterLayersHandle)  # pylint: disable=unsubscriptable-object
 
         if self.frameMonitorTree.getJob():
             layers = [x.data.name for x in self.frameMonitorTree.getJob().getLayers()]
@@ -357,7 +357,7 @@ class FrameMonitor(QtWidgets.QWidget):
 
         for item in ["Clear", None ] + sorted(layers):
             if item:
-                a = QtWidgets.QAction(menu)
+                a = QtGui.QAction(menu)
                 a.setText(item)
                 if item != "Clear":
                     a.setCheckable(True)
@@ -437,7 +437,7 @@ class FrameMonitor(QtWidgets.QWidget):
                      ("Dead", QtCore.Qt.ALT + QtCore.Qt.Key_5),
                      ("Eaten", QtCore.Qt.ALT + QtCore.Qt.Key_6)]:
             if item:
-                a = QtWidgets.QAction(item[0], menu)
+                a = QtGui.QAction(item[0], menu)
                 if item[0] != "Clear":
                     a.setCheckable(True)
                 if item[1]:

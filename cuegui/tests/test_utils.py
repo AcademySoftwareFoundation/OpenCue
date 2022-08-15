@@ -16,7 +16,7 @@
 """Common utility functions for CueGUI test code."""
 
 
-import PySide2.QtGui
+import PySide6.QtGui
 
 import cuegui.Main
 
@@ -29,4 +29,4 @@ def createApplication():
     global __QAPPLICATION_SINGLETON
     if __QAPPLICATION_SINGLETON is None:
         __QAPPLICATION_SINGLETON = cuegui.Main.CueGuiApplication()
-        PySide2.QtGui.qApp = __QAPPLICATION_SINGLETON
+        PySide6.QtGui.qApp = __QAPPLICATION_SINGLETON
