@@ -1,8 +1,8 @@
 # -----------------
 # BUILD
 # -----------------
-FROM --platform=linux/amd64 gradle:6.0.1-jdk11 AS build
-# 6 7 1
+FROM gradle:6.0.1-jdk11 AS build
+
 USER gradle
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
