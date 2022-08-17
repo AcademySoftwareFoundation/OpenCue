@@ -439,7 +439,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="killQueue"/>
-        <property name="targetMethod" value="isHealthy"/>
+        <property name="targetMethod" value="shutdownUnhealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
@@ -453,7 +453,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="manageQueue"/>
-        <property name="targetMethod" value="isHealthy"/>
+        <property name="targetMethod" value="shutdownUnhealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
@@ -467,7 +467,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="dispatchQueue"/>
-        <property name="targetMethod" value="isHealthy"/>
+        <property name="targetMethod" value="shutdownUnhealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
@@ -481,7 +481,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="bookingQueue"/>
-        <property name="targetMethod" value="isHealthy"/>
+        <property name="targetMethod" value="shutdownUnhealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
@@ -495,7 +495,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="reportQueue"/>
-        <property name="targetMethod" value="isHealthy"/>
+        <property name="targetMethod" value="shutdownUnhealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
