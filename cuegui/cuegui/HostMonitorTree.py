@@ -32,6 +32,7 @@ from opencue.compiled_proto.host_pb2 import HardwareState
 from opencue.compiled_proto.host_pb2 import LockState
 from opencue.compiled_proto.host_pb2 import ThreadMode
 
+import cuegui.App
 import cuegui.AbstractTreeWidget
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
@@ -170,7 +171,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Don't use the standard space bar to refresh
         # pylint: disable=no-member
-        QtGui.qApp.request_update.connect(self.updateRequest)
+        cuegui.App.get_app().request_update.connect(self.updateRequest)
         # pylint: enable=no-member
 
         self.startTicksUpdate(40)
@@ -178,7 +179,7 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.ticksWithoutUpdate = -1
 
         # pylint: disable=no-member
-        self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)))
+        self.enableRefresh = bool(int(cuegui.App.get_app().settings.value("AutoRefreshMonitorHost", 1)))
         # pylint: enable=no-member
 
     def tick(self):
@@ -302,7 +303,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             # pylint: disable=no-member
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__backgroundColor = cuegui.App.get_app().palette().color(QtGui.QPalette.Base)
             # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND

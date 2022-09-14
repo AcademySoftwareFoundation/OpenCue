@@ -52,7 +52,8 @@ def startup(app_name):
         os.remove(local)
 
     # If the config file does not exist, copy over the default
-    if not os.path.exists(local):
+    #if not os.path.exists(local):
+    if True:
         default = os.path.join(cuegui.Constants.DEFAULT_INI_PATH, "%s.ini" % app_name.lower())
         logger.warning('Local config file not found at %s', local)
         logger.warning('Copying %s to %s', default, local)

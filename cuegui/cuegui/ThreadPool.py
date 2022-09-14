@@ -52,6 +52,7 @@ import os
 from PySide2 import QtCore
 from PySide2 import QtGui
 
+import cuegui.App
 import cuegui.Logger
 
 
@@ -91,7 +92,7 @@ class ThreadPool(QtCore.QObject):
         for i in range(0, self.__num_threads):
             thread = ThreadPool.WorkerThread(i, self)
             # pylint: disable=no-member
-            QtGui.qApp.threads.append(thread)
+            cuegui.App.get_app().threads.append(thread)
             # pylint: enable=no-member
             self.__threads.append(thread)
             self.__threads[i].start()

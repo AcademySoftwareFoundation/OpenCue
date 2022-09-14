@@ -24,6 +24,8 @@ import importlib
 
 from PySide2 import QtGui
 
+import cuegui.App
+
 
 DEFAULT_COLOR = "DarkPalette"
 DEFAULT_ICON = "crystal"
@@ -57,14 +59,14 @@ def setFont(font):
     global Font
     Font = font
     # pylint: disable=no-member
-    QtGui.qApp.setFont(font)
+    cuegui.App.get_app().setFont(font)
     # pylint: enable=no-member
 
 
 def init():
     """Initializes the global style settings."""
     # pylint: disable=no-member
-    settings = QtGui.qApp.settings
+    settings = cuegui.App.get_app().settings
     # pylint: enable=no-member
     loadColorTheme(settings.value("Style/colorTheme", DEFAULT_COLOR))
     setIconTheme(settings.value("Style/iconTheme", DEFAULT_ICON))

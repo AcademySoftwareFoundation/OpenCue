@@ -22,10 +22,9 @@ from __future__ import division
 
 import signal
 
-from PySide2 import QtCore
-from PySide2 import QtGui
-from PySide2 import QtWidgets
+from PySide6 import QtGui
 
+import cuegui.App
 import cuegui.Config
 import cuegui.Constants
 import cuegui.Logger
@@ -38,23 +37,6 @@ import cuegui.GarbageCollector
 
 
 logger = cuegui.Logger.getLogger(__file__)
-
-
-class CueGuiApplication(QtWidgets.QApplication):
-    """The CueGUI application."""
-
-    # Global signals
-    display_log_file_content = QtCore.Signal(object)
-    double_click = QtCore.Signal(object)
-    facility_changed = QtCore.Signal()
-    single_click = QtCore.Signal(object)
-    unmonitor = QtCore.Signal(object)
-    view_hosts = QtCore.Signal(object)
-    view_object = QtCore.Signal(object)
-    view_procs = QtCore.Signal(object)
-    request_update = QtCore.Signal()
-    status = QtCore.Signal()
-    quit = QtCore.Signal()
 
 
 def cuetopia(argv):
@@ -70,8 +52,7 @@ def cuecommander(argv):
 def startup(app_name, app_version, argv):
     """Starts an application window."""
 
-    app = CueGuiApplication(argv)
-    QtGui.qApp = app
+    app = cuegui.App.create_app(argv)
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
@@ -87,12 +68,12 @@ def startup(app_name, app_version, argv):
     app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
     # pylint: disable=attribute-defined-outside-init
-    QtGui.qApp.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
-    QtGui.qApp.threads = []
+    app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
+    app.threads = []
     # pylint: enable=attribute-defined-outside-init
 
     settings = cuegui.Config.startup(app_name)
-    QtGui.qApp.settings = settings  # pylint: disable=attribute-defined-outside-init
+    app.settings = settings  # pylint: disable=attribute-defined-outside-init
 
     cuegui.Style.init()
 
@@ -118,6 +99,6 @@ def startup(app_name, app_version, argv):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    threads = QtGui.qApp.threads  # pylint: disable=no-member
+    threads = cuegui.App.get_app().threads  # pylint: disable=no-member
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)

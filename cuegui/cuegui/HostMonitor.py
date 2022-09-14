@@ -28,6 +28,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
+import cuegui.App
 import cuegui.HostMonitorTree
 import cuegui.Logger
 
@@ -71,7 +72,7 @@ class HostMonitor(QtWidgets.QWidget):
         self.__viewHostsSetup()
 
         # pylint: disable=no-member
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):
+        if bool(int(cuegui.App.get_app().settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
         # pylint: enable=no-member
 
@@ -280,7 +281,7 @@ class HostMonitor(QtWidgets.QWidget):
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
         # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
+        cuegui.App.get_app().settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
         # pylint: enable=no-member
 
     # ==============================================================================
@@ -333,7 +334,7 @@ class HostMonitor(QtWidgets.QWidget):
     # ==============================================================================
     def __viewHostsSetup(self):
         # pylint: disable=no-member
-        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
+        cuegui.App.get_app().view_hosts.connect(self.__viewHostsHandle)
         # pylint: enable=no-member
 
     def __viewHostsHandle(self, hosts):

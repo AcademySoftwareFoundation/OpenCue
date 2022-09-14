@@ -31,6 +31,7 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import cuegui.AbstractWidgetItem
+import cuegui.App
 import cuegui.Constants
 import cuegui.ItemDelegate
 import cuegui.Logger
@@ -104,7 +105,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        QtGui.qApp.request_update.connect(self.updateRequest)
+        cuegui.App.get_app().request_update.connect(self.updateRequest)
         # pylint: enable=no-member
 
         self.updateRequest()
@@ -280,7 +281,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number single clicked on"""
         del col
         # pylint: disable=no-member
-        QtGui.qApp.single_click.emit(item.rpcObject)
+        cuegui.App.get_app().single_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     @staticmethod
@@ -294,8 +295,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number double clicked on"""
         del col
         # pylint: disable=no-member
-        QtGui.qApp.view_object.emit(item.rpcObject)
-        QtGui.qApp.double_click.emit(item.rpcObject)
+        cuegui.App.get_app().view_object.emit(item.rpcObject)
+        cuegui.App.get_app().double_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     def addObject(self, rpcObject):
@@ -385,9 +386,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(QtGui.qApp, "threadpool"):
+        if hasattr(cuegui.App.get_app(), "threadpool"):
             # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(
+            cuegui.App.get_app().threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
             # pylint: enable=no-member
         else:

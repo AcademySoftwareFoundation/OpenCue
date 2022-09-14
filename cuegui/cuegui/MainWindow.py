@@ -34,6 +34,7 @@ from PySide2 import QtWidgets
 
 import opencue
 
+import cuegui.App
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.Plugins
@@ -59,9 +60,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.facility_dict = None
         self.windowMenu = None
 
-        self.qApp = QtGui.qApp
+        self.qApp = cuegui.App.get_app()
         # pylint: disable=no-member
-        self.settings = QtGui.qApp.settings
+        self.settings = self.qApp.settings
         # pylint: enable=no-member
         self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in range(2, 5)]
         self.app_name = app_name
@@ -97,7 +98,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.__restoreSettings()
 
         # pylint: disable=no-member
-        QtGui.qApp.status.connect(self.showStatusBarMessage)
+        self.qApp.status.connect(self.showStatusBarMessage)
         # pylint: enable=no-member
 
         self.showStatusBarMessage("Ready")
@@ -185,7 +186,7 @@ class MainWindow(QtWidgets.QMainWindow):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
                 # pylint: disable=no-member
-                QtGui.qApp.facility_changed.emit()
+                self.qApp.facility_changed.emit()
                 # pylint: enable=no-member
                 return
 
@@ -421,7 +422,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
             # pylint: disable=no-member
-            QtGui.qApp.request_update.emit()
+            self.qApp.request_update.emit()
             # pylint: enable=no-member
             event.accept()
 
