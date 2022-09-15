@@ -60,7 +60,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.facility_dict = None
         self.windowMenu = None
 
-        self.qApp = cuegui.App.get_app()
+        self.qApp = cuegui.App.app()
         # pylint: disable=no-member
         self.settings = self.qApp.settings
         # pylint: enable=no-member

@@ -1,7 +1,8 @@
 
-from PySide6 import QtCore
-from PySide6 import QtWidgets
+from PySide2 import QtCore
+from PySide2 import QtWidgets
 
+import opencue.exception
 
 __QAPPLICATION_SINGLETON = None
 
@@ -30,6 +31,8 @@ def create_app(argv):
     return __QAPPLICATION_SINGLETON
 
 
-def get_app():
-    """Gets the current application instance."""
+def app():
+    """Returns the current application instance."""
+    if __QAPPLICATION_SINGLETON is None:
+        raise opencue.exception.CueException('application has not been initialized, create_app() must be called first')
     return __QAPPLICATION_SINGLETON

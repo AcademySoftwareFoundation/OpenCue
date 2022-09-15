@@ -104,7 +104,7 @@ class Plugins(object):
 
         # Load plugin paths from the config file
         # pylint: disable=no-member
-        __pluginPaths = cuegui.App.get_app().settings.value("Plugin_Paths", [])
+        __pluginPaths = cuegui.App.app().settings.value("Plugin_Paths", [])
         # pylint: enable=no-member
         for path in cuegui.Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
@@ -125,7 +125,7 @@ class Plugins(object):
         passed to it.
         """
         # pylint: disable=no-member
-        __plugins = cuegui.App.get_app().settings.value("%s/Plugins" % configGroup, [])
+        __plugins = cuegui.App.app().settings.value("%s/Plugins" % configGroup, [])
         # pylint: enable=no-member
 
         for plugin in __plugins:
@@ -183,7 +183,7 @@ class Plugins(object):
             except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s", plugin[0], e)
         # pylint: disable=no-member
-        cuegui.App.get_app().settings.setValue("%s/Plugins_Opened" % self.name, opened)
+        cuegui.App.app().settings.setValue("%s/Plugins_Opened" % self.name, opened)
         # pylint: enable=no-member
 
     def restoreState(self):
@@ -192,7 +192,7 @@ class Plugins(object):
         Calls .restoreSettings (if available) on all plugins."""
         # Loads any user defined plugin directories
         # pylint: disable=no-member
-        pluginPaths = cuegui.App.get_app().settings.value("Plugins/Paths", [])
+        pluginPaths = cuegui.App.app().settings.value("Plugins/Paths", [])
         # pylint: enable=no-member
 
         for path in pluginPaths:
@@ -200,7 +200,7 @@ class Plugins(object):
 
         # Runs any plugins that were saved to the settings
         # pylint: disable=no-member
-        openPlugins = cuegui.App.get_app().settings.value("%s/Plugins_Opened" % self.name) or []
+        openPlugins = cuegui.App.app().settings.value("%s/Plugins_Opened" % self.name) or []
         # pylint: enable=no-member
         for plugin in openPlugins:
             if '::' in plugin:

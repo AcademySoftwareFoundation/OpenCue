@@ -105,7 +105,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        cuegui.App.get_app().request_update.connect(self.updateRequest)
+        cuegui.App.app().request_update.connect(self.updateRequest)
         # pylint: enable=no-member
 
         self.updateRequest()
@@ -281,7 +281,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number single clicked on"""
         del col
         # pylint: disable=no-member
-        cuegui.App.get_app().single_click.emit(item.rpcObject)
+        cuegui.App.app().single_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     @staticmethod
@@ -295,8 +295,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number double clicked on"""
         del col
         # pylint: disable=no-member
-        cuegui.App.get_app().view_object.emit(item.rpcObject)
-        cuegui.App.get_app().double_click.emit(item.rpcObject)
+        cuegui.App.app().view_object.emit(item.rpcObject)
+        cuegui.App.app().double_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     def addObject(self, rpcObject):
@@ -386,9 +386,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(cuegui.App.get_app(), "threadpool"):
+        if hasattr(cuegui.App.app(), "threadpool"):
             # pylint: disable=no-member
-            cuegui.App.get_app().threadpool.queue(
+            cuegui.App.app().threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
             # pylint: enable=no-member
         else:

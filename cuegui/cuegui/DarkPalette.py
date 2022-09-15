@@ -34,7 +34,7 @@ def init():
     application and configures the palette and style for the Plastique
     color scheme"""
     # pylint: disable=no-member
-    app = cuegui.App.get_app()
+    app = cuegui.App.app()
     app.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
@@ -47,7 +47,7 @@ def init():
 def setDarkStyleSheet():
     """Sets the stylesheet."""
     # pylint: disable=no-member
-    cuegui.App.get_app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    cuegui.App.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():

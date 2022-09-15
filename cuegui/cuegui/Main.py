@@ -22,7 +22,7 @@ from __future__ import division
 
 import signal
 
-from PySide6 import QtGui
+from PySide2 import QtGui
 
 import cuegui.App
 import cuegui.Config
@@ -99,6 +99,6 @@ def startup(app_name, app_version, argv):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    threads = cuegui.App.get_app().threads  # pylint: disable=no-member
+    threads = cuegui.App.app().threads  # pylint: disable=no-member
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)

@@ -92,7 +92,7 @@ class ThreadPool(QtCore.QObject):
         for i in range(0, self.__num_threads):
             thread = ThreadPool.WorkerThread(i, self)
             # pylint: disable=no-member
-            cuegui.App.get_app().threads.append(thread)
+            cuegui.App.app().threads.append(thread)
             # pylint: enable=no-member
             self.__threads.append(thread)
             self.__threads[i].start()
