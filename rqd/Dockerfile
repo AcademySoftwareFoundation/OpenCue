@@ -1,4 +1,4 @@
-FROM centos:7
+FROM --platform=linux/x86_64 centos:7
 
 RUN yum -y install \
   epel-release \

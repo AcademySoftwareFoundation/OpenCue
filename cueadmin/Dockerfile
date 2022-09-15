@@ -1,7 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
-FROM centos:7 as build
+FROM --platform=linux/x86_64 centos:7 as build
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "CueAdmin build stage"
@@ -75,7 +75,7 @@ RUN versioned_name="cueadmin-$(cat ./VERSION)-all" \
 # -----------------
 # RUN
 # -----------------
-FROM centos:7
+FROM --platform=linux/x86_64 centos:7
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "CueAdmin runtime stage"

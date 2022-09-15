@@ -1,6 +1,7 @@
 # -----------------
 # BUILD
 # -----------------
+#FROM --platform=linux/x86_64 gradle:6.0.1-jdk11 AS build
 FROM gradle:6.0.1-jdk11 AS build
 
 USER gradle
@@ -23,7 +24,7 @@ RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 # -----------------
 # RPM
 # -----------------
-FROM jc21/rpmbuild-centos7:latest AS rpm
+FROM --platform=linux/x86_64 jc21/rpmbuild-centos7:latest AS rpm
 
 # Random first line after from
 
@@ -49,7 +50,7 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 # RUN
 # -----------------
-FROM openjdk:11-jre-slim-buster
+FROM --platform=linux/x86_64 openjdk:11-jre-slim-buster
 
 # First line after FROM should be unique to avoid --cache-from weirdness.
 RUN echo "Cuebot runtime stage"
