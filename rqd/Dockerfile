@@ -1,5 +1,7 @@
 FROM --platform=linux/x86_64 centos:7
 
+WORKDIR /opt/opencue
+
 RUN yum -y install \
   epel-release \
   gcc \
@@ -7,23 +9,16 @@ RUN yum -y install \
   time
 
 RUN yum -y install \
-  python-pip \
   python36 \
   python36-devel \
   python36-pip
 
-RUN python -m pip install --upgrade 'pip<21'
 RUN python3.6 -m pip install --upgrade pip
-
-RUN python -m pip install --upgrade 'setuptools<45'
 RUN python3.6 -m pip install --upgrade setuptools
-
-WORKDIR /opt/opencue
 
 COPY LICENSE ./
 COPY requirements.txt ./
 
-RUN python -m pip install -r requirements.txt
 RUN python3.6 -m pip install -r requirements.txt
 
 COPY proto/ ./proto
@@ -43,13 +38,9 @@ RUN python3.6 -m grpc_tools.protoc \
 # <https://github.com/protocolbuffers/protobuf/issues/1491> for more info.
 RUN 2to3 -wn -f import rqd/rqd/compiled_proto/*_pb2*.py
 
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-# Test in Python 2 and 3, but only install in the Python 3 environment.
-RUN cd rqd && python setup.py test
 RUN cd rqd && python3.6 setup.py test
 RUN cd rqd && python3.6 setup.py install
 

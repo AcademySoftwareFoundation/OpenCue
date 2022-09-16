@@ -1,10 +1,4 @@
-# -----------------
-# BUILD
-# -----------------
-FROM --platform=linux/x86_64 centos:7 as build
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueGUI build stage"
+FROM --platform=linux/x86_64 centos:7
 
 WORKDIR /src
 
@@ -26,13 +20,11 @@ RUN yum -y install \
   xcb-util-wm.x86_64
 
 RUN yum -y install \
-  python-pip \
   python36 \
   python36-devel \
   python36-pip
 
 RUN python3.6 -m pip install --upgrade pip
-
 RUN python3.6 -m pip install --upgrade setuptools
 
 RUN dbus-uuidgen > /etc/machine-id
@@ -74,19 +66,7 @@ RUN cd cuegui && xvfb-run -d python3.6 setup.py test
 RUN cp LICENSE requirements.txt requirements_gui.txt VERSION cuegui/
 
 RUN versioned_name="cuegui-$(cat ./VERSION)-all" \
-  && mv cuegui $versioned_name \
-  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
-
-
-# -----------------
-# RUN
-# -----------------
-FROM --platform=linux/x86_64 centos:7
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueGUI runtime stage"
-
-WORKDIR /opt/opencue
-
-COPY --from=build /src/cuegui-*-all.tar.gz ./
-
+  && mv cuegui "${versioned_name}" \
+  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
+  && mkdir -p /opt/opencue \
+  && cp "${versioned_name}.tar.gz" /opt/opencue/

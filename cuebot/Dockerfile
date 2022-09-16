@@ -1,20 +1,16 @@
 # -----------------
 # BUILD
 # -----------------
-#FROM --platform=linux/x86_64 gradle:6.0.1-jdk11 AS build
-FROM gradle:6.0.1-jdk11 AS build
+FROM gradle:6.0.1-jdk13 AS build
 
 USER gradle
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "Cuebot build stage"
 
 COPY --chown=gradle:gradle ./cuebot /home/gradle/cuebot/
 COPY --chown=gradle:gradle ./proto /home/gradle/proto/
 
 WORKDIR /home/gradle/cuebot
 
-RUN gradle build --stacktrace
+RUN gradle build --info --stacktrace
 
 COPY --chown=gradle:gradle VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
@@ -24,13 +20,9 @@ RUN mv ./build/libs/cuebot.jar ./build/libs/cuebot-$(cat ./VERSION)-all.jar
 # -----------------
 # RPM
 # -----------------
-FROM --platform=linux/x86_64 jc21/rpmbuild-centos7:latest AS rpm
-
-# Random first line after from
+FROM jc21/rpmbuild-centos7:latest AS rpm
 
 USER rpmbuilder
-
-RUN echo "Cuebot RPM Stage"
 
 COPY --chown=rpmbuilder:rpmbuilder LICENSE ./
 
@@ -50,10 +42,7 @@ RUN chmod +x create_rpm.sh && ./create_rpm.sh cuebot "$(cat VERSION)"
 # -----------------
 # RUN
 # -----------------
-FROM --platform=linux/x86_64 openjdk:11-jre-slim-buster
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "Cuebot runtime stage"
+FROM openjdk:18-slim-buster
 
 ARG CUEBOT_GRPC_CUE_PORT=8443
 ARG CUEBOT_GRPC_RQD_PORT=8444

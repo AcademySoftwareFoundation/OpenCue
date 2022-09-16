@@ -1,35 +1,14 @@
-# -----------------
-# BUILD
-# -----------------
-FROM --platform=linux/x86_64 centos:7 as build
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueAdmin build stage"
+FROM python:3.9.14
 
 WORKDIR /src
 
-RUN yum -y install \
-  epel-release \
-  gcc \
-  python-devel
-
-RUN yum -y install \
-  python-pip \
-  python36 \
-  python36-devel \
-  python36-pip
-
-RUN python -m pip install --upgrade 'pip<21'
-RUN python3.6 -m pip install --upgrade pip
-
-RUN python -m pip install --upgrade 'setuptools<45'
-RUN python3.6 -m pip install --upgrade setuptools
+RUN python3 -m pip install --upgrade pip
+RUN python3 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 COPY requirements.txt ./
 
-RUN python -m pip install -r requirements.txt
-RUN python3.6 -m pip install -r requirements.txt
+RUN python3 -m pip install -r requirements.txt
 
 COPY proto/ ./proto
 COPY pycue/README.md ./pycue/
@@ -37,7 +16,7 @@ COPY pycue/setup.py ./pycue/
 COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
 
-RUN python -m grpc_tools.protoc \
+RUN python3 -m grpc_tools.protoc \
   -I=./proto \
   --python_out=./pycue/opencue/compiled_proto \
   --grpc_python_out=./pycue/opencue/compiled_proto \
@@ -55,32 +34,13 @@ COPY cueadmin/cueadmin ./cueadmin/cueadmin
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-RUN cd pycue && python setup.py install
-
-RUN cd pycue && python3.6 setup.py install
-
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
-RUN cd cueadmin && python setup.py test
-
-RUN cd cueadmin && python3.6 setup.py test
+RUN cd pycue && python3 setup.py install
+RUN cd cueadmin && python3 setup.py test
 
 RUN cp LICENSE requirements.txt VERSION cueadmin/
 
 RUN versioned_name="cueadmin-$(cat ./VERSION)-all" \
-  && mv cueadmin $versioned_name \
-  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
-
-
-# -----------------
-# RUN
-# -----------------
-FROM --platform=linux/x86_64 centos:7
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueAdmin runtime stage"
-
-WORKDIR /opt/opencue
-
-COPY --from=build /src/cueadmin-*-all.tar.gz ./
-
+  && mv cueadmin "${versioned_name}" \
+  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
+  && mkdir -p /opt/opencue \
+  && cp "${versioned_name}.tar.gz" /opt/opencue/
