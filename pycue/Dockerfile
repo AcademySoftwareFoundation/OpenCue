@@ -35,7 +35,7 @@ RUN cd pycue && python3 setup.py test
 RUN cp LICENSE requirements.txt VERSION pycue/
 
 RUN versioned_name="pycue-$(cat ./VERSION)-all" \
-  && mv pycue "${}versioned_name}" \
+  && mv pycue "${versioned_name}" \
   && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
   && mkdir /opt/opencue \
   && cp "${versioned_name}.tar.gz" /opt/opencue/
