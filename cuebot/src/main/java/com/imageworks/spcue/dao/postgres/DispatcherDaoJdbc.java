@@ -163,7 +163,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
     }
 
     private List<String> findDispatchJobs(DispatchHost host, int numJobs, boolean shuffleShows) {
-        logger.error("FOO in method");
         ArrayList<String> result = new ArrayList<String>();
         List<SortableShow> shows = new LinkedList<SortableShow>(getBookableShows(host));
         // shows were sorted. If we want it in random sequence, we need to shuffle it.
@@ -172,18 +171,16 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                 shows.remove(0);
             Collections.shuffle(shows);
         }
-        logger.error("FOO shows: " + shows);
 
         for (SortableShow s: shows) {
-            logger.error("FOO SHOW: " + s.getShowId());
 
             if (s.isSkipped(host.tags, (long) host.cores, host.memory)) {
-                logger.error("FOO skipping show " + s.getShowId());
+                logger.info("skipping show " + s.getShowId());
                 continue;
             }
 
             if (s.isSkipped(host)) {
-                logger.error("FOO skipping show " + s.getShowId() + ", over its subscription.");
+                logger.info("skipping show " + s.getShowId() + ", over its subscription.");
                 continue;
             }
 
@@ -196,7 +193,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
             if (getJdbcTemplate().queryForObject(
                     "SELECT int_burst - int_cores FROM subscription WHERE pk_show=? AND pk_alloc=?",
                     Integer.class, s.getShowId(), host.getAllocationId()) < 100) {
-                logger.error("FOO skipping host");
                 s.skip(host);
                 continue;
             }
@@ -210,16 +206,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
                     host.idleGpus,
                     (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
                     host.getName(), numJobs * 10));
-            List<List<String>> j = getJdbcTemplate().query(
-                            findByShowQuery(),
-                            PKJOB_MAPPER2,
-                            s.getShowId(), host.getFacilityId(), host.os,
-                            host.idleCores, host.idleMemory,
-                            threadMode(host.threadMode),
-                            host.idleGpus,
-                            (host.idleGpuMemory > 0) ? 1 : 0, host.idleGpuMemory,
-                            host.getName(), numJobs * 10);
-            logger.error("FOO jobs: " + j);
 
             if (result.size() < 1) {
                 if (host.gpuMemory == 0) {
@@ -233,16 +219,6 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return result;
 
     }
-    public static final RowMapper<List<String>> PKJOB_MAPPER2 =
-            new RowMapper<List<String>>() {
-                public List<String> mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    List<String> l = new ArrayList<>();
-                    l.add("job ID: " + rs.getString(1));
-                    l.add("priority: " + rs.getString(2));
-                    l.add("rank: " + rs.getString(3));
-                    return l;
-                }
-            };
 
     private String findByShowQuery() {
         switch (schedulingMode) {

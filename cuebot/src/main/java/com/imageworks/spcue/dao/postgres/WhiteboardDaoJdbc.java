@@ -22,16 +22,12 @@ package com.imageworks.spcue.dao.postgres;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
-import com.google.protobuf.ByteString;
-import com.imageworks.spcue.dao.criteria.*;
-import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
 import org.apache.log4j.Logger;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -52,6 +48,12 @@ import com.imageworks.spcue.MatcherInterface;
 import com.imageworks.spcue.OwnerEntity;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.dao.WhiteboardDao;
+import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
+import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.ProcSearchFactory;
+import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
 import com.imageworks.spcue.grpc.department.Department;
@@ -1492,9 +1494,6 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
     public static final RowMapper<Show> SHOW_MAPPER =
             new RowMapper<Show>() {
                 public Show mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    /*if (true) {
-                        throw new SQLException(SqlUtil.getString(rs, "pk_show") + ", " + SqlUtil.getString(rs, "int_pending_count"));
-                    }*/
                     ShowStats stats = ShowStats.newBuilder()
                             .setPendingFrames(rs.getInt("int_pending_count"))
                             .setRunningFrames(rs.getInt("int_running_count"))
