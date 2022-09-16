@@ -108,12 +108,12 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
 
     private static final String IS_LAYER_COMPLETE =
         "SELECT " +
-            "SUM ( " +
+            "SUM(CAST( " +
                 "int_waiting_count + " +
                 "int_running_count + " +
                 "int_dead_count + " +
                 "int_depend_count "+
-            ") " +
+            " AS numeric)) " +
         "FROM " +
             "layer_stat " +
         "WHERE " +

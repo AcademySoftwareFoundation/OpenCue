@@ -167,13 +167,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     private static final String IS_JOB_COMPLETE =
         "SELECT " +
-            "SUM (" +
+            "SUM(CAST( " +
                 "int_waiting_count + " +
                 "int_running_count + " +
                 "int_dead_count + " +
                 "int_depend_count + " +
                 "int_checkpoint_count " +
-            ") " +
+            " AS numeric)) " +
         "FROM " +
             "job_stat " +
          "WHERE " +
@@ -181,9 +181,11 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     @Override
     public boolean isJobComplete(JobInterface job) {
+        logger.error("FOO isLaunching: " + isLaunching(job));
         if (isLaunching(job)) {
             return false;
         }
+        logger.error("FOO query: " + getJdbcTemplate().queryForObject(IS_JOB_COMPLETE, Integer.class, job.getJobId()));
         return getJdbcTemplate().queryForObject(IS_JOB_COMPLETE,
                 Integer.class, job.getJobId()) == 0;
     }
