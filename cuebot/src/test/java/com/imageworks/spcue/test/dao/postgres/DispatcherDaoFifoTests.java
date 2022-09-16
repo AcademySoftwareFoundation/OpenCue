@@ -27,7 +27,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
-import org.apache.log4j.Logger;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
@@ -231,7 +230,6 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
             assertEquals("pipe-default-testuser_job" + i,
                 jobManager.getJob(sortedJobs.get(i)).getName());
         }
-
     }
 
     @Test
