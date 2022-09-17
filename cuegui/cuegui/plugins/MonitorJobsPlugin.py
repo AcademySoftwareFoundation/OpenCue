@@ -69,10 +69,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.layout().addWidget(self.jobMonitor)
 
         # Signals in
-        # pylint: disable=no-member
         self.app.view_object.connect(self.addJob)
         self.app.facility_changed.connect(self.jobMonitor.removeAllItems)
-        # pylint: enable=no-member
 
         # Signals out
         self.jobMonitor.view_object.connect(self.view_object.emit)

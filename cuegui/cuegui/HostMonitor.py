@@ -70,10 +70,8 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()
 
-        # pylint: disable=no-member
         if bool(int(self.app.settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
-        # pylint: enable=no-member
 
     def updateRequest(self):
         """Requests an update of the displayed information."""
@@ -279,9 +277,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        # pylint: disable=no-member
         self.app.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
-        # pylint: enable=no-member
 
     # ==============================================================================
     # Button to refresh
@@ -332,9 +328,7 @@ class HostMonitor(QtWidgets.QWidget):
     # Monitors and handles the view_hosts signal
     # ==============================================================================
     def __viewHostsSetup(self):
-        # pylint: disable=no-member
         self.app.view_hosts.connect(self.__viewHostsHandle)
-        # pylint: enable=no-member
 
     def __viewHostsHandle(self, hosts):
         self.__clearButtonHandle()

@@ -107,9 +107,7 @@ class Attributes(QtWidgets.QWidget):
         self.__scrollWidget.layout().addWidget(self.__stack)
         self.__scrollArea.setWidget(self.__scrollWidget)
         layout.addWidget(self.__scrollArea)
-        # pylint: disable=no-member
         self.app.single_click.connect(self.setWidget)
-        # pylint: enable=no-member
 
         self.__load = None
 
@@ -139,13 +137,10 @@ class Attributes(QtWidgets.QWidget):
         # called in a worker thread prior to the creation of the widget.
         # Otherwise the widget will just be created now.
         if hasattr(function, "preload"):
-            if hasattr(self.app, "threadpool"):
+            if self.app.threadpool:
                 self.__load = {"item": item, "function": function}
-                # pylint: disable=no-member
-                self.app.threadpool.queue(self.__getUpdate,
-                                            self.__processResults,
-                                            "getting data for %s" % self.__class__)
-                # pylint: enable=no-member
+                self.app.threadpool.queue(
+                    self.__getUpdate, self.__processResults, "getting data for %s" % self.__class__)
             else:
                 logger.warning("threadpool not found, doing work in gui thread")
                 return self.__createItemAttribute(item, function, function.preload(item))

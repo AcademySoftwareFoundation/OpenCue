@@ -223,8 +223,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        # pylint: disable=no-member
         self.app.facility_changed.connect(self.removeAllShows)
+        # pylint: disable=no-member
         self.itemClicked.connect(self.__itemSingleClickedCopy)
         self.itemClicked.connect(self.__itemSingleClickedComment)
         # pylint: enable=no-member
@@ -726,9 +726,7 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
-            # pylint: disable=no-member
             self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
-            # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__finishedColor = cuegui.Style.ColorTheme.COLOR_JOB_FINISHED_BACKGROUND

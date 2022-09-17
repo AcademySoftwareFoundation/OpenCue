@@ -161,12 +161,9 @@ class ProgressDialog(QtWidgets.QDialog):
         """Submits a new unit of work to threadpool"""
         self.__count += 1
 
-        if hasattr(self.app, "threadpool"):
-            # pylint: disable=no-member
-            self.app.threadpool.queue(self.__doWork,
-                                        self.__doneWork,
-                                        "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
+        if self.app.threadpool:
+            self.app.threadpool.queue(
+                self.__doWork, self.__doneWork, "getting data for %s" % self.__class__)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self.__doneWork(None, self.__doWork())

@@ -66,7 +66,7 @@ class CueSubmitMainWindow(QtWidgets.QMainWindow):
 def main():
     """Entrypoint for the CueSubmit application."""
     app = CueSubmitApp(sys.argv)
-    QtGui.app = app
+    QtGui.qApp = app
     app.startup()
     app.exec_()
 

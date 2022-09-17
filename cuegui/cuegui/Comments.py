@@ -209,10 +209,8 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
-        # pylint: disable=no-member
         self.__macroList = pickle.loads(
             str(self.app.settings.value("Comments", pickle.dumps({}))))
-        # pylint: enable=no-member
         self.__macroRefresh()
 
     def __macroRefresh(self):
@@ -226,9 +224,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroSave(self):
         """Saves the current comment macros to settings"""
-        # pylint: disable=no-member
         self.app.settings.setValue("Comments", pickle.dumps(self.__macroList))
-        # pylint: enable=no-member
 
     def __macroHandle(self, selection):
         """Called when the comment macro combo box is selected

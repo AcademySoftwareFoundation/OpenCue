@@ -147,10 +147,8 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__max_cores.setSingleStep(1)
 
         # Disable this for everything except commander.
-        # pylint: disable=no-member
         if self.app.applicationName() != "CueCommander":
             self.__core.setDisabled(True)
-        # pylint: enable=no-member
 
         # Threads
         self.__thread = QtWidgets.QCheckBox(self)

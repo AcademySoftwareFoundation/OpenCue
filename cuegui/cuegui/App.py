@@ -25,6 +25,9 @@ __QAPPLICATION_SINGLETON = None
 class CueGuiApplication(QtWidgets.QApplication):
     """The CueGUI application."""
 
+    # Settings
+    settings = None
+
     # Global signals
     display_log_file_content = QtCore.Signal(object)
     double_click = QtCore.Signal(object)
@@ -37,6 +40,13 @@ class CueGuiApplication(QtWidgets.QApplication):
     request_update = QtCore.Signal()
     status = QtCore.Signal()
     quit = QtCore.Signal()
+
+    # Thread pool
+    threadpool = None
+    threads = []
+
+    # Shutdown signal
+    closingApp = False
 
 
 def create_app(argv):

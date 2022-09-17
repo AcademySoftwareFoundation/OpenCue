@@ -58,16 +58,12 @@ def setFont(font):
     """Sets the application font."""
     global Font
     Font = font
-    # pylint: disable=no-member
     cuegui.app().setFont(font)
-    # pylint: enable=no-member
 
 
 def init():
     """Initializes the global style settings."""
-    # pylint: disable=no-member
     settings = cuegui.app().settings
-    # pylint: enable=no-member
     loadColorTheme(settings.value("Style/colorTheme", DEFAULT_COLOR))
     setIconTheme(settings.value("Style/iconTheme", DEFAULT_ICON))
 

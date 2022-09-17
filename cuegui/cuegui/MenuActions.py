@@ -221,9 +221,7 @@ class JobActions(AbstractActions):
 
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
-            # pylint: disable=no-member
             self.app.view_object.emit(job)
-            # pylint: enable=no-member
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
 
@@ -430,10 +428,8 @@ class JobActions(AbstractActions):
     def dropJobsDependingOnThis(self, job):
         for dep in job.getWhatDependsOnThis():
             if not dep.isInternal():
-                # pylint: disable=no-member
-                job = self.getJobByName(self, dep.dependOnJob())
+                job = self.getJobByName(dep.dependOnJob())
                 job.dropDepends(opencue.wrappers.depend.Depend.DependTarget.EXTERNAL)
-                # pylint: enable=no-member
 
     eatDead_info = ["Eat dead frames", None, "eat"]
 
@@ -998,10 +994,8 @@ class FrameActions(AbstractActions):
         hosts = list({frame.data.last_resource.split("/")[0]
                       for frame in frames if frame.data.last_resource})
         if hosts:
-            # pylint: disable=no-member
             self.app.view_hosts.emit(hosts)
             self.app.single_click.emit(opencue.api.findHost(hosts[0]))
-            # pylint: enable=no-member
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
 
@@ -1455,9 +1449,7 @@ class HostActions(AbstractActions):
         hosts = self._getOnlyHostObjects(rpcObjects)
         hosts = list({host.data.name for host in hosts})
         if hosts:
-            # pylint: disable=no-member
             self.app.view_procs.emit(hosts)
-            # pylint: enable=no-member
 
     lock_info = ["Lock Host", None, "lock"]
 
@@ -1653,9 +1645,7 @@ class ProcActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in list({proc.data.job_name for proc in self._getOnlyProcObjects(rpcObjects)}):
             try:
-                # pylint: disable=no-member
                 self.app.view_object.emit(opencue.api.findJob(job))
-                # pylint: enable=no-member
             except opencue.exception.CueException:
                 logger.warning("Unable to load: %s", job)
 

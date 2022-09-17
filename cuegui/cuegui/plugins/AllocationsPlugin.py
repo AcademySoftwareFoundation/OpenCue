@@ -104,9 +104,7 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        # pylint: disable=no-member
         self.app.facility_changed.connect(self._update)
-        # pylint: enable=no-member
 
         self.setUpdateInterval(60)
 

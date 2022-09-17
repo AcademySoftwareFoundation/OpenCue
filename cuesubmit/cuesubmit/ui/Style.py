@@ -190,7 +190,7 @@ def setFont(font):
     global Font
     Font = font
     # pylint: disable=no-member
-    QtGui.app.setFont(font)
+    QtGui.qApp.setFont(font)
     # pylint: enable=no-member
 
 

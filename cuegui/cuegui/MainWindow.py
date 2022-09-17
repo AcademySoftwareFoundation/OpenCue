@@ -60,9 +60,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.facility_dict = None
         self.windowMenu = None
 
-        # pylint: disable=no-member
         self.settings = self.app.settings
-        # pylint: enable=no-member
         self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in range(2, 5)]
         self.app_name = app_name
         self.app_version = app_version
@@ -96,10 +94,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Restore saved settings
         self.__restoreSettings()
 
-        # pylint: disable=no-member
         self.app.status.connect(self.showStatusBarMessage)
-        # pylint: enable=no-member
-
         self.showStatusBarMessage("Ready")
 
     def displayStartupNotice(self):
@@ -184,9 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
-                # pylint: disable=no-member
                 self.app.facility_changed.emit()
-                # pylint: enable=no-member
                 return
 
     ################################################################################
@@ -359,24 +352,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __windowOpened(self):
         """Called from __init__ on window creation"""
-        # pylint: disable=no-member
         self.app.quit.connect(self.close)
         self.windows.append(self)
         self.app.closingApp = False
-        # pylint: enable=no-member
 
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
         # Disconnect to avoid multiple attempts to close a window
-        # pylint: disable=no-member
         self.app.quit.connect(self.close)
-        # pylint: enable=no-member
 
         # Save the fact that this window is open or not when the app closed
-        # pylint: disable=no-member
         self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
-        # pylint: enable=no-member
 
         # pylint: disable=bare-except
         try:
@@ -392,10 +379,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
         to exit."""
-        # pylint: disable=no-member
         self.app.closingApp = True
         self.app.quit.emit()
-        # pylint: enable=no-member
 
     ################################################################################
 
@@ -420,9 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            # pylint: disable=no-member
             self.app.request_update.emit()
-            # pylint: enable=no-member
             event.accept()
 
     def closeEvent(self, event):

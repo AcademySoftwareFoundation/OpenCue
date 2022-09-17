@@ -39,6 +39,4 @@ class ServicesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.setWindowTitle("Facility Service Defaults")
         self.__serviceManager = cuegui.ServiceDialog.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
-        # pylint: disable=no-member
         self.app.facility_changed.connect(self.__serviceManager.refresh)
-        # pylint: enable=no-member

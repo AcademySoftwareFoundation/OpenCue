@@ -67,13 +67,10 @@ def startup(app_name, app_version, argv):
     app.setApplicationName(app_name)
     app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
-    # pylint: disable=attribute-defined-outside-init
     app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
-    app.threads = []
-    # pylint: enable=attribute-defined-outside-init
 
     settings = cuegui.Config.startup(app_name)
-    app.settings = settings  # pylint: disable=attribute-defined-outside-init
+    app.settings = settings
 
     cuegui.Style.init()
 
@@ -99,6 +96,6 @@ def startup(app_name, app_version, argv):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    threads = cuegui.app().threads  # pylint: disable=no-member
+    threads = cuegui.app().threads
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)

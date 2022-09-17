@@ -68,9 +68,9 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.__btnShowProperties.clicked.connect(self.__showProperties)
         self.__btnAddSubscription.clicked.connect(self.__addSubscription)
         self.__comboShows.currentIndexChanged.connect(self.setShow)
+        # pylint: enable=no-member
         self.app.view_object.connect(self.setShow)
         self.app.facility_changed.connect(self.changeFacility)
-        # pylint: enable=no-member
 
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)

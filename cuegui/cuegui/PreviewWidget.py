@@ -94,9 +94,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
         self.__itvFile = self.__writePlaylist(playlist)
         self.__previewThread = PreviewProcessorWatchThread(items, self)
-        # pylint: disable=no-member
         self.app.threads.append(self.__previewThread)
-        # pylint: enable=no-member
         self.__previewThread.start()
         self.__progbar.setRange(0, len(items))
 

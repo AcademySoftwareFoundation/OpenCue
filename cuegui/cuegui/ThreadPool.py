@@ -90,9 +90,7 @@ class ThreadPool(QtCore.QObject):
         self.__started = True
         for i in range(0, self.__num_threads):
             thread = ThreadPool.WorkerThread(i, self)
-            # pylint: disable=no-member
             self.app.threads.append(thread)
-            # pylint: enable=no-member
             self.__threads.append(thread)
             self.__threads[i].start()
             self.__threads[i].workComplete.connect(self.runCallback,

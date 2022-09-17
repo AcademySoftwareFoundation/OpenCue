@@ -490,14 +490,12 @@ def popupView(file, facility=None):
     if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
         app = cuegui.app()
-        # pylint: disable=no-member
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
         elif app.settings.contains('LogEditor'):
             job_log_cmd = app.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
-        # pylint: enable=no-member
         job_log_cmd.append(str(file))
         checkShellOut(job_log_cmd)
 

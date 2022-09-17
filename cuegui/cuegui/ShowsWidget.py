@@ -61,10 +61,8 @@ class ShowsWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        # pylint: disable=no-member
-        self.itemClicked.connect(self.__itemSingleClickedToDouble)
+        self.itemClicked.connect(self.__itemSingleClickedToDouble)  # pylint: disable=no-member
         self.app.facility_changed.connect(self.__facilityChanged)
-        # pylint: enable=no-member
 
         self.setUpdateInterval(60)
 

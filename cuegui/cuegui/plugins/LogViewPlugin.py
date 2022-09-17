@@ -429,9 +429,7 @@ class LogViewWidget(QtWidgets.QWidget):
         pos = QtCore.QPoint(0, 0)
         self._highlight_cursor = self._content_box.cursorForPosition(pos)
         # Signals are defined in code, so pylint thinks they don't exist.
-        # pylint: disable=no-member
         self.app.display_log_file_content.connect(self._set_log_files)
-        # pylint: enable=no-member
         self._log_scrollbar = self._content_box.verticalScrollBar()
         self._log_scrollbar.valueChanged.connect(self._set_scrollbar_value)
 
@@ -857,9 +855,7 @@ class LogViewWidget(QtWidgets.QWidget):
             else:
                 self._content_box.appendPlainText(new_text)
             self._content_timestamp = time.time()
-        # pylint: disable=no-member
         self.app.processEvents()
-        # pylint: enable=no-member
 
         # Adjust scrollbar value (if necessary)
         self._scrollbar_max = self._log_scrollbar.maximum()

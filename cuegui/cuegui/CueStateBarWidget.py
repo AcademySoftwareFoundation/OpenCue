@@ -56,9 +56,7 @@ class CueStateBarWidget(QtWidgets.QWidget):
 
         self.__sourceTree = weakref.proxy(sourceTree)
         self.__colors = []
-        # pylint: disable=no-member
         self.__baseColor = self.app.palette().color(QtGui.QPalette.Base)
-        # pylint: enable=no-member
         self.__colorsLock = QtCore.QReadWriteLock()
         self.__timer = QtCore.QTimer(self)
         self.__lastUpdate = 0

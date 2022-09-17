@@ -102,9 +102,7 @@ class Plugins(object):
         self.__menu_separator = " \t-> "
 
         # Load plugin paths from the config file
-        # pylint: disable=no-member
         __pluginPaths = self.app.settings.value("Plugin_Paths", [])
-        # pylint: enable=no-member
         for path in cuegui.Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
 
@@ -123,9 +121,7 @@ class Plugins(object):
         The imported module must have an init function and a QMainWindow will be
         passed to it.
         """
-        # pylint: disable=no-member
         __plugins = self.app.settings.value("%s/Plugins" % configGroup, [])
-        # pylint: enable=no-member
 
         for plugin in __plugins:
             path = os.path.dirname(str(plugin))
@@ -181,26 +177,20 @@ class Plugins(object):
                     opened.append("%s::%s" % (plugin[0], json.dumps(plugin[1].pluginSaveState())))
             except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s", plugin[0], e)
-        # pylint: disable=no-member
         self.app.settings.setValue("%s/Plugins_Opened" % self.name, opened)
-        # pylint: enable=no-member
 
     def restoreState(self):
         """Loads any user defined plugin directories and restores all open plugins.
 
         Calls .restoreSettings (if available) on all plugins."""
         # Loads any user defined plugin directories
-        # pylint: disable=no-member
         pluginPaths = self.app.settings.value("Plugins/Paths", [])
-        # pylint: enable=no-member
 
         for path in pluginPaths:
             self.loadPluginPath(str(path))
 
         # Runs any plugins that were saved to the settings
-        # pylint: disable=no-member
         openPlugins = self.app.settings.value("%s/Plugins_Opened" % self.name) or []
-        # pylint: enable=no-member
         for plugin in openPlugins:
             if '::' in plugin:
                 plugin_name, plugin_state = str(plugin).split("::")

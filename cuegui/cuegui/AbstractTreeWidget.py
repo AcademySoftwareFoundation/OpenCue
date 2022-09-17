@@ -280,9 +280,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number single clicked on"""
         del col
-        # pylint: disable=no-member
         cuegui.app().single_click.emit(item.rpcObject)
-        # pylint: enable=no-member
 
     @staticmethod
     def __itemDoubleClickedEmitToApp(item, col):
@@ -294,10 +292,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number double clicked on"""
         del col
-        # pylint: disable=no-member
         cuegui.app().view_object.emit(item.rpcObject)
         cuegui.app().double_click.emit(item.rpcObject)
-        # pylint: enable=no-member
 
     def addObject(self, rpcObject):
         """Adds or updates an rpcObject in the list using the _createItem function
@@ -386,11 +382,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(self.app, "threadpool"):
-            # pylint: disable=no-member
+        if self.app.threadpool:
             self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())

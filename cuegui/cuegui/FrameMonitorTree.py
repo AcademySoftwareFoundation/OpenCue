@@ -351,9 +351,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         except ValueError:
             old_log_files = []
 
-        # pylint: disable=no-member
         self.app.display_log_file_content.emit([current_log_file] + old_log_files)
-        # pylint: enable=no-member
 
     def __itemDoubleClickedViewLog(self, item, col):
         """Called when a frame is double clicked, views the frame log in a popup
@@ -448,10 +446,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         logger.info("_update")
         self._lastUpdate = time.time()
         if hasattr(self.app, "threadpool"):
-            # pylint: disable=no-member
             self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())
@@ -462,11 +458,9 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         logger.info("_updateChanged")
         self._lastUpdate = time.time()
         if hasattr(self.app, "threadpool"):
-            # pylint: disable=no-member
             self.app.threadpool.queue(
                 self._getUpdateChanged, self._processUpdateChanged,
                 "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdateChanged(None, self._getUpdateChanged())
@@ -596,9 +590,7 @@ class FrameWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
     def __init__(self, rpcObject, parent, job):
         if not self.__initialized:
             self.__class__.__initialized = True
-            # pylint: disable=no-member
             self.__class__.__backgroundColor = cuegui.app().palette().color(QtGui.QPalette.Base)
-            # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__foregroundColorBlack = QCOLOR_BLACK
             self.__class__.__foregroundColorGreen = QCOLOR_GREEN
@@ -884,10 +876,8 @@ class FrameContextMenu(QtWidgets.QMenu):
         if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.frames().addAction(self, "useLocalCores")
 
-        # pylint: disable=no-member
         if self.app.applicationName() == "CueCommander":
             self.__menuActions.frames().addAction(self, "viewHost")
-        # pylint: enable=no-member
 
         depend_menu = QtWidgets.QMenu("&Dependencies", self)
         self.__menuActions.frames().addAction(depend_menu, "viewDepends")
