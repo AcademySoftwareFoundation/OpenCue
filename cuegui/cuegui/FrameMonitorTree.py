@@ -445,7 +445,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated"""
         logger.info("_update")
         self._lastUpdate = time.time()
-        if hasattr(self.app, "threadpool"):
+        if self.app.threadpool is not None:
             self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
         else:
@@ -457,7 +457,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         updated"""
         logger.info("_updateChanged")
         self._lastUpdate = time.time()
-        if hasattr(self.app, "threadpool"):
+        if self.app.threadpool is not None:
             self.app.threadpool.queue(
                 self._getUpdateChanged, self._processUpdateChanged,
                 "getting data for %s" % self.__class__)

@@ -109,9 +109,7 @@ class LimitsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions = cuegui.MenuActions.MenuActions(
             self, self.updateSoon, self.selectedObjects)
 
-        # pylint: disable=no-member
-        self.itemClicked.connect(self.__itemSingleClickedToDouble)
-        # pylint: enable=no-member
+        self.itemClicked.connect(self.__itemSingleClickedToDouble)  # pylint: disable=no-member
         self.app.facility_changed.connect(self.__facilityChanged)
 
         self.setUpdateInterval(60)

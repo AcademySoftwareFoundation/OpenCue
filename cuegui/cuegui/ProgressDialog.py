@@ -161,7 +161,7 @@ class ProgressDialog(QtWidgets.QDialog):
         """Submits a new unit of work to threadpool"""
         self.__count += 1
 
-        if self.app.threadpool:
+        if self.app.threadpool is not None:
             self.app.threadpool.queue(
                 self.__doWork, self.__doneWork, "getting data for %s" % self.__class__)
         else:

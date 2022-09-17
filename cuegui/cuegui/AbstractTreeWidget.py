@@ -382,7 +382,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if self.app.threadpool:
+        if self.app.threadpool is not None:
             self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
         else:

@@ -803,10 +803,10 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def logIt(self):
         """Logs cache to a file."""
-        if hasattr(self.app, "threadpool"):
+        if self.app.threadpool is not None:
             print("Stuck Frame Log cache is being written to file.")
-            self.app.threadpool.queue(self.run_log.finalize, self.logResult,
-                                        "Writing out log", self.frames, self.show)
+            self.app.threadpool.queue(
+                self.run_log.finalize, self.logResult, "Writing out log", self.frames, self.show)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
 

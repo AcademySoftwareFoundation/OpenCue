@@ -137,7 +137,7 @@ class Attributes(QtWidgets.QWidget):
         # called in a worker thread prior to the creation of the widget.
         # Otherwise the widget will just be created now.
         if hasattr(function, "preload"):
-            if self.app.threadpool:
+            if self.app.threadpool is not None:
                 self.__load = {"item": item, "function": function}
                 self.app.threadpool.queue(
                     self.__getUpdate, self.__processResults, "getting data for %s" % self.__class__)
