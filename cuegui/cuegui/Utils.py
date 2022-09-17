@@ -489,11 +489,12 @@ def popupView(file, facility=None):
     """Opens the given file in your editor."""
     if file and not popupWeb(file, facility):
         editor_from_env = os.getenv('EDITOR')
+        app = cuegui.app()
         # pylint: disable=no-member
         if editor_from_env:
             job_log_cmd = editor_from_env.split()
-        elif QtGui.qApp.settings.contains('LogEditor'):
-            job_log_cmd = QtGui.qApp.settings.value("LogEditor")
+        elif app.settings.contains('LogEditor'):
+            job_log_cmd = app.settings.value("LogEditor")
         else:
             job_log_cmd = cuegui.Constants.DEFAULT_EDITOR.split()
         # pylint: enable=no-member

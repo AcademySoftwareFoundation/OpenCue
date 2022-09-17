@@ -329,7 +329,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @param item: A tree widget item
         @type  item: AbstractTreeWidgetItem"""
         # pylint: disable=no-member
-        QtGui.qApp.unmonitor.emit(item.rpcObject)
+        self.app.unmonitor.emit(item.rpcObject)
         # pylint: enable=no-member
         cuegui.AbstractTreeWidget.AbstractTreeWidget._removeItem(self, item)
         self.__jobTimeLoaded.pop(item.rpcObject, "")
@@ -353,7 +353,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         the the AbstractTreeWidget.removeAllItems like normal"""
         for proxy in list(self._items.keys()):
             # pylint: disable=no-member
-            QtGui.qApp.unmonitor.emit(proxy)
+            self.app.unmonitor.emit(proxy)
             # pylint: enable=no-member
             if proxy in self.__jobTimeLoaded:
                 del self.__jobTimeLoaded[proxy]
@@ -382,7 +382,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.jobs().addAction(menu, "emailArtist")
         self.__menuActions.jobs().addAction(menu, "viewComments")
 
-        if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+        if bool(int(self.app.settings.value("AllowDeeding", 0))):
             self.__menuActions.jobs().addAction(menu, "useLocalCores")
 
         depend_menu = QtWidgets.QMenu("&Dependencies",self)
@@ -598,7 +598,7 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
             self.__class__.__eatIcon = QtGui.QIcon(":eat.png")
             # pylint: disable=no-member
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
             # pylint: enable=no-member
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND

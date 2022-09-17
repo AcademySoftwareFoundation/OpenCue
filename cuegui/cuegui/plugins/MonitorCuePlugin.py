@@ -79,7 +79,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.layout().addLayout(self.__hlayout)
 
         # pylint: disable=no-member
-        self.__monitorCue.view_object.connect(QtGui.qApp.view_object.emit)
+        self.__monitorCue.view_object.connect(self.app.view_object.emit)
         # pylint: enable=no-member
 
         self.pluginRegisterSettings([("shows",
@@ -99,7 +99,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
     def __cueStateBarSetup(self, layout):
         # pylint: disable=no-member
-        cueStateBarEnabled = QtGui.qApp.settings.value("CueStateBar", False)
+        cueStateBarEnabled = self.app.settings.value("CueStateBar", False)
         # pylint: enable=no-member
         if cueStateBarEnabled:
             self.__cueStateBar = cuegui.CueStateBarWidget.CueStateBarWidget(self.__monitorCue, self)
@@ -177,7 +177,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__showMenu.setFont(cuegui.Constants.STANDARD_FONT)
         # pylint: disable=no-member
         self.__showMenu.triggered.connect(self.__showMenuHandle)
-        QtGui.qApp.facility_changed.connect(self.__showMenuUpdate)
+        self.app.facility_changed.connect(self.__showMenuUpdate)
         # pylint: enable=no-member
 
         self.__showMenuUpdate()

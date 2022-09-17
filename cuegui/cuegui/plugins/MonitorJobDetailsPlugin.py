@@ -65,9 +65,9 @@ class MonitorLayerFramesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget)
         self.__splitter.addWidget(self.__monitorFrames)
 
         # pylint: disable=no-member
-        QtGui.qApp.view_object.connect(self.__setJob)
-        QtGui.qApp.unmonitor.connect(self.__unmonitor)
-        QtGui.qApp.facility_changed.connect(self.__setJob)
+        self.app.view_object.connect(self.__setJob)
+        self.app.unmonitor.connect(self.__unmonitor)
+        self.app.facility_changed.connect(self.__setJob)
         # pylint: enable=no-member
         self.__monitorLayers.handle_filter_layers_byLayer.connect(self.handleLayerFilter)
         self.__splitter.splitterMoved.connect(self.__splitterMoved)  # pylint: disable=no-member

@@ -24,7 +24,6 @@ from builtins import map
 import time
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import opencue
@@ -90,7 +89,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         # Don't use the standard space bar to refresh
         # pylint: disable=no-member
-        QtGui.qApp.request_update.connect(self.updateRequest)
+        self.app.request_update.connect(self.updateRequest)
         # pylint: enable=no-member
 
         self.startTicksUpdate(40)
@@ -98,7 +97,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.ticksWithoutUpdate = -1
 
         # pylint: disable=no-member
-        self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1)))
+        self.enableRefresh = bool(int(self.app.settings.value("AutoRefreshMonitorProc", 1)))
         # pylint: enable=no-member
 
     def tick(self):
@@ -141,7 +140,7 @@ class ProcMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         del col
         job_name = item.rpcObject.data.job_name
         # pylint: disable=no-member
-        QtGui.qApp.view_object.emit(opencue.api.findJob(job_name))
+        self.app.view_object.emit(opencue.api.findJob(job_name))
         # pylint: enable=no-member
 
     def clearFilters(self):

@@ -36,8 +36,8 @@ class RedirectTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, getStubMock):
-        test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
         getStubMock.return_value.GetActiveShows.return_value = \

@@ -35,12 +35,17 @@ from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
-import opencue
+import opencue.wrappers.frame
+
 import cuegui.AbstractDockWidget
+import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
 import cuegui.Action
 import cuegui.Constants
 import cuegui.JobMonitorTree
 import cuegui.Logger
+import cuegui.MenuActions
+import cuegui.Style
 import cuegui.Utils
 
 logger = cuegui.Logger.getLogger(__file__)
@@ -772,7 +777,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self._updateProgressMax.connect(self.updateProgressMax)
 
         # Don't use the standard space bar to refres
-        self.disconnect(QtGui.qApp,
+        self.disconnect(self.app,
                         QtCore.SIGNAL('request_update()'),
                         self.updateRequest)
 
@@ -798,9 +803,9 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def logIt(self):
         """Logs cache to a file."""
-        if hasattr(QtGui.qApp, "threadpool"):
+        if hasattr(self.app, "threadpool"):
             print("Stuck Frame Log cache is being written to file.")
-            QtGui.qApp.threadpool.queue(self.run_log.finalize, self.logResult,
+            self.app.threadpool.queue(self.run_log.finalize, self.logResult,
                                         "Writing out log", self.frames, self.show)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
@@ -1214,7 +1219,7 @@ class StuckFrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 menu.addSeparator()
                 menu.addAction(cuegui.Action.create(self, "Top Machine", "Top Machine",
                                                     self.topMachine, "up"))
-                if QtGui.qApp.applicationName() == "CueCommander3":
+                if self.app.applicationName() == "CueCommander3":
                     self.__menuActions.frames().addAction(menu, "viewHost")
 
             menu.addSeparator()
@@ -1603,7 +1608,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         if not self.__initialized:
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
+            self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_FRAME,

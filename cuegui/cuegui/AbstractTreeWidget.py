@@ -31,7 +31,6 @@ from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import cuegui.AbstractWidgetItem
-import cuegui.App
 import cuegui.Constants
 import cuegui.ItemDelegate
 import cuegui.Logger
@@ -76,6 +75,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  parent: QWidget
         @param parent: The widget to set as the parent"""
         QtWidgets.QTreeWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self._items = {}
         self._lastUpdate = 0
@@ -105,8 +105,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        cuegui.App.app().request_update.connect(self.updateRequest)
         # pylint: enable=no-member
+        self.app.request_update.connect(self.updateRequest)
 
         self.updateRequest()
         self.setUpdateInterval(10)
@@ -281,7 +281,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number single clicked on"""
         del col
         # pylint: disable=no-member
-        cuegui.App.app().single_click.emit(item.rpcObject)
+        self.app.single_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     @staticmethod
@@ -295,8 +295,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number double clicked on"""
         del col
         # pylint: disable=no-member
-        cuegui.App.app().view_object.emit(item.rpcObject)
-        cuegui.App.app().double_click.emit(item.rpcObject)
+        self.app.view_object.emit(item.rpcObject)
+        self.app.double_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     def addObject(self, rpcObject):
@@ -386,9 +386,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(cuegui.App.app(), "threadpool"):
+        if hasattr(self.app, "threadpool"):
             # pylint: disable=no-member
-            cuegui.App.app().threadpool.queue(
+            self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
             # pylint: enable=no-member
         else:

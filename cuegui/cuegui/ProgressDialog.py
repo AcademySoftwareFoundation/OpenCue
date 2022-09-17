@@ -24,7 +24,6 @@ from builtins import map
 from builtins import range
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 import cuegui.Logger
@@ -57,6 +56,7 @@ class ProgressDialog(QtWidgets.QDialog):
         @type  parent: QObject
         @param parent: The parent for this object"""
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__work = work
         self.__function = function
@@ -161,9 +161,9 @@ class ProgressDialog(QtWidgets.QDialog):
         """Submits a new unit of work to threadpool"""
         self.__count += 1
 
-        if hasattr(QtGui.qApp, "threadpool"):
+        if hasattr(self.app, "threadpool"):
             # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(self.__doWork,
+            self.app.threadpool.queue(self.__doWork,
                                         self.__doneWork,
                                         "getting data for %s" % self.__class__)
             # pylint: enable=no-member

@@ -50,9 +50,7 @@ from builtins import range
 import os
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 
-import cuegui.App
 import cuegui.Logger
 
 
@@ -75,6 +73,7 @@ class ThreadPool(QtCore.QObject):
 
     def __init__(self, num_threads, max_queue=20, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
+        self.app = cuegui.app()
         self.__threads = []
         self.__started = False
         self.__max_queue = max_queue
@@ -92,7 +91,7 @@ class ThreadPool(QtCore.QObject):
         for i in range(0, self.__num_threads):
             thread = ThreadPool.WorkerThread(i, self)
             # pylint: disable=no-member
-            cuegui.App.app().threads.append(thread)
+            self.app.threads.append(thread)
             # pylint: enable=no-member
             self.__threads.append(thread)
             self.__threads[i].start()

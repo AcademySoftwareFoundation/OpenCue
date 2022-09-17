@@ -35,12 +35,14 @@ import six
 import FileSequence
 import opencue
 import opencue.compiled_proto.job_pb2
+import opencue.wrappers.depend
 
 # pylint: disable=cyclic-import
 import cuegui.Action
 import cuegui.Comments
 import cuegui.Constants
 import cuegui.CreatorDialog
+import cuegui.CueJobMonitorTree
 import cuegui.DependDialog
 import cuegui.DependWizard
 import cuegui.EmailDialog
@@ -78,6 +80,7 @@ class AbstractActions(object):
         self.__selectedRpcObjects = selectedRpcObjectsCallable
         self._getSource = sourceCallable
         self._update = updateCallable
+        self.app = cuegui.app()
 
         self.__actionCache = {}
 
@@ -219,7 +222,7 @@ class JobActions(AbstractActions):
     def view(self, rpcObjects=None):
         for job in self._getOnlyJobObjects(rpcObjects):
             # pylint: disable=no-member
-            QtGui.qApp.view_object.emit(job)
+            self.app.view_object.emit(job)
             # pylint: enable=no-member
 
     viewDepends_info = ["&View Dependencies...", None, "log"]
@@ -429,7 +432,7 @@ class JobActions(AbstractActions):
             if not dep.isInternal():
                 # pylint: disable=no-member
                 job = self.getJobByName(self, dep.dependOnJob())
-                job.dropDepends(opencue.wrappers.depend.DependTarget.EXTERNAL)
+                job.dropDepends(opencue.wrappers.depend.Depend.DependTarget.EXTERNAL)
                 # pylint: enable=no-member
 
     eatDead_info = ["Eat dead frames", None, "eat"]
@@ -996,8 +999,8 @@ class FrameActions(AbstractActions):
                       for frame in frames if frame.data.last_resource})
         if hosts:
             # pylint: disable=no-member
-            QtGui.qApp.view_hosts.emit(hosts)
-            QtGui.qApp.single_click.emit(opencue.api.findHost(hosts[0]))
+            self.app.view_hosts.emit(hosts)
+            self.app.single_click.emit(opencue.api.findHost(hosts[0]))
             # pylint: enable=no-member
 
     getWhatThisDependsOn_info = ["print getWhatThisDependsOn", None, "log"]
@@ -1453,7 +1456,7 @@ class HostActions(AbstractActions):
         hosts = list({host.data.name for host in hosts})
         if hosts:
             # pylint: disable=no-member
-            QtGui.qApp.view_procs.emit(hosts)
+            self.app.view_procs.emit(hosts)
             # pylint: enable=no-member
 
     lock_info = ["Lock Host", None, "lock"]
@@ -1651,7 +1654,7 @@ class ProcActions(AbstractActions):
         for job in list({proc.data.job_name for proc in self._getOnlyProcObjects(rpcObjects)}):
             try:
                 # pylint: disable=no-member
-                QtGui.qApp.view_object.emit(opencue.api.findJob(job))
+                self.app.view_object.emit(opencue.api.findJob(job))
                 # pylint: enable=no-member
             except opencue.exception.CueException:
                 logger.warning("Unable to load: %s", job)

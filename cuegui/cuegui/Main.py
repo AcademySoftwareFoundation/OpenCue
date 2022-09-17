@@ -24,7 +24,7 @@ import signal
 
 from PySide2 import QtGui
 
-import cuegui.App
+import cuegui
 import cuegui.Config
 import cuegui.Constants
 import cuegui.Logger
@@ -52,7 +52,7 @@ def cuecommander(argv):
 def startup(app_name, app_version, argv):
     """Starts an application window."""
 
-    app = cuegui.App.create_app(argv)
+    app = cuegui.create_app(argv)
 
     # Start splash screen
     splash = cuegui.SplashWindow.SplashWindow(
@@ -99,6 +99,6 @@ def startup(app_name, app_version, argv):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
-    threads = cuegui.App.app().threads  # pylint: disable=no-member
+    threads = cuegui.app().threads  # pylint: disable=no-member
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)

@@ -104,9 +104,8 @@ class MonitorAllocations(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.setDragEnabled(True)
         self.setDragDropMode(QtWidgets.QAbstractItemView.DragDrop)
 
-        # Signals are defined in code, so pylint thinks they don't exist.
         # pylint: disable=no-member
-        QtGui.qApp.facility_changed.connect(self._update)
+        self.app.facility_changed.connect(self._update)
         # pylint: enable=no-member
 
         self.setUpdateInterval(60)

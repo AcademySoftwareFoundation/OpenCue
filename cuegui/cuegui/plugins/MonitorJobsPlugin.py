@@ -70,8 +70,8 @@ class MonitorJobsDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         # Signals in
         # pylint: disable=no-member
-        QtGui.qApp.view_object.connect(self.addJob)
-        QtGui.qApp.facility_changed.connect(self.jobMonitor.removeAllItems)
+        self.app.view_object.connect(self.addJob)
+        self.app.facility_changed.connect(self.jobMonitor.removeAllItems)
         # pylint: enable=no-member
 
         # Signals out

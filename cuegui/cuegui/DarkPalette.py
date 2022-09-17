@@ -25,7 +25,6 @@ import platform
 from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import cuegui.App
 import cuegui.Constants
 
 
@@ -34,7 +33,7 @@ def init():
     application and configures the palette and style for the Plastique
     color scheme"""
     # pylint: disable=no-member
-    app = cuegui.App.app()
+    app = cuegui.app()
     app.setPalette(DarkPalette())
     if platform.system() in ['Darwin', 'Linux']:
         setDarkStyleSheet()
@@ -47,7 +46,7 @@ def init():
 def setDarkStyleSheet():
     """Sets the stylesheet."""
     # pylint: disable=no-member
-    cuegui.App.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
+    cuegui.app().setStyleSheet(open(cuegui.Constants.DARK_STYLE_SHEET).read())
 
 
 def DarkPalette():

@@ -42,5 +42,5 @@ class ServicesDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__serviceManager = cuegui.ServiceDialog.ServiceManager(None, self)
         self.layout().addWidget(self.__serviceManager)
         # pylint: disable=no-member
-        QtGui.qApp.facility_changed.connect(self.__serviceManager.refresh)
+        self.app.facility_changed.connect(self.__serviceManager.refresh)
         # pylint: enable=no-member

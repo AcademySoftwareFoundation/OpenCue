@@ -58,10 +58,8 @@ import traceback
 import pickle
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
-import cuegui.App
 import cuegui.Constants
 import cuegui.Logger
 import cuegui.Utils
@@ -99,12 +97,13 @@ class Plugins(object):
         self.__running = []
         self.name = name
         self.mainWindow = mainWindow
+        self.app = cuegui.app()
 
         self.__menu_separator = " \t-> "
 
         # Load plugin paths from the config file
         # pylint: disable=no-member
-        __pluginPaths = cuegui.App.app().settings.value("Plugin_Paths", [])
+        __pluginPaths = self.app.settings.value("Plugin_Paths", [])
         # pylint: enable=no-member
         for path in cuegui.Constants.DEFAULT_PLUGIN_PATHS + __pluginPaths:
             self.loadPluginPath(str(path))
@@ -125,7 +124,7 @@ class Plugins(object):
         passed to it.
         """
         # pylint: disable=no-member
-        __plugins = cuegui.App.app().settings.value("%s/Plugins" % configGroup, [])
+        __plugins = self.app.settings.value("%s/Plugins" % configGroup, [])
         # pylint: enable=no-member
 
         for plugin in __plugins:
@@ -183,7 +182,7 @@ class Plugins(object):
             except Exception as e:
                 logger.warning("Error saving plugin state for: %s\n%s", plugin[0], e)
         # pylint: disable=no-member
-        cuegui.App.app().settings.setValue("%s/Plugins_Opened" % self.name, opened)
+        self.app.settings.setValue("%s/Plugins_Opened" % self.name, opened)
         # pylint: enable=no-member
 
     def restoreState(self):
@@ -192,7 +191,7 @@ class Plugins(object):
         Calls .restoreSettings (if available) on all plugins."""
         # Loads any user defined plugin directories
         # pylint: disable=no-member
-        pluginPaths = cuegui.App.app().settings.value("Plugins/Paths", [])
+        pluginPaths = self.app.settings.value("Plugins/Paths", [])
         # pylint: enable=no-member
 
         for path in pluginPaths:
@@ -200,7 +199,7 @@ class Plugins(object):
 
         # Runs any plugins that were saved to the settings
         # pylint: disable=no-member
-        openPlugins = cuegui.App.app().settings.value("%s/Plugins_Opened" % self.name) or []
+        openPlugins = self.app.settings.value("%s/Plugins_Opened" % self.name) or []
         # pylint: enable=no-member
         for plugin in openPlugins:
             if '::' in plugin:
@@ -358,6 +357,7 @@ class Plugin(object):
 
     def __init__(self):
         self.__settings = []
+        self.app = cuegui.app()
 
     def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
