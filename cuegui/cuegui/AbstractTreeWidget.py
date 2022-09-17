@@ -281,7 +281,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number single clicked on"""
         del col
         # pylint: disable=no-member
-        self.app.single_click.emit(item.rpcObject)
+        cuegui.app().single_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     @staticmethod
@@ -295,8 +295,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @param col: Column number double clicked on"""
         del col
         # pylint: disable=no-member
-        self.app.view_object.emit(item.rpcObject)
-        self.app.double_click.emit(item.rpcObject)
+        cuegui.app().view_object.emit(item.rpcObject)
+        cuegui.app().double_click.emit(item.rpcObject)
         # pylint: enable=no-member
 
     def addObject(self, rpcObject):

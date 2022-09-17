@@ -24,7 +24,6 @@ from builtins import map
 from builtins import str
 import time
 
-from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 

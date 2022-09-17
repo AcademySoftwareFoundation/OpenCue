@@ -18,13 +18,18 @@
 class CueGuiException(Exception):
     """Base class for all CueGUI exceptions.
 
-    Note that this class does NOT inherit from opencue.exception.CueException, so that error handling
-    code can easily distinguish between API errors and CueGUI errors.
+    Note that this class does NOT inherit from opencue.exception.CueException, so that error
+    handling code can easily distinguish between API errors and CueGUI errors.
     """
 
 
 class ApplicationNotRunningException(CueGuiException):
     """Raised when the CueGUI application has not been instantiated but is required to be."""
 
-    def __init__(self, message='the CueGUI application has not been initialized, create_app() must be called first'):
+    default_message = (
+        'attempted to access the CueGUI application before cuegui.create_app() was called')
+
+    def __init__(self, message=None):
+        if message is None:
+            message = self.default_message
         super().__init__(message)

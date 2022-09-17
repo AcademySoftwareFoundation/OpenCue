@@ -12,6 +12,8 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Module for CueGUI's custom QApplication and associated helper functions."""
+
 from PySide2 import QtCore
 from PySide2 import QtWidgets
 
@@ -46,6 +48,7 @@ def create_app(argv):
     :return: the application instance
     :rtype: CueGuiApplication
     """
+    # pylint: disable=global-statement
     global __QAPPLICATION_SINGLETON
     if __QAPPLICATION_SINGLETON is None:
         __QAPPLICATION_SINGLETON = CueGuiApplication(argv)
@@ -57,7 +60,8 @@ def app():
 
     :return: the current application instance
     :rtype: CueGuiApplication
-    :raises: opencue.exception.ApplicationNotRunningException: the application has not been initialized yet
+    :raises: opencue.exception.ApplicationNotRunningException: the application has not been
+        initialized yet
     """
     if __QAPPLICATION_SINGLETON is None:
         raise cuegui.Exception.ApplicationNotRunningException()

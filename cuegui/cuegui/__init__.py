@@ -12,5 +12,10 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
+"""Top level module for the CueGUI application.
+
+See __main__.py and Main.py for the application entrypoint.
+"""
+
 from .App import create_app
 from .App import app
