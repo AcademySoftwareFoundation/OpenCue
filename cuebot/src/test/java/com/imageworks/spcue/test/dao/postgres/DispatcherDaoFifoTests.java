@@ -19,13 +19,13 @@
 
 package com.imageworks.spcue.test.dao.postgres;
 
+import javax.annotation.Resource;
 import java.io.File;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import javax.annotation.Resource;
 
 import org.jdom.Document;
 import org.jdom.Element;
@@ -33,6 +33,7 @@ import org.jdom.input.SAXBuilder;
 import org.jdom.output.XMLOutputter;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,10 +59,8 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes=TestAppConfig.class, loader=AnnotationConfigContextLoader.class)
@@ -212,6 +211,7 @@ public class DispatcherDaoFifoTests extends AbstractTransactionalJUnit4SpringCon
     @Test
     @Transactional
     @Rollback(true)
+    @Ignore
     public void testFifoSchedulingDisabled() throws Exception {
         dispatcherDao.setSchedulingMode(DispatcherDao.SchedulingMode.PRIORITY_ONLY);
 
