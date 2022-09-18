@@ -297,7 +297,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
-            self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
+            self.__class__.__backgroundColor = cuegui.app().palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND
