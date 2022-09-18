@@ -47,8 +47,8 @@ class LayerPropertiesDialogTests(unittest.TestCase):
     @mock.patch('opencue.api.getLayer')
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock, get_layer_mock, get_limits_mock):
-        test_utils.createApplication()
-        PySide6.QtGui.qApp.settings = PySide6.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide6.QtCore.QSettings()
         cuegui.Style.init()
 
         self.layers = {

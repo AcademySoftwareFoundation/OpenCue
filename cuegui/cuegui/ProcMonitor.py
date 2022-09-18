@@ -23,7 +23,6 @@ from __future__ import division
 from builtins import str
 
 from PySide6 import QtCore
-from PySide6 import QtGui
 from PySide6 import QtWidgets
 
 import cuegui.Logger
@@ -42,6 +41,7 @@ class ProcMonitor(QtWidgets.QWidget):
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__filterByHostNameLastInput = None
 
@@ -71,7 +71,7 @@ class ProcMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()
 
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorProc", 1))):  # pylint: disable=no-member
+        if bool(int(self.app.settings.value("AutoRefreshMonitorProc", 1))):
             self.updateRequest()
 
     def updateRequest(self):
@@ -141,9 +141,7 @@ class ProcMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.procMonitorTree.enableRefresh = bool(state)
-        # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorProc", int(bool(state)))
-        # pylint: enable=no-member
+        self.app.settings.setValue("AutoRefreshMonitorProc", int(bool(state)))
 
 # ==============================================================================
 # Button to refresh
@@ -192,7 +190,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Monitors and handles the view_procs signal
 # ==============================================================================
     def __viewProcsSetup(self):
-        QtGui.qApp.view_procs.connect(self.__viewProcsHandle)  # pylint: disable=no-member
+        self.app.view_procs.connect(self.__viewProcsHandle)
 
     def __viewProcsHandle(self, hosts):
         self.procMonitorTree.procSearch.options['host'] = hosts
@@ -202,7 +200,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Views procs when a host is double clicked
 # ==============================================================================
     def __hostDoubleClickedSetup(self):
-        QtGui.qApp.view_object.connect(self.__hostDoubleClickedHandle)  # pylint: disable=no-member
+        self.app.view_object.connect(self.__hostDoubleClickedHandle)
 
     def __hostDoubleClickedHandle(self, rpcObject):
         if cuegui.Utils.isHost(rpcObject):
@@ -213,7 +211,7 @@ class ProcMonitor(QtWidgets.QWidget):
 # Monitors and handles the view_hosts signal
 # ==============================================================================
     def __viewHostsSetup(self):
-        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)  # pylint: disable=no-member
+        self.app.view_hosts.connect(self.__viewHostsHandle)
 
     def __viewHostsHandle(self, hosts):
         if hosts:

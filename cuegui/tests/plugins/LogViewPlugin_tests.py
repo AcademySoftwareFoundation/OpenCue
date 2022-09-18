@@ -64,26 +64,26 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.fs.create_file(self.logPath2, contents=_LOG_TEXT_2)
 
         test_utils.createApplication()
-        PySide6.QtGui.qApp.settings = PySide6.QtCore.QSettings()
+        cuegui.app().settings = PySide6.QtCore.QSettings()
         cuegui.Style.init()
         self.parentWidget = PySide6.QtWidgets.QMainWindow()
         self.logViewPlugin = cuegui.plugins.LogViewPlugin.LogViewPlugin(self.parentWidget)
 
     def test_shouldDisplayFirstLogFile(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
 
         self.assertEqual(_LOG_TEXT_1, self.logViewPlugin.logview_widget._content_box.toPlainText())
 
     def test_shouldUpdateLogFile(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
         new_contents = _LOG_TEXT_1 + '\nanother line at the end'
         self.log1.set_contents(new_contents)
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
 
         self.assertEqual(new_contents, self.logViewPlugin.logview_widget._content_box.toPlainText())
 
     def test_shouldHighlightAllSearchResults(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             PySide6.QtCore.Qt.CheckState.Unchecked)
 
@@ -100,7 +100,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
                 self.logViewPlugin.logview_widget._content_box, matches[1][0], matches[1][1]))
 
     def test_shouldMoveCursorToSecondSearchResult(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             PySide6.QtCore.Qt.CheckState.Unchecked)
 
@@ -114,7 +114,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(132, self.logViewPlugin.logview_widget._cursor.position())
 
     def test_shouldMoveCursorLastSearchResult(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             PySide6.QtCore.Qt.CheckState.Unchecked)
 
@@ -128,7 +128,7 @@ class LogViewPluginTests(pyfakefs.fake_filesystem_unittest.TestCase):
         self.assertEqual(132, self.logViewPlugin.logview_widget._cursor.position())
 
     def test_shouldPerformCaseInsensitiveSearch(self):
-        PySide6.QtGui.qApp.display_log_file_content.emit([self.logPath1, self.logPath2])
+        cuegui.app().display_log_file_content.emit([self.logPath1, self.logPath2])
         self.logViewPlugin.logview_widget._case_stv_checkbox.setCheckState(
             PySide6.QtCore.Qt.CheckState.Checked)
 

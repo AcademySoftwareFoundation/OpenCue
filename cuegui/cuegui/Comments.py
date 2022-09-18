@@ -24,7 +24,6 @@ from builtins import str
 import pickle
 
 from PySide6 import QtCore
-from PySide6 import QtGui
 from PySide6 import QtWidgets
 
 import cuegui.Utils
@@ -50,6 +49,8 @@ class CommentListDialog(QtWidgets.QDialog):
         @type  parent: QWidget
         @param parent: The dialog's parent"""
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
+
         self.__source = source
 
         self.__labelTitle = QtWidgets.QLabel(self.__source.data.name, self)
@@ -208,10 +209,8 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroLoad(self):
         """Loads the defined comment macros from settings"""
-        # pylint: disable=no-member
         self.__macroList = pickle.loads(
-            str(QtGui.qApp.settings.value("Comments", pickle.dumps({}))))
-        # pylint: enable=no-member
+            str(self.app.settings.value("Comments", pickle.dumps({}))))
         self.__macroRefresh()
 
     def __macroRefresh(self):
@@ -225,9 +224,7 @@ class CommentListDialog(QtWidgets.QDialog):
 
     def __macroSave(self):
         """Saves the current comment macros to settings"""
-        # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("Comments", pickle.dumps(self.__macroList))
-        # pylint: enable=no-member
+        self.app.settings.setValue("Comments", pickle.dumps(self.__macroList))
 
     def __macroHandle(self, selection):
         """Called when the comment macro combo box is selected

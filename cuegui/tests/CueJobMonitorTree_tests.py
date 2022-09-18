@@ -39,8 +39,8 @@ class CueJobMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
     def setUp(self, get_stub_mock):
-        test_utils.createApplication()
-        PySide6.QtGui.qApp.settings = PySide6.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide6.QtCore.QSettings()
         cuegui.Style.init()
 
         self.show_name = 'arbitrary-show-name'

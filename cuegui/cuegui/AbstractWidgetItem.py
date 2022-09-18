@@ -47,6 +47,7 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
 
     def __init__(self, itemType, rpcObject, parent, source=None):
         QtWidgets.QTreeWidgetItem.__init__(self, parent, itemType)
+        self.app = cuegui.app()
         self.column_info = self.treeWidget().getColumnInfo(itemType)
         self._cache = {}
         self._source = source

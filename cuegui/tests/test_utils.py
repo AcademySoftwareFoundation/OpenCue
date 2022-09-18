@@ -16,17 +16,8 @@
 """Common utility functions for CueGUI test code."""
 
 
-import PySide6.QtGui
-
-import cuegui.Main
+import cuegui
 
 
-__QAPPLICATION_SINGLETON = None
-
-
-# pylint: disable=global-statement
 def createApplication():
-    global __QAPPLICATION_SINGLETON
-    if __QAPPLICATION_SINGLETON is None:
-        __QAPPLICATION_SINGLETON = cuegui.Main.CueGuiApplication()
-        PySide6.QtGui.qApp = __QAPPLICATION_SINGLETON
+    return cuegui.create_app([])

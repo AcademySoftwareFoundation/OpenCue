@@ -52,7 +52,7 @@ import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.Main
 import cuegui.MenuActions
-
+from . import test_utils
 
 _GB_TO_KB = 1024 * 1024
 
@@ -60,6 +60,7 @@ _GB_TO_KB = 1024 * 1024
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class JobActionsTests(unittest.TestCase):
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.job_actions = cuegui.MenuActions.JobActions(self.widgetMock, mock.Mock(), None, None)
 
@@ -71,14 +72,14 @@ class JobActionsTests(unittest.TestCase):
 
         self.widgetMock.actionRemoveSelectedItems.assert_called_with()
 
-    @mock.patch('PySide6.QtGui.qApp')
-    def test_view(self, qAppMock):
+    def test_view(self):
+        self.app.view_object = mock.Mock()
         job_name = 'arbitrary-name'
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=job_name))
 
         self.job_actions.view(rpcObjects=[job, opencue.wrappers.frame.Frame()])
 
-        qAppMock.view_object.emit.assert_called_once_with(job)
+        self.app.view_object.emit.assert_called_once_with(job)
 
     @mock.patch('cuegui.DependDialog.DependDialog')
     def test_viewDepends(self, dependDialogMock):
@@ -545,6 +546,7 @@ class LayerActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.job = mock.create_autospec(opencue.wrappers.job.Job())
         self.layer_actions = cuegui.MenuActions.LayerActions(
@@ -793,6 +795,7 @@ class FrameActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.job = mock.create_autospec(opencue.wrappers.job.Job())
         self.frame_actions = cuegui.MenuActions.FrameActions(
@@ -870,8 +873,9 @@ class FrameActionsTests(unittest.TestCase):
         popupFrameXdiffMock.assert_called_with(self.job, frame1, frame2, frame3)
 
     @mock.patch('opencue.api.findHost')
-    @mock.patch('PySide6.QtGui.qApp')
-    def test_viewHost(self, qAppMock, findHostMock):
+    def test_viewHost(self, findHostMock):
+        self.app.view_hosts = mock.Mock()
+        self.app.single_click = mock.Mock()
         host_name = 'arbitrary-host-name'
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=host_name))
@@ -881,8 +885,8 @@ class FrameActionsTests(unittest.TestCase):
 
         self.frame_actions.viewHost(rpcObjects=[frame])
 
-        qAppMock.view_hosts.emit.assert_called_with([host_name])
-        qAppMock.single_click.emit.assert_called_with(host)
+        self.app.view_hosts.emit.assert_called_with([host_name])
+        self.app.single_click.emit.assert_called_with(host)
 
     def test_getWhatThisDependsOn(self):
         frame = opencue.wrappers.frame.Frame()
@@ -1049,6 +1053,7 @@ class ShowActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.show_actions = cuegui.MenuActions.ShowActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1085,6 +1090,7 @@ class GroupActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.group_actions = cuegui.MenuActions.GroupActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1122,6 +1128,7 @@ class SubscriptionActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.subscription_actions = cuegui.MenuActions.SubscriptionActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1175,6 +1182,7 @@ class HostActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.host_actions = cuegui.MenuActions.HostActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1188,15 +1196,15 @@ class HostActionsTests(unittest.TestCase):
         commentListDialogMock.assert_called_with(host, mock.ANY)
         commentListDialogMock.return_value.show.assert_called()
 
-    @mock.patch('PySide6.QtGui.qApp')
-    def test_viewProc(self, qAppMock):
+    def test_viewProc(self):
+        self.app.view_procs = mock.Mock()
         hostName = 'arbitrary-name'
         host = opencue.wrappers.host.Host(
             opencue.compiled_proto.host_pb2.Host(id='arbitrary-id', name=hostName))
 
         self.host_actions.viewProc(rpcObjects=[opencue.wrappers.layer.Layer, host, host])
 
-        qAppMock.view_procs.emit.assert_called_with([hostName])
+        self.app.view_procs.emit.assert_called_with([hostName])
 
     def test_lock(self):
         host = opencue.wrappers.host.Host(
@@ -1337,13 +1345,14 @@ class ProcActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.proc_actions = cuegui.MenuActions.ProcActions(
             self.widgetMock, mock.Mock(), None, None)
 
-    @mock.patch('PySide6.QtGui.qApp')
     @mock.patch('opencue.api.findJob')
-    def test_view(self, findJobMock, qAppMock):
+    def test_view(self, findJobMock):
+        self.app.view_object = mock.Mock()
         jobName = 'arbitraryJobName'
         job = opencue.wrappers.job.Job(opencue.compiled_proto.job_pb2.Job(name=jobName))
         proc = opencue.wrappers.proc.Proc(opencue.compiled_proto.host_pb2.Proc(job_name=jobName))
@@ -1351,7 +1360,7 @@ class ProcActionsTests(unittest.TestCase):
 
         self.proc_actions.view(rpcObjects=[opencue.wrappers.layer.Layer, proc])
 
-        qAppMock.view_object.emit.assert_called_once_with(job)
+        self.app.view_object.emit.assert_called_once_with(job)
 
     @mock.patch('cuegui.Utils.questionBoxYesNo', new=mock.Mock(return_value=True))
     def test_kill(self):
@@ -1386,6 +1395,7 @@ class DependenciesActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.dep_actions = cuegui.MenuActions.DependenciesActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1412,6 +1422,7 @@ class FilterActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.filter_actions = cuegui.MenuActions.FilterActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1485,6 +1496,7 @@ class MatcherActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.matcher_actions = cuegui.MenuActions.MatcherActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1515,6 +1527,7 @@ class ActionActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.action_actions = cuegui.MenuActions.ActionActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1534,6 +1547,7 @@ class TaskActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.task_actions = cuegui.MenuActions.TaskActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1572,6 +1586,7 @@ class LimitActionsTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.limit_actions = cuegui.MenuActions.LimitActions(
             self.widgetMock, mock.Mock(), None, None)
@@ -1622,6 +1637,7 @@ class LimitActionsTests(unittest.TestCase):
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class MenuActionsTests(unittest.TestCase):
     def setUp(self):
+        self.app = test_utils.createApplication()
         self.widgetMock = mock.Mock()
         self.args = [self.widgetMock, lambda: None, lambda: None, lambda: None]
         self.menuActions = cuegui.MenuActions.MenuActions(*self.args)

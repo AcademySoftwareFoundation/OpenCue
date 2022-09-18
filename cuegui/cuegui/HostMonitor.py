@@ -23,7 +23,6 @@ from __future__ import division
 from builtins import str
 
 from PySide6 import QtCore
-from PySide6 import QtGui
 from PySide6 import QtWidgets
 
 import opencue
@@ -43,6 +42,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __init__(self, parent):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__filterByHostNameLastInput = None
         self.hostMonitorTree = cuegui.HostMonitorTree.HostMonitorTree(self)
@@ -70,10 +70,8 @@ class HostMonitor(QtWidgets.QWidget):
 
         self.__viewHostsSetup()
 
-        # pylint: disable=no-member
-        if bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1))):
+        if bool(int(self.app.settings.value("AutoRefreshMonitorHost", 1))):
             self.updateRequest()
-        # pylint: enable=no-member
 
     def updateRequest(self):
         """Requests an update of the displayed information."""
@@ -279,9 +277,7 @@ class HostMonitor(QtWidgets.QWidget):
 
     def __refreshToggleCheckBoxHandle(self, state):
         self.hostMonitorTree.enableRefresh = bool(state)
-        # pylint: disable=no-member
-        QtGui.qApp.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
-        # pylint: enable=no-member
+        self.app.settings.setValue("AutoRefreshMonitorHost", int(bool(state)))
 
     # ==============================================================================
     # Button to refresh
@@ -332,9 +328,7 @@ class HostMonitor(QtWidgets.QWidget):
     # Monitors and handles the view_hosts signal
     # ==============================================================================
     def __viewHostsSetup(self):
-        # pylint: disable=no-member
-        QtGui.qApp.view_hosts.connect(self.__viewHostsHandle)
-        # pylint: enable=no-member
+        self.app.view_hosts.connect(self.__viewHostsHandle)
 
     def __viewHostsHandle(self, hosts):
         self.__clearButtonHandle()

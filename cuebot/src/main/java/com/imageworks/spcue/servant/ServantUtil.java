@@ -21,10 +21,19 @@ package com.imageworks.spcue.servant;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
+import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.LayerInterface;
+import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Layer;
 import com.imageworks.spcue.grpc.job.LayerSeq;
+import com.imageworks.spcue.service.JobManager;
+
+import io.grpc.Status;
+import io.grpc.stub.StreamObserver;
+import org.springframework.core.env.Environment;
 
 public class ServantUtil {
 
@@ -43,6 +52,25 @@ public class ServantUtil {
             });
         }
         return result;
+    }
+
+    private static boolean isJobFinished(Environment env, String property, JobManager jobManager, JobInterface job) {
+        if (env.getProperty(property, String.class) != null &&
+                Objects.equals(env.getProperty(property, String.class), "true")) {
+            JobDetail jobDetail = jobManager.getJobDetail(job.getJobId());
+            return jobDetail.state == JobState.FINISHED;
+        }
+        return false;
+    }
+
+    public static <T> boolean attemptChange(Environment env, String property, JobManager jobManager, JobInterface job, StreamObserver<T> responseObserver) {
+        if (ServantUtil.isJobFinished(env, property, jobManager, job)) {
+            responseObserver.onError(Status.FAILED_PRECONDITION
+                    .withDescription("Finished jobs are readonly")
+                    .asRuntimeException());
+            return false;
+        }
+        return true;
     }
 }
 

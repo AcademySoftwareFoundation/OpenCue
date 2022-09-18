@@ -169,17 +169,13 @@ class HostMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # pylint: enable=no-member
 
         # Don't use the standard space bar to refresh
-        # pylint: disable=no-member
-        QtGui.qApp.request_update.connect(self.updateRequest)
-        # pylint: enable=no-member
+        self.app.request_update.connect(self.updateRequest)
 
         self.startTicksUpdate(40)
         # Don't start refreshing until the user sets a filter or hits refresh
         self.ticksWithoutUpdate = -1
 
-        # pylint: disable=no-member
-        self.enableRefresh = bool(int(QtGui.qApp.settings.value("AutoRefreshMonitorHost", 1)))
-        # pylint: enable=no-member
+        self.enableRefresh = bool(int(self.app.settings.value("AutoRefreshMonitorHost", 1)))
 
     def tick(self):
         if self.ticksWithoutUpdate >= self.updateInterval and \
@@ -301,9 +297,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             cuegui.Style.init()
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
-            # pylint: disable=no-member
-            self.__class__.__backgroundColor = QtGui.qApp.palette().color(QtGui.QPalette.Base)
-            # pylint: enable=no-member
+            self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
             self.__class__.__pausedColor = cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND
             self.__class__.__dyingColor = cuegui.Style.ColorTheme.COLOR_JOB_DYING_BACKGROUND

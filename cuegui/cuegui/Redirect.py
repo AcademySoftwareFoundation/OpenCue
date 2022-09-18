@@ -415,6 +415,7 @@ class RedirectWidget(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         QtWidgets.QWidget.__init__(self, parent)
+        self.app = cuegui.app()
         self.__hosts = {}
 
         self.__controls = RedirectControls(self)
@@ -464,7 +465,7 @@ class RedirectWidget(QtWidgets.QWidget):
                 jobObject = opencue.api.getJobs(job=[index.data()])
                 if jobObject:
                     if cuegui.Utils.isJob(jobObject[0]):
-                        QtGui.qApp.view_object.emit(jobObject[0])
+                        self.app.view_object.emit(jobObject[0])
             except opencue.exception.CueException as e:
                 text = ('Not able to add job to Job Monitor Tree. '
                         'Error Message:\n %s' % e)

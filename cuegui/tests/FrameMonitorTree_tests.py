@@ -43,9 +43,8 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
-        test_utils.createApplication()
-
-        PySide6.QtGui.qApp.settings = PySide6.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide6.QtCore.QSettings()
         cuegui.Style.init()
         self.parentWidget = PySide6.QtWidgets.QWidget()
         self.frameMonitorTree = cuegui.FrameMonitorTree.FrameMonitorTree(self.parentWidget)

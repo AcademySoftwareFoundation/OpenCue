@@ -75,6 +75,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  parent: QWidget
         @param parent: The widget to set as the parent"""
         QtWidgets.QTreeWidget.__init__(self, parent)
+        self.app = cuegui.app()
 
         self._items = {}
         self._lastUpdate = 0
@@ -104,8 +105,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         self.itemClicked.connect(self.__itemSingleClickedEmitToApp)
         self.itemDoubleClicked.connect(self.__itemDoubleClickedEmitToApp)
         self._timer.timeout.connect(self.updateRequest)
-        QtGui.qApp.request_update.connect(self.updateRequest)
         # pylint: enable=no-member
+        self.app.request_update.connect(self.updateRequest)
 
         self.updateRequest()
         self.setUpdateInterval(10)
@@ -279,9 +280,7 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number single clicked on"""
         del col
-        # pylint: disable=no-member
-        QtGui.qApp.single_click.emit(item.rpcObject)
-        # pylint: enable=no-member
+        cuegui.app().single_click.emit(item.rpcObject)
 
     @staticmethod
     def __itemDoubleClickedEmitToApp(item, col):
@@ -293,10 +292,8 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         @type  col: int
         @param col: Column number double clicked on"""
         del col
-        # pylint: disable=no-member
-        QtGui.qApp.view_object.emit(item.rpcObject)
-        QtGui.qApp.double_click.emit(item.rpcObject)
-        # pylint: enable=no-member
+        cuegui.app().view_object.emit(item.rpcObject)
+        cuegui.app().double_click.emit(item.rpcObject)
 
     def addObject(self, rpcObject):
         """Adds or updates an rpcObject in the list using the _createItem function
@@ -385,11 +382,9 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
-        if hasattr(QtGui.qApp, "threadpool"):
-            # pylint: disable=no-member
-            QtGui.qApp.threadpool.queue(
+        if self.app.threadpool is not None:
+            self.app.threadpool.queue(
                 self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
-            # pylint: enable=no-member
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             self._processUpdate(None, self._getUpdate())

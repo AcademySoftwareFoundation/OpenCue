@@ -34,7 +34,6 @@ import urllib.request
 import xml.etree.ElementTree as Et
 
 from PySide6 import QtCore
-from PySide6 import QtGui
 from PySide6 import QtWidgets
 
 import cuegui.Logger
@@ -59,6 +58,8 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
         :param parent: the parent widget
         """
         QtWidgets.QDialog.__init__(self, parent)
+        self.app = cuegui.app()
+
         self.__job = job
         self.__frame = frame
         self.__aovs = aovs
@@ -93,9 +94,7 @@ class PreviewProcessorDialog(QtWidgets.QDialog):
 
         self.__itvFile = self.__writePlaylist(playlist)
         self.__previewThread = PreviewProcessorWatchThread(items, self)
-        # pylint: disable=no-member
-        QtGui.qApp.threads.append(self.__previewThread)
-        # pylint: enable=no-member
+        self.app.threads.append(self.__previewThread)
         self.__previewThread.start()
         self.__progbar.setRange(0, len(items))
 
