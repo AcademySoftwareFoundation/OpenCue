@@ -25,7 +25,6 @@ from builtins import object
 import os
 import logging
 import json
-from past.builtins import execfile
 import time
 import uuid
 import yaml
@@ -173,7 +172,9 @@ def parse_outline_script(path):
     """
     try:
         logger.info("parsing outline file %s", path)
-        execfile(path, {})
+        with open(path) as fp:
+            code = compile(fp.read(), path, 'exec')
+            exec(code)
     except Exception as exp:
         logger.warning("failed to parse as python file, %s", exp)
         raise outline.exception.OutlineException(
