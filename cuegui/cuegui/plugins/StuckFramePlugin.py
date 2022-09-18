@@ -1608,7 +1608,7 @@ class HostWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         if not self.__initialized:
             self.__class__.__initialized = True
             self.__class__.__commentIcon = QtGui.QIcon(":comment.png")
-            self.__class__.__backgroundColor = self.app.palette().color(QtGui.QPalette.Base)
+            self.__class__.__backgroundColor = cuegui.app().palette().color(QtGui.QPalette.Base)
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_JOB_FOREGROUND
 
         cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(self, cuegui.Constants.TYPE_FRAME,
