@@ -22,7 +22,6 @@ from __future__ import absolute_import
 
 import logging
 import os
-from past.builtins import execfile
 
 import outline.layer
 import outline.util
@@ -56,7 +55,10 @@ class PyEval(outline.layer.Layer):
         self.__code = None
 
     def _execute(self, frames):
-        execfile(self.get_file("script"))
+        path = self.get_file("script")
+        with open(path) as fp:
+            code = compile(fp.read(), path, 'exec')
+            exec(code)
 
 
 class Shell(outline.layer.Layer):
