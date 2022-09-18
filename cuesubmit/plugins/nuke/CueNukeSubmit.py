@@ -15,7 +15,7 @@
 import argparse
 import logging
 
-from PySide2 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 from cuesubmit import Constants
 from cuesubmit import JobTypes

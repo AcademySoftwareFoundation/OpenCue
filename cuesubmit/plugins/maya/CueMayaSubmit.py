@@ -19,7 +19,7 @@ import sys
 
 import maya.cmds as cmds
 import maya.utils
-from PySide2 import QtCore, QtWidgets
+from PySide6 import QtCore, QtWidgets
 
 # Path where all of the Cue Python libraries and their dependencies are installed.
 # The recommended workflow is for this to be a virtual environment, like:

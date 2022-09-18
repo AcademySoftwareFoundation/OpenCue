@@ -20,7 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
-from PySide2 import QtGui
+from PySide6 import QtGui
 
 
 MAIN_WINDOW = """
