@@ -58,7 +58,7 @@ class PyEval(outline.layer.Layer):
         path = self.get_file("script")
         with open(path) as fp:
             code = compile(fp.read(), path, 'exec')
-            exec(code)
+            exec(code)  # pylint: disable=exec-used
 
 
 class Shell(outline.layer.Layer):

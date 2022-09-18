@@ -174,7 +174,7 @@ def parse_outline_script(path):
         logger.info("parsing outline file %s", path)
         with open(path) as fp:
             code = compile(fp.read(), path, 'exec')
-            exec(code)
+            exec(code)  # pylint: disable=exec-used
     except Exception as exp:
         logger.warning("failed to parse as python file, %s", exp)
         raise outline.exception.OutlineException(
