@@ -3,7 +3,7 @@
 # Script for testing CueGUI with PySide6.
 #
 # This script is written to be run within an almalinux environment in the OpenCue
-# GitHub Actions environment. See .github/testing-pipeline.yml.
+# GitHub Actions environment. See .github/workflows/testing-pipeline.yml.
 
 set -e
 
