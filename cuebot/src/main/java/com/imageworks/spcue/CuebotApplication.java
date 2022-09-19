@@ -41,7 +41,7 @@ public class CuebotApplication extends SpringApplication {
             String fixedFlag = "--log.frame-log-root.default_os="
                     + StringUtils.substringAfter(deprecatedFlag.get(), "=");
             args = Stream.concat(
-                            Arrays.stream(args).filter(arg -> !arg.startsWith("--log.frame-log-root")),
+                            Arrays.stream(args).filter(arg -> !arg.startsWith("--log.frame-log-root=")),
                             Stream.of(fixedFlag))
                     .toArray(String[]::new);
         }
