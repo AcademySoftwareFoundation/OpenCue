@@ -1,10 +1,4 @@
-# -----------------
-# BUILD
-# -----------------
-FROM centos:7 as build
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueSubmit build stage"
+FROM --platform=linux/x86_64 centos:7
 
 WORKDIR /src
 
@@ -15,22 +9,17 @@ RUN yum -y install \
   python-devel
 
 RUN yum -y install \
-  python-pip \
   python36 \
   python36-devel \
   python36-pip
 
-RUN python -m pip install --upgrade 'pip<21'
 RUN python3.6 -m pip install --upgrade pip
-
-RUN python -m pip install --upgrade 'setuptools<45'
 RUN python3.6 -m pip install --upgrade setuptools
 
 COPY LICENSE ./
 COPY requirements.txt ./
 COPY requirements_gui.txt ./
 
-RUN python -m pip install -r requirements.txt -r requirements_gui.txt
 RUN python3.6 -m pip install -r requirements.txt -r requirements_gui.txt
 
 COPY proto/ ./proto
@@ -39,7 +28,7 @@ COPY pycue/setup.py ./pycue/
 COPY pycue/opencue ./pycue/opencue
 COPY pycue/FileSequence ./pycue/FileSequence
 
-RUN python -m grpc_tools.protoc \
+RUN python3.6 -m grpc_tools.protoc \
   -I=./proto \
   --python_out=./pycue/opencue/compiled_proto \
   --grpc_python_out=./pycue/opencue/compiled_proto \
@@ -65,36 +54,14 @@ COPY cuesubmit/cuesubmit ./cuesubmit/cuesubmit
 COPY VERSION.in VERSIO[N] ./
 RUN test -e VERSION || echo "$(cat VERSION.in)-custom" | tee VERSION
 
-RUN cd pycue && python setup.py install
-
 RUN cd pycue && python3.6 setup.py install
-
-RUN cd pyoutline && python setup.py install
-
 RUN cd pyoutline && python3.6 setup.py install
-
-# TODO(bcipriano) Lint the code here. (Issue #78)
-
-RUN cd cuesubmit && python setup.py test
-
 RUN cd cuesubmit && python3.6 setup.py test
 
 RUN cp LICENSE requirements.txt requirements_gui.txt VERSION cuesubmit/
 
 RUN versioned_name="cuesubmit-$(cat ./VERSION)-all" \
-  && mv cuesubmit $versioned_name \
-  && tar -cvzf $versioned_name.tar.gz $versioned_name/*
-
-
-# -----------------
-# RUN
-# -----------------
-FROM centos:7
-
-# First line after FROM should be unique to avoid --cache-from weirdness.
-RUN echo "CueSubmit runtime stage"
-
-WORKDIR /opt/opencue
-
-COPY --from=build /src/cuesubmit-*-all.tar.gz ./
-
+  && mv cuesubmit "${versioned_name}" \
+  && tar -cvzf "${versioned_name}.tar.gz" ${versioned_name}/* \
+  && mkdir -p /opt/opencue \
+  && cp "${versioned_name}.tar.gz" /opt/opencue/
