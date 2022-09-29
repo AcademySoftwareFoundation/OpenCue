@@ -10,3 +10,4 @@ venv*/
 coverage.xml
 htmlcov/
 /.env
+.envrc
