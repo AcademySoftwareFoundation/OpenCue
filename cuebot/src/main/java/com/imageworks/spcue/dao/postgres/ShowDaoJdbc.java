@@ -251,7 +251,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
                             "  (DATE_PART('days', NOW()) - DATE_PART('days', dt_last_modified)) < ? " +
                             "GROUP BY pk_show HAVING COUNT(pk_job) > 0) pk_show) " +
                             "  AND str_name NOT IN (?)",
-                    protectedShows, maxShowStaleDays);
+                   maxShowStaleDays, protectedShows);
         }
     }
 
