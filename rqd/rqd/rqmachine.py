@@ -283,7 +283,9 @@ class Machine(object):
 
                 # pylint: disable=broad-except
                 except (OSError, IOError):
-                    log.exception('Failed to read stat/statm file for pid %s', pid)
+                    # Many Linux processes are ephemeral and will disappear before we're able
+                    # to read them. This is not typically indicative of a problem.
+                    log.debug('Failed to read stat/statm file for pid %s', pid)
 
         # pylint: disable=too-many-nested-blocks
         try:
