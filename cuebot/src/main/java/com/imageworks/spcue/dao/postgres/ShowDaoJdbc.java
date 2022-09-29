@@ -237,32 +237,22 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
 
     @Override
     public void updateShowsStatus() {
-        Stream<String> protectedShowsRaw = Arrays.stream(env.getProperty("protected_shows", String.class).split(","));
+        Stream<String> protectedShowsRaw = Arrays
+                .stream(env.getProperty("protected_shows", String.class, "").split(","));
         String protectedShows = protectedShowsRaw.map(show -> "'" + show + "'")
                                                  .collect(Collectors.joining(","));
-        getJdbcTemplate().update("UPDATE " +
-                                    "show " +
-                                "SET " +
-                                    "b_active=false " +
-                                "WHERE " +
-                                    "pk_show NOT IN (" +
-                                        "SELECT " +
-                                            "pk_show " +
-                                        "FROM (" +
-                                            "SELECT " +
-                                                "pk_show, count(pk_job) " +
-                                            "FROM " +
-                                                "job_history " +
-                                            "WHERE " +
-                                                "(DATE_PART('days', NOW()) - DATE_PART('days', dt_last_modified)) < 30 " +
-                                            "GROUP BY " +
-                                                "pk_show " +
-                                            "HAVING COUNT(pk_job)>0 " +
-                                        ") pk_show" +
-                                    ") " +
-                                    "AND " +
-                                    "str_name NOT IN (?)",
-                protectedShows);
+        int maxShowStaleDays = env.getProperty("max_show_stale_days", Integer.class, -1);
+
+        if (maxShowStaleDays > 0) {
+            getJdbcTemplate().update("UPDATE show SET b_active=false " +
+                            "WHERE pk_show NOT IN (SELECT pk_show " +
+                            "  FROM (SELECT pk_show, count(pk_job) FROM job_history " +
+                            "  WHERE " +
+                            "  (DATE_PART('days', NOW()) - DATE_PART('days', dt_last_modified)) < ? " +
+                            "GROUP BY pk_show HAVING COUNT(pk_job) > 0) pk_show) " +
+                            "  AND str_name NOT IN (?)",
+                    protectedShows, maxShowStaleDays);
+        }
     }
 
     @Override
