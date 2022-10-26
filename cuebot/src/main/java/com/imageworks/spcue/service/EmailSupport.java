@@ -19,12 +19,8 @@
 
 package com.imageworks.spcue.service;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.StringWriter;
+import java.io.*;
+import java.text.Collator;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -32,6 +28,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -64,7 +61,7 @@ public class EmailSupport {
 
     private Properties opencueProperties;
 
-    private final Map<String, byte[]> imageMap;
+    private Map<String, byte[]> imageMap;
 
     private static final Logger logger = LogManager.getLogger(EmailSupport.class);
 
@@ -75,35 +72,6 @@ public class EmailSupport {
          */
         opencueProperties = getOpenCueProperties();
 
-        Map<String, byte[]> map = new HashMap<String, byte[]>();
-
-        loadImage(map, "bar.png");
-        loadImage(map, "opencue.png");
-        loadImage(map, "fail.png");
-        loadImage(map, "frame.png");
-        loadImage(map, "graph_bar.png");
-        loadImage(map, "header.png");
-        loadImage(map, "html_bg.png");
-        loadImage(map, "logo.png");
-        loadImage(map, "memory.png");
-        loadImage(map, "play.png");
-        loadImage(map, "success.png");
-        loadImage(map, "services/comp.png");
-        loadImage(map, "services/default.png");
-        loadImage(map, "services/ginsu.png");
-        loadImage(map, "services/houdini.png");
-        loadImage(map, "services/katana.png");
-        loadImage(map, "services/maya.png");
-        loadImage(map, "services/mentalray.png");
-        loadImage(map, "services/nuke.png");
-        loadImage(map, "services/playblast.png");
-        loadImage(map, "services/prman.png");
-        loadImage(map, "services/shell.png");
-        loadImage(map, "services/simulation.png");
-        loadImage(map, "services/svea.png");
-        loadImage(map, "services/trinity.png");
-
-        imageMap = Collections.unmodifiableMap(map);
     }
 
     private static void loadImage(Map<String, byte[]> map, String path) {
@@ -168,6 +136,7 @@ public class EmailSupport {
             }
         }
     }
+
 
     public void reportLaunchError(JobSpec spec, Throwable t) {
 
@@ -263,14 +232,28 @@ public class EmailSupport {
             ExecutionSummary exj = jobManager.getExecutionSummary(job);
             FrameStateTotals jts = jobManager.getFrameStateTotals(job);
 
+            String status = "";
+            if (jts.total != jts.succeeded) {
+                status = "Failed ";
+            }
+            else {
+                status = "Succeeded ";
+            }
+
             context.put("jobName", d.name);
+            context.put("jobStatus", status.toUpperCase());
             context.put("deptName", d.deptName.toUpperCase());
             context.put("showName", d.showName.toUpperCase());
+            context.put("totalLayers", d.totalLayers);
             context.put("shotName", d.shot.toUpperCase());
-            context.put("totalFrames", String.format("%04d", jts.total));
-            context.put("succeededFrames", String.format("%04d", jts.succeeded));
-            context.put("failedFrames",  String.format("%04d", jts.dead + jts.eaten + jts.waiting));
-            context.put("checkpointFrames",  String.format("%04d", jts.checkpoint));
+            context.put("succeededFrames", jts.succeeded);
+            context.put("totalFrames", jts.total);
+            context.put("dependFrames", jts.depend);
+            context.put("deadFrames", jts.dead);
+            context.put("waitingFrames", jts.waiting);
+            context.put("eatenFrames", jts.eaten);
+            context.put("failedFrames",  jts.dead + jts.eaten + jts.waiting);
+            context.put("checkpointFrames",  jts.checkpoint);
             context.put("maxRSS", String.format(Locale.ROOT, "%.1fGB",
                     exj.highMemoryKb / 1024.0 / 1024.0));
             context.put("coreTime",  String.format(Locale.ROOT, "%.1f",
@@ -281,6 +264,11 @@ public class EmailSupport {
             List<LayerDetail> layers = jobManager.getLayerDetails(job);
             List<LayerStats> layerStats = new ArrayList<LayerStats>(layers.size());
 
+            boolean shouldCreateFile = false;
+
+            Map<String, byte[]> map = new HashMap<String, byte[]>();
+            loadImage(map, "opencue_logo.png");
+
             for (LayerDetail layer: layers)  {
                 if (layer.type.equals(LayerType.RENDER)) {
                     LayerStats stats = new LayerStats();
@@ -288,10 +276,14 @@ public class EmailSupport {
                     stats.setExecutionSummary(jobManager.getExecutionSummary(layer));
                     stats.setFrameStateTotals(jobManager.getFrameStateTotals(layer));
                     stats.setThreadStats(jobManager.getThreadStats(layer));
-                    stats.setOutputs(jobManager.getLayerOutputs(layer));
+                    stats.setOutputs(jobManager.getLayerOutputs(layer).stream().sorted().collect(Collectors.toList()));
                     layerStats.add(stats);
+                    if(stats.getOutputs().size() > 3) shouldCreateFile = true;
+                    if(!layer.services.isEmpty()) loadImage(map, "services/" + layer.services.toArray()[0] + ".png");
                 }
             }
+
+            imageMap = Collections.unmodifiableMap(map);
 
             context.put("layers", layerStats);
 
@@ -299,17 +291,44 @@ public class EmailSupport {
             t.merge(context, w);
 
             String subject = "OpenCue Job " + d.getName();
-            if (jts.total != jts.succeeded) {
-                subject = "Failed " + subject;
-            }
-            else {
-                subject = "Succeeded " + subject;
+
+            subject = status + subject;
+
+            String from = "opencue-noreply@imageworks.com";
+
+            BufferedWriter output = null;
+            File file = null;
+            if (shouldCreateFile){
+                try {
+                    logger.info("\n\n\n\nhouldCreateFile \n\n\n\n");
+                    file = new File("my_outputs.txt");
+                    output = new BufferedWriter(new FileWriter(file));
+                    for (LayerDetail layer: layers) {
+                        if (layer.type.equals(LayerType.RENDER)) {
+                            List<String> sortedNames = jobManager
+                                    .getLayerOutputs(layer)
+                                    .stream()
+                                    .sorted()
+                                    .collect(Collectors.toList());
+                            output.write(layer.name + "\n" + String.join("\n", sortedNames) + "\n" );
+                        }
+                    }
+                } catch ( IOException e ) {
+                    e.printStackTrace();
+                } finally {
+                    if ( output != null ) {
+                        try {
+                            output.close();
+                        }catch (IOException e){
+                            e.printStackTrace();
+                        }
+                    }
+                }
             }
 
-            String from = "middle-tier@imageworks.com";
             for (String email : d.email.split(",")) {
                 try {
-                    CueUtil.sendmail(email, from, subject, new StringBuilder(w.toString()), imageMap);
+                    CueUtil.sendmail(email, from, subject, new StringBuilder(w.toString()), imageMap, file);
                 } catch (Exception e) {
                     // just log and eat if the mail server is down or something
                     // of that nature.
