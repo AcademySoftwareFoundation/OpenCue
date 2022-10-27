@@ -509,6 +509,8 @@ class Machine(object):
         """Returns the correct path environment for the given machine"""
         if platform.system() == 'Linux':
             return '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+        if platform.system() == 'Windows':
+            return 'C:/Windows/system32;C:/Windows;C:/Windows/System32/Wbem'
         return ''
 
     @rqd.rqutil.Memoize
