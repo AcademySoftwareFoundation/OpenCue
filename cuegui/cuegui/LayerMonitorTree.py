@@ -21,7 +21,6 @@ from __future__ import print_function
 from __future__ import division
 
 from PySide2 import QtCore
-from PySide2 import QtGui
 from PySide2 import QtWidgets
 
 from opencue.exception import EntityNotFoundException
@@ -232,7 +231,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         if len(__selectedObjects) == 1:
             menu.addSeparator()
-            if bool(int(QtGui.qApp.settings.value("AllowDeeding", 0))):
+            if bool(int(self.app.settings.value("AllowDeeding", 0))):
                 self.__menuActions.layers().addAction(menu, "useLocalCores")
             if len({layer.data.range for layer in __selectedObjects}) == 1:
                 self.__menuActions.layers().addAction(menu, "reorder")

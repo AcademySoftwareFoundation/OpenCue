@@ -40,8 +40,8 @@ class DependWizardTests(unittest.TestCase):
 
     @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     def setUp(self):
-        test_utils.createApplication()
-        PySide2.QtGui.qApp.settings = PySide2.QtCore.QSettings()
+        app = test_utils.createApplication()
+        app.settings = PySide2.QtCore.QSettings()
         cuegui.Style.init()
 
         self.parentWidget = PySide2.QtWidgets.QWidget()
