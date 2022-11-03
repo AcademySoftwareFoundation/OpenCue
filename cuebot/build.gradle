@@ -64,10 +64,11 @@ dependencies {
     testCompile group: 'org.springframework.boot', name: 'spring-boot-starter-test'
     testCompile group: 'org.assertj', name: 'assertj-core', version: '3.8.0'
     testCompile group: 'io.zonky.test', name: 'embedded-postgres', version: '2.0.1'
+    testCompile group: 'io.zonky.test.postgres', name: 'embedded-postgres-binaries-linux-arm64v8', version: '12.12.0'
     testCompile group: 'org.flywaydb', name: 'flyway-core', version: '5.2.0'
 
     // Use newer version of Postgres for tests: https://github.com/zonkyio/embedded-postgres/issues/78
-    implementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:14.5.0')
+    implementation enforcedPlatform('io.zonky.test.postgres:embedded-postgres-binaries-bom:12.12.0')
 }
 
 compileJava {
