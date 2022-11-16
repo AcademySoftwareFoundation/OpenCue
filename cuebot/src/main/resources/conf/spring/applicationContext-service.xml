@@ -439,7 +439,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="killQueue"/>
-        <property name="targetMethod" value="shutdownUnhealthy"/>
+        <property name="targetMethod" value="isHealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>
@@ -495,7 +495,7 @@
     <property name="jobDetail">
       <bean class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
         <property name="targetObject" ref="reportQueue"/>
-        <property name="targetMethod" value="shutdownUnhealthy"/>
+        <property name="targetMethod" value="isHealthy"/>
         <property name="concurrent" value="false"/>
       </bean>
     </property>

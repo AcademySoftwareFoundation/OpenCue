@@ -19,8 +19,15 @@
 
 package com.imageworks.spcue.servlet;
 
+import com.imageworks.spcue.ShowEntity;
+import com.imageworks.spcue.dao.criteria.JobSearchInterface;
+import com.imageworks.spcue.dao.criteria.postgres.JobSearch;
+import com.imageworks.spcue.grpc.job.JobSeq;
 import com.imageworks.spcue.servant.CueStatic;
-import org.apache.log4j.Logger;
+import org.apache.logging.log4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.FrameworkServlet;
 
 import javax.servlet.ServletException;
@@ -36,16 +43,19 @@ import java.util.Objects;
 @SuppressWarnings("serial")
 public class HealthCheckServlet extends FrameworkServlet {
 
-    private static final Logger logger = Logger.getLogger(HealthCheckServlet.class);
-
+    private static final Logger logger = LogManager.getLogger(HealthCheckServlet.class);
     private CueStatic cueStatic;
+    
+    @Autowired
+    private Environment env;
 
     private enum HealthStatus {
         SERVER_ERROR,
         DISPATCH_QUEUE_UNHEALTHY,
         MANAGE_QUEUE_UNHEALTHY,
         REPORT_QUEUE_UNHEALTHY,
-        BOOKING_QUEUE_UNHEALTHY
+        BOOKING_QUEUE_UNHEALTHY,
+        JOB_QUERY_ERROR
     }
 
     @Override
@@ -74,15 +84,37 @@ public class HealthCheckServlet extends FrameworkServlet {
             if (!this.cueStatic.isBookingQueueHealthy()) {
                 statusList.add(HealthStatus.BOOKING_QUEUE_UNHEALTHY);
             }
+            // Run get jobs, if it crashes, set error, if it takes longer than expected,
+            //  the caller (HEALTHCHECK) will timeout
+            try {
+                getJobs();
+            } catch (RuntimeException re) {
+                statusList.add(HealthStatus.JOB_QUERY_ERROR);
+            }
         }
-
         return statusList;
+    }
+
+    private void getJobs() {
+        if (this.cueStatic != null) {
+            // Defaults to testing show, which is added as part of the seeding data script
+            String defaultShow = env.getProperty("protected_shows", 
+                String.class, "testing").split(",")[0];
+            ShowEntity s = new ShowEntity();
+            s.name = defaultShow;
+            JobSearchInterface js = new JobSearch();
+            js.filterByShow(s);
+            
+            // GetJobs will throw an exception if there's a problem getting
+            // data from the database
+            JobSeq jobs = this.cueStatic.getWhiteboard().getJobs(js);
+        }
     }
 
     @Override
     protected void doService(HttpServletRequest request,
             HttpServletResponse response) throws Exception {
-
+        logger.info("HealthCheckServlet: Received request");
         try {
             ArrayList<HealthStatus> statusList = getHealthStatus();
             if (!statusList.isEmpty()) {
