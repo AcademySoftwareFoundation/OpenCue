@@ -574,7 +574,7 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 jobTotals[0] + jobTotals[1], layers.size(), job.getJobId());
 
         getJdbcTemplate().update(
-                "UPDATE show SET int_frame_insert_count=int_frame_insert_count+?, int_job_insert_count=int_job_insert_count+1 WHERE pk_show=?",
+                "UPDATE show_stats SET int_frame_insert_count=int_frame_insert_count+?, int_job_insert_count=int_job_insert_count+1 WHERE pk_show=?",
                 jobTotals[0] + jobTotals[1], job.getShowId());
 
         updateState(job, jobState);

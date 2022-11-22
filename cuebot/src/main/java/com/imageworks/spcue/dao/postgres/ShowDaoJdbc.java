@@ -262,7 +262,7 @@ public class ShowDaoJdbc extends JdbcDaoSupport implements ShowDao {
             col = "int_frame_fail_count = int_frame_fail_count + 1";
         }
         getJdbcTemplate().update(
-                "UPDATE show SET " + col + " WHERE pk_show=?", s.getShowId());
+                "UPDATE show_stats SET " + col + " WHERE pk_show=?", s.getShowId());
     }
 }
 
