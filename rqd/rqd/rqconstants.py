@@ -69,6 +69,7 @@ RQD_USE_IPV6_AS_HOSTNAME = False
 RQD_BECOME_JOB_USER = True
 RQD_CREATE_USER_IF_NOT_EXISTS = True
 RQD_TAGS = ''
+RQD_USE_FQDN = False
 
 KILL_SIGNAL = 9
 if platform.system() == 'Linux':
@@ -191,6 +192,8 @@ try:
         if config.has_option(__section, "FILE_LOG_LEVEL"):
             level = config.get(__section, "FILE_LOG_LEVEL")
             FILE_LOG_LEVEL = logging.getLevelName(level)
+        if config.has_option(__section, "RQD_USE_FQDN"):
+            RQD_USE_FQDN = config.get(__section, "RQD_USE_FQDN")
 # pylint: disable=broad-except
 except Exception as e:
     logging.warning(

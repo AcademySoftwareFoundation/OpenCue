@@ -162,7 +162,10 @@ def getHostname():
             return rqd.rqconstants.OVERRIDE_HOSTNAME
         if rqd.rqconstants.RQD_USE_IP_AS_HOSTNAME or rqd.rqconstants.RQD_USE_IPV6_AS_HOSTNAME:
             return getHostIp()
-        return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
+        if rqd.rqconstants.RQD_USE_FQDN:
+            return socket.gethostbyaddr(socket.gethostname())[0]
+        else:
+            return socket.gethostbyaddr(socket.gethostname())[0].split('.')[0]
     except (socket.herror, socket.gaierror):
         log.warning("Failed to resolve hostname to IP, falling back to local hostname")
         return socket.gethostname()

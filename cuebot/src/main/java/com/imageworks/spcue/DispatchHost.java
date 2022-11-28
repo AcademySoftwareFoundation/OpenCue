@@ -48,6 +48,7 @@ public class DispatchHost extends Entity
     public String tags;
     public String os;
 
+    public String fqdn;
     public boolean isNimby;
     public boolean isLocalDispatch = false;
 
@@ -74,6 +75,10 @@ public class DispatchHost extends Entity
 
     public String getFacilityId() {
         return facilityId;
+    }
+
+    public String getFqdn() {
+        return fqdn;
     }
 
     @Override

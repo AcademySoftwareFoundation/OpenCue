@@ -28,6 +28,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String allocationId;
     public String frameId;
     public String hostName;
+    public String hostFqdn;
     public String os;
     public byte[] childProcesses;
 
@@ -67,6 +68,10 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         return hostName;
     }
 
+    public String getFqdn() {
+        return hostFqdn;
+    }  
+
     /**
      * Build and return a proc in either fast or efficient mode.
      *
@@ -91,6 +96,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.os = host.os;
 
         proc.hostName = host.getName();
+        proc.hostFqdn = host.getFqdn();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 
@@ -208,6 +214,7 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
         proc.os = host.os;
 
         proc.hostName = host.getName();
+        proc.hostFqdn = host.getFqdn();
         proc.unbooked = false;
         proc.isLocalDispatch = host.isLocalDispatch;
 

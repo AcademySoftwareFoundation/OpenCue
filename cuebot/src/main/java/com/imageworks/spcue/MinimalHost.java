@@ -23,6 +23,7 @@ public class MinimalHost extends Entity implements HostInterface {
 
     public String allocId;
     public String facilityId;
+    public String fqdn;
 
     public MinimalHost() {
         // TODO Auto-generated constructor stub
@@ -46,6 +47,10 @@ public class MinimalHost extends Entity implements HostInterface {
 
     public String getFacilityId() {
         return facilityId;
+    }
+
+    public String getFqdn() {
+        return fqdn;
     }
 }
 

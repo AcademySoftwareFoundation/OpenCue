@@ -49,6 +49,8 @@ public class HostEntity extends Entity implements HostInterface {
     public Date datePinged;
     public Date dateBooted;
 
+    public String fqdn;
+
     public HostEntity() {}
 
     public HostEntity(Host grpcHost) {
@@ -77,6 +79,10 @@ public class HostEntity extends Entity implements HostInterface {
 
     public String getFacilityId() {
         return facilityId;
+    }
+
+    public String getFqdn() {
+        return fqdn;
     }
 }
 

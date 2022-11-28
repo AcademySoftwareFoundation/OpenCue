@@ -20,6 +20,9 @@ package com.imageworks.spcue.rqd;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.StatusRuntimeException;
@@ -49,6 +52,8 @@ import com.imageworks.spcue.grpc.rqd.RunningFrameStatusRequest;
 import com.imageworks.spcue.grpc.rqd.RunningFrameStatusResponse;
 
 public final class RqdClientGrpc implements RqdClient {
+    @Autowired
+    private Environment env;
     private static final Logger logger = Logger.getLogger(RqdClientGrpc.class);
 
     private final int rqdCacheSize;
@@ -130,7 +135,11 @@ public final class RqdClientGrpc implements RqdClient {
         RqdStaticLockAllRequest request = RqdStaticLockAllRequest.newBuilder().build();
 
         try {
-            getStub(host.getName()).lockAll(request);
+            String hostName = host.getName();
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = host.getFqdn();   
+            } 
+            getStub(hostName).lockAll(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to lock host: " + host.getName(), e);
         }
@@ -140,7 +149,11 @@ public final class RqdClientGrpc implements RqdClient {
         RqdStaticUnlockAllRequest request = RqdStaticUnlockAllRequest.newBuilder().build();
 
         try {
-            getStub(host.getName()).unlockAll(request);
+            String hostName = host.getName();
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = host.getFqdn();   
+            } 
+            getStub(hostName).unlockAll(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to unlock host: " + host.getName(), e);
         }
@@ -150,7 +163,11 @@ public final class RqdClientGrpc implements RqdClient {
         RqdStaticRebootNowRequest request = RqdStaticRebootNowRequest.newBuilder().build();
 
         try {
-            getStub(host.getName()).rebootNow(request);
+            String hostName = host.getName();
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = host.getFqdn();   
+            } 
+            getStub(hostName).rebootNow(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to reboot host: " + host.getName(), e);
         }
@@ -164,14 +181,22 @@ public final class RqdClientGrpc implements RqdClient {
         }
 
         try {
-            getStub(host.getName()).rebootIdle(request);
+            String hostName = host.getName();
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = host.getFqdn();   
+            } 
+            getStub(hostName).rebootIdle(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to reboot host: " + host.getName(), e);
         }
     }
 
     public void killFrame(VirtualProc proc, String message) {
-        killFrame(proc.hostName, proc.frameId, message);
+        String hostName = proc.hostName;  
+        if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+            hostName = proc.hostFqdn;   
+        } 
+        killFrame(hostName, proc.frameId, message);
     }
 
     public void killFrame(String host, String frameId, String message) {
@@ -195,6 +220,10 @@ public final class RqdClientGrpc implements RqdClient {
 
     public RunningFrameInfo getFrameStatus(VirtualProc proc) {
         try {
+            String hostName = proc.hostName;  
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = proc.hostFqdn;   
+            } 
             RqdStaticGetRunFrameResponse getRunFrameResponse =
                     getStub(proc.hostName)
                             .getRunFrame(
@@ -221,7 +250,11 @@ public final class RqdClientGrpc implements RqdClient {
         }
 
         try {
-            getStub(proc.hostName).launchFrame(request);
+            String hostName = proc.hostName; 
+            if (env.getProperty("grpc.use_fqdn", Boolean.class, false)) {
+                hostName = proc.hostFqdn;   
+            } 
+            getStub(hostName).launchFrame(request);
         } catch (StatusRuntimeException | ExecutionException e) {
             throw new RqdClientException("failed to launch frame", e);
         }
