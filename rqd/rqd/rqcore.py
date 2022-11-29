@@ -101,8 +101,8 @@ class FrameAttendantThread(threading.Thread):
             self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
             self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
         elif platform.system() == "Windows":
-            self.frameEnv["APPDATA"] = os.environ["APPDATA"]
-            self.frameEnv["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+            for variable in ["SYSTEMROOT", "APPDATA", "TMP", "COMMONPROGRAMFILES"]:
+                self.frameEnv[variable] = os.environ[variable]
 
         for key, value in self.runFrame.environment.items():
             if key == 'PATH':
