@@ -26,6 +26,8 @@ from PySide6 import QtGui
 
 import cuegui
 
+import cuegui
+
 
 DEFAULT_COLOR = "DarkPalette"
 DEFAULT_ICON = "crystal"
