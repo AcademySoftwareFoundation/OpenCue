@@ -83,8 +83,6 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["TZ"] = self.rqCore.machine.getTimezone()
         self.frameEnv["USER"] = self.runFrame.user_name
         self.frameEnv["LOGNAME"] = self.runFrame.user_name
-        self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
-        self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
         self.frameEnv["mcp"] = "1"
         self.frameEnv["show"] = self.runFrame.show
         self.frameEnv["shot"] = self.runFrame.shot
@@ -99,8 +97,18 @@ class FrameAttendantThread(threading.Thread):
         self.frameEnv["CUE_GPU_MEMORY"] = str(self.rqCore.machine.getGpuMemoryFree())
         self.frameEnv["SP_NOMYCSHRC"] = "1"
 
-        for key in self.runFrame.environment:
-            self.frameEnv[key] = self.runFrame.environment[key]
+        if platform.system() in ("Linux", "Darwin"):
+            self.frameEnv["MAIL"] = "/usr/mail/%s" % self.runFrame.user_name
+            self.frameEnv["HOME"] = "/net/homedirs/%s" % self.runFrame.user_name
+        elif platform.system() == "Windows":
+            self.frameEnv["APPDATA"] = os.environ["APPDATA"]
+            self.frameEnv["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+
+        for key, value in self.runFrame.environment.items():
+            if key == 'PATH':
+                self.frameEnv[key] += os.pathsep + value
+            else:
+                self.frameEnv[key] = value
 
         # Add threads to use all assigned hyper-threading cores
         if 'CPU_LIST' in self.runFrame.attributes and 'CUE_THREADS' in self.frameEnv:
@@ -127,6 +135,11 @@ class FrameAttendantThread(threading.Thread):
                     os.mkdir(rqd_tmp_dir)
                 except OSError:
                     pass  # okay, already exists
+
+                # Windows Batch needs some characters escaped:
+                command = command.replace('%', '%%')
+                for char in '^&<>|':
+                    command = command.replace(char, '^' + char)
 
                 commandFile = os.path.join(
                     rqd_tmp_dir,
@@ -358,6 +371,7 @@ class FrameAttendantThread(threading.Thread):
             tempCommand = [self._createCommandFile(runFrame.command)]
 
             frameInfo.forkedCommand = subprocess.Popen(tempCommand,
+                                                       env=self.frameEnv,
                                                        stdin=subprocess.PIPE,
                                                        stdout=self.rqlog,
                                                        stderr=self.rqlog)

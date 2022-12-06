@@ -53,16 +53,14 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, app_name, app_version, window_name, parent = None):
         QtWidgets.QMainWindow.__init__(self, parent)
+        self.app = cuegui.app()
 
         self.__actions_facility = {}
         self.facility_default = None
         self.facility_dict = None
         self.windowMenu = None
 
-        self.qApp = QtGui.qApp
-        # pylint: disable=no-member
-        self.settings = QtGui.qApp.settings
-        # pylint: enable=no-member
+        self.settings = self.app.settings
         self.windows_names = [app_name] + ["%s_%s" % (app_name, num) for num in range(2, 5)]
         self.app_name = app_name
         self.app_version = app_version
@@ -96,10 +94,7 @@ class MainWindow(QtWidgets.QMainWindow):
         # Restore saved settings
         self.__restoreSettings()
 
-        # pylint: disable=no-member
-        QtGui.qApp.status.connect(self.showStatusBarMessage)
-        # pylint: enable=no-member
-
+        self.app.status.connect(self.showStatusBarMessage)
         self.showStatusBarMessage("Ready")
 
     def displayStartupNotice(self):
@@ -184,9 +179,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for facility in list(self.__actions_facility.values()):
             if facility.isChecked():
                 opencue.Cuebot.setFacility(str(facility.text()))
-                # pylint: disable=no-member
-                QtGui.qApp.facility_changed.emit()
-                # pylint: enable=no-member
+                self.app.facility_changed.emit()
                 return
 
     ################################################################################
@@ -359,24 +352,18 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __windowOpened(self):
         """Called from __init__ on window creation"""
-        # pylint: disable=no-member
-        self.qApp.quit.connect(self.close)
+        self.app.quit.connect(self.close)
         self.windows.append(self)
-        self.qApp.closingApp = False
-        # pylint: enable=no-member
+        self.app.closingApp = False
 
     def __windowClosed(self):
         """Called from closeEvent on window close"""
 
         # Disconnect to avoid multiple attempts to close a window
-        # pylint: disable=no-member
-        self.qApp.quit.connect(self.close)
-        # pylint: enable=no-member
+        self.app.quit.connect(self.close)
 
         # Save the fact that this window is open or not when the app closed
-        # pylint: disable=no-member
-        self.settings.setValue("%s/Open" % self.name, self.qApp.closingApp)
-        # pylint: enable=no-member
+        self.settings.setValue("%s/Open" % self.name, self.app.closingApp)
 
         # pylint: disable=bare-except
         try:
@@ -392,10 +379,8 @@ class MainWindow(QtWidgets.QMainWindow):
     def __windowCloseApplication(self):
         """Called when the entire application should exit. Signals other windows
         to exit."""
-        # pylint: disable=no-member
-        self.qApp.closingApp = True
-        self.qApp.quit.emit()
-        # pylint: enable=no-member
+        self.app.closingApp = True
+        self.app.quit.emit()
 
     ################################################################################
 
@@ -420,9 +405,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def keyPressEvent(self, event):
         if event.key() == QtCore.Qt.Key_Space:
-            # pylint: disable=no-member
-            QtGui.qApp.request_update.emit()
-            # pylint: enable=no-member
+            self.app.request_update.emit()
             event.accept()
 
     def closeEvent(self, event):
